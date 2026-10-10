@@ -105,9 +105,9 @@ final class CSharpAccess {
         if (isPrivate && !within(x, owner)) reached.add(info);
     }
 
-    /** {@code x} is {@code owner}, or nested in it. */
+    /** {@code x} is {@code owner}, or nested in it in C#: a hoisted type is not (see {@link CSharpNames#hoisted}). */
     private static boolean within(TypeInfo x, TypeInfo owner) {
-        for (TypeInfo t = x; t != null; t = enclosing(t)) {
+        for (TypeInfo t = x; t != null; t = CSharpNames.hoisted(t) ? null : enclosing(t)) {
             if (t == owner) return true;
         }
         return false;

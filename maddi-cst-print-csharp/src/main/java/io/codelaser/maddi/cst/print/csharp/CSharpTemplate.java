@@ -117,7 +117,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         return index < t.parameters().size() ? CSharpTypeName.argument(t.parameters().get(index), q) : "object";
     }
 
-    private static final Symbol NULL_CONDITIONAL = new SymbolEnum("?.", SpaceEnum.NONE, SpaceEnum.NONE, null);
+    static final Symbol NULL_CONDITIONAL = new SymbolEnum("?.", SpaceEnum.NONE, SpaceEnum.NONE, null);
     private static final Symbol RANGE = new SymbolEnum("..", SpaceEnum.NONE, SpaceEnum.NONE, null);
     private static final Set<String> OPERATORS = Set.of("=>", "==", "!=", "??", "+", "-", "*", "/", "<", ">", "<=",
             ">=", "||", "&&", "=", "or", "is");

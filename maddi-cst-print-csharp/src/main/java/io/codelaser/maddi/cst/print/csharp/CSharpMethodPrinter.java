@@ -94,7 +94,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (methodInfo.isAbstract() || body == null) return b.add(SymbolEnum.SEMICOLON);
         List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
         if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.print(rs.expression(), q))
+            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(rs.expression(), q))
                     .add(SymbolEnum.SEMICOLON);
         }
         return b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
@@ -108,7 +108,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (!statements.isEmpty() && statements.getFirst() instanceof ExplicitConstructorInvocation eci) {
             if (!eci.isSuper() || !eci.parameterExpressions().isEmpty()) {
                 b.add(SymbolEnum.COLON).add(eci.isSuper() ? CSharpKeyword.BASE : KeywordImpl.THIS)
-                        .add(CSharpExpressionPrinter.arguments(eci.parameterExpressions(), q));
+                        .add(CSharpExpressionPrinter.arguments(eci.parameterExpressions(), eci.methodInfo(), q));
             }
             statements = statements.subList(1, statements.size());
         }

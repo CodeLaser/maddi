@@ -171,7 +171,7 @@ public final class CSharpTypeName {
         if (required == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE
             || required == TypeNameImpl.Required.QUALIFIED_FROM_PRIMARY_TYPE_FOLLOW_EXISTING) {
             // Outer.Inner: Outer must be in scope
-            if (typeInfo.primaryType() != null) CSharpContext.referenced(typeInfo.primaryType());
+            if (typeInfo.primaryType() != null) CSharpContext.referenced(CSharpNames.topLevel(typeInfo));
             return fromPrimary;
         }
         String namespace = CSharpNames.namespace(typeInfo);
@@ -181,10 +181,8 @@ public final class CSharpTypeName {
     /** {@code Outer.Inner}, each segment by its C# name. */
     static String fromPrimaryType(TypeInfo typeInfo) {
         List<String> segments = new ArrayList<>();
-        for (TypeInfo t = typeInfo; t != null; ) {
+        for (TypeInfo t = typeInfo; t != null; t = CSharpNames.hoisted(t) ? null : CSharpNames.enclosing(t)) {
             segments.addFirst(CSharpNames.type(t));
-            var cuOrEnclosing = t.compilationUnitOrEnclosingType();
-            t = cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
         }
         return String.join(".", segments);
     }

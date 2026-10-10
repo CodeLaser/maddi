@@ -86,7 +86,18 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Fields.** A static final primitive or String with a constant initializer becomes `const`. Any other final field
   becomes `readonly`.
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
-  class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`).
+  class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
+  `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
+  `ordinal()` a cast to `int`.
+- **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
+  Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
+  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
+- **Functional interfaces.** A translated functional interface stays an interface: a class elsewhere may implement
+  it, which one file cannot rule out. It gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) :
+  IExprentIterator { … }`, and its lambdas and method references are wrapped in it:
+  `new IExprentIterator.Lambda(e => 0)`. Turning it into a `delegate` needs whole-program knowledge. An anonymous class
+  of such an interface that only implements its method, without fields and without using itself, becomes a lambda
+  in the adapter too.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions
@@ -150,15 +161,16 @@ The file uses a file-scoped `namespace X;`.
 Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
 
 - **Not translated yet:**
-  - anonymous classes (to be hoisted into nested classes or lambdas);
-  - local classes;
+  - anonymous classes, other than those of a translated functional interface (to be hoisted into nested classes);
+  - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
+    is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
   - `Outer.this`, because a C# nested class has no enclosing instance;
   - annotation types (to become attributes);
   - `new int[a][b]`;
   - record patterns;
-  - static nested types of a generic type (`NESTED_IN_GENERIC`). C# nests them in every instantiation of the outer
-    type, so they will have to move out of it.
+  - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
+    one is hoisted (see Declarations).
 - **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
@@ -167,10 +179,11 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
 ratchet's report (see below) lists what is left.
 
-- **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` and its hash maps become
-  `Dictionary<K, V>`. `Set` and its hash sets become `HashSet<T>`. Those are the concrete types C# code declares;
-  where the modification analysis proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the
-  analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
+- **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
+  `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
+  alike. `HashMap` becomes `Dictionary<K, V>`, `LinkedHashMap` the insertion-ordered `OrderedDictionary<K, V>`,
+  `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
+  proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
@@ -178,13 +191,23 @@ ratchet's report (see below) lists what is left.
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
-  → `Exception`, and so on.
+  → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
+- **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
+  compound one too, an argument, a return value, a conditional's branch, an arithmetic operand) gets a cast, and
+  `(Boolean) o` used as a condition becomes `(bool) o`. A lambda's parameter is the delegate's value type already. A
+  `char` switch's `int` labels are `char` literals. Java's `null` where a type parameter is expected becomes
+  `default`.
+- **Static members.** C# finds a static member by its simple name only in the type itself, the types it is nested
+  in, and their base classes. Any other, a static import or an interface's constant used in an implementing class,
+  is qualified with its type: `ExitExprent.EXIT_THROW`.
 - **Members.** A member rule is a template keyed by the declaring type, the name and the arity, or by the parameter
   types where Java overloads on them: `List.get/1` → `$0[$1]`, `String.substring/2` → `$0[$1..$2]`,
   `List.remove(int)`.
   - A call matches the rule of the method or of a method it overrides, the most specific type first.
   - Where Java's method returns a value C#'s does not, the rule has a second template for a call whose value is
     unused, which is the idiomatic one: `map.put(k, v);` becomes `map[k] = v;`.
+  - A constructor has a rule keyed `owner.new/arity`: `new FileOutputStream(f)` becomes
+    `new FileStream(f.ToString(), FileMode.Create)`.
   - A method reference to a mapped member becomes a lambda around its template.
   - A template whose result is not an atom (`list.Count == 0`) is parenthesised as an operand.
   - `String`'s `indexOf`, `startsWith` and `endsWith` compare ordinally, as Java's do. Case conversions are
@@ -197,7 +220,9 @@ ratchet's report (see below) lists what is left.
 - Extension methods with Java's behaviour where it differs in a way that can be observed: `Map.put` returns the
   previous value, `Deque.removeFirst` the element, `String.split` takes a regular expression and drops trailing
   empty strings, and `String.format`'s conversions differ from .NET's.
-- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, and the byte-array streams.
+- The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `JavaIterator<T>`
+  (Java's `Iterator`, with `remove`), `JavaFile` (`java.io.File`) and `JavaMatcher` (a `Regex` applied step by
+  step, as `java.util.regex.Matcher`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

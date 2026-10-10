@@ -11,9 +11,27 @@
 # interfaces as delegates, exceptions, String/StringBuilder/boxed members, and the compatibility library
 # Maddi.JavaCompat (JavaCompat.cs, compiled with the translation) where Java's behaviour differs: 105 files compile;
 # unmapped JDK uses 6,922 -> 232; errors 4,947 -> 807.
+# 2026-10-10, Java's Map and Set as IDictionary/ISet, LinkedHashMap as OrderedDictionary; unboxing casts and null as
+# default for a type parameter where C# needs them; Java's iterators and java.io.File in the compatibility library;
+# enums printed as classes get Name/Ordinal/Values/ValueOf; interface constants qualified; an exception's cause
+# constructor: 124 files compile; unmapped JDK uses 232 -> 120; errors 807 -> 476.
+# 2026-10-10, a static nested type of a generic type hoisted into the namespace; a boxed key or element passed to a
+# collection or a type parameter unboxed; a raw array creation typed as declared: 132 files compile; errors 476 -> 310.
+# 2026-10-10, a static member outside C#'s lookup scope (a static import, an interface's constant) qualified with its
+# type; no using directive for an unmapped JDK package: 133 files compile; errors 310 -> 259.
+# 2026-10-10, a local class that captures nothing lifted into its enclosing type: 134 files compile; errors 259 -> 236.
+# 2026-10-10, a lambda or method reference of a translated functional interface wrapped in the interface's adapter
+# class (new IExprentIterator.Lambda(e => ...)): 137 files compile; errors 236 -> 218.
+# 2026-10-10, an anonymous class of a translated functional interface as a lambda in its adapter; an unbound method
+# reference's lambda typed; Comparator.comparing with its compared type: 139 files compile; errors 218 -> 204.
+# 2026-10-10, constructor rules (new FileOutputStream(f) -> new FileStream(..., FileMode.Create)); file and buffered
+# streams, readers and writers; Pattern as Regex with the compatibility library's JavaMatcher; Instant, ThreadLocal,
+# OptionalInt, Character.getType: 144 files compile; unmapped JDK uses 120 -> 74; errors 204 -> 156.
+# 2026-10-10, unboxing in a conditional's branches, a compound assignment and an arithmetic operand, not of a lambda's
+# parameter; a char switch's int labels as chars: 151 files compile; errors 156 -> 135.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	105
-unmappedJdkUses	232
+compilingFiles	151
+unmappedJdkUses	74

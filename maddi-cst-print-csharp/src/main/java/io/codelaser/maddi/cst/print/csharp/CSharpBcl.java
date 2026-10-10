@@ -104,15 +104,23 @@ final class CSharpBcl {
                 "java.util.SequencedCollection")) {
             type(list, "List", GENERIC);
         }
-        for (String map : List.of("java.util.Map", "java.util.HashMap", "java.util.LinkedHashMap", "java.util.EnumMap",
-                "java.util.AbstractMap", "java.util.IdentityHashMap", "java.util.concurrent.ConcurrentHashMap")) {
+        // Java's Map and Set are implemented by hash and tree collections alike: C#'s interfaces. A HashMap is C#'s
+        // Dictionary; a LinkedHashMap keeps its insertion order, as OrderedDictionary does; an EnumMap iterates in
+        // the order of its keys, as SortedDictionary does.
+        type("java.util.Map", "IDictionary", GENERIC);
+        type("java.util.AbstractMap", "IDictionary", GENERIC);
+        for (String map : List.of("java.util.HashMap", "java.util.IdentityHashMap", "java.util.concurrent.ConcurrentHashMap")) {
             type(map, "Dictionary", GENERIC);
         }
+        type("java.util.LinkedHashMap", "OrderedDictionary", GENERIC);
+        type("java.util.EnumMap", "SortedDictionary", GENERIC);
         type("java.util.TreeMap", "SortedDictionary", GENERIC);
         type("java.util.SortedMap", "SortedDictionary", GENERIC);
-        for (String set : List.of("java.util.Set", "java.util.HashSet", "java.util.LinkedHashSet", "java.util.AbstractSet")) {
-            type(set, "HashSet", GENERIC);
-        }
+        type("java.util.Set", "ISet", GENERIC);
+        type("java.util.AbstractSet", "ISet", GENERIC);
+        // .NET's HashSet enumerates in insertion order as long as nothing is removed
+        type("java.util.HashSet", "HashSet", GENERIC);
+        type("java.util.LinkedHashSet", "HashSet", GENERIC);
         type("java.util.TreeSet", "SortedSet", GENERIC);
         type("java.util.SortedSet", "SortedSet", GENERIC);
         type("java.util.Collection", "ICollection", GENERIC);
@@ -123,6 +131,21 @@ final class CSharpBcl {
         type("java.util.stream.Stream", "IEnumerable", GENERIC);
         type("java.util.stream.IntStream", "IEnumerable<int>", GENERIC);
         type("java.util.Optional", "{0?}", null);
+        type("java.util.OptionalInt", "int?", null);
+        type("java.util.OptionalLong", "long?", null);
+        type("java.util.OptionalDouble", "double?", null);
+        type("java.time.Instant", "DateTimeOffset", SYSTEM);
+        type("java.lang.ThreadLocal", "ThreadLocal", THREADING);
+        type("java.util.regex.Pattern", "Regex", REGEX);
+        compatType("java.util.regex.Matcher", "JavaMatcher");
+        type("java.io.FileInputStream", "FileStream", IO);
+        type("java.io.FileOutputStream", "FileStream", IO);
+        type("java.io.BufferedInputStream", "BufferedStream", IO);
+        type("java.io.BufferedOutputStream", "BufferedStream", IO);
+        type("java.io.OutputStreamWriter", "StreamWriter", IO);
+        type("java.io.InputStreamReader", "StreamReader", IO);
+        type("java.io.BufferedReader", "TextReader", IO);
+        type("java.io.Reader", "TextReader", IO);
 
         type("java.util.function.Function", "Func", SYSTEM);
         type("java.util.function.BiFunction", "Func", SYSTEM);
@@ -161,6 +184,8 @@ final class CSharpBcl {
         type("java.lang.UnsupportedOperationException", "NotSupportedException", SYSTEM);
         type("java.lang.NullPointerException", "NullReferenceException", SYSTEM);
         type("java.lang.IndexOutOfBoundsException", "ArgumentOutOfRangeException", SYSTEM);
+        type("java.lang.StringIndexOutOfBoundsException", "ArgumentOutOfRangeException", SYSTEM);
+        type("java.lang.ArrayIndexOutOfBoundsException", "IndexOutOfRangeException", SYSTEM);
         type("java.lang.ArrayIndexOutOfBoundsException", "IndexOutOfRangeException", SYSTEM);
         type("java.lang.ClassCastException", "InvalidCastException", SYSTEM);
         type("java.lang.NumberFormatException", "FormatException", SYSTEM);
@@ -183,6 +208,9 @@ final class CSharpBcl {
         compatType("java.io.ByteArrayInputStream", "ByteArrayInputStream");
         compatType("java.io.ByteArrayOutputStream", "ByteArrayOutputStream");
         compatType("java.util.BitSet", "BitSet");
+        compatType("java.util.Iterator", "JavaIterator");
+        compatType("java.util.ListIterator", "JavaIterator");
+        compatType("java.io.File", "JavaFile");
     }
 
     /** The C# counterpart of a JDK type; null when there is none (yet). */
@@ -252,6 +280,9 @@ final class CSharpBcl {
         ms("java.util.Collection.removeAll/1", "$0.RemoveAll(@1.Contains) > 0", "$0.RemoveAll(@1.Contains)");
         ms("java.util.Collection.retainAll/1", "$0.RetainAll($1)", "$0.RetainAll($1)", COMPAT);
         m("java.lang.Iterable.forEach/1", "$0.ForEach($1)", COMPAT);
+        m("java.lang.Iterable.iterator/0", "$0.Iterator()", COMPAT);
+        m("java.util.Collection.iterator/0", "$0.Iterator()", COMPAT);
+        m("java.util.List.listIterator/0", "$0.Iterator()", COMPAT);
 
         m("java.util.List.add/2", "$0.Insert($1, $2)");
         ms("java.util.List.remove(int)", "$0.RemoveAtAndGet($1)", "$0.RemoveAt($1)", COMPAT);
@@ -291,11 +322,14 @@ final class CSharpBcl {
 
         // Map
         ms("java.util.Map.put/2", "$0.Put($1, $2)", "$0[$1] = $2", COMPAT);
-        chooser("java.util.Map.get/1", (method, call) -> valueType(call, 1)
-                ? rule("$0.GetValueOrNull($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
-        m("java.util.Map.getOrDefault/2", "$0.GetValueOrDefault($1, $2)");
+        // a value-type value is null when absent, as Java's Integer; the BCL's GetValueOrDefault is for a concrete
+        // dictionary, which is also read-only one; an IDictionary has the compatibility library's Get
+        chooser("java.util.Map.get/1", (method, call) -> valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
+                : interfaceTyped(call) ? rule("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
+        chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call)
+                ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         m("java.util.Map.containsKey/1", "$0.ContainsKey($1)");
-        m("java.util.Map.containsValue/1", "$0.ContainsValue($1)");
+        m("java.util.Map.containsValue/1", "$0.Values.Contains($1)");
         m("java.util.Map.entrySet/0", "$0");
         m("java.util.Map.keySet/0", "$0.Keys");
         m("java.util.Map.values/0", "$0.Values");
@@ -313,7 +347,7 @@ final class CSharpBcl {
 
         // Set
         ms("java.util.Set.addAll/1", "$0.AddAll($1)", "$0.UnionWith($1)", COMPAT);
-        ms("java.util.Set.removeAll/1", "$0.RemoveWhere(@1.Contains) > 0", "$0.ExceptWith($1)");
+        ms("java.util.Set.removeAll/1", "$0.RemoveAllOf($1)", "$0.ExceptWith($1)", COMPAT);
         ms("java.util.Set.retainAll/1", "$0.RetainAll($1)", "$0.IntersectWith($1)", COMPAT);
         m("java.util.Set.of/1", "new HashSet<{R0}> { $* }");
         chooser("java.util.Set.of", (method, call) -> rule("new HashSet<{R0}> { $* }"));
@@ -339,7 +373,7 @@ final class CSharpBcl {
                                                                && arrayTyped(call.parameterExpressions().getFirst())
                 ? rule("new List<{R0}>($1)") : rule("new List<{R0}> { $* }"));
         m("java.util.Arrays.copyOf/2", "JavaArrays.CopyOf($1, $2)", COMPAT);
-        m("java.util.Arrays.copyOfRange/3", "$1[$2..$3]");
+        m("java.util.Arrays.copyOfRange/3", "$1[@2..@3]");
         m("java.util.Arrays.stream/1", "$1");
         m("java.util.Arrays.equals/2", "JavaArrays.Equals($1, $2)", COMPAT);
         m("java.util.Arrays.hashCode/1", "JavaArrays.HashCode($1)", COMPAT);
@@ -351,8 +385,10 @@ final class CSharpBcl {
         m("java.util.Objects.hashCode/1", "($1?.GetHashCode() ?? 0)");
         m("java.util.Objects.isNull/1", "$1 == null");
         m("java.util.Objects.nonNull/1", "$1 != null");
-        m("java.util.Objects.requireNonNull/1", "$1 ?? throw new NullReferenceException()", SYSTEM);
-        m("java.util.Objects.requireNonNull/2", "$1 ?? throw new NullReferenceException($2)", SYSTEM);
+        ms("java.util.Objects.requireNonNull/1", "$1 ?? throw new NullReferenceException()",
+                "_ = $1 ?? throw new NullReferenceException()", SYSTEM);
+        ms("java.util.Objects.requireNonNull/2", "$1 ?? throw new NullReferenceException($2)",
+                "_ = $1 ?? throw new NullReferenceException($2)", SYSTEM);
         m("java.util.Objects.requireNonNullElse/2", "$1 ?? $2");
         m("java.util.Objects.toString/1", "JavaString.ValueOf($1)", COMPAT);
     }
@@ -364,7 +400,7 @@ final class CSharpBcl {
         m(s + "isEmpty/0", "$0.Length == 0");
         m(s + "isBlank/0", "string.IsNullOrWhiteSpace($0)");
         m(s + "substring/1", "$0.Substring($1)");
-        m(s + "substring/2", "$0[$1..$2]");
+        m(s + "substring/2", "$0[@1..@2]");
         m(s + "replace/2", "$0.Replace($1, $2)");
         m(s + "contains/1", "$0.Contains($1)");
         m(s + "indexOf(int)", "$0.IndexOf((char) $1)");
@@ -424,6 +460,15 @@ final class CSharpBcl {
         }
 
         m("java.lang.Comparable.compareTo/1", "$0.CompareTo($1)");
+        m("java.lang.CharSequence.length/0", "$0.Length");
+        m("java.lang.CharSequence.charAt/1", "$0[$1]");
+        m("java.lang.CharSequence.isEmpty/0", "$0.Length == 0");
+        m("java.lang.CharSequence.subSequence/2", "$0[@1..@2]");
+        m("java.nio.charset.Charset.defaultCharset/0", "Encoding.UTF8", TEXT);
+        // an enum: C#'s, or a class with an Ordinal and a Name (CSharpTypePrinter)
+        chooser("java.lang.Enum.ordinal/0", (method, call) -> rule(simpleEnum(call) ? "(int) @0" : "$0.Ordinal"));
+        chooser("java.lang.Enum.name/0", (method, call) -> rule(simpleEnum(call) ? "$0.ToString()" : "$0.Name"));
+        m("java.lang.Enum.compareTo/1", "$0.CompareTo($1)");
         m("java.lang.Character.isDigit/1", "char.IsDigit((char) $1)");
         m("java.lang.Character.isLetter/1", "char.IsLetter((char) $1)");
         m("java.lang.Character.isLetterOrDigit/1", "char.IsLetterOrDigit((char) $1)");
@@ -552,9 +597,9 @@ final class CSharpBcl {
             m(f, "$0($*)");
         }
         String c = "java.util.Comparator.";
-        m(c + "comparing/1", "JavaComparator.Comparing($1)", COMPAT);
-        m(c + "comparingInt/1", "JavaComparator.Comparing($1)", COMPAT);
-        m(c + "comparingLong/1", "JavaComparator.Comparing($1)", COMPAT);
+        m(c + "comparing/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
+        m(c + "comparingInt/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
+        m(c + "comparingLong/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
         m(c + "thenComparing/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingInt/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingLong/1", "$0.ThenComparing($1)", COMPAT);
@@ -594,7 +639,57 @@ final class CSharpBcl {
         m("java.io.Closeable.close/0", "$0.Dispose()");
         m("java.io.InputStream.close/0", "$0.Dispose()");
         m("java.io.OutputStream.close/0", "$0.Dispose()");
-        m("java.io.OutputStream.write/1", "$0.WriteByte((byte) $1)");
+        m("java.io.OutputStream.write(int)", "$0.WriteByte((byte) $1)");
+        m("java.io.OutputStream.write(byte[])", "$0.Write((byte[]) (object) $1)");
+        m("java.io.OutputStream.write/3", "$0.Write((byte[]) (object) $1, $2, $3)");
+        m("java.io.InputStream.read/0", "$0.ReadByte()");
+        m("java.io.InputStream.read/1", "$0.Read((byte[]) (object) $1)");
+        m("java.io.InputStream.read/3", "$0.Read((byte[]) (object) $1, $2, $3)");
+        m("java.io.InputStream.readAllBytes/0", "JavaStreams.ReadAllBytes($0)", COMPAT);
+        m("java.io.InputStream.skip/1", "JavaStreams.Skip($0, $1)", COMPAT);
+        m("java.io.Writer.write/1", "$0.Write($1)");
+        m("java.io.Writer.flush/0", "$0.Flush()");
+        m("java.io.Writer.close/0", "$0.Dispose()");
+        m("java.io.Reader.close/0", "$0.Dispose()");
+        m("java.io.BufferedReader.readLine/0", "$0.ReadLine()");
+        // file streams: a java.io.File or a path
+        m("java.io.FileOutputStream.new/1", "new FileStream($1.ToString(), FileMode.Create)", IO);
+        m("java.io.FileOutputStream.new/2", "new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create)", IO);
+        m("java.io.FileInputStream.new/1", "File.OpenRead($1.ToString())", IO);
+        m("java.io.BufferedOutputStream.new/1", "new BufferedStream($1)", IO);
+        m("java.io.BufferedOutputStream.new/2", "new BufferedStream($1, $2)", IO);
+        m("java.io.BufferedInputStream.new/1", "new BufferedStream($1)", IO);
+        m("java.io.OutputStreamWriter.new/1", "new StreamWriter($1)", IO);
+        m("java.io.OutputStreamWriter.new/2", "new StreamWriter($1, $2)", IO);
+        m("java.io.InputStreamReader.new/1", "new StreamReader($1)", IO);
+        m("java.io.InputStreamReader.new/2", "new StreamReader($1, $2)", IO);
+        m("java.io.BufferedReader.new/1", "$1");
+        // java.time, threads, regular expressions
+        m("java.time.Instant.now/0", "DateTimeOffset.UtcNow", SYSTEM);
+        m("java.time.Instant.toEpochMilli/0", "$0.ToUnixTimeMilliseconds()");
+        m("java.lang.ThreadLocal.get/0", "$0.Value");
+        m("java.lang.ThreadLocal.set/1", "$0.Value = $1");
+        m("java.lang.ThreadLocal.remove/0", "$0.Value = default");
+        m("java.lang.ThreadLocal.withInitial/1", "new ThreadLocal<{R0}>($1)", THREADING);
+        m("java.util.regex.Pattern.compile/1", "new Regex($1)", REGEX);
+        m("java.util.regex.Pattern.matcher/1", "new JavaMatcher($0, $1)", COMPAT);
+        m("java.util.regex.Pattern.matches/2", "Regex.IsMatch($2, \"^(?:\" + $1 + \")$\")", REGEX);
+        m("java.util.regex.Pattern.quote/1", "Regex.Escape($1)", REGEX);
+        m("java.util.regex.Pattern.pattern/0", "$0.ToString()");
+        // OptionalInt and its kin: a nullable value
+        for (String optional : List.of("java.util.OptionalInt", "java.util.OptionalLong", "java.util.OptionalDouble")) {
+            m(optional + ".isPresent/0", "$0.HasValue");
+            m(optional + ".isEmpty/0", "!$0.HasValue");
+            m(optional + ".orElse/1", "$0 ?? $1");
+            m(optional + ".getAsInt/0", "$0.Value");
+            m(optional + ".getAsLong/0", "$0.Value");
+            m(optional + ".getAsDouble/0", "$0.Value");
+        }
+        m("java.lang.Boolean.toString/1", "JavaString.ValueOf($1)", COMPAT);
+        m("java.lang.Byte.toUnsignedInt/1", "(@1 & 0xFF)");
+        m("java.lang.Character.getType/1", "JavaCharacter.GetType($1)", COMPAT);
+        m("java.lang.AbstractStringBuilder.substring/1", "$0.ToString(@1, $0.Length - @1)");
+        m("java.lang.AbstractStringBuilder.substring/2", "$0.ToString(@1, @2 - @1)");
         m("java.io.OutputStream.flush/0", "$0.Flush()");
     }
 
@@ -622,6 +717,19 @@ final class CSharpBcl {
             }
             if ("java.lang.Math".equals(owner.fullyQualifiedName())) {
                 return rule("Math." + CSharpNames.pascal(candidate.name()) + "($*)", SYSTEM);
+            }
+        }
+        return null;
+    }
+
+    /** The rule of a JDK constructor, keyed {@code owner.new/arity} or {@code owner.new(signature)}; null without. */
+    static Rule constructor(MethodInfo constructor) {
+        String base = constructor.typeInfo().fullyQualifiedName() + ".new";
+        for (String key : List.of(base + "(" + signature(constructor) + ")", base + "/" + constructor.parameters().size())) {
+            Chooser chooser = MEMBERS.get(key);
+            if (chooser != null) {
+                Rule rule = chooser.choose(constructor, null);
+                if (rule != null) return rule;
             }
         }
         return null;
@@ -682,10 +790,20 @@ final class CSharpBcl {
             Map.entry("java.nio.charset.StandardCharsets.US_ASCII", "Encoding.ASCII"),
             Map.entry("java.nio.charset.StandardCharsets.ISO_8859_1", "Encoding.Latin1"),
             Map.entry("java.io.File.separator", "Path.DirectorySeparatorChar.ToString()"),
-            Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"));
+            Map.entry("java.io.File.separatorChar", "Path.DirectorySeparatorChar"),
+            Map.entry("java.io.File.pathSeparator", "Path.PathSeparator.ToString()"),
+            Map.entry("java.io.File.pathSeparatorChar", "Path.PathSeparator"),
+            Map.entry("java.lang.Character.UNASSIGNED", "JavaCharacter.UNASSIGNED"),
+            Map.entry("java.lang.Character.CONTROL", "JavaCharacter.CONTROL"),
+            Map.entry("java.lang.Character.FORMAT", "JavaCharacter.FORMAT"),
+            Map.entry("java.lang.Character.PRIVATE_USE", "JavaCharacter.PRIVATE_USE"),
+            Map.entry("java.lang.Character.SURROGATE", "JavaCharacter.SURROGATE"),
+            Map.entry("java.lang.Character.LINE_SEPARATOR", "JavaCharacter.LINE_SEPARATOR"),
+            Map.entry("java.lang.Character.PARAGRAPH_SEPARATOR", "JavaCharacter.PARAGRAPH_SEPARATOR"),
+            Map.entry("java.lang.Character.SPACE_SEPARATOR", "JavaCharacter.SPACE_SEPARATOR"));
 
     private static final Map<String, String> FIELD_NAMESPACES = Map.of("Console", SYSTEM, "Math", SYSTEM,
-            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO);
+            "CultureInfo", GLOBALIZATION, "Encoding", TEXT, "Path", IO, "JavaCharacter", COMPAT);
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
     static String[] field(FieldInfo fieldInfo) {
@@ -719,6 +837,22 @@ final class CSharpBcl {
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
         return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+    }
+
+    /** The receiver is declared as Java's Map interface: C#'s IDictionary, without the BCL's read-only extensions. */
+    private static boolean interfaceTyped(MethodCall call) {
+        if (call == null || call.object() == null) return true;
+        ParameterizedType receiver = call.object().parameterizedType();
+        if (receiver == null || receiver.typeInfo() == null) return true;
+        TypeMapping mapping = TYPES.get(receiver.typeInfo().fullyQualifiedName());
+        return mapping == null || mapping.template().startsWith("I");
+    }
+
+    /** The receiver is an enum C# declares as an enum (only constants), not as a class. */
+    private static boolean simpleEnum(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return true;
+        TypeInfo t = call.object().parameterizedType().typeInfo();
+        return t == null || !t.typeNature().isEnum() || CSharpTypePrinter.simpleEnum(t);
     }
 
     private static boolean arrayTyped(Expression e) {

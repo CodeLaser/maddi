@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -71,6 +72,10 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             if (typeInfo.typeNature().isPackageInfo()) continue;
             OutputBuilder type = new CSharpTypePrinter(typeInfo, formatter2).print(importData, true);
             if (!type.isEmpty()) types.add(SpaceEnum.NEWLINE).add(type).add(SpaceEnum.NEWLINE);
+            for (TypeInfo h : hoisted(typeInfo, new ArrayList<>())) {
+                OutputBuilder hoisted = new CSharpTypePrinter(h, formatter2).print(importData, true);
+                if (!hoisted.isEmpty()) types.add(SpaceEnum.NEWLINE).add(hoisted).add(SpaceEnum.NEWLINE);
+            }
         }
 
         String namespace = CSharpNames.namespace(compilationUnit.packageName(), !compilationUnit.externalLibrary());
@@ -78,8 +83,9 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         Set<String> usingStatics = new TreeSet<>();
         for (TypeInfo referenced : CSharpContext.referenced()) {
             TypeInfo primary = referenced.primaryType();
-            if (primary == null || compilationUnit.types().contains(primary)) continue;
-            if (referenced.isPrimaryType()) {
+            // an unmapped JDK type has no namespace in C#: its use is reported (UNMAPPED_JDK)
+            if (primary == null || compilationUnit.types().contains(primary) || !CSharpNames.translated(primary)) continue;
+            if (referenced.isPrimaryType() || CSharpNames.hoisted(referenced)) {
                 usings.add(CSharpNames.namespace(referenced));
             } else {
                 // a nested type by its simple name: its enclosing type's members are in scope
@@ -89,7 +95,9 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             }
         }
         for (ImportComputer.ImportDetails i : importData.imports()) {
-            if (i.importString().startsWith("static ")) usingStatics.add(staticImportOwner(i.importString()));
+            if (i.importString().startsWith("static ") && !library(i.importString().substring(7).trim())) {
+                usingStatics.add(staticImportOwner(i.importString()));
+            }
         }
         usings.remove(namespace);
         usings.remove("");
@@ -107,6 +115,20 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         return out.add(types);
     }
 
+    private static boolean library(String qualifiedName) {
+        return qualifiedName.startsWith("java.") || qualifiedName.startsWith("javax.");
+    }
+
+    /** The nested types of {@code typeInfo}, at any depth, that are printed in the namespace. */
+    private static List<TypeInfo> hoisted(TypeInfo typeInfo, List<TypeInfo> found) {
+        for (TypeInfo sub : typeInfo.subTypes()) {
+            if (sub.isSynthetic()) continue;
+            if (CSharpNames.hoisted(sub)) found.add(sub);
+            hoisted(sub, found);
+        }
+        return found;
+    }
+
     /**
      * The type of a static import, {@code A.B.C} for {@code static a.b.C.m} and {@code static a.b.C.*}. The package
      * ends at the first segment that starts with a capital, Java's convention for a type.
@@ -116,7 +138,7 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         int firstType = 0;
         while (firstType < segments.length - 1 && !Character.isUpperCase(segments[firstType].charAt(0))) firstType++;
         String packageName = String.join(".", Arrays.copyOfRange(segments, 0, firstType));
-        boolean library = packageName.startsWith("java.") || packageName.startsWith("javax.");
+        boolean library = library(packageName);
         String namespace = CSharpNames.namespace(packageName, !library);
         String type = String.join(".", Arrays.copyOfRange(segments, firstType, segments.length - 1));
         return namespace.isEmpty() ? type : namespace + "." + type;

@@ -17,6 +17,8 @@ package io.codelaser.maddi.cst.print.csharp;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,7 +142,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Palette", ENUMS);
         contains(cs, "internal enum Primary { Red, Green, Blue }");
         contains(cs, "internal sealed class Planet {");
-        contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23);");
+        contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23) { Name = \"MERCURY\", Ordinal = 0 };");
         contains(cs, "case Primary.Red:");
         contains(cs, "internal static Primary First() => Primary.Red;");
     }
@@ -429,5 +431,110 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "int last = -1;\nreturn last;");
         contains(cs, "if (o is string s) { return s; }");
         contains(cs, "if (p is string s2) { return s2 + s2; }");
+    }
+
+    @Language("java")
+    private static final String CONVERSIONS = """
+            package org.example.conv;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.Set;
+            class Factory<E> {
+                private int size() { return 3; }
+                static class Item<E> {
+                    final Set<E>[] buckets = new Set[2];
+                    int n(Factory<E> f) { return f.size(); }
+                }
+                static <T> T none() { return null; }
+                static String escape(char c) {
+                    switch (c) {
+                        case 0x8: return "\\b";
+                        default: return "";
+                    }
+                }
+                static int orZero(Integer i, Integer count) { return i == null ? 0 : i + count; }
+                static int index(Map<String, Integer> map, String key, Integer boxed) {
+                    Map<Integer, String> names = new HashMap<>();
+                    String name = names.get(boxed);
+                    int i = map.get(key);
+                    if ((Boolean) (Object) Boolean.TRUE) return boxed;
+                    return i + name.length();
+                }
+            }
+            """;
+
+    /**
+     * A static nested type of a generic type is printed beside it (C# would make it generic in the outer type's
+     * parameters); the outer type's private members it uses become internal. C# does not unbox: an Integer where an
+     * int is expected, or as a key, gets a cast. Java's null of a type parameter is default; a raw array creation
+     * takes the declared type's arguments.
+     */
+    @Test
+    public void conversions() {
+        String cs = translate("Factory", CONVERSIONS);
+        contains(cs, "internal class Item<E> {");
+        contains(cs, "internal int Size() => 3;");
+        contains(cs, "internal readonly ISet<E>[] buckets = new ISet<E>[2];");
+        contains(cs, "internal static T None<T>() => default;");
+        contains(cs, "string name = names.Get((int) boxed);");
+        contains(cs, "int i = (int) map.GetValueOrNull(key);");
+        contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
+        contains(cs, "case '\\b': return");
+        contains(cs, "internal static int OrZero(int? i, int? count) => i == null ? 0 : (int) i + (int) count;");
+    }
+
+    @Language("java")
+    private static final String LOCAL_CLASSES = """
+            package org.example.local;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Locals {
+                private int base = 1;
+                int count(int n) {
+                    class Entry {
+                        final int value;
+                        Entry(int value) { this.value = value; }
+                    }
+                    List<Entry> entries = new ArrayList<>();
+                    for (int i = 0; i < n; i++) entries.add(new Entry(i));
+                    return entries.size();
+                }
+                int captures(int n) {
+                    class Adder {
+                        int add(int x) { return x + n + base; }
+                    }
+                    return new Adder().add(1);
+                }
+            }
+            """;
+
+    /** A local class that captures nothing is lifted into its enclosing type; one that captures is not translated. */
+    @Test
+    public void localClasses() {
+        String cs = translate("Locals", LOCAL_CLASSES);
+        contains(cs, "private class Entry {");
+        contains(cs, "entries.Add(new Entry(i));");
+        assertFalse(cs.contains("class Adder"), cs);
+    }
+
+    @Language("java")
+    private static final String FUNCTIONAL = """
+            package org.example.fun;
+            class Graph {
+                interface Visitor {
+                    int visit(String node);
+                }
+                static int walk(Visitor v) { return v.visit("a"); }
+                static int lengths() { return walk(s -> s.length()) + walk(Graph::one); }
+                static int one(String s) { return 1; }
+            }
+            """;
+
+    /** A translated functional interface stays an interface, with an adapter class for its lambdas. */
+    @Test
+    public void functionalInterface() {
+        String cs = translate("Graph", FUNCTIONAL);
+        contains(cs, "public sealed class Lambda(Func<string, int> f) : IVisitor { public int Visit(string node) => f(node); }");
+        contains(cs, "internal static int Lengths() => Walk(new IVisitor.Lambda(s => s.Length)) + Walk(new IVisitor.Lambda(Graph.One));");
     }
 }

@@ -33,8 +33,28 @@ public static class JavaCollections
     }
 
     /// <summary>Map.get of a map whose values are a value type: null when the key is absent, as in Java.</summary>
-    public static V? GetValueOrNull<K, V>(this IReadOnlyDictionary<K, V> d, K key) where V : struct =>
+    public static V? GetValueOrNull<K, V>(this IDictionary<K, V> d, K key) where V : struct =>
         d.TryGetValue(key, out var v) ? v : null;
+
+    /// <summary>Map.get on the IDictionary interface: the default when the key is absent.</summary>
+    public static V Get<K, V>(this IDictionary<K, V> d, K key) => d.TryGetValue(key, out var v) ? v : default;
+
+    public static V GetOrDefault<K, V>(this IDictionary<K, V> d, K key, V def) =>
+        d.TryGetValue(key, out var v) ? v : def;
+
+    /// <summary>Collection.removeAll: whether anything was removed.</summary>
+    public static bool RemoveAllOf<T>(this ICollection<T> c, IEnumerable<T> items)
+    {
+        var changed = false;
+        foreach (var x in items.ToList())
+        {
+            while (c.Remove(x)) changed = true;
+        }
+        return changed;
+    }
+
+    /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
+    public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
 
     public static V RemoveAndGet<K, V>(this IDictionary<K, V> d, K key)
     {
@@ -180,6 +200,11 @@ public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
         (a, b) => Comparer<K>.Default.Compare(key(a), key(b));
+
+    /// <summary>Comparator.comparing with the compared type given, Comparing&lt;T&gt;(o => o.Id): a lambda's
+    /// parameter type cannot be inferred from its use.</summary>
+    public static Comparison<T> Comparing<T>(Func<T, IComparable> key) =>
+        (a, b) => Comparer<IComparable>.Default.Compare(key(a), key(b));
 
     public static Comparison<T> ThenComparing<T, K>(this Comparison<T> first, Func<T, K> key) =>
         first.ThenComparing(Comparing(key));
@@ -340,6 +365,32 @@ public static class JavaString
 /// <summary>Character's classification as Java has it.</summary>
 public static class JavaCharacter
 {
+    // Character.getType's categories, by Java's numbers
+    public const int UNASSIGNED = 0;
+    public const int SPACE_SEPARATOR = 12;
+    public const int LINE_SEPARATOR = 13;
+    public const int PARAGRAPH_SEPARATOR = 14;
+    public const int CONTROL = 15;
+    public const int FORMAT = 16;
+    public const int PRIVATE_USE = 18;
+    public const int SURROGATE = 19;
+
+    private static readonly int[] Types =
+    {
+        1, 2, 3, 4, 5, // letters: upper, lower, title, modifier, other
+        6, 8, 7, // marks: non-spacing, spacing combining, enclosing
+        9, 10, 11, // numbers: decimal digit, letter, other
+        12, 13, 14, // separators: space, line, paragraph
+        15, 16, 19, 18, // control, format, surrogate, private use
+        23, 20, 21, 22, 29, 30, 24, // punctuation: connector, dash, open, close, initial quote, final quote, other
+        25, 26, 27, 28, // symbols: math, currency, modifier, other
+        0, // other, not assigned
+    };
+
+    /// <summary>Character.getType: the UnicodeCategory, in Java's numbering.</summary>
+    public static int GetType(int c) =>
+        Types[(int)CharUnicodeInfo.GetUnicodeCategory(c)];
+
     public static bool IsJavaIdentifierStart(int c)
     {
         if (c == '$' || c == '_') return true;
@@ -678,4 +729,219 @@ public class BitSet : ICloneable
         }
         return sb.Append('}').ToString();
     }
+}
+
+/// <summary>
+/// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
+/// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
+/// </summary>
+public class JavaIterator<T>
+{
+    private readonly IList<T> list;
+    private readonly ICollection<T> collection;
+    private readonly IEnumerator<T> enumerator;
+    private int index;
+    private bool hasPeeked;
+    private bool peeked;
+    private T last;
+
+    public JavaIterator(IEnumerable<T> source)
+    {
+        list = source as IList<T>;
+        if (list == null)
+        {
+            collection = source as ICollection<T>;
+            enumerator = (collection != null ? source.ToList() : source).GetEnumerator();
+        }
+    }
+
+    public bool HasNext()
+    {
+        if (list != null) return index < list.Count;
+        if (!hasPeeked)
+        {
+            peeked = enumerator.MoveNext();
+            hasPeeked = true;
+        }
+        return peeked;
+    }
+
+    public T Next()
+    {
+        if (!HasNext()) throw new InvalidOperationException("no next element");
+        if (list != null) return last = list[index++];
+        hasPeeked = false;
+        return last = enumerator.Current;
+    }
+
+    public void Remove()
+    {
+        if (list != null) list.RemoveAt(--index);
+        else if (collection != null) collection.Remove(last);
+        else throw new NotSupportedException("remove");
+    }
+
+    public void ForEachRemaining(Action<T> action)
+    {
+        while (HasNext()) action(Next());
+    }
+}
+
+/// <summary>java.io.File: a path, with the queries Java asks of it.</summary>
+public class JavaFile
+{
+    private readonly string path;
+
+    public JavaFile(string path) => this.path = path;
+
+    public JavaFile(string parent, string child) => path = parent == null ? child : Path.Combine(parent, child);
+
+    public JavaFile(JavaFile parent, string child) : this(parent?.path, child)
+    {
+    }
+
+    public string GetPath() => path;
+
+    public string GetName() => Path.GetFileName(path);
+
+    public string GetAbsolutePath() => Path.GetFullPath(path);
+
+    public JavaFile GetAbsoluteFile() => new JavaFile(GetAbsolutePath());
+
+    public string GetCanonicalPath() => Path.GetFullPath(path);
+
+    public JavaFile GetCanonicalFile() => new JavaFile(GetCanonicalPath());
+
+    public string GetParent() => Path.GetDirectoryName(path);
+
+    public JavaFile GetParentFile() => GetParent() is { } p ? new JavaFile(p) : null;
+
+    public bool Exists() => File.Exists(path) || Directory.Exists(path);
+
+    public bool IsDirectory() => Directory.Exists(path);
+
+    public bool IsFile() => File.Exists(path);
+
+    public long Length() => File.Exists(path) ? new FileInfo(path).Length : 0;
+
+    public long LastModified() =>
+        Exists() ? new DateTimeOffset(File.GetLastWriteTimeUtc(path)).ToUnixTimeMilliseconds() : 0;
+
+    public bool Mkdirs()
+    {
+        if (Directory.Exists(path)) return false;
+        Directory.CreateDirectory(path);
+        return true;
+    }
+
+    public bool Mkdir() => Mkdirs();
+
+    public bool Delete()
+    {
+        if (File.Exists(path)) File.Delete(path);
+        else if (Directory.Exists(path)) Directory.Delete(path);
+        else return false;
+        return true;
+    }
+
+    public bool CreateNewFile()
+    {
+        if (Exists()) return false;
+        File.Create(path).Dispose();
+        return true;
+    }
+
+    public string[] List() => Directory.Exists(path)
+        ? Directory.EnumerateFileSystemEntries(path).Select(Path.GetFileName).ToArray()
+        : null;
+
+    public JavaFile[] ListFiles() => Directory.Exists(path)
+        ? Directory.EnumerateFileSystemEntries(path).Select(p => new JavaFile(p)).ToArray()
+        : null;
+
+    public JavaFile[] ListFiles(Func<JavaFile, bool> filter) => ListFiles()?.Where(filter).ToArray();
+
+    public bool RenameTo(JavaFile dest)
+    {
+        if (File.Exists(path)) File.Move(path, dest.path);
+        else if (Directory.Exists(path)) Directory.Move(path, dest.path);
+        else return false;
+        return true;
+    }
+
+    public bool IsAbsolute() => Path.IsPathRooted(path);
+
+    public static readonly char SeparatorChar = Path.DirectorySeparatorChar;
+
+    public static readonly string Separator = Path.DirectorySeparatorChar.ToString();
+
+    public override string ToString() => path;
+
+    public override bool Equals(object o) => o is JavaFile f && f.path == path;
+
+    public override int GetHashCode() => path.GetHashCode();
+}
+
+/// <summary>InputStream's methods the BCL's Stream does not have.</summary>
+public static class JavaStreams
+{
+    public static sbyte[] ReadAllBytes(Stream s)
+    {
+        using var memory = new MemoryStream();
+        s.CopyTo(memory);
+        return (sbyte[])(object)memory.ToArray();
+    }
+
+    public static long Skip(Stream s, long n)
+    {
+        long skipped = 0;
+        while (skipped < n && s.ReadByte() >= 0) skipped++;
+        return skipped;
+    }
+}
+
+/// <summary>java.util.regex.Matcher: a Regex applied to an input, step by step.</summary>
+public class JavaMatcher
+{
+    private readonly Regex regex;
+    private readonly string input;
+    private Match match;
+
+    public JavaMatcher(Regex regex, string input)
+    {
+        this.regex = regex;
+        this.input = input;
+    }
+
+    public bool Find()
+    {
+        match = match == null ? regex.Match(input) : match.NextMatch();
+        return match.Success;
+    }
+
+    public bool Matches()
+    {
+        match = Regex.Match(input, "^(?:" + regex + ")$", regex.Options);
+        return match.Success;
+    }
+
+    public bool LookingAt()
+    {
+        match = Regex.Match(input, "^(?:" + regex + ")", regex.Options);
+        return match.Success;
+    }
+
+    public string Group() => match.Value;
+
+    public string Group(int group) => match.Groups[group].Success ? match.Groups[group].Value : null;
+
+    public string Group(string name) => match.Groups[name].Success ? match.Groups[name].Value : null;
+
+    public int GroupCount() => regex.GetGroupNumbers().Length - 1;
+
+    public int Start() => match.Index;
+
+    public int End() => match.Index + match.Length;
+
+    public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
 }

@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Prints a {@link TypeInfo} as a C# type declaration, with the same pluggable-printer seam as the Java
@@ -88,7 +89,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 ? typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList() : List.of();
         if (enumClass) CSharpContext.message(CSharpPrintMessage.Code.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
         TypeInfo enclosing = enclosingType(typeInfo);
-        if (enclosing != null && !enclosing.typeParameters().isEmpty()) {
+        if (enclosing != null && !enclosing.typeParameters().isEmpty() && !CSharpNames.hoisted(typeInfo)) {
             CSharpContext.message(CSharpPrintMessage.Code.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
         }
 
@@ -139,8 +140,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
-        typeInfo.subTypes().stream().filter(st -> !st.isSynthetic())
+        typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
+        CSharpLocalTypes.lifted(typeInfo)
+                .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
+        if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
@@ -149,9 +153,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     private String typeAccess() {
-        if (isLocal(typeInfo)) return null;
+        if (isLocal(typeInfo)) return "private"; // lifted into the enclosing type
         // a top-level type is public or internal
         if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
+        // a hoisted type is in the namespace, where C# has no private or protected
+        if (CSharpNames.hoisted(typeInfo)) {
+            return "public".equals(CSharpModifiers.access(typeInfo, enclosingType(typeInfo))) ? "public" : "internal";
+        }
         return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
     }
 
@@ -199,6 +207,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** Only constants, without arguments or bodies, and nothing else: a C# enum. */
     private boolean simpleEnum() {
+        return simpleEnum(typeInfo);
+    }
+
+    static boolean simpleEnum(TypeInfo typeInfo) {
         if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
         if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
         if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c))) {
@@ -222,10 +234,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
     }
 
-    /** {@code public static readonly Color Red = new Color(255, 0, 0);} per constant. */
+    /**
+     * {@code public static readonly Color Red = new Color(255, 0, 0) { Name = "Red", Ordinal = 0 };} per constant,
+     * then Java's {@code name()}, {@code ordinal()}, {@code values()} and {@code valueOf(String)}.
+     */
     private List<OutputBuilder> enumInstances(Qualification q) {
         String self = CSharpNames.type(typeInfo);
-        return typeInfo.fields().stream().filter(CSharpNames::isEnumConstant).map(f -> {
+        List<FieldInfo> constants = typeInfo.fields().stream().filter(CSharpNames::isEnumConstant).toList();
+        List<OutputBuilder> out = new ArrayList<>(constants.stream().map(f -> {
             OutputBuilder b = new OutputBuilderImpl().add(new TextImpl("public static readonly " + self + " "
                                                                        + CSharpNames.field(f)))
                     .add(SymbolEnum.assignment("="));
@@ -238,8 +254,51 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else {
                 b.add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(new TextImpl(self)).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
             }
+            b.add(SymbolEnum.LEFT_BRACE).add(new TextImpl("Name")).add(SymbolEnum.assignment("="))
+                    .add(new TextImpl("\"" + f.name() + "\"")).add(SymbolEnum.COMMA).add(new TextImpl("Ordinal"))
+                    .add(SymbolEnum.assignment("=")).add(new TextImpl(Integer.toString(constants.indexOf(f))))
+                    .add(SymbolEnum.RIGHT_BRACE);
             return (OutputBuilder) b.add(SymbolEnum.SEMICOLON);
-        }).toList();
+        }).toList());
+        out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }")));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public int Ordinal { get; private init; }")));
+        if (typeInfo.methods().stream().noneMatch(m -> "toString".equals(m.name()) && m.parameters().isEmpty())) {
+            out.add(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => Name;")));
+        }
+        String all = constants.stream().map(CSharpNames::field).collect(Collectors.joining(", "));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + "[] Values() => new " + self
+                                                         + "[] { " + all + " };")));
+        out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
+        CSharpContext.using("System");
+        return out;
+    }
+
+    /**
+     * {@code public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { public int ProcessExprent(Exprent
+     * exprent) => f(exprent); }}: a lambda of a functional interface that is not a delegate, {@code new IExprentIterator.Lambda(
+     * e => 0)}. An interface becomes a delegate only when nothing else implements it, which a file does not know.
+     */
+    private OutputBuilder lambdaAdapter(Qualification q) {
+        MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
+        List<String> parameterTypes = sam.parameters().stream().map(p -> CSharpTypeName.argument(p.parameterizedType(), q))
+                .toList();
+        boolean isVoid = sam.returnType().isVoid();
+        List<String> delegateArguments = new ArrayList<>(parameterTypes);
+        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(sam.returnType(), q));
+        String delegate = (isVoid ? "Action" : "Func")
+                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
+        String self = CSharpNames.type(typeInfo) + (typeInfo.typeParameters().isEmpty() ? ""
+                : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">")));
+        List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
+        String f = names.contains("f") ? "function" : "f";
+        String parameters = IntStream.range(0, names.size())
+                .mapToObj(i -> CSharpTypeName.of(sam.parameters().get(i).parameterizedType(), q) + " " + names.get(i))
+                .collect(Collectors.joining(", "));
+        CSharpContext.using("System");
+        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
+                + " { public " + CSharpTypeName.of(sam.returnType(), q) + " " + CSharpNames.method(sam) + "(" + parameters
+                + ") => " + f + "(" + String.join(", ", names) + "); }"));
     }
 
     // ---------------------------------------------------------------- helpers
