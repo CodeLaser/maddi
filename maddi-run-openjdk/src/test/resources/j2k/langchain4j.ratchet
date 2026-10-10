@@ -21,12 +21,15 @@
 # 2026-10-10, annotation arguments (a Java annotation's array value spread, member annotation types named through their
 # enclosing type), toArray(T[]), static references into mapped types, a raw Comparable, annotated parameters and primary
 # constructors: 259 files compiling (242 type errors), 255 to class files, 90 test files compile.
+# 2026-10-10, stream inference: a bound reference on nullable stream elements asserted in a lambda, a Collection<?>'s
+# elements taken as Any?, explicit type arguments for type parameters only the result mentions (failures<Failure>()):
+# 262 files compiling (228 type errors), 258 to class files, 94 test files compile.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	259
-bytecodeFiles	255
+compilingFiles	262
+bytecodeFiles	258
 testsPassing	730
-testBytecodeFiles	90
+testBytecodeFiles	94
 translatedTestsPassing	719

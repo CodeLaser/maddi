@@ -353,12 +353,82 @@ public class KotlinExpressionPrinter {
                     .add(print(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.COMMA)
                     .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name())));
-        if (!mc.typeArguments().isEmpty()) {
-            b.add(new TextImpl(mc.typeArguments().stream().map(t -> KotlinTypeName.of(t, q))
-                    .collect(java.util.stream.Collectors.joining(", ", "<", ">"))));
-        }
+        String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
+                .map(t -> KotlinTypeName.of(t, q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
+                : resultOnlyTypeArguments(mc, q);
+        b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
+    }
+
+    /**
+     * Type arguments Kotlin cannot infer: of type parameters that no parameter mentions, so that only an expected
+     * type could fix them. Java takes the bound, {@code <F extends Failure> List<F> failures()} gives a
+     * {@code List<Failure>} for {@code failures().stream()}, which Kotlin writes {@code failures<Failure>()}. Where
+     * the call has no expected type (a receiver; an argument into an Object or a class's type parameter, as
+     * {@code map.put("items", Collections.emptyMap())}), the unbounded ones take Java's inferred type, or Object.
+     * Null when Kotlin infers them by itself.
+     */
+    private static String resultOnlyTypeArguments(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
+        if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> resultOnly = typeParameters.stream()
+                .filter(tp -> m.parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp))).toList();
+        if (resultOnly.isEmpty()) return null;
+        boolean bounded = resultOnly.stream().anyMatch(tp -> bound(tp) != null);
+        boolean noExpectedType = noExpectedType(mc);
+        if (!bounded && !noExpectedType) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
+                ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType t = concrete.get(tp);
+            if (t == null || t.wildcard() != null || mentionsAny(t, typeParameters)) {
+                if (!resultOnly.contains(tp)) return null;
+                t = bound(tp);
+                if (t == null) {
+                    if (!noExpectedType) return null;
+                    printed.add("Any");
+                    continue;
+                }
+            }
+            if (t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) return null;
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /** The single bound of a type parameter, when it is not Object and does not mention a type parameter. */
+    private static ParameterizedType bound(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        if (tp.typeBounds().size() != 1) return null;
+        ParameterizedType bound = tp.typeBounds().getFirst();
+        return bound.isJavaLangObject() || bound.typeParameter() != null || bound.hasTypeParameters() ? null : bound;
+    }
+
+    /**
+     * The call is a receiver, or an argument into an Object or into a type parameter of the callee's type
+     * ({@code map.put(k, v)}): Kotlin has nothing to infer its type arguments from.
+     */
+    private static boolean noExpectedType(MethodCall mc) {
+        if (!(KotlinContext.enclosingCall() instanceof MethodCall outer)) return false;
+        if (outer.object() != null && unwrap(outer.object()) == mc) return true;
+        List<Expression> args = outer.parameterExpressions();
+        List<ParameterInfo> params = outer.methodInfo().parameters();
+        for (int i = 0; i < args.size() && i < params.size(); i++) {
+            if (unwrap(args.get(i)) != mc || params.get(i).isVarArgs()) continue;
+            ParameterizedType target = params.get(i).parameterizedType();
+            return target.isJavaLangObject() || target.typeParameter() != null && !target.typeParameter().isMethodTypeParameter();
+        }
+        return false;
+    }
+
+    private static boolean mentions(ParameterizedType type, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        if (tp.equals(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(p -> mentions(p, tp));
+    }
+
+    private static boolean mentionsAny(ParameterizedType type, List<io.codelaser.maddi.cst.api.info.TypeParameter> tps) {
+        return tps.stream().anyMatch(tp -> mentions(type, tp));
     }
 
     private static OutputBuilder arguments(List<Expression> args, Qualification q) {
@@ -572,19 +642,33 @@ public class KotlinExpressionPrinter {
             return false;
         }
         ParameterizedType stream = KotlinNullability.kotlinType(call.object());
-        return stream != null && stream.parameters().size() == 1
-               && KotlinNullability.isNullable(stream.parameters().getFirst());
+        if (stream != null && stream.parameters().size() == 1 && KotlinNullability.isNullable(stream.parameters().getFirst())) {
+            return true;
+        }
+        // a Collection<?>'s stream() is a Stream<out Any?> in Kotlin
+        ParameterizedType java = call.object().parameterizedType();
+        return java != null && java.parameters().size() == 1 && java.parameters().getFirst().isUnboundWildcard();
     }
 
     /**
      * A method reference applied to the nullable elements of a stream, which Java passes on as they are:
      * {@code mapToInt(Helper::size)} as {@code { Helper.size(it!!) }} where size takes a non-null Statement, and
-     * {@code map(Statement::getId)} as {@code { it!!.getId() }}. Null when the reference takes the element as it is.
+     * {@code map(Statement::getId)} as {@code { it!!.getId() }}, {@code map(this::transform)} as
+     * {@code { this.transform(it!!) }}. Null when the reference takes the element as it is.
      */
     private static OutputBuilder assertingReference(MethodReference mr, Qualification q) {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
-        if (m.isConstructor() || mappedMember(mr) != null || !(mr.scope() instanceof TypeExpression te)) return null;
+        if (m.isConstructor() || mappedMember(mr) != null) return null;
         String name = KotlinNames.name(m.name());
+        if (!(mr.scope() instanceof TypeExpression te)) {
+            if (m.isStatic() || m.parameters().size() != 1 || !KotlinNullability.translated(m.typeInfo())
+                || KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {
+                return null;
+            }
+            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
+                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it!!)")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        }
         // a library's parameter is a platform type, which takes the null: Objects::isNull stays a reference
         if (m.isStatic() && m.parameters().size() == 1 && KotlinNullability.translated(m.typeInfo())
             && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {

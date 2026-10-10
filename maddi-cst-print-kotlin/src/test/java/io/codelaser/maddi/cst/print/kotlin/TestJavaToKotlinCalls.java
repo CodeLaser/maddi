@@ -211,6 +211,36 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
             }
             """;
 
+    @Language("java")
+    private static final String RESULT_ONLY_TYPE_PARAMETERS = """
+            package a;
+            import java.util.*;
+            interface R {
+                class Failure { String message() { return ""; } }
+                <F extends Failure> List<F> failures();
+                default int count() { return failures().size(); }
+                default String first() { List<Failure> fs = failures(); return fs.get(0).message(); }
+                default void put(Map<String, Object> m) { m.put("items", Collections.emptyMap()); }
+                default Object images(Map<String, Object> m) { return m.getOrDefault("images", List.of()); }
+                default List<String> none() { return List.of(); }
+            }
+            """;
+
+    /**
+     * Type parameters only the result mentions: Kotlin needs the type arguments where Java takes the bound, or where
+     * nothing is expected.
+     */
+    @Test
+    public void resultOnlyTypeParameters() {
+        String kotlin = kotlin(RESULT_ONLY_TYPE_PARAMETERS);
+        contains(kotlin, "failures<Failure>().size");
+        contains(kotlin, "val fs: MutableList<Failure> = failures<Failure>()");
+        contains(kotlin, "Collections.emptyMap<Any, Any>())");
+        contains(kotlin, "java.util.List.of<Any>())");
+        // the expected type fixes E
+        contains(kotlin, "= java.util.List.of()");
+    }
+
     /** toArray(T[]), a static reference into a mapped type, a property-function clash, a raw Comparable. */
     @Test
     public void smallGaps() {
