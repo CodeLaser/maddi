@@ -70,12 +70,19 @@ final class KotlinAnnotations {
         List<AnnotationExpression.KV> kvs = ae.keyValuePairs();
         if (kvs.isEmpty()) return b;
         b.add(SymbolEnum.LEFT_PARENTHESIS);
-        boolean positional = kvs.size() == 1 && (kvs.getFirst().keyIsDefault() || "value".equals(kvs.getFirst().key()));
         boolean translated = KotlinNullability.translated(ae.typeInfo());
+        // Kotlin hands a positional argument to the annotation class's first parameter, which is Java's value only
+        // when declared first: @Tool(value = ["x"]) where name comes before it
+        boolean positional = kvs.size() == 1 && (kvs.getFirst().keyIsDefault() || "value".equals(kvs.getFirst().key()))
+                             && (!translated || ae.typeInfo().methods().isEmpty()
+                                 || "value".equals(ae.typeInfo().methods().getFirst().name()));
         for (int i = 0; i < kvs.size(); i++) {
             if (i > 0) b.add(SymbolEnum.COMMA);
             AnnotationExpression.KV kv = kvs.get(i);
-            if (!positional) b.add(new TextImpl(kv.key())).add(SpaceEnum.ONE).add(new TextImpl("=")).add(SpaceEnum.ONE);
+            if (!positional) {
+                b.add(new TextImpl(kv.keyIsDefault() ? "value" : kv.key())).add(SpaceEnum.ONE).add(new TextImpl("="))
+                        .add(SpaceEnum.ONE);
+            }
             if (positional && !translated && kv.value() instanceof ArrayInitializer ai) {
                 // a Java annotation's array `value` is a vararg to Kotlin: @Target(ElementType.TYPE, ElementType.METHOD)
                 for (int j = 0; j < ai.expressions().size(); j++) {

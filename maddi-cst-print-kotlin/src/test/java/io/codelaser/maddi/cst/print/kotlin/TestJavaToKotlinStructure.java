@@ -520,9 +520,10 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 @interface Type { String name(); }
             }
             @interface Tags { String[] value(); }
+            @interface Tool { String name() default ""; String[] value() default ""; }
             @Types({@Types.Type(name = "a"), @Types.Type(name = "b")})
             @Tags("x")
-            class Annotated { }
+            class Annotated { @Tool("search") void search() { } }
             """;
 
     /**
@@ -535,6 +536,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "@Target(ElementType.TYPE, ElementType.METHOD)");
         contains(kotlin, "@Types([Types.Type(name = \"a\"), Types.Type(name = \"b\")])");
         contains(kotlin, "@Tags([\"x\"])");
+        // value is not Tool's first element
+        contains(kotlin, "@Tool(value = [\"search\"])");
     }
 
     @Language("java")

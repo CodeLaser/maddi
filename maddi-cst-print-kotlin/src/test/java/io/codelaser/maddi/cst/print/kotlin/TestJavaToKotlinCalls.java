@@ -205,6 +205,14 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     return CompletableFuture.allOf(fs.toArray(new CompletableFuture[0]));
                 }
                 List<String> orEmpty(List<String> l) { return Optional.ofNullable(l).orElseGet(List::of); }
+                static <T> T getOrDefault(T value, T defaultValue) { return value != null ? value : defaultValue; }
+                static <T> T getOrDefault(T value, java.util.function.Supplier<T> s) { return value != null ? value : s.get(); }
+                static class D { }
+                D orNew(D d) { return getOrDefault(d, D::new); }
+                List<String> listed(String... ss) { return Optional.ofNullable(ss).map(List::of).orElse(null); }
+                void byScore(List<String> fused, Map<String, Double> scores) {
+                    fused.sort(Comparator.comparingDouble(scores::get).reversed());
+                }
                 boolean anyRetry(List<Failure> fs) { return fs.stream().anyMatch(Failure::retry); }
                 @SuppressWarnings("unchecked")
                 boolean greater(Object actual, Object expected) { return ((Comparable) actual).compareTo(expected) > 0; }
@@ -247,6 +255,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(SMALL_GAPS);
         contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
         contains(kotlin, "{ java.util.List.of() })");
+        contains(kotlin, "{ java.util.List.of(*it) })");
+        contains(kotlin, "getOrDefault(d, java.util.function.Supplier(::D))");
+        contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
         contains(kotlin, "anyMatch({ it.retry() })");
         contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");
     }

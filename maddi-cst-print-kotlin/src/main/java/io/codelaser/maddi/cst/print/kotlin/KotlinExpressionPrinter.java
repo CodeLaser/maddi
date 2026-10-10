@@ -355,7 +355,7 @@ public class KotlinExpressionPrinter {
         }
         String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
                 .map(t -> KotlinTypeName.of(t, q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
-                : resultOnlyTypeArguments(mc, q);
+                : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyTypeArguments(mc, q);
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
     }
@@ -471,6 +471,12 @@ public class KotlinExpressionPrinter {
                     printed.add(asserting);
                     continue;
                 }
+            }
+            if (hasParameter && unwrap(args.get(i)) instanceof MethodReference && besideTypeParameter(method, i)) {
+                printed.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.name(
+                                method.parameters().get(i).parameterizedType().typeInfo(), q)))
+                        .add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+                continue;
             }
             if (hasParameter && comparingKey(method, args.get(i))) {
                 printed.add(comparingKeyLambda((MethodReference) unwrap(args.get(i)), q));
@@ -615,9 +621,13 @@ public class KotlinExpressionPrinter {
      * key, and an {@code Int?} is none; Java compares the null, and throws there. As
      * {@code comparing({ order.get(it)!! })}, which throws at the same point (and takes an {@code Int?} element too).
      */
+    private static final java.util.Set<String> COMPARING_KEY = java.util.Set.of("comparing", "thenComparing",
+            "comparingInt", "comparingLong", "comparingDouble", "thenComparingInt", "thenComparingLong",
+            "thenComparingDouble");
+
     private static boolean comparingKey(io.codelaser.maddi.cst.api.info.MethodInfo method, Expression argument) {
         if (!"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
-            || !("comparing".equals(method.name()) || "thenComparing".equals(method.name()))
+            || !COMPARING_KEY.contains(method.name())
             || !(unwrap(argument) instanceof MethodReference mr) || mr.methodInfo().isConstructor()
             || mr.methodInfo().isStatic() || mr.methodInfo().parameters().size() != 1
             || mr.scope() == null || mr.scope() instanceof TypeExpression) {
@@ -627,12 +637,49 @@ public class KotlinExpressionPrinter {
         return KotlinNullability.nullableJdkResult(m) || KotlinNullability.isNullable(KotlinNullability.returnType(m));
     }
 
+    /**
+     * {@code Comparator.comparingDouble(scores::get).reversed()}: the key extractor became a lambda, whose parameter
+     * Kotlin cannot type with nothing expected of the comparator. Not {@code comparing}, whose key type is a second
+     * type parameter.
+     */
+    private static boolean comparingKeyCall(MethodCall mc) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        return m.isStatic() && m.typeParameters().size() == 1 && mc.parameterExpressions().size() == 1
+               && m.name().startsWith("comparing") && comparingKey(m, mc.parameterExpressions().getFirst())
+               && noExpectedType(mc);
+    }
+
+    /** The compared type as Java infers it, {@code <Any>} for Object. */
+    private static String comparedType(MethodCall mc, Qualification q) {
+        ParameterizedType comparator = mc.concreteReturnType();
+        ParameterizedType t = comparator == null || comparator.parameters().size() != 1 ? null
+                : comparator.parameters().getFirst();
+        if (t == null || t.wildcard() != null || t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) {
+            return "<Any>";
+        }
+        return "<" + KotlinTypeName.of(t, q) + ">";
+    }
+
     private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
         KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                 .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(new TextImpl("!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /**
+     * {@code getOrDefault(x, Foo::new)} beside an overload {@code getOrDefault(T, T)}: Kotlin takes the reference as
+     * a value of T (Any) there, unless a SAM constructor makes it the Supplier.
+     */
+    private static boolean besideTypeParameter(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (!KotlinContext.translatingJava()) return false;
+        ParameterizedType functional = method.parameters().get(i).parameterizedType();
+        if (functional.typeInfo() == null || !functional.typeInfo().isInterface()) return false;
+        return method.typeInfo().methods().stream().anyMatch(other -> other != method
+                && other.name().equals(method.name()) && other.parameters().size() == method.parameters().size()
+                && other.parameters().get(i).parameterizedType().typeParameter() != null
+                && other.parameters().get(i).parameterizedType().arrays() == 0);
     }
 
     /** A call on a {@code Stream<X?>}: Kotlin hands its functions an X?. */
@@ -1083,18 +1130,27 @@ public class KotlinExpressionPrinter {
         if (mr.methodInfo().isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
             String name = type.arrays() > 0 ? KotlinTypeName.of(type, q) : KotlinTypeName.name(type.typeInfo(), q);
+            if (type.arrays() == 0 && name.contains(".") && mr.methodInfo().parameters().size() <= 2) {
+                // ::java.util.ArrayList is no reference Kotlin can parse
+                return text(switch (mr.methodInfo().parameters().size()) {
+                    case 0 -> "{ " + name + "() }";
+                    case 1 -> "{ " + name + "(it) }";
+                    default -> "{ a, b -> " + name + "(a, b) }";
+                });
+            }
             return text("::" + name);
         }
         String member = mappedMember(mr);
         if (member != null) return text("{ it" + member + " }");
         io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
-        if (scope instanceof TypeExpression te && m.isStatic() && !m.isVarargs()
+        if (scope instanceof TypeExpression te && m.isStatic() && (!m.isVarargs() || m.parameters().size() == 1)
             && KotlinTypeName.isMapped(te.parameterizedType().typeInfo().fullyQualifiedName()) && m.parameters().size() <= 2) {
-            // java.util.List::of: Kotlin wants the mapped type's arguments (List<E>) and has no static to refer to
+            // java.util.List::of: Kotlin wants the mapped type's arguments (List<E>) and has no static to refer to;
+            // List.of(E...) takes the array it is handed
             String call = KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + KotlinNames.name(m.name());
             return text(switch (m.parameters().size()) {
                 case 0 -> "{ " + call + "() }";
-                case 1 -> "{ " + call + "(it) }";
+                case 1 -> "{ " + call + (m.isVarargs() ? "(*it) }" : "(it) }");
                 default -> "{ a, b -> " + call + "(a, b) }";
             });
         }
