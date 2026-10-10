@@ -58,6 +58,14 @@ public final class CSharpTypeName {
     private static final ThreadLocal<java.util.Set<TypeInfo>> RAW_IN_PROGRESS =
             ThreadLocal.withInitial(java.util.HashSet::new);
 
+    /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
+    private static final java.util.Map<String, String> NON_GENERIC = java.util.Map.of(
+            "java.util.List", "IList",
+            "java.util.Collection", "ICollection",
+            "java.util.Set", "ICollection",
+            "java.lang.Iterable", "IEnumerable",
+            "java.util.Map", "IDictionary");
+
     /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
     private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
             "java.util.List", "IReadOnlyList",
@@ -102,6 +110,13 @@ public final class CSharpTypeName {
         if (mapped != null) return mapped;
 
         List<ParameterizedType> arguments = pt.parameters();
+        String nonGeneric = NON_GENERIC.get(fqn);
+        if (nonGeneric != null && !arguments.isEmpty()
+            && arguments.stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound())) {
+            // List<?> is any list: C#'s non-generic IList, which every List<T> is
+            CSharpContext.using("System.Collections");
+            return nonGeneric;
+        }
         String covariant = COVARIANT.get(fqn);
         if (covariant != null && arguments.size() == 1 && arguments.getFirst().wildcard() != null
             && arguments.getFirst().wildcard().isExtends() && arguments.getFirst().typeInfo() != null) {

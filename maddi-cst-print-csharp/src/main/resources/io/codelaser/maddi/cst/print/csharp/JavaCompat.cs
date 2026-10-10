@@ -62,6 +62,18 @@ public static class JavaCollections
         return removed.Count > 0;
     }
 
+    // a collection of ? is C#'s non-generic interface: its elements are objects
+    public static JavaIterator<object> Iterator(this System.Collections.IEnumerable e) =>
+        new JavaIterator<object>(e.Cast<object>().ToList());
+
+    public static void ForEach(this System.Collections.IEnumerable e, Action<object> action)
+    {
+        foreach (var x in e) action(x);
+    }
+
+    public static bool Contains(this System.Collections.IEnumerable e, object item) =>
+        e.Cast<object>().Contains(item);
+
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
 

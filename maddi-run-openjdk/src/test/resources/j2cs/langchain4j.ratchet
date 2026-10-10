@@ -19,9 +19,11 @@
 # reads as properties: errors 801 -> 793; the numbers do not move.
 # 2026-10-10, a record with a canonical or compact constructor declares its properties and that constructor; an
 # accessor implementing an interface method implements it explicitly: 209 files compile; errors 793 -> 791.
+# 2026-10-10, List/Collection/Set/Iterable/Map of ? as C#'s non-generic IList/ICollection/IEnumerable/IDictionary
+# (which a List<string> is, as a T extends Collection<?> needs): 214 files compile; errors 791 -> 772.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	209
+compilingFiles	214
 unmappedJdkUses	670

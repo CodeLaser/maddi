@@ -239,7 +239,9 @@ ratchet's report (see below) lists what is left.
   becomes `KeyValuePair<K, V>`.
 - **Wildcards.** Java cannot add to a `List<? extends Node>`: it is C#'s covariant read-only interface,
   `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
-  `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
+  `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. A collection of `?` is C#'s non-generic interface, which every generic collection implements: `List<?>` is
+  `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
+  `IDictionary`. Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →

@@ -849,4 +849,24 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "note = note == null ? \"\" : note.Trim();\nResponse = response;\nNote = note;");
         contains(cs, "T IResult<T>.Response() => Response;");
     }
+
+    @Language("java")
+    private static final String UNBOUND = """
+            package org.example.unbound;
+            import java.util.Collection;
+            import java.util.List;
+            class Checks {
+                static <T extends Collection<?>> T ensureNotEmpty(T c) { if (c.isEmpty()) throw new IllegalArgumentException(); return c; }
+                static int size(List<?> list) { return list.size(); }
+                static List<String> names(List<String> names) { return ensureNotEmpty(names); }
+            }
+            """;
+
+    /** A collection of {@code ?} is C#'s non-generic interface, which every generic collection implements. */
+    @Test
+    public void unboundWildcards() {
+        String cs = translate("Checks", UNBOUND);
+        contains(cs, "internal static T EnsureNotEmpty<T>(T c) where T : ICollection {");
+        contains(cs, "internal static int Size(IList list) => list.Count;");
+    }
 }

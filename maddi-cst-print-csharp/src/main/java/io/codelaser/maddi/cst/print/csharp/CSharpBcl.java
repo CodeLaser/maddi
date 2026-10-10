@@ -303,7 +303,9 @@ final class CSharpBcl {
         m("java.util.Map.clear/0", "$0.Clear()");
         ms("java.util.Collection.addAll/1", "$0.AddAll($1)", "$0.AddAll($1)", COMPAT);
         m("java.util.Collection.containsAll/1", "@1.All($0.Contains)", LINQ);
-        m("java.util.Collection.stream/0", "$0");
+        // a collection of ? is non-generic in C#: LINQ needs its elements as objects
+        chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
+                : rule("$0"));
         // a List has RemoveAll; any other collection, a set or a map's entries, the compatibility library's RemoveIf
         chooser("java.util.Collection.removeIf/1", (method, call) -> listTyped(call)
                 ? new Rule("$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", List.of(SYSTEM))
@@ -879,6 +881,13 @@ final class CSharpBcl {
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
         return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+    }
+
+    /** The receiver is a collection of {@code ?}, which C# has as a non-generic interface. */
+    private static boolean unboundTyped(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
+        List<ParameterizedType> args = call.object().parameterizedType().parameters();
+        return !args.isEmpty() && args.stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound());
     }
 
     /** The receiver is a C# List. */
