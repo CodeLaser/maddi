@@ -139,7 +139,13 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     private static OutputBuilder parameters(MethodInfo methodInfo, CSharpWildcards.Captured captured, Qualification q) {
         if (methodInfo.parameters().isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        return methodInfo.parameters().stream().map(p -> parameter(p, captured.names().get(p.index()), q))
+        int token = CSharpContext.program().typeToken(methodInfo);
+        // a type token, Class<T> type, is the type argument T
+        if (token >= 0 && methodInfo.parameters().size() == 1) {
+            return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        return methodInfo.parameters().stream().filter(p -> p.index() != token)
+                .map(p -> parameter(p, captured.names().get(p.index()), q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
     }

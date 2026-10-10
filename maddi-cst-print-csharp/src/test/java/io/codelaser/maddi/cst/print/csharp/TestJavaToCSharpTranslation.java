@@ -963,4 +963,31 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "int Length(Context<string> context)");
         contains(cs, "public void OnRequest<TEmbedded>(Context<TEmbedded> context)");
     }
+
+    @Language("java")
+    private static final String TYPE_TOKENS = """
+            package org.example.tokens;
+            import java.util.List;
+            class Json {
+                static <T> T fromJson(String json, Class<T> type) {
+                    System.out.println(type.getName());
+                    return null;
+                }
+                static <T> List<T> all(String json, Class<T> type) { return List.of(fromJson(json, type)); }
+                static <T> String describe(Class<T> type) { return type.getName(); }
+                static String use(Class<?> unknown) { return describe(unknown); }
+                static Integer number(String json) { return fromJson(json, Integer.class); }
+            }
+            """;
+
+    /** A type token, {@code Class<T> type}, is the method's type argument when every call says what it is. */
+    @Test
+    public void typeTokens() {
+        String cs = translate("Json", TYPE_TOKENS);
+        contains(cs, "internal static T FromJson<T>(string json) {");
+        contains(cs, "Console.Out.WriteLine(typeof(T)");
+        contains(cs, "internal static List<T> All<T>(string json) => new List<T> { FromJson<T>(json)");
+        contains(cs, "FromJson<int>(json)");
+        contains(cs, "internal static string Describe<T>(Type type)");
+    }
 }

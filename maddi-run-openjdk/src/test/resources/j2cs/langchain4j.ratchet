@@ -31,9 +31,12 @@
 # 2026-10-10, a method captures a parameter's wildcard X<?> of a program type as a type parameter of its own,
 # void OnRequest<TEmbedded>(Context<TEmbedded> c), constrained by the wildcard's or the declared bound: 227 files
 # compile; errors 716 -> 683.
+# 2026-10-10, a type token Class<T> is the method's type argument when every call passes a known Class<X>
+# (T FromJson<T>(string json), typeof(T) in the body, FromJson<Foo>(s) at the call): 230 files compile;
+# errors 683 -> 666, CS0411 30 -> 9.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	227
+compilingFiles	230
 unmappedJdkUses	670

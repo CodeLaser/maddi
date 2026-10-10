@@ -185,8 +185,27 @@ public final class CSharpExpressionPrinter {
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
+            case ParameterInfo pi when CSharpContext.program().typeToken(pi.methodInfo()) == pi.index() ->
+                    text("typeof(" + CSharpNames.typeParameter(pi.methodInfo().typeParameters().getFirst()) + ")");
             default -> text(CSharpContext.local(v.simpleName()));
         };
+    }
+
+    /** {@code <Foo>} for a call passing type token {@code Foo.class}; null when the method takes no type token. */
+    private static String typeTokenArgument(MethodCall mc, Qualification q) {
+        int token = CSharpContext.program().typeToken(mc.methodInfo());
+        if (token < 0) return null;
+        ParameterizedType type = mc.parameterExpressions().get(token).parameterizedType();
+        return "<" + CSharpTypeName.argument(type.parameters().getFirst(), q) + ">";
+    }
+
+    /** The arguments of a call, without its type token. */
+    private static List<Expression> withoutTypeToken(MethodCall mc) {
+        int token = CSharpContext.program().typeToken(mc.methodInfo());
+        if (token < 0) return mc.parameterExpressions();
+        List<Expression> args = new java.util.ArrayList<>(mc.parameterExpressions());
+        args.remove(token);
+        return args;
     }
 
     private static String thisOrBase(This t) {
@@ -309,8 +328,9 @@ public final class CSharpExpressionPrinter {
             OutputBuilder self = object == null || mc.objectIsImplicit() ? text("this") : receiver(object, q);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(text(interfaceType(method.typeInfo(), object, q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
-                    .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT).add(text(CSharpNames.method(method)))
-                    .add(arguments(mc.parameterExpressions(), method, q));
+                    .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
+                    .add(text(CSharpNames.method(method) + java.util.Objects.requireNonNullElse(typeTokenArgument(mc, q), "")))
+                    .add(argumentsWithoutTypeToken(mc, q));
         }
         CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
         if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
@@ -331,11 +351,25 @@ public final class CSharpExpressionPrinter {
                     .filter(f -> !f.isStatic() && f.name().equals(method.name())).findFirst().orElseThrow();
             return b.add(text(CSharpNames.field(component)));
         }
-        String typeArguments = mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
+        String tokenArgument = typeTokenArgument(mc, q);
+        String typeArguments = tokenArgument != null ? tokenArgument
+                : mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
         unmapped(method, mc);
         b.add(text(CSharpNames.method(method) + typeArguments));
-        return b.add(arguments(mc.parameterExpressions(), method, q));
+        return b.add(argumentsWithoutTypeToken(mc, q));
+    }
+
+    /** The arguments of a call; a type token's index is shifted out, and the others keep their parameter's type. */
+    private static OutputBuilder argumentsWithoutTypeToken(MethodCall mc, Qualification q) {
+        int token = CSharpContext.program().typeToken(mc.methodInfo());
+        if (token < 0) return arguments(mc.parameterExpressions(), mc.methodInfo(), q);
+        List<Expression> args = withoutTypeToken(mc);
+        if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        return IntStream.range(0, args.size())
+                .mapToObj(i -> converted(args.get(i), parameterType(mc.methodInfo(), i < token ? i : i + 1), q))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
 
     static OutputBuilder arguments(List<Expression> args, Qualification q) {

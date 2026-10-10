@@ -108,6 +108,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
   another type of the namespace has that name too, the name is prefixed with its enclosing types' names
   (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`.
+- **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
+  type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
+  `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
+  every call passes a `Class<X>` of a known `X` (not a `Class<?>`), no method reference names the method, and the
+  methods it overrides or that override it qualify as well. Otherwise the token stays a `Type` parameter.
 - **Member names.** C# has no member named as its type, a type parameter of its type, or a nested type of its
   type. A method named as its class is `Of` (static) or `PascalValue`; a type parameter named as a member takes the
   C# convention's `T` prefix (`EmbeddingMatch<TEmbedded>` with `Embedded()`); a method named as a nested type, with
