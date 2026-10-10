@@ -113,6 +113,9 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Exposed types.** Java's public method may name a less accessible type, C#'s may not: a nested type is as visible
+  as the members whose signatures name it (a record's components count as its properties), capped by the visibility
+  of the members' own types, and so are the types it is nested in (`CSharpAccess`).
 - **Subclasses of collections.** C#'s `List<T>` has no virtual methods. A class extending `ArrayList` extends the
   compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `AddAll`, `Clear`,
   `Clone`, …) are virtual. A call through a `List<E>`-typed reference reaches `List`'s method, not the override:

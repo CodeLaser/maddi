@@ -53,17 +53,24 @@ final class CSharpAccess {
     private static void scan(TypeInfo x, Set<Object> reached) {
         Stream.concat(x.constructors().stream(), x.methods().stream()).forEach(m -> {
             // a member that is not private exposes the types of its signature: they cannot be more private
-            boolean exposed = m.access() == null || !m.access().isPrivate();
+            Exposure exposed = m.isSynthetic() ? Exposure.NONE
+                    : cap(m.access() == null || m.access().isPackage() ? Exposure.INTERNAL
+                    : m.access().isPrivate() ? Exposure.NONE : Exposure.PUBLIC, x);
             signature(m.returnType(), x, reached, exposed);
             m.parameters().forEach(p -> signature(p.parameterizedType(), x, reached, exposed));
             if (m.methodBody() != null) body(m.methodBody(), x, reached);
         });
         for (FieldInfo f : x.fields()) {
-            signature(f.type(), x, reached, f.modifiers().stream().noneMatch(FieldModifier::isPrivate));
+            // a record's components are its properties, as visible as the record
+            boolean component = x.typeNature().isRecord() && !f.isStatic();
+            signature(f.type(), x, reached, f.isSynthetic() ? Exposure.NONE : cap(component ? Exposure.PUBLIC
+                    : f.modifiers().stream().anyMatch(FieldModifier::isPrivate) ? Exposure.NONE
+                    : f.modifiers().stream().anyMatch(fm -> fm.isPublic() || fm.isProtected()) ? Exposure.PUBLIC
+                    : Exposure.INTERNAL, x));
             if (f.initializer() != null && !f.initializer().isEmpty()) body(f.initializer(), x, reached);
         }
-        if (x.parentClass() != null) signature(x.parentClass(), x, reached, false);
-        x.interfacesImplemented().forEach(i -> signature(i, x, reached, false));
+        if (x.parentClass() != null) signature(x.parentClass(), x, reached, Exposure.NONE);
+        x.interfacesImplemented().forEach(i -> signature(i, x, reached, Exposure.NONE));
         x.subTypes().forEach(st -> scan(st, reached));
     }
 
@@ -84,22 +91,44 @@ final class CSharpAccess {
         element.typesReferenced(null).forEach(tr -> type(tr.typeInfo(), x, reached));
     }
 
-    private static void signature(ParameterizedType pt, TypeInfo x, Set<Object> reached, boolean exposed) {
+    /** How far a member's signature is visible: its types must be visible as far. */
+    private enum Exposure { NONE, INTERNAL, PUBLIC }
+
+    /** A member is no more visible than its type: a public member of an internal class is internal. */
+    private static Exposure cap(Exposure exposure, TypeInfo x) {
+        if (exposure != Exposure.PUBLIC) return exposure;
+        for (TypeInfo t = x; t != null; t = enclosing(t)) {
+            if (t.typeModifiers().stream().anyMatch(TypeModifier::isPrivate)) return Exposure.NONE;
+            if (t.typeModifiers().stream().noneMatch(m -> m.isPublic() || m.isProtected())) return Exposure.INTERNAL;
+        }
+        return Exposure.PUBLIC;
+    }
+
+    private static void signature(ParameterizedType pt, TypeInfo x, Set<Object> reached, Exposure exposed) {
         if (pt == null) return;
         if (pt.typeInfo() != null) type(pt.typeInfo(), x, reached, exposed);
         pt.parameters().forEach(p -> signature(p, x, reached, exposed));
     }
 
     private static void type(TypeInfo t, TypeInfo x, Set<Object> reached) {
-        type(t, x, reached, false);
+        type(t, x, reached, Exposure.NONE);
     }
 
-    private static void type(TypeInfo t, TypeInfo x, Set<Object> reached, boolean exposed) {
-        if (t == null || t.isPrimaryType()) return;
+    private static void type(TypeInfo t, TypeInfo x, Set<Object> reached, Exposure exposed) {
+        if (t == null || t.isPrimaryType() || !CSharpNames.translated(t)) return;
+        // C#'s nested type is no more visible than the types it is nested in
+        if (exposed != Exposure.NONE) type(enclosing(t), x, reached, exposed);
+        boolean isPublic = t.typeModifiers().stream().anyMatch(TypeModifier::isPublic);
+        // Java's public method may name a less accessible type, C#'s may not: the type becomes as visible
+        if (exposed == Exposure.PUBLIC && !isPublic) reached.add(new Exposed(t));
         if (t.typeModifiers().stream().anyMatch(TypeModifier::isPrivate)) {
             TypeInfo owner = enclosing(t);
-            if (owner != null && (exposed || !within(x, owner))) reached.add(t);
+            if (owner != null && (exposed == Exposure.INTERNAL || !within(x, owner))) reached.add(t);
         }
+    }
+
+    /** A nested type that the signature of a member that is not private names. */
+    record Exposed(TypeInfo typeInfo) {
     }
 
     private static void member(Object info, TypeInfo owner, TypeInfo x, Set<Object> reached) {

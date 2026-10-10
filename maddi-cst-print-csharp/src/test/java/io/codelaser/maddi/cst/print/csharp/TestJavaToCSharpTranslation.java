@@ -663,4 +663,33 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "return (Node) base.MemberwiseClone();");
         contains(cs, "foreach (int? vItem in values) {\nint? v = vItem;");
     }
+
+    @Language("java")
+    private static final String EXPOSED = """
+            package org.example.exposed;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Result {
+                private static class Pair {
+                    final int a;
+                    Pair(int a) { this.a = a; }
+                }
+                private static class Hidden {
+                }
+                private final List<Pair> pairs = new ArrayList<>();
+                public List<Pair> pairs() { return pairs; }
+                Hidden hidden() { return new Hidden(); }
+            }
+            """;
+
+    /**
+     * Java's public method may name a less accessible type, C#'s may not: the type becomes as visible as the member
+     * that exposes it, no more than the member's own type.
+     */
+    @Test
+    public void exposedTypes() {
+        String cs = translate("Result", EXPOSED);
+        contains(cs, "public sealed class Pair {");
+        contains(cs, "internal sealed class Hidden {");
+    }
 }

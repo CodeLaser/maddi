@@ -48,9 +48,11 @@
 # files compile; unmapped JDK uses 36 -> 32; errors 102 -> 89.
 # 2026-10-10, a class extending ArrayList extends the compatibility library's JavaArrayList (LIST_SUBCLASS); Java's
 # sorts stable, Collections.reverse in place: 170 files compile; errors 89 -> 78.
+# 2026-10-10, a nested type as visible as the members whose signatures name it, and its enclosing types with it:
+# 171 files compile; errors 78 -> 72.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	170
+compilingFiles	171
 unmappedJdkUses	32
