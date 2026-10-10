@@ -78,9 +78,9 @@ public final class CSharpExpressionPrinter {
                     .add(SymbolEnum.QUESTION_MARK).add(operand(ic.precedence(), ic.ifTrue(), q))
                     .add(SymbolEnum.COLON).add(operand(ic.precedence(), ic.ifFalse(), q));
             case MethodCall mc -> methodCall(mc, q, false);
-            case MethodReference mr -> methodReference(mr, q);
+            case MethodReference mr -> adapted(mr.parameterizedType(), methodReference(mr, q), q);
             case SwitchExpression se -> CSharpStatementPrinter.switchExpression(se, q);
-            case Lambda lambda -> lambda(lambda, q);
+            case Lambda lambda -> adapted(lambda.concreteFunctionalType(), lambda(lambda, q), q);
             case Assignment a -> assignment(a, q);
             case Negation neg -> negation(neg, q);
             case BitwiseNegation bn -> new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix("~"))
@@ -457,6 +457,17 @@ public final class CSharpExpressionPrinter {
     }
 
     // ---------------------------------------------------------------- lambdas and method references
+
+    /** A lambda of a translated functional interface, which C# has as an interface: in its adapter class. */
+    private static OutputBuilder adapted(ParameterizedType functionalType, OutputBuilder lambda, Qualification q) {
+        if (functionalType == null || functionalType.typeInfo() == null
+            || !CSharpNames.lambdaAdapter(functionalType.typeInfo())) {
+            return lambda;
+        }
+        return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+                .add(text(CSharpTypeName.of(functionalType, q) + ".Lambda")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
 
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
         List<ParameterInfo> params = lambda.parameters();

@@ -92,6 +92,10 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
   type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
+- **Functional interfaces.** A translated functional interface stays an interface: a class elsewhere may implement
+  it, which one file cannot rule out. It gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) :
+  IExprentIterator { … }`, and its lambdas and method references are wrapped in it:
+  `new IExprentIterator.Lambda(e => 0)`. Turning it into a `delegate` needs whole-program knowledge.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions

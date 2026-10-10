@@ -20,9 +20,11 @@
 # 2026-10-10, a static member outside C#'s lookup scope (a static import, an interface's constant) qualified with its
 # type; no using directive for an unmapped JDK package: 133 files compile; errors 310 -> 259.
 # 2026-10-10, a local class that captures nothing lifted into its enclosing type: 134 files compile; errors 259 -> 236.
+# 2026-10-10, a lambda or method reference of a translated functional interface wrapped in the interface's adapter
+# class (new IExprentIterator.Lambda(e => ...)): 137 files compile; errors 236 -> 218.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	134
+compilingFiles	137
 unmappedJdkUses	120

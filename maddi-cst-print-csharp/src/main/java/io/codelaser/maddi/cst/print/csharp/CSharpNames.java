@@ -169,6 +169,13 @@ public final class CSharpNames {
         return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
     }
 
+    /** A translated functional interface: its lambdas are printed with an adapter class, see CSharpTypePrinter. */
+    static boolean lambdaAdapter(TypeInfo typeInfo) {
+        if (!typeInfo.isInterface() || !translated(typeInfo) || !typeInfo.isFunctionalInterface()) return false;
+        MethodInfo sam = typeInfo.singleAbstractMethod();
+        return sam != null && sam.typeParameters().isEmpty();
+    }
+
     static boolean translated(TypeInfo typeInfo) {
         return typeInfo.compilationUnit() != null && !typeInfo.compilationUnit().externalLibrary();
     }

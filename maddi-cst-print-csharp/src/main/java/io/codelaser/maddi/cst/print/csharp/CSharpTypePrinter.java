@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Prints a {@link TypeInfo} as a C# type declaration, with the same pluggable-printer seam as the Java
@@ -143,6 +144,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
+        if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
@@ -269,6 +271,34 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         out.add(new OutputBuilderImpl().add(new TextImpl("public static " + self + " ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);")));
         CSharpContext.using("System");
         return out;
+    }
+
+    /**
+     * {@code public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { public int ProcessExprent(Exprent
+     * exprent) => f(exprent); }}: a lambda of a functional interface that is not a delegate, {@code new IExprentIterator.Lambda(
+     * e => 0)}. An interface becomes a delegate only when nothing else implements it, which a file does not know.
+     */
+    private OutputBuilder lambdaAdapter(Qualification q) {
+        MethodInfo sam = typeInfo.singleAbstractMethod();
+        List<String> parameterTypes = sam.parameters().stream().map(p -> CSharpTypeName.argument(p.parameterizedType(), q))
+                .toList();
+        boolean isVoid = sam.returnType().isVoid();
+        List<String> delegateArguments = new ArrayList<>(parameterTypes);
+        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(sam.returnType(), q));
+        String delegate = (isVoid ? "Action" : "Func")
+                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
+        String self = CSharpNames.type(typeInfo) + (typeInfo.typeParameters().isEmpty() ? ""
+                : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">")));
+        List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
+        String f = names.contains("f") ? "function" : "f";
+        String parameters = IntStream.range(0, names.size())
+                .mapToObj(i -> CSharpTypeName.of(sam.parameters().get(i).parameterizedType(), q) + " " + names.get(i))
+                .collect(Collectors.joining(", "));
+        CSharpContext.using("System");
+        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
+                + " { public " + CSharpTypeName.of(sam.returnType(), q) + " " + CSharpNames.method(sam) + "(" + parameters
+                + ") => " + f + "(" + String.join(", ", names) + "); }"));
     }
 
     // ---------------------------------------------------------------- helpers

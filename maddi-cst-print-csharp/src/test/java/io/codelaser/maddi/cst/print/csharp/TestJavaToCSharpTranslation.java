@@ -507,4 +507,25 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "entries.Add(new Entry(i));");
         assertFalse(cs.contains("class Adder"), cs);
     }
+
+    @Language("java")
+    private static final String FUNCTIONAL = """
+            package org.example.fun;
+            class Graph {
+                interface Visitor {
+                    int visit(String node);
+                }
+                static int walk(Visitor v) { return v.visit("a"); }
+                static int lengths() { return walk(s -> s.length()) + walk(Graph::one); }
+                static int one(String s) { return 1; }
+            }
+            """;
+
+    /** A translated functional interface stays an interface, with an adapter class for its lambdas. */
+    @Test
+    public void functionalInterface() {
+        String cs = translate("Graph", FUNCTIONAL);
+        contains(cs, "public sealed class Lambda(Func<string, int> f) : IVisitor { public int Visit(string node) => f(node); }");
+        contains(cs, "internal static int Lengths() => Walk(new IVisitor.Lambda(s => s.Length)) + Walk(new IVisitor.Lambda(Graph.One));");
+    }
 }
