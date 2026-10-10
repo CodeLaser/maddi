@@ -46,9 +46,11 @@
 # works on a copy; a private type in a non-private signature is internal; Queue.poll and kin; removeIf on a set or a
 # map's entries; AbstractMap.SimpleEntry as the compatibility library's JavaEntry; marker interfaces dropped: 168
 # files compile; unmapped JDK uses 36 -> 32; errors 102 -> 89.
+# 2026-10-10, a class extending ArrayList extends the compatibility library's JavaArrayList (LIST_SUBCLASS); Java's
+# sorts stable, Collections.reverse in place: 170 files compile; errors 89 -> 78.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	168
+compilingFiles	170
 unmappedJdkUses	32

@@ -215,6 +215,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
     }
 
+    private static final java.util.Set<String> LIST_BASES = java.util.Set.of("java.util.ArrayList",
+            "java.util.AbstractList", "java.util.LinkedList");
+
     private static final java.util.Set<String> MARKERS = java.util.Set.of("java.lang.Cloneable", "java.io.Serializable",
             "java.util.RandomAccess");
 
@@ -225,7 +228,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (parent != null && !parent.isJavaLangObject() && parent.typeInfo() != null
             && !"java.lang.Enum".equals(parent.typeInfo().fullyQualifiedName())
             && !"java.lang.Record".equals(parent.typeInfo().fullyQualifiedName())) {
-            supers.add(CSharpTypeName.of(parent, q));
+            if (LIST_BASES.contains(parent.typeInfo().fullyQualifiedName())) {
+                // C#'s List has no virtual methods: the compatibility library's JavaArrayList, whose Java methods are
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                if (typeInfo.methods().stream().anyMatch(m -> m.overrides().stream()
+                        .anyMatch(o -> LIST_BASES.contains(o.typeInfo().fullyQualifiedName())))) {
+                    CSharpContext.message(CSharpPrintMessage.Code.LIST_SUBCLASS, typeInfo, typeInfo.simpleName());
+                }
+                supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                        .collect(Collectors.joining(", ")) + ">");
+            } else {
+                supers.add(CSharpTypeName.of(parent, q));
+            }
         }
         // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
         typeInfo.interfacesImplemented().stream()

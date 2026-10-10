@@ -99,6 +99,8 @@ final class CSharpBcl {
     }
 
     static {
+        // C#'s List, the concrete type: its IList does not implement IReadOnlyList, which the covariant List<? extends T>
+        // is (see CSharpTypeName)
         for (String list : List.of("java.util.List", "java.util.ArrayList", "java.util.LinkedList",
                 "java.util.AbstractList", "java.util.Deque", "java.util.ArrayDeque", "java.util.Queue",
                 "java.util.SequencedCollection")) {
@@ -289,7 +291,7 @@ final class CSharpBcl {
         chooser("java.util.Collection.removeIf/1", (method, call) -> listTyped(call)
                 ? new Rule("$0.RemoveAll(new Predicate<{T0}>($1)) > 0", "$0.RemoveAll(new Predicate<{T0}>($1))", List.of(SYSTEM))
                 : rule("$0.RemoveIf($1)", COMPAT));
-        ms("java.util.Collection.removeAll/1", "$0.RemoveAll(@1.Contains) > 0", "$0.RemoveAll(@1.Contains)");
+        ms("java.util.Collection.removeAll/1", "$0.RemoveAllOf($1)", "$0.RemoveAllOf($1)", COMPAT);
         ms("java.util.Collection.retainAll/1", "$0.RetainAll($1)", "$0.RetainAll($1)", COMPAT);
         m("java.lang.Iterable.forEach/1", "$0.ForEach($1)", COMPAT);
         m("java.lang.Iterable.iterator/0", "$0.Iterator()", COMPAT);
@@ -300,12 +302,13 @@ final class CSharpBcl {
         ms("java.util.List.remove(int)", "$0.RemoveAtAndGet($1)", "$0.RemoveAt($1)", COMPAT);
         m("java.util.List.remove(Object)", "$0.Remove($1)");
         ms("java.util.List.addAll/1", "$0.AddAll($1)", "$0.AddRange($1)", COMPAT);
-        ms("java.util.List.addAll/2", "$0.InsertAll($1, $2)", "$0.InsertRange($1, $2)", COMPAT);
+        m("java.util.List.addAll/2", "$0.InsertAll($1, $2)", COMPAT);
         ms("java.util.List.set/2", "$0.Set($1, $2)", "$0[$1] = $2", COMPAT);
         m("java.util.List.indexOf/1", "$0.IndexOf($1)");
-        m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)");
-        m("java.util.List.subList/2", "$0.GetRange(@1, @2 - @1)");
-        m("java.util.List.sort/1", "$0.Sort($1)");
+        m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)", COMPAT);
+        m("java.util.List.subList/2", "$0.SubList($1, $2)", COMPAT);
+        // Java's sorts are stable, List.Sort is not
+        m("java.util.List.sort/1", "JavaCollections.Sort($0, $1)", COMPAT);
         m("java.util.List.getFirst/0", "$0[0]");
         m("java.util.List.getLast/0", "$0[^1]");
         m("java.util.SequencedCollection.getFirst/0", "$0[0]");
@@ -376,9 +379,10 @@ final class CSharpBcl {
         m("java.util.Collections.nCopies/2", "Enumerable.Repeat<{R0}>($2, $1).ToList()", LINQ);
         m("java.util.Map.Entry.comparingByKey/0", "JavaComparator.ComparingByKey<{R0}>()", COMPAT);
         m("java.util.Map.Entry.comparingByValue/0", "JavaComparator.ComparingByValue<{R0}>()", COMPAT);
-        m("java.util.Collections.sort/1", "$1.Sort()");
-        m("java.util.Collections.sort/2", "$1.Sort($2)");
-        m("java.util.Collections.reverse/1", "$1.Reverse()");
+        m("java.util.Collections.sort/1", "JavaCollections.Sort($1)", COMPAT);
+        m("java.util.Collections.sort/2", "JavaCollections.Sort($1, $2)", COMPAT);
+        // LINQ's Reverse would be a new sequence: in place
+        m("java.util.Collections.reverse/1", "JavaCollections.ReverseInPlace($1)", COMPAT);
         m("java.util.Collections.unmodifiableList/1", "$1");
         m("java.util.Collections.unmodifiableSet/1", "$1");
         m("java.util.Collections.unmodifiableMap/1", "$1");

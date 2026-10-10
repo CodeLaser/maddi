@@ -113,6 +113,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Subclasses of collections.** C#'s `List<T>` has no virtual methods. A class extending `ArrayList` extends the
+  compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `AddAll`, `Clear`,
+  `Clone`, …) are virtual. A call through a `List<E>`-typed reference reaches `List`'s method, not the override:
+  `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but `IList<T>` is not an
+  `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
   `Cloneable`, `Serializable` and `RandomAccess` are dropped.
@@ -233,6 +238,8 @@ ratchet's report (see below) lists what is left.
     `new FileStream(f.ToString(), FileMode.Create)`.
   - A method reference to a mapped member becomes a lambda around its template.
   - A template whose result is not an atom (`list.Count == 0`) is parenthesised as an operand.
+  - Java's sorts are stable, `List.Sort` is not: `list.sort(c)` and `Collections.sort` are the compatibility
+    library's stable sort. `Collections.reverse` reverses in place (LINQ's `Reverse` is a new sequence).
   - `String`'s `indexOf`, `startsWith` and `endsWith` compare ordinally, as Java's do. Case conversions are
     invariant.
 

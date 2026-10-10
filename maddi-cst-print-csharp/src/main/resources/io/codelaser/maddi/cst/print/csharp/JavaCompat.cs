@@ -127,10 +127,10 @@ public static class JavaCollections
 
     public static bool AddAll<T>(this ICollection<T> c, params T[] items) => c.AddAll((IEnumerable<T>)items);
 
-    public static bool InsertAll<T>(this List<T> l, int index, IEnumerable<T> items)
+    public static bool InsertAll<T>(this IList<T> l, int index, IEnumerable<T> items)
     {
         var all = items.ToList();
-        l.InsertRange(index, all);
+        for (var i = 0; i < all.Count; i++) l.Insert(index + i, all[i]);
         return all.Count > 0;
     }
 
@@ -143,7 +143,39 @@ public static class JavaCollections
     }
 
     /// <summary>List.remove(int): the element removed.</summary>
-    public static T RemoveAtAndGet<T>(this List<T> l, int index)
+    public static void AddRange<T>(this IList<T> l, IEnumerable<T> items)
+    {
+        foreach (var x in items.ToList()) l.Add(x);
+    }
+
+    /// <summary>List.subList, as a copy.</summary>
+    public static List<T> SubList<T>(this IList<T> l, int from, int to) => l.Skip(from).Take(to - from).ToList();
+
+    public static int LastIndexOf<T>(this IList<T> l, T item)
+    {
+        for (var i = l.Count - 1; i >= 0; i--)
+        {
+            if (EqualityComparer<T>.Default.Equals(l[i], item)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
+    public static void Sort<T>(this IList<T> l, Comparison<T> comparison)
+    {
+        var sorted = l.Order(Comparer<T>.Create(comparison ?? Comparer<T>.Default.Compare)).ToList();
+        for (var i = 0; i < sorted.Count; i++) l[i] = sorted[i];
+    }
+
+    public static void Sort<T>(this IList<T> l) => l.Sort(null);
+
+    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
+    public static void ReverseInPlace<T>(IList<T> l)
+    {
+        for (int i = 0, j = l.Count - 1; i < j; i++, j--) (l[i], l[j]) = (l[j], l[i]);
+    }
+
+    public static T RemoveAtAndGet<T>(this IList<T> l, int index)
     {
         var x = l[index];
         l.RemoveAt(index);
@@ -151,34 +183,34 @@ public static class JavaCollections
     }
 
     /// <summary>List.set: the element replaced.</summary>
-    public static T Set<T>(this List<T> l, int index, T value)
+    public static T Set<T>(this IList<T> l, int index, T value)
     {
         var old = l[index];
         l[index] = value;
         return old;
     }
 
-    public static T RemoveFirst<T>(this List<T> l)
+    public static T RemoveFirst<T>(this IList<T> l)
     {
         if (l.Count == 0) throw new InvalidOperationException("empty");
         return l.RemoveAtAndGet(0);
     }
 
-    public static T RemoveLast<T>(this List<T> l)
+    public static T RemoveLast<T>(this IList<T> l)
     {
         if (l.Count == 0) throw new InvalidOperationException("empty");
         return l.RemoveAtAndGet(l.Count - 1);
     }
 
-    public static T PeekFirst<T>(this List<T> l) => l.Count == 0 ? default : l[0];
+    public static T PeekFirst<T>(this IList<T> l) => l.Count == 0 ? default : l[0];
 
-    public static T PeekLast<T>(this List<T> l) => l.Count == 0 ? default : l[^1];
+    public static T PeekLast<T>(this IList<T> l) => l.Count == 0 ? default : l[^1];
 
-    public static T PollFirst<T>(this List<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
+    public static T PollFirst<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
 
-    public static T PollLast<T>(this List<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
+    public static T PollLast<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
 
-    public static bool Offer<T>(this List<T> l, T x)
+    public static bool Offer<T>(this IList<T> l, T x)
     {
         l.Add(x);
         return true;
@@ -1174,4 +1206,65 @@ public class JavaEntry<K, V>
     public override int GetHashCode() => (Key?.GetHashCode() ?? 0) ^ (Value?.GetHashCode() ?? 0);
 
     public override string ToString() => Key + "=" + Value;
+}
+
+/// <summary>
+/// java.util.ArrayList as the base of a class of the program: C#'s List has no virtual methods, so a subclass could
+/// not override add or remove. Java's methods are virtual here, under the names the translation calls them by. It is
+/// a List, but a call through a List-typed reference reaches List's method, not the subclass's override.
+/// </summary>
+public class JavaArrayList<E> : List<E>
+{
+    public JavaArrayList()
+    {
+    }
+
+    public JavaArrayList(int capacity) : base(capacity)
+    {
+    }
+
+    public JavaArrayList(IEnumerable<E> items) : base(items)
+    {
+    }
+
+    public new virtual bool Add(E item)
+    {
+        base.Add(item);
+        return true;
+    }
+
+    public virtual void Add(int index, E item) => Insert(index, item);
+
+    public virtual bool AddAll(ICollection<E> items)
+    {
+        AddRange(items);
+        return items.Count > 0;
+    }
+
+    public virtual bool Remove(object item) => item is E e && base.Remove(e);
+
+    public virtual E Remove(int index)
+    {
+        var old = this[index];
+        RemoveAt(index);
+        return old;
+    }
+
+    public E RemoveAtAndGet(int index)
+    {
+        var old = this[index];
+        RemoveAt(index);
+        return old;
+    }
+
+    public E Set(int index, E item)
+    {
+        var old = this[index];
+        this[index] = item;
+        return old;
+    }
+
+    public new virtual void Clear() => base.Clear();
+
+    public virtual JavaArrayList<E> Clone() => new JavaArrayList<E>(this);
 }
