@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -39,6 +40,9 @@ import java.util.stream.Stream;
  *   <li>a translated functional interface that no class implements and no interface extends is a C#
  *   {@code delegate}: its lambdas are plain lambdas and its calls invocations. Any other stays an interface with an
  *   adapter class for its lambdas, see {@link CSharpTypePrinter};</li>
+ *   <li>a namespace segment with the name of a type, of the program or of the BCL, is plural: in C#, the namespace
+ *   {@code Dev.Langchain4j.Exception} hides {@code System.Exception} from the code in {@code Dev.Langchain4j};
+ *   {@code Dev.Langchain4j.Exceptions} is .NET's naming too;</li>
  *   <li>C# members are not virtual unless declared so, Java's are: a class nothing extends is {@code sealed}, and a
  *   method nothing overrides is not {@code virtual}. Code outside the program may extend a public API, which the
  *   policy can keep open.</li>
@@ -70,19 +74,21 @@ public final class CSharpProgram {
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
-    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN);
+    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
+    private final Map<String, String> namespaceSegments;
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
-                          Inheritance inheritance) {
+                          Inheritance inheritance, Map<String, String> namespaceSegments) {
         this.delegates = delegates;
         this.extended = extended;
         this.overridden = overridden;
         this.inheritance = inheritance;
+        this.namespaceSegments = namespaceSegments;
     }
 
     public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes) {
@@ -111,7 +117,36 @@ public final class CSharpProgram {
         candidates.removeAll(implemented);
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
-        return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance());
+        return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
+                namespaceSegments(primaryTypes, all));
+    }
+
+    /** {@code Exception} → {@code Exceptions}: the segments of the program's namespaces that are a type's name too. */
+    private static Map<String, String> namespaceSegments(Collection<TypeInfo> primaryTypes, List<TypeInfo> all) {
+        Set<String> typeNames = new HashSet<>(CSharpBcl.typeNames());
+        all.stream().filter(t -> !t.isAnonymous()).forEach(t -> typeNames.add(CSharpNames.pascal(t.simpleName())));
+        Map<String, String> renamed = new java.util.HashMap<>();
+        for (TypeInfo t : primaryTypes) {
+            if (!CSharpNames.translated(t) || t.packageName() == null) continue;
+            for (String segment : t.packageName().split("\\.")) {
+                String pascal = CSharpNames.pascal(segment);
+                if (typeNames.contains(pascal)) renamed.put(pascal, plural(pascal));
+            }
+        }
+        return Map.copyOf(renamed);
+    }
+
+    static String plural(String word) {
+        if (word.endsWith("y") && word.length() > 1 && "aeiou".indexOf(word.charAt(word.length() - 2)) < 0) {
+            return word.substring(0, word.length() - 1) + "ies";
+        }
+        if (word.endsWith("s") || word.endsWith("x") || word.endsWith("ch") || word.endsWith("sh")) return word + "es";
+        return word + "s";
+    }
+
+    /** A namespace segment, in PascalCase, as printed. */
+    public String namespaceSegment(String pascal) {
+        return namespaceSegments.getOrDefault(pascal, pascal);
     }
 
     /** {@code typeInfo} is printed as a C# delegate. */

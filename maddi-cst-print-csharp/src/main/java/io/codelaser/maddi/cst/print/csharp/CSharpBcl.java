@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -226,6 +227,21 @@ final class CSharpBcl {
     }
 
     /** The C# counterpart of a JDK type; null when there is none (yet). */
+    /** The names of the BCL types the translation uses, and the System types any C# code may name. */
+    static Set<String> typeNames() {
+        Set<String> names = new java.util.HashSet<>(Set.of("Exception", "Object", "String", "Math", "Console", "Type",
+                "Attribute", "Enum", "Array", "Action", "Func", "Task", "Path", "File", "Directory", "Stream", "Encoding",
+                "Regex", "Thread", "Monitor", "Debug", "Enumerable", "Comparer", "Random", "Guid", "Uri", "TimeSpan",
+                "DateTime", "DateTimeOffset", "Convert", "Environment", "Buffer", "Delegate", "Version", "Index", "Range"));
+        for (TypeMapping m : TYPES.values()) {
+            String t = m.template();
+            int cut = t.indexOf('<');
+            if (cut >= 0) t = t.substring(0, cut);
+            if (!t.isEmpty() && Character.isUpperCase(t.charAt(0))) names.add(t);
+        }
+        return names;
+    }
+
     static TypeMapping type(TypeInfo typeInfo) {
         return TYPES.get(typeInfo.fullyQualifiedName());
     }

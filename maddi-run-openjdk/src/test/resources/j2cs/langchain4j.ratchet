@@ -9,9 +9,11 @@
 # crashes; a supplier argument a template calls is written in place (orElseGet(() -> x) is ?? x, orElseGet(List::of)
 # is ?? new List<T>()); Optional.class: 0 crashes, 0 syntax errors, 151 files compile; errors 1,249 -> 1,374 and
 # unmapped JDK uses 465 -> 670, as the 11 files that crashed are printed now.
+# 2026-10-10, a namespace segment with a type's name is plural (Dev.Langchain4j.Exception hid System.Exception,
+# Embedding, Query, Image, Tool: their types): 205 files compile; errors 1,374 -> 938.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	151
+compilingFiles	205
 unmappedJdkUses	670

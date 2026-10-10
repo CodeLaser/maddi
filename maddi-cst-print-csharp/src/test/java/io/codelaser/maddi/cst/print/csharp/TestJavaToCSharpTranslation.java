@@ -719,4 +719,22 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static string Name(string given) => given ?? \"none\";");
         contains(cs, "internal static Defaults<");
     }
+
+    @Language("java")
+    private static final String NAMESPACES = """
+            package org.example.exception.query;
+            class Query {
+                static void check(String s) { if (s == null) throw new IllegalStateException("no " + s); }
+            }
+            """;
+
+    /**
+     * A namespace segment with the name of a type, of the program or of the BCL, is plural: the namespace
+     * {@code Org.Example.Exception} would hide {@code System.Exception}.
+     */
+    @Test
+    public void namespaces() {
+        String cs = translate("Query", NAMESPACES);
+        contains(cs, "namespace Org.Example.Exceptions.Queries;");
+    }
 }

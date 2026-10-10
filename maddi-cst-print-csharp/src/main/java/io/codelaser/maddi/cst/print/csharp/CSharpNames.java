@@ -64,7 +64,9 @@ public final class CSharpNames {
     public static String namespace(String packageName, boolean translated) {
         if (packageName == null || packageName.isEmpty()) return "";
         if (!translated) return packageName;
-        return Arrays.stream(packageName.split("\\.")).map(CSharpNames::pascal).collect(Collectors.joining("."));
+        CSharpProgram program = CSharpContext.program();
+        return Arrays.stream(packageName.split("\\.")).map(CSharpNames::pascal).map(program::namespaceSegment)
+                .collect(Collectors.joining("."));
     }
 
     /** The namespace a type is declared in. */

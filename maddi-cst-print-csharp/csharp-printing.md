@@ -28,8 +28,12 @@ the factory signatures carry no context.
 
 ## Naming (`CSharpNames`)
 
-Every name is a function of its declaration alone, so a declaration and all its uses agree without a renaming pass.
+Every name is a function of its declaration and of the whole program's facts (`CSharpProgram`), so a declaration and
+all its uses agree without a renaming pass.
 
+- A namespace segment that is also the name of a type, of the program or of the BCL, is plural: the namespace
+  `Dev.Langchain4j.Exception` would hide `System.Exception` from the code in `Dev.Langchain4j`, and
+  `Dev.Langchain4j.Exceptions` is .NET's naming (`CSharpProgram`).
 - A namespace is the package with each segment in PascalCase: `org.example.util` becomes `Org.Example.Util`.
 - A translated method is PascalCase: `getName` becomes `GetName`. `toString`, `equals` and `hashCode` become
   `ToString`, `Equals` and `GetHashCode`. An override takes the name of the method it overrides.
