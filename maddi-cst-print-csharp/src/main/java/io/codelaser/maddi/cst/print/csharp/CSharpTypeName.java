@@ -54,6 +54,10 @@ public final class CSharpTypeName {
     private CSharpTypeName() {
     }
 
+    /** The raw types whose arguments are being printed: an F-bounded type parameter refers back to its type. */
+    private static final ThreadLocal<java.util.Set<TypeInfo>> RAW_IN_PROGRESS =
+            ThreadLocal.withInitial(java.util.HashSet::new);
+
     /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
     private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
             "java.util.List", "IReadOnlyList",
@@ -111,7 +115,16 @@ public final class CSharpTypeName {
         List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintMessage.Code.RAW_TYPE, null, fqn);
-            typeInfo.typeParameters().forEach(tp -> printed.add(rawArgument(tp, q)));
+            // R extends Result<R>: the raw Result's argument is Result's own erasure, which is where it stops
+            if (!RAW_IN_PROGRESS.get().add(typeInfo)) {
+                typeInfo.typeParameters().forEach(tp -> printed.add("object"));
+            } else {
+                try {
+                    typeInfo.typeParameters().forEach(tp -> printed.add(rawArgument(tp, q)));
+                } finally {
+                    RAW_IN_PROGRESS.get().remove(typeInfo);
+                }
+            }
         }
         for (int i = 0; i < arguments.size(); i++) {
             ParameterizedType a = arguments.get(i);

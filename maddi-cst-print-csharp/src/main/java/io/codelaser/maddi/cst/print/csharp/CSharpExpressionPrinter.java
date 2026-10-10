@@ -517,6 +517,12 @@ public final class CSharpExpressionPrinter {
 
     /** {@code typeof(List<>)} for Java's {@code List.class}: the unbound generic type. */
     private static String typeOfArgument(ParameterizedType type, Qualification q) {
+        CSharpBcl.TypeMapping bcl = type.typeInfo() == null ? null : CSharpBcl.type(type.typeInfo());
+        if (bcl != null && (bcl.template().contains("{") || bcl.dropArguments() || bcl.template().contains("?"))) {
+            // Optional.class: Optional<T> is T itself in C#, which has no type of its own
+            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, type.typeInfo().fullyQualifiedName() + ".class");
+            return "object";
+        }
         if (type.arrays() == 0 && type.typeInfo() != null && !type.typeInfo().typeParameters().isEmpty()) {
             return CSharpTypeName.name(type.typeInfo(), q) + "<" + ",".repeat(type.typeInfo().typeParameters().size() - 1) + ">";
         }

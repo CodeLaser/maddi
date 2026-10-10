@@ -692,4 +692,31 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public sealed class Pair {");
         contains(cs, "internal sealed class Hidden {");
     }
+
+    @Language("java")
+    private static final String SUPPLIERS = """
+            package org.example.supply;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Optional;
+            class Defaults<R extends Defaults<R>> {
+                static List<String> names(List<String> given) { return Optional.ofNullable(given).orElseGet(List::of); }
+                static List<String> copy(List<String> given) { return Optional.ofNullable(given).orElseGet(ArrayList::new); }
+                static String name(String given) { return Optional.ofNullable(given).orElseGet(() -> "none"); }
+                static Defaults raw() { return null; }
+            }
+            """;
+
+    /**
+     * C# cannot call a lambda where it is written: a supplier argument that a template calls is written in place.
+     * An F-bounded type used raw stops at its own erasure.
+     */
+    @Test
+    public void suppliers() {
+        String cs = translate("Defaults", SUPPLIERS);
+        contains(cs, "internal static List<string> Names(List<string> given) => given ?? new List<string>();");
+        contains(cs, "internal static List<string> Copy(List<string> given) => given ?? new List<string>();");
+        contains(cs, "internal static string Name(string given) => given ?? \"none\";");
+        contains(cs, "internal static Defaults<");
+    }
 }

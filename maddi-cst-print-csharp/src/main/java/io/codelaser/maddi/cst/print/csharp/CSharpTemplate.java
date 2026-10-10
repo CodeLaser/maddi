@@ -15,7 +15,11 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -71,6 +75,15 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                         i = k;
                         continue;
                     }
+                    if (c == '$' && index > 0 && call != null && template.startsWith("()", j)) {
+                        // $1(): the supplier argument, called; a lambda's body or a constructor reference's creation
+                        OutputBuilder supplied = supplied(index);
+                        if (supplied != null) {
+                            b.add(supplied);
+                            i = j + 2;
+                            continue;
+                        }
+                    }
                     b.add(index == 0 ? receiver.get() : (c == '@' ? operands : arguments).get(index - 1).get());
                     i = j;
                     continue;
@@ -100,6 +113,41 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             b.add(arguments.get(i).get());
         }
         return b;
+    }
+
+    /**
+     * The value of calling argument {@code index}, a supplier, when it is written in place: {@code () -> x} is
+     * {@code x}, {@code ArrayList::new} is {@code new List<T>()}. C# cannot call a lambda where it is written. Null
+     * for any other argument, which {@code $1()} calls.
+     */
+    private OutputBuilder supplied(int index) {
+        Expression arg = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index - 1));
+        if (arg instanceof Lambda lambda && lambda.parameters().isEmpty()) {
+            List<Statement> statements = lambda.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+                return CSharpExpressionPrinter.receiver(rs.expression(), q);
+            }
+            return null;
+        }
+        if (arg instanceof MethodReference mr && mr.methodInfo().isConstructor() && mr.concreteParameterTypes().isEmpty()
+            && mr.concreteReturnType() != null && mr.concreteReturnType().arrays() == 0) {
+            return new OutputBuilderImpl().add(new TextImpl("new " + CSharpTypeName.of(mr.concreteReturnType(), q)))
+                    .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        if (arg instanceof MethodReference mr && mr.methodInfo().isStatic() && mr.concreteParameterTypes().isEmpty()) {
+            // List::of is List.of(), translated
+            var method = mr.methodInfo();
+            String owner = CSharpTypeName.name(method.typeInfo(), q);
+            CSharpBcl.Rule rule = CSharpNames.translated(method.typeInfo()) ? null : CSharpBcl.call(method, null);
+            if (rule == null) {
+                return new OutputBuilderImpl().add(new TextImpl(owner + "." + CSharpNames.method(method)))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            }
+            rule.namespaces().forEach(CSharpContext::using);
+            return new CSharpTemplate(() -> new OutputBuilderImpl().add(new TextImpl(owner)), List.of(), List.of(), null,
+                    mr.concreteReturnType(), null, q).render(rule.template(false));
+        }
+        return null;
     }
 
     /** {@code $1.2}: argument 2 of argument 1, a call. */
