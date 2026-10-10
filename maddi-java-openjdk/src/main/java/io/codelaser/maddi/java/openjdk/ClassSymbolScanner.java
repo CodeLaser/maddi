@@ -1812,6 +1812,13 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 if (visitedNotNull.add(typeVar)) {
                     ParameterizedType upperPt = convert(upperBound, visitedNotNull);
                     assert upperPt != null;
+                    // a bound that is itself a type variable (the capture of '? extends T'): keep T, as the
+                    // WildcardType branch does; rebuilding from typeInfo() (null) left a bare '? extends '
+                    // (CodeLaser/maddi#112)
+                    if (upperPt.isTypeParameter()) {
+                        return runtime.newParameterizedType(upperPt.typeParameter(), upperPt.arrays(),
+                                runtime.wildcardExtends());
+                    }
                     TypeInfo upper = upperPt.typeInfo();
                     // preserve the bound's array dimension and type arguments: e.g. the captured 'CAP extends
                     // byte[]' from byte[].getClass() must stay byte[] (an array), not collapse to the primitive
