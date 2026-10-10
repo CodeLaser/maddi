@@ -192,6 +192,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 static int pick(String text) { return text == null ? 0 : 1; }
                 static int pick(Integer number) { return 2; }
                 static int none() { return pick((String) null); }
+                static int count(String... ss) { return ss == null ? 0 : ss.length; }
+                static int noArray() { return count((String[]) null); }
                 boolean empty(Collection<?> c) { return c.stream().map(S::str).anyMatch(String::isEmpty); }
             }
             """;
@@ -215,6 +217,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "map({ S.str(it!!) })");
         // a cast null picks the overload; `null as String` would throw
         contains(kotlin, "pick(null as String?)");
+        // a varargs array is spread, which Kotlin cannot do with a nullable one
+        contains(kotlin, "count(*(null as Array<String>))");
     }
 
     @Language("java")
