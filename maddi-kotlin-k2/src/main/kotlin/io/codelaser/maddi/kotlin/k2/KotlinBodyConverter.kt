@@ -2074,6 +2074,14 @@ internal class KotlinBodyConverter(
         val on = inlineOnlyReceiverClass(symbol)
         val n = arguments.size
         return when {
+            // an ARRAY's isEmpty/isNotEmpty is `a.length == 0`: before the collection branch, which would ask an array
+            // for an isEmpty() method and give up (#15)
+            (id == "kotlin.collections.isEmpty" || id == "kotlin.collections.isNotEmpty") && receiver != null && n == 0
+                && receiver.parameterizedType().arrays() > 0 -> {
+                val empty = runtime.newEquals(runtime.newArrayLengthBuilder().setExpression(receiver)
+                    .setSource(runtime.noSource()).build(), runtime.newInt(0))
+                if (id.endsWith("isEmpty")) empty else not(empty)
+            }
             // collections
             id == "kotlin.collections.isNotEmpty" && receiver != null && n == 0 ->
                 instanceCall(receiver, "isEmpty", listOf())?.let { not(it) }
@@ -2107,10 +2115,20 @@ internal class KotlinBodyConverter(
                     ?.let { t -> t.fields().firstOrNull { it.name() == "UTF_8" }?.let { staticFieldRef(it, t) } } ?: return null
                 newInstance("java.lang.String", listOf(arguments[0], charset))
             }
+            // `String(chars)`, `String(chars, offset, length)`: the java.lang.String constructors of the same shape
+            id == "kotlin.text.String" && receiver == null && (n == 1 || n == 3)
+                && arguments[0].parameterizedType().arrays() == 1
+                && arguments[0].parameterizedType().typeInfo()?.fullyQualifiedName() == "char" ->
+                newInstance("java.lang.String", arguments)
+            id == "kotlin.text.toRegex" && on == "kotlin.String" && receiver != null && n <= 1 ->
+                newInstance("kotlin.text.Regex", listOf(receiver) + arguments)
             id == "kotlin.collections.toString" && on == "kotlin.ByteArray" && receiver != null && n == 1 ->
                 newInstance("java.lang.String", listOf(receiver, arguments[0]))
             id == "kotlin.collections.contains" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
                 instanceCall(receiver, "containsKey", arguments)
+            // `map[k]` on a read-only Map is the @InlineOnly `get` extension: kotlinc inlines `map.get(k)` (#15)
+            id == "kotlin.collections.get" && on == "kotlin.collections.Map" && receiver != null && n == 1 ->
+                instanceCall(receiver, "get", arguments)
             // `find` is `firstOrNull(predicate)` by another name
             id == "kotlin.collections.find" && on == "kotlin.collections.Iterable" && receiver != null && n == 1 ->
                 stdlibStatic("kotlin.collections", "firstOrNull", on, listOf(receiver) + arguments)
@@ -2147,6 +2165,8 @@ internal class KotlinBodyConverter(
                 instanceCall(receiver, "getBytes", arguments)
             id == "kotlin.text.appendLine" && receiver != null && n == 1 ->
                 instanceCall(receiver, "append", arguments)?.let { instanceCall(it, "append", listOf(runtime.newChar('\n'))) }
+            id == "kotlin.text.appendLine" && receiver != null && n == 0 ->
+                instanceCall(receiver, "append", listOf(runtime.newChar('\n')))
             // io
             id == "kotlin.io.println" && receiver == null && n <= 1 ->
                 typeNamed("java.lang.System")?.let { system -> system.fields().firstOrNull { it.name() == "out" }
@@ -2154,6 +2174,14 @@ internal class KotlinBodyConverter(
             id == "kotlin.io.print" && receiver == null && n == 1 ->
                 typeNamed("java.lang.System")?.let { system -> system.fields().firstOrNull { it.name() == "out" }
                     ?.let { instanceCall(staticFieldRef(it, system), "print", arguments) } }
+            // the stream adapters: what each inlines is the java.io constructor that wraps the stream (#15)
+            id == "kotlin.io.reader" && on == "java.io.InputStream" && receiver != null && n <= 1 ->
+                charsetOrUtf8(arguments)?.let { newInstance("java.io.InputStreamReader", listOf(receiver, it)) }
+            id == "kotlin.io.bufferedReader" && on == "java.io.InputStream" && receiver != null && n <= 1 ->
+                charsetOrUtf8(arguments)?.let { newInstance("java.io.InputStreamReader", listOf(receiver, it)) }
+                    ?.let { newInstance("java.io.BufferedReader", listOf(it)) }
+            id == "kotlin.io.buffered" && on == "java.io.Reader" && receiver != null && n <= 1 ->
+                newInstance("java.io.BufferedReader", listOf(receiver) + arguments)
             id == "kotlin.io.inputStream" && on == "java.io.File" && receiver != null && n == 0 ->
                 newInstance("java.io.FileInputStream", listOf(receiver))
             id == "kotlin.io.byteInputStream" && on == "kotlin.String" && receiver != null && n == 1 ->
@@ -2182,6 +2210,11 @@ internal class KotlinBodyConverter(
         val type = mapType(argument, method.typeInfo()).takeIf { it.typeInfo() != null }?.erased() ?: return null
         return runtime.newClassExpressionBuilder(type).setSource(runtime.noSource()).build()
     }
+
+    /** The written charset, else `StandardCharsets.UTF_8`, the stdlib's default (`Charsets.UTF_8`). */
+    private fun KaSession.charsetOrUtf8(arguments: List<Expression>): Expression? = arguments.singleOrNull()
+        ?: typeNamed("java.nio.charset.StandardCharsets")
+            ?.let { t -> t.fields().firstOrNull { it.name() == "UTF_8" }?.let { staticFieldRef(it, t) } }
 
     private fun lengthIsZero(receiver: Expression): Expression? =
         instanceCall(receiver, "length", listOf())?.let { runtime.newEquals(it, runtime.newInt(0)) }
@@ -4272,6 +4305,14 @@ internal class KotlinBodyConverter(
             ?.let { rt -> all.filter { it.returnType().erasedForFQN().fullyQualifiedName() == rt }.ifEmpty { all } }
             ?: all
         if (candidates.size == 1) return candidates.first()
+        // the overload K2 resolved: its value parameters, in order, inside the candidate's (which may add a receiver
+        // before them and a Continuation after them)
+        resolvedParameters?.takeIf { name in it.first }?.second?.let { wanted ->
+            candidates.singleOrNull { c ->
+                val have = c.parameters().map { erasure(it.parameterizedType()) }
+                (0..have.size - wanted.size).any { o -> have.subList(o, o + wanted.size) == wanted }
+            }?.let { return it }
+        }
         val argTypes = arguments.map { it.parameterizedType() }
         // indexed by ARGUMENT, not by parameter: a varargs candidate has fewer parameters than the call has
         // arguments, and `typeOfParameterHandleVarargs` is what answers "what type does argument i go to".
@@ -4822,10 +4863,34 @@ internal class KotlinBodyConverter(
         locals: Map<String, Variable>,
     ): Expression {
         val written = (call.calleeExpression as? KtNameReferenceExpression)?.getReferencedName()
-        return withJvmName(written, call.resolveSymbol() as? KaCallableSymbol) {
-            convertResolvedCall(call, receiver, implicitThis, method, locals)
+        val symbol = call.resolveSymbol() as? KaCallableSymbol
+        val savedResolved = resolvedParameters
+        resolvedParameters = (symbol as? KaFunctionSymbol)?.let { f ->
+            val names = setOfNotNull(written, jvmNameOf(f))
+            names to f.valueParameters.map { p ->
+                val t = mapType(p.returnType, method.typeInfo(), method)
+                erasure(if (p.isVararg) t.copyWithArrays(t.arrays() + 1) else t)
+            }
+        }
+        try {
+            return withJvmName(written, symbol) {
+                convertResolvedCall(call, receiver, implicitThis, method, locals)
+            }
+        } finally {
+            resolvedParameters = savedResolved
         }
     }
+
+    /**
+     * The overload K2 resolved the current call to: its names (written and JVM) and the erasures of its VALUE
+     * parameters, for [resolveCallee] to break a tie its argument tiers cannot. `yieldAll(list)` has three candidates
+     * of one arity -- Iterable, Iterator, Sequence -- and an argument typed `List` matches none of them exactly, so the
+     * first was taken: the Iterator overload, which drains (modifies) its argument (#15). Saved and restored per call,
+     * so an argument's call never sees its enclosing call's.
+     */
+    private var resolvedParameters: Pair<Set<String>, List<String>>? = null
+
+    private fun erasure(t: ParameterizedType): String = t.erasedForFQN().fullyQualifiedName() + "[]".repeat(t.arrays())
 
     // A call's callee renamed for the JVM by `@JvmName` (written name to JVM name), for [resolveCallee] to try first;
     // set for exactly one call's resolution at a time -- see [withJvmName].

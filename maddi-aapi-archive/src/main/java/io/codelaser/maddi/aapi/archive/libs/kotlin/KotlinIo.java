@@ -24,6 +24,8 @@ import java.util.List;
 /**
  * The annotated API for {@code kotlin.io}: reading a file through a {@link File} leaves the File object as it
  * was. The stream extensions (readBytes, copyTo, reader) DO consume their stream and stay uncontracted.
+ * <p>
+ * kotlin.* types are named in full, never imported: see {@link KotlinJvm}.
  */
 public class KotlinIo {
     public static final String PACKAGE_NAME = "kotlin.io";
@@ -53,6 +55,22 @@ public class KotlinIo {
 
         @NotNull
         static byte[] readBytes(@NotModified File receiver) {
+            return null;
+        }
+
+        /* writes the FILE, not the File object, which only names it */
+        static void writeText(@NotModified File receiver, @NotModified String text, @NotModified Charset charset) {
+        }
+
+        static <T> T useLines(@NotModified File receiver, @NotModified Charset charset,
+                              kotlin.jvm.functions.Function1<? super kotlin.sequences.Sequence<String>, ? extends T> block) {
+            return null;
+        }
+    }
+
+    class FilesKt__FileTreeWalkKt$ {
+        @NotNull
+        static kotlin.io.FileTreeWalk walk(@NotModified File receiver, @NotModified kotlin.io.FileWalkDirection direction) {
             return null;
         }
     }

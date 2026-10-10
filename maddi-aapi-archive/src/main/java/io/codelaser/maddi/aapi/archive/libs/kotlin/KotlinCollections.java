@@ -26,9 +26,11 @@ import kotlin.sequences.Sequence;
 
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
 
 /**
  * The annotated API for {@code kotlin.collections}: the extension functions every Kotlin codebase calls on a
@@ -534,6 +536,100 @@ public class KotlinCollections {
         static double sumOfDouble(@NotModified Iterable<Double> receiver) {
             return 0d;
         }
+
+        /*
+        THE SECOND CENSUS BATCH (detekt, 2026-10-10, #15): read-only extensions an uncontracted call made modify their
+        receiver. flatMapSequence was bound to flatMap's contract until the front end kept the JVM names apart.
+        mapTo writes its destination, which is left at the default (modified).
+        */
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> flatMapSequence(@NotModified Iterable<? extends T> receiver, Function1<? super T, ? extends Sequence<? extends R>> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> mapIndexed(@NotModified Iterable<? extends T> receiver, Function2<? super Integer, ? super T, ? extends R> transform) {
+            return null;
+        }
+
+        static <T, R extends Comparable<? super R>> T maxByOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, ? extends R> selector) {
+            return null;
+        }
+
+        static <T, R extends Comparable<? super R>> T minByOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, ? extends R> selector) {
+            return null;
+        }
+
+        static <S, T extends S> S reduce(@NotModified Iterable<? extends T> receiver, Function2<? super S, ? super T, ? extends S> operation) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> scan(@NotModified Iterable<? extends T> receiver, R initial, Function2<? super R, ? super T, ? extends R> operation) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<Pair<T, R>> zip(@NotModified Iterable<? extends T> receiver, @NotModified R[] other) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<Pair<T, T>> zipWithNext(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<List<T>> windowed(@NotModified Iterable<? extends T> receiver, int size, int step, boolean partialWindows) {
+            return null;
+        }
+
+        @Independent
+        @NotNull
+        static int[] toIntArray(@NotModified Collection<Integer> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> takeLastWhile(@NotModified List<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> dropLastWhile(@NotModified List<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        static <T> T single(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, K> List<T> distinctBy(@NotModified Iterable<? extends T> receiver, Function1<? super T, ? extends K> selector) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> associateWith(@NotModified Iterable<? extends K> receiver, Function1<? super K, ? extends V> valueSelector) {
+            return null;
+        }
+
+        static <T> void forEachIndexed(@NotModified Iterable<? extends T> receiver, Function2<? super Integer, ? super T, Unit> action) {
+        }
+
+        static <T, R, C extends Collection<? super R>> C mapTo(@NotModified Iterable<? extends T> receiver, C destination, Function1<? super T, ? extends R> transform) {
+            return null;
+        }
     }
 
     /*
@@ -566,6 +662,42 @@ public class KotlinCollections {
         @NotNull
         static <K, V, R> Map<K, R> mapValues(@NotModified Map<? extends K, ? extends V> receiver,
                                              Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> filterValues(@NotModified Map<? extends K, ? extends V> receiver, Function1<? super V, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> filterKeys(@NotModified Map<? extends K, ? extends V> receiver, Function1<? super K, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> Map<R, V> mapKeys(@NotModified Map<? extends K, ? extends V> receiver, Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> toMap(@NotModified Iterable<? extends Pair<? extends K, ? extends V>> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> toMap(@NotModified Pair<? extends K, ? extends V>[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> plus(@NotModified Map<? extends K, ? extends V> receiver, @NotModified Pair<? extends K, ? extends V> pair) {
             return null;
         }
     }
@@ -652,6 +784,16 @@ public class KotlinCollections {
                                      Function1<? super Map.Entry<? extends K, ? extends V>, ? extends R> transform) {
             return null;
         }
+
+        static <K, V> boolean any(@NotModified Map<? extends K, ? extends V> receiver, Function1<? super Map.Entry<? extends K, ? extends V>, Boolean> predicate) {
+            return false;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <K, V, R> List<R> flatMap(@NotModified Map<? extends K, ? extends V> receiver, Function1<? super Map.Entry<? extends K, ? extends V>, ? extends Iterable<? extends R>> transform) {
+            return null;
+        }
     }
 
     class CollectionsKt__CollectionsJVMKt$ {
@@ -673,6 +815,11 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         static <T> Set<T> emptySet() {
+            return null;
+        }
+
+        @NotNull
+        static <T> Set<T> setOfNotNull(@Independent(hc = true) @NotModified T... elements) {
             return null;
         }
     }
@@ -810,6 +957,72 @@ public class KotlinCollections {
         static <T> T singleOrNull(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
             return null;
         }
+
+        /* the census's array batch: each reads the array, and a List it returns is fresh; asSequence is a view */
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> takeWhile(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> takeLastWhile(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> List<T> filterNot(@NotModified T[] receiver, Function1<? super T, Boolean> predicate) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T, R> List<R> flatMap(@NotModified T[] receiver, Function1<? super T, ? extends Iterable<? extends R>> transform) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T> HashSet<T> toHashSet(@NotModified T[] receiver) {
+            return null;
+        }
+
+        static <S, T extends S> S reduce(@NotModified T[] receiver, Function2<? super S, ? super T, ? extends S> operation) {
+            return null;
+        }
+
+        static int reduce(@NotModified int[] receiver, Function2<? super Integer, ? super Integer, Integer> operation) {
+            return 0;
+        }
+
+        @NotNull
+        static IntRange getIndices(@NotModified int[] receiver) {
+            return null;
+        }
+
+        @NotNull
+        static <T> IntRange getIndices(@NotModified T[] receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static List<Integer> dropLast(@NotModified int[] receiver, int n) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static List<Character> drop(@NotModified char[] receiver, int n) {
+            return null;
+        }
+
+        @NotNull
+        static <T> Sequence<T> asSequence(@NotModified T[] receiver) {
+            return null;
+        }
     }
 
     /* public fun <T> Iterable<Iterable<T>>.flatten(): List<T> -- a fresh list of the inner elements */
@@ -831,6 +1044,12 @@ public class KotlinCollections {
         @Independent(hc = true)
         @NotNull
         static <R> List<R> filterIsInstance(@NotModified Iterable<?> receiver, Class<R> klass) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        @NotNull
+        static <T extends Comparable<? super T>> SortedSet<T> toSortedSet(@NotModified Iterable<? extends T> receiver) {
             return null;
         }
     }
@@ -877,5 +1096,28 @@ public class KotlinCollections {
 
         @NotModified
         boolean isEmpty() { return false; }
+    }
+
+    /* public data class IndexedValue<out T>(public val index: Int, public val value: T): `withIndex()`'s element */
+    class IndexedValue$<T> {
+        @NotModified
+        int getIndex() {
+            return 0;
+        }
+
+        @NotModified
+        T getValue() {
+            return null;
+        }
+
+        @NotModified
+        int component1() {
+            return 0;
+        }
+
+        @NotModified
+        T component2() {
+            return null;
+        }
     }
 }

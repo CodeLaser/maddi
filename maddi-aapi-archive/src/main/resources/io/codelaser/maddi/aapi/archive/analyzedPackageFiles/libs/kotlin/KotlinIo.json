@@ -28,17 +28,27 @@
  {"name": "MreadText(9,java.io.File,java.nio.charset.Charset)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$readText(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MuseLines(10,java.io.File,java.nio.charset.Charset,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Pblock(2)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MuseLines(10,java.io.File,java.nio.charset.Charset,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$useLines(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pblock(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
  {"name": "MwriteBytes(11,java.io.File,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Parray(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
- {"name": "MwriteText(12,java.io.File,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptext(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteText(12,java.io.File,java.lang.String,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$writeText(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Ptext(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MwriteTextImpl(13,java.io.OutputStream,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Ptext(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+
+{"name": "Tkotlin.io.FilesKt__FileTreeWalkKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
+ {"name": "Mwalk(0,java.io.File,kotlin.io.FileWalkDirection)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$walk(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pdirection(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "MwalkBottomUp(1,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MwalkTopDown(2,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2}}]},
 
 {"name": "Tkotlin.io.FilesKt__UtilsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
