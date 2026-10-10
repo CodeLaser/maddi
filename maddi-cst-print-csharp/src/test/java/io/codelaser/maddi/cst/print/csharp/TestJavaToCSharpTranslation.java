@@ -193,7 +193,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "default:\nr--;\nbreak;");
         contains(cs, "case 1: case 2: return \"small\";");
         contains(cs, "\"a\" or \"b\" => 1,");
-        contains(cs, "_ => throw new IllegalArgumentException(s)");
+        contains(cs, "_ => throw new ArgumentException(s)");
     }
 
     @Language("java")
@@ -259,7 +259,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void expressions() {
         String cs = translate("Expressions", EXPRESSIONS);
         contains(cs, "internal static bool Same(string a, string b) => object.ReferenceEquals(a, b);");
-        contains(cs, "if (o is string s && !s.isEmpty()) { return s; }");
+        contains(cs, "if (o is string s && !(s.Length == 0)) { return s; }");
         contains(cs, "if (o is not int) { return \"other\"; }");
         contains(cs, "x >>> 3");
         contains(cs, "typeof(Expressions)");
@@ -297,7 +297,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Resources", TRY);
         contains(cs, "using (var a = new Res())");
         contains(cs, "using (var b = new Res())");
-        contains(cs, "catch (Exception e) when (e is IllegalStateException || e is UnsupportedOperationException) {");
+        contains(cs, "catch (Exception e) when (e is InvalidOperationException || e is NotSupportedException) {");
     }
 
     @Language("java")
@@ -314,7 +314,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void staticClass() {
         String cs = translate("Strings", UTIL);
         contains(cs, "public static class Strings {");
-        contains(cs, "public static T Max<T>(T a, T b) where T : Comparable<T> => a.compareTo(b) >= 0 ? a : b;");
+        contains(cs, "public static T Max<T>(T a, T b) where T : IComparable<T> => a.CompareTo(b) >= 0 ? a : b;");
     }
 
     @Language("java")
@@ -355,8 +355,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Test
     public void lambdas() {
         String cs = translate("Lambdas", LAMBDAS);
-        contains(cs, "internal static Function<string, int> Lengths() => Lambdas.Len;");
-        contains(cs, "internal static Function<int, int> Inc() => x => x + 1;");
+        contains(cs, "internal static Func<string, int> Lengths() => Lambdas.Len;");
+        contains(cs, "internal static Func<int, int> Inc() => x => x + 1;");
         contains(cs, "() => new StringBuilder()");
     }
 

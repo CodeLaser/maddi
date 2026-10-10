@@ -85,7 +85,7 @@ public final class CSharpStatementPrinter {
             case YieldStatement ys -> new OutputBuilderImpl().add(KeywordImpl.RETURN).add(SpaceEnum.ONE)
                     .add(CSharpExpressionPrinter.print(ys.expression(), q)).add(SymbolEnum.SEMICOLON);
             case ExpressionAsStatement es -> new OutputBuilderImpl()
-                    .add(CSharpExpressionPrinter.print(es.expression(), q)).add(SymbolEnum.SEMICOLON);
+                    .add(CSharpExpressionPrinter.printStatement(es.expression(), q)).add(SymbolEnum.SEMICOLON);
             case LocalVariableCreation lvc -> new OutputBuilderImpl().add(declaration(lvc, q)).add(SymbolEnum.SEMICOLON);
             case IfElseStatement ife -> ifElse(ife, q);
             case ThrowStatement ts -> new OutputBuilderImpl().add(KeywordImpl.THROW).add(SpaceEnum.ONE)
@@ -239,7 +239,7 @@ public final class CSharpStatementPrinter {
             case Expression x -> CSharpExpressionPrinter.print(x, q);
             default -> text(e.toString());
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
-        OutputBuilder updates = fs.updaters().stream().map(e -> CSharpExpressionPrinter.print(e, q))
+        OutputBuilder updates = fs.updaters().stream().map(e -> CSharpExpressionPrinter.printStatement(e, q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
         OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.FOR).add(SpaceEnum.ONE)
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(init).add(SymbolEnum.SEMICOLON);

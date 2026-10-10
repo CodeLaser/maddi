@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
+import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompilationUnitPrinter;
 import io.codelaser.maddi.cst.print.csharp.CSharpPrintMessage;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
@@ -74,7 +75,12 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         Path out = Path.of("build/j2cs", name);
         deleteRecursively(out);
         Printed printed = print(corpus, corpus.types(), out.resolve("src"));
-        Judged judged = judge(printed.files, out);
+        // the compatibility library goes with the translation; it is compiled with it, and not counted
+        Path compat = out.resolve("src").resolve(CSharpCompat.FILE_NAME).toAbsolutePath().normalize();
+        Files.writeString(compat, CSharpCompat.source());
+        List<Path> all = new ArrayList<>(printed.files);
+        all.add(compat);
+        Judged judged = judge(all, out);
 
         Set<Path> withErrors = judged.errors.stream().map(Diagnostic::file).collect(Collectors.toSet());
         Set<Path> withSyntaxErrors = judged.syntaxErrors.stream().map(Diagnostic::file).collect(Collectors.toSet());
@@ -91,7 +97,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         measured.put("compilingFiles", compiling);
         measured.put("unmappedJdkUses", (long) unmapped.size());
 
-        String report = report(measured, printed, judged, unmapped);
+        String report = report(measured, printed, judged, unmapped, compat);
         Files.writeString(out.resolve("report.txt"), report);
         Files.write(out.resolve("messages.txt"), printed.messages.stream().map(CSharpPrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
@@ -168,13 +174,19 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
     // ---------------------------------------------------------------- report and ratchet
 
     private String report(Map<String, Long> measured, Printed printed, Judged judged,
-                          List<CSharpPrintMessage> unmapped) {
+                          List<CSharpPrintMessage> unmapped, Path compat) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
         if (!printed.crashes.isEmpty()) {
             sb.append("\nprinter crashes:\n");
             printed.crashes.forEach(c -> sb.append("  ").append(c).append('\n'));
+        }
+        List<Diagnostic> inCompat = judged.errors.stream().filter(d -> d.file.equals(compat)).toList();
+        if (!inCompat.isEmpty()) {
+            sb.append("\nerrors in the compatibility library (").append(CSharpCompat.FILE_NAME).append("):\n");
+            inCompat.forEach(d -> sb.append("  ").append(d.line).append(' ').append(d.code).append(' ')
+                    .append(d.message).append('\n'));
         }
         if (!judged.syntaxErrors.isEmpty()) {
             sb.append("\nsyntax errors:\n");

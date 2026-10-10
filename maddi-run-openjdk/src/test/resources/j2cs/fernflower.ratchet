@@ -7,9 +7,13 @@
 # 199 files compile (interfaces and stubs); 5,290 errors (not ratcheted), 3,216 of them JDK types C# does not know.
 # 2026-10-10, C#'s scoping of locals (a name an enclosing block declares later, two pattern variables of one name in
 # a block: renamed) and jagged-array initializers (new T[] { } for a nested one): 23 files compile; 4,947 errors.
+# 2026-10-10, the JDK -> BCL mapping (CSharpBcl): collections as List/Dictionary/HashSet, streams as LINQ, functional
+# interfaces as delegates, exceptions, String/StringBuilder/boxed members, and the compatibility library
+# Maddi.JavaCompat (JavaCompat.cs, compiled with the translation) where Java's behaviour differs: 105 files compile;
+# unmapped JDK uses 6,922 -> 232; errors 4,947 -> 807.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	23
-unmappedJdkUses	6922
+compilingFiles	105
+unmappedJdkUses	232

@@ -90,22 +90,54 @@ public final class CSharpTypeName {
         String mapped = MAPPED.get(fqn);
         if (mapped != null) return mapped;
 
-        String name = name(typeInfo, q);
         List<ParameterizedType> arguments = pt.parameters();
+        List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintMessage.Code.RAW_TYPE, null, fqn);
-            return name + typeInfo.typeParameters().stream().map(tp -> rawArgument(tp, q))
-                    .collect(Collectors.joining(", ", "<", ">"));
+            typeInfo.typeParameters().forEach(tp -> printed.add(rawArgument(tp, q)));
         }
-        if (arguments.isEmpty()) return name;
-        List<String> printed = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             ParameterizedType a = arguments.get(i);
             // Key<?> where Key<T extends Attribute>: the bound, which satisfies the constraint
             boolean unbound = a.wildcard() != null && a.wildcard().isUnbound() && i < typeInfo.typeParameters().size();
             printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
         }
-        return name + "<" + String.join(", ", printed) + ">";
+        CSharpBcl.TypeMapping bcl = CSharpBcl.type(typeInfo);
+        if (bcl != null) return bcl(bcl, printed, arguments, q);
+        String name = name(typeInfo, q);
+        return printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+    }
+
+    /**
+     * A JDK type in C# ({@link CSharpBcl}): its name with the type arguments, or its pattern of them, {@code {0}} as a
+     * type argument and {@code {0?}} as a type ({@code Optional<Integer>} is {@code int?}).
+     */
+    private static String bcl(CSharpBcl.TypeMapping bcl, List<String> printed, List<ParameterizedType> arguments,
+                              Qualification q) {
+        if (bcl.namespace() != null) CSharpContext.using(bcl.namespace());
+        String template = bcl.template();
+        if (!template.contains("{")) {
+            return printed.isEmpty() || template.contains("<") || bcl.dropArguments() ? template
+                    : template + "<" + String.join(", ", printed) + ">";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < template.length(); i++) {
+            char c = template.charAt(i);
+            if (c == '{') {
+                int close = template.indexOf('}', i);
+                String token = template.substring(i + 1, close);
+                int index = Integer.parseInt(token.replace("?", ""));
+                if (token.endsWith("?")) {
+                    sb.append(index < arguments.size() ? of(arguments.get(index), q, false) : "object");
+                } else {
+                    sb.append(index < printed.size() ? printed.get(index) : "object");
+                }
+                i = close;
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -115,6 +147,14 @@ public final class CSharpTypeName {
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = MAPPED.get(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
+        CSharpBcl.TypeMapping bcl = CSharpBcl.type(typeInfo);
+        if (bcl != null) {
+            // Func<{0}, bool> is named Func
+            if (bcl.namespace() != null) CSharpContext.using(bcl.namespace());
+            String template = bcl.template();
+            int angle = template.indexOf('<');
+            return template.startsWith("{") ? "object" : angle < 0 ? template : template.substring(0, angle);
+        }
         if (!CSharpNames.translated(typeInfo)) {
             CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
         }
