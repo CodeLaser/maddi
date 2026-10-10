@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EmptyExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -285,9 +286,11 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder switchOldStyle(SwitchStatementOldStyle sw, Qualification q) {
         // one C# scope, the switch block, as in Java
         CSharpContext.enterScope(CSharpLocals.declaredIn(sw.block().statements()));
+        SELECTORS.get().push(sw.expression());
         try {
             return switchOldStyleInScope(sw, q);
         } finally {
+            SELECTORS.get().pop();
             CSharpContext.exitScope();
         }
     }
@@ -334,9 +337,11 @@ public final class CSharpStatementPrinter {
             else all.add(entry.statement());
         }
         CSharpContext.enterScope(CSharpLocals.declaredIn(all));
+        SELECTORS.get().push(sw.expression());
         try {
             return switchNewStyleInScope(sw, q);
         } finally {
+            SELECTORS.get().pop();
             CSharpContext.exitScope();
         }
     }
@@ -400,7 +405,17 @@ public final class CSharpStatementPrinter {
     }
 
     /** A case constant; Java's unqualified enum constant {@code RED} is C#'s {@code Color.Red}. */
+    /** The selectors of the switches being printed, innermost first: a char selector's int labels are chars. */
+    private static final ThreadLocal<java.util.Deque<Expression>> SELECTORS = ThreadLocal.withInitial(java.util.ArrayDeque::new);
+
     private static OutputBuilder caseConstant(Expression literal, Qualification q) {
+        Expression selector = SELECTORS.get().peek();
+        if (literal instanceof IntConstant ic && selector != null && selector.parameterizedType() != null
+            && selector.parameterizedType().typeInfo() != null && selector.parameterizedType().arrays() == 0
+            && "char".equals(selector.parameterizedType().typeInfo().simpleName())) {
+            // case 0x8: on a char is C#'s case '\b':
+            return text(CSharpExpressionPrinter.charLiteral((char) ic.constant().intValue()));
+        }
         if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
             && CSharpNames.isEnumConstant(fr.fieldInfo())) {
             return text(CSharpTypeName.name(fr.fieldInfo().owner(), q) + "." + CSharpNames.field(fr.fieldInfo()));
@@ -430,13 +445,18 @@ public final class CSharpStatementPrinter {
     /** {@code selector switch { A or B => x, _ => y }}. */
     static OutputBuilder switchExpression(SwitchExpression se, Qualification q) {
         List<OutputBuilder> arms = new ArrayList<>();
-        for (SwitchEntry entry : se.entries()) {
-            CSharpContext.enterScope(Set.of()); // an arm's pattern variable is the arm's
-            try {
-                arms.add(switchArm(entry, se.parameterizedType(), q));
-            } finally {
-                CSharpContext.exitScope();
+        SELECTORS.get().push(se.selector());
+        try {
+            for (SwitchEntry entry : se.entries()) {
+                CSharpContext.enterScope(Set.of()); // an arm's pattern variable is the arm's
+                try {
+                    arms.add(switchArm(entry, se.parameterizedType(), q));
+                } finally {
+                    CSharpContext.exitScope();
+                }
             }
+        } finally {
+            SELECTORS.get().pop();
         }
         return new OutputBuilderImpl().add(CSharpExpressionPrinter.receiver(se.selector(), q)).add(SpaceEnum.ONE)
                 .add(KeywordImpl.SWITCH).add(SpaceEnum.ONE).add(arms.stream().collect(OutputBuilderImpl.joining(

@@ -192,8 +192,10 @@ ratchet's report (see below) lists what is left.
   invocation: `f.apply(x)` becomes `f(x)`.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
-- **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected gets a cast, and
-  `(Boolean) o` used as a condition becomes `(bool) o`. Java's `null` where a type parameter is expected becomes
+- **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
+  compound one too, an argument, a return value, a conditional's branch, an arithmetic operand) gets a cast, and
+  `(Boolean) o` used as a condition becomes `(bool) o`. A lambda's parameter is the delegate's value type already. A
+  `char` switch's `int` labels are `char` literals. Java's `null` where a type parameter is expected becomes
   `default`.
 - **Static members.** C# finds a static member by its simple name only in the type itself, the types it is nested
   in, and their base classes. Any other, a static import or an interface's constant used in an implementing class,

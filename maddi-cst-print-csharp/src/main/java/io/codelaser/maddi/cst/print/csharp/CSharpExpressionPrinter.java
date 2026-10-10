@@ -93,6 +93,8 @@ public final class CSharpExpressionPrinter {
             // !(x instanceof T) is x is not T
             case UnaryOperator uo when "!".equals(uo.operator().name())
                                        && unwrap(uo.expression()) instanceof InstanceOf io -> instanceOf(io, true, q);
+            case UnaryOperator uo when "!".equals(uo.operator().name()) -> new OutputBuilderImpl()
+                    .add(SymbolEnum.UNARY_BOOLEAN_NOT).add(booleanOperand(uo.precedence(), uo.expression(), q));
             case UnaryOperator uo -> new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix(uo.operator().name()))
                     .add(operand(uo.precedence(), uo.expression(), q));
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
@@ -345,6 +347,13 @@ public final class CSharpExpressionPrinter {
         if (target == null) return print(value, q);
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
+        if (target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target)
+                                                                                        || converts(ic.ifFalse(), target))) {
+            // the branches: C#'s conditional takes its type from them
+            return new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
+                    .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q))
+                    .add(SymbolEnum.COLON).add(converted(ic.ifFalse(), target, q));
+        }
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
         // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
@@ -399,7 +408,9 @@ public final class CSharpExpressionPrinter {
         if (target == null) return false;
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
-               || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target);
+               || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
+               || target.isPrimitiveExcludingVoid() && inner instanceof InlineConditional ic
+                  && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
 
     private static boolean rawArray(Expression e, ParameterizedType target) {
@@ -420,7 +431,14 @@ public final class CSharpExpressionPrinter {
     private static boolean unboxed(Expression e) {
         ParameterizedType type = e.parameterizedType();
         return type != null && type.isBoxedExcludingVoid() && type.arrays() == 0
-               && (e instanceof MethodCall || e instanceof VariableExpression || e instanceof Cast);
+               && (e instanceof MethodCall || e instanceof VariableExpression && !lambdaParameter(e) || e instanceof Cast
+                   || e instanceof Assignment);
+    }
+
+    /** A lambda's parameter has the delegate's type argument as its type, the value type itself: Func<int, int>. */
+    private static boolean lambdaParameter(Expression e) {
+        return e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi
+               && pi.methodInfo() != null && pi.methodInfo().typeInfo().isAnonymous();
     }
 
     /** A condition: a {@code Boolean} is unboxed. */
@@ -428,6 +446,13 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(e);
         return unboxed(inner) && inner.parameterizedType().isBooleanOrBoxedBoolean() ? unboxCast("bool", e, q)
                 : print(e, q);
+    }
+
+    /** An operand of an arithmetic operator: a boxed one is cast to its value type. */
+    private static OutputBuilder unboxedOperand(Precedence precedence, Expression e, Qualification q) {
+        Expression inner = unwrap(e);
+        return unboxed(inner) && !(inner.parameterizedType().isJavaLangString())
+                ? unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), e, q) : operand(precedence, e, q);
     }
 
     /** An operand of a boolean operator, {@code !}, {@code &&} or {@code ||}. */
@@ -512,7 +537,7 @@ public final class CSharpExpressionPrinter {
         CSharpContext.enterScope(java.util.Set.of());
         try {
             b.add(text(method.parameters().stream()
-                    .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
+                    .map(p -> CSharpTypeName.argument(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
                     .collect(Collectors.joining(", ", "(", ")"))));
             b.add(SymbolEnum.binaryOperator("=>")).add(CSharpStatementPrinter.block(method.methodBody(), q));
         } finally {
@@ -618,8 +643,7 @@ public final class CSharpExpressionPrinter {
                     : target.add(SymbolEnum.plusPlusSuffix(operator));
         }
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
-        OutputBuilder value = "=".equals(operator)
-                && converts(a.value(), a.variableTarget().parameterizedType())
+        OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
                 ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
@@ -632,6 +656,12 @@ public final class CSharpExpressionPrinter {
                     .add(arguments(List.of(bo.lhs(), bo.rhs()), q));
             return "==".equals(op) ? call
                     : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
+        }
+        if (!"==".equals(op) && !"!=".equals(op) && bo.parameterizedType() != null
+            && bo.parameterizedType().isPrimitiveExcludingVoid()) {
+            // Java unboxes an Integer operand; C# lifts the operation to int?
+            return new OutputBuilderImpl().add(unboxedOperand(bo.precedence(), bo.lhs(), q))
+                    .add(SymbolEnum.binaryOperator(op)).add(unboxedOperand(bo.precedence(), bo.rhs(), q));
         }
         return new OutputBuilderImpl().add(operand(bo.precedence(), bo.lhs(), q))
                 .add(SymbolEnum.binaryOperator(op))

@@ -446,6 +446,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     int n(Factory<E> f) { return f.size(); }
                 }
                 static <T> T none() { return null; }
+                static String escape(char c) {
+                    switch (c) {
+                        case 0x8: return "\\b";
+                        default: return "";
+                    }
+                }
+                static int orZero(Integer i, Integer count) { return i == null ? 0 : i + count; }
                 static int index(Map<String, Integer> map, String key, Integer boxed) {
                     Map<Integer, String> names = new HashMap<>();
                     String name = names.get(boxed);
@@ -472,6 +479,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "string name = names.Get((int) boxed);");
         contains(cs, "int i = (int) map.GetValueOrNull(key);");
         contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
+        contains(cs, "case '\\b': return");
+        contains(cs, "internal static int OrZero(int? i, int? count) => i == null ? 0 : (int) i + (int) count;");
     }
 
     @Language("java")

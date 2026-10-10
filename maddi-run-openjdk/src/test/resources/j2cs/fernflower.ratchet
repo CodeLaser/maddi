@@ -27,9 +27,11 @@
 # 2026-10-10, constructor rules (new FileOutputStream(f) -> new FileStream(..., FileMode.Create)); file and buffered
 # streams, readers and writers; Pattern as Regex with the compatibility library's JavaMatcher; Instant, ThreadLocal,
 # OptionalInt, Character.getType: 144 files compile; unmapped JDK uses 120 -> 74; errors 204 -> 156.
+# 2026-10-10, unboxing in a conditional's branches, a compound assignment and an arithmetic operand, not of a lambda's
+# parameter; a char switch's int labels as chars: 151 files compile; errors 156 -> 135.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	144
+compilingFiles	151
 unmappedJdkUses	74
