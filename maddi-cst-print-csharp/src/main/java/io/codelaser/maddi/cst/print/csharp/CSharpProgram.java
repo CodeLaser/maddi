@@ -34,12 +34,15 @@ import java.util.stream.Stream;
 /**
  * What the printer knows of the whole translated program, beyond the file it prints: computed once, before the
  * files are printed, and handed to each {@link CSharpCompilationUnitPrinter}. Without it ({@link #NONE}), every
- * decision is the one that is right whatever the other files contain.
- * <p>
- * Its first decision is the form of a translated functional interface. As a C# {@code delegate}, its lambdas are
- * plain lambdas and its calls invocations, which is idiomatic; that is only possible when no class implements it, and
- * no interface extends it. Otherwise it stays an interface with an adapter class for its lambdas, see
- * {@link CSharpTypePrinter}.
+ * decision is the one that is right whatever the other files contain. Its decisions, each with a {@link Policy}:
+ * <ul>
+ *   <li>a translated functional interface that no class implements and no interface extends is a C#
+ *   {@code delegate}: its lambdas are plain lambdas and its calls invocations. Any other stays an interface with an
+ *   adapter class for its lambdas, see {@link CSharpTypePrinter};</li>
+ *   <li>C# members are not virtual unless declared so, Java's are: a class nothing extends is {@code sealed}, and a
+ *   method nothing overrides is not {@code virtual}. Code outside the program may extend a public API, which the
+ *   policy can keep open.</li>
+ * </ul>
  */
 public final class CSharpProgram {
 
@@ -51,28 +54,54 @@ public final class CSharpProgram {
         ADAPTER,
     }
 
-    /** No knowledge of the other files: functional interfaces stay interfaces. */
-    public static final CSharpProgram NONE = new CSharpProgram(Set.of());
+    /** Which classes and methods stay open for extension. */
+    public enum Inheritance {
+        /** The program is all the code there is: only what it extends or overrides is open. */
+        CLOSED_WORLD,
+        /** Also the public classes, and their public and protected methods: code outside may extend them. */
+        OPEN_PUBLIC_API,
+        /** Every class that Java allows to be extended, every method Java allows to be overridden. */
+        OPEN,
+    }
+
+    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
+        public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
+                Inheritance.CLOSED_WORLD);
+    }
+
+    /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
+    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN);
 
     private final Set<TypeInfo> delegates;
+    private final Set<TypeInfo> extended;
+    private final Set<MethodInfo> overridden;
+    private final Inheritance inheritance;
 
-    private CSharpProgram(Set<TypeInfo> delegates) {
+    private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
+                          Inheritance inheritance) {
         this.delegates = delegates;
+        this.extended = extended;
+        this.overridden = overridden;
+        this.inheritance = inheritance;
     }
 
     public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes) {
-        return analyze(primaryTypes, FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE);
+        return analyze(primaryTypes, Policy.DEFAULT);
     }
 
     /** The facts about the program of {@code primaryTypes}: the translated code, all of it. */
-    public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes, FunctionalInterfaces functionalInterfaces) {
-        if (functionalInterfaces == FunctionalInterfaces.ADAPTER) return NONE;
+    public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes, Policy policy) {
         List<TypeInfo> all = new ArrayList<>();
         primaryTypes.forEach(t -> collect(t, all));
         Set<TypeInfo> candidates = new HashSet<>();
         Set<TypeInfo> implemented = new HashSet<>();
+        Set<TypeInfo> extended = new HashSet<>();
+        Set<MethodInfo> overridden = new HashSet<>();
         for (TypeInfo t : all) {
             if (delegateShape(t)) candidates.add(t);
+            if (t.parentClass() != null && t.parentClass().typeInfo() != null) extended.add(t.parentClass().typeInfo());
+            Stream.concat(t.methods().stream(), t.constructors().stream())
+                    .forEach(m -> m.overrides().stream().filter(o -> o != m).forEach(overridden::add));
             // an anonymous class that becomes a lambda is no implementation
             if (t.isAnonymous() && lambdaLike(t)) continue;
             for (ParameterizedType i : t.interfacesImplemented()) {
@@ -80,12 +109,33 @@ public final class CSharpProgram {
             }
         }
         candidates.removeAll(implemented);
-        return new CSharpProgram(Set.copyOf(candidates));
+        Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
+                : Set.copyOf(candidates);
+        return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance());
     }
 
     /** {@code typeInfo} is printed as a C# delegate. */
     public boolean delegate(TypeInfo typeInfo) {
         return delegates.contains(typeInfo);
+    }
+
+    /** A class that may have subclasses: one of the program extends it, or the policy keeps it open. */
+    public boolean open(TypeInfo typeInfo) {
+        return switch (inheritance) {
+            case OPEN -> true;
+            case OPEN_PUBLIC_API -> extended.contains(typeInfo) || typeInfo.isPubliclyAccessible();
+            case CLOSED_WORLD -> extended.contains(typeInfo);
+        };
+    }
+
+    /** A method that may be overridden: a method of the program overrides it, or the policy keeps it open. */
+    public boolean overridable(MethodInfo method) {
+        return switch (inheritance) {
+            case OPEN -> true;
+            case OPEN_PUBLIC_API -> overridden.contains(method) || method.typeInfo().isPubliclyAccessible()
+                                    && method.access() != null && (method.access().isPublic() || method.access().isProtected());
+            case CLOSED_WORLD -> overridden.contains(method);
+        };
     }
 
     /** The abstract method of a delegate type, which a call invokes. */

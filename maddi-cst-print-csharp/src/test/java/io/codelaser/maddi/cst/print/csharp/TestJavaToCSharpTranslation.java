@@ -69,15 +69,25 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void classMembers() {
         String cs = translate("Counter", CLASS);
         contains(cs, "namespace Org.Example.Shapes;");
-        contains(cs, "public class Counter {");
+        contains(cs, "public sealed class Counter {");
         contains(cs, "private int count;");
         contains(cs, "private readonly string name;");
         contains(cs, "public const int LIMIT = 10;");
         contains(cs, "public Counter(string name) { this.name = name; }");
-        contains(cs, "public virtual int GetCount() => count;");
+        contains(cs, "public int GetCount() => count;");
         contains(cs, "} else if (count == LIMIT) {");
         contains(cs, "public string Name() => name;");
         contains(cs, "public override string ToString() => name + \":\" + count;");
+    }
+
+    /** Code outside the program may extend a public class: the policy can keep it, and its methods, open. */
+    @Test
+    public void classMembersOpenPublicApi() {
+        policy = new CSharpProgram.Policy(CSharpProgram.FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
+                CSharpProgram.Inheritance.OPEN_PUBLIC_API);
+        String cs = translate("Counter", CLASS);
+        contains(cs, "public class Counter {");
+        contains(cs, "public virtual int GetCount() => count;");
     }
 
     @Language("java")
@@ -106,7 +116,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal abstract class Base : IShape {");
         contains(cs, "protected internal readonly double scale;");
         contains(cs, "public abstract double Unit();");
-        contains(cs, "public virtual double Area() => Unit() * scale;");
+        contains(cs, "public double Area() => Unit() * scale;");
         contains(cs, "internal sealed class Square : Base {");
         contains(cs, "internal Square(double side) : base(1.0) { this.side = side; }");
         contains(cs, "public override double Unit() => side * side;");
@@ -394,7 +404,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private int unused;");
         contains(cs, "internal Helper() { }");
         contains(cs, "private int Peek(Outer o) => o.secret + unused;");
-        contains(cs, "internal virtual Key<Number> Raw() => null;");
+        contains(cs, "internal Key<Number> Raw() => null;");
         contains(cs, "protected internal override void M() { }");
     }
 
@@ -472,7 +482,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Test
     public void conversions() {
         String cs = translate("Factory", CONVERSIONS);
-        contains(cs, "internal class Item<E> {");
+        contains(cs, "internal sealed class Item<E> {");
         contains(cs, "internal int Size() => 3;");
         contains(cs, "internal readonly ISet<E>[] buckets = new ISet<E>[2];");
         contains(cs, "internal static T None<T>() => default;");
@@ -512,7 +522,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Test
     public void localClasses() {
         String cs = translate("Locals", LOCAL_CLASSES);
-        contains(cs, "private class Entry {");
+        contains(cs, "private sealed class Entry {");
         contains(cs, "entries.Add(new Entry(i));");
         assertFalse(cs.contains("class Adder"), cs);
     }

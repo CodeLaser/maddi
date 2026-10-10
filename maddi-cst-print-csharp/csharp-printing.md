@@ -103,6 +103,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `new IExprentIterator.Lambda(e => 0)`. A printer that is not given the program (`CSharpProgram.NONE`) uses this
   form for all of them. An anonymous class of either kind that only implements the method, without fields and
   without using itself, becomes a lambda.
+- **Inheritance.** C#'s classes and methods are open only when declared so; Java's are open unless declared
+  final. With the whole program (`CSharpProgram`), a class nothing extends is `sealed`, and a method nothing overrides
+  is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
+  methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
+  Java leaves open.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
 
 ## Statements and expressions

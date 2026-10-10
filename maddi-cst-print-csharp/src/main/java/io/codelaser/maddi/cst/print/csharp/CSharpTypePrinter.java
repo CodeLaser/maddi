@@ -101,7 +101,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (access != null) modifiers.append(access).append(' ');
             if (staticClass) modifiers.append("static ");
             else if (typeInfo.isAbstract() && !typeInfo.isInterface()) modifiers.append("abstract ");
-            else if (record || enumClass || typeInfo.typeNature().isClass() && typeInfo.isFinal()) modifiers.append("sealed ");
+            else if (record || enumClass || typeInfo.typeNature().isClass()
+                                            && (typeInfo.isFinal() || !CSharpContext.program().open(typeInfo))) {
+                modifiers.append("sealed ");
+            }
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
             String typeParameters = typeInfo.typeParameters().isEmpty() ? ""
                     : typeInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))

@@ -100,13 +100,15 @@ final class CSharpModifiers {
     static String inheritance(MethodInfo m, TypeInfo owner) {
         if (m.isStatic() || m.isConstructor() || owner.isInterface()) return null;
         boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface());
+        CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";
-            return m.isFinal() && extensible(owner) ? "sealed override" : "override";
+            return m.isFinal() && extensible(owner) && program.open(owner) ? "sealed override" : "override";
         }
         if (m.isAbstract()) return "abstract";
         if (m.isFinal() || m.access() != null && m.access().isPrivate() || !extensible(owner)) return null;
-        return "virtual";
+        // C#'s methods are not virtual unless declared so: only those a subclass overrides, see CSharpProgram
+        return program.open(owner) && program.overridable(m) ? "virtual" : null;
     }
 
     /** A class that can be extended: not final, not an enum or record. */
