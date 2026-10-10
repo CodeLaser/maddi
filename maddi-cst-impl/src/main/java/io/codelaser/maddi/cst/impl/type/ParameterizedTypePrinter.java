@@ -130,7 +130,9 @@ public class ParameterizedTypePrinter {
          */
         String qualifier = !typeAnnotations.isEmpty() && tp == null && singleName
                 ? qualifierBeforeSimpleName(qualification, typeInfo) : null;
-        if (qualifier != null) outputBuilder.add(new TextImpl(qualifier));
+        // no space between the qualifier and the annotation: the formatter separates two words by default, which
+        // printed 'java.util. @Nullable List'
+        if (qualifier != null) outputBuilder.add(new TextImpl(qualifier)).add(SpaceEnum.NONE);
         if (!typeAnnotations.isEmpty()) {
             OutputBuilder ab = typeAnnotations.stream().map(ae -> ae.print(qualification))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.ONE));
