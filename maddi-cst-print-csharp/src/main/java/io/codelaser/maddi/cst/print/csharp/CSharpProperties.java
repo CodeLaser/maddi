@@ -46,6 +46,11 @@ import java.util.Set;
  * The property is named after the getter: {@code getName()}, {@code isDone()} and {@code name()} are {@code Name},
  * {@code Done} and {@code Name}. A getter qualifies when nothing overrides it and it overrides nothing, no method
  * reference names it, and the name is not taken in its class, the classes above it or those that extend it.
+ * <p>
+ * Methods that override one another are one property, when all are parameterless with one return type, in classes
+ * and interfaces that no lambda targets: an interface's method is {@code T Name { get; }} (with its default body,
+ * {@code T Name => expr;}), an abstract one {@code abstract T Name { get; }}, a getter of a field takes the field's
+ * place, and any other body is a computed property, {@code T Name => expr;} or {@code T Name { get { … } }}.
  */
 final class CSharpProperties {
 
@@ -56,11 +61,21 @@ final class CSharpProperties {
     record Property(FieldInfo field, String name, MethodInfo getter, MethodInfo setter, boolean settable) {
     }
 
+    /**
+     * The properties of the program: the fields properties take the place of, and the methods that are properties
+     * without a field, computed ({@code T Name => expr;}) or abstract ({@code T Name { get; }}), with their names.
+     */
+    record Analysis(Map<FieldInfo, Property> fields, Map<MethodInfo, String> computed) {
+        static final Analysis NONE = new Analysis(Map.of(), Map.of());
+    }
+
     private CSharpProperties() {
     }
 
-    static Map<FieldInfo, Property> analyze(List<TypeInfo> all, Set<MethodInfo> overridden) {
+    static Analysis analyze(List<TypeInfo> all, Set<MethodInfo> overridden, Set<TypeInfo> delegates) {
         Set<MethodInfo> referenced = new HashSet<>();
+        // a delegate has no property; an interface's lambda adapter implements its property as one
+        Set<TypeInfo> functionalTargets = new HashSet<>(delegates);
         for (TypeInfo t : all) {
             for (Element element : CSharpProgram.code(t)) {
                 element.visit((Element e) -> {
@@ -83,7 +98,7 @@ final class CSharpProperties {
                 if (gs.size() != 1) return;
                 MethodInfo getter = gs.getFirst();
                 String name = propertyName(getter);
-                if (!taken.add(name) || clashes(name, t, f, getter, all)) return;
+                if (!taken.add(name) || clashes(name, t, f, Set.of(getter), all)) return;
                 MethodInfo setter = t.methods().stream()
                         .filter(m -> settersField(m, t) == f && ("set" + name).equals(m.name())
                                      && alone(m, overridden, referenced))
@@ -91,7 +106,77 @@ final class CSharpProperties {
                 properties.put(f, new Property(f, name, getter, setter, setter != null || written.contains(f)));
             });
         }
-        return Map.copyOf(properties);
+        Map<MethodInfo, String> computed = new HashMap<>();
+        for (List<MethodInfo> family : families(all)) {
+            family(family, all, referenced, functionalTargets, written, properties, computed);
+        }
+        return new Analysis(Map.copyOf(properties), Map.copyOf(computed));
+    }
+
+    /** The methods of the program that override one another, connected: the families of two or more. */
+    private static List<List<MethodInfo>> families(List<TypeInfo> all) {
+        Map<MethodInfo, MethodInfo> parent = new HashMap<>();
+        java.util.function.UnaryOperator<MethodInfo>[] find = new java.util.function.UnaryOperator[1];
+        find[0] = m -> {
+            MethodInfo p = parent.getOrDefault(m, m);
+            if (p == m) return m;
+            MethodInfo root = find[0].apply(p);
+            parent.put(m, root);
+            return root;
+        };
+        Set<MethodInfo> members = new HashSet<>();
+        for (TypeInfo t : all) {
+            for (MethodInfo m : t.methods()) {
+                for (MethodInfo o : m.overrides()) {
+                    if (o == m) continue;
+                    members.add(m);
+                    members.add(o);
+                    parent.put(find[0].apply(m), find[0].apply(o));
+                }
+            }
+        }
+        Map<MethodInfo, List<MethodInfo>> byRoot = new HashMap<>();
+        for (MethodInfo m : members) byRoot.computeIfAbsent(find[0].apply(m), k -> new ArrayList<>()).add(m);
+        return List.copyOf(byRoot.values());
+    }
+
+    /**
+     * A family of parameterless methods with one return type, in classes and interfaces of the program that no lambda
+     * targets: one property. A member that returns a field of its class takes its place; another is computed, an
+     * abstract one declared.
+     */
+    private static void family(List<MethodInfo> family, List<TypeInfo> all, Set<MethodInfo> referenced,
+                               Set<TypeInfo> functionalTargets, Set<FieldInfo> written,
+                               Map<FieldInfo, Property> properties, Map<MethodInfo, String> computed) {
+        MethodInfo first = family.getFirst();
+        for (MethodInfo m : family) {
+            TypeInfo owner = m.typeInfo();
+            if (!CSharpNames.translated(owner) || m.isStatic() || m.isSynthetic() || !m.parameters().isEmpty()
+                || m.isVoid() || !m.typeParameters().isEmpty() || referenced.contains(m)
+                || !m.returnType().equals(first.returnType()) || !m.name().equals(first.name())
+                || functionalTargets.contains(owner) || owner.isAnonymous() || owner.enclosingMethod() != null
+                || !(owner.isInterface() && !owner.typeNature().isAnnotation() || eligibleType(owner))) {
+                return;
+            }
+            // a default method that implements an inherited interface's method is an explicit implementation
+            if (owner.isInterface() && m.methodBody() != null && !m.isAbstract()
+                && m.overrides().stream().anyMatch(o -> o != m)) {
+                return;
+            }
+        }
+        String name = propertyName(first);
+        Set<MethodInfo> members = new HashSet<>(family);
+        for (MethodInfo m : family) {
+            if (clashes(name, m.typeInfo(), null, members, all)) return;
+        }
+        for (MethodInfo m : family) {
+            FieldInfo f = m.typeInfo().isInterface() ? null : gettersField(m, m.typeInfo());
+            if (f != null && !properties.containsKey(f)) {
+                properties.put(f, new Property(f, name, m, null, written.contains(f)));
+            } else {
+                computed.put(m, name);
+            }
+        }
     }
 
     /** The fields assigned anywhere but in their own class's constructors and initializers. */
@@ -185,7 +270,8 @@ final class CSharpProperties {
      * {@code name} is taken: by the class itself, a nested type, another field, or a method other than the
      * getter's own setter, in the class, the classes above it or those that extend it.
      */
-    private static boolean clashes(String name, TypeInfo t, FieldInfo field, MethodInfo getter, List<TypeInfo> all) {
+    private static boolean clashes(String name, TypeInfo t, FieldInfo field, Set<MethodInfo> getters,
+                                   List<TypeInfo> all) {
         if (name.equals(CSharpNames.type(t))) return true;
         List<TypeInfo> related = new ArrayList<>();
         for (TypeInfo s = t; s != null; s = s.parentClass() == null ? null : s.parentClass().typeInfo()) related.add(s);
@@ -198,7 +284,7 @@ final class CSharpProperties {
                 return true;
             }
             for (MethodInfo m : r.methods()) {
-                if (m == getter) continue;
+                if (getters.contains(m)) continue;
                 String pascal = CSharpNames.pascal(m.name());
                 if (pascal.equals(name) || pascal.equals(name + "Value")) return true;
             }

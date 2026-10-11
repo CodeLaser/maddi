@@ -99,6 +99,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
         } else {
+            String property = CSharpContext.program().computedProperty(methodInfo);
+            if (property != null) return property(b, modifiers.toString(), property, q);
             b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
@@ -116,6 +118,24 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SymbolEnum.SEMICOLON);
         }
         return b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
+    }
+
+    /**
+     * A method that is a property without a field ({@link CSharpProperties}): {@code T Name { get; }} when abstract,
+     * {@code T Name => expr;} for a returned expression, {@code T Name { get { … } }} for any other body.
+     */
+    private OutputBuilder property(OutputBuilder b, String modifiers, String name, Qualification q) {
+        b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
+                .add(new TextImpl(name));
+        Block body = methodInfo.methodBody();
+        if (methodInfo.isAbstract() || body == null) return b.add(new TextImpl("{ get; }"));
+        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(rs.expression(), q))
+                    .add(SymbolEnum.SEMICOLON);
+        }
+        return b.add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(new TextImpl("get")).add(SpaceEnum.ONE)
+                .add(CSharpStatementPrinter.block(statements, q)).add(SymbolEnum.RIGHT_BRACE);
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */

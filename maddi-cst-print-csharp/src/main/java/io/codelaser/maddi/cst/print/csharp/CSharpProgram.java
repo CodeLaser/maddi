@@ -97,7 +97,7 @@ public final class CSharpProgram {
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, Map.of());
+            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, CSharpProperties.Analysis.NONE);
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -109,14 +109,16 @@ public final class CSharpProgram {
     private final Map<MethodInfo, Integer> typeTokens;
     private final CSharpLibraries libraries;
     private final Map<FieldInfo, CSharpProperties.Property> properties;
+    private final Map<MethodInfo, String> computedProperties;
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
                           Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens,
-                          CSharpLibraries libraries, Map<FieldInfo, CSharpProperties.Property> properties) {
+                          CSharpLibraries libraries, CSharpProperties.Analysis analysis) {
         this.libraries = libraries;
-        this.properties = properties;
+        this.properties = analysis.fields();
+        this.computedProperties = analysis.computed();
         properties.values().forEach(p -> {
             accessors.put(p.getter(), p);
             if (p.setter() != null) accessors.put(p.setter(), p);
@@ -160,12 +162,25 @@ public final class CSharpProgram {
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
                 namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
                 prefixedHoisted(all), typeTokens(all), policy.libraries(),
-                policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden) : Map.of());
+                policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden, delegates)
+                        : CSharpProperties.Analysis.NONE);
     }
 
     /** The property that takes {@code field}'s place; null when it stays a field. */
     CSharpProperties.Property property(FieldInfo field) {
         return properties.get(field);
+    }
+
+    /** The name of the property {@code method} is, without a field: computed or abstract; null otherwise. */
+    String computedProperty(MethodInfo method) {
+        return computedProperties.get(method);
+    }
+
+    /** The name of the property {@code method} reads, with or without a field; null when it is a method. */
+    String propertyRead(MethodInfo method) {
+        CSharpProperties.Property p = accessors.get(method);
+        if (p != null) return method == p.getter() ? p.name() : null;
+        return computedProperties.get(method);
     }
 
     /** The property whose getter or setter {@code method} is; null when it is a method. */

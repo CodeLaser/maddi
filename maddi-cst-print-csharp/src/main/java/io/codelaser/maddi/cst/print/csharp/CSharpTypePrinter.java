@@ -443,9 +443,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
         CSharpContext.using("System");
+        // a method that is a property is implemented as one
+        String property = CSharpContext.program().computedProperty(sam);
+        String member = property != null ? property : CSharpNames.method(sam) + "(" + parameters + ")";
         return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + CSharpTypeName.of(samReturn, q) + " " + CSharpNames.method(sam) + "(" + parameters
-                + ") => " + f + "(" + String.join(", ", names) + "); }"));
+                + " { public " + CSharpTypeName.of(samReturn, q) + " " + member + " => " + f + "("
+                + String.join(", ", names) + "); }"));
     }
 
     /** The type arguments {@code from} gives the type parameters of its super-interface {@code target}. */
@@ -634,6 +637,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         java.util.Set<String> declared = new java.util.HashSet<>();
         for (LeftAbstract left : leftAbstract(typeInfo)) {
             MethodInfo m = left.method();
+            String property = CSharpContext.program().computedProperty(m);
+            if (property != null) {
+                // the interface's property, left to the subclasses
+                if (declared.add(property)) {
+                    out.add(new OutputBuilderImpl().add(new TextImpl("public abstract "
+                            + CSharpTypeName.of(substitute(m.returnType(), left.typeArguments()), q) + " " + property
+                            + " { get; }")));
+                }
+                continue;
+            }
             String name = CSharpNames.method(m);
             StringBuilder sb = new StringBuilder("public abstract ")
                     .append(CSharpTypeName.of(substitute(m.returnType(), left.typeArguments()), q)).append(' ')

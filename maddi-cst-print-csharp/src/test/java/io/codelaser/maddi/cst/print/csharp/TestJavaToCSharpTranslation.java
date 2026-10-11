@@ -126,18 +126,24 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
             """;
 
+    /**
+     * Methods that override one another, parameterless and of one type, are one property: the interface declares it
+     * (with its default body), an abstract class leaves it abstract, the others compute it. The lambda adapter of
+     * the functional interface implements it as a property.
+     */
     @Test
     public void hierarchy() {
         String cs = translate("Hierarchy", HIERARCHY);
-        contains(cs, "internal interface IShape {\ndouble Area();");
-        contains(cs, "string Describe() => \"shape\";");
+        contains(cs, "internal interface IShape {\ndouble Area { get; }");
+        contains(cs, "string Describe => \"shape\";");
+        contains(cs, "public sealed class Lambda(Func<double> f) : IShape { public double Area => f(); }");
         contains(cs, "internal abstract class Base : IShape {");
         contains(cs, "protected internal readonly double scale;");
-        contains(cs, "public abstract double Unit();");
-        contains(cs, "public double Area() => Unit() * scale;");
+        contains(cs, "public abstract double Unit { get; }");
+        contains(cs, "public double Area => Unit * scale;");
         contains(cs, "internal sealed class Square : Base {");
         contains(cs, "internal Square(double side) : base(1.0) { this.side = side; }");
-        contains(cs, "public override double Unit() => side * side;");
+        contains(cs, "public override double Unit => side * side;");
     }
 
     @Language("java")

@@ -110,9 +110,17 @@ Library declarations keep their Java names, except where the BCL mapping (below)
     code may override, as the policy has it, makes the property `virtual`.
   - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
     accessor: `{ [Experimental] get; }`.
-  - A getter qualifies only when nothing overrides it, it overrides nothing, no method reference names it, and
-    its name is not taken in its class, the classes above it, or those that extend it. Interfaces and records are
-    not included.
+  - A lone getter qualifies only when nothing overrides it, it overrides nothing, no method reference names it, and
+    its name is not taken in its class, the classes above it, or those that extend it.
+  - Methods that override one another are one property when all of them are parameterless with one return type,
+    in classes and interfaces that are not delegates:
+    - an interface's method becomes `T Name { get; }`, or `T Name => expr;` with a default body;
+    - an abstract one becomes `abstract T Name { get; }`, also where an abstract class leaves an interface's
+      property to its subclasses;
+    - a getter of a field takes the field's place;
+    - any other body becomes a computed property: `T Name => expr;`, or `T Name { get { … } }`.
+  - A functional interface's lambda adapter implements its property: `public double Area => f();`.
+  - Records keep their positional properties, and enums their methods.
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and

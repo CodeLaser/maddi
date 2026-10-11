@@ -350,6 +350,8 @@ public final class CSharpExpressionPrinter {
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(receiver(object, q)).add(SymbolEnum.DOT);
         }
+        String computed = CSharpContext.program().computedProperty(method);
+        if (computed != null) return b.add(text(computed)); // x.type() is the property x.Type
         CSharpProperties.Property property = CSharpContext.program().accessorOf(method);
         if (property != null) {
             // x.getName() is the property x.Name, x.setName(v) an assignment to it
