@@ -1461,4 +1461,65 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "p.Name = \"Ann\";");
         contains(cs, "return p.Name + (p.IsAdult() ? \"\" : \" (\" + p.Age + \")\");");
     }
+
+    @Language("java")
+    private static final String FACTS = """
+            package org.example.facts;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.Map;
+            public class Catalog {
+                private final List<String> names = new ArrayList<>();
+                private String description;
+                private List<String> stored;
+                int score(List<String> items, Map<String, Integer> weights) {
+                    int n = 0;
+                    for (String s : items) {
+                        if (items.contains(s) && weights.get(s) != null) n += weights.get(s);
+                    }
+                    return n + items.indexOf("x");
+                }
+                void addAll(List<String> more) { names.addAll(more); }
+                void keep(List<String> list) { this.stored = list; }
+                String find(String key) { return key.isEmpty() ? null : description; }
+            }
+            """;
+
+    /** The analysis's verdicts as a client supplies them: these parameters unmodified, these declarations nullable. */
+    private static final CSharpFacts CATALOG_FACTS = new CSharpFacts() {
+        @Override
+        public boolean unmodified(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+            return java.util.Set.of("items", "weights", "more", "list").contains(parameter.name());
+        }
+
+        @Override
+        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
+            return "description".equals(field.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+        }
+
+        @Override
+        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+            return "find".equals(method.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+        }
+    };
+
+    /**
+     * A collection parameter the method does not modify is read-only, when its uses allow (a stored one is not); the
+     * calls on it are a read-only collection's. A declaration that may be null is T?.
+     */
+    @Test
+    public void facts() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(CATALOG_FACTS);
+        String cs = translate("Catalog", FACTS);
+        contains(cs, "using System.Linq;");
+        contains(cs, "private string? description;");
+        contains(cs, "internal int Score(IReadOnlyList<string> items, IReadOnlyDictionary<string, int> weights) {");
+        contains(cs, "if (items.Contains(s) && (weights.ContainsKey(s) ? weights[s] : (int?) null) != null)");
+        contains(cs, "return n + JavaCollections.IndexOf(items, \"x\");");
+        contains(cs, "internal void AddAll(IReadOnlyList<string> more)");
+        contains(cs, "internal void Keep(List<string> list) { this.stored = list; }");
+        contains(cs, "internal string? Find(string key)");
+    }
 }

@@ -65,6 +65,27 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - Bounds become `where T : …` constraints.
 - `typeof(List<>)` is the unbound generic type.
 
+### Facts from the analysis (`CSharpFacts`, `CSharpReadOnly`)
+
+The modification and nullability analyses can say more than Java's types do. The printer asks a `CSharpFacts`
+(`Policy.facts`); the default, `STORED`, answers from what maddi-mod's analyzer stored on the declarations, which is
+nothing when no analysis ran, so that the output is then the same as without facts. A client with a report of its own
+implements the interface.
+
+- A collection parameter that the method does not modify becomes read-only: `List<T>` → `IReadOnlyList<T>`,
+  `Collection<T>` → `IReadOnlyCollection<T>`, `Set<T>` → `IReadOnlySet<T>`, `Map<K, V>` →
+  `IReadOnlyDictionary<K, V>`. A caller's `List<T>` is one, so the calls do not change.
+  - The C# has to compile whatever the analysis's precision, so the parameter's uses decide too: each must be a call of
+    a library method on it, the collection of a `foreach`, or an argument where any enumerable is accepted (another
+    read-only parameter, a copying constructor, `addAll`). A use that stores or returns it keeps Java's type.
+  - Every method of an override family has the parameter read-only, or none does. Delegates, a functional interface's
+    method and records keep Java's types.
+  - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
+    `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
+    test when the value is a value type).
+- A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types,
+  type parameters and types that already end in `?` are left alone.
+
 ## Declarations
 
 - **Access.** Every declaration states its access, except the public members of an interface, where C# writes none.

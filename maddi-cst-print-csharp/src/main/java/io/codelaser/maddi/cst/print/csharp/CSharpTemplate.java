@@ -271,6 +271,12 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                         end++;
                     } while (end < text.length() && depth > 0);
                 }
+                // a nullable type, int?: the ? is the word's, not the conditional's (which stands apart) nor ?.
+                if (end + 1 < text.length() && text.charAt(end) == '?' && text.charAt(end + 1) != '.'
+                    && text.charAt(end + 1) != ' ' || end + 1 == text.length() && end < text.length()
+                                                     && text.charAt(end) == '?') {
+                    end++;
+                }
                 String word = text.substring(i, end);
                 b.add(OPERATORS.contains(word) ? SymbolEnum.binaryOperator(word) : new TextImpl(word));
                 i = end;
@@ -305,6 +311,12 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                 i++;
             } else if (c == ',') {
                 b.add(SymbolEnum.COMMA);
+                i++;
+            } else if (c == '?') {
+                b.add(SymbolEnum.QUESTION_MARK);
+                i++;
+            } else if (c == ':') {
+                b.add(SymbolEnum.COLON);
                 i++;
             } else if (c == '!') {
                 b.add(SymbolEnum.UNARY_BOOLEAN_NOT);

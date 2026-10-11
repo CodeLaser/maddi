@@ -238,10 +238,21 @@ public static class JavaCollections
         foreach (var x in e) action(x);
     }
 
-    /// <summary>Map.forEach: the action gets the key and the value.</summary>
-    public static void ForEach<K, V>(this IDictionary<K, V> d, Action<K, V> action)
+    /// <summary>Map.forEach: the action gets the key and the value; of any dictionary, read-only ones too.</summary>
+    public static void ForEach<K, V>(this IEnumerable<KeyValuePair<K, V>> d, Action<K, V> action)
     {
         foreach (var e in d) action(e.Key, e.Value);
+    }
+
+    /// <summary>List.indexOf of a read-only list, which has no IndexOf of its own.</summary>
+    public static int IndexOf<T>(IReadOnlyList<T> list, T x)
+    {
+        var comparer = EqualityComparer<T>.Default;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], x)) return i;
+        }
+        return -1;
     }
 
     /// <summary>Stream.reduce without an identity: the default (Optional's empty) for an empty sequence.</summary>

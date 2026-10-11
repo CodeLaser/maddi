@@ -83,6 +83,32 @@ public final class CSharpTypeName {
      * A type in a pattern, {@code x is int i}: a nullable value type is not allowed there, and a boxed Java type tested
      * with instanceof is its value type (null is not an instance of anything, in either language).
      */
+    /**
+     * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
+     * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
+     */
+    static String declared(ParameterizedType pt, boolean readOnly, io.codelaser.maddi.cst.api.type.NullableState nullable,
+                           Qualification q) {
+        String type;
+        String readOnlyName = readOnly ? CSharpReadOnly.readOnlyName(pt) : null;
+        if (readOnlyName != null) {
+            CSharpContext.using("System.Collections.Generic");
+            type = readOnlyName + "<" + String.join(", ", pt.parameters().stream().map(a -> argument(a, q)).toList()) + ">";
+        } else {
+            type = of(pt, q);
+        }
+        boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !pt.isTypeParameter()
+                                               && !type.endsWith("?") && !pt.isVoid();
+        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(type)
+                ? type + "?" : type;
+    }
+
+    /** Not a C# value type: those the BCL mapping makes of Java's values (Guid, DateOnly, decimal) stay as they are. */
+    private static boolean valueTypeFree(String type) {
+        return !java.util.Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
+                "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan").contains(type);
+    }
+
     public static String pattern(ParameterizedType pt, Qualification q) {
         LibraryMapping.PatternMapping pattern = CSharpContext.libraries().pattern(pt, null);
         if (pattern != null) {

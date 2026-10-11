@@ -419,7 +419,9 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.Collection.isEmpty/0", "$0.Count == 0");
         m("java.util.Map.isEmpty/0", "$0.Count == 0");
         m("java.util.Collection.add/1", "$0.Add($1)");
-        m("java.util.Collection.contains/1", "$0.Contains($1)");
+        // a read-only collection (CSharpReadOnly) has LINQ's Contains
+        chooser("java.util.Collection.contains/1", (method, call) -> readOnlyReceiver(call)
+                ? rule("$0.Contains($1)", LINQ) : rule("$0.Contains($1)"));
         m("java.util.Collection.remove/1", "$0.Remove($1)");
         m("java.util.Collection.clear/0", "$0.Clear()");
         m("java.util.Map.clear/0", "$0.Clear()");
@@ -446,9 +448,11 @@ final class CSharpBcl implements LibraryMapping {
         ms("java.util.List.addAll/1", "$0.AddAll($1)", "$0.AddRange($1)", COMPAT);
         m("java.util.List.addAll/2", "$0.InsertAll($1, $2)", COMPAT);
         ms("java.util.List.set/2", "$0.Set($1, $2)", "$0[$1] = $2", COMPAT);
-        m("java.util.List.indexOf/1", "$0.IndexOf($1)");
+        chooser("java.util.List.indexOf/1", (method, call) -> readOnlyReceiver(call)
+                ? rule("JavaCollections.IndexOf($0, $1)", COMPAT) : rule("$0.IndexOf($1)"));
         m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)", COMPAT);
-        m("java.util.List.subList/2", "$0.SubList($1, $2)", COMPAT);
+        chooser("java.util.List.subList/2", (method, call) -> readOnlyReceiver(call)
+                ? rule("$0.Skip(@1).Take(@2 - @1).ToList()", LINQ) : rule("$0.SubList($1, $2)", COMPAT));
         // Java's sorts are stable, List.Sort is not
         m("java.util.List.sort/1", "JavaCollections.Sort($0, $1)", COMPAT);
         m("java.util.List.getFirst/0", "$0[0]");
@@ -486,12 +490,15 @@ final class CSharpBcl implements LibraryMapping {
         ms("java.util.Map.put/2", "$0.Put($1, $2)", "$0[$1] = $2", COMPAT);
         // a value-type value is null when absent, as Java's Integer; the BCL's GetValueOrDefault is for a concrete
         // dictionary, which is also read-only one; an IDictionary has the compatibility library's Get
-        chooser("java.util.Map.get/1", (method, call) -> valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
+        // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
+        chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
+                ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
+                : valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
                 : interfaceTyped(call) ? rule("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
-        chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call)
+        chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         m("java.util.Map.containsKey/1", "$0.ContainsKey($1)");
-        m("java.util.Map.containsValue/1", "$0.Values.Contains($1)");
+        m("java.util.Map.containsValue/1", "$0.Values.Contains($1)", LINQ);
         m("java.util.Map.entrySet/0", "$0");
         m("java.util.Map.keySet/0", "$0.Keys");
         m("java.util.Map.values/0", "$0.Values");
@@ -1311,6 +1318,14 @@ final class CSharpBcl implements LibraryMapping {
         List<ParameterizedType> args = call.object().parameterizedType().parameters();
         return args.size() == 1 && args.getFirst().typeInfo() != null
                && "java.lang.Void".equals(args.getFirst().typeInfo().fullyQualifiedName());
+    }
+
+    /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
+    private static boolean readOnlyReceiver(MethodCall call) {
+        return call != null && call.object() != null
+               && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e
+               && e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+               && ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p);
     }
 
     /** The receiver is declared as a Number: C#'s IConvertible. */

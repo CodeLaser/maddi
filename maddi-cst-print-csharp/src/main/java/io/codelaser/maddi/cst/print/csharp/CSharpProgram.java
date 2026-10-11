@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -77,27 +78,33 @@ public final class CSharpProgram {
     }
 
     /** {@code libraries}: what the libraries the program uses are in C#, see {@link CSharpLibraries}. */
+    /** {@code facts}: what the analysis knows about the program, see {@link CSharpFacts}. */
     public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries,
-                         Accessors accessors) {
+                         Accessors accessors, CSharpFacts facts) {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
-                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT, Accessors.PROPERTIES);
+                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
 
         public Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
-            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT, Accessors.PROPERTIES);
+            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
         }
 
         public Policy withLibraries(CSharpLibraries libraries) {
-            return new Policy(functionalInterfaces, inheritance, libraries, accessors);
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
         }
 
         public Policy withAccessors(Accessors accessors) {
-            return new Policy(functionalInterfaces, inheritance, libraries, accessors);
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
+        }
+
+        public Policy withFacts(CSharpFacts facts) {
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
         }
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, CSharpProperties.Analysis.NONE);
+            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, CSharpProperties.Analysis.NONE, CSharpFacts.NONE,
+            Set.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -110,13 +117,18 @@ public final class CSharpProgram {
     private final CSharpLibraries libraries;
     private final Map<FieldInfo, CSharpProperties.Property> properties;
     private final Map<MethodInfo, String> computedProperties;
+    private final CSharpFacts facts;
+    private final Set<ParameterInfo> readOnly;
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
                           Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens,
-                          CSharpLibraries libraries, CSharpProperties.Analysis analysis) {
+                          CSharpLibraries libraries, CSharpProperties.Analysis analysis, CSharpFacts facts,
+                          Set<ParameterInfo> readOnly) {
         this.libraries = libraries;
+        this.facts = facts;
+        this.readOnly = readOnly;
         this.properties = analysis.fields();
         this.computedProperties = analysis.computed();
         properties.values().forEach(p -> {
@@ -163,7 +175,18 @@ public final class CSharpProgram {
                 namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
                 prefixedHoisted(all), typeTokens(all), policy.libraries(),
                 policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden, delegates)
-                        : CSharpProperties.Analysis.NONE);
+                        : CSharpProperties.Analysis.NONE,
+                policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
+    }
+
+    /** What the analysis knows about the program. */
+    public CSharpFacts facts() {
+        return facts;
+    }
+
+    /** The parameter is a read-only collection in C# ({@link CSharpReadOnly}). */
+    boolean readOnly(ParameterInfo parameter) {
+        return readOnly.contains(parameter);
     }
 
     /** The property that takes {@code field}'s place; null when it stays a field. */

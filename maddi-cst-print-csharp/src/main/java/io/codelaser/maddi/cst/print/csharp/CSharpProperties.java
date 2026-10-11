@@ -114,7 +114,7 @@ final class CSharpProperties {
     }
 
     /** The methods of the program that override one another, connected: the families of two or more. */
-    private static List<List<MethodInfo>> families(List<TypeInfo> all) {
+    static List<List<MethodInfo>> families(List<TypeInfo> all) {
         Map<MethodInfo, MethodInfo> parent = new HashMap<>();
         java.util.function.UnaryOperator<MethodInfo>[] find = new java.util.function.UnaryOperator[1];
         find[0] = m -> {

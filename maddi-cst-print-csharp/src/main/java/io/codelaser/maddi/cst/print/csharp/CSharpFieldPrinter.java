@@ -35,7 +35,8 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     @Override
     public OutputBuilder print(Qualification q, boolean asParameterInRecordDeclaration) {
-        String type = CSharpTypeName.of(fieldInfo.type(), q);
+        String type = CSharpTypeName.declared(fieldInfo.type(), false,
+                CSharpContext.program().facts().nullable(fieldInfo), q);
         String name = CSharpNames.field(fieldInfo);
         if (asParameterInRecordDeclaration) return new OutputBuilderImpl().add(new TextImpl(type + " " + name));
 
@@ -102,7 +103,8 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         // a getter that code outside the program may override, as the policy has it: a virtual property
         String inheritance = CSharpModifiers.inheritance(property.getter(), f.owner());
         String modifiers = inheritance == null ? access : access + " " + inheritance;
-        b.add(new TextImpl(modifiers + " " + CSharpTypeName.of(f.type(), q))).add(SpaceEnum.ONE)
+        b.add(new TextImpl(modifiers + " " + CSharpTypeName.declared(f.type(), false,
+                        CSharpContext.program().facts().nullable(f), q))).add(SpaceEnum.ONE)
                 .add(new TextImpl(property.name() + " " + accessors));
         if (f.initializer() != null && !f.initializer().isEmpty()) {
             b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
