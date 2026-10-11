@@ -17,6 +17,8 @@ module io.codelaser.maddi.aapi.archive {
     requires static org.eclipse.collections.impl;
     // the same for the side-loaded Guava hints (libs/guava)
     requires static com.google.common;
+    // the AssertJ hints (libs/assertj, packed into libs.jar like libs/test) name AssertJ types in their signatures
+    requires static org.assertj.core;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;

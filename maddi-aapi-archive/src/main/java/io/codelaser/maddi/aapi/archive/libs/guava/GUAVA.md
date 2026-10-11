@@ -106,6 +106,13 @@ The other 6,250 values round-trip unchanged. Every difference outside the expect
 encoding shapes, so a consumer preloading these hints reads the source run's verdicts wherever this report does
 not state otherwise.
 
+Fixed 2026-10-11: the hints parser matched a shadow method on its erased parameter types alone, where a type
+parameter counted as one type whatever its bound. `ImmutableSortedMap.of`, `ImmutableSortedSet.of`/`copyOf` and
+`ImmutableSortedMultiset.of`/`copyOf` each have a `Comparable`-bounded overload and a deprecated unbounded one, and
+both shadow methods landed on the first of the two (24 pairs): one overload carried the other's contract, the
+other only defaults. The parser now compares the bounds (`AnalysisHintsParser.sameFullType`) and the compiled
+`ComGoogleCommonCollect.json` was regenerated.
+
 ## Regenerating
 
 1. Onboard and build per `corpus/catalogue/guava.yml`.

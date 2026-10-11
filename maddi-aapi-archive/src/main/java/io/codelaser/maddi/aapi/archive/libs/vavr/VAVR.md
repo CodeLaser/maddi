@@ -207,12 +207,14 @@ Fixed alongside these hints:
   (`@Modified`, `@FinalFields`, `@Independent(absent = true)`), and `ComposeAnalysisHints` uses it.
 - `LoadAnalysisResults` could not load a source analysis' results (internal properties such as `links` have no
   decoder, and `downcastParameter` needs types still being loaded). It now takes a property-key filter.
+- The `@NotModified` on `io.vavr.Patterns`' extractor methods (`$Cons`, `$Tuple2`, ...) and on `API.$` did not
+  survive compilation: the hints parser skipped every shadow method whose name contained a `$`. Fixed 2026-10-11
+  (`AnalysisHintsParser.findTargetMethod`); `IoVavr.json` regenerated.
 
 Open:
 
 - The printer does not qualify a nested type whose outer simple name clashes with an import
   (`Stream.Empty` while `java.util.stream.Stream` is imported). One site, hand-fixed.
-- The `@NotModified` on `io.vavr.Patterns`' extractor methods and their parameters does not survive compilation.
 - Bazel globs these hint sources but has no vavr dependency (as for the existing Kotlin hints).
 
 ## Types that need an explanation

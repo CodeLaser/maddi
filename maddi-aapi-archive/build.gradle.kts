@@ -35,6 +35,7 @@ dependencies {
     compileOnly("org.eclipse.collections:eclipse-collections:13.0.0")
     // and for the side-loaded Guava hints (libs/guava); the corpus is a 2026-07 HEAD, 33.6.0 is the release before it
     compileOnly("com.google.guava:guava:33.6.0-jre")
+    compileOnly("org.assertj:assertj-core:3.27.7") // libs/assertj (CodeLaser/maddi#116)
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }

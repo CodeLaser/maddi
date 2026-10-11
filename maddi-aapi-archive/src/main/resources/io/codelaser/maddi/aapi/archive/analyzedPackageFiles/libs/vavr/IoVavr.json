@@ -428,11 +428,11 @@
    {"name": "Pcases(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "Moption(1,io.vavr.API.Match.Case[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pcases(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
- {"name": "M$(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "M$(1,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pprototype(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "M$(2,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"independentParameter":2}}},
+ {"name": "M$(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "M$(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pprototype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "M$(2,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2}}},
  {"name": "MArray(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MArray(4,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -2630,71 +2630,71 @@
 
 {"name": "Tio.vavr.Patterns", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2,"utilityClass":1}, "subs":[
  {"name": "F$Tuple0(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":3,"unmodifiedField":1}},
- {"name": "M$Cons(0,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Failure(1,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Future(2,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Invalid(3,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Left(4,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Nil(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "M$None(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "M$Right(7,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Some(8,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Success(9,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Tuple1(10,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
- {"name": "M$Tuple2(11,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple3(12,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple4(13,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp4(3)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple5(14,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp4(3)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp5(4)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple6(15,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp4(3)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp5(4)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp6(5)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple7(16,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp4(3)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp5(4)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp6(5)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp7(6)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Tuple8(17,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp2(1)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp3(2)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp4(3)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp5(4)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp6(5)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp7(6)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
-  {"name": "Pp8(7)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}]},
- {"name": "M$Valid(18,io.vavr.API.Match.Pattern)", "data":{"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pp1(0)", "data":{"containerParameter":1,"immutableParameter":1,"independentParameter":2}}}]},
+ {"name": "M$Cons(0,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Failure(1,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Future(2,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Invalid(3,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Left(4,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Nil(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "M$None(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "M$Right(7,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Some(8,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Success(9,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Tuple1(10,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}},
+ {"name": "M$Tuple2(11,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple3(12,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple4(13,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple5(14,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple6(15,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple7(16,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp7(6)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Tuple8(17,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}},
+  {"name": "Pp2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp7(6)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pp8(7)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "M$Valid(18,io.vavr.API.Match.Pattern)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Pp1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2}}}]},
 
 {"name": "Tio.vavr.Predicates", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
  {"name": "MallOf(0,java.util.function.Predicate[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
