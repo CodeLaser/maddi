@@ -124,6 +124,17 @@ final class CSharpAttributes {
     }
 
     /** {@code @Target({METHOD, FIELD})}: the attribute's targets; null without a @Target. */
+    /**
+     * A use of {@code ae} may be on a property: a library's annotation (its mapping has it on a field), and a program
+     * attribute whose usage has properties ({@code @Target} FIELD or none). Another goes on the property's accessor.
+     */
+    static boolean onProperty(AnnotationExpression ae) {
+        TypeInfo type = ae.typeInfo();
+        if (!isAttribute(type)) return true;
+        String usage = usage(type);
+        return usage == null || usage.contains("AttributeTargets.Property") || usage.contains("AttributeTargets.All");
+    }
+
     private static String usage(TypeInfo annotation) {
         for (AnnotationExpression ae : annotation.annotations()) {
             if (!"java.lang.annotation.Target".equals(ae.typeInfo().fullyQualifiedName())) continue;

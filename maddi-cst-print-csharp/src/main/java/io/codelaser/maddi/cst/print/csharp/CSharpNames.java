@@ -150,6 +150,8 @@ public final class CSharpNames {
 
     /** The name of a field: PascalCase for an enum constant or a record component, else the Java name. */
     public static String field(FieldInfo fieldInfo) {
+        CSharpProperties.Property property = CSharpContext.program().property(fieldInfo);
+        if (property != null) return property.name();
         TypeInfo owner = fieldInfo.owner();
         if (!translated(owner)) return name(fieldInfo.name());
         String renamed = null;

@@ -99,6 +99,20 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   - Varargs become `params T[]`.
 - **Fields.** A static final primitive or String with a constant initializer becomes `const`. Any other final field
   becomes `readonly`.
+- **Properties.** A getter that only returns a field of its class, of the same type, becomes the property that
+  takes the field's place (`CSharpProperties`, whole-program; `Policy.accessors` can keep Java's methods).
+  - `getName()`, `isDone()` and `name()` become `Name`, `Done` and `Name`. `x.getName()` becomes `x.Name`, and every
+    reference to the field becomes a reference to the property.
+  - A setter `this.name = name` becomes the property's `set`, and `x.setName(v)` becomes `x.Name = v`. A field
+    assigned only in its class's constructors gets `{ get; }`, even when it isn't `final`. Any other field gets
+    `{ get; private set; }`, with the access the field's writes need.
+  - The property is as visible as its getter, and an accessor that is less visible says so. A getter that outside
+    code may override, as the policy has it, makes the property `virtual`.
+  - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
+    accessor: `{ [Experimental] get; }`.
+  - A getter qualifies only when nothing overrides it, it overrides nothing, no method reference names it, and
+    its name is not taken in its class, the classes above it, or those that extend it. Interfaces and records are
+    not included.
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and

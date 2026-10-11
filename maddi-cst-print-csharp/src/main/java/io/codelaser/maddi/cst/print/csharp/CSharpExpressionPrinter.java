@@ -350,6 +350,14 @@ public final class CSharpExpressionPrinter {
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(receiver(object, q)).add(SymbolEnum.DOT);
         }
+        CSharpProperties.Property property = CSharpContext.program().accessorOf(method);
+        if (property != null) {
+            // x.getName() is the property x.Name, x.setName(v) an assignment to it
+            b.add(text(property.name()));
+            if (method == property.getter()) return b;
+            return b.add(SymbolEnum.assignment("=")).add(converted(mc.parameterExpressions().getFirst(),
+                    method.parameters().getFirst().parameterizedType(), q));
+        }
         if (CSharpTypePrinter.isRecordAccessor(method)) {
             // p.x() is the record's property p.X
             FieldInfo component = method.typeInfo().fields().stream()

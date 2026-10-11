@@ -70,23 +70,34 @@ public final class CSharpProgram {
         OPEN,
     }
 
+    /** Getters and setters: C#'s properties where they can be (see {@link CSharpProperties}), or Java's methods. */
+    public enum Accessors {
+        PROPERTIES,
+        METHODS,
+    }
+
     /** {@code libraries}: what the libraries the program uses are in C#, see {@link CSharpLibraries}. */
-    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries) {
+    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries,
+                         Accessors accessors) {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
-                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT);
+                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT, Accessors.PROPERTIES);
 
         public Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
-            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT);
+            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT, Accessors.PROPERTIES);
         }
 
         public Policy withLibraries(CSharpLibraries libraries) {
-            return new Policy(functionalInterfaces, inheritance, libraries);
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors);
+        }
+
+        public Policy withAccessors(Accessors accessors) {
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors);
         }
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT);
+            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, Map.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -97,12 +108,19 @@ public final class CSharpProgram {
     private final Set<TypeInfo> prefixedHoisted;
     private final Map<MethodInfo, Integer> typeTokens;
     private final CSharpLibraries libraries;
+    private final Map<FieldInfo, CSharpProperties.Property> properties;
+    private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
                           Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens,
-                          CSharpLibraries libraries) {
+                          CSharpLibraries libraries, Map<FieldInfo, CSharpProperties.Property> properties) {
         this.libraries = libraries;
+        this.properties = properties;
+        properties.values().forEach(p -> {
+            accessors.put(p.getter(), p);
+            if (p.setter() != null) accessors.put(p.setter(), p);
+        });
         this.prefixedHoisted = prefixedHoisted;
         this.typeTokens = typeTokens;
         this.ambiguous = ambiguous;
@@ -141,7 +159,18 @@ public final class CSharpProgram {
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
                 namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
-                prefixedHoisted(all), typeTokens(all), policy.libraries());
+                prefixedHoisted(all), typeTokens(all), policy.libraries(),
+                policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden) : Map.of());
+    }
+
+    /** The property that takes {@code field}'s place; null when it stays a field. */
+    CSharpProperties.Property property(FieldInfo field) {
+        return properties.get(field);
+    }
+
+    /** The property whose getter or setter {@code method} is; null when it is a method. */
+    CSharpProperties.Property accessorOf(MethodInfo method) {
+        return accessors.get(method);
     }
 
     /** The library mappings of the translation. */
@@ -230,7 +259,7 @@ public final class CSharpProgram {
         return typeTokens.getOrDefault(method, -1);
     }
 
-    private static List<Element> code(TypeInfo t) {
+    static List<Element> code(TypeInfo t) {
         List<Element> code = new ArrayList<>();
         Stream.concat(t.constructors().stream(), t.methods().stream())
                 .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));

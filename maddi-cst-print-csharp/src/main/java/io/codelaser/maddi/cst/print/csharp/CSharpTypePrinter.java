@@ -152,7 +152,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         typeInfo.fields().stream()
                 .filter(f -> !f.isSynthetic() && !CSharpNames.isEnumConstant(f) && !components.contains(f)
                              && !CSharpNames.inCompanion(f))
-                .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
+                .forEach(f -> {
+                    CSharpProperties.Property property = CSharpContext.program().property(f);
+                    members.add(property != null ? CSharpFieldPrinter.property(property, q)
+                            : fieldPrinterFactory.create(f, formatter2).print(q, false));
+                });
         typeInfo.constructors().stream()
                 .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty())
                              && !CSharpNames.inCompanion(c))
@@ -165,7 +169,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 })
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(q)));
         typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m))
+                .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m)
+                             && CSharpContext.program().accessorOf(m) == null)
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
         typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));

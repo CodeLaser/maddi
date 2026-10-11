@@ -65,11 +65,28 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
             """;
 
+    /**
+     * A getter of a field is a property that takes the field's place: {@code { get; }} for a field assigned only in
+     * constructors, {@code private set} for one that its class writes too. The field's uses are the property's.
+     */
     @Test
     public void classMembers() {
         String cs = translate("Counter", CLASS);
         contains(cs, "namespace Org.Example.Shapes;");
         contains(cs, "public sealed class Counter {");
+        contains(cs, "public int Count { get; private set; }");
+        contains(cs, "public string Name { get; }");
+        contains(cs, "public const int LIMIT = 10;");
+        contains(cs, "public Counter(string name) { this.Name = name; }");
+        contains(cs, "if (Count < LIMIT) { Count++; } else if (Count == LIMIT) { Count = 0; } else { Count += 2; }");
+        contains(cs, "public override string ToString() => Name + \":\" + Count;");
+    }
+
+    /** The policy can keep Java's getters as methods. */
+    @Test
+    public void classMembersAsMethods() {
+        policy = CSharpProgram.Policy.DEFAULT.withAccessors(CSharpProgram.Accessors.METHODS);
+        String cs = translate("CounterAsMethods", CLASS);
         contains(cs, "private int count;");
         contains(cs, "private readonly string name;");
         contains(cs, "public const int LIMIT = 10;");
@@ -87,7 +104,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 CSharpProgram.Inheritance.OPEN_PUBLIC_API);
         String cs = translate("Counter", CLASS);
         contains(cs, "public class Counter {");
-        contains(cs, "public virtual int GetCount() => count;");
+        contains(cs, "public virtual int Count { get; private set; }");
+        contains(cs, "public string Name { get; }");
     }
 
     @Language("java")
@@ -932,7 +950,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void memberNames() {
         String cs = translate("Match", MEMBER_NAMES);
         contains(cs, "internal sealed class Match<TEmbedded> {");
-        contains(cs, "internal TEmbedded Embedded() => embedded;");
+        contains(cs, "internal TEmbedded Embedded { get; }");
         contains(cs, "internal Result ResultValue() => result;");
     }
 
@@ -1018,7 +1036,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void companionClasses() {
         String cs = translate("Response", COMPANION);
         contains(cs, "public sealed class Response<T> {");
-        contains(cs, "public string Describe() => Response.EMPTY + content + Response.Count();");
+        contains(cs, "public string Describe() => Response.EMPTY + Content + Response.Count();");
         contains(cs, "internal Response(T content)");
         contains(cs, "public static class Response {");
         contains(cs, "internal const string EMPTY = \"\";");
@@ -1401,5 +1419,40 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(newtonsoft, "[JsonProperty(\"body\")]");
         contains(newtonsoft, "[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]");
         contains(newtonsoft, "(node.Type == JTokenType.Object) ? node[\"year\"].Value<int>() : 0");
+    }
+
+    @Language("java")
+    private static final String PROPERTIES = """
+            package org.example.properties;
+            public class Person {
+                private String name;
+                private final int age;
+                Person(int age) { this.age = age; }
+                public String getName() { return name; }
+                public void setName(String name) { this.name = name; }
+                int getAge() { return age; }
+                public boolean isAdult() { return age >= 18; }
+            }
+            class Greeter {
+                String greet(Person p) {
+                    p.setName("Ann");
+                    return p.getName() + (p.isAdult() ? "" : " (" + p.getAge() + ")");
+                }
+            }
+            """;
+
+    /**
+     * A setter of the getter's field is the property's set; the property is as visible as its getter; a method that
+     * computes is no getter. Calls are the property's reads and assignments.
+     */
+    @Test
+    public void properties() {
+        String cs = translate("Person", PROPERTIES);
+        contains(cs, "public string Name { get; set; }");
+        contains(cs, "internal int Age { get; }");
+        contains(cs, "internal Person(int age) { this.Age = age; }");
+        contains(cs, "public bool IsAdult() => Age >= 18;");
+        contains(cs, "p.Name = \"Ann\";");
+        contains(cs, "return p.Name + (p.IsAdult() ? \"\" : \" (\" + p.Age + \")\");");
     }
 }
