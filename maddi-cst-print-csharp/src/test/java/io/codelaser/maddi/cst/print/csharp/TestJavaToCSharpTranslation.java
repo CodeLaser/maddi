@@ -1269,4 +1269,27 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static string Parse(string s) => s;");
         contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
     }
+
+    private static final String UUID_AS_STRING = """
+            # a client's overrides: a UUID is a string
+            mapping client:uuid-as-string
+            type java.util.UUID -> string
+            member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
+            member java.util.UUID.fromString/1 -> $1
+            member java.util.Random.nextInt/1 ?receiver=java.util.Random -> $0.Next(0, $1)   # a guard
+            """;
+
+    /** The same override as a mapping file, the way a client writes it without Java; with a guarded rule. */
+    @Test
+    public void libraryOverrideFile() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
+                .withFirst(CSharpMappingFile.parse(UUID_AS_STRING, "uuid.csmap")));
+        String cs = translate("ValuesOverriddenByFile", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Parse(string s) => s;");
+        contains(cs, "internal static int Roll(Random random) => random.Next(0, 6);");
+        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CSharpMappingFile.parse("mapping x\nmember a.B.c/0 ?nope -> d", "bad.csmap"));
+        org.junit.jupiter.api.Assertions.assertEquals("bad.csmap:2: no guard ?nope", e.getMessage());
+    }
 }

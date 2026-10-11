@@ -1154,7 +1154,7 @@ final class CSharpBcl implements LibraryMapping {
     }
 
     /** The method and what it overrides, the most specific declaring type first: ArrayList's, List's, Collection's. */
-    private static List<MethodInfo> candidates(MethodInfo method) {
+    static List<MethodInfo> candidates(MethodInfo method) {
         return Stream.concat(Stream.of(method), method.overrides().stream()
                         .sorted(Comparator.comparingInt((MethodInfo m) -> -m.typeInfo().superTypesExcludingJavaLangObject().size())
                                 .thenComparing(m -> m.typeInfo().fullyQualifiedName())))
@@ -1162,7 +1162,7 @@ final class CSharpBcl implements LibraryMapping {
     }
 
     /** {@code int,String}: the simple names of the erased parameter types. */
-    private static String signature(MethodInfo method) {
+    static String signature(MethodInfo method) {
         StringBuilder sb = new StringBuilder();
         for (ParameterInfo p : method.parameters()) {
             if (!sb.isEmpty()) sb.append(',');

@@ -266,6 +266,27 @@ answers null for what it does not know. The list is how a client decides:
 - **Leave a library untranslated** by leaving out its mapping. Its uses keep their Java names, with an
   `UNMAPPED_JDK` message.
 
+A mapping is Java (`LibraryMapping`) or text, a `.csmap` file that `CSharpMappingFile` reads: one directive per
+line. This is how a client overrides rules without Java:
+
+```
+mapping client:uuid-as-string
+type java.util.UUID -> string
+member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
+member org.slf4j.Logger.warn/2 ?lastArgumentThrowable -> $0.LogWarning($2, $1)
+member org.slf4j.Logger.warn/2 -> $0.LogWarning($1, $2)
+statement java.util.Map.put/2 -> $0[$1] = $2
+```
+
+- **Directives.** `type`, `plain` (a generic type whose counterpart is not generic) and `pascal` (a class whose
+  members are the Java ones in PascalCase) map types. `member` and `statement` map calls (`owner.new` for a
+  constructor), `field` maps fields, and `override` gives a C# name to a translated method that overrides a library
+  method.
+- **Keys and templates** are the JDK table's.
+- **Guards.** A rule with a guard, `?name`, applies only when the guard holds, and the rules of one key are tried in
+  order. The guards are named predicates of the call: `arguments=N`, `receiver=fqn`, `lastArgumentThrowable`,
+  `methodReference`. `CSharpMappingFile.guard` registers more.
+
 The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
 qualified, as one whose name two namespaces declare is.
 
