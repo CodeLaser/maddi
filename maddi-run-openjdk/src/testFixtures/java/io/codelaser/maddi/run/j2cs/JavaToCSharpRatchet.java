@@ -20,6 +20,8 @@ import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompilationUnitPrinter;
+import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
+import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
 import io.codelaser.maddi.cst.print.csharp.CSharpPrintMessage;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
@@ -49,15 +51,25 @@ import static org.junit.jupiter.api.Assertions.fail;
  * for the syntax errors, then compiles the syntax-clean files together against the BCL. A file that has no error in
  * that compilation counts as compiling. The error total is reported, not ratcheted: as the BCL mapping lets the
  * compiler bind more, it gets to report errors it could not see before.
+ * <h2>The libraries</h2>
+ * The policy's library mappings decide what goes with the translation: their sources (the compatibility library) are
+ * compiled with it, not counted; their NuGet packages are restored into {@code deps/} and referenced. The output has a
+ * {@code Translated.csproj} beside the sources, which builds them with those packages.
  *
  * <h2>The census</h2>
- * The printer reports every JDK type or member it prints without a BCL counterpart ({@code UNMAPPED_JDK}); their
- * number is ratcheted, and the report lists them by frequency: the mapping's work list.
+ * The printer reports every library type or member it prints without a mapping ({@code UNMAPPED_JDK}): the JDK's,
+ * and those of slf4j and Jackson, which have mappings too. Their number is ratcheted; the report counts them per
+ * library and lists them by frequency, the mappings' work list.
  * <p>
  * The output lands in {@code build/j2cs/<name>/}: the translated sources, the judge's output and {@code report.txt}.
  */
-public record JavaToCSharpRatchet(String name, Path ratchetFile) {
+public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.Policy policy) {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaToCSharpRatchet.class);
+
+    /** The translation as the default policy has it: the libraries the printer maps by default. */
+    public JavaToCSharpRatchet(String name, Path ratchetFile) {
+        this(name, ratchetFile, CSharpProgram.Policy.DEFAULT);
+    }
 
     /** name -> direction. "=" must not move, "<=" may only go down, ">=" may only go up. */
     private static final Map<String, String> DIRECTION = new LinkedHashMap<>();
@@ -75,13 +87,20 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
     public void run(JavaToKotlinRatchet.Corpus corpus) throws Exception {
         Path out = Path.of("build/j2cs", name);
         deleteRecursively(out);
-        Printed printed = print(corpus, corpus.types(), out.resolve("src"));
-        // the compatibility library goes with the translation; it is compiled with it, and not counted
-        Path compat = out.resolve("src").resolve(CSharpCompat.FILE_NAME).toAbsolutePath().normalize();
-        Files.writeString(compat, CSharpCompat.source());
+        Printed printed = print(corpus, corpus.types(), out.resolve("src"), policy);
+        // the sources the libraries' mappings need, the compatibility library first, go with the translation; they
+        // are compiled with it, and not counted. A project file beside them references the mappings' packages.
+        CSharpLibraries libraries = policy.libraries();
+        List<Path> sources = new ArrayList<>();
+        for (LibraryMapping.Source source : libraries.requirements().sources()) {
+            Path file = out.resolve("src").resolve(source.fileName()).toAbsolutePath().normalize();
+            Files.writeString(file, source.content().get());
+            sources.add(file);
+        }
+        Files.writeString(out.resolve("src").resolve("Translated.csproj"), libraries.projectFile(TARGET_FRAMEWORK));
         List<Path> all = new ArrayList<>(printed.files);
-        all.add(compat);
-        Judged judged = judge(all, out);
+        all.addAll(sources);
+        Judged judged = judge(all, libraries.requirements().packages(), out);
 
         Set<Path> withErrors = judged.errors.stream().map(Diagnostic::file).collect(Collectors.toSet());
         Set<Path> withSyntaxErrors = judged.syntaxErrors.stream().map(Diagnostic::file).collect(Collectors.toSet());
@@ -98,7 +117,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         measured.put("compilingFiles", compiling);
         measured.put("unmappedJdkUses", (long) unmapped.size());
 
-        String report = report(measured, printed, judged, unmapped, compat);
+        String report = report(measured, printed, judged, unmapped, sources);
         Files.writeString(out.resolve("report.txt"), report);
         Files.write(out.resolve("messages.txt"), printed.messages.stream().map(CSharpPrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
@@ -109,7 +128,8 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
     }
 
     /** Each compilation unit of {@code types} as a C# file under {@code src}. */
-    private static Printed print(JavaToKotlinRatchet.Corpus corpus, List<TypeInfo> types, Path src) throws IOException {
+    private static Printed print(JavaToKotlinRatchet.Corpus corpus, List<TypeInfo> types, Path src,
+                                 CSharpProgram.Policy policy) throws IOException {
         List<Path> files = new ArrayList<>();
         List<String> crashes = new ArrayList<>();
         List<CSharpPrintMessage> messages = new ArrayList<>();
@@ -117,7 +137,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> done = new HashSet<>();
         // the corpus is the whole program: what one file's printing may assume of the others
-        CSharpProgram program = CSharpProgram.analyze(types);
+        CSharpProgram program = CSharpProgram.analyze(types, policy);
         for (TypeInfo type : types) {
             if (!done.add(type.compilationUnit())) continue; // a file with two primary types prints once
             try {
@@ -146,7 +166,10 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
     private record Judged(List<Diagnostic> syntaxErrors, List<Diagnostic> errors) {
     }
 
-    private static Judged judge(List<Path> files, Path out) throws Exception {
+    private static final String TARGET_FRAMEWORK = "net10.0";
+
+    private static Judged judge(List<Path> files, List<LibraryMapping.NuGetPackage> packages, Path out)
+            throws Exception {
         String tool = System.getProperty("maddi.test.csharpCheck");
         assertTrue(tool != null && !tool.isBlank(), "no -Dmaddi.test.csharpCheck: run this through Gradle");
         Path toolDir = Path.of(tool);
@@ -156,7 +179,9 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         if (built != 0) fail("building " + toolDir + " failed (is a .NET 10 SDK on the PATH?); see " + buildLog);
 
         Path argFile = out.resolve("csharp-check.args");
-        Files.write(argFile, files.stream().map(Path::toString).toList());
+        List<String> arguments = new ArrayList<>(files.stream().map(Path::toString).toList());
+        restore(packages, out).forEach(dll -> arguments.add("-r:" + dll));
+        Files.write(argFile, arguments);
         Path log = out.resolve("csharp-check.out");
         Path dll = toolDir.resolve("build/bin/Release/net10.0/csharp-check.dll");
         int exit = new ProcessBuilder("dotnet", dll.toString(), argFile.toAbsolutePath().toString())
@@ -177,10 +202,37 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         return new Judged(syntax, errors);
     }
 
+    /**
+     * The assemblies of the mappings' packages, with their dependencies: a project that references them, built into
+     * {@code deps/bin} (NuGet's restore, which needs the packages in the local cache or the network). None without
+     * packages.
+     */
+    private static List<Path> restore(List<LibraryMapping.NuGetPackage> packages, Path out) throws Exception {
+        if (packages.isEmpty()) return List.of();
+        Path deps = out.resolve("deps").toAbsolutePath();
+        Files.createDirectories(deps);
+        StringBuilder project = new StringBuilder("<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n")
+                .append("    <TargetFramework>").append(TARGET_FRAMEWORK).append("</TargetFramework>\n")
+                .append("    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>\n")
+                .append("  </PropertyGroup>\n  <ItemGroup>\n");
+        packages.forEach(p -> project.append("    <PackageReference Include=\"").append(p.id()).append("\" Version=\"")
+                .append(p.version()).append("\" />\n"));
+        Files.writeString(deps.resolve("deps.csproj"), project.append("  </ItemGroup>\n</Project>\n").toString());
+        Path bin = deps.resolve("bin");
+        Path log = out.resolve("deps-build.log");
+        int built = new ProcessBuilder("dotnet", "build", deps.toString(), "-c", "Release", "-o", bin.toString(),
+                "-nologo", "-v", "q").redirectErrorStream(true).redirectOutput(log.toFile()).start().waitFor();
+        if (built != 0) fail("restoring the packages " + packages + " failed; see " + log.toAbsolutePath());
+        try (Stream<Path> dlls = Files.list(bin)) {
+            return dlls.filter(f -> f.getFileName().toString().endsWith(".dll")
+                                    && !f.getFileName().toString().equals("deps.dll")).sorted().toList();
+        }
+    }
+
     // ---------------------------------------------------------------- report and ratchet
 
     private String report(Map<String, Long> measured, Printed printed, Judged judged,
-                          List<CSharpPrintMessage> unmapped, Path compat) {
+                          List<CSharpPrintMessage> unmapped, List<Path> sources) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
@@ -188,11 +240,11 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
             sb.append("\nprinter crashes:\n");
             printed.crashes.forEach(c -> sb.append("  ").append(c).append('\n'));
         }
-        List<Diagnostic> inCompat = judged.errors.stream().filter(d -> d.file.equals(compat)).toList();
-        if (!inCompat.isEmpty()) {
-            sb.append("\nerrors in the compatibility library (").append(CSharpCompat.FILE_NAME).append("):\n");
-            inCompat.forEach(d -> sb.append("  ").append(d.line).append(' ').append(d.code).append(' ')
-                    .append(d.message).append('\n'));
+        List<Diagnostic> inSources = judged.errors.stream().filter(d -> sources.contains(d.file)).toList();
+        if (!inSources.isEmpty()) {
+            sb.append("\nerrors in the libraries' sources (").append(CSharpCompat.FILE_NAME).append(", …):\n");
+            inSources.forEach(d -> sb.append("  ").append(d.file.getFileName()).append(':').append(d.line).append(' ')
+                    .append(d.code).append(' ').append(d.message).append('\n'));
         }
         if (!judged.syntaxErrors.isEmpty()) {
             sb.append("\nsyntax errors:\n");
@@ -207,11 +259,22 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile) {
         sb.append("\nmembers the compiler does not know (CS1061, CS0117):\n").append(counted(judged.errors.stream()
                 .filter(d -> Set.of("CS1061", "CS0117").contains(d.code))
                 .map(d -> d.message.replaceAll("^'([^']*)' does not contain a definition for '([^']*)'.*$", "$1.$2")), 40));
-        sb.append("\nunmapped JDK uses, the BCL mapping's work list (messages.txt has each):\n")
+        sb.append("\nunmapped uses by library (libraries: ").append(policy.libraries().id()).append("):\n")
+                .append(counted(unmapped.stream().map(m -> library(m.detail())), 20));
+        sb.append("\nunmapped library uses, the mappings' work list (messages.txt has each):\n")
                 .append(counted(unmapped.stream().map(CSharpPrintMessage::detail), 60));
         sb.append("\nprinter messages, by severity and code:\n").append(counted(printed.messages.stream()
                 .map(m -> String.format("%-16s %s", m.severity(), m.code())), 100));
         return sb.toString();
+    }
+
+    /** The library of an unmapped use: {@code jdk}, {@code slf4j}, {@code jackson}, or the package's first segments. */
+    private static String library(String detail) {
+        if (detail.startsWith("java.") || detail.startsWith("javax.") || detail.startsWith("jdk.")) return "jdk";
+        if (detail.startsWith("org.slf4j.")) return "slf4j";
+        if (detail.startsWith("com.fasterxml.jackson.")) return "jackson";
+        String[] segments = detail.split("\\.");
+        return segments.length > 2 ? segments[0] + "." + segments[1] : detail;
     }
 
     private static String counted(Stream<String> items, int limit) {

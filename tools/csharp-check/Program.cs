@@ -3,7 +3,8 @@
 //
 //   csharp-check <argument file>
 //
-// The argument file has one C# file per line. Output, tab-separated, one diagnostic per line:
+// The argument file has one C# file per line, and one line -r:<assembly> per referenced assembly beyond the BCL
+// (the packages of the translation's library mappings). Output, tab-separated, one diagnostic per line:
 //
 //   S <file> <line> <column> <code> <message>   a syntax error, from parsing the file alone
 //   E <file> <line> <column> <code> <message>   an error of the compilation of all syntax-clean files together
@@ -21,7 +22,9 @@ if (args.Length != 1)
     return 2;
 }
 
-var files = File.ReadAllLines(args[0]).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+var lines = File.ReadAllLines(args[0]).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+var files = lines.Where(l => !l.StartsWith("-r:")).ToList();
+var assemblies = lines.Where(l => l.StartsWith("-r:")).Select(l => l.Substring(3)).ToList();
 var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
 var clean = new List<SyntaxTree>();
 foreach (var file in files)
@@ -32,9 +35,14 @@ foreach (var file in files)
     if (errors.Count == 0) clean.Add(tree);
 }
 
-var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
+var platform = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
     .Split(Path.PathSeparator)
     .Where(p => Path.GetFileName(p).StartsWith("System.") || Path.GetFileName(p) is "mscorlib.dll" or "netstandard.dll")
+    .ToList();
+// a package's copy of a platform assembly is the platform's
+var platformNames = platform.Select(Path.GetFileName).ToHashSet();
+var references = platform
+    .Concat(assemblies.Where(p => !platformNames.Contains(Path.GetFileName(p))))
     .Select(p => MetadataReference.CreateFromFile(p));
 var compilation = CSharpCompilation.Create("translated", clean, references,
     new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Disable));

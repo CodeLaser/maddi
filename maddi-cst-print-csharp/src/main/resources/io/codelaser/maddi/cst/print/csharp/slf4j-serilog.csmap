@@ -1,0 +1,87 @@
+# slf4j as Serilog: a Logger is Serilog's ILogger, Log.ForContext(type) its factory; messages are message templates
+# whose holes are named after their arguments, a trailing exception the first argument.
+mapping slf4j:serilog
+nuget Serilog 4.2.0
+type org.slf4j.Logger -> ILogger using Serilog
+member org.slf4j.LoggerFactory.getLogger(Class) -> Log.ForContext($1) using Serilog
+member org.slf4j.LoggerFactory.getLogger(String) -> Log.ForContext("SourceContext", $1) using Serilog
+# trace: the exception first, then the message and its arguments
+member org.slf4j.Logger.trace(String) -> $0.Verbose($#1)
+member org.slf4j.Logger.trace(String,Throwable) -> $0.Verbose($2, $#1)
+member org.slf4j.Logger.trace/2 ?arguments=2 ?lastArgumentThrowable -> $0.Verbose($2, $#1)
+member org.slf4j.Logger.trace/2 ?arguments=2 -> $0.Verbose($#1, $2)
+member org.slf4j.Logger.trace/2 ?arguments=3 ?lastArgumentThrowable -> $0.Verbose($3, $#1, $2)
+member org.slf4j.Logger.trace/2 ?arguments=3 -> $0.Verbose($#1, $2, $3)
+member org.slf4j.Logger.trace/2 ?arguments=4 ?lastArgumentThrowable -> $0.Verbose($4, $#1, $2, $3)
+member org.slf4j.Logger.trace/2 ?arguments=4 -> $0.Verbose($#1, $2, $3, $4)
+member org.slf4j.Logger.trace/2 ?arguments=5 ?lastArgumentThrowable -> $0.Verbose($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.trace/2 ?arguments=5 -> $0.Verbose($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.trace/2 -> $0.Verbose($*)
+member org.slf4j.Logger.trace/3 ?arguments=3 ?lastArgumentThrowable -> $0.Verbose($3, $#1, $2)
+member org.slf4j.Logger.trace/3 ?arguments=3 -> $0.Verbose($#1, $2, $3)
+member org.slf4j.Logger.trace/3 -> $0.Verbose($*)
+member org.slf4j.Logger.isTraceEnabled/0 -> $0.IsEnabled(LogEventLevel.Verbose) using Serilog.Events
+# debug: the exception first, then the message and its arguments
+member org.slf4j.Logger.debug(String) -> $0.Debug($#1)
+member org.slf4j.Logger.debug(String,Throwable) -> $0.Debug($2, $#1)
+member org.slf4j.Logger.debug/2 ?arguments=2 ?lastArgumentThrowable -> $0.Debug($2, $#1)
+member org.slf4j.Logger.debug/2 ?arguments=2 -> $0.Debug($#1, $2)
+member org.slf4j.Logger.debug/2 ?arguments=3 ?lastArgumentThrowable -> $0.Debug($3, $#1, $2)
+member org.slf4j.Logger.debug/2 ?arguments=3 -> $0.Debug($#1, $2, $3)
+member org.slf4j.Logger.debug/2 ?arguments=4 ?lastArgumentThrowable -> $0.Debug($4, $#1, $2, $3)
+member org.slf4j.Logger.debug/2 ?arguments=4 -> $0.Debug($#1, $2, $3, $4)
+member org.slf4j.Logger.debug/2 ?arguments=5 ?lastArgumentThrowable -> $0.Debug($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.debug/2 ?arguments=5 -> $0.Debug($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.debug/2 -> $0.Debug($*)
+member org.slf4j.Logger.debug/3 ?arguments=3 ?lastArgumentThrowable -> $0.Debug($3, $#1, $2)
+member org.slf4j.Logger.debug/3 ?arguments=3 -> $0.Debug($#1, $2, $3)
+member org.slf4j.Logger.debug/3 -> $0.Debug($*)
+member org.slf4j.Logger.isDebugEnabled/0 -> $0.IsEnabled(LogEventLevel.Debug) using Serilog.Events
+# info: the exception first, then the message and its arguments
+member org.slf4j.Logger.info(String) -> $0.Information($#1)
+member org.slf4j.Logger.info(String,Throwable) -> $0.Information($2, $#1)
+member org.slf4j.Logger.info/2 ?arguments=2 ?lastArgumentThrowable -> $0.Information($2, $#1)
+member org.slf4j.Logger.info/2 ?arguments=2 -> $0.Information($#1, $2)
+member org.slf4j.Logger.info/2 ?arguments=3 ?lastArgumentThrowable -> $0.Information($3, $#1, $2)
+member org.slf4j.Logger.info/2 ?arguments=3 -> $0.Information($#1, $2, $3)
+member org.slf4j.Logger.info/2 ?arguments=4 ?lastArgumentThrowable -> $0.Information($4, $#1, $2, $3)
+member org.slf4j.Logger.info/2 ?arguments=4 -> $0.Information($#1, $2, $3, $4)
+member org.slf4j.Logger.info/2 ?arguments=5 ?lastArgumentThrowable -> $0.Information($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.info/2 ?arguments=5 -> $0.Information($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.info/2 -> $0.Information($*)
+member org.slf4j.Logger.info/3 ?arguments=3 ?lastArgumentThrowable -> $0.Information($3, $#1, $2)
+member org.slf4j.Logger.info/3 ?arguments=3 -> $0.Information($#1, $2, $3)
+member org.slf4j.Logger.info/3 -> $0.Information($*)
+member org.slf4j.Logger.isInfoEnabled/0 -> $0.IsEnabled(LogEventLevel.Information) using Serilog.Events
+# warn: the exception first, then the message and its arguments
+member org.slf4j.Logger.warn(String) -> $0.Warning($#1)
+member org.slf4j.Logger.warn(String,Throwable) -> $0.Warning($2, $#1)
+member org.slf4j.Logger.warn/2 ?arguments=2 ?lastArgumentThrowable -> $0.Warning($2, $#1)
+member org.slf4j.Logger.warn/2 ?arguments=2 -> $0.Warning($#1, $2)
+member org.slf4j.Logger.warn/2 ?arguments=3 ?lastArgumentThrowable -> $0.Warning($3, $#1, $2)
+member org.slf4j.Logger.warn/2 ?arguments=3 -> $0.Warning($#1, $2, $3)
+member org.slf4j.Logger.warn/2 ?arguments=4 ?lastArgumentThrowable -> $0.Warning($4, $#1, $2, $3)
+member org.slf4j.Logger.warn/2 ?arguments=4 -> $0.Warning($#1, $2, $3, $4)
+member org.slf4j.Logger.warn/2 ?arguments=5 ?lastArgumentThrowable -> $0.Warning($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.warn/2 ?arguments=5 -> $0.Warning($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.warn/2 -> $0.Warning($*)
+member org.slf4j.Logger.warn/3 ?arguments=3 ?lastArgumentThrowable -> $0.Warning($3, $#1, $2)
+member org.slf4j.Logger.warn/3 ?arguments=3 -> $0.Warning($#1, $2, $3)
+member org.slf4j.Logger.warn/3 -> $0.Warning($*)
+member org.slf4j.Logger.isWarnEnabled/0 -> $0.IsEnabled(LogEventLevel.Warning) using Serilog.Events
+# error: the exception first, then the message and its arguments
+member org.slf4j.Logger.error(String) -> $0.Error($#1)
+member org.slf4j.Logger.error(String,Throwable) -> $0.Error($2, $#1)
+member org.slf4j.Logger.error/2 ?arguments=2 ?lastArgumentThrowable -> $0.Error($2, $#1)
+member org.slf4j.Logger.error/2 ?arguments=2 -> $0.Error($#1, $2)
+member org.slf4j.Logger.error/2 ?arguments=3 ?lastArgumentThrowable -> $0.Error($3, $#1, $2)
+member org.slf4j.Logger.error/2 ?arguments=3 -> $0.Error($#1, $2, $3)
+member org.slf4j.Logger.error/2 ?arguments=4 ?lastArgumentThrowable -> $0.Error($4, $#1, $2, $3)
+member org.slf4j.Logger.error/2 ?arguments=4 -> $0.Error($#1, $2, $3, $4)
+member org.slf4j.Logger.error/2 ?arguments=5 ?lastArgumentThrowable -> $0.Error($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.error/2 ?arguments=5 -> $0.Error($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.error/2 -> $0.Error($*)
+member org.slf4j.Logger.error/3 ?arguments=3 ?lastArgumentThrowable -> $0.Error($3, $#1, $2)
+member org.slf4j.Logger.error/3 ?arguments=3 -> $0.Error($#1, $2, $3)
+member org.slf4j.Logger.error/3 -> $0.Error($*)
+member org.slf4j.Logger.isErrorEnabled/0 -> $0.IsEnabled(LogEventLevel.Error) using Serilog.Events

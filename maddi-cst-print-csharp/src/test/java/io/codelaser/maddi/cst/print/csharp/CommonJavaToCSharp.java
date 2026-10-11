@@ -47,7 +47,12 @@ public abstract class CommonJavaToCSharp {
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").build());
+                .addClassPath("jmod:java.base")
+                // the libraries the mappings' samples use
+                .addClassPath("jar-on-classpath:org/slf4j")
+                .addClassPath("jar-on-classpath:com/fasterxml/jackson/databind")
+                .addClassPath("jar-on-classpath:com/fasterxml/jackson/annotation")
+                .addClassPath("jar-on-classpath:com/fasterxml/jackson/core").build());
         javaInspector.onlyPreload();
     }
 

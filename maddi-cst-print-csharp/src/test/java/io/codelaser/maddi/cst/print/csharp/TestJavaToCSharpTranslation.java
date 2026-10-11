@@ -65,11 +65,28 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
             """;
 
+    /**
+     * A getter of a field is a property that takes the field's place: {@code { get; }} for a field assigned only in
+     * constructors, {@code private set} for one that its class writes too. The field's uses are the property's.
+     */
     @Test
     public void classMembers() {
         String cs = translate("Counter", CLASS);
         contains(cs, "namespace Org.Example.Shapes;");
         contains(cs, "public sealed class Counter {");
+        contains(cs, "public int Count { get; private set; }");
+        contains(cs, "public string Name { get; }");
+        contains(cs, "public const int LIMIT = 10;");
+        contains(cs, "public Counter(string name) { this.Name = name; }");
+        contains(cs, "if (Count < LIMIT) { Count++; } else if (Count == LIMIT) { Count = 0; } else { Count += 2; }");
+        contains(cs, "public override string ToString() => Name + \":\" + Count;");
+    }
+
+    /** The policy can keep Java's getters as methods. */
+    @Test
+    public void classMembersAsMethods() {
+        policy = CSharpProgram.Policy.DEFAULT.withAccessors(CSharpProgram.Accessors.METHODS);
+        String cs = translate("CounterAsMethods", CLASS);
         contains(cs, "private int count;");
         contains(cs, "private readonly string name;");
         contains(cs, "public const int LIMIT = 10;");
@@ -87,7 +104,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 CSharpProgram.Inheritance.OPEN_PUBLIC_API);
         String cs = translate("Counter", CLASS);
         contains(cs, "public class Counter {");
-        contains(cs, "public virtual int GetCount() => count;");
+        contains(cs, "public virtual int Count { get; private set; }");
+        contains(cs, "public string Name { get; }");
     }
 
     @Language("java")
@@ -108,18 +126,24 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
             """;
 
+    /**
+     * Methods that override one another, parameterless and of one type, are one property: the interface declares it
+     * (with its default body), an abstract class leaves it abstract, the others compute it. The lambda adapter of
+     * the functional interface implements it as a property.
+     */
     @Test
     public void hierarchy() {
         String cs = translate("Hierarchy", HIERARCHY);
-        contains(cs, "internal interface IShape {\ndouble Area();");
-        contains(cs, "string Describe() => \"shape\";");
+        contains(cs, "internal interface IShape {\ndouble Area { get; }");
+        contains(cs, "string Describe => \"shape\";");
+        contains(cs, "public sealed class Lambda(Func<double> f) : IShape { public double Area => f(); }");
         contains(cs, "internal abstract class Base : IShape {");
         contains(cs, "protected internal readonly double scale;");
-        contains(cs, "public abstract double Unit();");
-        contains(cs, "public double Area() => Unit() * scale;");
+        contains(cs, "public abstract double Unit { get; }");
+        contains(cs, "public double Area => Unit * scale;");
         contains(cs, "internal sealed class Square : Base {");
         contains(cs, "internal Square(double side) : base(1.0) { this.side = side; }");
-        contains(cs, "public override double Unit() => side * side;");
+        contains(cs, "public override double Unit => side * side;");
     }
 
     @Language("java")
@@ -404,7 +428,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private int unused;");
         contains(cs, "internal Helper() { }");
         contains(cs, "private int Peek(Outer o) => o.secret + unused;");
-        contains(cs, "internal Key<Number> Raw() => null;");
+        contains(cs, "internal Key<IConvertible> Raw() => null;");
         contains(cs, "protected internal override void M() { }");
     }
 
@@ -932,7 +956,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void memberNames() {
         String cs = translate("Match", MEMBER_NAMES);
         contains(cs, "internal sealed class Match<TEmbedded> {");
-        contains(cs, "internal TEmbedded Embedded() => embedded;");
+        contains(cs, "internal TEmbedded Embedded { get; }");
         contains(cs, "internal Result ResultValue() => result;");
     }
 
@@ -1018,7 +1042,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void companionClasses() {
         String cs = translate("Response", COMPANION);
         contains(cs, "public sealed class Response<T> {");
-        contains(cs, "public string Describe() => Response.EMPTY + content + Response.Count();");
+        contains(cs, "public string Describe() => Response.EMPTY + Content + Response.Count();");
         contains(cs, "internal Response(T content)");
         contains(cs, "public static class Response {");
         contains(cs, "internal const string EMPTY = \"\";");
@@ -1027,5 +1051,483 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static class IStore {");
         contains(cs, "public const int LIMIT = 10;");
         contains(cs, "Response.From(\"hello\" + IStore.LIMIT)");
+    }
+
+    @Language("java")
+    private static final String VALUES = """
+            package org.example.values;
+            import java.math.BigDecimal;
+            import java.net.URI;
+            import java.time.Clock;
+            import java.time.Duration;
+            import java.time.LocalDate;
+            import java.time.LocalDateTime;
+            import java.util.Base64;
+            import java.util.Map;
+            import java.util.Random;
+            import java.util.UUID;
+            import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+            public class Values {
+                static String id() { return UUID.randomUUID().toString(); }
+                static UUID parse(String s) { return UUID.fromString(s); }
+                static URI uri(String s) { return URI.create(s); }
+                static String path(URI uri) { return uri.getPath(); }
+                static int compare(Object a, Object b) {
+                    return new BigDecimal(a.toString()).compareTo(BigDecimal.valueOf(3L));
+                }
+                static double number(Object o) { return o instanceof Number n ? n.doubleValue() : 0; }
+                static LocalDate date(String s) { return LocalDate.parse(s, ISO_LOCAL_DATE); }
+                static LocalDateTime now(Clock clock) { return LocalDateTime.now(clock); }
+                static Duration since(long before, long after) { return Duration.ofNanos(after - before); }
+                static int roll(Random random) { return random.nextInt(6); }
+                static String encode(byte[] bytes) { return Base64.getEncoder().encodeToString(bytes); }
+                static void print(Map<String, Integer> map) { map.forEach((k, v) -> System.out.println(k + v)); }
+            }
+            """;
+
+    /**
+     * The values of java.time, java.net and java.math are the BCL's structs; a Number is an IConvertible; a
+     * formatter is a format string; Base64 is Convert.
+     */
+    @Test
+    public void values() {
+        String cs = translate("Values", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
+        contains(cs, "internal static Guid Parse(string s) => Guid.Parse(s);");
+        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
+        contains(cs, "internal static string Path(Uri uri) => uri.AbsolutePath;");
+        contains(cs, ".CompareTo((decimal) 3L)");
+        contains(cs, "o is IConvertible n ? Convert.ToDouble(n) : 0");
+        contains(cs, "DateOnly.ParseExact(s, \"yyyy-MM-dd\", CultureInfo.InvariantCulture)");
+        contains(cs, "internal static DateTime Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
+        contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
+        contains(cs, "random.Next(6)");
+        contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
+        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
+    }
+
+    @Language("java")
+    private static final String CONCURRENCY = """
+            package org.example.concurrency;
+            import java.util.List;
+            import java.util.concurrent.CompletableFuture;
+            import java.util.concurrent.CountDownLatch;
+            import java.util.concurrent.Executor;
+            import java.util.concurrent.SynchronousQueue;
+            import java.util.concurrent.ThreadPoolExecutor;
+            import java.util.concurrent.TimeUnit;
+            import java.util.concurrent.atomic.AtomicBoolean;
+            import java.util.concurrent.locks.ReadWriteLock;
+            import java.util.concurrent.locks.ReentrantReadWriteLock;
+            public class Work {
+                private final Executor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 1, TimeUnit.SECONDS,
+                        new SynchronousQueue<>());
+                private final CountDownLatch latch = new CountDownLatch(1);
+                private final AtomicBoolean done = new AtomicBoolean(false);
+                private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
+                CompletableFuture<Integer> length(String s) {
+                    return CompletableFuture.supplyAsync(() -> s, executor).thenApply(String::length);
+                }
+                int total(List<CompletableFuture<Integer>> futures) {
+                    return futures.stream().mapToInt(CompletableFuture::join).sum();
+                }
+                void finish() throws InterruptedException {
+                    done.compareAndSet(false, true);
+                    latch.countDown();
+                    latch.await();
+                }
+                void guarded(Runnable r) {
+                    var writeLock = lock.writeLock();
+                    writeLock.lock();
+                    try { r.run(); } finally { writeLock.unlock(); }
+                }
+            }
+            """;
+
+    /**
+     * A future is a task, an executor its task scheduler (a thread pool executor the .NET thread pool), a latch a
+     * CountdownEvent; a read-write lock is a ReaderWriterLockSlim; continuations, lock halves and atomics are the
+     * compatibility library's.
+     */
+    @Test
+    public void concurrency() {
+        String cs = translate("Work", CONCURRENCY);
+        contains(cs, "private readonly TaskScheduler executor = TaskScheduler.Default;");
+        contains(cs, "private readonly CountdownEvent latch = new CountdownEvent(1);");
+        contains(cs, "private readonly AtomicBoolean done = new AtomicBoolean(false);");
+        contains(cs, "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)");
+        contains(cs, "Task.Factory.StartNew(() => s, CancellationToken.None, TaskCreationOptions");
+        contains(cs, ".ThenApply<string, int>(");
+        contains(cs, ".Result");
+        contains(cs, "done.CompareAndSet(false, true);");
+        contains(cs, "latch.Signal();");
+        contains(cs, "latch.Wait();");
+        contains(cs, "var writeLock = @lock.WriteLock();");
+        contains(cs, "writeLock.Lock();");
+    }
+
+    @Language("java")
+    private static final String REFLECTION = """
+            package org.example.reflection;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.reflect.Field;
+            import java.lang.reflect.GenericArrayType;
+            import java.lang.reflect.Method;
+            import java.lang.reflect.Modifier;
+            import java.lang.reflect.ParameterizedType;
+            import java.lang.reflect.Type;
+            import java.lang.reflect.WildcardType;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Mirror {
+                @Retention(RetentionPolicy.RUNTIME)
+                public @interface Tool { String value() default ""; }
+                static Class<?> raw(Type type) {
+                    if (type instanceof Class<?> clazz) return clazz;
+                    if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> r) return r;
+                    if (type instanceof WildcardType w) return raw(w.getUpperBounds()[0]);
+                    if (type instanceof GenericArrayType g) return raw(g.getGenericComponentType()).arrayType();
+                    return Object.class;
+                }
+                static List<String> tools(Class<?> c) {
+                    List<String> names = new ArrayList<>();
+                    for (Method m : c.getDeclaredMethods()) {
+                        if (m.isBridge() || !m.isAnnotationPresent(Tool.class)) continue;
+                        names.add(m.getName() + m.getAnnotation(Tool.class).value());
+                    }
+                    return names;
+                }
+                static boolean instanceField(Field f) { return !Modifier.isStatic(f.getModifiers()); }
+                static final Type MAP_TYPE = new ParameterizedType() {
+                    @Override public Type[] getActualTypeArguments() { return new Type[] {String.class, Object.class}; }
+                    @Override public Type getRawType() { return java.util.Map.class; }
+                    @Override public Type getOwnerType() { return null; }
+                };
+            }
+            """;
+
+    /**
+     * Class is System.Type, the members of java.lang.reflect are System.Reflection's; the kinds of
+     * java.lang.reflect.Type are one System.Type, told apart by property patterns; annotations are attributes.
+     */
+    @Test
+    public void reflection() {
+        String cs = translate("Mirror", REFLECTION);
+        contains(cs, "if (type is Type { IsGenericParameter: false, IsConstructedGenericType: false } clazz)");
+        contains(cs, "type is Type { IsConstructedGenericType: true } pt &&");
+        contains(cs, "if (type is IJavaWildcardType w) { return Raw(w.GetUpperBounds()[0]); }");
+        contains(cs, "if (type is Type { IsArray: true } g) { return Raw(g.GetElementType()).MakeArrayType(); }");
+        contains(cs, "foreach (MethodInfo m in c.GetMethods(BindingFlags.DeclaredOnly");
+        contains(cs, "m.Name + m.GetCustomAttribute<ToolAttribute>().Value");
+        contains(cs, "!((JavaModifier.Of(f) & 0x0008) != 0)");
+        contains(cs, "if (false || !m.IsDefined(typeof(ToolAttribute), false))");
+        contains(cs, "internal static readonly Type MAP_TYPE = typeof(IDictionary<string, object>);");
+    }
+
+    @Language("java")
+    private static final String SERVICES = """
+            package org.example.services;
+            import java.io.IOException;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.util.ServiceLoader;
+            public class Services {
+                public interface Factory { String name(); int rank(); }
+                static Factory factory() {
+                    return ServiceLoader.load(Factory.class).findFirst().orElse(null);
+                }
+                static byte[] read(String dir, String file) throws IOException {
+                    return Files.readAllBytes(Path.of(dir, file));
+                }
+                static String type(Path path) { return path.getFileName().toString(); }
+                static String type(String path) { return type(Path.of(path)); }
+            }
+            """;
+
+    /**
+     * A service loader is the implementations in the loaded assemblies, an enumerable; a path a FileInfo (Java
+     * overloads on Path and String, which a string path would merge).
+     */
+    @Test
+    public void services() {
+        String cs = translate("Services", SERVICES);
+        contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
+        contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
+        contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
+        contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
+    }
+
+    /**
+     * A client's mapping in front of the JDK's overrides single rules: here a UUID is a string, randomUUID()
+     * Guid.NewGuid().ToString() and fromString(s) s; what it does not answer, URI, stays the JDK mapping's.
+     */
+    @Test
+    public void libraryOverride() {
+        LibraryMapping uuidAsString = new LibraryMapping() {
+            @Override
+            public String id() {
+                return "client:uuid-as-string";
+            }
+
+            @Override
+            public TypeMapping type(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
+                return "java.util.UUID".equals(typeInfo.fullyQualifiedName())
+                        ? new TypeMapping("string", null, false, false) : null;
+            }
+
+            @Override
+            public Rule call(io.codelaser.maddi.cst.api.info.MethodInfo method,
+                             io.codelaser.maddi.cst.api.expression.MethodCall call) {
+                if (!"java.util.UUID".equals(method.typeInfo().fullyQualifiedName())) return null;
+                return switch (method.name()) {
+                    case "randomUUID" -> new Rule("Guid.NewGuid().ToString()", null, java.util.List.of("System"));
+                    case "fromString" -> new Rule("$1", null, java.util.List.of());
+                    default -> null;
+                };
+            }
+        };
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(uuidAsString));
+        String cs = translate("ValuesOverridden", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Parse(string s) => s;");
+        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
+    }
+
+    private static final String UUID_AS_STRING = """
+            # a client's overrides: a UUID is a string
+            mapping client:uuid-as-string
+            type java.util.UUID -> string
+            member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
+            member java.util.UUID.fromString/1 -> $1
+            member java.util.Random.nextInt/1 ?receiver=java.util.Random -> $0.Next(0, $1)   # a guard
+            """;
+
+    /** The same override as a mapping file, the way a client writes it without Java; with a guarded rule. */
+    @Test
+    public void libraryOverrideFile() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
+                .withFirst(CSharpMappingFile.parse(UUID_AS_STRING, "uuid.csmap")));
+        String cs = translate("ValuesOverriddenByFile", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Parse(string s) => s;");
+        contains(cs, "internal static int Roll(Random random) => random.Next(0, 6);");
+        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CSharpMappingFile.parse("mapping x\nmember a.B.c/0 ?nope -> d", "bad.csmap"));
+        org.junit.jupiter.api.Assertions.assertEquals("bad.csmap:2: no guard ?nope", e.getMessage());
+    }
+
+    /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */
+    @Test
+    public void libraryRequirements() {
+        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none").withFirst(CSharpMappingFile.parse("""
+                mapping slf4j:example
+                nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
+                type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
+                """, "example.csmap"));
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(
+                new LibraryMapping.NuGetPackage("Microsoft.Extensions.Logging.Abstractions", "10.0.0")),
+                libraries.requirements().packages());
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(CSharpCompat.FILE_NAME),
+                libraries.requirements().sources().stream().map(LibraryMapping.Source::fileName).toList());
+        String project = libraries.projectFile("net10.0");
+        contains(project, "<PackageReference Include=\"Microsoft.Extensions.Logging.Abstractions\" Version=\"10.0.0\" />");
+        contains(project, "<!-- generated by maddi's Java -> C# translation; libraries: slf4j:example,jdk -->");
+    }
+
+    @Language("java")
+    private static final String LOGGING = """
+            package org.example.logging;
+            import org.slf4j.Logger;
+            import org.slf4j.LoggerFactory;
+            public class Worker {
+                private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
+                void work(String output, int count, Exception e) {
+                    LOG.debug("LLM output: {}", output);
+                    LOG.warn("{} of {} failed {", count, output.length());
+                    LOG.error("Ignored error", e);
+                    LOG.warn("Failed {}", output, e);
+                    if (LOG.isDebugEnabled()) LOG.info("done");
+                }
+            }
+            """;
+
+    /**
+     * slf4j as Microsoft.Extensions.Logging, the default: a message's {} holes are named after their arguments, a
+     * trailing exception is the first argument; as Serilog, the option.
+     */
+    @Test
+    public void logging() {
+        String cs = translate("Worker", LOGGING);
+        contains(cs, "private static readonly ILogger LOG = JavaLogging.GetLogger(typeof(Worker));");
+        contains(cs, "LOG.LogDebug(\"LLM output: {Output}\", output);");
+        contains(cs, "LOG.LogWarning(\"{Count} of {Length} failed {{\", count, output.Length);");
+        contains(cs, "LOG.LogError(e, \"Ignored error\");");
+        contains(cs, "LOG.LogWarning(e, \"Failed {Output}\", output);");
+        contains(cs, "if (LOG.IsEnabled(LogLevel.Debug)) { LOG.LogInformation(\"done\"); }");
+    }
+
+    @Test
+    public void loggingSerilog() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.choose("slf4j=serilog"));
+        String serilog = translate("WorkerSerilog", LOGGING);
+        contains(serilog, "using Serilog;");
+        contains(serilog, "private static readonly ILogger LOG = Log.ForContext(typeof(Worker));");
+        contains(serilog, "LOG.Warning(e, \"Failed {Output}\", output);");
+        contains(serilog, "if (LOG.IsEnabled(LogEventLevel.Debug)) { LOG.Information(\"done\"); }");
+    }
+
+    @Language("java")
+    private static final String JSON = """
+            package org.example.json;
+            import com.fasterxml.jackson.annotation.JsonInclude;
+            import com.fasterxml.jackson.annotation.JsonProperty;
+            import com.fasterxml.jackson.annotation.JsonSubTypes;
+            import com.fasterxml.jackson.annotation.JsonTypeInfo;
+            import com.fasterxml.jackson.core.JsonProcessingException;
+            import com.fasterxml.jackson.databind.JsonNode;
+            import com.fasterxml.jackson.databind.ObjectMapper;
+            public class Codec {
+                @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+                @JsonSubTypes({@JsonSubTypes.Type(value = Text.class, name = "text"),
+                               @JsonSubTypes.Type(value = Image.class, name = "image")})
+                public static abstract class Content { }
+                @JsonInclude(JsonInclude.Include.NON_NULL)
+                public static class Text extends Content { @JsonProperty("body") public String text; }
+                public static class Image extends Content { }
+                private final ObjectMapper mapper = new ObjectMapper();
+                Content read(String json) throws JsonProcessingException { return mapper.readValue(json, Content.class); }
+                String write(Content c) throws JsonProcessingException { return mapper.writeValueAsString(c); }
+                int year(JsonNode node) { return node.isObject() ? node.get("year").asInt() : 0; }
+            }
+            """;
+
+    /** Jackson as System.Text.Json, the default; as Json.NET, the option. */
+    @Test
+    public void json() {
+        String cs = translate("Codec", JSON);
+        contains(cs, "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")]");
+        contains(cs, "[JsonDerivedType(typeof(Text), \"text\")] [JsonDerivedType(typeof(Image), \"image\")]");
+        contains(cs, "[JsonPropertyName(\"body\")]");
+        contains(cs, "private readonly JsonSerializerOptions mapper = new JsonSerializerOptions();");
+        contains(cs, "JsonSerializer.Deserialize<Content>(json, mapper)");
+        contains(cs, "JsonSerializer.Serialize(c, mapper)");
+        contains(cs, "(node is JsonObject) ? node[\"year\"].GetValue<int>() : 0");
+        contains(cs, "public sealed class Text : Content {");
+    }
+
+    @Test
+    public void jsonNewtonsoft() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.choose("jackson=newtonsoft"));
+        String newtonsoft = translate("CodecNewtonsoft", JSON);
+        contains(newtonsoft, "private readonly JsonSerializerSettings mapper = new JsonSerializerSettings();");
+        contains(newtonsoft, "JsonConvert.DeserializeObject<Content>(json, mapper)");
+        contains(newtonsoft, "[JsonProperty(\"body\")]");
+        contains(newtonsoft, "[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]");
+        contains(newtonsoft, "(node.Type == JTokenType.Object) ? node[\"year\"].Value<int>() : 0");
+    }
+
+    @Language("java")
+    private static final String PROPERTIES = """
+            package org.example.properties;
+            public class Person {
+                private String name;
+                private final int age;
+                Person(int age) { this.age = age; }
+                public String getName() { return name; }
+                public void setName(String name) { this.name = name; }
+                int getAge() { return age; }
+                public boolean isAdult() { return age >= 18; }
+            }
+            class Greeter {
+                String greet(Person p) {
+                    p.setName("Ann");
+                    return p.getName() + (p.isAdult() ? "" : " (" + p.getAge() + ")");
+                }
+            }
+            """;
+
+    /**
+     * A setter of the getter's field is the property's set; the property is as visible as its getter; a method that
+     * computes is no getter. Calls are the property's reads and assignments.
+     */
+    @Test
+    public void properties() {
+        String cs = translate("Person", PROPERTIES);
+        contains(cs, "public string Name { get; set; }");
+        contains(cs, "internal int Age { get; }");
+        contains(cs, "internal Person(int age) { this.Age = age; }");
+        contains(cs, "public bool IsAdult() => Age >= 18;");
+        contains(cs, "p.Name = \"Ann\";");
+        contains(cs, "return p.Name + (p.IsAdult() ? \"\" : \" (\" + p.Age + \")\");");
+    }
+
+    @Language("java")
+    private static final String FACTS = """
+            package org.example.facts;
+            import java.util.ArrayList;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            public class Catalog {
+                private final List<String> names = new ArrayList<>();
+                private String description;
+                private List<String> stored;
+                int score(List<String> items, Map<String, Integer> weights) {
+                    int n = 0;
+                    for (String s : items) {
+                        if (items.contains(s) && weights.get(s) != null) n += weights.get(s);
+                    }
+                    return n + items.indexOf("x");
+                }
+                void addAll(List<String> more) { names.addAll(more); }
+                void keep(List<String> list) { this.stored = list; }
+                String find(String key) { return key.isEmpty() ? null : description; }
+                int size(Map<String, Integer> table) { return table.size(); }
+                int sizeOf(Map<String, Integer> given) { return size(given); }
+                int width(Map<String, Integer> sized) { return sized.size(); }
+                int fresh() { return width(new HashMap<>()); }
+            }
+            """;
+
+    /** The analysis's verdicts as a client supplies them: these parameters unmodified, these declarations nullable. */
+    private static final CSharpFacts CATALOG_FACTS = new CSharpFacts() {
+        @Override
+        public boolean unmodified(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+            return java.util.Set.of("items", "weights", "more", "list", "table", "sized").contains(parameter.name());
+        }
+
+        @Override
+        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
+            return "description".equals(field.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+        }
+
+        @Override
+        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+            return "find".equals(method.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+        }
+    };
+
+    /**
+     * A collection parameter the method does not modify is read-only, when its uses allow (a stored one is not); the
+     * calls on it are a read-only collection's. A declaration that may be null is T?.
+     */
+    @Test
+    public void facts() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(CATALOG_FACTS);
+        String cs = translate("Catalog", FACTS);
+        contains(cs, "using System.Linq;");
+        contains(cs, "private string? description;");
+        contains(cs, "internal int Score(IReadOnlyList<string> items, IReadOnlyDictionary<string, int> weights) {");
+        contains(cs, "if (items.Contains(s) && (weights.ContainsKey(s) ? weights[s] : (int?) null) != null)");
+        contains(cs, "return n + JavaCollections.IndexOf(items, \"x\");");
+        contains(cs, "internal void AddAll(IReadOnlyList<string> more)");
+        contains(cs, "internal void Keep(List<string> list) { this.stored = list; }");
+        contains(cs, "internal string? Find(string key)");
+        // a caller's IDictionary is no IReadOnlyDictionary; a Dictionary is
+        contains(cs, "internal int Size(IDictionary<string, int> table)");
+        contains(cs, "internal int Width(IReadOnlyDictionary<string, int> sized)");
     }
 }

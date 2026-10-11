@@ -24,6 +24,8 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 
+import java.util.List;
+
 /**
  * Prints a {@link FieldInfo} as a C# field: {@code [access] [static] [const|readonly] [volatile] Type name [= init];}.
  * A static final primitive or String with a constant initializer is a {@code const}; another final field is
@@ -33,11 +35,12 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     @Override
     public OutputBuilder print(Qualification q, boolean asParameterInRecordDeclaration) {
-        String type = CSharpTypeName.of(fieldInfo.type(), q);
+        String type = CSharpTypeName.declared(fieldInfo.type(), false,
+                CSharpContext.program().facts().nullable(fieldInfo), q);
         String name = CSharpNames.field(fieldInfo);
         if (asParameterInRecordDeclaration) return new OutputBuilderImpl().add(new TextImpl(type + " " + name));
 
-        OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), q, true);
+        OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), LibraryMapping.Target.FIELD, q, true);
         StringBuilder modifiers = new StringBuilder();
         String access = CSharpModifiers.access(fieldInfo);
         if (access != null) modifiers.append(access).append(' ');
@@ -59,6 +62,55 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                     fieldInfo.type(), q));
         }
         return b.add(SymbolEnum.SEMICOLON);
+    }
+
+    private static final List<String> WIDENING = List.of("private", "internal", "protected internal", "public");
+
+    private static String widest(String a, String b) {
+        return WIDENING.indexOf(a) >= WIDENING.indexOf(b) ? a : b;
+    }
+
+    /**
+     * A field that a property takes the place of ({@link CSharpProperties}): {@code public string Name { get; }},
+     * with the field's initializer. The property is as visible as its getter, its {@code set} as its setter; the
+     * field's own reads and writes go through them, so neither is less visible than the field was. An accessor less
+     * visible than the property says so.
+     */
+    static OutputBuilder property(CSharpProperties.Property property, Qualification q) {
+        FieldInfo f = property.field();
+        String fieldAccess = CSharpModifiers.access(f);
+        String getAccess = widest(CSharpModifiers.access(property.getter(), f.owner()), fieldAccess);
+        String setAccess = property.setter() == null ? fieldAccess
+                : widest(CSharpModifiers.access(property.setter(), f.owner()), fieldAccess);
+        String access = property.settable() ? widest(getAccess, setAccess) : getAccess;
+        // the getter's annotations are the property's, or its get accessor's when only a method may have them
+        List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> getterAnnotations = property.getter().annotations();
+        OutputBuilder b = new OutputBuilderImpl()
+                .add(CSharpAttributes.uses(f.annotations(), LibraryMapping.Target.FIELD, q, true))
+                .add(CSharpAttributes.uses(getterAnnotations.stream().filter(CSharpAttributes::onProperty).toList(),
+                        LibraryMapping.Target.FIELD, q, true));
+        String onGet = CSharpAttributes.uses(getterAnnotations.stream().filter(a -> !CSharpAttributes.onProperty(a))
+                .toList(), LibraryMapping.Target.METHOD, q, false).toString();
+        StringBuilder accessors = new StringBuilder("{ ");
+        if (!onGet.isEmpty()) accessors.append(onGet.endsWith(" ") ? onGet : onGet + " ");
+        if (!getAccess.equals(access)) accessors.append(getAccess).append(' ');
+        accessors.append("get; ");
+        if (property.settable()) {
+            if (!setAccess.equals(access)) accessors.append(setAccess).append(' ');
+            accessors.append("set; ");
+        }
+        accessors.append('}');
+        // a getter that code outside the program may override, as the policy has it: a virtual property
+        String inheritance = CSharpModifiers.inheritance(property.getter(), f.owner());
+        String modifiers = inheritance == null ? access : access + " " + inheritance;
+        b.add(new TextImpl(modifiers + " " + CSharpTypeName.declared(f.type(), false,
+                        CSharpContext.program().facts().nullable(f), q))).add(SpaceEnum.ONE)
+                .add(new TextImpl(property.name() + " " + accessors));
+        if (f.initializer() != null && !f.initializer().isEmpty()) {
+            b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
+                    .add(SymbolEnum.SEMICOLON);
+        }
+        return b;
     }
 
     /** Final as Java has it: an interface's field is implicitly static and final. */

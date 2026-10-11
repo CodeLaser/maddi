@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -70,14 +71,40 @@ public final class CSharpProgram {
         OPEN,
     }
 
-    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
+    /** Getters and setters: C#'s properties where they can be (see {@link CSharpProperties}), or Java's methods. */
+    public enum Accessors {
+        PROPERTIES,
+        METHODS,
+    }
+
+    /** {@code libraries}: what the libraries the program uses are in C#, see {@link CSharpLibraries}. */
+    /** {@code facts}: what the analysis knows about the program, see {@link CSharpFacts}. */
+    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries,
+                         Accessors accessors, CSharpFacts facts) {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
-                Inheritance.CLOSED_WORLD);
+                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
+
+        public Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
+            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
+        }
+
+        public Policy withLibraries(CSharpLibraries libraries) {
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
+        }
+
+        public Policy withAccessors(Accessors accessors) {
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
+        }
+
+        public Policy withFacts(CSharpFacts facts) {
+            return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
+        }
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of(), Set.of(), Map.of());
+            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT, CSharpProperties.Analysis.NONE, CSharpFacts.NONE,
+            Set.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -87,10 +114,27 @@ public final class CSharpProgram {
     private final Set<String> ambiguous;
     private final Set<TypeInfo> prefixedHoisted;
     private final Map<MethodInfo, Integer> typeTokens;
+    private final CSharpLibraries libraries;
+    private final Map<FieldInfo, CSharpProperties.Property> properties;
+    private final Map<MethodInfo, String> computedProperties;
+    private final CSharpFacts facts;
+    private final Set<ParameterInfo> readOnly;
+    private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
-                          Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens) {
+                          Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens,
+                          CSharpLibraries libraries, CSharpProperties.Analysis analysis, CSharpFacts facts,
+                          Set<ParameterInfo> readOnly) {
+        this.libraries = libraries;
+        this.facts = facts;
+        this.readOnly = readOnly;
+        this.properties = analysis.fields();
+        this.computedProperties = analysis.computed();
+        properties.values().forEach(p -> {
+            accessors.put(p.getter(), p);
+            if (p.setter() != null) accessors.put(p.setter(), p);
+        });
         this.prefixedHoisted = prefixedHoisted;
         this.typeTokens = typeTokens;
         this.ambiguous = ambiguous;
@@ -128,7 +172,48 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes), prefixedHoisted(all), typeTokens(all));
+                namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
+                prefixedHoisted(all), typeTokens(all), policy.libraries(),
+                policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden, delegates)
+                        : CSharpProperties.Analysis.NONE,
+                policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
+    }
+
+    /** What the analysis knows about the program. */
+    public CSharpFacts facts() {
+        return facts;
+    }
+
+    /** The parameter is a read-only collection in C# ({@link CSharpReadOnly}). */
+    boolean readOnly(ParameterInfo parameter) {
+        return readOnly.contains(parameter);
+    }
+
+    /** The property that takes {@code field}'s place; null when it stays a field. */
+    CSharpProperties.Property property(FieldInfo field) {
+        return properties.get(field);
+    }
+
+    /** The name of the property {@code method} is, without a field: computed or abstract; null otherwise. */
+    String computedProperty(MethodInfo method) {
+        return computedProperties.get(method);
+    }
+
+    /** The name of the property {@code method} reads, with or without a field; null when it is a method. */
+    String propertyRead(MethodInfo method) {
+        CSharpProperties.Property p = accessors.get(method);
+        if (p != null) return method == p.getter() ? p.name() : null;
+        return computedProperties.get(method);
+    }
+
+    /** The property whose getter or setter {@code method} is; null when it is a method. */
+    CSharpProperties.Property accessorOf(MethodInfo method) {
+        return accessors.get(method);
+    }
+
+    /** The library mappings of the translation. */
+    public CSharpLibraries libraries() {
+        return libraries;
     }
 
     /**
@@ -212,7 +297,7 @@ public final class CSharpProgram {
         return typeTokens.getOrDefault(method, -1);
     }
 
-    private static List<Element> code(TypeInfo t) {
+    static List<Element> code(TypeInfo t) {
         List<Element> code = new ArrayList<>();
         Stream.concat(t.constructors().stream(), t.methods().stream())
                 .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
@@ -248,7 +333,7 @@ public final class CSharpProgram {
      * The simple names of the program's top-level types that two namespaces declare, or the BCL does: where usings
      * bring both into scope, C# finds the name ambiguous.
      */
-    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes) {
+    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes, CSharpLibraries libraries) {
         Map<String, Set<String>> namespaces = new java.util.HashMap<>();
         for (TypeInfo t : primaryTypes) {
             if (!CSharpNames.translated(t)) continue;
@@ -258,7 +343,7 @@ public final class CSharpProgram {
                     ? "I" + simple : simple;
             namespaces.computeIfAbsent(name, n -> new HashSet<>()).add(t.packageName());
         }
-        Set<String> bcl = CSharpBcl.typeNames();
+        Set<String> bcl = libraries.typeNames();
         Set<String> ambiguous = new HashSet<>();
         namespaces.forEach((name, packages) -> {
             if (packages.size() > 1 || bcl.contains(name)) ambiguous.add(name);
@@ -272,8 +357,9 @@ public final class CSharpProgram {
     }
 
     /** {@code Exception} → {@code Exceptions}: the segments of the program's namespaces that are a type's name too. */
-    private static Map<String, String> namespaceSegments(Collection<TypeInfo> primaryTypes, List<TypeInfo> all) {
-        Set<String> typeNames = new HashSet<>(CSharpBcl.typeNames());
+    private static Map<String, String> namespaceSegments(Collection<TypeInfo> primaryTypes, List<TypeInfo> all,
+                                                         CSharpLibraries libraries) {
+        Set<String> typeNames = new HashSet<>(libraries.typeNames());
         all.stream().filter(t -> !t.isAnonymous()).forEach(t -> typeNames.add(CSharpNames.pascal(t.simpleName())));
         Map<String, String> renamed = new java.util.HashMap<>();
         for (TypeInfo t : primaryTypes) {

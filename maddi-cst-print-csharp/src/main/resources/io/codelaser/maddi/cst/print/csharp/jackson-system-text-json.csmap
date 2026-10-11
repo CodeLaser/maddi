@@ -1,0 +1,62 @@
+# Jackson as System.Text.Json: an ObjectMapper is its JsonSerializerOptions, and reading and writing are
+# JsonSerializer's methods with them; the tree model is System.Text.Json.Nodes'; the annotations are attributes
+# (@JsonSubTypes is JsonDerivedType attributes, see JacksonAttributes). Jackson's configuration of its framework
+# (modules, introspectors, custom serializers, builders) has no counterpart here: it stays unmapped, for a person.
+mapping jackson:system-text-json
+compat JavaJson.cs
+type com.fasterxml.jackson.databind.ObjectMapper -> JsonSerializerOptions using System.Text.Json
+type com.fasterxml.jackson.databind.json.JsonMapper -> JsonSerializerOptions using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.new/0 -> new JsonSerializerOptions() using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,Class) -> JsonSerializer.Deserialize<{R}>($1, $0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,TypeReference) -> JsonSerializer.Deserialize<{R}>($1, $0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,JavaType) -> ({R}) JsonSerializer.Deserialize($1, $2, $0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString/1 -> JsonSerializer.Serialize($1, $0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readTree(String) -> JsonNode.Parse($1) using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.ObjectMapper.valueToTree/1 -> JsonSerializer.SerializeToNode($1, $0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.convertValue(Object,Class) -> JsonSerializer.SerializeToNode($1, $0).Deserialize<{R}>($0) using System.Text.Json
+member com.fasterxml.jackson.databind.ObjectMapper.constructType/1 -> $1
+plain com.fasterxml.jackson.databind.JavaType -> Type using System
+type com.fasterxml.jackson.core.JsonProcessingException -> JsonException using System.Text.Json
+type com.fasterxml.jackson.databind.JsonMappingException -> JsonException using System.Text.Json
+pascal com.fasterxml.jackson.core.type.TypeReference -> JavaTypeReference using Maddi.JavaCompat
+
+# the tree: JSON's null is C#'s null
+type com.fasterxml.jackson.databind.JsonNode -> JsonNode using System.Text.Json.Nodes
+type com.fasterxml.jackson.databind.node.ObjectNode -> JsonObject using System.Text.Json.Nodes
+type com.fasterxml.jackson.databind.node.ArrayNode -> JsonArray using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.JsonNode.get(String) -> $0[$1]
+member com.fasterxml.jackson.databind.JsonNode.get(int) -> $0[$1]
+member com.fasterxml.jackson.databind.JsonNode.has(String) -> ($0 as JsonObject)?.ContainsKey($1) == true using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.JsonNode.asInt/0 -> $0.GetValue<int>()
+member com.fasterxml.jackson.databind.JsonNode.asLong/0 -> $0.GetValue<long>()
+member com.fasterxml.jackson.databind.JsonNode.asDouble/0 -> $0.GetValue<double>()
+member com.fasterxml.jackson.databind.JsonNode.asBoolean/0 -> $0.GetValue<bool>()
+member com.fasterxml.jackson.databind.JsonNode.asText/0 -> $0.ToString()
+member com.fasterxml.jackson.databind.JsonNode.textValue/0 -> $0.GetValue<string>()
+member com.fasterxml.jackson.databind.JsonNode.isObject/0 -> $0 is JsonObject using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.JsonNode.isArray/0 -> $0 is JsonArray using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.JsonNode.isTextual/0 -> $0.GetValueKind() == JsonValueKind.String using System.Text.Json
+member com.fasterxml.jackson.databind.JsonNode.isNumber/0 -> $0.GetValueKind() == JsonValueKind.Number using System.Text.Json
+member com.fasterxml.jackson.databind.JsonNode.isNull/0 -> $0 == null
+member com.fasterxml.jackson.databind.JsonNode.size/0 -> ($0 as JsonArray)?.Count ?? ($0 as JsonObject)?.Count ?? 0 using System.Text.Json.Nodes
+member com.fasterxml.jackson.databind.JsonNode.toString/0 -> $0.ToJsonString()
+
+# the annotations: on fields, as System.Text.Json's are for fields and properties (a getter is a method here)
+annotation com.fasterxml.jackson.annotation.JsonProperty ?on=field ?has=value -> JsonPropertyName($value) using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonProperty ?on=field -> JsonInclude using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonProperty -> -
+annotation com.fasterxml.jackson.annotation.JsonIgnore ?on=field -> JsonIgnore using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonIgnore -> -
+annotation com.fasterxml.jackson.annotation.JsonCreator ?on=constructor -> JsonConstructor using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonCreator -> -
+# on a type, Jackson's inclusion is every property's: System.Text.Json has it as an option, not an attribute
+annotation com.fasterxml.jackson.annotation.JsonInclude ?on=field ?value=NON_NULL -> JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull) using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonInclude ?on=field ?value=NON_DEFAULT -> JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault) using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonInclude -> -
+annotation com.fasterxml.jackson.annotation.JsonTypeInfo ?has=property -> JsonPolymorphic(TypeDiscriminatorPropertyName = $property) using System.Text.Json.Serialization
+annotation com.fasterxml.jackson.annotation.JsonTypeInfo -> JsonPolymorphic using System.Text.Json.Serialization
+# a subtype's name is in its base type's JsonDerivedType
+annotation com.fasterxml.jackson.annotation.JsonTypeName -> -
+# System.Text.Json ignores unknown properties; it has no builder-based deserialization
+annotation com.fasterxml.jackson.annotation.JsonIgnoreProperties -> -
+annotation com.fasterxml.jackson.databind.annotation.JsonDeserialize -> -

@@ -1,0 +1,11 @@
+# TestJavaToCSharpLangchain4j.alternatives: langchain4j's core sources printed as C# with the other options of the
+# library mappings, slf4j as Serilog and Jackson as Json.NET (Newtonsoft.Json), judged by Roslyn with those packages
+# referenced (see JavaToCSharpRatchet). It keeps the options compiling; langchain4j.ratchet holds the defaults.
+#
+# 2026-10-11, first record: the same numbers as the default options: 271 files compile; 232 errors (not ratcheted).
+types	346
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	346
+compilingFiles	271
+unmappedJdkUses	154

@@ -66,7 +66,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             CSharpContext.message(CSharpPrintMessage.Code.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
             return b;
         }
-        b.add(CSharpAttributes.uses(methodInfo.annotations(), q, true));
+        b.add(CSharpAttributes.uses(methodInfo.annotations(), methodInfo.isConstructor() ? LibraryMapping.Target.CONSTRUCTOR
+                : LibraryMapping.Target.METHOD, q, true));
         if (methodInfo.isSynchronized()) {
             CSharpContext.using("System.Runtime.CompilerServices");
             b.add(new TextImpl("[MethodImpl(MethodImplOptions.Synchronized)]")).add(SpaceEnum.NEWLINE);
@@ -98,7 +99,9 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
         } else {
-            b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
+            String property = CSharpContext.program().computedProperty(methodInfo);
+            if (property != null) return property(b, modifiers.toString(), property, q);
+            b.add(new TextImpl(modifiers + returnType(q))).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
         b.add(parameters(methodInfo, captured, q));
@@ -115,6 +118,29 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SymbolEnum.SEMICOLON);
         }
         return b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
+    }
+
+    /**
+     * A method that is a property without a field ({@link CSharpProperties}): {@code T Name { get; }} when abstract,
+     * {@code T Name => expr;} for a returned expression, {@code T Name { get { … } }} for any other body.
+     */
+    private OutputBuilder property(OutputBuilder b, String modifiers, String name, Qualification q) {
+        b.add(new TextImpl(modifiers + returnType(q))).add(SpaceEnum.ONE).add(new TextImpl(name));
+        Block body = methodInfo.methodBody();
+        if (methodInfo.isAbstract() || body == null) return b.add(new TextImpl("{ get; }"));
+        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
+            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(rs.expression(), q))
+                    .add(SymbolEnum.SEMICOLON);
+        }
+        return b.add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(new TextImpl("get")).add(SpaceEnum.ONE)
+                .add(CSharpStatementPrinter.block(statements, q)).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /** The return type, {@code T?} when the method may return null. */
+    private String returnType(Qualification q) {
+        return CSharpTypeName.declared(methodInfo.returnType(), false,
+                CSharpContext.program().facts().nullable(methodInfo), q);
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */
@@ -151,9 +177,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {
+        CSharpProgram program = CSharpContext.program();
         String type = wildcardNames != null ? CSharpWildcards.type(p.parameterizedType(), wildcardNames, q)
-                : CSharpTypeName.of(p.parameterizedType(), q);
-        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
+                : CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
+        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), LibraryMapping.Target.PARAMETER, q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }
 }

@@ -17,8 +17,12 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Maddi.JavaCompat;
 
@@ -234,6 +238,33 @@ public static class JavaCollections
         foreach (var x in e) action(x);
     }
 
+    /// <summary>Map.forEach: the action gets the key and the value; of any dictionary, read-only ones too.</summary>
+    public static void ForEach<K, V>(this IEnumerable<KeyValuePair<K, V>> d, Action<K, V> action)
+    {
+        foreach (var e in d) action(e.Key, e.Value);
+    }
+
+    /// <summary>List.indexOf of a read-only list, which has no IndexOf of its own.</summary>
+    public static int IndexOf<T>(IReadOnlyList<T> list, T x)
+    {
+        var comparer = EqualityComparer<T>.Default;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (comparer.Equals(list[i], x)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>Stream.reduce without an identity: the default (Optional's empty) for an empty sequence.</summary>
+    public static T Reduce<T>(this IEnumerable<T> e, Func<T, T, T> f)
+    {
+        using var it = e.GetEnumerator();
+        if (!it.MoveNext()) return default;
+        var acc = it.Current;
+        while (it.MoveNext()) acc = f(acc, it.Current);
+        return acc;
+    }
+
     public static IEnumerable<T> Sorted<T>(this IEnumerable<T> e, Comparison<T> comparison) =>
         e.Order(Comparer<T>.Create(comparison));
 
@@ -246,6 +277,12 @@ public static class JavaCollections
     public static R Map<T, R>(this T value, Func<T, R> f) => value == null ? default : f(value);
 
     public static T Filter<T>(this T value, Func<T, bool> p) => value != null && p(value) ? value : default;
+
+    /// <summary>Optional.stream: the value, or nothing.</summary>
+    public static IEnumerable<T> AsStream<T>(this T value)
+    {
+        if (value != null) yield return value;
+    }
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
@@ -1026,6 +1063,69 @@ public class JavaMatcher
     public int End() => match.Index + match.Length;
 
     public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
+
+    private int appendPosition;
+
+    /// <summary>Appends the input up to the match and the replacement, in Java's syntax: $n, ${name}, \c.</summary>
+    public JavaMatcher AppendReplacement(StringBuilder sb, string replacement)
+    {
+        sb.Append(input, appendPosition, match.Index - appendPosition);
+        for (int i = 0; i < replacement.Length; i++)
+        {
+            char c = replacement[i];
+            if (c == '\\' && i + 1 < replacement.Length)
+            {
+                sb.Append(replacement[++i]);
+            }
+            else if (c == '$' && i + 1 < replacement.Length && replacement[i + 1] == '{')
+            {
+                int close = replacement.IndexOf('}', i);
+                sb.Append(match.Groups[replacement.Substring(i + 2, close - i - 2)].Value);
+                i = close;
+            }
+            else if (c == '$' && i + 1 < replacement.Length && char.IsDigit(replacement[i + 1]))
+            {
+                sb.Append(match.Groups[replacement[++i] - '0'].Value);
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+        appendPosition = match.Index + match.Length;
+        return this;
+    }
+
+    public StringBuilder AppendTail(StringBuilder sb) => sb.Append(input, appendPosition, input.Length - appendPosition);
+
+    /// <summary>A literal replacement: \ and $ escaped.</summary>
+    public static string QuoteReplacement(string s) => s.Replace("\\", "\\\\").Replace("$", "\\$");
+}
+
+/// <summary>UUID's name-based factory: a version 3 (MD5) UUID, as Java computes it.</summary>
+public static class JavaUuid
+{
+    public static Guid NameUuidFromBytes(sbyte[] name)
+    {
+        byte[] hash = MD5.HashData((byte[]) (object) name);
+        hash[6] = (byte) ((hash[6] & 0x0f) | 0x30);
+        hash[8] = (byte) ((hash[8] & 0x3f) | 0x80);
+        return new Guid(hash, bigEndian: true);
+    }
+}
+
+/// <summary>MessageDigest.getInstance: Java's algorithm names.</summary>
+public static class JavaDigest
+{
+    public static HashAlgorithm GetInstance(string algorithm) => algorithm.ToUpperInvariant() switch
+    {
+        "SHA-256" => SHA256.Create(),
+        "SHA-384" => SHA384.Create(),
+        "SHA-512" => SHA512.Create(),
+        "SHA-1" or "SHA" => SHA1.Create(),
+        "MD5" => MD5.Create(),
+        _ => throw new CryptographicException(algorithm + " MessageDigest not available")
+    };
 }
 
 /// <summary>java.util.Enumeration over a C# enumerable.</summary>
@@ -1302,4 +1402,273 @@ public class JavaArrayList<E> : List<E>
     public new virtual void Clear() => base.Clear();
 
     public virtual JavaArrayList<E> Clone() => new JavaArrayList<E>(this);
+}
+
+/// <summary>CompletableFuture's continuations, on tasks.</summary>
+public static class JavaTasks
+{
+    public static Task<R> ThenApply<T, R>(this Task<T> t, Func<T, R> f) => t.ContinueWith(x => f(x.Result));
+
+    public static Task<R> ThenApply<R>(this Task t, Func<object, R> f) => t.ContinueWith(x =>
+    {
+        x.Wait();
+        return f(null);
+    });
+
+    public static Task<R> ThenCompose<T, R>(this Task<T> t, Func<T, Task<R>> f) =>
+        t.ContinueWith(x => f(x.Result)).Unwrap();
+
+    public static Task<R> ThenCompose<R>(this Task t, Func<object, Task<R>> f) => t.ContinueWith(x =>
+    {
+        x.Wait();
+        return f(null);
+    }).Unwrap();
+
+    public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.Result));
+}
+
+/// <summary>java.util.concurrent.locks.Lock: what a ReentrantLock and a read-write lock's halves are.</summary>
+public interface IJavaLock
+{
+    void Lock();
+
+    void Unlock();
+
+    bool TryLock();
+}
+
+public class JavaReentrantLock : IJavaLock
+{
+    private readonly object monitor = new();
+
+    public JavaReentrantLock()
+    {
+    }
+
+    public JavaReentrantLock(bool fair)
+    {
+    }
+
+    public void Lock() => Monitor.Enter(monitor);
+
+    public void Unlock() => Monitor.Exit(monitor);
+
+    public bool TryLock() => Monitor.TryEnter(monitor);
+}
+
+/// <summary>ReadWriteLock.readLock() and writeLock() of a ReaderWriterLockSlim.</summary>
+public static class JavaLocks
+{
+    public static IJavaLock ReadLock(this ReaderWriterLockSlim rw) => new Half(rw, false);
+
+    public static IJavaLock WriteLock(this ReaderWriterLockSlim rw) => new Half(rw, true);
+
+    private sealed class Half(ReaderWriterLockSlim rw, bool write) : IJavaLock
+    {
+        public void Lock()
+        {
+            if (write) rw.EnterWriteLock();
+            else rw.EnterReadLock();
+        }
+
+        public void Unlock()
+        {
+            if (write) rw.ExitWriteLock();
+            else rw.ExitReadLock();
+        }
+
+        public bool TryLock() => write ? rw.TryEnterWriteLock(0) : rw.TryEnterReadLock(0);
+    }
+}
+
+/// <summary>java.util.concurrent.atomic: a volatile value with Interlocked updates.</summary>
+public class AtomicBoolean
+{
+    private int value;
+
+    public AtomicBoolean() { }
+
+    public AtomicBoolean(bool initial) => value = initial ? 1 : 0;
+
+    public bool Get() => Volatile.Read(ref value) != 0;
+
+    public void Set(bool v) => Volatile.Write(ref value, v ? 1 : 0);
+
+    public bool GetAndSet(bool v) => Interlocked.Exchange(ref value, v ? 1 : 0) != 0;
+
+    public bool CompareAndSet(bool expected, bool update) =>
+        Interlocked.CompareExchange(ref value, update ? 1 : 0, expected ? 1 : 0) == (expected ? 1 : 0);
+
+    public override string ToString() => Get() ? "true" : "false";
+}
+
+public class AtomicInteger
+{
+    private int value;
+
+    public AtomicInteger() { }
+
+    public AtomicInteger(int initial) => value = initial;
+
+    public int Get() => Volatile.Read(ref value);
+
+    public void Set(int v) => Volatile.Write(ref value, v);
+
+    public int GetAndSet(int v) => Interlocked.Exchange(ref value, v);
+
+    public bool CompareAndSet(int expected, int update) => Interlocked.CompareExchange(ref value, update, expected) == expected;
+
+    public int IncrementAndGet() => Interlocked.Increment(ref value);
+
+    public int DecrementAndGet() => Interlocked.Decrement(ref value);
+
+    public int GetAndIncrement() => Interlocked.Increment(ref value) - 1;
+
+    public int GetAndDecrement() => Interlocked.Decrement(ref value) + 1;
+
+    public int AddAndGet(int delta) => Interlocked.Add(ref value, delta);
+
+    public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public override string ToString() => Get().ToString();
+}
+
+public class AtomicLong
+{
+    private long value;
+
+    public AtomicLong() { }
+
+    public AtomicLong(long initial) => value = initial;
+
+    public long Get() => Interlocked.Read(ref value);
+
+    public void Set(long v) => Interlocked.Exchange(ref value, v);
+
+    public long GetAndSet(long v) => Interlocked.Exchange(ref value, v);
+
+    public bool CompareAndSet(long expected, long update) =>
+        Interlocked.CompareExchange(ref value, update, expected) == expected;
+
+    public long IncrementAndGet() => Interlocked.Increment(ref value);
+
+    public long DecrementAndGet() => Interlocked.Decrement(ref value);
+
+    public long GetAndIncrement() => Interlocked.Increment(ref value) - 1;
+
+    public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
+
+    public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public override string ToString() => Get().ToString();
+}
+
+/// <summary>An AtomicReference may hold a value type (a boxed Integer is int?): a lock, not Interlocked.</summary>
+public class AtomicReference<T>
+{
+    private readonly object monitor = new();
+    private T value;
+
+    public AtomicReference() { }
+
+    public AtomicReference(T initial) => value = initial;
+
+    public T Get()
+    {
+        lock (monitor) return value;
+    }
+
+    public void Set(T v)
+    {
+        lock (monitor) value = v;
+    }
+
+    public T GetAndSet(T v)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = v;
+            return old;
+        }
+    }
+
+    /// <summary>Java compares references; a value type has no identity, its value is compared.</summary>
+    public bool CompareAndSet(T expected, T update)
+    {
+        lock (monitor)
+        {
+            bool same = typeof(T).IsValueType ? EqualityComparer<T>.Default.Equals(value, expected)
+                : ReferenceEquals(value, expected);
+            if (same) value = update;
+            return same;
+        }
+    }
+
+    public override string ToString() => Get()?.ToString() ?? "null";
+}
+
+/// <summary>java.lang.reflect.WildcardType: .NET's reflection has no wildcards, so no Type is one.</summary>
+public interface IJavaWildcardType
+{
+    Type[] GetUpperBounds();
+
+    Type[] GetLowerBounds();
+}
+
+/// <summary>Class.getModifiers and its kin: java.lang.reflect.Modifier's bits of a type or a member.</summary>
+public static class JavaModifier
+{
+    public const int PUBLIC = 0x0001, PRIVATE = 0x0002, PROTECTED = 0x0004, STATIC = 0x0008, FINAL = 0x0010,
+        INTERFACE = 0x0200, ABSTRACT = 0x0400;
+
+    public static int Of(Type t) =>
+        (t.IsPublic || t.IsNestedPublic ? PUBLIC : 0)
+        | (t.IsNestedPrivate ? PRIVATE : 0)
+        | (t.IsNestedFamily ? PROTECTED : 0)
+        | (t.IsAbstract && t.IsSealed ? STATIC : 0)
+        | (t.IsSealed && !t.IsAbstract ? FINAL : 0)
+        | (t.IsInterface ? INTERFACE | ABSTRACT : 0)
+        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? ABSTRACT : 0);
+
+    public static int Of(MethodBase m) =>
+        (m.IsPublic ? PUBLIC : 0) | (m.IsPrivate ? PRIVATE : 0) | (m.IsFamily ? PROTECTED : 0)
+        | (m.IsStatic ? STATIC : 0) | (m.IsFinal ? FINAL : 0) | (m.IsAbstract ? ABSTRACT : 0);
+
+    public static int Of(FieldInfo f) =>
+        (f.IsPublic ? PUBLIC : 0) | (f.IsPrivate ? PRIVATE : 0) | (f.IsFamily ? PROTECTED : 0)
+        | (f.IsStatic ? STATIC : 0) | (f.IsInitOnly || f.IsLiteral ? FINAL : 0);
+}
+
+/// <summary>
+/// java.util.ServiceLoader: the implementations of a service are the concrete classes with a public parameterless
+/// constructor in the loaded assemblies (or in the one given), instantiated as they are enumerated.
+/// </summary>
+public static class JavaServiceLoader
+{
+    public static IEnumerable<T> Load<T>(Assembly assembly = null)
+    {
+        var assemblies = assembly != null ? new[] { assembly } : AppDomain.CurrentDomain.GetAssemblies();
+        foreach (var a in assemblies)
+        {
+            Type[] types;
+            try
+            {
+                types = a.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                types = e.Types.Where(t => t != null).ToArray();
+            }
+            foreach (var t in types)
+            {
+                if (t.IsAbstract || t.IsInterface || !typeof(T).IsAssignableFrom(t) || t.ContainsGenericParameters
+                    || t.GetConstructor(Type.EmptyTypes) == null)
+                {
+                    continue;
+                }
+                yield return (T) Activator.CreateInstance(t);
+            }
+        }
+    }
 }

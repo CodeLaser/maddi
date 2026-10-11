@@ -83,7 +83,38 @@ public final class CSharpTypeName {
      * A type in a pattern, {@code x is int i}: a nullable value type is not allowed there, and a boxed Java type tested
      * with instanceof is its value type (null is not an instance of anything, in either language).
      */
+    /**
+     * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
+     * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
+     */
+    static String declared(ParameterizedType pt, boolean readOnly, io.codelaser.maddi.cst.api.type.NullableState nullable,
+                           Qualification q) {
+        String type;
+        String readOnlyName = readOnly ? CSharpReadOnly.readOnlyName(pt) : null;
+        if (readOnlyName != null) {
+            CSharpContext.using("System.Collections.Generic");
+            type = readOnlyName + "<" + String.join(", ", pt.parameters().stream().map(a -> argument(a, q)).toList()) + ">";
+        } else {
+            type = of(pt, q);
+        }
+        boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !pt.isTypeParameter()
+                                               && !type.endsWith("?") && !pt.isVoid();
+        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(type)
+                ? type + "?" : type;
+    }
+
+    /** Not a C# value type: those the BCL mapping makes of Java's values (Guid, DateOnly, decimal) stay as they are. */
+    private static boolean valueTypeFree(String type) {
+        return !java.util.Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
+                "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan").contains(type);
+    }
+
     public static String pattern(ParameterizedType pt, Qualification q) {
+        LibraryMapping.PatternMapping pattern = CSharpContext.libraries().pattern(pt, null);
+        if (pattern != null) {
+            if (pattern.namespace() != null) CSharpContext.using(pattern.namespace());
+            return pattern.value();
+        }
         return of(pt, q, true);
     }
 
@@ -148,7 +179,7 @@ public final class CSharpTypeName {
             boolean unbound = a.wildcard() != null && a.wildcard().isUnbound() && i < typeInfo.typeParameters().size();
             printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
         }
-        CSharpBcl.TypeMapping bcl = CSharpBcl.type(typeInfo);
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         if (bcl != null) return bcl(bcl, printed, arguments, q);
         String name = name(typeInfo, q);
         return printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
@@ -158,7 +189,7 @@ public final class CSharpTypeName {
      * A JDK type in C# ({@link CSharpBcl}): its name with the type arguments, or its pattern of them, {@code {0}} as a
      * type argument and {@code {0?}} as a type ({@code Optional<Integer>} is {@code int?}).
      */
-    private static String bcl(CSharpBcl.TypeMapping bcl, List<String> printed, List<ParameterizedType> arguments,
+    private static String bcl(LibraryMapping.TypeMapping bcl, List<String> printed, List<ParameterizedType> arguments,
                               Qualification q) {
         if (bcl.namespace() != null) CSharpContext.using(bcl.namespace());
         String template = bcl.template();
@@ -193,7 +224,7 @@ public final class CSharpTypeName {
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = MAPPED.get(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
-        CSharpBcl.TypeMapping bcl = CSharpBcl.type(typeInfo);
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         if (bcl != null) {
             // Func<{0}, bool> is named Func
             if (bcl.namespace() != null) CSharpContext.using(bcl.namespace());

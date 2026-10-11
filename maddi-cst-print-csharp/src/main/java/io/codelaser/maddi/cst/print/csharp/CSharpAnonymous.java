@@ -78,7 +78,8 @@ final class CSharpAnonymous {
         }
         for (Element element : code) {
             element.visit((Element e) -> {
-                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null && !CSharpExpressionPrinter.asLambda(cc)) {
+                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null && !CSharpExpressionPrinter.asLambda(cc)
+                    && CSharpExpressionPrinter.typeLiteral(cc.anonymousClass()) == null) {
                     calls.add(cc);
                 }
                 return true;

@@ -1,0 +1,90 @@
+# slf4j as Microsoft.Extensions.Logging: a Logger is an ILogger, a message with {} holes a message template whose
+# holes are named after their arguments ("output: {}", x is "output: {X}"), a trailing exception the first argument.
+# LoggerFactory.getLogger is the compatibility library's JavaLogging, whose factory the application sets.
+mapping slf4j:ms-logging
+nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
+compat JavaLogging.cs
+type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
+member org.slf4j.LoggerFactory.getLogger(Class) -> JavaLogging.GetLogger($1) using Maddi.JavaCompat
+member org.slf4j.LoggerFactory.getLogger(String) -> JavaLogging.GetLogger($1) using Maddi.JavaCompat
+member org.slf4j.Logger.getName/0 -> $0.ToString()
+# trace: the exception first, then the message and its arguments
+member org.slf4j.Logger.trace(String) -> $0.LogTrace($#1)
+member org.slf4j.Logger.trace(String,Throwable) -> $0.LogTrace($2, $#1)
+member org.slf4j.Logger.trace/2 ?arguments=2 ?lastArgumentThrowable -> $0.LogTrace($2, $#1)
+member org.slf4j.Logger.trace/2 ?arguments=2 -> $0.LogTrace($#1, $2)
+member org.slf4j.Logger.trace/2 ?arguments=3 ?lastArgumentThrowable -> $0.LogTrace($3, $#1, $2)
+member org.slf4j.Logger.trace/2 ?arguments=3 -> $0.LogTrace($#1, $2, $3)
+member org.slf4j.Logger.trace/2 ?arguments=4 ?lastArgumentThrowable -> $0.LogTrace($4, $#1, $2, $3)
+member org.slf4j.Logger.trace/2 ?arguments=4 -> $0.LogTrace($#1, $2, $3, $4)
+member org.slf4j.Logger.trace/2 ?arguments=5 ?lastArgumentThrowable -> $0.LogTrace($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.trace/2 ?arguments=5 -> $0.LogTrace($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.trace/2 -> $0.LogTrace($*)
+member org.slf4j.Logger.trace/3 ?arguments=3 ?lastArgumentThrowable -> $0.LogTrace($3, $#1, $2)
+member org.slf4j.Logger.trace/3 ?arguments=3 -> $0.LogTrace($#1, $2, $3)
+member org.slf4j.Logger.trace/3 -> $0.LogTrace($*)
+member org.slf4j.Logger.isTraceEnabled/0 -> $0.IsEnabled(LogLevel.Trace) using Microsoft.Extensions.Logging
+# debug: the exception first, then the message and its arguments
+member org.slf4j.Logger.debug(String) -> $0.LogDebug($#1)
+member org.slf4j.Logger.debug(String,Throwable) -> $0.LogDebug($2, $#1)
+member org.slf4j.Logger.debug/2 ?arguments=2 ?lastArgumentThrowable -> $0.LogDebug($2, $#1)
+member org.slf4j.Logger.debug/2 ?arguments=2 -> $0.LogDebug($#1, $2)
+member org.slf4j.Logger.debug/2 ?arguments=3 ?lastArgumentThrowable -> $0.LogDebug($3, $#1, $2)
+member org.slf4j.Logger.debug/2 ?arguments=3 -> $0.LogDebug($#1, $2, $3)
+member org.slf4j.Logger.debug/2 ?arguments=4 ?lastArgumentThrowable -> $0.LogDebug($4, $#1, $2, $3)
+member org.slf4j.Logger.debug/2 ?arguments=4 -> $0.LogDebug($#1, $2, $3, $4)
+member org.slf4j.Logger.debug/2 ?arguments=5 ?lastArgumentThrowable -> $0.LogDebug($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.debug/2 ?arguments=5 -> $0.LogDebug($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.debug/2 -> $0.LogDebug($*)
+member org.slf4j.Logger.debug/3 ?arguments=3 ?lastArgumentThrowable -> $0.LogDebug($3, $#1, $2)
+member org.slf4j.Logger.debug/3 ?arguments=3 -> $0.LogDebug($#1, $2, $3)
+member org.slf4j.Logger.debug/3 -> $0.LogDebug($*)
+member org.slf4j.Logger.isDebugEnabled/0 -> $0.IsEnabled(LogLevel.Debug) using Microsoft.Extensions.Logging
+# info: the exception first, then the message and its arguments
+member org.slf4j.Logger.info(String) -> $0.LogInformation($#1)
+member org.slf4j.Logger.info(String,Throwable) -> $0.LogInformation($2, $#1)
+member org.slf4j.Logger.info/2 ?arguments=2 ?lastArgumentThrowable -> $0.LogInformation($2, $#1)
+member org.slf4j.Logger.info/2 ?arguments=2 -> $0.LogInformation($#1, $2)
+member org.slf4j.Logger.info/2 ?arguments=3 ?lastArgumentThrowable -> $0.LogInformation($3, $#1, $2)
+member org.slf4j.Logger.info/2 ?arguments=3 -> $0.LogInformation($#1, $2, $3)
+member org.slf4j.Logger.info/2 ?arguments=4 ?lastArgumentThrowable -> $0.LogInformation($4, $#1, $2, $3)
+member org.slf4j.Logger.info/2 ?arguments=4 -> $0.LogInformation($#1, $2, $3, $4)
+member org.slf4j.Logger.info/2 ?arguments=5 ?lastArgumentThrowable -> $0.LogInformation($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.info/2 ?arguments=5 -> $0.LogInformation($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.info/2 -> $0.LogInformation($*)
+member org.slf4j.Logger.info/3 ?arguments=3 ?lastArgumentThrowable -> $0.LogInformation($3, $#1, $2)
+member org.slf4j.Logger.info/3 ?arguments=3 -> $0.LogInformation($#1, $2, $3)
+member org.slf4j.Logger.info/3 -> $0.LogInformation($*)
+member org.slf4j.Logger.isInfoEnabled/0 -> $0.IsEnabled(LogLevel.Information) using Microsoft.Extensions.Logging
+# warn: the exception first, then the message and its arguments
+member org.slf4j.Logger.warn(String) -> $0.LogWarning($#1)
+member org.slf4j.Logger.warn(String,Throwable) -> $0.LogWarning($2, $#1)
+member org.slf4j.Logger.warn/2 ?arguments=2 ?lastArgumentThrowable -> $0.LogWarning($2, $#1)
+member org.slf4j.Logger.warn/2 ?arguments=2 -> $0.LogWarning($#1, $2)
+member org.slf4j.Logger.warn/2 ?arguments=3 ?lastArgumentThrowable -> $0.LogWarning($3, $#1, $2)
+member org.slf4j.Logger.warn/2 ?arguments=3 -> $0.LogWarning($#1, $2, $3)
+member org.slf4j.Logger.warn/2 ?arguments=4 ?lastArgumentThrowable -> $0.LogWarning($4, $#1, $2, $3)
+member org.slf4j.Logger.warn/2 ?arguments=4 -> $0.LogWarning($#1, $2, $3, $4)
+member org.slf4j.Logger.warn/2 ?arguments=5 ?lastArgumentThrowable -> $0.LogWarning($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.warn/2 ?arguments=5 -> $0.LogWarning($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.warn/2 -> $0.LogWarning($*)
+member org.slf4j.Logger.warn/3 ?arguments=3 ?lastArgumentThrowable -> $0.LogWarning($3, $#1, $2)
+member org.slf4j.Logger.warn/3 ?arguments=3 -> $0.LogWarning($#1, $2, $3)
+member org.slf4j.Logger.warn/3 -> $0.LogWarning($*)
+member org.slf4j.Logger.isWarnEnabled/0 -> $0.IsEnabled(LogLevel.Warning) using Microsoft.Extensions.Logging
+# error: the exception first, then the message and its arguments
+member org.slf4j.Logger.error(String) -> $0.LogError($#1)
+member org.slf4j.Logger.error(String,Throwable) -> $0.LogError($2, $#1)
+member org.slf4j.Logger.error/2 ?arguments=2 ?lastArgumentThrowable -> $0.LogError($2, $#1)
+member org.slf4j.Logger.error/2 ?arguments=2 -> $0.LogError($#1, $2)
+member org.slf4j.Logger.error/2 ?arguments=3 ?lastArgumentThrowable -> $0.LogError($3, $#1, $2)
+member org.slf4j.Logger.error/2 ?arguments=3 -> $0.LogError($#1, $2, $3)
+member org.slf4j.Logger.error/2 ?arguments=4 ?lastArgumentThrowable -> $0.LogError($4, $#1, $2, $3)
+member org.slf4j.Logger.error/2 ?arguments=4 -> $0.LogError($#1, $2, $3, $4)
+member org.slf4j.Logger.error/2 ?arguments=5 ?lastArgumentThrowable -> $0.LogError($5, $#1, $2, $3, $4)
+member org.slf4j.Logger.error/2 ?arguments=5 -> $0.LogError($#1, $2, $3, $4, $5)
+member org.slf4j.Logger.error/2 -> $0.LogError($*)
+member org.slf4j.Logger.error/3 ?arguments=3 ?lastArgumentThrowable -> $0.LogError($3, $#1, $2)
+member org.slf4j.Logger.error/3 ?arguments=3 -> $0.LogError($#1, $2, $3)
+member org.slf4j.Logger.error/3 -> $0.LogError($*)
+member org.slf4j.Logger.isErrorEnabled/0 -> $0.IsEnabled(LogLevel.Error) using Microsoft.Extensions.Logging

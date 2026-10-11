@@ -87,6 +87,11 @@ final class CSharpContext {
         return STATE.get().program;
     }
 
+    /** The library mappings of the translation: the program's. */
+    static CSharpLibraries libraries() {
+        return STATE.get().program.libraries();
+    }
+
     static void pushType(TypeInfo typeInfo) {
         STATE.get().types.push(typeInfo);
     }

@@ -65,6 +65,31 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - Bounds become `where T : …` constraints.
 - `typeof(List<>)` is the unbound generic type.
 
+### Facts from the analysis (`CSharpFacts`, `CSharpReadOnly`)
+
+The modification and nullability analyses can say more than Java's types do. The printer asks a `CSharpFacts`
+(`Policy.facts`); the default, `STORED`, answers from what maddi-mod's analyzer stored on the declarations, which is
+nothing when no analysis ran, so that the output is then the same as without facts. A client with a report of its own
+implements the interface.
+
+- A collection parameter that the method does not modify becomes read-only: `List<T>` → `IReadOnlyList<T>`,
+  `Collection<T>` → `IReadOnlyCollection<T>`, `Set<T>` → `IReadOnlySet<T>`, `Map<K, V>` →
+  `IReadOnlyDictionary<K, V>`. A caller's `List<T>` is one, so the calls do not change.
+  - The C# has to compile whatever the analysis's precision, so the parameter's uses decide too: each must be a call of
+    a library method on it, the collection of a `foreach`, or an argument where any enumerable is accepted (another
+    read-only parameter, a copying constructor, `addAll`). A use that stores or returns it keeps Java's type.
+  - The callers have to compile too. Java's `List` family prints as the class `List<T>`, which implements the
+    read-only interfaces, but `Map`, `Set` and `Collection` print as `IDictionary`, `ISet` and `ICollection`, which do
+    not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
+    `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
+  - Every method of an override family has the parameter read-only, or none does. Delegates, a functional interface's
+    method, records and a method that a method reference names keep Java's types.
+  - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
+    `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
+    test when the value is a value type).
+- A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types,
+  type parameters and types that already end in `?` are left alone.
+
 ## Declarations
 
 - **Access.** Every declaration states its access, except the public members of an interface, where C# writes none.
@@ -99,6 +124,28 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   - Varargs become `params T[]`.
 - **Fields.** A static final primitive or String with a constant initializer becomes `const`. Any other final field
   becomes `readonly`.
+- **Properties.** A getter that only returns a field of its class, of the same type, becomes the property that
+  takes the field's place (`CSharpProperties`, whole-program; `Policy.accessors` can keep Java's methods).
+  - `getName()`, `isDone()` and `name()` become `Name`, `Done` and `Name`. `x.getName()` becomes `x.Name`, and every
+    reference to the field becomes a reference to the property.
+  - A setter `this.name = name` becomes the property's `set`, and `x.setName(v)` becomes `x.Name = v`. A field
+    assigned only in its class's constructors gets `{ get; }`, even when it isn't `final`. Any other field gets
+    `{ get; private set; }`, with the access the field's writes need.
+  - The property is as visible as its getter, and an accessor that is less visible says so. A getter that outside
+    code may override, as the policy has it, makes the property `virtual`.
+  - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
+    accessor: `{ [Experimental] get; }`.
+  - A lone getter qualifies only when nothing overrides it, it overrides nothing, no method reference names it, and
+    its name is not taken in its class, the classes above it, or those that extend it.
+  - Methods that override one another are one property when all of them are parameterless with one return type,
+    in classes and interfaces that are not delegates:
+    - an interface's method becomes `T Name { get; }`, or `T Name => expr;` with a default body;
+    - an abstract one becomes `abstract T Name { get; }`, also where an abstract class leaves an interface's
+      property to its subclasses;
+    - a getter of a field takes the field's place;
+    - any other body becomes a computed property: `T Name => expr;`, or `T Name { get { … } }`.
+  - A functional interface's lambda adapter implements its property: `public double Area => f();`.
+  - Records keep their positional properties, and enums their methods.
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
@@ -253,6 +300,61 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
   that is not its canonical one.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
+## Library mappings (`LibraryMapping`, `CSharpLibraries`)
+
+What a library's types, members and fields become in C# is a `LibraryMapping`. The JDK's is `CSharpBcl.JDK`; slf4j
+and Jackson are other libraries with mappings of their own. A translation asks an ordered list of mappings,
+`CSharpLibraries`, carried by `CSharpProgram.Policy`, and the first one that answers wins. Every method of a mapping
+answers null for what it does not know. The list is how a client decides:
+
+- **Choose an option of a library** by putting that mapping in the list. The id names the library and the option:
+  `slf4j:ms-logging`.
+- **Override single rules** with a small mapping in front: `CSharpLibraries.DEFAULT.withFirst(mine)`.
+- **Leave a library untranslated** by leaving out its mapping. Its uses keep their Java names, with an
+  `UNMAPPED_JDK` message.
+
+The printer has options per library, chosen with `CSharpLibraries.choose("slf4j=serilog,jackson=none")`. The first
+option of each library is the default, and `none` leaves the library out:
+
+| library | options | |
+|---|---|---|
+| slf4j | `ms-logging`, `serilog` | `ILogger` from Microsoft.Extensions.Logging, or Serilog's. A message's `{}` holes become a message template's holes, named after their arguments (`"output: {}", x` → `"output: {X}"`). A trailing exception becomes the first argument. With `ms-logging`, `getLogger` is the compatibility library's `JavaLogging`, which the application connects to its host's `ILoggerFactory`. |
+| jackson | `system-text-json`, `newtonsoft` | An `ObjectMapper` becomes the options of `JsonSerializer` (or `JsonConvert`), and the tree model becomes `JsonNode` (or `JToken`). Annotations become attributes, on the targets C# allows: `@JsonSubTypes` → `[JsonDerivedType]`, a class-level `@JsonInclude` → an option or `[JsonObject]`. Jackson's configuration of its framework (modules, introspectors, custom serializers, builders) stays unmapped. |
+| jdk | `bcl` | The BCL, plus the compatibility library where Java's behaviour differs. |
+
+A library's annotation becomes what its mapping makes of it (`annotation(use, target, print)`, or `annotation` lines in
+a file, with the guards `?on=field` and `?element=VALUE`). Without a mapping, it is dropped.
+
+A mapping is Java (`LibraryMapping`) or text, a `.csmap` file that `CSharpMappingFile` reads: one directive per
+line. This is how a client overrides rules without Java:
+
+```
+mapping client:uuid-as-string
+type java.util.UUID -> string
+member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
+member org.slf4j.Logger.warn/2 ?lastArgumentThrowable -> $0.LogWarning($2, $1)
+member org.slf4j.Logger.warn/2 -> $0.LogWarning($1, $2)
+statement java.util.Map.put/2 -> $0[$1] = $2
+```
+
+- **Directives.** `type`, `plain` (a generic type whose counterpart is not generic) and `pascal` (a class whose
+  members are the Java ones in PascalCase) map types. `member` and `statement` map calls (`owner.new` for a
+  constructor), `field` maps fields, and `override` gives a C# name to a translated method that overrides a library
+  method.
+- **Keys and templates** are the JDK table's.
+- **Guards.** A rule with a guard, `?name`, applies only when the guard holds, and the rules of one key are tried in
+  order. The guards are named predicates of the call: `arguments=N`, `receiver=fqn`, `lastArgumentThrowable`,
+  `methodReference`. `CSharpMappingFile.guard` registers more.
+
+A mapping also states what the translated code needs when the mapping is used (`requirements()`): its NuGet packages
+(`nuget <package> <version>` in a file) and the C# sources that go with the translation (`compat <file>`, beside the
+mapping file). The JDK mapping's source is the compatibility library. `CSharpLibraries.projectFile` writes a project
+that references the packages. The ratchet writes it beside the translation, restores the packages, and gives their
+assemblies to the judge.
+
+The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
+qualified, as one whose name two namespaces declare is.
+
 ## The JDK → BCL mapping (`CSharpBcl`)
 
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
@@ -278,6 +380,50 @@ ratchet's report (see below) lists what is left.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`.
+- **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
+  `DateTimeOffset` does:
+  - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `Duration` → `TimeSpan`.
+  - `Clock` → `TimeProvider`, so `LocalDateTime.now(clock)` becomes `clock.GetLocalNow().DateTime`.
+  - A `DateTimeFormatter` becomes a custom format string. The ISO constants are .NET patterns
+    (`ISO_LOCAL_DATE` → `"yyyy-MM-dd"`), and `parse(s, f)` becomes `ParseExact(s, f, CultureInfo.InvariantCulture)`.
+  - `URI` → `Uri`, created `RelativeOrAbsolute` as Java's may be relative. `UUID` → `Guid`.
+  - `BigDecimal` → `decimal`, with arithmetic as operators. `Random`, `Base64` and `HexFormat` become `Random` and
+    `Convert`. A `MessageDigest` becomes a `HashAlgorithm`.
+  - C#'s numbers have no common base class, so `Number` becomes `IConvertible`, and `n.doubleValue()` becomes
+    `Convert.ToDouble(n)`. This is wider than Java's type: string and `DateTime` are `IConvertible` too.
+  - These structs are not nullable where Java's references are: a `return null` of a `UUID` does not compile.
+- **Concurrency.** A `CompletableFuture<T>` becomes a `Task<T>`:
+  - `supplyAsync(s, executor)` becomes `Task.Factory.StartNew` on the executor, and `join()` becomes `.Result`.
+  - The continuations (`ThenApply`, `ThenCompose`) are the compatibility library's. They get explicit type
+    arguments: `Task<T>` is invariant, and C# would infer the result type from the lambda where Java has it from
+    the target.
+  - An `Executor` becomes a `TaskScheduler`; a `ThreadPoolExecutor` and the `Executors` pools become the .NET thread
+    pool, `TaskScheduler.Default`.
+  - `CountDownLatch` becomes `CountdownEvent`, and `ReadWriteLock` a reentrant `ReaderWriterLockSlim`.
+  - Its halves, Java's `Lock`, are the compatibility library's `IJavaLock`, as are the atomics.
+- **Reflection.** `Class` becomes `System.Type`, and the members of `java.lang.reflect` become
+  `System.Reflection`'s: `Method` → `MethodInfo`, `Field` → `FieldInfo`, `Parameter` → `ParameterInfo`.
+  - Annotations are attributes: `getAnnotation(Tool.class)` becomes `GetCustomAttribute<ToolAttribute>()`, and
+    `isAnnotationPresent` becomes `IsDefined`.
+  - `getDeclaredMethods()` becomes `GetMethods` with `DeclaredOnly` and every visibility.
+  - `getModifiers()` gives Java's bits, from the compatibility library's `JavaModifier`, so `Modifier.isStatic(m)`
+    stays a bit test.
+  - The kinds of `java.lang.reflect.Type` are one `System.Type`. A type test against a kind is a property pattern:
+    `t is Type { IsConstructedGenericType: true } pt`, `IsGenericParameter` for a type variable, `IsArray` for a
+    generic array.
+  - `instanceof Class` on such a value matches a type that is neither a type parameter nor constructed.
+  - .NET has no wildcards, so `WildcardType` becomes the compatibility library's interface, which no `Type`
+    implements.
+  - An anonymous `ParameterizedType` whose methods return constants is how Java writes a type such as
+    `Map<String, Object>` as a value. It becomes `typeof(IDictionary<string, object>)`.
+  - `isSealed()` and `getPermittedSubclasses()`, Java's sealed hierarchies, have no counterpart: they stay unmapped.
+- **Services and files.**
+  - A `ServiceLoader<T>` becomes the implementations in the loaded assemblies: `JavaServiceLoader.Load<T>()` from
+    the compatibility library, an `IEnumerable<T>`, so `findFirst()` becomes `FirstOrDefault()`.
+  - A `ClassLoader` becomes the `Assembly` that holds the types: `loadClass(n)` becomes `GetType(n, true)`.
+  - A `Path` becomes a `FileInfo`, not a string, because Java overloads on `Path` and `String` and a string path
+    would merge the overloads. `Files.readAllBytes(p)` becomes `File.ReadAllBytes(p.FullName)`.
+  - `HttpURLConnection` stays unmapped: `HttpClient` is a rewrite, not a mapping.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
@@ -314,7 +460,11 @@ ratchet's report (see below) lists what is left.
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
   `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
-  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`).
+  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
+  `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
+  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
+  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`,
+  `JavaServiceLoader`.
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 
