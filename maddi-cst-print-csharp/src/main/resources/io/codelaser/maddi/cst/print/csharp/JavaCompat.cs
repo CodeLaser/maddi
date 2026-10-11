@@ -20,6 +20,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Maddi.JavaCompat;
 
@@ -1382,4 +1384,208 @@ public class JavaArrayList<E> : List<E>
     public new virtual void Clear() => base.Clear();
 
     public virtual JavaArrayList<E> Clone() => new JavaArrayList<E>(this);
+}
+
+/// <summary>CompletableFuture's continuations, on tasks.</summary>
+public static class JavaTasks
+{
+    public static Task<R> ThenApply<T, R>(this Task<T> t, Func<T, R> f) => t.ContinueWith(x => f(x.Result));
+
+    public static Task<R> ThenApply<R>(this Task t, Func<object, R> f) => t.ContinueWith(x =>
+    {
+        x.Wait();
+        return f(null);
+    });
+
+    public static Task<R> ThenCompose<T, R>(this Task<T> t, Func<T, Task<R>> f) =>
+        t.ContinueWith(x => f(x.Result)).Unwrap();
+
+    public static Task<R> ThenCompose<R>(this Task t, Func<object, Task<R>> f) => t.ContinueWith(x =>
+    {
+        x.Wait();
+        return f(null);
+    }).Unwrap();
+
+    public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.Result));
+}
+
+/// <summary>java.util.concurrent.locks.Lock: what a ReentrantLock and a read-write lock's halves are.</summary>
+public interface IJavaLock
+{
+    void Lock();
+
+    void Unlock();
+
+    bool TryLock();
+}
+
+public class JavaReentrantLock : IJavaLock
+{
+    private readonly object monitor = new();
+
+    public JavaReentrantLock()
+    {
+    }
+
+    public JavaReentrantLock(bool fair)
+    {
+    }
+
+    public void Lock() => Monitor.Enter(monitor);
+
+    public void Unlock() => Monitor.Exit(monitor);
+
+    public bool TryLock() => Monitor.TryEnter(monitor);
+}
+
+/// <summary>ReadWriteLock.readLock() and writeLock() of a ReaderWriterLockSlim.</summary>
+public static class JavaLocks
+{
+    public static IJavaLock ReadLock(this ReaderWriterLockSlim rw) => new Half(rw, false);
+
+    public static IJavaLock WriteLock(this ReaderWriterLockSlim rw) => new Half(rw, true);
+
+    private sealed class Half(ReaderWriterLockSlim rw, bool write) : IJavaLock
+    {
+        public void Lock()
+        {
+            if (write) rw.EnterWriteLock();
+            else rw.EnterReadLock();
+        }
+
+        public void Unlock()
+        {
+            if (write) rw.ExitWriteLock();
+            else rw.ExitReadLock();
+        }
+
+        public bool TryLock() => write ? rw.TryEnterWriteLock(0) : rw.TryEnterReadLock(0);
+    }
+}
+
+/// <summary>java.util.concurrent.atomic: a volatile value with Interlocked updates.</summary>
+public class AtomicBoolean
+{
+    private int value;
+
+    public AtomicBoolean() { }
+
+    public AtomicBoolean(bool initial) => value = initial ? 1 : 0;
+
+    public bool Get() => Volatile.Read(ref value) != 0;
+
+    public void Set(bool v) => Volatile.Write(ref value, v ? 1 : 0);
+
+    public bool GetAndSet(bool v) => Interlocked.Exchange(ref value, v ? 1 : 0) != 0;
+
+    public bool CompareAndSet(bool expected, bool update) =>
+        Interlocked.CompareExchange(ref value, update ? 1 : 0, expected ? 1 : 0) == (expected ? 1 : 0);
+
+    public override string ToString() => Get() ? "true" : "false";
+}
+
+public class AtomicInteger
+{
+    private int value;
+
+    public AtomicInteger() { }
+
+    public AtomicInteger(int initial) => value = initial;
+
+    public int Get() => Volatile.Read(ref value);
+
+    public void Set(int v) => Volatile.Write(ref value, v);
+
+    public int GetAndSet(int v) => Interlocked.Exchange(ref value, v);
+
+    public bool CompareAndSet(int expected, int update) => Interlocked.CompareExchange(ref value, update, expected) == expected;
+
+    public int IncrementAndGet() => Interlocked.Increment(ref value);
+
+    public int DecrementAndGet() => Interlocked.Decrement(ref value);
+
+    public int GetAndIncrement() => Interlocked.Increment(ref value) - 1;
+
+    public int GetAndDecrement() => Interlocked.Decrement(ref value) + 1;
+
+    public int AddAndGet(int delta) => Interlocked.Add(ref value, delta);
+
+    public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public override string ToString() => Get().ToString();
+}
+
+public class AtomicLong
+{
+    private long value;
+
+    public AtomicLong() { }
+
+    public AtomicLong(long initial) => value = initial;
+
+    public long Get() => Interlocked.Read(ref value);
+
+    public void Set(long v) => Interlocked.Exchange(ref value, v);
+
+    public long GetAndSet(long v) => Interlocked.Exchange(ref value, v);
+
+    public bool CompareAndSet(long expected, long update) =>
+        Interlocked.CompareExchange(ref value, update, expected) == expected;
+
+    public long IncrementAndGet() => Interlocked.Increment(ref value);
+
+    public long DecrementAndGet() => Interlocked.Decrement(ref value);
+
+    public long GetAndIncrement() => Interlocked.Increment(ref value) - 1;
+
+    public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
+
+    public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public override string ToString() => Get().ToString();
+}
+
+/// <summary>An AtomicReference may hold a value type (a boxed Integer is int?): a lock, not Interlocked.</summary>
+public class AtomicReference<T>
+{
+    private readonly object monitor = new();
+    private T value;
+
+    public AtomicReference() { }
+
+    public AtomicReference(T initial) => value = initial;
+
+    public T Get()
+    {
+        lock (monitor) return value;
+    }
+
+    public void Set(T v)
+    {
+        lock (monitor) value = v;
+    }
+
+    public T GetAndSet(T v)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = v;
+            return old;
+        }
+    }
+
+    /// <summary>Java compares references; a value type has no identity, its value is compared.</summary>
+    public bool CompareAndSet(T expected, T update)
+    {
+        lock (monitor)
+        {
+            bool same = typeof(T).IsValueType ? EqualityComparer<T>.Default.Equals(value, expected)
+                : ReferenceEquals(value, expected);
+            if (same) value = update;
+            return same;
+        }
+    }
+
+    public override string ToString() => Get()?.ToString() ?? "null";
 }

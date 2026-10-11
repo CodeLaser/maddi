@@ -1081,4 +1081,64 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
         contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
     }
+
+    @Language("java")
+    private static final String CONCURRENCY = """
+            package org.example.concurrency;
+            import java.util.List;
+            import java.util.concurrent.CompletableFuture;
+            import java.util.concurrent.CountDownLatch;
+            import java.util.concurrent.Executor;
+            import java.util.concurrent.SynchronousQueue;
+            import java.util.concurrent.ThreadPoolExecutor;
+            import java.util.concurrent.TimeUnit;
+            import java.util.concurrent.atomic.AtomicBoolean;
+            import java.util.concurrent.locks.ReadWriteLock;
+            import java.util.concurrent.locks.ReentrantReadWriteLock;
+            public class Work {
+                private final Executor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 1, TimeUnit.SECONDS,
+                        new SynchronousQueue<>());
+                private final CountDownLatch latch = new CountDownLatch(1);
+                private final AtomicBoolean done = new AtomicBoolean(false);
+                private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
+                CompletableFuture<Integer> length(String s) {
+                    return CompletableFuture.supplyAsync(() -> s, executor).thenApply(String::length);
+                }
+                int total(List<CompletableFuture<Integer>> futures) {
+                    return futures.stream().mapToInt(CompletableFuture::join).sum();
+                }
+                void finish() throws InterruptedException {
+                    done.compareAndSet(false, true);
+                    latch.countDown();
+                    latch.await();
+                }
+                void guarded(Runnable r) {
+                    var writeLock = lock.writeLock();
+                    writeLock.lock();
+                    try { r.run(); } finally { writeLock.unlock(); }
+                }
+            }
+            """;
+
+    /**
+     * A future is a task, an executor its task scheduler (a thread pool executor the .NET thread pool), a latch a
+     * CountdownEvent; a read-write lock is a ReaderWriterLockSlim; continuations, lock halves and atomics are the
+     * compatibility library's.
+     */
+    @Test
+    public void concurrency() {
+        String cs = translate("Work", CONCURRENCY);
+        contains(cs, "private readonly TaskScheduler executor = TaskScheduler.Default;");
+        contains(cs, "private readonly CountdownEvent latch = new CountdownEvent(1);");
+        contains(cs, "private readonly AtomicBoolean done = new AtomicBoolean(false);");
+        contains(cs, "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)");
+        contains(cs, "Task.Factory.StartNew(() => s, CancellationToken.None, TaskCreationOptions");
+        contains(cs, ".ThenApply<string, int>(");
+        contains(cs, ".Result");
+        contains(cs, "done.CompareAndSet(false, true);");
+        contains(cs, "latch.Signal();");
+        contains(cs, "latch.Wait();");
+        contains(cs, "var writeLock = @lock.WriteLock();");
+        contains(cs, "writeLock.Lock();");
+    }
 }

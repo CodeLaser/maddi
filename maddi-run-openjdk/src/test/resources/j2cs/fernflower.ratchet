@@ -60,9 +60,11 @@
 # 2026-10-10, a method captures a parameter's wildcard X<?> of a program type as a type parameter of its own,
 # void OnRequest<TEmbedded>(Context<TEmbedded> c), constrained by the wildcard's or the declared bound: 179 files
 # compile; errors 55 -> 53.
+# 2026-10-11, futures as tasks, executors as task schedulers, latches as CountdownEvent, the atomics and lock halves
+# in the compatibility library: 180 files compile; errors 52 -> 50.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	179
-unmappedJdkUses	32
+compilingFiles	180
+unmappedJdkUses	30

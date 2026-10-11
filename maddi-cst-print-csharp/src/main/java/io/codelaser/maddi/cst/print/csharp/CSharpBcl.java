@@ -69,6 +69,7 @@ final class CSharpBcl {
     static final String REGEX = "System.Text.RegularExpressions";
     static final String GLOBALIZATION = "System.Globalization";
     static final String THREADING = "System.Threading";
+    static final String TASKS = "System.Threading.Tasks";
     static final String NUMERICS = "System.Numerics";
     static final String CRYPTOGRAPHY = "System.Security.Cryptography";
     static final String COMPAT = CSharpCompat.NAMESPACE;
@@ -200,6 +201,25 @@ final class CSharpBcl {
         type("java.io.Closeable", "IDisposable", SYSTEM);
         type("java.lang.Thread", "Thread", THREADING);
         type("java.util.Locale", "CultureInfo", GLOBALIZATION);
+        // Void is a type argument only: a CompletableFuture<Void> has no value
+        type("java.lang.Void", "object", null);
+        // a future is a task, an executor the scheduler of its tasks
+        type("java.util.concurrent.CompletableFuture", "Task", TASKS);
+        type("java.util.concurrent.Future", "Task", TASKS);
+        for (String executor : List.of("java.util.concurrent.Executor", "java.util.concurrent.ExecutorService",
+                "java.util.concurrent.ThreadPoolExecutor")) {
+            type(executor, "TaskScheduler", TASKS);
+        }
+        type("java.util.concurrent.CountDownLatch", "CountdownEvent", THREADING);
+        // Java's read-write lock is reentrant; its read and write locks are the compatibility library's IJavaLock
+        type("java.util.concurrent.locks.ReadWriteLock", "ReaderWriterLockSlim", THREADING);
+        type("java.util.concurrent.locks.ReentrantReadWriteLock", "ReaderWriterLockSlim", THREADING);
+        compatType("java.util.concurrent.locks.Lock", "IJavaLock");
+        compatType("java.util.concurrent.locks.ReentrantLock", "JavaReentrantLock");
+        compatType("java.util.concurrent.atomic.AtomicBoolean", "AtomicBoolean");
+        compatType("java.util.concurrent.atomic.AtomicInteger", "AtomicInteger");
+        compatType("java.util.concurrent.atomic.AtomicLong", "AtomicLong");
+        compatType("java.util.concurrent.atomic.AtomicReference", "AtomicReference");
         type("java.nio.charset.Charset", "Encoding", TEXT);
 
         type("java.lang.Throwable", "Exception", SYSTEM);
@@ -325,6 +345,7 @@ final class CSharpBcl {
         streams();
         system();
         values();
+        concurrency();
     }
 
     private static void collections() {
@@ -873,6 +894,53 @@ final class CSharpBcl {
         m("java.lang.Thread.interrupt/0", "$0.Interrupt()");
     }
 
+    /** Futures as tasks, executors as task schedulers, latches and locks. */
+    private static void concurrency() {
+        String f = "java.util.concurrent.CompletableFuture.";
+        String startNew = "Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $2)";
+        m(f + "supplyAsync/1", "Task.Run($1)", TASKS);
+        m(f + "supplyAsync/2", startNew, TASKS, THREADING);
+        m(f + "runAsync/1", "Task.Run($1)", TASKS);
+        m(f + "runAsync/2", startNew, TASKS, THREADING);
+        m(f + "completedFuture/1", "Task.FromResult($1)", TASKS);
+        m(f + "allOf/1", "Task.WhenAll($*)", TASKS);
+        // Task<T> is invariant, and C# infers R from the lambda where Java has it from the target: explicit; a
+        // future of Void (allOf's) is a plain Task
+        chooser(f + "thenApply/1", (method, call) -> rule(voidFuture(call) ? "$0.ThenApply<{R0}>($1)"
+                : "$0.ThenApply<{T0}, {R0}>($1)", COMPAT));
+        chooser(f + "thenCompose/1", (method, call) -> rule(voidFuture(call) ? "$0.ThenCompose<{R0}>($1)"
+                : "$0.ThenCompose<{T0}, {R0}>($1)", COMPAT));
+        m(f + "thenAccept/1", "$0.ThenAccept($1)", COMPAT);
+        m(f + "join/0", "$0.Result");
+        m(f + "get/0", "$0.Result");
+        m(f + "isDone/0", "$0.IsCompleted");
+        m("java.util.concurrent.Future.get/0", "$0.Result");
+        m("java.util.concurrent.Future.isDone/0", "$0.IsCompleted");
+        m("java.util.concurrent.Executor.execute/1",
+                "Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0)", TASKS, THREADING);
+        m("java.util.concurrent.ExecutorService.submit/1",
+                "Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0)", TASKS, THREADING);
+        // the pool's sizes and keep-alive are the .NET thread pool's
+        m("java.util.concurrent.ThreadPoolExecutor.new/5", "TaskScheduler.Default", TASKS);
+        m("java.util.concurrent.ThreadPoolExecutor.new/6", "TaskScheduler.Default", TASKS);
+        m("java.util.concurrent.ThreadPoolExecutor.new/7", "TaskScheduler.Default", TASKS);
+        for (String pool : List.of("newCachedThreadPool/0", "newFixedThreadPool/1", "newWorkStealingPool/0",
+                "newVirtualThreadPerTaskExecutor/0")) {
+            m("java.util.concurrent.Executors." + pool, "TaskScheduler.Default", TASKS);
+        }
+
+        String l = "java.util.concurrent.CountDownLatch.";
+        m(l + "countDown/0", "$0.Signal()");
+        m(l + "await/0", "$0.Wait()");
+        m(l + "getCount/0", "(long) @0.CurrentCount");
+        m("java.util.concurrent.locks.ReentrantReadWriteLock.new/0",
+                "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)", THREADING);
+        m("java.util.concurrent.locks.ReentrantReadWriteLock.new/1",
+                "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)", THREADING);
+        m("java.util.concurrent.locks.ReadWriteLock.readLock/0", "$0.ReadLock()", COMPAT);
+        m("java.util.concurrent.locks.ReadWriteLock.writeLock/0", "$0.WriteLock()", COMPAT);
+    }
+
     // ---------------------------------------------------------------- lookup
 
     /** The rule of a call of {@code method} (null: the call of a method reference, or none); null when there is none. */
@@ -1054,6 +1122,14 @@ final class CSharpBcl {
         if (call == null || call.object() == null || call.object().parameterizedType() == null) return true;
         TypeInfo t = call.object().parameterizedType().typeInfo();
         return t == null || !t.typeNature().isEnum() || CSharpTypePrinter.simpleEnum(t);
+    }
+
+    /** The receiver is a future of Void, as CompletableFuture.allOf's: a Task without a value. */
+    private static boolean voidFuture(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
+        List<ParameterizedType> args = call.object().parameterizedType().parameters();
+        return args.size() == 1 && args.getFirst().typeInfo() != null
+               && "java.lang.Void".equals(args.getFirst().typeInfo().fullyQualifiedName());
     }
 
     /** The receiver is declared as a Number: C#'s IConvertible. */

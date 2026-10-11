@@ -290,6 +290,15 @@ ratchet's report (see below) lists what is left.
   - C#'s numbers have no common base class, so `Number` becomes `IConvertible`, and `n.doubleValue()` becomes
     `Convert.ToDouble(n)`. This is wider than Java's type: string and `DateTime` are `IConvertible` too.
   - These structs are not nullable where Java's references are: a `return null` of a `UUID` does not compile.
+- **Concurrency.** A `CompletableFuture<T>` becomes a `Task<T>`:
+  - `supplyAsync(s, executor)` becomes `Task.Factory.StartNew` on the executor, and `join()` becomes `.Result`.
+  - The continuations (`ThenApply`, `ThenCompose`) are the compatibility library's. They get explicit type
+    arguments: `Task<T>` is invariant, and C# would infer the result type from the lambda where Java has it from
+    the target.
+  - An `Executor` becomes a `TaskScheduler`; a `ThreadPoolExecutor` and the `Executors` pools become the .NET thread
+    pool, `TaskScheduler.Default`.
+  - `CountDownLatch` becomes `CountdownEvent`, and `ReadWriteLock` a reentrant `ReaderWriterLockSlim`.
+  - Its halves, Java's `Lock`, are the compatibility library's `IJavaLock`, as are the atomics.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
@@ -327,7 +336,9 @@ ratchet's report (see below) lists what is left.
   `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
-  `JavaUuid` (the MD5 name-based UUID), and `JavaDigest` (`MessageDigest.getInstance`'s algorithm names).
+  `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
+  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
+  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 
