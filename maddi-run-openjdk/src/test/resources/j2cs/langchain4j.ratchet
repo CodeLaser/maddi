@@ -44,9 +44,14 @@
 # Executor/ExecutorService as TaskScheduler (a ThreadPoolExecutor the .NET pool), CountDownLatch as CountdownEvent,
 # ReadWriteLock as ReaderWriterLockSlim, the atomics and lock halves in the compatibility library: 254 files
 # compile; errors 443 -> 404.
+# 2026-10-11, Class and java.lang.reflect as System.Type and System.Reflection: the kinds of reflect.Type are one
+# Type told apart by property patterns (t is Type { IsConstructedGenericType: true } pt), a wildcard a compatibility
+# interface no Type implements, annotations attributes (GetCustomAttribute<T>, IsDefined), modifiers Java's bits; an
+# anonymous ParameterizedType of constants is a typeof (typeof(IDictionary<string, object>)): 256 files compile;
+# errors 404 -> 323.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	254
-unmappedJdkUses	464
+compilingFiles	256
+unmappedJdkUses	340

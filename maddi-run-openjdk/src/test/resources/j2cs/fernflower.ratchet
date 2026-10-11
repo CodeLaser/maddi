@@ -62,9 +62,11 @@
 # compile; errors 55 -> 53.
 # 2026-10-11, futures as tasks, executors as task schedulers, latches as CountdownEvent, the atomics and lock halves
 # in the compatibility library: 180 files compile; errors 52 -> 50.
+# 2026-10-11, Class and java.lang.reflect as System.Type and System.Reflection (Method.isVarArgs, Class.forName),
+# & | % as template operators: 181 files compile; errors 50 -> 42.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	180
-unmappedJdkUses	30
+compilingFiles	181
+unmappedJdkUses	21

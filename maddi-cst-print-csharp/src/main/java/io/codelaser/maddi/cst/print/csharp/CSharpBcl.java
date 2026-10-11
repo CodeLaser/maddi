@@ -70,6 +70,7 @@ final class CSharpBcl {
     static final String GLOBALIZATION = "System.Globalization";
     static final String THREADING = "System.Threading";
     static final String TASKS = "System.Threading.Tasks";
+    static final String REFLECTION = "System.Reflection";
     static final String NUMERICS = "System.Numerics";
     static final String CRYPTOGRAPHY = "System.Security.Cryptography";
     static final String COMPAT = CSharpCompat.NAMESPACE;
@@ -203,6 +204,31 @@ final class CSharpBcl {
         type("java.util.Locale", "CultureInfo", GLOBALIZATION);
         // Void is a type argument only: a CompletableFuture<Void> has no value
         type("java.lang.Void", "object", null);
+        // reflection: java.lang.reflect.Type and its kinds are System.Type (patterns tell the kinds apart, PATTERNS)
+        for (String t : List.of("java.lang.reflect.Type", "java.lang.reflect.ParameterizedType",
+                "java.lang.reflect.TypeVariable", "java.lang.reflect.GenericArrayType")) {
+            plain(t, "Type", SYSTEM);
+        }
+        compatType("java.lang.reflect.WildcardType", "IJavaWildcardType");
+        type("java.lang.reflect.Method", "MethodInfo", REFLECTION);
+        type("java.lang.reflect.Field", "FieldInfo", REFLECTION);
+        type("java.lang.reflect.Parameter", "ParameterInfo", REFLECTION);
+        plain("java.lang.reflect.Constructor", "ConstructorInfo", REFLECTION);
+        type("java.lang.reflect.Executable", "MethodBase", REFLECTION);
+        type("java.lang.reflect.AccessibleObject", "MemberInfo", REFLECTION);
+        type("java.lang.reflect.Member", "MemberInfo", REFLECTION);
+        type("java.lang.reflect.AnnotatedElement", "ICustomAttributeProvider", REFLECTION);
+        type("java.lang.annotation.Annotation", "Attribute", SYSTEM);
+        // a package is its name, a namespace
+        type("java.lang.Package", "string", null);
+        plain("java.lang.Enum", "Enum", SYSTEM);
+        type("java.lang.NoSuchMethodException", "MissingMethodException", SYSTEM);
+        type("java.lang.ClassNotFoundException", "TypeLoadException", SYSTEM);
+        type("java.lang.NoSuchFieldException", "MissingFieldException", SYSTEM);
+        type("java.lang.InstantiationException", "MemberAccessException", SYSTEM);
+        type("java.lang.IllegalAccessException", "MemberAccessException", SYSTEM);
+        type("java.lang.ReflectiveOperationException", "Exception", SYSTEM);
+        type("java.lang.reflect.InvocationTargetException", "TargetInvocationException", REFLECTION);
         // a future is a task, an executor the scheduler of its tasks
         type("java.util.concurrent.CompletableFuture", "Task", TASKS);
         type("java.util.concurrent.Future", "Task", TASKS);
@@ -267,6 +293,37 @@ final class CSharpBcl {
         compatType("java.util.jar.JarFile", "JavaJarFile");
         compatType("java.util.jar.JarEntry", "JavaZipEntry");
         compatType("java.util.jar.Manifest", "JavaManifest");
+    }
+
+    /**
+     * The kinds of java.lang.reflect.Type are one System.Type: a type test is a property pattern,
+     * {@code t is Type { IsConstructedGenericType: true } pt}. A wildcard, which .NET's reflection does not have, is
+     * the compatibility library's interface, which no Type implements.
+     */
+    private static final Map<String, String> PATTERNS = Map.of(
+            "java.lang.reflect.ParameterizedType", "Type { IsConstructedGenericType: true }",
+            "java.lang.reflect.TypeVariable", "Type { IsGenericParameter: true }",
+            "java.lang.reflect.GenericArrayType", "Type { IsArray: true }");
+
+    /** The pattern of a type test against a JDK type, and its namespace; null for the type's name. */
+    static String[] pattern(TypeInfo typeInfo) {
+        String pattern = PATTERNS.get(typeInfo.fullyQualifiedName());
+        return pattern == null ? null : new String[]{pattern, SYSTEM};
+    }
+
+    /**
+     * The pattern of {@code t instanceof Class} where {@code t} is a java.lang.reflect.Type: in .NET every kind is a
+     * System.Type, a Class the one that is no type parameter and not constructed. Null for any other type test.
+     */
+    static String classPattern(ParameterizedType tested, ParameterizedType expression) {
+        if (tested == null || expression == null || tested.arrays() > 0 || expression.arrays() > 0
+            || tested.typeInfo() == null || expression.typeInfo() == null
+            || !"java.lang.Class".equals(tested.typeInfo().fullyQualifiedName())) {
+            return null;
+        }
+        String e = expression.typeInfo().fullyQualifiedName();
+        return e.equals("java.lang.reflect.Type") || PATTERNS.containsKey(e)
+                ? "Type { IsGenericParameter: false, IsConstructedGenericType: false }" : null;
     }
 
     /** The C# counterpart of a JDK type; null when there is none (yet). */
@@ -346,6 +403,7 @@ final class CSharpBcl {
         system();
         values();
         concurrency();
+        reflection();
     }
 
     private static void collections() {
@@ -939,6 +997,88 @@ final class CSharpBcl {
                 "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)", THREADING);
         m("java.util.concurrent.locks.ReadWriteLock.readLock/0", "$0.ReadLock()", COMPAT);
         m("java.util.concurrent.locks.ReadWriteLock.writeLock/0", "$0.WriteLock()", COMPAT);
+    }
+
+    /** java.lang.Class and java.lang.reflect: System.Type and System.Reflection. */
+    private static void reflection() {
+        String c = "java.lang.Class.";
+        String declared = "BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic"
+                          + " | BindingFlags.Instance | BindingFlags.Static";
+        m(c + "isAssignableFrom/1", "$0.IsAssignableFrom($1)");
+        m(c + "isInstance/1", "$0.IsInstanceOfType($1)");
+        m(c + "cast/1", "({R}) @1");
+        m(c + "isArray/0", "$0.IsArray");
+        m(c + "isEnum/0", "$0.IsEnum");
+        m(c + "isInterface/0", "$0.IsInterface");
+        m(c + "isPrimitive/0", "$0.IsPrimitive");
+        m(c + "getSuperclass/0", "$0.BaseType");
+        m(c + "getInterfaces/0", "$0.GetInterfaces()");
+        m(c + "getComponentType/0", "$0.GetElementType()");
+        m(c + "arrayType/0", "$0.MakeArrayType()");
+        m(c + "getPackage/0", "$0.Namespace");
+        m("java.lang.Package.getName/0", "$0");
+        m(c + "getEnumConstants/0", "$0.GetEnumValues().Cast<object>().ToArray()", LINQ);
+        m(c + "getDeclaredMethods/0", "$0.GetMethods(" + declared + ")", REFLECTION);
+        m(c + "getDeclaredFields/0", "$0.GetFields(" + declared + ")", REFLECTION);
+        m(c + "getMethods/0", "$0.GetMethods()");
+        m(c + "getFields/0", "$0.GetFields()");
+        // the parameter types are varargs: none, or an array
+        chooser(c + "getMethod/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
+                ? "$0.GetMethod($1, Type.EmptyTypes)" : "$0.GetMethod($*)", SYSTEM));
+        chooser(c + "getDeclaredConstructor/1", (method, call) -> rule("$0.GetConstructor("
+                + "BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, "
+                + (call != null && call.parameterExpressions().isEmpty() ? "Type.EmptyTypes" : "$*") + ")",
+                REFLECTION, SYSTEM));
+        m(c + "getModifiers/0", "JavaModifier.Of($0)", COMPAT);
+        chooser("java.lang.reflect.Constructor.newInstance/1", (method, call) -> rule(
+                call != null && call.parameterExpressions().isEmpty() ? "$0.Invoke(null)" : "$0.Invoke(new object[] { $* })"));
+        // annotations are attributes
+        String a = "java.lang.reflect.AnnotatedElement.";
+        m(a + "getAnnotation/1", "$0.GetCustomAttribute<{R}>()", REFLECTION);
+        m(a + "isAnnotationPresent/1", "$0.IsDefined($1, false)");
+        m("java.lang.annotation.Annotation.annotationType/0", "$0.GetType()");
+
+        for (String member : List.of("java.lang.reflect.Method", "java.lang.reflect.Field", "java.lang.reflect.Parameter",
+                "java.lang.reflect.Executable", "java.lang.reflect.Member")) {
+            m(member + ".getName/0", "$0.Name");
+        }
+        String me = "java.lang.reflect.Method.";
+        m(me + "getDeclaringClass/0", "$0.DeclaringType");
+        m("java.lang.reflect.Member.getDeclaringClass/0", "$0.DeclaringType");
+        m(me + "getReturnType/0", "$0.ReturnType");
+        m(me + "getGenericReturnType/0", "$0.ReturnType");
+        m("java.lang.reflect.Executable.getParameters/0", "$0.GetParameters()");
+        m("java.lang.reflect.Executable.getParameterCount/0", "$0.GetParameters().Length");
+        m(me + "getParameterTypes/0", "$0.GetParameters().Select(p => p.ParameterType).ToArray()", LINQ);
+        m("java.lang.reflect.Executable.getParameterTypes/0", "$0.GetParameters().Select(p => p.ParameterType).ToArray()",
+                LINQ);
+        // Java's compiler-made bridges have no counterpart in C#; its synthetic members are compiler-generated
+        m(me + "isBridge/0", "false");
+        m("java.lang.reflect.Executable.isVarArgs/0",
+                "($0.GetParameters().LastOrDefault()?.IsDefined(typeof(ParamArrayAttribute), false) ?? false)", LINQ, SYSTEM);
+        m(c + "forName/1", "Type.GetType($1, true)", SYSTEM);
+        m("java.lang.reflect.Executable.isSynthetic/0",
+                "$0.IsDefined(typeof(CompilerGeneratedAttribute), false)", "System.Runtime.CompilerServices");
+        m(me + "getModifiers/0", "JavaModifier.Of($0)", COMPAT);
+        m("java.lang.reflect.Field.getModifiers/0", "JavaModifier.Of($0)", COMPAT);
+        chooser(me + "invoke/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
+                ? "$0.Invoke($1, null)" : "$0.Invoke($1, new object[] { $+ })"));
+        String f = "java.lang.reflect.Field.";
+        m(f + "getType/0", "$0.FieldType");
+        m(f + "getGenericType/0", "$0.FieldType");
+        m(f + "get/1", "$0.GetValue($1)");
+        m(f + "set/2", "$0.SetValue($1, $2)");
+        m("java.lang.reflect.Parameter.getType/0", "$0.ParameterType");
+        m("java.lang.reflect.Parameter.getParameterizedType/0", "$0.ParameterType");
+        m("java.lang.reflect.ParameterizedType.getRawType/0", "$0.GetGenericTypeDefinition()");
+        m("java.lang.reflect.ParameterizedType.getActualTypeArguments/0", "$0.GetGenericArguments()");
+        m("java.lang.reflect.TypeVariable.getBounds/0", "$0.GetGenericParameterConstraints()");
+        m("java.lang.reflect.GenericArrayType.getGenericComponentType/0", "$0.GetElementType()");
+        m("java.lang.reflect.Proxy.isProxyClass/1", "typeof(DispatchProxy).IsAssignableFrom($1)", REFLECTION);
+        for (String[] mod : new String[][]{{"isPublic", "0x0001"}, {"isPrivate", "0x0002"}, {"isProtected", "0x0004"},
+                {"isStatic", "0x0008"}, {"isFinal", "0x0010"}, {"isAbstract", "0x0400"}, {"isInterface", "0x0200"}}) {
+            m("java.lang.reflect.Modifier." + mod[0] + "/1", "(@1 & " + mod[1] + ") != 0");
+        }
     }
 
     // ---------------------------------------------------------------- lookup

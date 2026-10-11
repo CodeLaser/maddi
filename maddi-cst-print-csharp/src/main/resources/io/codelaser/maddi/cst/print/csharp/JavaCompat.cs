@@ -17,6 +17,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -1588,4 +1589,36 @@ public class AtomicReference<T>
     }
 
     public override string ToString() => Get()?.ToString() ?? "null";
+}
+
+/// <summary>java.lang.reflect.WildcardType: .NET's reflection has no wildcards, so no Type is one.</summary>
+public interface IJavaWildcardType
+{
+    Type[] GetUpperBounds();
+
+    Type[] GetLowerBounds();
+}
+
+/// <summary>Class.getModifiers and its kin: java.lang.reflect.Modifier's bits of a type or a member.</summary>
+public static class JavaModifier
+{
+    public const int PUBLIC = 0x0001, PRIVATE = 0x0002, PROTECTED = 0x0004, STATIC = 0x0008, FINAL = 0x0010,
+        INTERFACE = 0x0200, ABSTRACT = 0x0400;
+
+    public static int Of(Type t) =>
+        (t.IsPublic || t.IsNestedPublic ? PUBLIC : 0)
+        | (t.IsNestedPrivate ? PRIVATE : 0)
+        | (t.IsNestedFamily ? PROTECTED : 0)
+        | (t.IsAbstract && t.IsSealed ? STATIC : 0)
+        | (t.IsSealed && !t.IsAbstract ? FINAL : 0)
+        | (t.IsInterface ? INTERFACE | ABSTRACT : 0)
+        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? ABSTRACT : 0);
+
+    public static int Of(MethodBase m) =>
+        (m.IsPublic ? PUBLIC : 0) | (m.IsPrivate ? PRIVATE : 0) | (m.IsFamily ? PROTECTED : 0)
+        | (m.IsStatic ? STATIC : 0) | (m.IsFinal ? FINAL : 0) | (m.IsAbstract ? ABSTRACT : 0);
+
+    public static int Of(FieldInfo f) =>
+        (f.IsPublic ? PUBLIC : 0) | (f.IsPrivate ? PRIVATE : 0) | (f.IsFamily ? PROTECTED : 0)
+        | (f.IsStatic ? STATIC : 0) | (f.IsInitOnly || f.IsLiteral ? FINAL : 0);
 }

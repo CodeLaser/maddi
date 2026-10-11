@@ -402,6 +402,11 @@ public final class CSharpExpressionPrinter {
 
     private static OutputBuilder constructorCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) {
+            TypeLiteral literal = typeLiteral(cc.anonymousClass());
+            if (literal != null) {
+                return text("typeof(" + CSharpTypeName.name(literal.raw().typeInfo(), q) + "<" + literal.arguments()
+                        .stream().map(a -> CSharpTypeName.argument(a, q)).collect(Collectors.joining(", ")) + ">)");
+            }
             OutputBuilder adapted = anonymousAsLambda(cc, q);
             if (adapted != null) return adapted;
             CSharpAnonymous.Hoisted hoisted = CSharpContext.hoisted(cc.anonymousClass());
@@ -661,6 +666,58 @@ public final class CSharpExpressionPrinter {
      * … })}. Null for any other.
      */
     /** The anonymous class of {@code cc} is printed as a lambda, see {@link #anonymousAsLambda}. */
+    record TypeLiteral(ParameterizedType raw, List<ParameterizedType> arguments) {
+    }
+
+    /**
+     * An anonymous java.lang.reflect.ParameterizedType whose methods return constants, Java's way of writing the
+     * type {@code Map<String, Object>} as a value: .NET's reflection has it, {@code typeof(IDictionary<string, object>)}.
+     * Null for any other anonymous class.
+     */
+    static TypeLiteral typeLiteral(TypeInfo anonymous) {
+        if (anonymous.interfacesImplemented().size() != 1 || anonymous.parentClass() != null
+            && anonymous.parentClass().typeInfo() != null && !anonymous.parentClass().typeInfo().isJavaLangObject()) {
+            return null;
+        }
+        TypeInfo implemented = anonymous.interfacesImplemented().getFirst().typeInfo();
+        if (implemented == null || !"java.lang.reflect.ParameterizedType".equals(implemented.fullyQualifiedName())) {
+            return null;
+        }
+        ParameterizedType raw = null;
+        List<ParameterizedType> arguments = null;
+        for (MethodInfo m : anonymous.methods()) {
+            if (m.isSynthetic()) continue;
+            List<Statement> statements = m.methodBody() == null ? List.of()
+                    : m.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+            if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs) || rs.hasNoValue()) {
+                return null;
+            }
+            Expression returned = unwrap(rs.expression());
+            switch (m.name()) {
+                case "getRawType" -> {
+                    if (!(returned instanceof ClassExpression ce) || ce.type().typeInfo() == null) return null;
+                    raw = ce.type();
+                }
+                case "getActualTypeArguments" -> {
+                    ArrayInitializer ai = returned instanceof ArrayInitializer a ? a
+                            : returned instanceof ConstructorCall c ? c.arrayInitializer() : null;
+                    if (ai == null || !ai.expressions().stream().allMatch(x -> unwrap(x) instanceof ClassExpression)) {
+                        return null;
+                    }
+                    arguments = ai.expressions().stream().map(x -> ((ClassExpression) unwrap(x)).type()).toList();
+                }
+                case "getOwnerType" -> {
+                    if (!(returned instanceof NullConstant)) return null;
+                }
+                default -> {
+                    return null;
+                }
+            }
+        }
+        return raw != null && arguments != null && !arguments.isEmpty()
+               && arguments.size() == raw.typeInfo().typeParameters().size() ? new TypeLiteral(raw, arguments) : null;
+    }
+
     static boolean asLambda(ConstructorCall cc) {
         TypeInfo anonymous = cc.anonymousClass();
         if (!CSharpProgram.lambdaLike(anonymous)) return false;
@@ -866,14 +923,18 @@ public final class CSharpExpressionPrinter {
                 .add(SpaceEnum.ONE).add(CSharpKeyword.IS).add(SpaceEnum.ONE);
         if (not) b.add(CSharpKeyword.NOT).add(SpaceEnum.ONE);
         RecordPattern pattern = io.patternVariable();
+        // a java.lang.reflect.Type that is a Class: one System.Type, neither a type parameter nor a constructed one
+        String classPattern = CSharpBcl.classPattern(io.testType(), io.expression().parameterizedType());
+        if (classPattern != null) CSharpContext.using(CSharpBcl.SYSTEM);
         if (pattern != null && pattern.localVariable() != null) {
-            return b.add(text(CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
+            return b.add(text(classPattern != null ? classPattern
+                            : CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
                     .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
         if (pattern != null) {
             CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, io, CSharpContext.describe(io));
         }
-        return b.add(text(CSharpTypeName.pattern(io.testType(), q)));
+        return b.add(text(classPattern != null ? classPattern : CSharpTypeName.pattern(io.testType(), q)));
     }
 
     // ---------------------------------------------------------------- literals

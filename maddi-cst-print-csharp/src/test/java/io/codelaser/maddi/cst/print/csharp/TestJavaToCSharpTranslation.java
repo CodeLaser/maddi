@@ -1141,4 +1141,63 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "var writeLock = @lock.WriteLock();");
         contains(cs, "writeLock.Lock();");
     }
+
+    @Language("java")
+    private static final String REFLECTION = """
+            package org.example.reflection;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.reflect.Field;
+            import java.lang.reflect.GenericArrayType;
+            import java.lang.reflect.Method;
+            import java.lang.reflect.Modifier;
+            import java.lang.reflect.ParameterizedType;
+            import java.lang.reflect.Type;
+            import java.lang.reflect.WildcardType;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Mirror {
+                @Retention(RetentionPolicy.RUNTIME)
+                public @interface Tool { String value() default ""; }
+                static Class<?> raw(Type type) {
+                    if (type instanceof Class<?> clazz) return clazz;
+                    if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> r) return r;
+                    if (type instanceof WildcardType w) return raw(w.getUpperBounds()[0]);
+                    if (type instanceof GenericArrayType g) return raw(g.getGenericComponentType()).arrayType();
+                    return Object.class;
+                }
+                static List<String> tools(Class<?> c) {
+                    List<String> names = new ArrayList<>();
+                    for (Method m : c.getDeclaredMethods()) {
+                        if (m.isBridge() || !m.isAnnotationPresent(Tool.class)) continue;
+                        names.add(m.getName() + m.getAnnotation(Tool.class).value());
+                    }
+                    return names;
+                }
+                static boolean instanceField(Field f) { return !Modifier.isStatic(f.getModifiers()); }
+                static final Type MAP_TYPE = new ParameterizedType() {
+                    @Override public Type[] getActualTypeArguments() { return new Type[] {String.class, Object.class}; }
+                    @Override public Type getRawType() { return java.util.Map.class; }
+                    @Override public Type getOwnerType() { return null; }
+                };
+            }
+            """;
+
+    /**
+     * Class is System.Type, the members of java.lang.reflect are System.Reflection's; the kinds of
+     * java.lang.reflect.Type are one System.Type, told apart by property patterns; annotations are attributes.
+     */
+    @Test
+    public void reflection() {
+        String cs = translate("Mirror", REFLECTION);
+        contains(cs, "if (type is Type { IsGenericParameter: false, IsConstructedGenericType: false } clazz)");
+        contains(cs, "type is Type { IsConstructedGenericType: true } pt &&");
+        contains(cs, "if (type is IJavaWildcardType w) { return Raw(w.GetUpperBounds()[0]); }");
+        contains(cs, "if (type is Type { IsArray: true } g) { return Raw(g.GetElementType()).MakeArrayType(); }");
+        contains(cs, "foreach (MethodInfo m in c.GetMethods(BindingFlags.DeclaredOnly");
+        contains(cs, "m.Name + m.GetCustomAttribute<ToolAttribute>().Value");
+        contains(cs, "!((JavaModifier.Of(f) & 0x0008) != 0)");
+        contains(cs, "if (false || !m.IsDefined(typeof(ToolAttribute), false))");
+        contains(cs, "internal static readonly Type MAP_TYPE = typeof(IDictionary<string, object>);");
+    }
 }

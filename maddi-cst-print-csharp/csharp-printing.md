@@ -299,6 +299,22 @@ ratchet's report (see below) lists what is left.
     pool, `TaskScheduler.Default`.
   - `CountDownLatch` becomes `CountdownEvent`, and `ReadWriteLock` a reentrant `ReaderWriterLockSlim`.
   - Its halves, Java's `Lock`, are the compatibility library's `IJavaLock`, as are the atomics.
+- **Reflection.** `Class` becomes `System.Type`, and the members of `java.lang.reflect` become
+  `System.Reflection`'s: `Method` → `MethodInfo`, `Field` → `FieldInfo`, `Parameter` → `ParameterInfo`.
+  - Annotations are attributes: `getAnnotation(Tool.class)` becomes `GetCustomAttribute<ToolAttribute>()`, and
+    `isAnnotationPresent` becomes `IsDefined`.
+  - `getDeclaredMethods()` becomes `GetMethods` with `DeclaredOnly` and every visibility.
+  - `getModifiers()` gives Java's bits, from the compatibility library's `JavaModifier`, so `Modifier.isStatic(m)`
+    stays a bit test.
+  - The kinds of `java.lang.reflect.Type` are one `System.Type`. A type test against a kind is a property pattern:
+    `t is Type { IsConstructedGenericType: true } pt`, `IsGenericParameter` for a type variable, `IsArray` for a
+    generic array.
+  - `instanceof Class` on such a value matches a type that is neither a type parameter nor constructed.
+  - .NET has no wildcards, so `WildcardType` becomes the compatibility library's interface, which no `Type`
+    implements.
+  - An anonymous `ParameterizedType` whose methods return constants is how Java writes a type such as
+    `Map<String, Object>` as a value. It becomes `typeof(IDictionary<string, object>)`.
+  - `isSealed()` and `getPermittedSubclasses()`, Java's sealed hierarchies, have no counterpart: they stay unmapped.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
@@ -338,7 +354,7 @@ ratchet's report (see below) lists what is left.
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
   (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
-  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`).
+  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`.
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

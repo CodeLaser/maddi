@@ -84,6 +84,13 @@ public final class CSharpTypeName {
      * with instanceof is its value type (null is not an instance of anything, in either language).
      */
     public static String pattern(ParameterizedType pt, Qualification q) {
+        if (pt.arrays() == 0 && pt.typeInfo() != null) {
+            String[] pattern = CSharpBcl.pattern(pt.typeInfo());
+            if (pattern != null) {
+                if (pattern[1] != null) CSharpContext.using(pattern[1]);
+                return pattern[0];
+            }
+        }
         return of(pt, q, true);
     }
 

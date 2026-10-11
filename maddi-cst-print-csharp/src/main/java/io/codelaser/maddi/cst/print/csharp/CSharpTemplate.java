@@ -175,7 +175,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
     /** An initializer's closing brace: a space before it, also after a call's parenthesis, {@code { F(x) }}. */
     private static final Symbol CLOSE_BRACE = new SymbolEnum("}", SpaceEnum.ONE, SpaceEnum.NONE, null);
     private static final Set<String> OPERATORS = Set.of("=>", "==", "!=", "??", "+", "-", "*", "/", "<", ">", "<=",
-            ">=", "||", "&&", "=", "or", "is");
+            ">=", "||", "&&", "=", "or", "is", "&", "|", "%");
 
     /**
      * The template's literal text, as the formatter's own elements: symbols for punctuation and operators, which carry
