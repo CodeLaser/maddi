@@ -59,7 +59,10 @@ import java.util.stream.Stream;
  * behaviour as extension methods; it also has the classes the BCL lacks ({@code DataInputStream}'s big-endian reads,
  * {@code BitSet}), whose members are the Java ones in PascalCase.
  */
-final class CSharpBcl {
+final class CSharpBcl implements LibraryMapping {
+
+    /** The JDK's mapping, the last of a translation's {@link CSharpLibraries}. */
+    static final CSharpBcl JDK = new CSharpBcl();
 
     static final String GENERIC = "System.Collections.Generic";
     static final String LINQ = "System.Linq";
@@ -78,15 +81,12 @@ final class CSharpBcl {
     private CSharpBcl() {
     }
 
-    // ---------------------------------------------------------------- types
-
-    /**
-     * A JDK type in C#. {@code template}: the name, which gets the Java type arguments, or a pattern of them:
-     * {@code {0}} is the first, as a type argument ({@code int}), {@code {0?}} as a type ({@code int?}).
-     * {@code compat}: a class of the compatibility library, whose members are the Java ones in PascalCase.
-     */
-    record TypeMapping(String template, String namespace, boolean compat, boolean dropArguments) {
+    @Override
+    public String id() {
+        return "jdk";
     }
+
+    // ---------------------------------------------------------------- types
 
     private static final Map<String, TypeMapping> TYPES = new HashMap<>();
 
@@ -310,17 +310,20 @@ final class CSharpBcl {
             "java.lang.reflect.TypeVariable", "Type { IsGenericParameter: true }",
             "java.lang.reflect.GenericArrayType", "Type { IsArray: true }");
 
-    /** The pattern of a type test against a JDK type, and its namespace; null for the type's name. */
-    static String[] pattern(TypeInfo typeInfo) {
-        String pattern = PATTERNS.get(typeInfo.fullyQualifiedName());
-        return pattern == null ? null : new String[]{pattern, SYSTEM};
+    /** The pattern of a type test against a JDK type; null for the type's name. */
+    @Override
+    public PatternMapping pattern(ParameterizedType tested, ParameterizedType expression) {
+        if (tested == null || tested.arrays() > 0 || tested.typeInfo() == null) return null;
+        String pattern = PATTERNS.get(tested.typeInfo().fullyQualifiedName());
+        if (pattern == null) pattern = classPattern(tested, expression);
+        return pattern == null ? null : new PatternMapping(pattern, SYSTEM);
     }
 
     /**
      * The pattern of {@code t instanceof Class} where {@code t} is a java.lang.reflect.Type: in .NET every kind is a
      * System.Type, a Class the one that is no type parameter and not constructed. Null for any other type test.
      */
-    static String classPattern(ParameterizedType tested, ParameterizedType expression) {
+    private static String classPattern(ParameterizedType tested, ParameterizedType expression) {
         if (tested == null || expression == null || tested.arrays() > 0 || expression.arrays() > 0
             || tested.typeInfo() == null || expression.typeInfo() == null
             || !"java.lang.Class".equals(tested.typeInfo().fullyQualifiedName())) {
@@ -331,9 +334,15 @@ final class CSharpBcl {
                 ? "Type { IsGenericParameter: false, IsConstructedGenericType: false }" : null;
     }
 
-    /** The C# counterpart of a JDK type; null when there is none (yet). */
+    private static final Set<String> TYPE_NAMES = computeTypeNames();
+
     /** The names of the BCL types the translation uses, and the System types any C# code may name. */
-    static Set<String> typeNames() {
+    @Override
+    public Set<String> typeNames() {
+        return TYPE_NAMES;
+    }
+
+    private static Set<String> computeTypeNames() {
         Set<String> names = new java.util.HashSet<>(Set.of("Exception", "Object", "String", "Math", "Console", "Type",
                 "Attribute", "Enum", "Array", "Action", "Func", "Task", "Path", "File", "Directory", "Stream", "Encoding",
                 "Regex", "Thread", "Monitor", "Debug", "Enumerable", "Comparer", "Random", "Guid", "Uri", "TimeSpan",
@@ -347,32 +356,13 @@ final class CSharpBcl {
         return names;
     }
 
-    static TypeMapping type(TypeInfo typeInfo) {
+    /** The C# counterpart of a JDK type; null when there is none (yet). */
+    @Override
+    public TypeMapping type(TypeInfo typeInfo) {
         return TYPES.get(typeInfo.fullyQualifiedName());
     }
 
     // ---------------------------------------------------------------- members
-
-    /** A member's translation: {@code value} for a call whose value is used, {@code statement} for one whose is not. */
-    record Rule(String value, String statement, List<String> namespaces) {
-        /** A template that writes a generic collection, {@code new List<{R0}> { $* }}, uses its namespace. */
-        private static final java.util.regex.Pattern COLLECTION = java.util.regex.Pattern.compile(
-                "\\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|LinkedList|Queue|Stack|KeyValuePair"
-                + "|IList|IDictionary|ISet|ICollection|IEnumerable|IReadOnlyList|IReadOnlyCollection|Comparer"
-                + "|EqualityComparer)<");
-
-        Rule {
-            if (!namespaces.contains(GENERIC) && (value != null && COLLECTION.matcher(value).find()
-                                                  || statement != null && COLLECTION.matcher(statement).find())) {
-                namespaces = java.util.stream.Stream.concat(namespaces.stream(), java.util.stream.Stream.of(GENERIC))
-                        .toList();
-            }
-        }
-
-        String template(boolean asStatement) {
-            return asStatement && statement != null ? statement : value;
-        }
-    }
 
     /** A rule chosen per call: by its arguments, by its return type. */
     interface Chooser {
@@ -1122,7 +1112,8 @@ final class CSharpBcl {
     // ---------------------------------------------------------------- lookup
 
     /** The rule of a call of {@code method} (null: the call of a method reference, or none); null when there is none. */
-    static Rule call(MethodInfo method, MethodCall call) {
+    @Override
+    public Rule call(MethodInfo method, MethodCall call) {
         for (MethodInfo candidate : candidates(method)) {
             TypeInfo owner = candidate.typeInfo();
             String base = owner.fullyQualifiedName() + "." + candidate.name();
@@ -1149,7 +1140,8 @@ final class CSharpBcl {
     }
 
     /** The rule of a JDK constructor, keyed {@code owner.new/arity} or {@code owner.new(signature)}; null without. */
-    static Rule constructor(MethodInfo constructor) {
+    @Override
+    public Rule constructor(MethodInfo constructor) {
         String base = constructor.typeInfo().fullyQualifiedName() + ".new";
         for (String key : List.of(base + "(" + signature(constructor) + ")", base + "/" + constructor.parameters().size())) {
             Chooser chooser = MEMBERS.get(key);
@@ -1238,18 +1230,20 @@ final class CSharpBcl {
             "JavaJarFile", COMPAT);
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
-    static String[] field(FieldInfo fieldInfo) {
+    @Override
+    public FieldMapping field(FieldInfo fieldInfo) {
         String csharp = FIELDS.get(fieldInfo.owner().fullyQualifiedName() + "." + fieldInfo.name());
         if (csharp == null) return null;
         String first = csharp.contains(".") ? csharp.substring(0, csharp.indexOf('.')) : "";
-        return new String[]{csharp, FIELD_NAMESPACES.get(first)};
+        return new FieldMapping(csharp, FIELD_NAMESPACES.get(first));
     }
 
     /**
      * The C# name of a translated method that overrides a JDK one, when the BCL's member has another name than the
      * PascalCase of the Java one: {@code close()} of an {@code AutoCloseable} is {@code Dispose()}.
      */
-    static String overrideName(MethodInfo method) {
+    @Override
+    public String overrideName(MethodInfo method) {
         for (MethodInfo overridden : method.overrides()) {
             String fqn = overridden.typeInfo().fullyQualifiedName();
             if (("java.lang.AutoCloseable".equals(fqn) || "java.io.Closeable".equals(fqn))

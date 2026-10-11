@@ -253,6 +253,22 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
   that is not its canonical one.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
+## Library mappings (`LibraryMapping`, `CSharpLibraries`)
+
+What a library's types, members and fields become in C# is a `LibraryMapping`. The JDK's is `CSharpBcl.JDK`; slf4j
+and Jackson are other libraries with mappings of their own. A translation asks an ordered list of mappings,
+`CSharpLibraries`, carried by `CSharpProgram.Policy`, and the first one that answers wins. Every method of a mapping
+answers null for what it does not know. The list is how a client decides:
+
+- **Choose an option of a library** by putting that mapping in the list. The id names the library and the option:
+  `slf4j:ms-logging`.
+- **Override single rules** with a small mapping in front: `CSharpLibraries.DEFAULT.withFirst(mine)`.
+- **Leave a library untranslated** by leaving out its mapping. Its uses keep their Java names, with an
+  `UNMAPPED_JDK` message.
+
+The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
+qualified, as one whose name two namespaces declare is.
+
 ## The JDK → BCL mapping (`CSharpBcl`)
 
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the

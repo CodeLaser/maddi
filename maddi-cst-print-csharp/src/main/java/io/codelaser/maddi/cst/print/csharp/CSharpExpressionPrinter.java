@@ -224,10 +224,10 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
         FieldInfo field = fr.fieldInfo();
         if (!CSharpNames.translated(field.owner())) {
-            String[] mapped = CSharpBcl.field(field);
+            LibraryMapping.FieldMapping mapped = CSharpContext.libraries().field(field);
             if (mapped != null) {
-                if (mapped[1] != null) CSharpContext.using(mapped[1]);
-                return text(mapped[0]);
+                if (mapped.namespace() != null) CSharpContext.using(mapped.namespace());
+                return text(mapped.value());
             }
             CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, fr.scope() != null ? fr.scope() : null,
                     field.owner().fullyQualifiedName() + "." + field.name());
@@ -275,7 +275,7 @@ public final class CSharpExpressionPrinter {
     // ---------------------------------------------------------------- calls
 
     /** The JDK → BCL rule of a call; null for a call of a translated method, or a JDK method without one. */
-    private static CSharpBcl.Rule rule(MethodCall mc) {
+    private static LibraryMapping.Rule rule(MethodCall mc) {
         MethodInfo method = mc.methodInfo();
         TypeInfo owner = method.typeInfo();
         if (CSharpNames.translated(owner)) {
@@ -283,24 +283,24 @@ public final class CSharpExpressionPrinter {
             if (owner.typeNature().isEnum() && method.isStatic() && CSharpTypePrinter.simpleEnum(owner)) {
                 String self = CSharpTypeName.name(owner, null);
                 if ("values".equals(method.name()) && method.parameters().isEmpty()) {
-                    return new CSharpBcl.Rule("Enum.GetValues<" + self + ">()", null, List.of("System"));
+                    return new LibraryMapping.Rule("Enum.GetValues<" + self + ">()", null, List.of("System"));
                 }
                 if ("valueOf".equals(method.name()) && method.parameters().size() == 1) {
-                    return new CSharpBcl.Rule("Enum.Parse<" + self + ">($1)", null, List.of("System"));
+                    return new LibraryMapping.Rule("Enum.Parse<" + self + ">($1)", null, List.of("System"));
                 }
             }
             return null;
         }
-        return CSharpBcl.call(method, mc);
+        return CSharpContext.libraries().call(method, mc);
     }
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
     private static boolean nonAtomicCall(Expression e) {
-        return e instanceof MethodCall mc && rule(mc) instanceof CSharpBcl.Rule r && !CSharpTemplate.atomic(r.template(false));
+        return e instanceof MethodCall mc && rule(mc) instanceof LibraryMapping.Rule r && !CSharpTemplate.atomic(r.template(false));
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
-        CSharpBcl.Rule rule = rule(mc);
+        LibraryMapping.Rule rule = rule(mc);
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
             Expression object = mc.object();
@@ -458,8 +458,8 @@ public final class CSharpExpressionPrinter {
         if (cc.object() != null) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
-        CSharpBcl.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
-                : CSharpBcl.constructor(cc.constructor());
+        LibraryMapping.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
+                : CSharpContext.libraries().constructor(cc.constructor());
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
             List<Expression> parameterExpressions = cc.parameterExpressions();
@@ -626,7 +626,7 @@ public final class CSharpExpressionPrinter {
 
     /** {@code typeof(List<>)} for Java's {@code List.class}: the unbound generic type. */
     private static String typeOfArgument(ParameterizedType type, Qualification q) {
-        CSharpBcl.TypeMapping bcl = type.typeInfo() == null ? null : CSharpBcl.type(type.typeInfo());
+        LibraryMapping.TypeMapping bcl = type.typeInfo() == null ? null : CSharpContext.libraries().type(type.typeInfo());
         if (bcl != null && (bcl.template().contains("{") || bcl.dropArguments() || bcl.template().contains("?"))) {
             // Optional.class: Optional<T> is T itself in C#, which has no type of its own
             CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, type.typeInfo().fullyQualifiedName() + ".class");
@@ -819,7 +819,8 @@ public final class CSharpExpressionPrinter {
                     : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", parameters) + ")";
             return text(parameterList + " => " + created);
         }
-        CSharpBcl.Rule rule = CSharpNames.translated(method.typeInfo()) ? null : CSharpBcl.call(method, null);
+        LibraryMapping.Rule rule = CSharpNames.translated(method.typeInfo()) ? null
+                : CSharpContext.libraries().call(method, null);
         if (rule != null) {
             // a lambda around the member's translation: String::length is p0 => p0.Length
             rule.namespaces().forEach(CSharpContext::using);
@@ -923,9 +924,12 @@ public final class CSharpExpressionPrinter {
                 .add(SpaceEnum.ONE).add(CSharpKeyword.IS).add(SpaceEnum.ONE);
         if (not) b.add(CSharpKeyword.NOT).add(SpaceEnum.ONE);
         RecordPattern pattern = io.patternVariable();
-        // a java.lang.reflect.Type that is a Class: one System.Type, neither a type parameter nor a constructed one
-        String classPattern = CSharpBcl.classPattern(io.testType(), io.expression().parameterizedType());
-        if (classPattern != null) CSharpContext.using(CSharpBcl.SYSTEM);
+        // a type test a library maps to a pattern: a java.lang.reflect.Type that is a Class is a System.Type that is
+        // neither a type parameter nor constructed
+        LibraryMapping.PatternMapping mapped = CSharpContext.libraries().pattern(io.testType(),
+                io.expression().parameterizedType());
+        if (mapped != null && mapped.namespace() != null) CSharpContext.using(mapped.namespace());
+        String classPattern = mapped == null ? null : mapped.value();
         if (pattern != null && pattern.localVariable() != null) {
             return b.add(text(classPattern != null ? classPattern
                             : CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))

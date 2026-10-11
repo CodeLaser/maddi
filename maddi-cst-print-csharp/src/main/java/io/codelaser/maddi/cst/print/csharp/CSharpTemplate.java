@@ -138,7 +138,8 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             // List::of is List.of(), translated
             var method = mr.methodInfo();
             String owner = CSharpTypeName.name(method.typeInfo(), q);
-            CSharpBcl.Rule rule = CSharpNames.translated(method.typeInfo()) ? null : CSharpBcl.call(method, null);
+            LibraryMapping.Rule rule = CSharpNames.translated(method.typeInfo()) ? null
+                    : CSharpContext.libraries().call(method, null);
             if (rule == null) {
                 return new OutputBuilderImpl().add(new TextImpl(owner + "." + CSharpNames.method(method)))
                         .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);

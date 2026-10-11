@@ -1233,4 +1233,40 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
         contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
     }
+
+    /**
+     * A client's mapping in front of the JDK's overrides single rules: here a UUID is a string, randomUUID()
+     * Guid.NewGuid().ToString() and fromString(s) s; what it does not answer, URI, stays the JDK mapping's.
+     */
+    @Test
+    public void libraryOverride() {
+        LibraryMapping uuidAsString = new LibraryMapping() {
+            @Override
+            public String id() {
+                return "client:uuid-as-string";
+            }
+
+            @Override
+            public TypeMapping type(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
+                return "java.util.UUID".equals(typeInfo.fullyQualifiedName())
+                        ? new TypeMapping("string", null, false, false) : null;
+            }
+
+            @Override
+            public Rule call(io.codelaser.maddi.cst.api.info.MethodInfo method,
+                             io.codelaser.maddi.cst.api.expression.MethodCall call) {
+                if (!"java.util.UUID".equals(method.typeInfo().fullyQualifiedName())) return null;
+                return switch (method.name()) {
+                    case "randomUUID" -> new Rule("Guid.NewGuid().ToString()", null, java.util.List.of("System"));
+                    case "fromString" -> new Rule("$1", null, java.util.List.of());
+                    default -> null;
+                };
+            }
+        };
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(uuidAsString));
+        String cs = translate("ValuesOverridden", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Parse(string s) => s;");
+        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
+    }
 }

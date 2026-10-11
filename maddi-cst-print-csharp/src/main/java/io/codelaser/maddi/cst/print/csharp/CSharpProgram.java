@@ -70,14 +70,23 @@ public final class CSharpProgram {
         OPEN,
     }
 
-    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
+    /** {@code libraries}: what the libraries the program uses are in C#, see {@link CSharpLibraries}. */
+    public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries) {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
-                Inheritance.CLOSED_WORLD);
+                Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT);
+
+        public Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
+            this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT);
+        }
+
+        public Policy withLibraries(CSharpLibraries libraries) {
+            return new Policy(functionalInterfaces, inheritance, libraries);
+        }
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
     public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
-            Set.of(), Set.of(), Map.of());
+            Set.of(), Set.of(), Map.of(), CSharpLibraries.DEFAULT);
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
@@ -87,10 +96,13 @@ public final class CSharpProgram {
     private final Set<String> ambiguous;
     private final Set<TypeInfo> prefixedHoisted;
     private final Map<MethodInfo, Integer> typeTokens;
+    private final CSharpLibraries libraries;
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
-                          Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens) {
+                          Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens,
+                          CSharpLibraries libraries) {
+        this.libraries = libraries;
         this.prefixedHoisted = prefixedHoisted;
         this.typeTokens = typeTokens;
         this.ambiguous = ambiguous;
@@ -128,7 +140,13 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes), prefixedHoisted(all), typeTokens(all));
+                namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
+                prefixedHoisted(all), typeTokens(all), policy.libraries());
+    }
+
+    /** The library mappings of the translation. */
+    public CSharpLibraries libraries() {
+        return libraries;
     }
 
     /**
@@ -248,7 +266,7 @@ public final class CSharpProgram {
      * The simple names of the program's top-level types that two namespaces declare, or the BCL does: where usings
      * bring both into scope, C# finds the name ambiguous.
      */
-    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes) {
+    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes, CSharpLibraries libraries) {
         Map<String, Set<String>> namespaces = new java.util.HashMap<>();
         for (TypeInfo t : primaryTypes) {
             if (!CSharpNames.translated(t)) continue;
@@ -258,7 +276,7 @@ public final class CSharpProgram {
                     ? "I" + simple : simple;
             namespaces.computeIfAbsent(name, n -> new HashSet<>()).add(t.packageName());
         }
-        Set<String> bcl = CSharpBcl.typeNames();
+        Set<String> bcl = libraries.typeNames();
         Set<String> ambiguous = new HashSet<>();
         namespaces.forEach((name, packages) -> {
             if (packages.size() > 1 || bcl.contains(name)) ambiguous.add(name);
@@ -272,8 +290,9 @@ public final class CSharpProgram {
     }
 
     /** {@code Exception} → {@code Exceptions}: the segments of the program's namespaces that are a type's name too. */
-    private static Map<String, String> namespaceSegments(Collection<TypeInfo> primaryTypes, List<TypeInfo> all) {
-        Set<String> typeNames = new HashSet<>(CSharpBcl.typeNames());
+    private static Map<String, String> namespaceSegments(Collection<TypeInfo> primaryTypes, List<TypeInfo> all,
+                                                         CSharpLibraries libraries) {
+        Set<String> typeNames = new HashSet<>(libraries.typeNames());
         all.stream().filter(t -> !t.isAnonymous()).forEach(t -> typeNames.add(CSharpNames.pascal(t.simpleName())));
         Map<String, String> renamed = new java.util.HashMap<>();
         for (TypeInfo t : primaryTypes) {
