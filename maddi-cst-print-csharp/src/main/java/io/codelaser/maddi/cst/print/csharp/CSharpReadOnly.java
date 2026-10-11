@@ -18,10 +18,13 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
@@ -44,7 +47,13 @@ import java.util.Set;
  * library method on it, the collection of a {@code foreach}, or an argument where any enumerable is accepted (another
  * read-only parameter, a library constructor or method that copies it). A use that stores or returns it keeps the
  * parameter as Java declares it. Every method of an override family has the parameter read-only, or none does; a
- * delegate's, a functional interface's method (its lambda adapter passes the argument on) and a record's are not.
+ * delegate's, a functional interface's method (its lambda adapter passes the argument on), a record's and a method
+ * that a method reference names are not.
+ * <p>
+ * The callers have to compile too. Java's {@code List} family prints as the class {@code List<T>}, which implements
+ * the read-only interfaces, but {@code Map}, {@code Set} and {@code Collection} print as {@code IDictionary},
+ * {@code ISet} and {@code ICollection}, which do not. Each argument a call passes must be of a class that implements
+ * the parameter's read-only interface ({@link #IMPLEMENTING}), {@code null}, or a read-only parameter itself.
  */
 final class CSharpReadOnly {
 
@@ -62,6 +71,23 @@ final class CSharpReadOnly {
             "java.util.Collection.containsAll", "java.util.Collection.removeAll", "java.util.Collection.retainAll",
             "java.util.Set.removeAll", "java.util.Set.retainAll", "java.lang.String.join");
 
+    /** Per read-only interface, the JDK classes whose C# counterparts implement it, a subclass of one too. */
+    private static final Map<String, Set<String>> IMPLEMENTING;
+
+    static {
+        Set<String> lists = Set.of("java.util.List", "java.util.ArrayList", "java.util.LinkedList",
+                "java.util.AbstractList", "java.util.Deque", "java.util.ArrayDeque", "java.util.Queue");
+        Set<String> sets = Set.of("java.util.HashSet", "java.util.LinkedHashSet", "java.util.TreeSet",
+                "java.util.SortedSet");
+        Set<String> collections = new HashSet<>(lists);
+        collections.addAll(sets);
+        IMPLEMENTING = Map.of("IReadOnlyList", lists, "IReadOnlySet", sets,
+                "IReadOnlyCollection", Set.copyOf(collections),
+                "IReadOnlyDictionary", Set.of("java.util.HashMap", "java.util.IdentityHashMap",
+                        "java.util.concurrent.ConcurrentHashMap", "java.util.LinkedHashMap", "java.util.EnumMap",
+                        "java.util.TreeMap", "java.util.SortedMap"));
+    }
+
     private CSharpReadOnly() {
     }
 
@@ -78,6 +104,25 @@ final class CSharpReadOnly {
     static Set<ParameterInfo> analyze(List<TypeInfo> all, CSharpFacts facts, Set<TypeInfo> delegates) {
         if (facts == CSharpFacts.NONE) return Set.of();
         Set<ParameterInfo> candidates = new HashSet<>();
+        Set<MethodInfo> referenced = new HashSet<>();
+        Map<ParameterInfo, List<Expression>> passed = new HashMap<>();
+        for (TypeInfo t : all) {
+            for (Element element : CSharpProgram.code(t)) {
+                element.visit((Element e) -> {
+                    switch (e) {
+                        case MethodReference mr -> referenced.add(mr.methodInfo());
+                        case MethodCall mc -> passed(mc.methodInfo(), mc.parameterExpressions(), passed);
+                        case ConstructorCall cc when cc.constructor() != null ->
+                                passed(cc.constructor(), cc.parameterExpressions(), passed);
+                        case ExplicitConstructorInvocation eci ->
+                                passed(eci.methodInfo(), eci.parameterExpressions(), passed);
+                        default -> {
+                        }
+                    }
+                    return true;
+                });
+            }
+        }
         Map<MethodInfo, List<MethodInfo>> familyOf = new HashMap<>();
         for (List<MethodInfo> family : CSharpProperties.families(all)) family.forEach(m -> familyOf.put(m, family));
         for (TypeInfo t : all) {
@@ -88,7 +133,7 @@ final class CSharpReadOnly {
             List<MethodInfo> methods = new ArrayList<>(t.methods());
             methods.addAll(t.constructors());
             for (MethodInfo m : methods) {
-                if (m.isSynthetic() || m.methodBody() == null && !m.isAbstract()) continue;
+                if (m.isSynthetic() || m.methodBody() == null && !m.isAbstract() || referenced.contains(m)) continue;
                 if (t.isInterface() && m.equals(CSharpNames.singleAbstractMethod(t))) continue;
                 for (ParameterInfo p : m.parameters()) {
                     if (!p.isVarArgs() && readOnlyName(p.parameterizedType()) != null && facts.unmodified(p)) {
@@ -102,13 +147,55 @@ final class CSharpReadOnly {
         while (changed) {
             changed = false;
             for (ParameterInfo p : List.copyOf(candidates)) {
-                if (!usesReadOnly(p, candidates) || !familyAgrees(p, candidates, familyOf)) {
+                if (!usesReadOnly(p, candidates) || !familyAgrees(p, candidates, familyOf)
+                    || !callersPass(p, passed.getOrDefault(p, List.of()), candidates)) {
                     candidates.remove(p);
                     changed = true;
                 }
             }
         }
         return Set.copyOf(candidates);
+    }
+
+    private static void passed(MethodInfo callee, List<Expression> arguments,
+                               Map<ParameterInfo, List<Expression>> passed) {
+        if (callee == null || !CSharpNames.translated(callee.typeInfo())) return;
+        for (int i = 0; i < arguments.size() && i < callee.parameters().size(); i++) {
+            passed.computeIfAbsent(callee.parameters().get(i), k -> new ArrayList<>()).add(arguments.get(i));
+        }
+    }
+
+    /** Each argument the program passes for {@code p} converts to its read-only interface. */
+    private static boolean callersPass(ParameterInfo p, List<Expression> arguments, Set<ParameterInfo> candidates) {
+        String readOnly = readOnlyName(p.parameterizedType());
+        Set<String> implementing = IMPLEMENTING.get(readOnly);
+        for (Expression argument : arguments) {
+            Expression e = CSharpExpressionPrinter.unwrap(argument);
+            if (e instanceof NullConstant) continue;
+            if (e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo other
+                && candidates.contains(other) && converts(readOnlyName(other.parameterizedType()), readOnly)) {
+                continue;
+            }
+            if (!implementing(e.parameterizedType(), implementing)) return false;
+        }
+        return true;
+    }
+
+    /** A read-only {@code from} is a read-only {@code to}: the same, or a list or set as a collection. */
+    private static boolean converts(String from, String to) {
+        return from.equals(to) || "IReadOnlyCollection".equals(to) && !"IReadOnlyDictionary".equals(from);
+    }
+
+    /** The type is one of the classes, or a class of the program that extends one. */
+    private static boolean implementing(ParameterizedType pt, Set<String> classes) {
+        if (pt == null || pt.arrays() > 0) return false;
+        TypeInfo t = pt.typeInfo();
+        while (t != null) {
+            if (classes.contains(t.fullyQualifiedName())) return true;
+            if (t.isInterface() || t.parentClass() == null) return false;
+            t = t.parentClass().typeInfo();
+        }
+        return false;
     }
 
     /** Every method of {@code p}'s override family, all of the program, has its parameter a candidate. */

@@ -1466,6 +1466,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     private static final String FACTS = """
             package org.example.facts;
             import java.util.ArrayList;
+            import java.util.HashMap;
             import java.util.List;
             import java.util.Map;
             public class Catalog {
@@ -1482,6 +1483,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 void addAll(List<String> more) { names.addAll(more); }
                 void keep(List<String> list) { this.stored = list; }
                 String find(String key) { return key.isEmpty() ? null : description; }
+                int size(Map<String, Integer> table) { return table.size(); }
+                int sizeOf(Map<String, Integer> given) { return size(given); }
+                int width(Map<String, Integer> sized) { return sized.size(); }
+                int fresh() { return width(new HashMap<>()); }
             }
             """;
 
@@ -1489,7 +1494,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     private static final CSharpFacts CATALOG_FACTS = new CSharpFacts() {
         @Override
         public boolean unmodified(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
-            return java.util.Set.of("items", "weights", "more", "list").contains(parameter.name());
+            return java.util.Set.of("items", "weights", "more", "list", "table", "sized").contains(parameter.name());
         }
 
         @Override
@@ -1521,5 +1526,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal void AddAll(IReadOnlyList<string> more)");
         contains(cs, "internal void Keep(List<string> list) { this.stored = list; }");
         contains(cs, "internal string? Find(string key)");
+        // a caller's IDictionary is no IReadOnlyDictionary; a Dictionary is
+        contains(cs, "internal int Size(IDictionary<string, int> table)");
+        contains(cs, "internal int Width(IReadOnlyDictionary<string, int> sized)");
     }
 }

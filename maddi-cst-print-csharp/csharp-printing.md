@@ -78,8 +78,12 @@ implements the interface.
   - The C# has to compile whatever the analysis's precision, so the parameter's uses decide too: each must be a call of
     a library method on it, the collection of a `foreach`, or an argument where any enumerable is accepted (another
     read-only parameter, a copying constructor, `addAll`). A use that stores or returns it keeps Java's type.
+  - The callers have to compile too. Java's `List` family prints as the class `List<T>`, which implements the
+    read-only interfaces, but `Map`, `Set` and `Collection` print as `IDictionary`, `ISet` and `ICollection`, which do
+    not. Each argument must be of a class whose C# counterpart implements the read-only interface (`HashMap` →
+    `Dictionary`, `TreeSet` → `SortedSet`, …), `null`, or a read-only parameter itself.
   - Every method of an override family has the parameter read-only, or none does. Delegates, a functional interface's
-    method and records keep Java's types.
+    method, records and a method that a method reference names keep Java's types.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
