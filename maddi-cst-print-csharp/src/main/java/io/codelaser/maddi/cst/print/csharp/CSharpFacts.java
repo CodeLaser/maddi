@@ -65,6 +65,37 @@ public interface CSharpFacts {
         }
     };
 
+    /**
+     * {@link #STORED}, from a nullability analysis of the whole program under a null-marked policy: a declaration
+     * without {@code NULLABLE} is not null, and C#'s nullable reference types are enabled.
+     */
+    CSharpFacts STORED_NULL_MARKED = new CSharpFacts() {
+        @Override
+        public boolean unmodified(ParameterInfo parameter) {
+            return STORED.unmodified(parameter);
+        }
+
+        @Override
+        public NullableState nullable(FieldInfo field) {
+            return STORED.nullable(field);
+        }
+
+        @Override
+        public NullableState nullable(ParameterInfo parameter) {
+            return STORED.nullable(parameter);
+        }
+
+        @Override
+        public NullableState nullable(MethodInfo method) {
+            return STORED.nullable(method);
+        }
+
+        @Override
+        public boolean nullabilityAnalysed() {
+            return true;
+        }
+    };
+
     /** The method does not modify the object {@code parameter} holds: a collection is read-only there. */
     default boolean unmodified(ParameterInfo parameter) {
         return false;

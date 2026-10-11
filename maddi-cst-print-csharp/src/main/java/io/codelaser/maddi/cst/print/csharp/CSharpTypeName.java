@@ -99,14 +99,24 @@ public final class CSharpTypeName {
         }
         boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !pt.isTypeParameter()
                                                && !type.endsWith("?") && !pt.isVoid();
-        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(type)
+        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(pt, type)
                 ? type + "?" : type;
     }
 
-    /** Not a C# value type: those the BCL mapping makes of Java's values (Guid, DateOnly, decimal) stay as they are. */
-    private static boolean valueTypeFree(String type) {
+    /**
+     * Not a C# value type, for which {@code ?} would be {@code Nullable<T>}, another type: a simple enum (a C# enum), and those the BCL
+     * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
+     */
+    private static boolean valueTypeFree(ParameterizedType pt, String type) {
+        if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
+            && CSharpTypePrinter.simpleEnum(pt.typeInfo())) {
+            return false;
+        }
+        int generic = type.indexOf('<');
+        String raw = generic < 0 ? type : type.substring(0, generic);
         return !java.util.Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
-                "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan").contains(type);
+                "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan", "KeyValuePair", "ValueTuple")
+                .contains(raw);
     }
 
     public static String pattern(ParameterizedType pt, Qualification q) {

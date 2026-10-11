@@ -81,6 +81,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         DIRECTION.put("syntaxCleanFiles", ">=");
         DIRECTION.put("compilingFiles", ">=");
         DIRECTION.put("unmappedJdkUses", "<=");
+        DIRECTION.put("nullableWarnings", "<="); // with the facts of a nullability analysis only
     }
 
     /** Translates, judges, writes the report, and holds the numbers to the ratchet file. */
@@ -97,10 +98,10 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
             Files.writeString(file, source.content().get());
             sources.add(file);
         }
-        Files.writeString(out.resolve("src").resolve("Translated.csproj"), libraries.projectFile(TARGET_FRAMEWORK));
+        Files.writeString(out.resolve("src").resolve("Translated.csproj"), libraries.projectFile(TARGET_FRAMEWORK, nullable()));
         List<Path> all = new ArrayList<>(printed.files);
         all.addAll(sources);
-        Judged judged = judge(all, libraries.requirements().packages(), out);
+        Judged judged = judge(all, libraries.requirements().packages(), nullable(), out);
 
         Set<Path> withErrors = judged.errors.stream().map(Diagnostic::file).collect(Collectors.toSet());
         Set<Path> withSyntaxErrors = judged.syntaxErrors.stream().map(Diagnostic::file).collect(Collectors.toSet());
@@ -116,6 +117,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         measured.put("syntaxCleanFiles", (long) (printed.files.size() - withSyntaxErrors.size()));
         measured.put("compilingFiles", compiling);
         measured.put("unmappedJdkUses", (long) unmapped.size());
+        if (nullable()) measured.put("nullableWarnings", (long) judged.nullableWarnings.size());
 
         String report = report(measured, printed, judged, unmapped, sources);
         Files.writeString(out.resolve("report.txt"), report);
@@ -163,12 +165,18 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     private record Diagnostic(Path file, int line, String code, String message) {
     }
 
-    private record Judged(List<Diagnostic> syntaxErrors, List<Diagnostic> errors) {
+    private record Judged(List<Diagnostic> syntaxErrors, List<Diagnostic> errors, List<Diagnostic> nullableWarnings) {
+    }
+
+    /** The facts come from a nullability analysis: the judge enables C#'s nullable reference types. */
+    private boolean nullable() {
+        return policy.facts().nullabilityAnalysed();
     }
 
     private static final String TARGET_FRAMEWORK = "net10.0";
 
-    private static Judged judge(List<Path> files, List<LibraryMapping.NuGetPackage> packages, Path out)
+    private static Judged judge(List<Path> files, List<LibraryMapping.NuGetPackage> packages, boolean nullable,
+                                Path out)
             throws Exception {
         String tool = System.getProperty("maddi.test.csharpCheck");
         assertTrue(tool != null && !tool.isBlank(), "no -Dmaddi.test.csharpCheck: run this through Gradle");
@@ -181,6 +189,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         Path argFile = out.resolve("csharp-check.args");
         List<String> arguments = new ArrayList<>(files.stream().map(Path::toString).toList());
         restore(packages, out).forEach(dll -> arguments.add("-r:" + dll));
+        if (nullable) arguments.add("-nullable");
         Files.write(argFile, arguments);
         Path log = out.resolve("csharp-check.out");
         Path dll = toolDir.resolve("build/bin/Release/net10.0/csharp-check.dll");
@@ -192,14 +201,16 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         }
         List<Diagnostic> syntax = new ArrayList<>();
         List<Diagnostic> errors = new ArrayList<>();
+        List<Diagnostic> nullableWarnings = new ArrayList<>();
         for (String line : lines) {
             String[] f = line.split("\t", 6);
             if (f.length < 6) continue;
             Diagnostic d = new Diagnostic(Path.of(f[1]).toAbsolutePath().normalize(), Integer.parseInt(f[2]), f[4], f[5]);
             if ("S".equals(f[0])) syntax.add(d);
             else if ("E".equals(f[0])) errors.add(d);
+            else if ("N".equals(f[0])) nullableWarnings.add(d);
         }
-        return new Judged(syntax, errors);
+        return new Judged(syntax, errors, nullableWarnings);
     }
 
     /**
@@ -236,6 +247,12 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
+        if (!judged.nullableWarnings.isEmpty()) {
+            sb.append("\nnullable warnings by code:\n").append(counted(judged.nullableWarnings.stream().map(d -> d.code
+                    + " " + d.message.replaceAll("'[^']*'", "'_'")), 40));
+            sb.append("\nnullable warnings by file:\n").append(counted(judged.nullableWarnings.stream()
+                    .map(d -> d.file.getFileName().toString()), 40));
+        }
         if (!printed.crashes.isEmpty()) {
             sb.append("\nprinter crashes:\n");
             printed.crashes.forEach(c -> sb.append("  ").append(c).append('\n'));
@@ -302,6 +319,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         List<String> worse = new ArrayList<>();
         List<String> better = new ArrayList<>();
         DIRECTION.forEach((metric, direction) -> {
+            if (!measured.containsKey(metric)) return;
             Long was = recorded.get(metric);
             long is = measured.get(metric);
             if (was == null) {

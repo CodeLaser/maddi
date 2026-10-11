@@ -1482,7 +1482,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 }
                 void addAll(List<String> more) { names.addAll(more); }
                 void keep(List<String> list) { this.stored = list; }
-                String find(String key) { return key.isEmpty() ? null : description; }
+                String find(String key) {
+                    String d = description;
+                    return key.isEmpty() ? null : d;
+                }
                 int size(Map<String, Integer> table) { return table.size(); }
                 int sizeOf(Map<String, Integer> given) { return size(given); }
                 int width(Map<String, Integer> sized) { return sized.size(); }
@@ -1529,5 +1532,26 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a caller's IDictionary is no IReadOnlyDictionary; a Dictionary is
         contains(cs, "internal int Size(IDictionary<string, int> table)");
         contains(cs, "internal int Width(IReadOnlyDictionary<string, int> sized)");
+        contains(cs, "string d = description;");
+    }
+
+    /** With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is. */
+    @Test
+    public void nullabilityAnalysed() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
+                return CATALOG_FACTS.nullable(field);
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Catalog", FACTS);
+        contains(cs, "private string? description;");
+        contains(cs, "string? d = description;");
+        contains(cs, "int n = 0;");
     }
 }

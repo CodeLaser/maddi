@@ -87,8 +87,14 @@ implements the interface.
   - The calls on a read-only collection are those of the read-only interface: `contains` uses LINQ, `indexOf` is
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
-- A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types,
-  type parameters and types that already end in `?` are left alone.
+- A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
+  (primitives, simple enums, the BCL's structs such as `KeyValuePair`), type parameters and types that already end in
+  `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type.
+- When the analysis covered the whole program under a null-marked policy (`CSharpFacts.nullabilityAnalysed()`,
+  `STORED_NULL_MARKED`), every other declaration is not null, and C# checks it: the translation's project file has
+  `<Nullable>enable</Nullable>`. A local's explicit reference type is then `T?`, as `var`'s is: the compiler follows
+  its null state through the flow, so that the declaration does not have to know it. The ratchet counts the
+  compiler's nullable warnings (`nullableWarnings`); maddi-mod's `fernflower-facts` ratchet holds them.
 
 ## Declarations
 

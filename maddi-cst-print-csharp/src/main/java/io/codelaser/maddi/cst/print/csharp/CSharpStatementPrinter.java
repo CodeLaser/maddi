@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -196,7 +197,7 @@ public final class CSharpStatementPrinter {
     static OutputBuilder declaration(LocalVariableCreation lvc, Qualification q) {
         LocalVariable lv = lvc.localVariable();
         OutputBuilder b = new OutputBuilderImpl();
-        b.add(text(implicitlyTyped(lvc) ? "var" : CSharpTypeName.of(lv.parameterizedType(), q))).add(SpaceEnum.ONE);
+        b.add(text(implicitlyTyped(lvc) ? "var" : local(lv.parameterizedType(), q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
             OutputBuilder d = new OutputBuilderImpl().add(text(CSharpContext.declare(v.simpleName())));
             Expression init = v.assignmentExpression();
@@ -205,6 +206,16 @@ public final class CSharpStatementPrinter {
             }
             return d;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+    }
+
+    /**
+     * A local's declared type. With C#'s nullable reference types enabled ({@link CSharpFacts#nullabilityAnalysed}) a
+     * reference type is {@code T?}, as {@code var}'s is: the compiler follows its null state through the flow, so that
+     * the declaration does not have to know it.
+     */
+    private static String local(ParameterizedType pt, Qualification q) {
+        boolean nullable = CSharpContext.program().facts().nullabilityAnalysed();
+        return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 
     private static boolean implicitlyTyped(LocalVariableCreation lvc) {
