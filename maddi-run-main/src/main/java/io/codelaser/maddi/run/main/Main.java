@@ -18,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
 import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
+import io.codelaser.maddi.run.config.ShippedAnalysisResults;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
@@ -30,7 +31,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -370,7 +373,9 @@ public class Main {
         options.addOption(Option.builder("s").longOpt(PRELOAD_ANALYSIS_RESULTS_DIRS).hasArg().argName("DIRS")
                 .desc("Add a directory where the analyzed analysis hints files can be found." +
                       " Use the Java path separator '" + File.pathSeparator + "' to separate directories, " +
-                      "or use this options multiple times.").build());
+                      "or use this options multiple times. Without it, an analysis run loads the JDK and library" +
+                      " results shipped with maddi; '" + ShippedAnalysisResults.DEFAULT + "' names them in a list, '"
+                      + ShippedAnalysisResults.NONE + "' loads nothing.").build());
 
         options.addOption(Option.builder().longOpt(ANALYSIS_RESULTS_TARGET_DIR).hasArg().argName("DIR")
                 .desc("Where to write analyzed AnalysisHints files.").build());
@@ -385,10 +390,18 @@ public class Main {
                 .desc("Create analysis hints skeletons from the following packages of the source.").build());
 
     }
+    /*
+    The Gradle and Maven plugins come in here, with the key absent when nothing was configured: the shipped analysis
+    results are then preloaded, as by the command lines (ShippedAnalysisResults holds the rule; `none` and `default`
+    mean the same as there).
+     */
     public static AnalysisHintsConfiguration analysisHintsConfiguration(Map<String, String> kvMap) {
         AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
-        setSplitStringProperty(kvMap, ",", PRELOAD_ANALYSIS_RESULTS_DIRS, builder::addPreloadAnalysisResultsDirs);
+        List<String> stated = new ArrayList<>();
+        setSplitStringProperty(kvMap, ",", PRELOAD_ANALYSIS_RESULTS_DIRS, stated::add);
+        boolean producesHints = isStated(kvMap.get(ANALYSIS_RESULTS_TARGET_DIR)) || isStated(kvMap.get(UPDATED_HINTS_DIR));
+        ShippedAnalysisResults.resolve(stated, producesHints, Main.class).forEach(builder::addPreloadAnalysisResultsDirs);
 
         setStringProperty(kvMap, ANALYSIS_RESULTS_TARGET_DIR, builder::setAnalysisResultsTargetDir);
         setStringProperty(kvMap, UPDATED_HINTS_DIR, builder::setUpdatedHintsDir);
@@ -399,11 +412,18 @@ public class Main {
         return builder.build();
     }
 
+    private static boolean isStated(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private static AnalysisHintsConfiguration parseAnalysisHintsConfiguration(CommandLine cmd) {
         AnalysisHintsConfigurationImpl.Builder builder = new AnalysisHintsConfigurationImpl.Builder();
 
         String[] analyzedDirs = cmd.getOptionValues(PRELOAD_ANALYSIS_RESULTS_DIRS);
-        splitAndAdd(analyzedDirs, ",", builder::addPreloadAnalysisResultsDirs);
+        List<String> stated = new ArrayList<>();
+        splitAndAdd(analyzedDirs, ",", stated::add);
+        boolean producesHints = cmd.hasOption(ANALYSIS_RESULTS_TARGET_DIR) || cmd.hasOption(UPDATED_HINTS_DIR);
+        ShippedAnalysisResults.resolve(stated, producesHints, Main.class).forEach(builder::addPreloadAnalysisResultsDirs);
 
         String writeAnalyzedDir = cmd.getOptionValue(ANALYSIS_RESULTS_TARGET_DIR);
         builder.setAnalysisResultsTargetDir(writeAnalyzedDir);
