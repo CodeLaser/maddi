@@ -313,7 +313,7 @@ public final class CSharpExpressionPrinter {
                     .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
                             parameterExpressions.get(i), q)).toList();
             List<java.util.function.Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
-                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
+                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> templateOperand(a, q)).toList();
             return new CSharpTemplate(receiver, args, operands, mc, mc.concreteReturnType(),
                     object == null ? null : object.parameterizedType(), q).render(rule.template(statement));
         }
@@ -939,6 +939,15 @@ public final class CSharpExpressionPrinter {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         return inner;
+    }
+
+    /** {@code @1} in a template: a receiver, or a literal ({@code (decimal) 3L}), which is an atom as an operand. */
+    private static OutputBuilder templateOperand(Expression e, Qualification q) {
+        if (e instanceof ConstantExpression<?> && !(e instanceof NullConstant)) {
+            OutputBuilder inner = print(e, q);
+            if (!inner.toString().startsWith("-")) return inner;
+        }
+        return receiver(e, q);
     }
 
     /** The receiver of {@code .member}: anything but an atom is enclosed. */

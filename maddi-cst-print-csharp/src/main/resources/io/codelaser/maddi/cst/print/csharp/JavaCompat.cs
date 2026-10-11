@@ -17,6 +17,7 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -232,6 +233,22 @@ public static class JavaCollections
     public static void ForEach<T>(this IEnumerable<T> e, Action<T> action)
     {
         foreach (var x in e) action(x);
+    }
+
+    /// <summary>Map.forEach: the action gets the key and the value.</summary>
+    public static void ForEach<K, V>(this IDictionary<K, V> d, Action<K, V> action)
+    {
+        foreach (var e in d) action(e.Key, e.Value);
+    }
+
+    /// <summary>Stream.reduce without an identity: the default (Optional's empty) for an empty sequence.</summary>
+    public static T Reduce<T>(this IEnumerable<T> e, Func<T, T, T> f)
+    {
+        using var it = e.GetEnumerator();
+        if (!it.MoveNext()) return default;
+        var acc = it.Current;
+        while (it.MoveNext()) acc = f(acc, it.Current);
+        return acc;
     }
 
     public static IEnumerable<T> Sorted<T>(this IEnumerable<T> e, Comparison<T> comparison) =>
@@ -1026,6 +1043,69 @@ public class JavaMatcher
     public int End() => match.Index + match.Length;
 
     public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
+
+    private int appendPosition;
+
+    /// <summary>Appends the input up to the match and the replacement, in Java's syntax: $n, ${name}, \c.</summary>
+    public JavaMatcher AppendReplacement(StringBuilder sb, string replacement)
+    {
+        sb.Append(input, appendPosition, match.Index - appendPosition);
+        for (int i = 0; i < replacement.Length; i++)
+        {
+            char c = replacement[i];
+            if (c == '\\' && i + 1 < replacement.Length)
+            {
+                sb.Append(replacement[++i]);
+            }
+            else if (c == '$' && i + 1 < replacement.Length && replacement[i + 1] == '{')
+            {
+                int close = replacement.IndexOf('}', i);
+                sb.Append(match.Groups[replacement.Substring(i + 2, close - i - 2)].Value);
+                i = close;
+            }
+            else if (c == '$' && i + 1 < replacement.Length && char.IsDigit(replacement[i + 1]))
+            {
+                sb.Append(match.Groups[replacement[++i] - '0'].Value);
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+        appendPosition = match.Index + match.Length;
+        return this;
+    }
+
+    public StringBuilder AppendTail(StringBuilder sb) => sb.Append(input, appendPosition, input.Length - appendPosition);
+
+    /// <summary>A literal replacement: \ and $ escaped.</summary>
+    public static string QuoteReplacement(string s) => s.Replace("\\", "\\\\").Replace("$", "\\$");
+}
+
+/// <summary>UUID's name-based factory: a version 3 (MD5) UUID, as Java computes it.</summary>
+public static class JavaUuid
+{
+    public static Guid NameUuidFromBytes(sbyte[] name)
+    {
+        byte[] hash = MD5.HashData((byte[]) (object) name);
+        hash[6] = (byte) ((hash[6] & 0x0f) | 0x30);
+        hash[8] = (byte) ((hash[8] & 0x3f) | 0x80);
+        return new Guid(hash, bigEndian: true);
+    }
+}
+
+/// <summary>MessageDigest.getInstance: Java's algorithm names.</summary>
+public static class JavaDigest
+{
+    public static HashAlgorithm GetInstance(string algorithm) => algorithm.ToUpperInvariant() switch
+    {
+        "SHA-256" => SHA256.Create(),
+        "SHA-384" => SHA384.Create(),
+        "SHA-512" => SHA512.Create(),
+        "SHA-1" or "SHA" => SHA1.Create(),
+        "MD5" => MD5.Create(),
+        _ => throw new CryptographicException(algorithm + " MessageDigest not available")
+    };
 }
 
 /// <summary>java.util.Enumeration over a C# enumerable.</summary>

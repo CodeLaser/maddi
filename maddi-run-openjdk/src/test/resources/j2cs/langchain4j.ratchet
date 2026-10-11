@@ -37,9 +37,12 @@
 # 2026-10-10, a generic type's static members in a non-generic static companion class of the same name
 # (Response.From(x) as in Java), Comparable<?> as IComparable, BCL templates writing a generic collection use its
 # namespace: 233 files compile; errors 666 -> 636.
+# 2026-10-11, the values of java.time, java.net and java.math as BCL structs (LocalDate is DateOnly, Duration
+# TimeSpan, Clock TimeProvider, URI Uri, UUID Guid, BigDecimal decimal), Number as IConvertible, Random, Base64,
+# HexFormat, MessageDigest, StringBuffer, Map.forEach, Stream.reduce: 251 files compile; errors 636 -> 443.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	233
-unmappedJdkUses	670
+compilingFiles	251
+unmappedJdkUses	515

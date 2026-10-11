@@ -404,7 +404,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private int unused;");
         contains(cs, "internal Helper() { }");
         contains(cs, "private int Peek(Outer o) => o.secret + unused;");
-        contains(cs, "internal Key<Number> Raw() => null;");
+        contains(cs, "internal Key<IConvertible> Raw() => null;");
         contains(cs, "protected internal override void M() { }");
     }
 
@@ -1027,5 +1027,58 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static class IStore {");
         contains(cs, "public const int LIMIT = 10;");
         contains(cs, "Response.From(\"hello\" + IStore.LIMIT)");
+    }
+
+    @Language("java")
+    private static final String VALUES = """
+            package org.example.values;
+            import java.math.BigDecimal;
+            import java.net.URI;
+            import java.time.Clock;
+            import java.time.Duration;
+            import java.time.LocalDate;
+            import java.time.LocalDateTime;
+            import java.util.Base64;
+            import java.util.Map;
+            import java.util.Random;
+            import java.util.UUID;
+            import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+            public class Values {
+                static String id() { return UUID.randomUUID().toString(); }
+                static UUID parse(String s) { return UUID.fromString(s); }
+                static URI uri(String s) { return URI.create(s); }
+                static String path(URI uri) { return uri.getPath(); }
+                static int compare(Object a, Object b) {
+                    return new BigDecimal(a.toString()).compareTo(BigDecimal.valueOf(3L));
+                }
+                static double number(Object o) { return o instanceof Number n ? n.doubleValue() : 0; }
+                static LocalDate date(String s) { return LocalDate.parse(s, ISO_LOCAL_DATE); }
+                static LocalDateTime now(Clock clock) { return LocalDateTime.now(clock); }
+                static Duration since(long before, long after) { return Duration.ofNanos(after - before); }
+                static int roll(Random random) { return random.nextInt(6); }
+                static String encode(byte[] bytes) { return Base64.getEncoder().encodeToString(bytes); }
+                static void print(Map<String, Integer> map) { map.forEach((k, v) -> System.out.println(k + v)); }
+            }
+            """;
+
+    /**
+     * The values of java.time, java.net and java.math are the BCL's structs; a Number is an IConvertible; a
+     * formatter is a format string; Base64 is Convert.
+     */
+    @Test
+    public void values() {
+        String cs = translate("Values", VALUES);
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
+        contains(cs, "internal static Guid Parse(string s) => Guid.Parse(s);");
+        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
+        contains(cs, "internal static string Path(Uri uri) => uri.AbsolutePath;");
+        contains(cs, ".CompareTo((decimal) 3L)");
+        contains(cs, "o is IConvertible n ? Convert.ToDouble(n) : 0");
+        contains(cs, "DateOnly.ParseExact(s, \"yyyy-MM-dd\", CultureInfo.InvariantCulture)");
+        contains(cs, "internal static DateTime Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
+        contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
+        contains(cs, "random.Next(6)");
+        contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
+        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
     }
 }

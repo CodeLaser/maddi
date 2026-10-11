@@ -278,6 +278,18 @@ ratchet's report (see below) lists what is left.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`.
+- **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
+  `DateTimeOffset` does:
+  - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `Duration` → `TimeSpan`.
+  - `Clock` → `TimeProvider`, so `LocalDateTime.now(clock)` becomes `clock.GetLocalNow().DateTime`.
+  - A `DateTimeFormatter` becomes a custom format string. The ISO constants are .NET patterns
+    (`ISO_LOCAL_DATE` → `"yyyy-MM-dd"`), and `parse(s, f)` becomes `ParseExact(s, f, CultureInfo.InvariantCulture)`.
+  - `URI` → `Uri`, created `RelativeOrAbsolute` as Java's may be relative. `UUID` → `Guid`.
+  - `BigDecimal` → `decimal`, with arithmetic as operators. `Random`, `Base64` and `HexFormat` become `Random` and
+    `Convert`. A `MessageDigest` becomes a `HashAlgorithm`.
+  - C#'s numbers have no common base class, so `Number` becomes `IConvertible`, and `n.doubleValue()` becomes
+    `Convert.ToDouble(n)`. This is wider than Java's type: string and `DateTime` are `IConvertible` too.
+  - These structs are not nullable where Java's references are: a `return null` of a `UUID` does not compile.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
@@ -314,7 +326,8 @@ ratchet's report (see below) lists what is left.
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
   `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
-  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`).
+  `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
+  `JavaUuid` (the MD5 name-based UUID), and `JavaDigest` (`MessageDigest.getInstance`'s algorithm names).
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

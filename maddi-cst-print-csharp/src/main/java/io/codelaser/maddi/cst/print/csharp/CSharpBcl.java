@@ -69,6 +69,8 @@ final class CSharpBcl {
     static final String REGEX = "System.Text.RegularExpressions";
     static final String GLOBALIZATION = "System.Globalization";
     static final String THREADING = "System.Threading";
+    static final String NUMERICS = "System.Numerics";
+    static final String CRYPTOGRAPHY = "System.Security.Cryptography";
     static final String COMPAT = CSharpCompat.NAMESPACE;
 
     private CSharpBcl() {
@@ -139,7 +141,28 @@ final class CSharpBcl {
         type("java.util.OptionalInt", "int?", null);
         type("java.util.OptionalLong", "long?", null);
         type("java.util.OptionalDouble", "double?", null);
+        type("java.util.stream.LongStream", "IEnumerable<long>", GENERIC);
+        type("java.util.stream.DoubleStream", "IEnumerable<double>", GENERIC);
         type("java.time.Instant", "DateTimeOffset", SYSTEM);
+        // the values of java.time, java.net and java.math: BCL structs, as Instant is
+        type("java.time.LocalDate", "DateOnly", SYSTEM);
+        type("java.time.LocalTime", "TimeOnly", SYSTEM);
+        type("java.time.LocalDateTime", "DateTime", SYSTEM);
+        type("java.time.Duration", "TimeSpan", SYSTEM);
+        type("java.time.Clock", "TimeProvider", SYSTEM);
+        // a formatter is a custom format string: the ISO ones are constants (FIELDS)
+        type("java.time.format.DateTimeFormatter", "string", null);
+        type("java.net.URI", "Uri", SYSTEM);
+        type("java.util.UUID", "Guid", SYSTEM);
+        type("java.math.BigDecimal", "decimal", null);
+        type("java.math.BigInteger", "BigInteger", NUMERICS);
+        // C#'s numbers have no common base class; IConvertible is what they share (with string and DateTime, which
+        // a Java Number is not)
+        type("java.lang.Number", "IConvertible", SYSTEM);
+        type("java.util.Random", "Random", SYSTEM);
+        type("java.lang.StringBuffer", "StringBuilder", TEXT);
+        type("java.security.MessageDigest", "HashAlgorithm", CRYPTOGRAPHY);
+        type("java.security.NoSuchAlgorithmException", "CryptographicException", CRYPTOGRAPHY);
         type("java.lang.ThreadLocal", "ThreadLocal", THREADING);
         type("java.util.regex.Pattern", "Regex", REGEX);
         compatType("java.util.regex.Matcher", "JavaMatcher");
@@ -301,6 +324,7 @@ final class CSharpBcl {
         numbers();
         streams();
         system();
+        values();
     }
 
     private static void collections() {
@@ -327,6 +351,7 @@ final class CSharpBcl {
         ms("java.util.Collection.removeAll/1", "$0.RemoveAllOf($1)", "$0.RemoveAllOf($1)", COMPAT);
         ms("java.util.Collection.retainAll/1", "$0.RetainAll($1)", "$0.RetainAll($1)", COMPAT);
         m("java.lang.Iterable.forEach/1", "$0.ForEach($1)", COMPAT);
+        m("java.util.Map.forEach/1", "$0.ForEach($1)", COMPAT);
         m("java.lang.Iterable.iterator/0", "$0.Iterator()", COMPAT);
         m("java.util.Collection.iterator/0", "$0.Iterator()", COMPAT);
         m("java.util.List.listIterator/0", "$0.Iterator()", COMPAT);
@@ -349,6 +374,9 @@ final class CSharpBcl {
         m("java.util.List.of/1", "new List<{R0}> { $* }");
         chooser("java.util.List.of/0", (method, call) -> rule("new List<{R0}>()"));
         m("java.util.List.copyOf/1", "new List<{R0}>($1)");
+        chooser("java.util.List.of", (method, call) -> rule("new List<{R0}> { $* }"));
+        // the array argument only gives Java the element type
+        m("java.util.Collection.toArray/1", "$0.ToArray()", LINQ);
         for (String deque : List.of("java.util.Deque", "java.util.LinkedList", "java.util.ArrayDeque", "java.util.Queue")) {
             m(deque + ".getFirst/0", "$0[0]");
             m(deque + ".getLast/0", "$0[^1]");
@@ -444,6 +472,7 @@ final class CSharpBcl {
                 "_ = $1 ?? throw new NullReferenceException($2)", SYSTEM);
         m("java.util.Objects.requireNonNullElse/2", "$1 ?? $2");
         m("java.util.Objects.toString/1", "JavaString.ValueOf($1)", COMPAT);
+        m("java.util.Objects.toString/2", "@1?.ToString() ?? $2");
     }
 
     private static void strings() {
@@ -545,12 +574,13 @@ final class CSharpBcl {
             m(n + "compare/2", "$1.CompareTo($2)");
             m(n + "hashCode/1", "$1.GetHashCode()");
         }
-        m("java.lang.Number.intValue/0", "(int) @0");
-        m("java.lang.Number.longValue/0", "(long) @0");
-        m("java.lang.Number.doubleValue/0", "(double) @0");
-        m("java.lang.Number.floatValue/0", "(float) @0");
-        m("java.lang.Number.shortValue/0", "(short) @0");
-        m("java.lang.Number.byteValue/0", "(sbyte) @0");
+        // a boxed number is the value: a cast; a Number is an IConvertible, whose value Convert reads whatever it is
+        for (String[] t : new String[][]{{"int", "Int32"}, {"long", "Int64"}, {"double", "Double"}, {"float", "Single"},
+                {"short", "Int16"}, {"byte", "SByte"}}) {
+            String cast = "(" + ("byte".equals(t[0]) ? "sbyte" : t[0]) + ") @0";
+            chooser("java.lang.Number." + t[0] + "Value/0", (method, call) -> numberTyped(call)
+                    ? rule("Convert.To" + t[1] + "($0)", SYSTEM) : rule(cast));
+        }
         m("java.lang.Integer.intValue/0", "(int) @0");
         m("java.lang.Long.longValue/0", "(long) @0");
         m("java.lang.Double.doubleValue/0", "(double) @0");
@@ -571,7 +601,7 @@ final class CSharpBcl {
         m("java.lang.Integer.toHexString/1", "Convert.ToString($1, 16)", SYSTEM);
         m("java.lang.Integer.toBinaryString/1", "Convert.ToString($1, 2)", SYSTEM);
         m("java.lang.Long.toHexString/1", "Convert.ToString($1, 16)", SYSTEM);
-        m("java.lang.Integer.bitCount/1", "BitOperations.PopCount((uint) $1)", "System.Numerics");
+        m("java.lang.Integer.bitCount/1", "BitOperations.PopCount((uint) $1)", NUMERICS);
         m("java.lang.Double.isNaN/1", "double.IsNaN($1)");
         m("java.lang.Float.isNaN/1", "float.IsNaN($1)");
         m("java.lang.Double.isInfinite/1", "double.IsInfinity($1)");
@@ -612,6 +642,8 @@ final class CSharpBcl {
         m(st + "concat/2", "$1.Concat($2)", LINQ);
         m(st + "toArray/0", "$0.ToArray()", LINQ);
         m(st + "max/1", "$0.Max(Comparer<{R}>.Create($1))", LINQ);
+        m(st + "reduce/1", "$0.Reduce($1)", COMPAT);
+        m(st + "reduce/2", "$0.Aggregate($1, $2)", LINQ);
         m(st + "min/1", "$0.Min(Comparer<{R}>.Create($1))", LINQ);
         String is = "java.util.stream.IntStream.";
         m(is + "range/2", "Enumerable.Range(@1, @2 - @1)", LINQ);
@@ -619,6 +651,8 @@ final class CSharpBcl {
         m(is + "sum/0", "$0.Sum()", LINQ);
         m(is + "max/0", "$0.Max()", LINQ);
         m(is + "boxed/0", "$0");
+        m("java.util.stream.LongStream.boxed/0", "$0");
+        m("java.util.stream.DoubleStream.boxed/0", "$0");
         m(is + "mapToObj/1", "$0.Select($1)", LINQ);
         m(is + "filter/1", "$0.Where($1)", LINQ);
         m(is + "anyMatch/1", "$0.Any($1)", LINQ);
@@ -653,6 +687,7 @@ final class CSharpBcl {
         m(c + "comparing/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
         m(c + "comparingInt/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
         m(c + "comparingLong/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
+        m(c + "comparingDouble/1", "JavaComparator.Comparing<{R0}>($1)", COMPAT);
         m(c + "thenComparing/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingInt/1", "$0.ThenComparing($1)", COMPAT);
         m(c + "thenComparingLong/1", "$0.ThenComparing($1)", COMPAT);
@@ -749,6 +784,95 @@ final class CSharpBcl {
         m("java.io.OutputStream.flush/0", "$0.Flush()");
     }
 
+    /** java.time, java.net.URI, UUID, BigDecimal, Random, Base64, digests: the BCL's structs and helpers. */
+    private static void values() {
+        String clockNow = "@1.GetLocalNow().DateTime";
+        m("java.time.LocalDate.now/0", "DateOnly.FromDateTime(DateTime.Now)", SYSTEM);
+        m("java.time.LocalDate.now/1", "DateOnly.FromDateTime(" + clockNow + ")", SYSTEM);
+        m("java.time.LocalTime.now/0", "TimeOnly.FromDateTime(DateTime.Now)", SYSTEM);
+        m("java.time.LocalTime.now/1", "TimeOnly.FromDateTime(" + clockNow + ")", SYSTEM);
+        m("java.time.LocalDateTime.now/0", "DateTime.Now", SYSTEM);
+        m("java.time.LocalDateTime.now/1", clockNow, SYSTEM);
+        m("java.time.LocalDate.of/3", "new DateOnly($1, $2, $3)", SYSTEM);
+        // a tick is 100 ns
+        m("java.time.LocalTime.of/2", "new TimeOnly($1, $2)", SYSTEM);
+        m("java.time.LocalTime.of/3", "new TimeOnly($1, $2, $3)", SYSTEM);
+        m("java.time.LocalTime.of/4", "new TimeOnly(new TimeSpan($1, $2, $3).Ticks + @4 / 100)", SYSTEM);
+        m("java.time.LocalDateTime.of/5", "new DateTime($1, $2, $3, $4, $5, 0)", SYSTEM);
+        m("java.time.LocalDateTime.of/6", "new DateTime($1, $2, $3, $4, $5, $6)", SYSTEM);
+        m("java.time.LocalDateTime.of/7", "new DateTime($1, $2, $3, $4, $5, $6).AddTicks(@7 / 100)", SYSTEM);
+        for (String[] t : new String[][]{{"LocalDate", "DateOnly"}, {"LocalTime", "TimeOnly"}, {"LocalDateTime", "DateTime"}}) {
+            String j = "java.time." + t[0] + ".";
+            m(j + "parse/1", t[1] + ".Parse($1, CultureInfo.InvariantCulture)", SYSTEM, GLOBALIZATION);
+            m(j + "parse/2", t[1] + ".ParseExact($1, $2, CultureInfo.InvariantCulture)", SYSTEM, GLOBALIZATION);
+            m(j + "format/1", "$0.ToString($1, CultureInfo.InvariantCulture)", GLOBALIZATION);
+        }
+        m("java.time.LocalDate.getYear/0", "$0.Year");
+        m("java.time.LocalDate.getMonthValue/0", "$0.Month");
+        m("java.time.LocalDate.getDayOfMonth/0", "$0.Day");
+        m("java.time.Duration.ofNanos/1", "TimeSpan.FromTicks(@1 / 100)", SYSTEM);
+        m("java.time.Duration.ofMillis/1", "TimeSpan.FromMilliseconds($1)", SYSTEM);
+        m("java.time.Duration.ofSeconds/1", "TimeSpan.FromSeconds($1)", SYSTEM);
+        m("java.time.Duration.ofMinutes/1", "TimeSpan.FromMinutes($1)", SYSTEM);
+        m("java.time.Duration.toMillis/0", "(long) @0.TotalMilliseconds");
+        m("java.time.Duration.toNanos/0", "@0.Ticks * 100");
+        m("java.time.Duration.getSeconds/0", "(long) @0.TotalSeconds");
+        m("java.time.Duration.between/2", "@2 - @1");
+        m("java.time.Clock.systemDefaultZone/0", "TimeProvider.System", SYSTEM);
+        m("java.time.Clock.systemUTC/0", "TimeProvider.System", SYSTEM);
+        m("java.time.Clock.instant/0", "$0.GetUtcNow()");
+        m("java.time.Clock.millis/0", "$0.GetUtcNow().ToUnixTimeMilliseconds()");
+
+        // Java's URI is relative or absolute
+        m("java.net.URI.create/1", "new Uri($1, UriKind.RelativeOrAbsolute)", SYSTEM);
+        m("java.net.URI.new(String)", "new Uri($1, UriKind.RelativeOrAbsolute)", SYSTEM);
+        m("java.net.URI.getPath/0", "$0.AbsolutePath");
+        m("java.net.URI.getScheme/0", "$0.Scheme");
+        m("java.net.URI.getHost/0", "$0.Host");
+        m("java.net.URI.getPort/0", "$0.Port");
+        m("java.net.URI.getQuery/0", "$0.Query");
+        m("java.net.URI.isAbsolute/0", "$0.IsAbsoluteUri");
+        m("java.util.UUID.randomUUID/0", "Guid.NewGuid()", SYSTEM);
+        m("java.util.UUID.fromString/1", "Guid.Parse($1)", SYSTEM);
+        m("java.util.UUID.nameUUIDFromBytes/1", "JavaUuid.NameUuidFromBytes($1)", COMPAT);
+
+        // BigDecimal is decimal: its arithmetic, operators
+        m("java.math.BigDecimal.valueOf/1", "(decimal) @1");
+        m("java.math.BigDecimal.new(String)", "decimal.Parse($1, CultureInfo.InvariantCulture)", GLOBALIZATION);
+        m("java.math.BigDecimal.new(int)", "(decimal) @1");
+        m("java.math.BigDecimal.new(long)", "(decimal) @1");
+        m("java.math.BigDecimal.new(double)", "(decimal) @1");
+        m("java.math.BigDecimal.add/1", "@0 + @1");
+        m("java.math.BigDecimal.subtract/1", "@0 - @1");
+        m("java.math.BigDecimal.multiply/1", "@0 * @1");
+        m("java.math.BigDecimal.negate/0", "-@0");
+        m("java.math.BigDecimal.doubleValue/0", "(double) @0");
+        m("java.math.BigDecimal.intValue/0", "(int) @0");
+        m("java.math.BigDecimal.longValue/0", "(long) @0");
+        m("java.math.BigInteger.valueOf/1", "new BigInteger($1)", NUMERICS);
+
+        m("java.util.Random.nextInt/0", "$0.Next()");
+        m("java.util.Random.nextInt/1", "$0.Next($1)");
+        m("java.util.Random.nextInt/2", "$0.Next($1, $2)");
+        m("java.util.Random.nextLong/0", "$0.NextInt64()");
+        m("java.util.Random.nextDouble/0", "$0.NextDouble()");
+        m("java.util.Random.nextFloat/0", "$0.NextSingle()");
+        m("java.util.Random.nextBoolean/0", "$0.Next(2) == 1");
+
+        // the encoder and decoder are Convert's methods; Java's byte[] is C#'s sbyte[]
+        m("java.util.Base64.Encoder.encodeToString/1", "Convert.ToBase64String((byte[]) (object) $1)", SYSTEM);
+        m("java.util.Base64.Decoder.decode(String)", "(sbyte[]) (object) Convert.FromBase64String($1)", SYSTEM);
+        m("java.util.HexFormat.formatHex(byte[])", "Convert.ToHexStringLower((byte[]) (object) $1)", SYSTEM);
+        m("java.security.MessageDigest.getInstance/1", "JavaDigest.GetInstance($1)", COMPAT);
+        m("java.security.MessageDigest.digest(byte[])", "(sbyte[]) (object) $0.ComputeHash((byte[]) (object) $1)");
+
+        m("java.lang.String.codePointAt/1", "char.ConvertToUtf32($0, $1)");
+        m("java.lang.Character.charCount/1", "(@1 >= 0x10000 ? 2 : 1)");
+        m("java.lang.Character.toChars/1", "char.ConvertFromUtf32($1).ToCharArray()");
+        m("java.lang.Thread.sleep(long)", "Thread.Sleep(TimeSpan.FromMilliseconds($1))", THREADING, SYSTEM);
+        m("java.lang.Thread.interrupt/0", "$0.Interrupt()");
+    }
+
     // ---------------------------------------------------------------- lookup
 
     /** The rule of a call of {@code method} (null: the call of a method reference, or none); null when there is none. */
@@ -836,6 +960,10 @@ final class CSharpBcl {
             Map.entry("java.lang.Double.POSITIVE_INFINITY", "double.PositiveInfinity"),
             Map.entry("java.lang.Double.NEGATIVE_INFINITY", "double.NegativeInfinity"),
             Map.entry("java.lang.Boolean.TRUE", "true"),
+            // .NET's F is a digit that is not written when it is a trailing zero, its separator not when all are
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE", "\"yyyy-MM-dd\""),
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_TIME", "\"HH:mm:ss.FFFFFFF\""),
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME", "\"yyyy-MM-dd'T'HH:mm:ss.FFFFFFF\""),
             Map.entry("java.lang.Boolean.FALSE", "false"),
             Map.entry("java.lang.Math.PI", "Math.PI"),
             Map.entry("java.lang.Math.E", "Math.E"),
@@ -926,6 +1054,13 @@ final class CSharpBcl {
         if (call == null || call.object() == null || call.object().parameterizedType() == null) return true;
         TypeInfo t = call.object().parameterizedType().typeInfo();
         return t == null || !t.typeNature().isEnum() || CSharpTypePrinter.simpleEnum(t);
+    }
+
+    /** The receiver is declared as a Number: C#'s IConvertible. */
+    private static boolean numberTyped(MethodCall call) {
+        return call != null && call.object() != null && call.object().parameterizedType() != null
+               && call.object().parameterizedType().typeInfo() != null
+               && "java.lang.Number".equals(call.object().parameterizedType().typeInfo().fullyQualifiedName());
     }
 
     private static boolean arrayTyped(Expression e) {
