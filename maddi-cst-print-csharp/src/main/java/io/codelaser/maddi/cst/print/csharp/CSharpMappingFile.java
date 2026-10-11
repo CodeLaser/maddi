@@ -55,6 +55,8 @@ import java.util.regex.Pattern;
  * field java.lang.System.out -> Console.Out using System
  * override java.lang.AutoCloseable.close/0 -> Dispose       the name of a translated method that overrides it
  * name ILogger                                              a C# type name the mapping writes, besides the types'
+ * nuget Microsoft.Extensions.Logging.Abstractions 10.0.0    a package the translated code references
+ * compat JavaLogging.cs                                     a source that goes with it, beside the file
  * </pre>
  * A member's key is the declaring type, the name, and the number of parameters ({@code List.get/1}) or their erased
  * simple types ({@code List.remove(int)}); a call matches the rules of its method or of a method it overrides, the
@@ -119,9 +121,14 @@ public final class CSharpMappingFile implements LibraryMapping {
     private final Map<String, FieldMapping> fields = new HashMap<>();
     private final Map<String, String> overrides = new HashMap<>();
     private final Set<String> typeNames = new HashSet<>();
+    private final List<NuGetPackage> packages = new ArrayList<>();
+    private final List<Source> sources = new ArrayList<>();
+    /** Where the file's {@code compat} sources are: the file's directory, or null for a resource beside this class. */
+    private final Path directory;
 
-    private CSharpMappingFile(String id) {
+    private CSharpMappingFile(String id, Path directory) {
         this.id = id;
+        this.directory = directory;
     }
 
     private static final Pattern USING = Pattern.compile("^(.*?)\\s+using\\s+([\\w.]+(?:\\s*,\\s*[\\w.]+)*)\\s*$");
@@ -129,6 +136,10 @@ public final class CSharpMappingFile implements LibraryMapping {
 
     /** The mapping written in {@code text}; {@code source} names it in error messages. */
     public static CSharpMappingFile parse(String text, String source) {
+        return parse(text, source, null);
+    }
+
+    private static CSharpMappingFile parse(String text, String source, Path directory) {
         CSharpMappingFile file = null;
         int lineNumber = 0;
         for (String raw : text.split("\n", -1)) {
@@ -143,7 +154,7 @@ public final class CSharpMappingFile implements LibraryMapping {
             try {
                 if ("mapping".equals(directive)) {
                     if (file != null) throw new IllegalArgumentException("a second mapping directive");
-                    file = new CSharpMappingFile(rest);
+                    file = new CSharpMappingFile(rest, directory);
                     continue;
                 }
                 if (file == null) throw new IllegalArgumentException("the first directive must be: mapping <id>");
@@ -159,7 +170,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     /** The mapping in the file {@code path}. */
     public static CSharpMappingFile load(Path path) {
         try {
-            return parse(Files.readString(path), path.toString());
+            return parse(Files.readString(path), path.toString(), path.toAbsolutePath().getParent());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
@@ -178,6 +189,16 @@ public final class CSharpMappingFile implements LibraryMapping {
     private void directive(String directive, String rest) {
         if ("name".equals(directive)) {
             typeNames.add(rest);
+            return;
+        }
+        if ("nuget".equals(directive)) {
+            String[] parts = rest.split("\\s+");
+            if (parts.length != 2) throw new IllegalArgumentException("expected: nuget <package> <version>");
+            packages.add(new NuGetPackage(parts[0], parts[1]));
+            return;
+        }
+        if ("compat".equals(directive)) {
+            sources.add(new Source(Path.of(rest).getFileName().toString(), () -> compatSource(rest)));
             return;
         }
         int arrow = rest.indexOf(" -> ");
@@ -216,9 +237,27 @@ public final class CSharpMappingFile implements LibraryMapping {
         if (!t.isEmpty() && Character.isUpperCase(t.charAt(0))) typeNames.add(t);
     }
 
+    /** A {@code compat} source: beside the file, or a resource beside this class for the printer's own mappings. */
+    private String compatSource(String name) {
+        try {
+            if (directory != null) return Files.readString(directory.resolve(name));
+            try (InputStream in = CSharpMappingFile.class.getResourceAsStream(name)) {
+                if (in == null) throw new IllegalStateException("no " + name + " beside " + CSharpMappingFile.class);
+                return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     @Override
     public String id() {
         return id;
+    }
+
+    @Override
+    public Requirements requirements() {
+        return new Requirements(List.copyOf(packages), List.copyOf(sources));
     }
 
     @Override

@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -78,6 +79,24 @@ public interface LibraryMapping {
 
     /** A type test in C#, {@code Type { IsConstructedGenericType: true }}, and the namespace it needs. */
     record PatternMapping(String value, String namespace) {
+    }
+
+    /** A NuGet package the translated code references: {@code Microsoft.Extensions.Logging.Abstractions 10.0.0}. */
+    record NuGetPackage(String id, String version) {
+    }
+
+    /** A C# source that goes with the translated code, beside it: {@code JavaCompat.cs}. */
+    record Source(String fileName, Supplier<String> content) {
+    }
+
+    /** What the translated code needs when it uses the mapping: packages to reference, sources to compile with it. */
+    record Requirements(List<NuGetPackage> packages, List<Source> sources) {
+        public static final Requirements NONE = new Requirements(List.of(), List.of());
+    }
+
+    /** What the translated code needs: the packages it references, the sources that go with it. */
+    default Requirements requirements() {
+        return Requirements.NONE;
     }
 
     /** The C# counterpart of {@code typeInfo}, a type of the library. */

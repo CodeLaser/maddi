@@ -287,6 +287,12 @@ statement java.util.Map.put/2 -> $0[$1] = $2
   order. The guards are named predicates of the call: `arguments=N`, `receiver=fqn`, `lastArgumentThrowable`,
   `methodReference`. `CSharpMappingFile.guard` registers more.
 
+A mapping also states what the translated code needs when the mapping is used (`requirements()`): its NuGet packages
+(`nuget <package> <version>` in a file) and the C# sources that go with the translation (`compat <file>`, beside the
+mapping file). The JDK mapping's source is the compatibility library. `CSharpLibraries.projectFile` writes a project
+that references the packages. The ratchet writes it beside the translation, restores the packages, and gives their
+assemblies to the judge.
+
 The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
 qualified, as one whose name two namespaces declare is.
 

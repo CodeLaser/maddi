@@ -86,6 +86,15 @@ final class CSharpBcl implements LibraryMapping {
         return "jdk";
     }
 
+    private static final Requirements REQUIREMENTS = new Requirements(List.of(),
+            List.of(new Source(CSharpCompat.FILE_NAME, CSharpCompat::source)));
+
+    /** The compatibility library, which the translation calls where it needs Java's behaviour. */
+    @Override
+    public Requirements requirements() {
+        return REQUIREMENTS;
+    }
+
     // ---------------------------------------------------------------- types
 
     private static final Map<String, TypeMapping> TYPES = new HashMap<>();
