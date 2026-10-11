@@ -182,7 +182,7 @@ allows us to contrast two different modifications:
 .Example {counter:example}, contrasting the modification on the parameter `sb` to that on `list`
 [source,java]
 ----
-static void addNewLine(@Modified NonEmptyList<StringBuilder> list) {
+static void addNewLine(@Modified(hc=true) NonEmptyList<StringBuilder> list) {
     list.visit(sb -> sb.append("\n")); // <1>
 }
 
@@ -194,10 +194,19 @@ static void replace(@Modified NonEmptyList<StringBuilder> list) {
 <1> Modification to the hidden content of `list`
 <2> Modification to the modifiable content of `list`
 
-Without storing additional information (e.g., using an as yet undefined parameter like `@Modified(hc=true)` on `list`
-in `addNewLine`), however, we cannot make the distinction between a modification to the string builders
-inside `list`, or a modification to `list` itself.
-In other words, applying the two methods further on, we cannot compute
+The analyzer records this distinction as a second, _structural_ verdict beside the deep one (computed since
+2026-10, CodeLaser/maddi-mod#25): `list` in `addNewLine` is modified, but not structurally so, while `list` in
+`replace` is both.
+The structural verdict follows the same propagation as modification, except that a modification reaching a variable
+only through its hidden content -- an element, the `∈`/`∋` links of <<link-system>> -- does not count.
+It is written as `@Modified(hc=true)`: modified in the hidden content only.
+A caller sees the difference: the argument of `addNewLine` is modified in its hidden content, that of `replace` in
+its own state.
+The same annotation is read as a contract on a declaration without a body, so an annotated API can say that a
+method touches only the elements of its argument.
+
+What is not computed is the step back to the elements.
+Applying the two methods further on, we cannot compute
 
 .Example {counter:example}, using `print` and `addNewLine`
 [source,java]
@@ -217,12 +226,14 @@ static String useReplace(@NotModified StringBuilder input) {
 }
 ----
 
-<1> Should be {modified}, however, in the 3rd statement we cannot know that the modification is to `input` rather than to `list`
+<1> Should be {modified}: the 3rd statement modifies the hidden content of `list`, as `@Modified(hc=true)` on `addNewLine` says, but that verdict is not carried back to `input`
 <2> This action discards `input` from `list` without modifying it.
 
 ****
 The example shows that the introduction of {independent} only gets us so far: from the concrete, modifying implementation, to the parameter (or field).
-We do not plan to keep track of the distinction between modification of hidden content vs modification of modifiable content to a further extent.
+The distinction between modification of hidden content and modification of modifiable content is recorded on the
+container, as `@Modified(hc=true)`; it is not yet carried back to the objects that make up that content, so `input`
+in `useAddNewLine` still reads {nm}.
 ****
 
 Finally, we mention again the modification to a field from a concrete lambda:
