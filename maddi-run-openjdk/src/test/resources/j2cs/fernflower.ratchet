@@ -64,9 +64,11 @@
 # in the compatibility library: 180 files compile; errors 52 -> 50.
 # 2026-10-11, Class and java.lang.reflect as System.Type and System.Reflection (Method.isVarArgs, Class.forName),
 # & | % as template operators: 181 files compile; errors 50 -> 42.
+# 2026-10-11, a ClassLoader as the Assembly that holds the types (loadClass is GetType), Optional.stream:
+# 182 files compile; errors 42 -> 38.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	181
-unmappedJdkUses	21
+compilingFiles	182
+unmappedJdkUses	15

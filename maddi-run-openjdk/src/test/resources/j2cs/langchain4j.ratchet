@@ -49,9 +49,12 @@
 # interface no Type implements, annotations attributes (GetCustomAttribute<T>, IsDefined), modifiers Java's bits; an
 # anonymous ParameterizedType of constants is a typeof (typeof(IDictionary<string, object>)): 256 files compile;
 # errors 404 -> 323.
+# 2026-10-11, a ServiceLoader as the implementations in the loaded assemblies (JavaServiceLoader.Load<T>(), an
+# IEnumerable), a ClassLoader as an Assembly, a Path as a FileInfo (Java overloads on Path and String) with Files'
+# reads on it: 263 files compile; errors 323 -> 292.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	256
-unmappedJdkUses	340
+compilingFiles	263
+unmappedJdkUses	296

@@ -1200,4 +1200,37 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "if (false || !m.IsDefined(typeof(ToolAttribute), false))");
         contains(cs, "internal static readonly Type MAP_TYPE = typeof(IDictionary<string, object>);");
     }
+
+    @Language("java")
+    private static final String SERVICES = """
+            package org.example.services;
+            import java.io.IOException;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.util.ServiceLoader;
+            public class Services {
+                public interface Factory { String name(); int rank(); }
+                static Factory factory() {
+                    return ServiceLoader.load(Factory.class).findFirst().orElse(null);
+                }
+                static byte[] read(String dir, String file) throws IOException {
+                    return Files.readAllBytes(Path.of(dir, file));
+                }
+                static String type(Path path) { return path.getFileName().toString(); }
+                static String type(String path) { return type(Path.of(path)); }
+            }
+            """;
+
+    /**
+     * A service loader is the implementations in the loaded assemblies, an enumerable; a path a FileInfo (Java
+     * overloads on Path and String, which a string path would merge).
+     */
+    @Test
+    public void services() {
+        String cs = translate("Services", SERVICES);
+        contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
+        contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
+        contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
+        contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
+    }
 }

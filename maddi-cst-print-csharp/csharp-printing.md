@@ -315,6 +315,13 @@ ratchet's report (see below) lists what is left.
   - An anonymous `ParameterizedType` whose methods return constants is how Java writes a type such as
     `Map<String, Object>` as a value. It becomes `typeof(IDictionary<string, object>)`.
   - `isSealed()` and `getPermittedSubclasses()`, Java's sealed hierarchies, have no counterpart: they stay unmapped.
+- **Services and files.**
+  - A `ServiceLoader<T>` becomes the implementations in the loaded assemblies: `JavaServiceLoader.Load<T>()` from
+    the compatibility library, an `IEnumerable<T>`, so `findFirst()` becomes `FirstOrDefault()`.
+  - A `ClassLoader` becomes the `Assembly` that holds the types: `loadClass(n)` becomes `GetType(n, true)`.
+  - A `Path` becomes a `FileInfo`, not a string, because Java overloads on `Path` and `String` and a string path
+    would merge the overloads. `Files.readAllBytes(p)` becomes `File.ReadAllBytes(p.FullName)`.
+  - `HttpURLConnection` stays unmapped: `HttpClient` is a rewrite, not a mapping.
 - **Exceptions.** These become the BCL's: `IllegalStateException` → `InvalidOperationException`, `RuntimeException`
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
@@ -354,7 +361,8 @@ ratchet's report (see below) lists what is left.
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
   (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
-  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`.
+  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`,
+  `JavaServiceLoader`.
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 

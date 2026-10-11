@@ -229,6 +229,11 @@ final class CSharpBcl {
         type("java.lang.IllegalAccessException", "MemberAccessException", SYSTEM);
         type("java.lang.ReflectiveOperationException", "Exception", SYSTEM);
         type("java.lang.reflect.InvocationTargetException", "TargetInvocationException", REFLECTION);
+        // a class loader is the assembly that holds the types; a service loader the implementations they hold
+        type("java.lang.ClassLoader", "Assembly", REFLECTION);
+        type("java.util.ServiceLoader", "IEnumerable", GENERIC);
+        // a path is a FileInfo, not a string: Java overloads on Path and String
+        type("java.nio.file.Path", "FileInfo", IO);
         // a future is a task, an executor the scheduler of its tasks
         type("java.util.concurrent.CompletableFuture", "Task", TASKS);
         type("java.util.concurrent.Future", "Task", TASKS);
@@ -404,6 +409,7 @@ final class CSharpBcl {
         values();
         concurrency();
         reflection();
+        services();
     }
 
     private static void collections() {
@@ -950,6 +956,38 @@ final class CSharpBcl {
         m("java.lang.Character.toChars/1", "char.ConvertFromUtf32($1).ToCharArray()");
         m("java.lang.Thread.sleep(long)", "Thread.Sleep(TimeSpan.FromMilliseconds($1))", THREADING, SYSTEM);
         m("java.lang.Thread.interrupt/0", "$0.Interrupt()");
+    }
+
+    /** Service loaders, class loaders, paths and files. */
+    private static void services() {
+        m("java.util.ServiceLoader.load/1", "JavaServiceLoader.Load<{R0}>()", COMPAT);
+        m("java.util.ServiceLoader.load/2", "JavaServiceLoader.Load<{R0}>($2)", COMPAT);
+        m("java.util.ServiceLoader.findFirst/0", "$0.FirstOrDefault()", LINQ);
+        m("java.util.ServiceLoader.stream/0", "$0");
+        m("java.lang.Class.getClassLoader/0", "$0.Assembly");
+        m("java.lang.ClassLoader.loadClass/1", "$0.GetType($1, true)");
+        m("java.lang.Class.asSubclass/1", "$0");
+        m("java.util.Optional.stream/0", "$0.AsStream()", COMPAT);
+
+        String p = "java.nio.file.Path.";
+        chooser(p + "of/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
+                ? "new FileInfo($1)" : "new FileInfo(System.IO.Path.Combine($*))", IO));
+        m(p + "of(URI)", "new FileInfo($1.LocalPath)", IO);
+        m(p + "getFileName/0", "new FileInfo($0.Name)", IO);
+        m(p + "toFile/0", "new JavaFile($0.ToString())", COMPAT);
+        m(p + "toAbsolutePath/0", "new FileInfo($0.FullName)", IO);
+        m(p + "getParent/0", "$0.Directory is { } d ? new FileInfo(d.FullName) : null", IO);
+        m(p + "resolve(String)", "new FileInfo(System.IO.Path.Combine($0.ToString(), $1))", IO);
+        m("java.nio.file.Paths.get/2", "new FileInfo(System.IO.Path.Combine($*))", IO);
+        String f = "java.nio.file.Files.";
+        m(f + "readAllBytes/1", "(sbyte[]) (object) File.ReadAllBytes($1.FullName)", IO);
+        m(f + "readString/1", "File.ReadAllText($1.FullName)", IO);
+        m(f + "writeString/2", "File.WriteAllText($1.FullName, $2)", IO);
+        m(f + "exists/2", "$1.Exists");
+        m(f + "isDirectory/2", "Directory.Exists($1.FullName)", IO);
+        m(f + "isRegularFile/2", "$1.Exists");
+        m(f + "newInputStream/2", "$1.OpenRead()");
+        m(f + "newOutputStream/2", "$1.Create()");
     }
 
     /** Futures as tasks, executors as task schedulers, latches and locks. */

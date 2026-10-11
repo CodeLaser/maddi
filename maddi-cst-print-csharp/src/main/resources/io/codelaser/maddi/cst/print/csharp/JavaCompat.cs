@@ -266,6 +266,12 @@ public static class JavaCollections
     public static R Map<T, R>(this T value, Func<T, R> f) => value == null ? default : f(value);
 
     public static T Filter<T>(this T value, Func<T, bool> p) => value != null && p(value) ? value : default;
+
+    /// <summary>Optional.stream: the value, or nothing.</summary>
+    public static IEnumerable<T> AsStream<T>(this T value)
+    {
+        if (value != null) yield return value;
+    }
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
@@ -1621,4 +1627,37 @@ public static class JavaModifier
     public static int Of(FieldInfo f) =>
         (f.IsPublic ? PUBLIC : 0) | (f.IsPrivate ? PRIVATE : 0) | (f.IsFamily ? PROTECTED : 0)
         | (f.IsStatic ? STATIC : 0) | (f.IsInitOnly || f.IsLiteral ? FINAL : 0);
+}
+
+/// <summary>
+/// java.util.ServiceLoader: the implementations of a service are the concrete classes with a public parameterless
+/// constructor in the loaded assemblies (or in the one given), instantiated as they are enumerated.
+/// </summary>
+public static class JavaServiceLoader
+{
+    public static IEnumerable<T> Load<T>(Assembly assembly = null)
+    {
+        var assemblies = assembly != null ? new[] { assembly } : AppDomain.CurrentDomain.GetAssemblies();
+        foreach (var a in assemblies)
+        {
+            Type[] types;
+            try
+            {
+                types = a.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                types = e.Types.Where(t => t != null).ToArray();
+            }
+            foreach (var t in types)
+            {
+                if (t.IsAbstract || t.IsInterface || !typeof(T).IsAssignableFrom(t) || t.ContainsGenericParameters
+                    || t.GetConstructor(Type.EmptyTypes) == null)
+                {
+                    continue;
+                }
+                yield return (T) Activator.CreateInstance(t);
+            }
+        }
+    }
 }
