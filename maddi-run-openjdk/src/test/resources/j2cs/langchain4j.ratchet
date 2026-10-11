@@ -52,9 +52,14 @@
 # 2026-10-11, a ServiceLoader as the implementations in the loaded assemblies (JavaServiceLoader.Load<T>(), an
 # IEnumerable), a ClassLoader as an Assembly, a Path as a FileInfo (Java overloads on Path and String) with Files'
 # reads on it: 263 files compile; errors 323 -> 292.
+# 2026-10-11, library mappings for slf4j and Jackson, the default options: slf4j as Microsoft.Extensions.Logging
+# (ILogger, messages as message templates whose holes are named after their arguments, a trailing exception first),
+# Jackson as System.Text.Json (JsonSerializer with the mapper's options, the tree as JsonNode, annotations as
+# attributes, @JsonSubTypes as JsonDerivedType); unmapped uses now count every library's: 271 files compile;
+# errors 292 -> 232; unmapped 296 -> 154 (jackson 123: its framework configuration; jdk 28; slf4j 3, Marker).
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	263
-unmappedJdkUses	296
+compilingFiles	271
+unmappedJdkUses	154

@@ -37,7 +37,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         String name = CSharpNames.field(fieldInfo);
         if (asParameterInRecordDeclaration) return new OutputBuilderImpl().add(new TextImpl(type + " " + name));
 
-        OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), q, true);
+        OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), LibraryMapping.Target.FIELD, q, true);
         StringBuilder modifiers = new StringBuilder();
         String access = CSharpModifiers.access(fieldInfo);
         if (access != null) modifiers.append(access).append(' ');

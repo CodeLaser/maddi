@@ -30,6 +30,8 @@ dependencies {
     testImplementation(project(":maddi-inspection-api"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-inspection-resource"))
+    // the library mappings' samples use slf4j and Jackson (slf4j-api comes from java-library-conventions)
+    testImplementation("com.fasterxml.jackson.core:jackson-databind")
 }
 
 tasks.test {

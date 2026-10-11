@@ -1,0 +1,61 @@
+# Jackson as Json.NET (Newtonsoft.Json), whose model is closer to Jackson's: an ObjectMapper is its
+# JsonSerializerSettings, reading and writing JsonConvert's methods with them, the tree model JToken; the annotations
+# are its attributes. Polymorphism (@JsonTypeInfo, @JsonSubTypes) needs a converter of the application's: dropped.
+# Jackson's configuration of its framework has no counterpart here: it stays unmapped, for a person.
+mapping jackson:newtonsoft
+nuget Newtonsoft.Json 13.0.3
+compat JavaJson.cs
+type com.fasterxml.jackson.databind.ObjectMapper -> JsonSerializerSettings using Newtonsoft.Json
+type com.fasterxml.jackson.databind.json.JsonMapper -> JsonSerializerSettings using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.new/0 -> new JsonSerializerSettings() using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,Class) -> JsonConvert.DeserializeObject<{R}>($1, $0) using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,TypeReference) -> JsonConvert.DeserializeObject<{R}>($1, $0) using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readValue(String,JavaType) -> ({R}) JsonConvert.DeserializeObject($1, $2, $0) using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString/1 -> JsonConvert.SerializeObject($1, $0) using Newtonsoft.Json
+member com.fasterxml.jackson.databind.ObjectMapper.readTree(String) -> JToken.Parse($1) using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.ObjectMapper.valueToTree/1 -> JToken.FromObject($1, JsonSerializer.Create($0)) using Newtonsoft.Json, Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.ObjectMapper.convertValue(Object,Class) -> JToken.FromObject($1, JsonSerializer.Create($0)).ToObject<{R}>() using Newtonsoft.Json, Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.ObjectMapper.constructType/1 -> $1
+plain com.fasterxml.jackson.databind.JavaType -> Type using System
+type com.fasterxml.jackson.core.JsonProcessingException -> JsonException using Newtonsoft.Json
+type com.fasterxml.jackson.databind.JsonMappingException -> JsonSerializationException using Newtonsoft.Json
+pascal com.fasterxml.jackson.core.type.TypeReference -> JavaTypeReference using Maddi.JavaCompat
+
+# the tree
+type com.fasterxml.jackson.databind.JsonNode -> JToken using Newtonsoft.Json.Linq
+type com.fasterxml.jackson.databind.node.ObjectNode -> JObject using Newtonsoft.Json.Linq
+type com.fasterxml.jackson.databind.node.ArrayNode -> JArray using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.get(String) -> $0[$1]
+member com.fasterxml.jackson.databind.JsonNode.get(int) -> $0[$1]
+member com.fasterxml.jackson.databind.JsonNode.has(String) -> $0[$1] != null
+member com.fasterxml.jackson.databind.JsonNode.asInt/0 -> $0.Value<int>()
+member com.fasterxml.jackson.databind.JsonNode.asLong/0 -> $0.Value<long>()
+member com.fasterxml.jackson.databind.JsonNode.asDouble/0 -> $0.Value<double>()
+member com.fasterxml.jackson.databind.JsonNode.asBoolean/0 -> $0.Value<bool>()
+member com.fasterxml.jackson.databind.JsonNode.asText/0 -> $0.ToString()
+member com.fasterxml.jackson.databind.JsonNode.textValue/0 -> $0.Value<string>()
+member com.fasterxml.jackson.databind.JsonNode.isObject/0 -> $0.Type == JTokenType.Object using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.isArray/0 -> $0.Type == JTokenType.Array using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.isTextual/0 -> $0.Type == JTokenType.String using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.isNumber/0 -> $0.Type is JTokenType.Integer or JTokenType.Float using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.isNull/0 -> $0.Type == JTokenType.Null using Newtonsoft.Json.Linq
+member com.fasterxml.jackson.databind.JsonNode.size/0 -> $0.Count()
+member com.fasterxml.jackson.databind.JsonNode.toString/0 -> $0.ToString(Formatting.None) using Newtonsoft.Json
+
+# the annotations: Json.NET's are for fields, properties and (JsonProperty) constructor parameters
+annotation com.fasterxml.jackson.annotation.JsonProperty ?on=method -> -
+annotation com.fasterxml.jackson.annotation.JsonProperty ?has=value -> JsonProperty($value) using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonProperty -> JsonProperty using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonIgnore ?on=field -> JsonIgnore using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonIgnore -> -
+annotation com.fasterxml.jackson.annotation.JsonCreator ?on=constructor -> JsonConstructor using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonCreator -> -
+annotation com.fasterxml.jackson.annotation.JsonInclude ?on=type ?value=NON_NULL -> JsonObject(ItemNullValueHandling = NullValueHandling.Ignore) using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonInclude ?on=field ?value=NON_NULL -> JsonProperty(NullValueHandling = NullValueHandling.Ignore) using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonInclude ?on=field ?value=NON_DEFAULT -> JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore) using Newtonsoft.Json
+annotation com.fasterxml.jackson.annotation.JsonInclude -> -
+annotation com.fasterxml.jackson.annotation.JsonIgnoreProperties -> -
+annotation com.fasterxml.jackson.annotation.JsonTypeInfo -> -
+annotation com.fasterxml.jackson.annotation.JsonSubTypes -> -
+annotation com.fasterxml.jackson.annotation.JsonTypeName -> -
+annotation com.fasterxml.jackson.databind.annotation.JsonDeserialize -> -

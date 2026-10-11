@@ -110,7 +110,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
-            out.add(CSharpAttributes.uses(typeInfo.annotations(), q, true));
+            out.add(CSharpAttributes.uses(typeInfo.annotations(), LibraryMapping.Target.TYPE, q, true));
             StringBuilder modifiers = new StringBuilder();
             String access = typeAccess();
             if (access != null) modifiers.append(access).append(' ');

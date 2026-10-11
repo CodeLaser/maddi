@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -22,6 +24,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -97,6 +100,23 @@ public interface LibraryMapping {
     /** What the translated code needs: the packages it references, the sources that go with it. */
     default Requirements requirements() {
         return Requirements.NONE;
+    }
+
+    /** What an annotation is on: C#'s attributes have targets, Java's annotation may be on more. */
+    enum Target { TYPE, FIELD, METHOD, CONSTRUCTOR, PARAMETER }
+
+    /** The attributes a use of an annotation is in C#, each without its brackets, and the namespaces they need. */
+    record AttributeMapping(List<String> attributes, List<String> namespaces) {
+        /** The annotation has no C# counterpart: it is dropped. */
+        public static final AttributeMapping DROPPED = new AttributeMapping(List.of(), List.of());
+    }
+
+    /**
+     * A use of an annotation of the library, on {@code target}, as C# attributes: {@code @JsonProperty("n")} is
+     * {@code JsonPropertyName("n")}. {@code print} writes an element's value in C#.
+     */
+    default AttributeMapping annotation(AnnotationExpression use, Target target, Function<Expression, String> print) {
+        return null;
     }
 
     /** The C# counterpart of {@code typeInfo}, a type of the library. */

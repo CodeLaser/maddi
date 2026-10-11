@@ -57,8 +57,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * {@code Translated.csproj} beside the sources, which builds them with those packages.
  *
  * <h2>The census</h2>
- * The printer reports every JDK type or member it prints without a BCL counterpart ({@code UNMAPPED_JDK}); their
- * number is ratcheted, and the report lists them by frequency: the mapping's work list.
+ * The printer reports every library type or member it prints without a mapping ({@code UNMAPPED_JDK}): the JDK's,
+ * and those of slf4j and Jackson, which have mappings too. Their number is ratcheted; the report counts them per
+ * library and lists them by frequency, the mappings' work list.
  * <p>
  * The output lands in {@code build/j2cs/<name>/}: the translated sources, the judge's output and {@code report.txt}.
  */
@@ -258,11 +259,22 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         sb.append("\nmembers the compiler does not know (CS1061, CS0117):\n").append(counted(judged.errors.stream()
                 .filter(d -> Set.of("CS1061", "CS0117").contains(d.code))
                 .map(d -> d.message.replaceAll("^'([^']*)' does not contain a definition for '([^']*)'.*$", "$1.$2")), 40));
-        sb.append("\nunmapped JDK uses, the BCL mapping's work list (messages.txt has each):\n")
+        sb.append("\nunmapped uses by library (libraries: ").append(policy.libraries().id()).append("):\n")
+                .append(counted(unmapped.stream().map(m -> library(m.detail())), 20));
+        sb.append("\nunmapped library uses, the mappings' work list (messages.txt has each):\n")
                 .append(counted(unmapped.stream().map(CSharpPrintMessage::detail), 60));
         sb.append("\nprinter messages, by severity and code:\n").append(counted(printed.messages.stream()
                 .map(m -> String.format("%-16s %s", m.severity(), m.code())), 100));
         return sb.toString();
+    }
+
+    /** The library of an unmapped use: {@code jdk}, {@code slf4j}, {@code jackson}, or the package's first segments. */
+    private static String library(String detail) {
+        if (detail.startsWith("java.") || detail.startsWith("javax.") || detail.startsWith("jdk.")) return "jdk";
+        if (detail.startsWith("org.slf4j.")) return "slf4j";
+        if (detail.startsWith("com.fasterxml.jackson.")) return "jackson";
+        String[] segments = detail.split("\\.");
+        return segments.length > 2 ? segments[0] + "." + segments[1] : detail;
     }
 
     private static String counted(Stream<String> items, int limit) {

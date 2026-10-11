@@ -266,6 +266,18 @@ answers null for what it does not know. The list is how a client decides:
 - **Leave a library untranslated** by leaving out its mapping. Its uses keep their Java names, with an
   `UNMAPPED_JDK` message.
 
+The printer has options per library, chosen with `CSharpLibraries.choose("slf4j=serilog,jackson=none")`. The first
+option of each library is the default, and `none` leaves the library out:
+
+| library | options | |
+|---|---|---|
+| slf4j | `ms-logging`, `serilog` | `ILogger` from Microsoft.Extensions.Logging, or Serilog's. A message's `{}` holes become a message template's holes, named after their arguments (`"output: {}", x` → `"output: {X}"`). A trailing exception becomes the first argument. With `ms-logging`, `getLogger` is the compatibility library's `JavaLogging`, which the application connects to its host's `ILoggerFactory`. |
+| jackson | `system-text-json`, `newtonsoft` | An `ObjectMapper` becomes the options of `JsonSerializer` (or `JsonConvert`), and the tree model becomes `JsonNode` (or `JToken`). Annotations become attributes, on the targets C# allows: `@JsonSubTypes` → `[JsonDerivedType]`, a class-level `@JsonInclude` → an option or `[JsonObject]`. Jackson's configuration of its framework (modules, introspectors, custom serializers, builders) stays unmapped. |
+| jdk | `bcl` | The BCL, plus the compatibility library where Java's behaviour differs. |
+
+A library's annotation becomes what its mapping makes of it (`annotation(use, target, print)`, or `annotation` lines in
+a file, with the guards `?on=field` and `?element=VALUE`). Without a mapping, it is dropped.
+
 A mapping is Java (`LibraryMapping`) or text, a `.csmap` file that `CSharpMappingFile` reads: one directive per
 line. This is how a client overrides rules without Java:
 

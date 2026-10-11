@@ -66,7 +66,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             CSharpContext.message(CSharpPrintMessage.Code.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
             return b;
         }
-        b.add(CSharpAttributes.uses(methodInfo.annotations(), q, true));
+        b.add(CSharpAttributes.uses(methodInfo.annotations(), methodInfo.isConstructor() ? LibraryMapping.Target.CONSTRUCTOR
+                : LibraryMapping.Target.METHOD, q, true));
         if (methodInfo.isSynchronized()) {
             CSharpContext.using("System.Runtime.CompilerServices");
             b.add(new TextImpl("[MethodImpl(MethodImplOptions.Synchronized)]")).add(SpaceEnum.NEWLINE);
@@ -153,7 +154,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {
         String type = wildcardNames != null ? CSharpWildcards.type(p.parameterizedType(), wildcardNames, q)
                 : CSharpTypeName.of(p.parameterizedType(), q);
-        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
+        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), LibraryMapping.Target.PARAMETER, q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }
 }

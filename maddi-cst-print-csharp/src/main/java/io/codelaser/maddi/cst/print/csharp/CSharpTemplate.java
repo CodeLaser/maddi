@@ -18,6 +18,8 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
+import io.codelaser.maddi.cst.api.expression.StringConstant;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -56,6 +58,15 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             char c = template.charAt(i);
             if ((c == '$' || c == '@') && i + 1 < template.length()) {
                 char d = template.charAt(i + 1);
+                if (c == '$' && d == '#' && i + 2 < template.length() && Character.isDigit(template.charAt(i + 2))) {
+                    // $#1: a message template, slf4j's {} holes named after the arguments that fill them
+                    int j = i + 2;
+                    while (j < template.length() && Character.isDigit(template.charAt(j))) j++;
+                    flush(b, literal);
+                    b.add(messageTemplate(Integer.parseInt(template.substring(i + 2, j))));
+                    i = j;
+                    continue;
+                }
                 if (c == '$' && (d == '*' || d == '+')) {
                     flush(b, literal);
                     b.add(join(d == '*' ? 0 : 1));
@@ -103,6 +114,51 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         }
         flush(b, literal);
         return b;
+    }
+
+    /**
+     * Argument {@code index}, a string literal with slf4j's {@code {}} holes, as a .NET message template: each hole is
+     * named after the argument that fills it ({@code "output: {}", llmResponse} is {@code "output: {LlmResponse}"}),
+     * and a brace that is no hole is doubled. Any other argument is printed as it is.
+     */
+    private OutputBuilder messageTemplate(int index) {
+        Expression arg = call == null ? null : CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index - 1));
+        if (!(arg instanceof StringConstant sc)) return arguments.get(index - 1).get();
+        String text = sc.constant();
+        StringBuilder sb = new StringBuilder();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        int hole = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '{' && i + 1 < text.length() && text.charAt(i + 1) == '}') {
+                int argument = index + hole++;
+                String name = argument < call.parameterExpressions().size()
+                        ? holeName(call.parameterExpressions().get(argument)) : "Arg" + hole;
+                String unique = name;
+                for (int n = 2; !used.add(unique); n++) unique = name + n;
+                sb.append('{').append(unique).append('}');
+                i++;
+            } else if (ch == '{' || ch == '}') {
+                sb.append(ch).append(ch);
+            } else {
+                sb.append(ch);
+            }
+        }
+        return new OutputBuilderImpl().add(new TextImpl(CSharpExpressionPrinter.stringLiteral(sb.toString())));
+    }
+
+    /** The name of a message template's hole: the variable, or the getter, that fills it. */
+    private static String holeName(Expression e) {
+        Expression x = CSharpExpressionPrinter.unwrap(e);
+        String name = switch (x) {
+            case VariableExpression ve -> ve.variable().simpleName();
+            case MethodCall mc -> mc.methodInfo().name().replaceFirst("^(get|is)(?=[A-Z])", "");
+            default -> "Value";
+        };
+        int dot = name.lastIndexOf('.');
+        if (dot >= 0) name = name.substring(dot + 1);
+        name = name.replaceAll("[^A-Za-z0-9_]", "");
+        return name.isEmpty() ? "Value" : CSharpNames.pascal(name);
     }
 
     /** All arguments, from {@code from} on, separated by commas. */

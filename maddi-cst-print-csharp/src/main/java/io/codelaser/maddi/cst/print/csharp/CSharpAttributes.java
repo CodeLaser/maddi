@@ -45,7 +45,8 @@ import java.util.Set;
  * constructor's parameter, and {@code @Target} is {@code [AttributeUsage]}. Reading an element, {@code tool.name()},
  * is reading the property, {@code tool.Name}. A use of one, {@code @Tool(name = "x")}, is {@code [Tool(Name = "x")]};
  * {@code @Deprecated} is {@code [Obsolete]}. Other JDK annotations ({@code @Override}, {@code @FunctionalInterface})
- * have no C# counterpart, and those of other libraries are dropped.
+ * have no C# counterpart. Those of other libraries are what their mapping makes of them
+ * ({@link LibraryMapping#annotation}), and dropped without one.
  */
 final class CSharpAttributes {
 
@@ -155,21 +156,35 @@ final class CSharpAttributes {
     }
 
     /** {@code [Tool(Name = "x")] }: the uses of program annotations, and @Deprecated; empty when there are none. */
-    static OutputBuilder uses(List<AnnotationExpression> annotations, Qualification q, boolean newline) {
+    static OutputBuilder uses(List<AnnotationExpression> annotations, LibraryMapping.Target target, Qualification q,
+                              boolean newline) {
         OutputBuilder out = new OutputBuilderImpl();
         for (AnnotationExpression ae : annotations) {
-            OutputBuilder use = use(ae, q);
+            OutputBuilder use = use(ae, target, q);
             if (use == null) continue;
             out.add(use).add(newline ? SpaceEnum.NEWLINE : SpaceEnum.ONE);
         }
         return out;
     }
 
-    private static OutputBuilder use(AnnotationExpression ae, Qualification q) {
+    private static OutputBuilder use(AnnotationExpression ae, LibraryMapping.Target target, Qualification q) {
         TypeInfo type = ae.typeInfo();
         if ("java.lang.Deprecated".equals(type.fullyQualifiedName())) {
             CSharpContext.using("System");
             return new OutputBuilderImpl().add(new TextImpl("[Obsolete]"));
+        }
+        if (!CSharpNames.translated(type)) {
+            // a library's annotation: what its mapping makes of it, dropped when it has none
+            LibraryMapping.AttributeMapping mapped = CSharpContext.libraries().annotation(ae, target,
+                    e -> CSharpExpressionPrinter.print(e, q).toString());
+            if (mapped == null || mapped.attributes().isEmpty()) return null;
+            mapped.namespaces().forEach(CSharpContext::using);
+            OutputBuilder b = new OutputBuilderImpl();
+            for (int i = 0; i < mapped.attributes().size(); i++) {
+                if (i > 0) b.add(SpaceEnum.ONE);
+                b.add(SymbolEnum.LEFT_BRACKET).add(new TextImpl(mapped.attributes().get(i))).add(SymbolEnum.RIGHT_BRACKET);
+            }
+            return b;
         }
         if (!isAttribute(type)) return null;
         String name = CSharpTypeName.name(type, q);
