@@ -172,6 +172,8 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
 
     static final Symbol NULL_CONDITIONAL = new SymbolEnum("?.", SpaceEnum.NONE, SpaceEnum.NONE, null);
     private static final Symbol RANGE = new SymbolEnum("..", SpaceEnum.NONE, SpaceEnum.NONE, null);
+    /** An initializer's closing brace: a space before it, also after a call's parenthesis, {@code { F(x) }}. */
+    private static final Symbol CLOSE_BRACE = new SymbolEnum("}", SpaceEnum.ONE, SpaceEnum.NONE, null);
     private static final Set<String> OPERATORS = Set.of("=>", "==", "!=", "??", "+", "-", "*", "/", "<", ">", "<=",
             ">=", "||", "&&", "=", "or", "is");
 
@@ -252,6 +254,9 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                 i++;
             } else if (OPERATORS.contains(String.valueOf(c))) {
                 b.add(SymbolEnum.binaryOperator(String.valueOf(c)));
+                i++;
+            } else if (c == '}' && i > 0) {
+                b.add(CLOSE_BRACE);
                 i++;
             } else {
                 b.add(new TextImpl(String.valueOf(c))); // { } ;

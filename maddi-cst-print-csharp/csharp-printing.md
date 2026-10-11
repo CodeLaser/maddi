@@ -31,6 +31,11 @@ the factory signatures carry no context.
 Every name is a function of its declaration and of the whole program's facts (`CSharpProgram`), so a declaration and
 all its uses agree without a renaming pass.
 
+- A method named as its class (C# allows no such member) is `Of` when static, `<Name>Value` otherwise:
+  `Metadata.metadata(k, v)` is `Metadata.Of(k, v)`.
+- A type is qualified with its namespace where a member of the printed class (or of a class it is nested in, or of
+  their superclasses) hides it (`VideoContent.Video()` hides `Video`), and outside its namespace where its simple
+  name is ambiguous: declared by two namespaces of the program, or by the BCL (`CSharpProgram`).
 - A namespace segment that is also the name of a type, of the program or of the BCL, is plural: the namespace
   `Dev.Langchain4j.Exception` would hide `System.Exception` from the code in `Dev.Langchain4j`, and
   `Dev.Langchain4j.Exceptions` is .NET's naming (`CSharpProgram`).
@@ -100,7 +105,34 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `ordinal()` a cast to `int`.
 - **Nested types of generic types.** C# makes a nested type generic in its enclosing types' parameters, which a
   Java static nested type is not. A static nested type of a generic type is therefore printed beside its primary
-  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`.
+  type, in the namespace, by its simple name; private members of the outer type it uses become `internal`. When
+  another type of the namespace has that name too, the name is prefixed with its enclosing types' names
+  (`EmbeddingStoreRequestContextAdd`), a whole-program fact of `CSharpProgram`.
+- **Static members of generic types.** C# reaches a generic class's static members through a constructed type,
+  `Response<T>.From(x)`; Java through the class, `Response.from(x)`. Java's static members never use the type's
+  parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#
+  idiom of `Tuple` and `Tuple<T>`: `public static class Response { public static Response<T> From<T>(T content)
+  … }`, which `Response.From(x)` calls as Java does. The generic type's own code qualifies them (`Response.Count()`);
+  the private members either side reaches become `internal`, as the two are siblings. A static member whose code
+  declares an anonymous or local class keeps the type without a companion.
+- **Type tokens.** Java passes a `Class<T>` where C# has the type argument: `<T> T fromJson(String json, Class<T>
+  type)` is `T FromJson<T>(string json)`, its body reads `typeof(T)` for `type`, and `fromJson(s, Foo.class)` is
+  `FromJson<Foo>(s)`. `CSharpProgram` decides it over the whole program: `T` is the method's only type parameter,
+  every call passes a `Class<X>` of a known `X` (not a `Class<?>`), no method reference names the method, and the
+  methods it overrides or that override it qualify as well. Otherwise the token stays a `Type` parameter.
+- **Member names.** C# has no member named as its type, a type parameter of its type, or a nested type of its
+  type. A method named as its class is `Of` (static) or `PascalValue`; a type parameter named as a member takes the
+  C# convention's `T` prefix (`EmbeddingMatch<TEmbedded>` with `Embedded()`); a method named as a nested type, with
+  a field of its Java name, is `PascalValue` (`ResultValue()` beside `enum Result` and field `result`).
+- **Interface implementations.** C# is stricter than Java in three places:
+  - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
+    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
+  - a default method that implements an inherited interface's method is an explicit implementation:
+    `Type IListener<string>.EventClass() => typeof(string);`;
+  - an abstract class that leaves an interface's method to its subclasses redeclares it,
+    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s.
+
+  A generic interface method (Java may implement `<T> Class<T> eventClass()` raw) is left as it is.
 - **Functional interfaces.** A translated functional interface is a C# `delegate` when the whole program allows it:
   one abstract method and nothing else, and no class or interface of the program implementing or extending it (an
   anonymous class that becomes a lambda does not count). Its lambdas are plain lambdas, a call `f.apply(x)` is an
@@ -117,6 +149,16 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   is not `virtual`. The policy `Inheritance.OPEN_PUBLIC_API` keeps public classes and their public and protected
   methods open for code outside the program; `Inheritance.OPEN`, and a printer without the program, keep everything
   Java leaves open.
+- **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
+  (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
+  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
+  the property, `tool.Name`. A use on a type, method, field or parameter is an attribute,
+  `[Tool("Adds", Name = "add")]`; `@Deprecated` is `[Obsolete]`. Other JDK annotations have no C# counterpart, and
+  those of other libraries are dropped.
+- **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
+  the interface, `((IResult) this).Failed()`.
+- **Casts to type parameters.** C# casts to a type parameter only from `object`, an interface or another type
+  parameter: `(T) this` in a self-typed builder is `(T) (object) this`.
 - **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that walks
   its `Iterator()`, so that `foreach` and LINQ work on it.
 - **Exposed types.** Java's public method may name a less accessible type, C#'s may not: a nested type is as visible
@@ -130,7 +172,10 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
   `Cloneable`, `Serializable` and `RandomAccess` are dropped.
-- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`.
+- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. One with
+  a canonical or compact constructor, which a positional record cannot have, declares get-only properties and that
+  constructor. An accessor that implements an interface's method, `T response()`, is the property: the interface's
+  method is implemented explicitly, `T IResult<T>.Response() => Response;`.
 
 ## Statements and expressions
 
@@ -200,12 +245,12 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
   - `Outer.this`, because a C# nested class has no enclosing instance;
-  - annotation types (to become attributes);
   - `new int[a][b]`;
   - record patterns;
   - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
     one is hoisted (see Declarations).
-- **Recorded as losses:** wildcards and raw types, and a record's explicit canonical constructor.
+- **Recorded as losses:** wildcards and raw types, and a record's constructor of as many parameters as components
+  that is not its canonical one.
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
 ## The JDK → BCL mapping (`CSharpBcl`)
@@ -221,7 +266,13 @@ ratchet's report (see below) lists what is left.
   becomes `KeyValuePair<K, V>`.
 - **Wildcards.** Java cannot add to a `List<? extends Node>`: it is C#'s covariant read-only interface,
   `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
-  `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
+  `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. A collection of `?` is C#'s non-generic interface, which every generic collection implements: `List<?>` is
+  `IList`, `Collection<?>` and `Set<?>` are `ICollection`, `Iterable<?>` is `IEnumerable`, `Map<?, ?>` is
+  `IDictionary`, `Comparable<?>` is `IComparable`. A method's parameter of a program type with wildcards, `Context<?> c`, is captured as Java does
+  in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
+  constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
+  interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
+  delegate, a sealed class, a type parameter). Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →

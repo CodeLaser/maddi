@@ -16,6 +16,8 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -74,16 +76,24 @@ public final class CSharpProgram {
     }
 
     /** No knowledge of the other files: functional interfaces stay interfaces, classes and methods stay open. */
-    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of());
+    public static final CSharpProgram NONE = new CSharpProgram(Set.of(), Set.of(), Set.of(), Inheritance.OPEN, Map.of(),
+            Set.of(), Set.of(), Map.of());
 
     private final Set<TypeInfo> delegates;
     private final Set<TypeInfo> extended;
     private final Set<MethodInfo> overridden;
     private final Inheritance inheritance;
     private final Map<String, String> namespaceSegments;
+    private final Set<String> ambiguous;
+    private final Set<TypeInfo> prefixedHoisted;
+    private final Map<MethodInfo, Integer> typeTokens;
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
-                          Inheritance inheritance, Map<String, String> namespaceSegments) {
+                          Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
+                          Set<TypeInfo> prefixedHoisted, Map<MethodInfo, Integer> typeTokens) {
+        this.prefixedHoisted = prefixedHoisted;
+        this.typeTokens = typeTokens;
+        this.ambiguous = ambiguous;
         this.delegates = delegates;
         this.extended = extended;
         this.overridden = overridden;
@@ -118,7 +128,147 @@ public final class CSharpProgram {
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
         return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all));
+                namespaceSegments(primaryTypes, all), ambiguous(primaryTypes), prefixedHoisted(all), typeTokens(all));
+    }
+
+    /**
+     * The methods whose {@code Class<T>} parameter, a type token, becomes their type argument:
+     * {@code <T> T fromJson(String json, Class<T> type)} is {@code T FromJson<T>(string json)}, which reads
+     * {@code typeof(T)}, and {@code fromJson(s, Foo.class)} is {@code FromJson<Foo>(s)}. A method qualifies when
+     * {@code T} is its only type parameter, every call in the program passes a {@code Class<X>} of a known
+     * {@code X}, no method reference names it, and the methods it overrides or that override it qualify too.
+     */
+    private static Map<MethodInfo, Integer> typeTokens(List<TypeInfo> all) {
+        Map<MethodInfo, Integer> tokens = new java.util.HashMap<>();
+        List<MethodInfo> methods = all.stream().flatMap(t -> t.methods().stream()).toList();
+        for (MethodInfo m : methods) {
+            int index = typeTokenIndex(m);
+            if (index >= 0) tokens.put(m, index);
+        }
+        if (tokens.isEmpty()) return Map.of();
+        Set<MethodInfo> rejected = new HashSet<>();
+        Map<MethodInfo, Set<MethodInfo>> family = new java.util.HashMap<>();
+        for (MethodInfo m : methods) {
+            for (MethodInfo o : m.overrides()) {
+                if (o == m) continue;
+                family.computeIfAbsent(m, x -> new HashSet<>()).add(o);
+                family.computeIfAbsent(o, x -> new HashSet<>()).add(m);
+                if (!java.util.Objects.equals(tokens.get(m), tokens.get(o)) || !CSharpNames.translated(o.typeInfo())) {
+                    rejected.add(m);
+                    rejected.add(o);
+                }
+            }
+        }
+        for (TypeInfo t : all) {
+            for (Element element : code(t)) {
+                element.visit((Element e) -> {
+                    if (e instanceof MethodReference mr) rejected.add(mr.methodInfo());
+                    if (e instanceof MethodCall mc && tokens.containsKey(mc.methodInfo())) {
+                        ParameterizedType argument = mc.parameterExpressions().get(tokens.get(mc.methodInfo()))
+                                .parameterizedType();
+                        if (!concreteClass(argument)) rejected.add(mc.methodInfo());
+                    }
+                    return true;
+                });
+            }
+        }
+        java.util.Deque<MethodInfo> todo = new java.util.ArrayDeque<>(rejected);
+        while (!todo.isEmpty()) {
+            for (MethodInfo f : family.getOrDefault(todo.pop(), Set.of())) {
+                if (rejected.add(f)) todo.push(f);
+            }
+        }
+        tokens.keySet().removeAll(rejected);
+        return Map.copyOf(tokens);
+    }
+
+    /** The index of the method's {@code Class<T>} parameter, {@code T} its only type parameter; -1 when none. */
+    private static int typeTokenIndex(MethodInfo m) {
+        if (m.isConstructor() || m.typeParameters().size() != 1 || !CSharpNames.translated(m.typeInfo())) return -1;
+        int found = -1;
+        for (int i = 0; i < m.parameters().size(); i++) {
+            ParameterizedType pt = m.parameters().get(i).parameterizedType();
+            if (pt.arrays() == 0 && pt.typeInfo() != null && "java.lang.Class".equals(pt.typeInfo().fullyQualifiedName())
+                && pt.parameters().size() == 1 && pt.parameters().getFirst().wildcard() == null
+                && pt.parameters().getFirst().arrays() == 0 && pt.parameters().getFirst().isTypeParameter()
+                && pt.parameters().getFirst().typeParameter().equals(m.typeParameters().getFirst())) {
+                if (found >= 0 || m.parameters().get(i).isVarArgs()) return -1;
+                found = i;
+            }
+        }
+        return found;
+    }
+
+    /** {@code Class<X>} of a known {@code X}: the type argument of a call. */
+    static boolean concreteClass(ParameterizedType pt) {
+        return pt != null && pt.arrays() == 0 && pt.typeInfo() != null
+               && "java.lang.Class".equals(pt.typeInfo().fullyQualifiedName()) && pt.parameters().size() == 1
+               && pt.parameters().getFirst().wildcard() == null
+               && (pt.parameters().getFirst().typeInfo() != null || pt.parameters().getFirst().isTypeParameter());
+    }
+
+    /** The index of the method's type token parameter, which C# drops for the type argument; -1 when none. */
+    public int typeToken(MethodInfo method) {
+        return typeTokens.getOrDefault(method, -1);
+    }
+
+    private static List<Element> code(TypeInfo t) {
+        List<Element> code = new ArrayList<>();
+        Stream.concat(t.constructors().stream(), t.methods().stream())
+                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
+        for (FieldInfo f : t.fields()) {
+            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
+        }
+        return code;
+    }
+
+    /**
+     * The hoisted types ({@link CSharpNames#hoisted}) whose simple name another type of their namespace has too:
+     * {@code RequestContext.Add} and {@code ResponseContext.Add} both land in the namespace.
+     */
+    private static Set<TypeInfo> prefixedHoisted(List<TypeInfo> all) {
+        Map<String, List<TypeInfo>> byName = new java.util.HashMap<>();
+        for (TypeInfo t : all) {
+            if (t.isAnonymous() || !CSharpNames.translated(t)) continue;
+            if (CSharpNames.enclosing(t) != null && !CSharpNames.hoisted(t)) continue;
+            byName.computeIfAbsent(t.packageName() + "." + t.simpleName(), n -> new ArrayList<>()).add(t);
+        }
+        Set<TypeInfo> prefixed = new HashSet<>();
+        byName.values().stream().filter(ts -> ts.size() > 1)
+                .forEach(ts -> ts.stream().filter(CSharpNames::hoisted).forEach(prefixed::add));
+        return Set.copyOf(prefixed);
+    }
+
+    /** A hoisted type whose name is prefixed with its enclosing types' names, which keeps it unique. */
+    public boolean prefixedHoisted(TypeInfo typeInfo) {
+        return prefixedHoisted.contains(typeInfo);
+    }
+
+    /**
+     * The simple names of the program's top-level types that two namespaces declare, or the BCL does: where usings
+     * bring both into scope, C# finds the name ambiguous.
+     */
+    private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes) {
+        Map<String, Set<String>> namespaces = new java.util.HashMap<>();
+        for (TypeInfo t : primaryTypes) {
+            if (!CSharpNames.translated(t)) continue;
+            String simple = t.simpleName();
+            String name = t.isInterface() && !t.typeNature().isAnnotation()
+                          && !(simple.length() > 1 && simple.charAt(0) == 'I' && Character.isUpperCase(simple.charAt(1)))
+                    ? "I" + simple : simple;
+            namespaces.computeIfAbsent(name, n -> new HashSet<>()).add(t.packageName());
+        }
+        Set<String> bcl = CSharpBcl.typeNames();
+        Set<String> ambiguous = new HashSet<>();
+        namespaces.forEach((name, packages) -> {
+            if (packages.size() > 1 || bcl.contains(name)) ambiguous.add(name);
+        });
+        return Set.copyOf(ambiguous);
+    }
+
+    /** A type of this simple name is qualified outside its namespace. */
+    public boolean ambiguous(String simpleName) {
+        return ambiguous.contains(simpleName);
     }
 
     /** {@code Exception} → {@code Exceptions}: the segments of the program's namespaces that are a type's name too. */
@@ -218,13 +368,7 @@ public final class CSharpProgram {
     private static void collect(TypeInfo t, List<TypeInfo> all) {
         all.add(t);
         t.subTypes().forEach(st -> collect(st, all));
-        List<Element> code = new ArrayList<>();
-        Stream.concat(t.constructors().stream(), t.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
-        for (FieldInfo f : t.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
-        }
-        for (Element element : code) {
+        for (Element element : code(t)) {
             element.visit((Element e) -> {
                 if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collect(cc.anonymousClass(), all);
                 if (e instanceof LocalTypeDeclaration ltd) collect(ltd.typeInfo(), all);

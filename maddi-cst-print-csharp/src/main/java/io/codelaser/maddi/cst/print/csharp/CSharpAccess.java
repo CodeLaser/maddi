@@ -58,7 +58,7 @@ final class CSharpAccess {
                     : m.access().isPrivate() ? Exposure.NONE : Exposure.PUBLIC, x);
             signature(m.returnType(), x, reached, exposed);
             m.parameters().forEach(p -> signature(p.parameterizedType(), x, reached, exposed));
-            if (m.methodBody() != null) body(m.methodBody(), x, reached);
+            if (m.methodBody() != null) body(m.methodBody(), x, reached, CSharpNames.inCompanion(m));
         });
         for (FieldInfo f : x.fields()) {
             // a record's components are its properties, as visible as the record
@@ -67,22 +67,25 @@ final class CSharpAccess {
                     : f.modifiers().stream().anyMatch(FieldModifier::isPrivate) ? Exposure.NONE
                     : f.modifiers().stream().anyMatch(fm -> fm.isPublic() || fm.isProtected()) ? Exposure.PUBLIC
                     : Exposure.INTERNAL, x));
-            if (f.initializer() != null && !f.initializer().isEmpty()) body(f.initializer(), x, reached);
+            if (f.initializer() != null && !f.initializer().isEmpty()) {
+                body(f.initializer(), x, reached, CSharpNames.inCompanion(f));
+            }
         }
         if (x.parentClass() != null) signature(x.parentClass(), x, reached, Exposure.NONE);
         x.interfacesImplemented().forEach(i -> signature(i, x, reached, Exposure.NONE));
         x.subTypes().forEach(st -> scan(st, reached));
     }
 
-    private static void body(Element element, TypeInfo x, Set<Object> reached) {
+    /** {@code fromCompanion}: code of a static member that C# declares in the companion class of {@code x}. */
+    private static void body(Element element, TypeInfo x, Set<Object> reached, boolean fromCompanion) {
         element.visit((Element e) -> {
             switch (e) {
-                case MethodCall mc -> member(mc.methodInfo(), mc.methodInfo().typeInfo(), x, reached);
-                case MethodReference mr -> member(mr.methodInfo(), mr.methodInfo().typeInfo(), x, reached);
+                case MethodCall mc -> member(mc.methodInfo(), mc.methodInfo().typeInfo(), x, reached, fromCompanion);
+                case MethodReference mr -> member(mr.methodInfo(), mr.methodInfo().typeInfo(), x, reached, fromCompanion);
                 case ConstructorCall cc when cc.constructor() != null ->
-                        member(cc.constructor(), cc.constructor().typeInfo(), x, reached);
+                        member(cc.constructor(), cc.constructor().typeInfo(), x, reached, fromCompanion);
                 case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
-                        member(fr.fieldInfo(), fr.fieldInfo().owner(), x, reached);
+                        member(fr.fieldInfo(), fr.fieldInfo().owner(), x, reached, fromCompanion);
                 default -> {
                 }
             }
@@ -131,13 +134,21 @@ final class CSharpAccess {
     record Exposed(TypeInfo typeInfo) {
     }
 
-    private static void member(Object info, TypeInfo owner, TypeInfo x, Set<Object> reached) {
+    private static void member(Object info, TypeInfo owner, TypeInfo x, Set<Object> reached, boolean fromCompanion) {
         boolean isPrivate = switch (info) {
             case FieldInfo f -> f.modifiers().stream().anyMatch(FieldModifier::isPrivate);
             case MethodInfo m -> m.access() != null && m.access().isPrivate();
             default -> false;
         };
-        if (isPrivate && !within(x, owner)) reached.add(info);
+        if (!isPrivate) return;
+        // C#'s private is the declaring class's: the companion and its generic type are siblings
+        boolean accessible;
+        if (CSharpNames.inCompanion(info)) accessible = fromCompanion && x.equals(owner);
+        else if (fromCompanion) {
+            accessible = !CSharpNames.hoisted(x) && enclosing(x) != null && within(enclosing(x), owner) && !owner.equals(x);
+        }
+        else accessible = within(x, owner);
+        if (!accessible) reached.add(info);
     }
 
     /** {@code x} is {@code owner}, or nested in it in C#: a hoisted type is not (see {@link CSharpNames#hoisted}). */

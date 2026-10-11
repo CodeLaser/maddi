@@ -17,6 +17,8 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -64,6 +66,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             CSharpContext.message(CSharpPrintMessage.Code.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
             return b;
         }
+        b.add(CSharpAttributes.uses(methodInfo.annotations(), q, true));
         if (methodInfo.isSynchronized()) {
             CSharpContext.using("System.Runtime.CompilerServices");
             b.add(new TextImpl("[MethodImpl(MethodImplOptions.Synchronized)]")).add(SpaceEnum.NEWLINE);
@@ -81,13 +84,27 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             constructorBody(b, q);
             return b;
         }
-        String typeParameters = methodInfo.typeParameters().isEmpty() ? ""
-                : methodInfo.typeParameters().stream().map(tp -> CSharpNames.name(tp.simpleName()))
-                        .collect(Collectors.joining(", ", "<", ">"));
-        b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
-                .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
-        b.add(parameters(methodInfo, q));
-        for (String constraint : CSharpTypeName.constraints(methodInfo.typeParameters(), q)) {
+        CSharpWildcards.Captured captured = CSharpWildcards.captured(methodInfo, q);
+        List<String> allTypeParameters = new java.util.ArrayList<>(methodInfo.typeParameters().stream()
+                .map(CSharpNames::typeParameter).toList());
+        allTypeParameters.addAll(captured.typeParameters());
+        String typeParameters = allTypeParameters.isEmpty() ? "" : "<" + String.join(", ", allTypeParameters) + ">";
+        MethodInfo overridden = CSharpTypePrinter.interfaceMethodDefaulted(typeInfo, methodInfo);
+        if (overridden != null) {
+            // a default method for an inherited interface's method implements it explicitly
+            ParameterizedType owner = CSharpTypePrinter.implementedAs(typeInfo, overridden.typeInfo());
+            java.util.Map<TypeParameter, ParameterizedType> map = CSharpTypePrinter.typeArguments(owner);
+            b.add(new TextImpl(CSharpTypeName.of(CSharpTypePrinter.substitute(overridden.returnType(), map), q)))
+                    .add(SpaceEnum.ONE)
+                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
+        } else {
+            b.add(new TextImpl(modifiers + CSharpTypeName.of(methodInfo.returnType(), q))).add(SpaceEnum.ONE)
+                    .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
+        }
+        b.add(parameters(methodInfo, captured, q));
+        List<String> constraints = new java.util.ArrayList<>(CSharpTypeName.constraints(methodInfo.typeParameters(), q));
+        constraints.addAll(captured.constraints());
+        for (String constraint : constraints) {
             b.add(SpaceEnum.ONE).add(new TextImpl(constraint));
         }
         Block body = methodInfo.methodBody();
@@ -117,15 +134,26 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** {@code (int a, params string[] rest)}. */
     static OutputBuilder parameters(MethodInfo methodInfo, Qualification q) {
+        return parameters(methodInfo, CSharpWildcards.Captured.NONE, q);
+    }
+
+    private static OutputBuilder parameters(MethodInfo methodInfo, CSharpWildcards.Captured captured, Qualification q) {
         if (methodInfo.parameters().isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        return methodInfo.parameters().stream().map(p -> parameter(p, q))
+        int token = CSharpContext.program().typeToken(methodInfo);
+        // a type token, Class<T> type, is the type argument T
+        if (token >= 0 && methodInfo.parameters().size() == 1) {
+            return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        }
+        return methodInfo.parameters().stream().filter(p -> p.index() != token)
+                .map(p -> parameter(p, captured.names().get(p.index()), q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
     }
 
-    private static OutputBuilder parameter(ParameterInfo p, Qualification q) {
-        String type = CSharpTypeName.of(p.parameterizedType(), q);
-        return new OutputBuilderImpl().add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
+    private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {
+        String type = wildcardNames != null ? CSharpWildcards.type(p.parameterizedType(), wildcardNames, q)
+                : CSharpTypeName.of(p.parameterizedType(), q);
+        return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }
 }

@@ -79,12 +79,36 @@ public final class CSharpNames {
         CSharpAnonymous.Hoisted hoisted = typeInfo.isAnonymous() ? CSharpContext.hoisted(typeInfo) : null;
         if (hoisted != null) return hoisted.name();
         String simple = typeInfo.simpleName();
+        // an attribute class's name ends in Attribute: [Tool] uses ToolAttribute
+        if (CSharpAttributes.isAttribute(typeInfo)) return name(simple.endsWith("Attribute") ? simple : simple + "Attribute");
         // a delegate is named as a class
         if (translated(typeInfo) && typeInfo.typeNature().isInterface() && !typeInfo.typeNature().isAnnotation()
             && !CSharpContext.program().delegate(typeInfo)
             && !(simple.length() > 1 && simple.charAt(0) == 'I' && Character.isUpperCase(simple.charAt(1)))) {
             String prefixed = "I" + simple;
             if (!clashesInEnclosingType(typeInfo, prefixed)) return prefixed;
+        }
+        if (CSharpContext.program().prefixedHoisted(typeInfo)) {
+            StringBuilder sb = new StringBuilder(simple);
+            for (TypeInfo e = enclosing(typeInfo); e != null; e = enclosing(e)) sb.insert(0, e.simpleName());
+            return name(sb.toString());
+        }
+        return name(simple);
+    }
+
+    /**
+     * The name of a type parameter: its Java name, unless a member of its type has that name in C#, which C# does not
+     * allow; then the C# convention's {@code T} prefix: {@code EmbeddingMatch<TEmbedded>} with method {@code Embedded()}.
+     */
+    public static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        String simple = tp.simpleName();
+        if (tp.getOwner().isLeft()) {
+            TypeInfo owner = tp.getOwner().getLeft();
+            if (owner.methods().stream().anyMatch(m -> !m.isConstructor() && simple.equals(method(m)))
+                || owner.fields().stream().anyMatch(f -> simple.equals(field(f)))
+                || owner.subTypes().stream().anyMatch(st -> simple.equals(st.simpleName()))) {
+                return name("T" + simple);
+            }
         }
         return name(simple);
     }
@@ -107,6 +131,15 @@ public final class CSharpNames {
         }
         String pascal = pascal(javaName);
         TypeInfo owner = methodInfo.typeInfo();
+        if (pascal.equals(type(owner)) && !pascal.equals(javaName)) {
+            // C# has no member named as its type: Metadata.metadata(k, v) is Metadata.Of(k, v)
+            return methodInfo.isStatic() ? "Of" : pascal + "Value";
+        }
+        if (owner.subTypes().stream().anyMatch(st -> !hoisted(st) && pascal.equals(type(st)))
+            && owner.fields().stream().anyMatch(f -> javaName.equals(field(f)))) {
+            // nested type Result, field result: Result result() is ResultValue()
+            return pascal + "Value";
+        }
         if (pascal.equals(javaName) || pascal.equals(type(owner))
             || owner.fields().stream().anyMatch(f -> pascal.equals(field(f)))
             || owner.subTypes().stream().anyMatch(st -> pascal.equals(type(st)))) {
@@ -152,6 +185,51 @@ public final class CSharpNames {
                && (typeInfo.isStatic() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
                    || typeInfo.typeNature().isRecord())
                && genericScope(enclosing);
+    }
+
+    /**
+     * A generic type whose static members C# declares in a non-generic static class of the same name, beside it:
+     * C# reaches a generic class's static members through a constructed type, {@code Response<T>.From(x)}, Java
+     * through the class, {@code Response.from(x)}; and Java's static members never use the type's parameters. A
+     * static member whose code declares an anonymous or local class stays (that class would be nested in the
+     * generic type).
+     */
+    static boolean hasCompanion(TypeInfo t) {
+        if (t.typeParameters().isEmpty()) return false;
+        return CSharpContext.hasCompanion(t, CSharpNames::computeHasCompanion);
+    }
+
+    private static boolean computeHasCompanion(TypeInfo t) {
+        if (t.typeParameters().isEmpty() || !translated(t) || t.isAnonymous() || t.enclosingMethod() != null
+            || t.typeNature().isAnnotation() || CSharpAttributes.isAttribute(t)
+            || CSharpContext.program().delegate(t)) return false;
+        List<MethodInfo> statics = t.methods().stream()
+                .filter(m -> (m.isStatic() || m.isStaticInitializer()) && !m.isSynthetic()).toList();
+        List<FieldInfo> staticFields = t.fields().stream().filter(f -> f.isStatic() && !f.isSynthetic()).toList();
+        if (statics.isEmpty() && staticFields.isEmpty()) return false;
+        List<io.codelaser.maddi.cst.api.element.Element> code = new java.util.ArrayList<>();
+        statics.stream().filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
+        staticFields.stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
+                .forEach(f -> code.add(f.initializer()));
+        boolean[] declaresType = {false};
+        for (var element : code) {
+            element.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null
+                    || e instanceof io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration) declaresType[0] = true;
+                return !declaresType[0];
+            });
+        }
+        return !declaresType[0];
+    }
+
+    /** A static member that C# declares in its type's companion class. */
+    static boolean inCompanion(Object member) {
+        return switch (member) {
+            case MethodInfo m -> (m.isStatic() || m.isStaticInitializer()) && (!m.isConstructor() || m.isStaticInitializer())
+                                 && !m.isSynthetic() && hasCompanion(m.typeInfo());
+            case FieldInfo f -> f.isStatic() && !f.isSynthetic() && hasCompanion(f.owner());
+            default -> false;
+        };
     }
 
     /** Type parameters C# would give a type nested in this one: its own, and those of its non-hoisted enclosing types. */

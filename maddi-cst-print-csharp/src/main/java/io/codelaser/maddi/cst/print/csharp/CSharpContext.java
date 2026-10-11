@@ -36,6 +36,8 @@ final class CSharpContext {
 
     private static final class State {
         final Deque<TypeInfo> types = new ArrayDeque<>();
+        TypeInfo companion;
+        final java.util.Map<TypeInfo, Boolean> hasCompanion = new java.util.HashMap<>();
         final Deque<MethodInfo> methods = new ArrayDeque<>();
         final Set<CSharpPrintMessage> messages = new LinkedHashSet<>();
         final Set<String> usings = new TreeSet<>();
@@ -91,6 +93,25 @@ final class CSharpContext {
 
     static void popType() {
         STATE.get().types.pop();
+    }
+
+    /** The type whose companion class is being printed ({@link CSharpNames#hasCompanion}); null when none. */
+    static TypeInfo companion() {
+        return STATE.get().companion;
+    }
+
+    static boolean hasCompanion(TypeInfo typeInfo, java.util.function.Predicate<TypeInfo> compute) {
+        java.util.Map<TypeInfo, Boolean> cache = STATE.get().hasCompanion;
+        Boolean known = cache.get(typeInfo);
+        if (known == null) {
+            known = compute.test(typeInfo);
+            cache.put(typeInfo, known);
+        }
+        return known;
+    }
+
+    static void companion(TypeInfo typeInfo) {
+        STATE.get().companion = typeInfo;
     }
 
     static TypeInfo currentType() {

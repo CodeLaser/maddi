@@ -58,6 +58,15 @@ public final class CSharpTypeName {
     private static final ThreadLocal<java.util.Set<TypeInfo>> RAW_IN_PROGRESS =
             ThreadLocal.withInitial(java.util.HashSet::new);
 
+    /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
+    private static final java.util.Map<String, String> NON_GENERIC = java.util.Map.of(
+            "java.util.List", "IList",
+            "java.util.Collection", "ICollection",
+            "java.util.Set", "ICollection",
+            "java.lang.Iterable", "IEnumerable",
+            "java.util.Map", "IDictionary",
+            "java.lang.Comparable", "IComparable");
+
     /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
     private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
             "java.util.List", "IReadOnlyList",
@@ -90,7 +99,7 @@ public final class CSharpTypeName {
             }
             CSharpContext.message(CSharpPrintMessage.Code.WILDCARD_AS_BOUND, null, pt.toString());
         }
-        if (pt.isTypeParameter()) return CSharpNames.name(pt.typeParameter().simpleName());
+        if (pt.isTypeParameter()) return CSharpNames.typeParameter(pt.typeParameter());
         TypeInfo typeInfo = pt.typeInfo();
         if (typeInfo == null) return "object";
         String fqn = typeInfo.fullyQualifiedName();
@@ -102,6 +111,13 @@ public final class CSharpTypeName {
         if (mapped != null) return mapped;
 
         List<ParameterizedType> arguments = pt.parameters();
+        String nonGeneric = NON_GENERIC.get(fqn);
+        if (nonGeneric != null && !arguments.isEmpty()
+            && arguments.stream().allMatch(a -> a.wildcard() != null && a.wildcard().isUnbound())) {
+            // List<?> is any list: C#'s non-generic IList, which every List<T> is
+            CSharpContext.using("IComparable".equals(nonGeneric) ? "System" : "System.Collections");
+            return nonGeneric;
+        }
         String covariant = COVARIANT.get(fqn);
         if (covariant != null && arguments.size() == 1 && arguments.getFirst().wildcard() != null
             && arguments.getFirst().wildcard().isExtends() && arguments.getFirst().typeInfo() != null) {
@@ -188,6 +204,12 @@ public final class CSharpTypeName {
         if (!CSharpNames.translated(typeInfo)) {
             CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
         }
+        if (shadowedByMember(typeInfo) || ambiguousHere(typeInfo)) {
+            // VideoContent.Video() hides the type Video in VideoContent's code
+            String namespace = CSharpNames.namespace(typeInfo);
+            String fromPrimary = fromPrimaryType(typeInfo);
+            return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
+        }
         if (q == null) {
             CSharpContext.referenced(typeInfo);
             return CSharpNames.type(typeInfo);
@@ -206,6 +228,34 @@ public final class CSharpTypeName {
         }
         String namespace = CSharpNames.namespace(typeInfo);
         return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
+    }
+
+    /** The type's top-level name is ambiguous (see {@link CSharpProgram}) and it is not of the printed namespace. */
+    private static boolean ambiguousHere(TypeInfo typeInfo) {
+        if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
+        TypeInfo top = CSharpNames.topLevel(typeInfo);
+        if (!CSharpContext.program().ambiguous(CSharpNames.type(top))) return false;
+        TypeInfo current = CSharpContext.currentType();
+        return current == null || !CSharpNames.namespace(current).equals(CSharpNames.namespace(typeInfo));
+    }
+
+    /**
+     * A member of the type being printed, of a type it is nested in, or of their superclasses, has the type's simple
+     * C# name: in C#, the member hides the type.
+     */
+    private static boolean shadowedByMember(TypeInfo typeInfo) {
+        if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
+        String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
+        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CSharpNames.enclosing(t)) {
+            for (TypeInfo c = t; c != null && CSharpNames.translated(c);
+                 c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
+                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
+                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /** {@code Outer.Inner}, each segment by its C# name. */
@@ -235,7 +285,7 @@ public final class CSharpTypeName {
         for (TypeParameter tp : typeParameters) {
             List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
             if (bounds.isEmpty()) continue;
-            constraints.add("where " + CSharpNames.name(tp.simpleName()) + " : "
+            constraints.add("where " + CSharpNames.typeParameter(tp) + " : "
                             + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(", ")));
         }
         return constraints;

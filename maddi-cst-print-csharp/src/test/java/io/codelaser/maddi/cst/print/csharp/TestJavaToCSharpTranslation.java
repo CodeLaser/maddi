@@ -737,4 +737,295 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Query", NAMESPACES);
         contains(cs, "namespace Org.Example.Exceptions.Queries;");
     }
+
+    @Language("java")
+    private static final String LANGUAGE = """
+            package org.example.lang;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Metadata {
+                interface Result {
+                    boolean success();
+                    default boolean failed() { return !success(); }
+                }
+                interface Listener<T> {
+                    void onEvent(T event);
+                }
+                interface StartListener extends Listener<String> {
+                }
+                static class Ok implements Result {
+                    public boolean success() { return true; }
+                    boolean check() { return failed(); }
+                }
+                abstract static class Builder<T extends Builder<T>> {
+                    String name;
+                    T name(String name) { this.name = name; return (T) this; }
+                }
+                private final Map<String, Object> metadata = new HashMap<>();
+                static Metadata metadata(String key, Object value) { return new Metadata(); }
+                Object get(String key) { return metadata.get(key); }
+            }
+            """;
+
+    /**
+     * A C# class does not inherit its interfaces' default methods: a call goes through the interface. A cast to a type
+     * parameter goes through object. A method named as its class is renamed. An adapter substitutes the arguments a
+     * functional interface gives its generic super-interface.
+     */
+    @Test
+    public void language() {
+        String cs = translate("Metadata", LANGUAGE);
+        contains(cs, "internal bool Check() => ((IResult) this).Failed();");
+        contains(cs, "return (T) (object) this;");
+        contains(cs, "internal static Metadata Of(string key, object value) => new Metadata();");
+        contains(cs, "public sealed class Lambda(Action<string> f) : IStartListener { public void OnEvent(string @event) => f(@event); }");
+    }
+
+    @Language("java")
+    private static final String ANNOTATIONS = """
+            package org.example.attr;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            import java.lang.reflect.Method;
+            class Tools {
+                @Retention(RetentionPolicy.RUNTIME)
+                @Target({ElementType.METHOD})
+                @interface Tool {
+                    String name() default "";
+                    String[] value() default "";
+                    boolean required() default true;
+                }
+                @Tool(value = "Adds", name = "add")
+                int add(int a, int b) { return a + b; }
+                @Deprecated
+                int old() { return 0; }
+                static String nameOf(Tool tool) { return tool.name(); }
+            }
+            """;
+
+    /**
+     * An annotation type is an attribute class with properties and their defaults; a use is an attribute, its value
+     * element positional; reading an element reads the property.
+     */
+    @Test
+    public void annotations() {
+        String cs = translate("Tools", ANNOTATIONS);
+        contains(cs, "[AttributeUsage(AttributeTargets.Method)]");
+        contains(cs, "internal sealed class ToolAttribute : Attribute {");
+        contains(cs, "public ToolAttribute(params string[] value) { Value = value; }");
+        contains(cs, "public string Name { get; set; } = \"\";");
+        contains(cs, "public string[] Value { get; set; } = new string[] { \"\" };");
+        contains(cs, "public bool Required { get; set; } = true;");
+        contains(cs, "[Tool(\"Adds\", Name = \"add\")]");
+        contains(cs, "[Obsolete]");
+        contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
+    }
+
+    @Language("java")
+    private static final String RECORDS = """
+            package org.example.rec;
+            interface Result<T> {
+                T response();
+            }
+            record Success<T>(T response, String note) implements Result<T> {
+                public Success {
+                    if (response == null) throw new IllegalArgumentException("response");
+                    note = note == null ? "" : note.trim();
+                }
+            }
+            """;
+
+    /**
+     * A record with a compact constructor is a record with get-only properties and that constructor, which assigns
+     * them after its body (the CST's compact constructor does). An accessor implementing an interface method implements it explicitly.
+     */
+    @Test
+    public void records() {
+        String cs = translate("Result", RECORDS);
+        contains(cs, "internal sealed record Success<T> : IResult<T> {");
+        contains(cs, "public T Response { get; }");
+        contains(cs, "note = note == null ? \"\" : note.Trim();\nResponse = response;\nNote = note;");
+        contains(cs, "T IResult<T>.Response() => Response;");
+    }
+
+    @Language("java")
+    private static final String UNBOUND = """
+            package org.example.unbound;
+            import java.util.Collection;
+            import java.util.List;
+            class Checks {
+                static <T extends Collection<?>> T ensureNotEmpty(T c) { if (c.isEmpty()) throw new IllegalArgumentException(); return c; }
+                static int size(List<?> list) { return list.size(); }
+                static List<String> names(List<String> names) { return ensureNotEmpty(names); }
+            }
+            """;
+
+    /** A collection of {@code ?} is C#'s non-generic interface, which every generic collection implements. */
+    @Test
+    public void unboundWildcards() {
+        String cs = translate("Checks", UNBOUND);
+        contains(cs, "internal static T EnsureNotEmpty<T>(T c) where T : ICollection {");
+        contains(cs, "internal static int Size(IList list) => list.Count;");
+    }
+
+    @Language("java")
+    private static final String INTERFACES = """
+            package org.example.interfaces;
+            interface Listener<E> {
+                void onEvent(E event);
+                Class<E> eventClass();
+            }
+            interface StringListener extends Listener<String> {
+                default Class<String> eventClass() { return String.class; }
+            }
+            interface Failure {
+                Failure withCode(int code);
+            }
+            interface Model {
+                int dimension();
+                String embed(String text);
+            }
+            abstract class AbstractModel implements Model {
+                public int dimension() { return embed("test").length(); }
+            }
+            final class UpperModel extends AbstractModel {
+                public String embed(String text) { return text.toUpperCase(); }
+            }
+            class Holder {
+                static final class SimpleFailure implements Failure {
+                    public SimpleFailure withCode(int code) { return this; }
+                }
+            }
+            """;
+
+    /** C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. */
+    @Test
+    public void interfaceImplementations() {
+        String cs = translate("Listener", INTERFACES);
+        contains(cs, "Type IListener<string>.EventClass() => typeof(string);");
+        contains(cs, "public SimpleFailure WithCode(int code) => this;");
+        contains(cs, "IFailure IFailure.WithCode(int code) => WithCode(code);");
+        contains(cs, "public abstract string Embed(string text);");
+        contains(cs, "public override string Embed(string text) => text.ToUpperInvariant();");
+    }
+
+    @Language("java")
+    private static final String MEMBER_NAMES = """
+            package org.example.members;
+            final class Match<Embedded> {
+                private final Embedded embedded;
+                Match(Embedded embedded) { this.embedded = embedded; }
+                Embedded embedded() { return embedded; }
+            }
+            final class Outcome {
+                enum Result { SUCCESS, FAILURE }
+                private final Result result;
+                Outcome(Result result) { this.result = result; }
+                Result result() { return result; }
+            }
+            """;
+
+    /** C# has no member named as a type parameter or a nested type of its type. */
+    @Test
+    public void memberNames() {
+        String cs = translate("Match", MEMBER_NAMES);
+        contains(cs, "internal sealed class Match<TEmbedded> {");
+        contains(cs, "internal TEmbedded Embedded() => embedded;");
+        contains(cs, "internal Result ResultValue() => result;");
+    }
+
+    @Language("java")
+    private static final String CAPTURE = """
+            package org.example.capture;
+            import java.util.List;
+            interface Named { String name(); String title(); }
+            class Context<Embedded> {
+                List<Embedded> items() { return List.of(); }
+            }
+            interface Listener {
+                default void onRequest(Context<?> context) { }
+                default int size(Context<? extends Named> context) { return context.items().size(); }
+                default int length(Context<? extends String> context) { return context.items().size(); }
+            }
+            final class Counting implements Listener {
+                public void onRequest(Context<?> context) { System.out.println(context.items().size()); }
+            }
+            """;
+
+    /** Java captures a wildcard in the body; C#'s method takes it as a type parameter of its own. */
+    @Test
+    public void wildcardCapture() {
+        String cs = translate("Capture", CAPTURE);
+        contains(cs, "void OnRequest<TEmbedded>(Context<TEmbedded> context) { }");
+        contains(cs, "int Size<TEmbedded>(Context<TEmbedded> context) where TEmbedded : INamed");
+        contains(cs, "int Length(Context<string> context)");
+        contains(cs, "public void OnRequest<TEmbedded>(Context<TEmbedded> context)");
+    }
+
+    @Language("java")
+    private static final String TYPE_TOKENS = """
+            package org.example.tokens;
+            import java.util.List;
+            class Json {
+                static <T> T fromJson(String json, Class<T> type) {
+                    System.out.println(type.getName());
+                    return null;
+                }
+                static <T> List<T> all(String json, Class<T> type) { return List.of(fromJson(json, type)); }
+                static <T> String describe(Class<T> type) { return type.getName(); }
+                static String use(Class<?> unknown) { return describe(unknown); }
+                static Integer number(String json) { return fromJson(json, Integer.class); }
+            }
+            """;
+
+    /** A type token, {@code Class<T> type}, is the method's type argument when every call says what it is. */
+    @Test
+    public void typeTokens() {
+        String cs = translate("Json", TYPE_TOKENS);
+        contains(cs, "internal static T FromJson<T>(string json) {");
+        contains(cs, "Console.Out.WriteLine(typeof(T)");
+        contains(cs, "internal static List<T> All<T>(string json) => new List<T> { FromJson<T>(json) };");
+        contains(cs, "FromJson<int>(json)");
+        contains(cs, "internal static string Describe<T>(Type type)");
+    }
+
+    @Language("java")
+    private static final String COMPANION = """
+            package org.example.companion;
+            public final class Response<T> {
+                private static final String EMPTY = "";
+                private final T content;
+                private Response(T content) { this.content = content; }
+                public T content() { return content; }
+                public String describe() { return EMPTY + content + count(); }
+                private static int count() { return 1; }
+                public static <T> Response<T> from(T content) { return new Response<>(content); }
+            }
+            interface Store<E> {
+                int LIMIT = 10;
+                static <E> Store<E> empty() { return null; }
+                E get();
+            }
+            class User {
+                Response<String> hello() { return Response.from("hello" + Store.LIMIT); }
+            }
+            """;
+
+    /** C# reaches a generic class's statics through a constructed type: they are in a non-generic class beside it. */
+    @Test
+    public void companionClasses() {
+        String cs = translate("Response", COMPANION);
+        contains(cs, "public sealed class Response<T> {");
+        contains(cs, "public string Describe() => Response.EMPTY + content + Response.Count();");
+        contains(cs, "internal Response(T content)");
+        contains(cs, "public static class Response {");
+        contains(cs, "internal const string EMPTY = \"\";");
+        contains(cs, "internal static int Count() => 1;");
+        contains(cs, "public static Response<T> From<T>(T content) => new Response<T>(content);");
+        contains(cs, "internal static class IStore {");
+        contains(cs, "public const int LIMIT = 10;");
+        contains(cs, "Response.From(\"hello\" + IStore.LIMIT)");
+    }
 }

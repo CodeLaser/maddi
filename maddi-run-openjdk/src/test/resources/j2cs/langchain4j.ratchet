@@ -11,9 +11,35 @@
 # unmapped JDK uses 465 -> 670, as the 11 files that crashed are printed now.
 # 2026-10-10, a namespace segment with a type's name is plural (Dev.Langchain4j.Exception hid System.Exception,
 # Embedding, Query, Image, Tool: their types): 205 files compile; errors 1,374 -> 938.
+# 2026-10-10, a default method called on a class goes through the interface; a cast to a type parameter through
+# object; a method named as its class is Of (static) or <Name>Value; a type hidden by a member, or whose name two
+# namespaces or the BCL declare, is qualified; an adapter substitutes a generic super-interface's arguments: 208 files
+# compile; errors 938 -> 801.
+# 2026-10-10, annotation types as attribute classes (8, which printed empty before), their uses as attributes, element
+# reads as properties: errors 801 -> 793; the numbers do not move.
+# 2026-10-10, a record with a canonical or compact constructor declares its properties and that constructor; an
+# accessor implementing an interface method implements it explicitly: 209 files compile; errors 793 -> 791.
+# 2026-10-10, List/Collection/Set/Iterable/Map of ? as C#'s non-generic IList/ICollection/IEnumerable/IDictionary
+# (which a List<string> is, as a T extends Collection<?> needs): 214 files compile; errors 791 -> 772.
+# 2026-10-10, interface implementations: a narrower return type implements the interface's method explicitly, a
+# default method implements an inherited interface's method explicitly, an abstract class redeclares the interface
+# methods it leaves (and its subclasses override them), clashing hoisted nested types are prefixed: 224 files
+# compile; errors 772 -> 721.
+# 2026-10-10, a type parameter named as a member of its type is T-prefixed (EmbeddingMatch<TEmbedded>), a method
+# named as a nested type of its type with a field of its Java name is PascalValue (ResultValue()): 226 files compile;
+# errors 721 -> 716.
+# 2026-10-10, a method captures a parameter's wildcard X<?> of a program type as a type parameter of its own,
+# void OnRequest<TEmbedded>(Context<TEmbedded> c), constrained by the wildcard's or the declared bound: 227 files
+# compile; errors 716 -> 683.
+# 2026-10-10, a type token Class<T> is the method's type argument when every call passes a known Class<X>
+# (T FromJson<T>(string json), typeof(T) in the body, FromJson<Foo>(s) at the call): 230 files compile;
+# errors 683 -> 666, CS0411 30 -> 9.
+# 2026-10-10, a generic type's static members in a non-generic static companion class of the same name
+# (Response.From(x) as in Java), Comparable<?> as IComparable, BCL templates writing a generic collection use its
+# namespace: 233 files compile; errors 666 -> 636.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	205
+compilingFiles	233
 unmappedJdkUses	670
