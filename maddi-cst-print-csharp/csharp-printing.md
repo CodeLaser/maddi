@@ -103,6 +103,11 @@ implements the interface.
   `if (v == null) return;`, inside `if (v != null)`), which C#'s flow analysis knows too. The facts for locals and use
   sites come from the analysis's report, through `CSharpFacts`; a local the analysis asserts at its declaration
   (`assertedAtDeclaration`) has its initializer asserted instead: `var block = blocks.GetWithKey(j)!;`.
+- An argument that may be null, for a parameter that is not nullable, has a `!` too (CS8604): `list.Add(x!)`. Java
+  passes the null on, and so does C#. A program's parameter is nullable when the analysis says so, a library's when
+  its hints do. C# prints no `?` in a type argument (`List<Exprent>`), so that a collection's element or key is not
+  nullable whatever the hints: Java's `contains(Object)` takes null, C#'s `Contains(T)` does not, and even a `null`
+  there is `null!`. This is the write the analysis asserts under its Kotlin policy (`assertContentWrites`).
 
 ## Declarations
 
