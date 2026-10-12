@@ -178,7 +178,13 @@ implements the interface.
   where Java's type is writable casts to it through `object`, `(InnerScore<SimpleScore>) (object) scope.GetScore()`,
   since C# relates no two instantiations of a class.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
-  it is created, gets the ones its constructor's arguments give.
+  it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
+  for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
+  reference binds.
+- **Delegate variance.** Java passes a `Function<A, P>` where a `Function<A, ?>` is expected; C#'s `Func` is
+  covariant only in a reference type, which a type parameter is not known to be (CS1503). A variable is wrapped in a
+  lambda that C# converts with the boxing, `x0_ => leftMapping(x0_)`, a parameter that differs cast,
+  `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
   `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
   inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. A `Class<T>` parameter is

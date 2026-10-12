@@ -1552,6 +1552,17 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 <ResultA_> Stream<ResultA_> map(Function<A, ResultA_> mapping) {
                     return share(new MapStream<>(this, mapping));
                 }
+                static final class Bridge<A> implements Stream<A> { Bridge(Streams<?> parent) { } }
+                static final class Group<A, NewA> implements Stream<NewA> { void setBridge(Bridge<NewA> bridge) { } }
+                <S extends Stream<?>> S share(S stream, java.util.function.Consumer<S> consumer) {
+                    consumer.accept(stream);
+                    return stream;
+                }
+                <NewA> Stream<NewA> group(Group<A, NewA> group) { return share(new Bridge<>(this), group::setBridge); }
+                static <T> String key(Function<T, ?> mapping, T t) { return String.valueOf(mapping.apply(t)); }
+                static <T, P> String keyed(Function<T, P> mapping, T t) { return key(mapping, t); }
+                static String raw(Function mapping) { return String.valueOf(mapping.apply("x")); }
+                static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
             }
             """;
 
@@ -1560,6 +1571,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void diamond() {
         String cs = translate("Streams", STREAMS);
         contains(cs, "new MapStream<A, ResultA_>(");
+        // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
+        contains(cs, "new Bridge<NewA>(this)");
+        // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
+        contains(cs, "Key(x0_ => mapping(x0_), t)");
+        contains(cs, "Raw(x0_ => mapping((T) x0_))");
     }
 
     private static final String SCORES = """

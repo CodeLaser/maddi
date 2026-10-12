@@ -689,7 +689,9 @@ public final class CSharpExpressionPrinter {
     /**
      * {@code new UniMap<>(…)} whose type arguments the parser left as the class's own type parameters, which are not in
      * scope where it is created: inferred from the constructor's arguments, {@code mapping}'s
-     * {@code UniNeighborhoodsMapper<Solution_, A, ResultA_>} for the parameter's {@code …Mapper<Solution_, A, NewA>}.
+     * {@code UniNeighborhoodsMapper<Solution_, A, ResultA_>} for the parameter's {@code …Mapper<Solution_, A, NewA>};
+     * else, as an argument, from the type Java inferred for its parameter: {@code share(new Bridge<>(parent),
+     * group::setBridge)}'s {@code S} is {@code Bridge<NewA>}, which the method reference binds.
      */
     private static ParameterizedType diamond(ConstructorCall cc, ParameterizedType type) {
         TypeInfo created = type.typeInfo();
@@ -706,6 +708,15 @@ public final class CSharpExpressionPrinter {
             match(parameters.get(i).parameterizedType(), cc.parameterExpressions().get(i).parameterizedType(), own,
                     inferred);
         }
+        ParameterizedType target = argumentTarget(cc);
+        if (target != null && created.equals(target.typeInfo()) && target.parameters().size() == type.parameters().size()) {
+            for (int i = 0; i < type.parameters().size(); i++) {
+                ParameterizedType a = type.parameters().get(i);
+                if (a.isTypeParameter() && own.contains(a.typeParameter())) {
+                    inferred.putIfAbsent(a.typeParameter(), target.parameters().get(i));
+                }
+            }
+        }
         List<ParameterizedType> arguments = new java.util.ArrayList<>();
         for (ParameterizedType a : type.parameters()) {
             if (a.isTypeParameter() && own.contains(a.typeParameter())) {
@@ -717,6 +728,23 @@ public final class CSharpExpressionPrinter {
             }
         }
         return type.withParameters(arguments);
+    }
+
+    /** The type Java inferred for the parameter that {@code cc} is the argument of; null when not a call's argument. */
+    private static ParameterizedType argumentTarget(ConstructorCall cc) {
+        if (!(CSharpContext.enclosingCall() instanceof MethodCall mc) || mc.methodInfo() == null) return null;
+        MethodInfo method = mc.methodInfo();
+        List<Expression> args = mc.parameterExpressions();
+        int index = -1;
+        for (int i = 0; i < args.size(); i++) {
+            if (unwrap(args.get(i)) == cc) index = i;
+        }
+        if (index < 0 || index >= method.parameters().size() || method.parameters().get(index).isVarArgs()) return null;
+        ParameterizedType formal = method.parameters().get(index).parameterizedType();
+        if (!formal.isTypeParameter() || formal.arrays() != 0) return null;
+        java.util.Map<TypeParameter, ParameterizedType> bound = new java.util.HashMap<>();
+        match(method.returnType(), mc.concreteReturnType(), method.typeParameters(), bound);
+        return bound.get(formal.typeParameter());
     }
 
     /**
@@ -752,7 +780,48 @@ public final class CSharpExpressionPrinter {
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
+        OutputBuilder widened = widenedDelegate(inner, target, q);
+        if (widened != null) return widened;
         return print(value, q);
+    }
+
+    private static final java.util.regex.Pattern BCL_DELEGATE =
+            java.util.regex.Pattern.compile("^(System\\.)?(Func|Action|Predicate|Comparison)<");
+
+    /**
+     * {@code Func<A, Property_>} where {@code Func<A, object>} is expected: Java's wildcard takes it, C#'s variance
+     * only for reference types, which a type parameter is not known to be (CS1503). A variable is wrapped in a lambda,
+     * {@code x0_ => leftMapping(x0_)}, which C# converts with the boxing; a parameter that differs is cast,
+     * {@code x0_ => mapping((A) x0_)}. Not another expression, which the lambda would evaluate at every call.
+     */
+    private static OutputBuilder widenedDelegate(Expression inner, ParameterizedType target, Qualification q) {
+        if (!(inner instanceof VariableExpression) || target.arrays() != 0) return null;
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || from.typeInfo() == null || !from.typeInfo().equals(target.typeInfo())) {
+            return null;
+        }
+        String to = CSharpTypeName.of(target, q);
+        if (to.equals(CSharpTypeName.of(from, q))) return null;
+        if (!CSharpContext.program().delegate(from.typeInfo()) && !BCL_DELEGATE.matcher(to).find()) return null;
+        MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
+        if (sam == null) return null;
+        java.util.Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> fromMap = from.initialTypeParameterMap();
+        java.util.Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> toMap = target.initialTypeParameterMap();
+        List<String> names = new java.util.ArrayList<>();
+        List<String> arguments = new java.util.ArrayList<>();
+        for (int i = 0; i < sam.parameters().size(); i++) {
+            String name = "x" + i + "_";
+            names.add(name);
+            ParameterizedType formal = sam.parameters().get(i).parameterizedType();
+            ParameterizedType fromP = formal.isTypeParameter() ? fromMap.get(formal.typeParameter()) : formal;
+            ParameterizedType toP = formal.isTypeParameter() ? toMap.get(formal.typeParameter()) : formal;
+            String fromS = fromP == null ? null : CSharpTypeName.of(fromP, q);
+            boolean same = fromS == null || toP != null && fromS.equals(CSharpTypeName.of(toP, q));
+            arguments.add(same ? name : "(" + fromS + ") " + name);
+        }
+        String parameters = names.size() == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
+        return new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */
