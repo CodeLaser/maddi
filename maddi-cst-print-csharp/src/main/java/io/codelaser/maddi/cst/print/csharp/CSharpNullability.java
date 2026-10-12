@@ -108,6 +108,57 @@ final class CSharpNullability {
         return intoParameter(value, method, i, false, printed);
     }
 
+    /**
+     * The value of a {@code return} in the current method, {@code printed}: with {@code !} when it may be null, a
+     * {@code null} too, and the method's result is not nullable (CS8603). A lambda's result is a delegate's type
+     * argument, which C# prints without {@code ?}: as a collection's element, it is asserted.
+     */
+    static OutputBuilder intoReturn(Expression value, OutputBuilder printed) {
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || !facts().nullabilityAnalysed() || !nullOrMayBeNull(value)
+            || valueType(method.returnType())) {
+            return printed;
+        }
+        boolean lambda = method.typeInfo().isAnonymous();
+        if (!lambda && facts().nullable(method) == NullableState.NULLABLE) return printed;
+        return asserted(value, printed);
+    }
+
+    /**
+     * The value assigned to {@code target}, {@code printed}: with {@code !} when it may be null, a {@code null} too,
+     * and the target is not nullable (CS8625, CS8601): an array's element, which C# prints without {@code ?}
+     * ({@code arr[i] = null!} holds the null as Java's does), or a field the analysis finds non-null. A local's type
+     * is {@code T?} already.
+     */
+    static OutputBuilder intoVariable(Expression value, Variable target, OutputBuilder printed) {
+        if (!facts().nullabilityAnalysed() || !nullOrMayBeNull(value) || valueType(target.parameterizedType())) {
+            return printed;
+        }
+        boolean nonNull = switch (target) {
+            case DependentVariable dv -> true;
+            case FieldReference fr -> facts().nullable(fr.fieldInfo()) != NullableState.NULLABLE;
+            default -> false;
+        };
+        return nonNull ? asserted(value, printed) : printed;
+    }
+
+    /** An element of an array initializer, {@code printed}: as an assignment to an element ({@link #intoVariable}). */
+    static OutputBuilder intoElement(Expression value, io.codelaser.maddi.cst.api.type.ParameterizedType element,
+                                     OutputBuilder printed) {
+        if (!facts().nullabilityAnalysed() || !nullOrMayBeNull(value) || valueType(element)) return printed;
+        return asserted(value, printed);
+    }
+
+    private static boolean nullOrMayBeNull(Expression value) {
+        return CSharpExpressionPrinter.unwrap(value) instanceof NullConstant || mayBeNull(value);
+    }
+
+    /** A primitive or a boxed type, C#'s value type or its {@code T?}: no {@code !} there. */
+    private static boolean valueType(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid()
+                                                      || type.isBoxedExcludingVoid());
+    }
+
     /** {@code printed!}, in parentheses unless it is a call, a variable or null. */
     private static OutputBuilder asserted(Expression value, OutputBuilder printed) {
         Expression x = CSharpExpressionPrinter.unwrap(value);

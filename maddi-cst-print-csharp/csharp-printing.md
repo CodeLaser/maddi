@@ -108,6 +108,12 @@ implements the interface.
   its hints do. C# prints no `?` in a type argument (`List<Exprent>`), so that a collection's element or key is not
   nullable whatever the hints: Java's `contains(Object)` takes null, C#'s `Contains(T)` does not, and even a `null`
   there is `null!`. This is the write the analysis asserts under its Kotlin policy (`assertContentWrites`).
+- The same holds for the other places a value goes (CS8603, CS8625, CS8601): a `return` of a value that may be null,
+  or of `null`, from a method the analysis does not find nullable, or from a lambda, whose result is a delegate's type
+  argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
+  holds the null, as Java's does); an assignment to a field the analysis finds non-null.
+- A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
+  in Java (CS8600).
 
 ## Declarations
 

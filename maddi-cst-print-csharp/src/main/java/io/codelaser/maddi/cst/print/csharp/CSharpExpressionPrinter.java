@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
@@ -130,8 +131,12 @@ public final class CSharpExpressionPrinter {
      * parameters: {@code (T) this} in a self-typed builder is {@code (T) (object) this}.
      */
     private static OutputBuilder cast(Cast cast, Qualification q) {
+        // a value that may be null keeps its null through a reference cast, in C# as in Java: (T?) x (CS8600)
+        String type = CSharpNullability.mayBeNull(cast.expression())
+                ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
+                : CSharpTypeName.of(cast.parameterizedType(), q);
         OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(text(CSharpTypeName.of(cast.parameterizedType(), q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+                .add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         ParameterizedType from = cast.expression().parameterizedType();
         ParameterizedType to = cast.parameterizedType();
         if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
@@ -614,7 +619,7 @@ public final class CSharpExpressionPrinter {
     /** The value of a {@code return} in the current method or lambda. */
     static OutputBuilder returned(Expression value, Qualification q) {
         MethodInfo method = CSharpContext.currentMethod();
-        return converted(value, method == null ? null : method.returnType(), q);
+        return CSharpNullability.intoReturn(value, converted(value, method == null ? null : method.returnType(), q));
     }
 
     /** A value of a boxed type, C#'s nullable value type: a call or a variable, not a constant or an operation. */
@@ -664,7 +669,7 @@ public final class CSharpExpressionPrinter {
         return ai.expressions().stream().map(x -> x instanceof ArrayInitializer nested
                 ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
                         .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
-                : print(x, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+                : CSharpNullability.intoElement(x, element, print(x, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
 
@@ -903,6 +908,7 @@ public final class CSharpExpressionPrinter {
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
                 ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
+        if (a.assignmentOperator() == null) value = CSharpNullability.intoVariable(a.value(), a.variableTarget(), value);
         return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
     }
 
