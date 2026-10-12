@@ -14,6 +14,9 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.Emission;
+import java.util.Map;
+import io.codelaser.maddi.cst.print.translate.Literals;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.*;
@@ -58,6 +61,9 @@ import java.util.stream.Stream;
  * </ul>
  */
 public final class CSharpExpressionPrinter {
+
+    private static final Literals LITERALS = new Literals("double", "float", "NaN", "PositiveInfinity",
+            "NegativeInfinity", Map.of('\f', "\\f", '\0', "\\0"));
 
     private CSharpExpressionPrinter() {
     }
@@ -1082,12 +1088,8 @@ public final class CSharpExpressionPrinter {
 
     private static OutputBuilder assignment(Assignment a, Qualification q) {
         OutputBuilder target = variable(a.variableTarget(), q);
-        if (a.prefixPrimitiveOperator() != null) {
-            String operator = a.assignmentOperatorIsPlus() ? "++" : "--";
-            return a.prefixPrimitiveOperator()
-                    ? new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix(operator)).add(target)
-                    : target.add(SymbolEnum.plusPlusSuffix(operator));
-        }
+        OutputBuilder increment = Emission.increment(a, target);
+        if (increment != null) return increment;
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
                 ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
@@ -1177,45 +1179,19 @@ public final class CSharpExpressionPrinter {
     // ---------------------------------------------------------------- literals
 
     static String stringLiteral(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (char c : s.toCharArray()) sb.append(escape(c, '"'));
-        return sb.append('"').toString();
+        return LITERALS.stringLiteral(s);
     }
 
     static String charLiteral(char c) {
-        return "'" + escape(c, '\'') + "'";
-    }
-
-    private static String escape(char c, char quote) {
-        return switch (c) {
-            case '\\' -> "\\\\";
-            case '\n' -> "\\n";
-            case '\r' -> "\\r";
-            case '\t' -> "\\t";
-            case '\b' -> "\\b";
-            case '\f' -> "\\f";
-            case '\0' -> "\\0";
-            default -> {
-                if (c == quote) yield "\\" + c;
-                if (c < 0x20 || (c >= 0x7f && c < 0xa0) || Character.isSurrogate(c)) {
-                    yield String.format("\\u%04x", (int) c);
-                }
-                yield String.valueOf(c);
-            }
-        };
+        return LITERALS.charLiteral(c);
     }
 
     private static String doubleLiteral(double d) {
-        if (Double.isNaN(d)) return "double.NaN";
-        if (Double.isInfinite(d)) return d > 0 ? "double.PositiveInfinity" : "double.NegativeInfinity";
-        String s = Double.toString(d);
-        return s.contains(".") || s.contains("E") ? s : s + ".0";
+        return LITERALS.doubleLiteral(d);
     }
 
     private static String floatLiteral(float f) {
-        if (Float.isNaN(f)) return "float.NaN";
-        if (Float.isInfinite(f)) return f > 0 ? "float.PositiveInfinity" : "float.NegativeInfinity";
-        return Float.toString(f) + "f";
+        return LITERALS.floatLiteral(f);
     }
 
     // ---------------------------------------------------------------- helpers

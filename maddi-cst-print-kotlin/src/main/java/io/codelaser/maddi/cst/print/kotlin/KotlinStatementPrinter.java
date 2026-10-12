@@ -611,18 +611,7 @@ public class KotlinStatementPrinter {
      * end in a jump falls through, and gets the following groups' statements copied up to the first that does.
      */
     private static OutputBuilder switchOldStyle(SwitchStatementOldStyle sw, Qualification q) {
-        List<Statement> statements = sw.block().statements();
-        TreeMap<Integer, List<SwitchStatementOldStyle.SwitchLabel>> byStart = new TreeMap<>();
-        for (SwitchStatementOldStyle.SwitchLabel l : sw.switchLabels()) {
-            byStart.computeIfAbsent(l.startFromPosition(), _ -> new ArrayList<>()).add(l);
-        }
-        List<Integer> starts = new ArrayList<>(byStart.keySet());
-        List<List<Statement>> own = new ArrayList<>();
-        for (int i = 0; i < starts.size(); i++) {
-            int from = Math.min(starts.get(i), statements.size());
-            int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
-            own.add(CstQueries.own(statements.subList(from, to)));
-        }
+        List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
 
         String label = KotlinContext.freshLabel("switch");
         KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
@@ -631,11 +620,11 @@ public class KotlinStatementPrinter {
         KotlinContext.push(frame);
         List<OutputBuilder> arms = new ArrayList<>();
         try {
-            for (int i = 0; i < starts.size(); i++) {
-                List<Statement> arm = new ArrayList<>(own.get(i));
-                for (int j = i + 1; j < starts.size() && !endsInJump(arm); j++) arm.addAll(own.get(j));
+            for (int i = 0; i < groups.size(); i++) {
+                List<Statement> arm = new ArrayList<>(groups.get(i).own());
+                for (int j = i + 1; j < groups.size() && !endsInJump(arm); j++) arm.addAll(groups.get(j).own());
                 arm = withoutFinalBreak(arm);
-                List<SwitchStatementOldStyle.SwitchLabel> labels = byStart.get(starts.get(i));
+                List<SwitchStatementOldStyle.SwitchLabel> labels = groups.get(i).labels();
                 OutputBuilder head;
                 if (labels.stream().anyMatch(l -> l.literal() == null || l.literal().isEmpty())) {
                     head = new OutputBuilderImpl().add(KotlinKeyword.ELSE_ARROW);
@@ -649,7 +638,7 @@ public class KotlinStatementPrinter {
         } finally {
             KotlinContext.pop();
         }
-        if (byStart.values().stream().flatMap(List::stream).noneMatch(l -> l.literal() == null || l.literal().isEmpty())) {
+        if (groups.stream().flatMap(g -> g.labels().stream()).noneMatch(l -> l.literal() == null || l.literal().isEmpty())) {
             addElseWhenRequired(sw.expression(), arms);
         }
         OutputBuilder when = new OutputBuilderImpl().add(KotlinKeyword.WHEN).add(SpaceEnum.ONE)

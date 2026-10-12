@@ -23,12 +23,14 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.statement.SwitchStatementOldStyle;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 
 /**
@@ -138,5 +140,30 @@ public final class CstQueries {
         if (fieldInfo.initializer() == null || !fieldInfo.initializer().isConstant()) return false;
         ParameterizedType t = fieldInfo.type();
         return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
+    }
+
+    /**
+     * A group of an old-style switch: the labels that start at the same statement, and the statements up to the next
+     * group's ({@link #own}). A group that does not end in a jump falls through into the next one, which each target
+     * handles its own way (Kotlin copies the following groups, C# writes {@code goto case}).
+     */
+    public record SwitchGroup(List<SwitchStatementOldStyle.SwitchLabel> labels, List<Statement> own) {
+    }
+
+    /** The groups of an old-style switch, in source order. */
+    public static List<SwitchGroup> switchGroups(SwitchStatementOldStyle sw) {
+        List<Statement> statements = sw.block().statements();
+        TreeMap<Integer, List<SwitchStatementOldStyle.SwitchLabel>> byStart = new TreeMap<>();
+        for (SwitchStatementOldStyle.SwitchLabel l : sw.switchLabels()) {
+            byStart.computeIfAbsent(l.startFromPosition(), _ -> new ArrayList<>()).add(l);
+        }
+        List<Integer> starts = new ArrayList<>(byStart.keySet());
+        List<SwitchGroup> groups = new ArrayList<>(starts.size());
+        for (int i = 0; i < starts.size(); i++) {
+            int from = Math.min(starts.get(i), statements.size());
+            int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
+            groups.add(new SwitchGroup(List.copyOf(byStart.get(starts.get(i))), own(statements.subList(from, to))));
+        }
+        return List.copyOf(groups);
     }
 }

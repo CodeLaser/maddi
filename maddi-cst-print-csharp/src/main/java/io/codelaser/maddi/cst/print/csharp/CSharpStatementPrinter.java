@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * Prints a {@link Statement} as C#. Most of Java's statements are C#'s; where they differ:
@@ -374,38 +373,27 @@ public final class CSharpStatementPrinter {
     }
 
     private static OutputBuilder switchOldStyleInScope(SwitchStatementOldStyle sw, Qualification q) {
-        List<Statement> statements = sw.block().statements();
-        TreeMap<Integer, List<SwitchStatementOldStyle.SwitchLabel>> byStart = new TreeMap<>();
-        for (SwitchStatementOldStyle.SwitchLabel l : sw.switchLabels()) {
-            byStart.computeIfAbsent(l.startFromPosition(), _ -> new ArrayList<>()).add(l);
-        }
-        List<Integer> starts = new ArrayList<>(byStart.keySet());
-        List<List<Statement>> owns = new ArrayList<>();
-        for (int i = 0; i < starts.size(); i++) {
-            int from = Math.min(starts.get(i), statements.size());
-            int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
-            owns.add(CstQueries.own(statements.subList(from, to)));
-        }
+        List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
         // a section fallen into whose label is a pattern, which goto case cannot name: a statement label of its own
-        String[] fallenInto = new String[starts.size()];
-        for (int i = 1; i < starts.size(); i++) {
-            SwitchStatementOldStyle.SwitchLabel first = byStart.get(starts.get(i)).getFirst();
-            if (!endsInJump(owns.get(i - 1)) && enumClassConstant(first.literal()) != null) {
+        String[] fallenInto = new String[groups.size()];
+        for (int i = 1; i < groups.size(); i++) {
+            SwitchStatementOldStyle.SwitchLabel first = groups.get(i).labels().getFirst();
+            if (!endsInJump(groups.get(i - 1).own()) && enumClassConstant(first.literal()) != null) {
                 fallenInto[i] = "case_" + enumClassConstant(first.literal()).name();
             }
         }
         List<OutputBuilder> sections = new ArrayList<>();
-        for (int i = 0; i < starts.size(); i++) {
-            List<Statement> own = owns.get(i);
+        for (int i = 0; i < groups.size(); i++) {
+            List<Statement> own = groups.get(i).own();
             List<OutputBuilder> labels = new ArrayList<>();
-            byStart.get(starts.get(i)).forEach(l -> labels.add(caseLabel(l.literal(), l.patternVariable(),
+            groups.get(i).labels().forEach(l -> labels.add(caseLabel(l.literal(), l.patternVariable(),
                     l.whenExpression(), q)));
             List<OutputBuilder> lines = new ArrayList<>();
             if (fallenInto[i] != null) lines.add(text(fallenInto[i] + ": ;"));
             own.forEach(s -> lines.add(print(s, q)));
             if (!endsInJump(own)) {
-                if (i + 1 < starts.size()) {
-                    SwitchStatementOldStyle.SwitchLabel next = byStart.get(starts.get(i + 1)).getFirst();
+                if (i + 1 < groups.size()) {
+                    SwitchStatementOldStyle.SwitchLabel next = groups.get(i + 1).labels().getFirst();
                     lines.add(isDefault(next.literal())
                             ? new OutputBuilderImpl().add(KeywordImpl.GOTO).add(SpaceEnum.ONE).add(KeywordImpl.DEFAULT)
                                     .add(SymbolEnum.SEMICOLON)

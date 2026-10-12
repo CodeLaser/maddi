@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.Emission;
+import io.codelaser.maddi.cst.print.translate.Literals;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
@@ -60,6 +62,9 @@ import java.util.Map;
  * </ul>
  */
 public class KotlinExpressionPrinter {
+
+    private static final Literals LITERALS = new Literals("Double", "Float", "NaN", "POSITIVE_INFINITY",
+            "NEGATIVE_INFINITY", Map.of('$', "\\$"));
 
     private static final Symbol SPREAD = new SymbolEnum("*", SpaceEnum.NONE, SpaceEnum.NONE, null);
 
@@ -1501,12 +1506,8 @@ public class KotlinExpressionPrinter {
 
     private static OutputBuilder assignmentAsStatement(Assignment a, Qualification q) {
         OutputBuilder target = variable(a.variableTarget(), q);
-        if (a.prefixPrimitiveOperator() != null) {
-            String op = a.assignmentOperatorIsPlus() ? "++" : "--";
-            return a.prefixPrimitiveOperator()
-                    ? new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix(op)).add(target)
-                    : new OutputBuilderImpl().add(target).add(SymbolEnum.plusPlusSuffix(op));
-        }
+        OutputBuilder increment = Emission.increment(a, target);
+        if (increment != null) return increment;
         String op = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         String binary = op.length() > 1 ? op.substring(0, op.length() - 1) : null;
         if (binary != null && INFIX.containsKey(binary)) {
@@ -1886,46 +1887,19 @@ public class KotlinExpressionPrinter {
     // ---------------------------------------------------------------- literals
 
     static String stringLiteral(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (char c : s.toCharArray()) sb.append(escape(c, '"'));
-        return sb.append('"').toString();
+        return LITERALS.stringLiteral(s);
     }
 
-    private static String charLiteral(char c) {
-        return "'" + escape(c, '\'') + "'";
-    }
-
-    /** Kotlin's escapes; {@code $} too, which would start a string template. Other control characters as \\uXXXX. */
-    private static String escape(char c, char quote) {
-        return switch (c) {
-            case '\\' -> "\\\\";
-            case '\n' -> "\\n";
-            case '\r' -> "\\r";
-            case '\t' -> "\\t";
-            case '\b' -> "\\b";
-            case '$' -> "\\$";
-            default -> {
-                if (c == quote) yield "\\" + c;
-                if (c < 0x20 || (c >= 0x7f && c < 0xa0) || Character.isSurrogate(c)) {
-                    yield String.format("\\u%04x", (int) c);
-                }
-                yield String.valueOf(c);
-            }
-        };
+    static String charLiteral(char c) {
+        return LITERALS.charLiteral(c);
     }
 
     private static String doubleLiteral(double d) {
-        if (Double.isNaN(d)) return "Double.NaN";
-        if (d == Double.POSITIVE_INFINITY) return "Double.POSITIVE_INFINITY";
-        if (d == Double.NEGATIVE_INFINITY) return "Double.NEGATIVE_INFINITY";
-        return Double.toString(d);
+        return LITERALS.doubleLiteral(d);
     }
 
     private static String floatLiteral(float f) {
-        if (Float.isNaN(f)) return "Float.NaN";
-        if (f == Float.POSITIVE_INFINITY) return "Float.POSITIVE_INFINITY";
-        if (f == Float.NEGATIVE_INFINITY) return "Float.NEGATIVE_INFINITY";
-        return Float.toString(f) + "f";
+        return LITERALS.floatLiteral(f);
     }
 
     // ---------------------------------------------------------------- precedence
