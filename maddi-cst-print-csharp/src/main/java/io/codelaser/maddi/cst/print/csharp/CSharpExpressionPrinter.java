@@ -144,8 +144,10 @@ public final class CSharpExpressionPrinter {
         // (AiMessage) null, which picks an overload, is (AiMessage?) null
         boolean nullConstant = unwrap(cast.expression()) instanceof NullConstant
                                && CSharpContext.program().facts().nullabilityAnalysed();
-        String type = nullConstant || CSharpNullability.mayBeNull(cast.expression())
-                ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
+        boolean nullable = nullConstant || CSharpNullability.mayBeNull(cast.expression());
+        String own = CSharpCompanions.ownUse(cast.parameterizedType(), q);
+        String type = own != null ? (nullable ? own + "?" : own)
+                : nullable ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
                 : CSharpTypeName.of(cast.parameterizedType(), q);
         OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(text(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);

@@ -471,7 +471,10 @@ ratchet's report (see below) lists what is left.
   declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
   companion (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
-  `IScore`. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
+  `IScore`. In an instance member of the type itself, a cast to or a local of its wildcard is the type with its own
+  type parameters, which has the private members the companion has not: Java's `equals`,
+  `MinCollector<?, ?> that = (MinCollector<?, ?>) o`, is `MinCollector<A, P> that = (MinCollector<A, P>) o`, after the
+  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
   implements by a cast (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
   companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become

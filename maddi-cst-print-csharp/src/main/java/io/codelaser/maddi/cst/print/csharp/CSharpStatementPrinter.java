@@ -241,6 +241,8 @@ public final class CSharpStatementPrinter {
      */
     private static String local(ParameterizedType pt, Qualification q) {
         boolean nullable = CSharpContext.program().facts().nullabilityAnalysed();
+        String own = CSharpCompanions.ownUse(pt, q);
+        if (own != null) return nullable ? own + "?" : own;
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 

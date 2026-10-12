@@ -138,6 +138,21 @@ final class CSharpCompanions {
         return companion + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
+    /**
+     * In an instance member of {@code t} itself, a cast to or a local of its wildcard use is {@code t} with its own type
+     * parameters, which have the private members the companion has not: Java's {@code equals},
+     * {@code MinPropertyUniCollector<?, ?, ?> that = (MinPropertyUniCollector<?, ?, ?>) o; … that.propertyMapper},
+     * after a {@code GetType()} comparison that C# makes with the type arguments. Null otherwise.
+     */
+    static String ownUse(ParameterizedType pt, Qualification q) {
+        TypeInfo t = pt.typeInfo();
+        if (t == null || pt.arrays() != 0 || !t.equals(CSharpContext.currentType()) || !isWildcardUse(pt)) return null;
+        io.codelaser.maddi.cst.api.info.MethodInfo m = CSharpContext.currentMethod();
+        if (m == null || m.isStatic() || !t.equals(m.typeInfo())) return null;
+        return CSharpTypeName.name(t, q) + t.typeParameters().stream().map(CSharpNames::typeParameter)
+                .collect(Collectors.joining(", ", "<", ">"));
+    }
+
     /** {@code Ns.Outer.Config} is {@code Ns.Outer.IConfig}. */
     private static String qualifiedCompanion(String name) {
         int dot = name.lastIndexOf('.');

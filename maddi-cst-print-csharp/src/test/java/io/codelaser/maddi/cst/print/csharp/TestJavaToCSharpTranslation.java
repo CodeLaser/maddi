@@ -1607,6 +1607,16 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     List<Score_> history();
                 }
                 static int compare(Score<?> a, Score<?> b) { return ((Score) a).compareTo(b); }
+                static final class MinCollector<A, P extends Comparable<? super P>> {
+                    private final java.util.function.Function<A, P> mapper;
+                    MinCollector(java.util.function.Function<A, P> mapper) { this.mapper = mapper; }
+                    @Override public boolean equals(Object o) {
+                        if (o == null || getClass() != o.getClass()) return false;
+                        MinCollector<?, ?> that = (MinCollector<?, ?>) o;
+                        return java.util.Objects.equals(mapper, that.mapper);
+                    }
+                    @Override public int hashCode() { return mapper.hashCode(); }
+                }
                 static boolean anyZero(List<Score<?>> scores) {
                     for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
                     return false;
@@ -1637,6 +1647,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
+        // in its own equals, the type's wildcard is the type itself, which has the private field
+        contains(cs, "MinCollector<A, P> that = (MinCollector<A, P>) o;");
     }
 
     private static final String PHASE_SCOPES = """
