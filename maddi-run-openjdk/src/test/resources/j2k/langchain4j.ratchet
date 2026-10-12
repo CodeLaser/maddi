@@ -42,10 +42,13 @@
 # 2026-10-12, a constructor call takes the target's states beside a star, Java's Annotation is Kotlin's, an element
 # out of a Collection<*> is an Any?, a cast keeps its own type variables: 300 files compiling (128 type errors), 297
 # to class files.
+# 2026-10-12, maddi's d5608a929 and e270e0f04 (a nullable argument that ties an overload cast to its type, an
+# annotation's Class element as .java, SAM constructors with the target's type arguments, no `!!` into a library
+# result's member): 301 files compiling (125 type errors), 298 to class files, 95 test files compile.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	300
-bytecodeFiles	297
-testBytecodeFiles	94
+compilingFiles	301
+bytecodeFiles	298
+testBytecodeFiles	95
