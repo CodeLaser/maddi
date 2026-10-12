@@ -832,4 +832,36 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun <T> getOrDefault(value: T?, supplier: java.util.function.Supplier<T>): T");
         contains(kotlin, "value else supplier.get()) as T)");
     }
+
+    @Language("java")
+    private static final String BRANCHES = """
+            package a;
+            import java.util.*;
+            class Node {
+                final List<Node> preds = new ArrayList<>();
+                final List<Node> succs = new ArrayList<>();
+                int size() { return preds.size(); }
+                int adjacent(boolean p) {
+                    int n = 0;
+                    for (Node a : p ? preds : succs) n += a.size();
+                    Node[] firsts = { null };
+                    Node[] seconds = { null };
+                    for (Node f : p ? firsts : seconds) n += f.size();
+                    return n;
+                }
+            }
+            """;
+
+    /**
+     * Kotlin types a conditional by both branches: iterating {@code p ? preds : succs} over a {@code List<Node>} and a
+     * {@code List<Node?>} yields a {@code Node?}, whichever branch is first, so the loop variable's dereference is
+     * asserted. The same for arrays with nullable elements.
+     */
+    @Test
+    public void conditionalBranchesJoinNullability() {
+        String kotlin = kotlin(BRANCHES, new KotlinPrintOptions(new ByName(Set.of("succs<>", "seconds[]")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "for (a in if (p) preds else succs) {n += a!!.size() }");
+        contains(kotlin, "n += f!!.size()");
+    }
 }

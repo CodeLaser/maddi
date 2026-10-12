@@ -304,16 +304,42 @@ final class KotlinNullability {
             };
             // (if (i == 0) shortRange else longRange).entries: Kotlin's type of the if is its branches'
             case InlineConditional ic -> {
-                ParameterizedType t = kotlinType(ic.ifTrue());
-                ParameterizedType f = kotlinType(ic.ifFalse());
-                ParameterizedType both = t != null ? t : f;
-                if (both == null || t != null && f != null && (t.typeInfo() != f.typeInfo() || t.arrays() != f.arrays())) {
-                    yield null;
-                }
+                ParameterizedType both = join(kotlinType(ic.ifTrue()), kotlinType(ic.ifFalse()));
+                if (both == null) yield null;
                 yield nullableInKotlin(ic) ? both.withNullable(NullableState.NULLABLE) : both;
             }
             default -> null;
         };
+    }
+
+    /**
+     * Kotlin's type of a conditional whose branches are typed {@code t} and {@code f}: the branch that is known when
+     * only one is; their common type when both are, where a type argument or array component nullable in either
+     * branch is nullable ({@code if (c) preds else succs} over a {@code Set<Block>} and a {@code Set<Block?>}: a
+     * {@code Set<out Block?>}, whose iteration yields a {@code Block?}). Null when the branches' types differ.
+     */
+    private static ParameterizedType join(ParameterizedType t, ParameterizedType f) {
+        if (t == null || f == null) return t != null ? t : f;
+        if (t.typeInfo() != f.typeInfo() || t.arrays() != f.arrays()) return null;
+        if (t.arrays() > 0) {
+            ParameterizedType component = join(t.componentType(), f.componentType());
+            if (component == null) return null;
+            return isNullable(f.componentType()) && !isNullable(t.componentType())
+                    ? t.withComponentType(component.withNullable(NullableState.NULLABLE)) : t;
+        }
+        if (t.parameters().isEmpty() || t.parameters().size() != f.parameters().size()) return t;
+        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        boolean changed = false;
+        for (int i = 0; i < t.parameters().size(); i++) {
+            ParameterizedType a = t.parameters().get(i);
+            ParameterizedType b = f.parameters().get(i);
+            if (a != null && b != null && a.wildcard() == null && isNullable(b) && !isNullable(a)) {
+                a = a.withNullable(NullableState.NULLABLE);
+                changed = true;
+            }
+            arguments.add(a);
+        }
+        return changed ? t.withParameters(arguments) : t;
     }
 
     /**
