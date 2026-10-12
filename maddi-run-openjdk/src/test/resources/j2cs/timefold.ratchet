@@ -24,9 +24,12 @@
 # RoundingMode (MidpointRounding), the To*Function delegates, getCanonicalName, emptyIterator, newHashMap(n), …; a
 # supplier with a block body called through its delegate in a template: 2082 -> 1379 unmapped JDK uses, 725 -> 777
 # compiling files.
+#
+# 2026-10-12, a switch on an enum printed as a class matches the instances' Name, { Name: "FAST" } (CS9135 202 -> 0),
+# and falls through into such a section by a statement label: 777 -> 787 compiling files, 6951 -> 6751 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	777
+compilingFiles	787
 unmappedJdkUses	1379

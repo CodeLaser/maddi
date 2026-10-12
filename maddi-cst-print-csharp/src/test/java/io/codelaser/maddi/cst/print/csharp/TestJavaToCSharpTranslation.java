@@ -1464,6 +1464,43 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String MODES = """
+            package org.example.modes;
+            public class Modes {
+                enum Mode {
+                    FAST(1), FULL_ASSERT(3);
+                    private final int level;
+                    Mode(int level) { this.level = level; }
+                    int level() { return level; }
+                }
+                static boolean asserted(Mode mode) {
+                    return switch (mode) {
+                        case FULL_ASSERT -> true;
+                        case FAST -> false;
+                    };
+                }
+                static int weight(Mode mode) {
+                    int w = 0;
+                    switch (mode) {
+                        case FAST: w++;
+                        case FULL_ASSERT: w += mode.level(); break;
+                    }
+                    return w;
+                }
+            }
+            """;
+
+    /** An enum C# declares as a class has no constants for a case: its instances match on their Name. */
+    @Test
+    public void switchOnEnumClass() {
+        String cs = translate("Modes", MODES);
+        contains(cs, "{ Name: \"FULL_ASSERT\" } => true");
+        contains(cs, "case { Name: \"FAST\" }:");
+        // a fall-through into a pattern's section: goto case cannot name it, a statement label can
+        contains(cs, "goto case_FULL_ASSERT;");
+        contains(cs, "case_FULL_ASSERT: ;");
+    }
+
     private static final String STORE = """
             package org.example.store;
             import java.util.Objects;
