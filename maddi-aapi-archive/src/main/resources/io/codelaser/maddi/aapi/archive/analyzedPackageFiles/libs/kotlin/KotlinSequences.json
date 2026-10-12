@@ -10,7 +10,7 @@
   {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "P$completion(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
  {"name": "MyieldAll(2,java.util.Iterator,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
  {"name": "MyieldAll(3,kotlin.sequences.Sequence,kotlin.coroutines.Continuation)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "Psequence(0)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}},
@@ -19,38 +19,47 @@
 {"name": "Tkotlin.sequences.SequencesKt__SequenceBuilderKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "Miterator(0,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Pblock(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}},
+  {"name": "Pblock(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Msequence(1,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Pblock(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}}]},
+  {"name": "Pblock(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Tkotlin.sequences.SequencesKt__SequencesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "MasSequence(0,java.util.Iterator)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "P$this$asSequence(0)", "data":{"containerParameter":1}}},
- {"name": "MconstrainOnce(1,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$asSequence(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MconstrainOnce(1,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$constrainOnce(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MemptySequence(2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MflatMapIndexed(3,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}},
-  {"name": "Piterator(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "Mflatten(4,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "MflattenSequenceOfIterable(5,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "Psource(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Piterator(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mflatten(4,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$flatten(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MflattenSequenceOfIterable(5,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$flatten(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MgenerateSequence(6,T,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "Pseed(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PnextFunction(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "PnextFunction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgenerateSequence(7,kotlin.jvm.functions.Function0)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "PnextFunction(0)", "data":{"containerParameter":1,"ignoreModsParameter":1}}},
+  {"name": "PnextFunction(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MgenerateSequence(8,kotlin.jvm.functions.Function0,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "PseedFunction(0)", "data":{"containerParameter":1,"ignoreModsParameter":1}},
-  {"name": "PnextFunction(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "PseedFunction(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PnextFunction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MifEmpty(9,kotlin.sequences.Sequence,kotlin.jvm.functions.Function0)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "PdefaultValue(1)", "data":{"containerParameter":1,"ignoreModsParameter":1}}]},
+  {"name": "P$this$ifEmpty(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PdefaultValue(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsequenceOf(10,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Pelement(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsequenceOf(11,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelements(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mshuffled(12,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Mshuffled(13,kotlin.sequences.Sequence,kotlin.random.Random)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "Munzip(14,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}}]},
+ {"name": "Mshuffled(12,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$shuffled(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mshuffled(13,kotlin.sequences.Sequence,kotlin.random.Random)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$shuffled(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Prandom(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Munzip(14,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$unzip(0)", "data":{"unmodifiedParameter":0}}}]},
 
 {"name": "Tkotlin.sequences.SequencesKt___SequencesJvmKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
@@ -58,59 +67,76 @@
   {"name": "P$this$filterIsInstance(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pklass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MfilterIsInstanceTo(1,kotlin.sequences.Sequence,C,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
+  {"name": "P$this$filterIsInstanceTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pklass(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MtoSortedSet(2,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoSortedSet(2,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toSortedSet(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MtoSortedSet(3,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$toSortedSet(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Tkotlin.sequences.SequencesKt___SequencesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "Mall(0,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$all(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Many(1,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$any(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Many(2,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$any(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MasIterable(3,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$asIterable(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Massociate(4,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$associate(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateBy(5,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$associateBy(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "PkeySelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "PkeySelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateBy(6,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1}},
-  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$associateBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateByTo(7,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$associateByTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateByTo(8,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1}},
-  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$associateByTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateTo(9,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$associateTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateWith(10,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$associateWith(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "PvalueSelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "PvalueSelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassociateWithTo(11,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "PvalueSelector(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MaverageOfByte(12,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MaverageOfDouble(13,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MaverageOfFloat(14,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MaverageOfInt(15,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MaverageOfLong(16,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MaverageOfShort(17,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+  {"name": "P$this$associateWithTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueSelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MaverageOfByte(12,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MaverageOfDouble(13,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MaverageOfFloat(14,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MaverageOfInt(15,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MaverageOfLong(16,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MaverageOfShort(17,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$average(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "Mchunked(18,kotlin.sequences.Sequence,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$chunked(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mchunked(19,kotlin.sequences.Sequence,int,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$chunked(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mcontains(20,kotlin.sequences.Sequence,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$contains(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pelement(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -118,122 +144,148 @@
   {"name": "P$this$count(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mcount(22,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$count(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mdistinct(23,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$distinct(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MdistinctBy(24,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$distinctBy(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mdrop(25,kotlin.sequences.Sequence,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$drop(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MdropWhile(26,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$dropWhile(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MelementAt(27,kotlin.sequences.Sequence,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$elementAt(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MelementAtOrElse(28,kotlin.sequences.Sequence,int,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$elementAtOrElse(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "PdefaultValue(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "PdefaultValue(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MelementAtOrNull(29,kotlin.sequences.Sequence,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$elementAtOrNull(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pindex(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mfilter(30,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$filter(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterIndexed(31,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$filterIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterIndexedTo(32,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$filterIndexedTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterNot(33,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$filterNot(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterNotNull(34,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$filterNotNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MfilterNotNullTo(35,kotlin.sequences.Sequence,C)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
+  {"name": "P$this$filterNotNullTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterNotTo(36,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$filterNotTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfilterTo(37,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$filterTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ppredicate(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mfirst(38,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$first(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mfirst(39,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$first(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfirstOrNull(40,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$firstOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MfirstOrNull(41,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "P$this$firstOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMap(42,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMapIndexedIterable(43,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$flatMapIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMapIndexedSequence(44,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$flatMapIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMapIterable(45,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$flatMap(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMapIterableTo(46,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$flatMapTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MflatMapTo(47,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$flatMapTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mfold(48,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$fold(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pinitial(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MfoldIndexed(49,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$foldIndexed(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MforEach(50,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$forEach(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MforEachIndexed(51,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
   {"name": "P$this$forEachIndexed(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgroupBy(52,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$groupBy(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "PkeySelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "PkeySelector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgroupBy(53,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1}},
-  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$groupBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgroupByTo(54,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$groupByTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgroupByTo(55,kotlin.sequences.Sequence,M,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1}},
-  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$groupByTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "PkeySelector(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PvalueTransform(3)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MgroupingBy(56,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$groupingBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PkeySelector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MindexOf(57,kotlin.sequences.Sequence,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$indexOf(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MindexOfFirst(58,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$indexOfFirst(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MindexOfLast(59,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MisSorted(60,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+  {"name": "P$this$indexOfLast(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MisSorted(60,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$isSorted(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MisSortedBy(61,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$isSortedBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MisSortedByDescending(62,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MisSortedDescending(63,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+  {"name": "P$this$isSortedByDescending(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MisSortedDescending(63,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$isSortedDescending(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MisSortedWith(64,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$isSortedWith(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MjoinTo(65,kotlin.sequences.Sequence,A,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pbuffer(1)", "data":{"containerParameter":1}},
+  {"name": "P$this$joinTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pseparator(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pprefix(3)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Ppostfix(4)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Plimit(5)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Ptruncated(6)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(7)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(7)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MjoinToString(66,kotlin.sequences.Sequence,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$joinToString(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pseparator(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -241,89 +293,122 @@
   {"name": "Ppostfix(3)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Plimit(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Ptruncated(5)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(6)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(6)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mlast(67,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$last(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mlast(68,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$last(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MlastIndexOf(69,kotlin.sequences.Sequence,T)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$lastIndexOf(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlastOrNull(70,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$lastOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MlastOrNull(71,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "P$this$lastOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mmap(72,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$map(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapIndexed(73,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapIndexedNotNull(74,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapIndexedNotNull(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapIndexedNotNullTo(75,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapIndexedNotNullTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapIndexedTo(76,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapIndexedTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapNotNull(77,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$mapNotNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapNotNullTo(78,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapNotNullTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmapTo(79,kotlin.sequences.Sequence,C,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}},
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$mapTo(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxByOrNull(80,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$maxByOrNull(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxByOrThrow(81,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MmaxOrNull(82,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
- {"name": "MmaxOrNull(83,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
- {"name": "MmaxOrNull(84,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MmaxOrThrow(85,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MmaxOrThrow(86,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MmaxOrThrow(87,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
+  {"name": "P$this$maxBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MmaxOrNull(82,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$maxOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MmaxOrNull(83,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$maxOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MmaxOrNull(84,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$maxOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MmaxOrThrow(85,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$max(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MmaxOrThrow(86,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$max(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MmaxOrThrow(87,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$max(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MmaxWithOrNull(88,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$maxWithOrNull(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MmaxWithOrThrow(89,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$maxWith(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MminByOrNull(90,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$minByOrNull(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminByOrThrow(91,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MminOrNull(92,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
- {"name": "MminOrNull(93,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}},
- {"name": "MminOrNull(94,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MminOrThrow(95,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MminOrThrow(96,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MminOrThrow(97,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
+  {"name": "P$this$minBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MminOrNull(92,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$minOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MminOrNull(93,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$minOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MminOrNull(94,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$minOrNull(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MminOrThrow(95,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$min(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MminOrThrow(96,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$min(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MminOrThrow(97,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$min(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MminWithOrNull(98,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$minWithOrNull(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MminWithOrThrow(99,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+  {"name": "P$this$minWith(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mminus(100,kotlin.sequences.Sequence,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pelements(1)", "data":{"containerParameter":1}}]},
+  {"name": "P$this$minus(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mminus(101,kotlin.sequences.Sequence,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Mminus(102,kotlin.sequences.Sequence,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1}}]},
- {"name": "Mminus(103,kotlin.sequences.Sequence,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$minus(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mminus(103,kotlin.sequences.Sequence,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$minus(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pelements(1)", "data":{"unmodifiedParameter":0}}]},
  {"name": "Mnone(104,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$none(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mnone(105,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$none(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MonEach(106,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$onEach(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Paction(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MonEachIndexed(107,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Paction(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$onEachIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Paction(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mpartition(108,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$partition(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mplus(109,kotlin.sequences.Sequence,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$plus(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
@@ -337,90 +422,124 @@
   {"name": "P$this$plus(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pelements(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
  {"name": "Mreduce(113,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$reduce(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MreduceIndexed(114,kotlin.sequences.Sequence,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$reduceIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MreduceIndexedOrNull(115,kotlin.sequences.Sequence,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$reduceIndexedOrNull(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MreduceOrNull(116,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MrequireNoNulls(117,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$reduceOrNull(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MrequireNoNulls(117,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$requireNoNulls(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MrunningFold(118,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$runningFold(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MrunningFoldIndexed(119,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$runningFoldIndexed(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MrunningReduce(120,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$runningReduce(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MrunningReduceIndexed(121,kotlin.sequences.Sequence,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$runningReduceIndexed(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poperation(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mscan(122,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$scan(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MscanIndexed(123,kotlin.sequences.Sequence,R,kotlin.jvm.functions.Function3)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$scanIndexed(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pinitial(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Poperation(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Msingle(124,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$single(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Msingle(125,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$single(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsingleOrNull(126,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$singleOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MsingleOrNull(127,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "subs":[
   {"name": "P$this$singleOrNull(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
- {"name": "Msorted(128,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Msorted(128,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$sorted(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MsortedBy(129,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$sortedBy(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsortedByDescending(130,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MsortedDescending(131,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$sortedByDescending(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MsortedDescending(131,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$sortedDescending(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MsortedWith(132,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$sortedWith(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MsumBy(133,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "P$this$sumBy(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsumByDouble(134,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MsumOfByte(135,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MsumOfDouble(136,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MsumOfFloat(137,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MsumOfInt(138,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MsumOfLong(139,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MsumOfShort(140,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+  {"name": "P$this$sumByDouble(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MsumOfByte(135,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MsumOfDouble(136,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MsumOfFloat(137,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MsumOfInt(138,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MsumOfLong(139,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MsumOfShort(140,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$sum(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "Mtake(141,kotlin.sequences.Sequence,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$take(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pn(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MtakeWhile(142,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$takeWhile(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
-  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1}}]},
+  {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MtoCollection(143,kotlin.sequences.Sequence,C)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pdestination(1)", "data":{"containerParameter":1}}]},
- {"name": "MtoHashSet(144,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$toCollection(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MtoHashSet(144,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toHashSet(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MtoList(145,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$toList(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MtoMutableList(146,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$toMutableList(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MtoMutableSet(147,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoMutableSet(147,kotlin.sequences.Sequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$toMutableSet(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MtoSet(148,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$toSet(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mwindowed(149,kotlin.sequences.Sequence,int,int,boolean)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$windowed(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pstep(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PpartialWindows(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mwindowed(150,kotlin.sequences.Sequence,int,int,boolean,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$windowed(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Pstep(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PpartialWindows(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Ptransform(4)", "data":{"ignoreModsParameter":1}}]},
+  {"name": "Ptransform(4)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MwithIndex(151,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$withIndex(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "Mzip(152,kotlin.sequences.Sequence,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Mzip(152,kotlin.sequences.Sequence,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+  {"name": "P$this$zip(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pother(1)", "data":{"unmodifiedParameter":0}}]},
  {"name": "Mzip(153,kotlin.sequences.Sequence,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MzipWithNext(154,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}},
+  {"name": "P$this$zip(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pother(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MzipWithNext(154,kotlin.sequences.Sequence)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$zipWithNext(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MzipWithNext(155,kotlin.sequences.Sequence,kotlin.jvm.functions.Function2)", "data":{"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1}}]}]}
+  {"name": "P$this$zipWithNext(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Ptransform(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]}]}
 ]

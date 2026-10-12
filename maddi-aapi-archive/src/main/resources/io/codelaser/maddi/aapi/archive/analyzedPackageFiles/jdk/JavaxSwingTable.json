@@ -15,10 +15,10 @@
  {"name": "C<init>(3,int,int,javax.swing.table.TableCellRenderer,javax.swing.table.TableCellEditor)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1}},
-  {"name": "Parg3(3)", "data":{"annotatedApi":1}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "Parg3(3)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
  {"name": "MaddPropertyChangeListener(0,java.beans.PropertyChangeListener)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
  {"name": "MdisableResizedPosting(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MenableResizedPosting(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MgetCellEditor(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
@@ -34,13 +34,13 @@
  {"name": "MgetResizable(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MgetWidth(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MremovePropertyChangeListener(16,java.beans.PropertyChangeListener)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
  {"name": "MsetCellEditor(17,javax.swing.table.TableCellEditor)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
  {"name": "MsetCellRenderer(18,javax.swing.table.TableCellRenderer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
  {"name": "MsetHeaderRenderer(19,javax.swing.table.TableCellRenderer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
  {"name": "MsetHeaderValue(20,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsetIdentifier(21,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
