@@ -205,6 +205,14 @@ public class ScanCompilationUnits {
                 preloads.addAll(preloadJdk(modulePackage.substring(0, sep), modulePackage.substring(sep + 2)));
             }
         }
+        // ⛔ AND WHAT THE PRELOAD ONLY TOUCHED. Loading a preloaded type's members registers the types its signatures
+        // name, lazily (java.util's members name java.security.PrivilegedAction). Clearing the accounting below
+        // dropped them: no scan reports them as loaded, so nothing ever committed them, and a later source set that
+        // reached them first got a type without members (maddi#119; isFunctionalInterface() false on a lambda's
+        // own target). The caller commits what it gets here on this task, as a scan's caller commits what it loaded.
+        for (TypeInfo touched : classSymbolScanner.typesLoaded()) {
+            if (!touched.hasBeenInspected()) preloads.add(touched);
+        }
         classSymbolScanner.startOfNewSourceSet();
         return preloads;
     }
