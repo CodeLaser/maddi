@@ -215,7 +215,7 @@
  {"name": "MwithAll(27,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MwithAllSorted(28,java.util.Comparator,org.eclipse.collections.api.RichIterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pitems(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MwithAllSorted(29,org.eclipse.collections.api.RichIterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pitems(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
@@ -240,7 +240,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MwithNValues(10,int,org.eclipse.collections.api.block.function.Function0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.eclipse.collections.api.factory.list.MutableListFactory", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "Mempty(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
@@ -262,7 +262,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MwithNValues(10,int,org.eclipse.collections.api.block.function.Function0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MwrapCopy(11,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}}]}
 ]

@@ -6,7 +6,7 @@
  {"name": "MisParallel(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Miterator(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MonClose(3,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mparallel(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "Msequential(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "Mspliterator(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -76,9 +76,9 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MmaxBy(17,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MminBy(18,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MpartitioningBy(19,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MpartitioningBy(20,java.util.function.Predicate,java.util.stream.Collector)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
@@ -202,7 +202,7 @@
  {"name": "Mmap(22,java.util.function.DoubleUnaryOperator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapMulti(23,java.util.stream.DoubleStream.DoubleMapMultiConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToInt(24,java.util.function.DoubleToIntFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToLong(25,java.util.function.DoubleToLongFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -293,7 +293,7 @@
  {"name": "Mmap(24,java.util.function.IntUnaryOperator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapMulti(25,java.util.stream.IntStream.IntMapMultiConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToDouble(26,java.util.function.IntToDoubleFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToLong(27,java.util.function.IntToLongFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -389,7 +389,7 @@
  {"name": "Mmap(23,java.util.function.LongUnaryOperator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapMulti(24,java.util.stream.LongStream.LongMapMultiConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToDouble(25,java.util.function.LongToDoubleFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmapToInt(26,java.util.function.LongToIntFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -501,9 +501,9 @@
  {"name": "MmapToLong(31,java.util.function.ToLongFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mmax(32,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mmin(33,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MnoneMatch(34,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mof(35,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
@@ -527,7 +527,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Msorted(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Msorted(44,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MtakeWhile(45,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MtoArray(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N"}},

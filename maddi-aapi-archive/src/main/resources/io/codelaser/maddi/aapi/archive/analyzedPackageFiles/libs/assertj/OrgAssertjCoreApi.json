@@ -116,9 +116,9 @@
  {"name": "MsetPrintAssertionsDescription(68,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PprintAssertionsDescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MusingComparator(70,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(71,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(72)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingEquals(73,java.util.function.BiPredicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -184,9 +184,9 @@
  {"name": "MisZero(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "Mscale(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(20,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(21,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(22)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -226,9 +226,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MisZero(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(16,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(17,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -300,14 +300,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractBooleanAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisEqualTo(0,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -317,9 +317,9 @@
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MisTrue(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(4,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(5,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.AbstractByteArrayAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
@@ -422,7 +422,7 @@
  {"name": "MisNullOrEmpty(49)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(50)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(51,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(52,java.lang.Byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(53,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -431,7 +431,7 @@
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(55)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(56,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractByteAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Byte,java.lang.Byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -486,9 +486,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -561,14 +561,14 @@
  {"name": "MisNullOrEmpty(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(34)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(35,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(36,java.lang.Character[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(37,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(38)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(39,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractCharSequenceAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcontains(0,java.lang.CharSequence[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -717,14 +717,14 @@
  {"name": "MstartsWithIgnoringCase(82,java.lang.CharSequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pprefix(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingComparator(83,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(84,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(85)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(86)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(87,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractCharacterAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MinUnicode(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -743,9 +743,9 @@
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MisUpperCase(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(9,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(10,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -832,9 +832,9 @@
   {"name": "PstartExclusive(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PendExclusive(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(10,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(11,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1118,9 +1118,9 @@
   {"name": "PlenientDateParsing(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MuseDefaultDateFormatsOnly(107)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MusingComparator(108,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(109,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(110)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MwithDateFormat(111,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -1255,7 +1255,7 @@
  {"name": "MisNullOrEmpty(51)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(52)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(53,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(54,java.lang.Double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(55,java.lang.Double[],org.assertj.core.data.Offset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1270,7 +1270,7 @@
   {"name": "Pprecision(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(59)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(60,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractDoubleAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(1,double,java.lang.Class)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -1346,9 +1346,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(35)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(36,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(37,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(38)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1589,7 +1589,7 @@
  {"name": "MisNullOrEmpty(51)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(52)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(53,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(54,java.lang.Float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(55,java.lang.Float[],org.assertj.core.data.Offset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1604,7 +1604,7 @@
   {"name": "Pprecision(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(59)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(60,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractFloatAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(1,float,java.lang.Class)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -1680,9 +1680,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(35)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(36,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(37,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(38)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1843,14 +1843,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Integer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractIntegerAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Integer,java.lang.Integer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1907,9 +1907,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(25)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(26,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(27,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(28)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -1922,7 +1922,7 @@
  {"name": "MallSatisfy(2,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MallSatisfy(3,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(4,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(5,java.util.function.Predicate,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -1931,7 +1931,7 @@
  {"name": "ManySatisfy(6,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManySatisfy(7,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mare(8,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcondition(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MareAtLeast(9,int,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2037,7 +2037,7 @@
  {"name": "Mextracting(69,java.util.function.Function[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractors(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mextracting(70,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MextractingResultOf(72,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmethod(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MextractingResultOf(73,java.lang.String,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2059,7 +2059,7 @@
  {"name": "MfilteredOnAssertions(79,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PelementAssertions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MfilteredOnAssertions(80,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PelementAssertions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "PelementAssertions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MfilteredOnNull(81,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PpropertyOrFieldName(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mfirst(82)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -2074,7 +2074,7 @@
  {"name": "MflatExtracting(87,java.util.function.Function[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractors(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MflatExtracting(88,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MflatExtracting(89,org.assertj.core.api.iterable.ThrowingExtractor[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractors(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MflatMap(91,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -2082,7 +2082,7 @@
  {"name": "MflatMap(92,java.util.function.Function[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmappers(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MflatMap(93,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmapper(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pmapper(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MflatMap(94,org.assertj.core.api.iterable.ThrowingExtractor[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmappers(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mhas(97,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -2187,7 +2187,7 @@
  {"name": "Mmap(149,java.util.function.Function[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmappers(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mmap(150,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmapper(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pmapper(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneMatch(154,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneMatch(155,java.util.function.Predicate,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2196,7 +2196,7 @@
  {"name": "MnoneSatisfy(156,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneSatisfy(157,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prestrictions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MoverridingErrorMessage(158,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PnewErrorMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
@@ -2211,7 +2211,7 @@
  {"name": "MsatisfiesOnlyOnce(165,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesOnlyOnce(166,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsingleElement(168)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MsingleElement(169,org.assertj.core.api.InstanceOfAssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PassertFactory(0)", "data":{"unmodifiedParameter":1}}},
@@ -2219,23 +2219,23 @@
  {"name": "MstartsWith(171,ELEMENT[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingComparator(174,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(175,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForElementFieldsWithNames(176,java.util.Comparator,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PelementPropertyOrFieldNames(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForElementFieldsWithType(177,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForType(178,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(180)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(181)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(182,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingElementComparatorIgnoringFields(183,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfields(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingElementComparatorOnFields(184,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -2343,7 +2343,7 @@
   {"name": "Pexpected(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MisSorted(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(33,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MoverridingErrorMessage(34,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PnewErrorMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
@@ -2351,14 +2351,14 @@
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Pindex(1)", "data":{"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(36,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(37,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(39)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(40)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(41,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MwithFailMessage(42,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PnewErrorMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
@@ -2588,9 +2588,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(20)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(21,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(22,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -2662,14 +2662,14 @@
  {"name": "MisNullOrEmpty(32)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(34,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(35,java.lang.Long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(36,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(37)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(38,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractLongAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Long,java.lang.Long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2724,9 +2724,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -2894,14 +2894,14 @@
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Msize(89)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(90,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(91,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(92)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(93)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(94,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingRecursiveAssertion(95)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingRecursiveAssertion(96,org.assertj.core.api.recursive.assertion.RecursiveAssertionConfiguration)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PrecursiveAssertionConfiguration(0)", "data":{"unmodifiedParameter":1}}},
@@ -2929,7 +2929,7 @@
  {"name": "MallSatisfy(2,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MallSatisfy(3,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(4,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(5,java.util.function.Predicate,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -2938,7 +2938,7 @@
  {"name": "ManySatisfy(6,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManySatisfy(7,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mare(8,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcondition(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MareAtLeast(9,int,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -3034,7 +3034,7 @@
  {"name": "Mextracting(64,java.util.function.Function[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractors(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mextracting(65,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MextractingResultOf(67,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmethod(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MextractingResultOf(68,java.lang.String,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -3056,7 +3056,7 @@
  {"name": "MfilteredOnAssertions(74,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PelementAssertions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MfilteredOnAssertions(75,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PelementAssertions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "PelementAssertions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MfilteredOnNull(76,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PpropertyOrFieldName(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MflatExtracting(77,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3064,7 +3064,7 @@
  {"name": "MflatExtracting(78,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MflatExtracting(79,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MhasAtLeastOneElementOfType(82,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhasExactlyElementsOfTypes(83,java.lang.Class[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3114,7 +3114,7 @@
  {"name": "MisNullOrEmpty(105)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(106)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(107,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MisSubsetOf(108,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MisSubsetOf(109,ELEMENT[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3127,7 +3127,7 @@
  {"name": "MnoneSatisfy(116,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneSatisfy(117,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prestrictions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesExactly(118,java.util.function.Consumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsatisfiesExactly(119,org.assertj.core.api.ThrowingConsumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3139,24 +3139,24 @@
  {"name": "MsatisfiesOnlyOnce(124,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesOnlyOnce(125,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsingleElement(127)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MsingleElement(128,org.assertj.core.api.InstanceOfAssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PassertFactory(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MstartsWith(129,ELEMENT[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingComparatorForElementFieldsWithNames(131,java.util.Comparator,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PelementPropertyOrFieldNames(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForElementFieldsWithType(132,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForType(133,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultElementComparator(134)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(135,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingElementComparatorIgnoringFields(136,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfields(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingElementComparatorOnFields(137,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3234,10 +3234,10 @@
   {"name": "Pexpected(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pfrom(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MusingComparatorForFields(25,java.util.Comparator,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PpropertiesOrFields(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForType(26,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingRecursiveAssertion(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingRecursiveAssertion(28,org.assertj.core.api.recursive.assertion.RecursiveAssertionConfiguration)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3392,7 +3392,7 @@
  {"name": "MusingRecursiveComparison(19,org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PrecursiveComparisonConfiguration(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MusingValueComparator(20,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractOptionalDoubleAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MhasValue(0,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3632,7 +3632,7 @@
  {"name": "MisNullOrEmpty(44)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(45)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(46,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(47,java.lang.Short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MstartsWith(48,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -3641,7 +3641,7 @@
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(50)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(51,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AbstractShortAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisBetween(0,java.lang.Short,java.lang.Short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -3696,9 +3696,9 @@
   {"name": "Pend(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisZero(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(25,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(26,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -3744,9 +3744,9 @@
   {"name": "PstartExclusive(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PendExclusive(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(21,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(22,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -3758,9 +3758,9 @@
   {"name": "Pother(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Poffset(1)", "data":{"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(3,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(4,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -3856,9 +3856,9 @@
   {"name": "PstartExclusive(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PendExclusive(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparator(10,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(11,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -4057,7 +4057,7 @@
 {"name": "Torg.assertj.core.api.ArraySortedAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MisSorted(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(1,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.Assert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MasInstanceOf(0,org.assertj.core.api.InstanceOfAssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -4122,9 +4122,9 @@
  {"name": "MisSameAs(30,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pexpected(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingComparator(31,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(32,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(33)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingEquals(34,java.util.function.BiPredicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -4176,7 +4176,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(19,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(20,java.lang.Long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(21,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4278,7 +4278,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(69,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(70,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(71,java.util.Optional)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4880,7 +4880,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(4,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(5,java.nio.file.Path)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(6,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4894,7 +4894,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(10,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(11,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(12,java.util.Spliterator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5174,9 +5174,9 @@
  {"name": "MisFalse(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisTrue(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingComparator(2,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(3,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.AtomicIntegerArrayAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
@@ -5231,12 +5231,12 @@
  {"name": "MisNullOrEmpty(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(25,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(26,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(28,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AtomicIntegerAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.util.concurrent.atomic.AtomicInteger)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5267,9 +5267,9 @@
  {"name": "MhasValueLessThanOrEqualTo(12,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MusingComparator(13,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(14,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -5332,12 +5332,12 @@
  {"name": "MisNullOrEmpty(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(24)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(25,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(26,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingDefaultElementComparator(27)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(28,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.AtomicLongAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.util.concurrent.atomic.AtomicLong)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5368,9 +5368,9 @@
  {"name": "MhasValueLessThanOrEqualTo(12,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pother(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MusingComparator(13,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingComparator(14,java.util.Comparator,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PcustomComparatorDescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultComparator(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
 
@@ -5400,7 +5400,7 @@
  {"name": "MallSatisfy(2,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MallSatisfy(3,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(4,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(5,java.util.function.Predicate,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -5409,7 +5409,7 @@
  {"name": "ManySatisfy(6,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManySatisfy(7,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mare(8,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcondition(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MareAtLeast(9,int,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -5503,7 +5503,7 @@
  {"name": "Mextracting(63,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mextracting(64,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MextractingResultOf(65,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmethod(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MextractingResultOf(66,java.lang.String,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -5529,7 +5529,7 @@
  {"name": "MflatExtracting(74,java.util.function.Function)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MflatExtracting(75,org.assertj.core.api.iterable.ThrowingExtractor)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pextractor(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MhasArray(78,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pexpected(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasAtLeastOneElementOfType(79,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -5581,7 +5581,7 @@
  {"name": "MisNullOrEmpty(102)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisSorted(103)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisSortedAccordingTo(104,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MisSubsetOf(105,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MisSubsetOf(106,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -5594,7 +5594,7 @@
  {"name": "MnoneSatisfy(110,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneSatisfy(111,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prestrictions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesExactly(112,java.util.function.Consumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsatisfiesExactly(113,org.assertj.core.api.ThrowingConsumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -5606,21 +5606,21 @@
  {"name": "MsatisfiesOnlyOnce(118,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesOnlyOnce(119,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(121,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingComparatorForElementFieldsWithNames(123,java.util.Comparator,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PelementPropertyOrFieldNames(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForElementFieldsWithType(124,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingComparatorForType(125,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MusingDefaultElementComparator(126)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(127,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+  {"name": "PelementComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}},
  {"name": "MusingElementComparatorIgnoringFields(128,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfields(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingElementComparatorOnFields(129,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -5854,7 +5854,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mthen(84,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mthen(85,java.lang.Long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(86,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5956,7 +5956,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mthen(134,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mthen(135,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(136,java.util.Optional)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6453,7 +6453,7 @@
  {"name": "MisNullOrEmpty(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MusingDefaultElementComparator(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MusingElementComparator(12,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}]},
+  {"name": "PcustomComparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}}]},
 
 {"name": "Torg.assertj.core.api.ExtensionPoints", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MdoesNotHave(0,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -6471,10 +6471,10 @@
  {"name": "C<init>(0,ACTUAL,java.lang.Class,org.assertj.core.api.AssertFactory)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "PselfType(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(2)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "PassertFactory(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(0,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "PassertFactory(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MtoAssert(2,ELEMENT,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pvalue(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
@@ -6483,10 +6483,10 @@
  {"name": "C<init>(0,ACTUAL,java.lang.Class,org.assertj.core.api.AssertFactory)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "PselfType(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(2)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "PassertFactory(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(0,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "PassertFactory(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MtoAssert(2,ELEMENT,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pvalue(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
@@ -6671,7 +6671,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(15,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(16,java.lang.Long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(17,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6751,7 +6751,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(54,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(55,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(56,java.util.concurrent.Future)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6972,7 +6972,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mthen(11,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mthen(12,java.lang.Long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(13,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7052,7 +7052,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mthen(50,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mthen(51,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(52,java.util.concurrent.Future)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7639,7 +7639,7 @@
  {"name": "MallSatisfy(2,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MallSatisfy(3,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(4,java.util.function.Predicate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManyMatch(5,java.util.function.Predicate,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -7648,7 +7648,7 @@
  {"name": "ManySatisfy(6,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "ManySatisfy(7,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mare(8,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcondition(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "MareAtLeast(9,int,org.assertj.core.api.Condition)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -7758,7 +7758,7 @@
  {"name": "MnoneSatisfy(59,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MnoneSatisfy(60,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prestrictions(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prestrictions(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesExactly(61,java.util.function.Consumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PallRequirements(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsatisfiesExactly(62,org.assertj.core.api.ThrowingConsumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -7770,7 +7770,7 @@
  {"name": "MsatisfiesOnlyOnce(65,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsatisfiesOnlyOnce(66,org.assertj.core.api.ThrowingConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Prequirements(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prequirements(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MstartsWith(67,ELEMENT[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psequence(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]},
 
@@ -7870,10 +7870,10 @@
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "MusingOverriddenEquals(23)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MwithComparatorForFields(24,java.util.Comparator,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PfieldLocations(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MwithComparatorForType(25,java.util.Comparator,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MwithEnumStringComparison(26)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MwithEqualsForFields(27,java.util.function.BiPredicate,java.lang.String[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -8027,7 +8027,7 @@
  {"name": "C<init>(0,ACTUAL)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":1}}},
  {"name": "C<init>(1,java.util.concurrent.Callable)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Prunnable(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Prunnable(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "McatchThrowable(0,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "McatchThrowableOfType(1,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -8095,7 +8095,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(18,java.lang.Iterable,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(19,java.lang.Long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(20,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8197,7 +8197,7 @@
   {"name": "PassertClass(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThat(68,java.util.List,org.assertj.core.api.AssertFactory)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "PassertFactory(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MassertThat(69,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(70,java.util.Optional)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":

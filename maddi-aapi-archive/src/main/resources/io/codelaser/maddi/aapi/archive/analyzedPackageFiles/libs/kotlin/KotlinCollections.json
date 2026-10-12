@@ -92,7 +92,7 @@
  {"name": "MbinarySearch(10,T[],T,java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Pcomparator(2)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(2)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MbinarySearch(11,byte[],byte,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
@@ -407,17 +407,17 @@
   {"name": "PtoIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MsortWith(91,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsortWith(92,T[],java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MtoSortedSet(93,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MtoSortedSet(94,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MtoSortedSet(95,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MtoSortedSet(96,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -1956,31 +1956,31 @@
   {"name": "P$this$isSortedDescending(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MisSortedWith(483,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(484,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(485,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(486,char[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(487,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(488,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(489,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(490,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MisSortedWith(491,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MjoinTo(492,T[],A,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$joinTo(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pbuffer(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
@@ -2481,58 +2481,58 @@
   {"name": "P$this$max(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmaxWithOrNull(631,T[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(632,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(633,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(634,char[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(635,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(636,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(637,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(638,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrNull(639,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(640,T[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(641,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(642,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(643,char[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(644,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(645,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(646,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(647,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(648,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminByOrNull(649,T[],kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minByOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
@@ -2629,58 +2629,58 @@
   {"name": "P$this$min(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MminWithOrNull(687,T[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(688,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(689,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(690,char[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(691,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(692,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(693,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(694,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrNull(695,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(696,T[],java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(697,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(698,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(699,char[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(700,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(701,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(702,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(703,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(704,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "Mnone(705,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "P$this$none(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mnone(706,T[],kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
@@ -3484,7 +3484,7 @@
   {"name": "P$this$sortedArrayDescending(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsortedArrayWith(997,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedArrayWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsortedBy(998,T[],kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedBy(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
@@ -3557,31 +3557,31 @@
   {"name": "P$this$sortedDescending(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsortedWith(1024,T[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1025,boolean[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1026,byte[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1027,char[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1028,double[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1029,float[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1030,int[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1031,long[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MsortedWith(1032,short[],java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "Msubtract(1033,T[],java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$subtract(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
   {"name": "Pother(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
@@ -4192,7 +4192,7 @@
  {"name": "MbinarySearch(3,java.util.List,T,java.util.Comparator,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$binarySearch(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelement(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "Pcomparator(2)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(2)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "PfromIndex(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "PtoIndex(4)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MbinarySearch(4,java.util.List,int,int,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
@@ -4311,7 +4311,7 @@
   {"name": "P$this$toSortedSet(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoSortedSet(4,java.lang.Iterable,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toSortedSet(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]}]},
 
 {"name": "Tkotlin.collections.CollectionsKt___CollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -4540,7 +4540,7 @@
   {"name": "P$this$isSortedDescending(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MisSortedWith(73,java.lang.Iterable,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MjoinTo(74,java.lang.Iterable,A,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$joinTo(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pbuffer(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
@@ -4632,10 +4632,10 @@
   {"name": "P$this$max(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MmaxWithOrNull(102,java.lang.Iterable,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(103,java.lang.Iterable,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminByOrNull(104,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minByOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pselector(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
@@ -4656,10 +4656,10 @@
   {"name": "P$this$min(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MminWithOrNull(112,java.lang.Iterable,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(113,java.lang.Iterable,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mminus(114,java.lang.Iterable,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$minus(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
@@ -4811,7 +4811,7 @@
   {"name": "P$this$sortedDescending(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsortedWith(166,java.lang.Iterable,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
-  {"name": "Pcomparator(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "Msubtract(167,java.lang.Iterable,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$subtract(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Pother(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
@@ -4952,7 +4952,7 @@
  {"name": "MmapOf(7,kotlin.Pair)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Ppair(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MsortedMapOf(8,java.util.Comparator,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Ppairs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsortedMapOf(9,kotlin.Pair[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Ppairs(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
@@ -4962,7 +4962,7 @@
   {"name": "P$this$toSortedMap(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MtoSortedMap(12,java.util.Map,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toSortedMap(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]}]},
 
 {"name": "Tkotlin.collections.MapsKt__MapsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -5154,7 +5154,7 @@
  {"name": "MsortedSetOf(4,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pelements(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsortedSetOf(5,java.util.Comparator,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcomparator(0)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}},
   {"name": "Pelements(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]}]},
 
 {"name": "Tkotlin.collections.SetsKt__SetsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

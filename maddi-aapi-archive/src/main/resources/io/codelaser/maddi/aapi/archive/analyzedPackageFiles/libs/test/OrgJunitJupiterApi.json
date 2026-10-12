@@ -145,20 +145,20 @@
   {"name": "Pactual(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertDoesNotThrow(39,org.junit.jupiter.api.function.Executable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MassertDoesNotThrow(40,org.junit.jupiter.api.function.Executable,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertDoesNotThrow(41,org.junit.jupiter.api.function.Executable,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertDoesNotThrow(42,org.junit.jupiter.api.function.ThrowingSupplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MassertDoesNotThrow(43,org.junit.jupiter.api.function.ThrowingSupplier,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertDoesNotThrow(44,org.junit.jupiter.api.function.ThrowingSupplier,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
-  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertEquals(45,java.lang.Byte,java.lang.Byte)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pexpected(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
@@ -954,69 +954,69 @@
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertThrows(261,java.lang.Class,org.junit.jupiter.api.function.Executable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertThrows(262,java.lang.Class,org.junit.jupiter.api.function.Executable,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThrows(263,java.lang.Class,org.junit.jupiter.api.function.Executable,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertThrowsExactly(264,java.lang.Class,org.junit.jupiter.api.function.Executable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertThrowsExactly(265,java.lang.Class,org.junit.jupiter.api.function.Executable,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertThrowsExactly(266,java.lang.Class,org.junit.jupiter.api.function.Executable,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PexpectedType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeout(267,java.time.Duration,org.junit.jupiter.api.function.Executable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeout(268,java.time.Duration,org.junit.jupiter.api.function.Executable,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertTimeout(269,java.time.Duration,org.junit.jupiter.api.function.Executable,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeout(270,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeout(271,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertTimeout(272,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeoutPreemptively(273,java.time.Duration,org.junit.jupiter.api.function.Executable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeoutPreemptively(274,java.time.Duration,org.junit.jupiter.api.function.Executable,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertTimeoutPreemptively(275,java.time.Duration,org.junit.jupiter.api.function.Executable,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pexecutable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeoutPreemptively(276,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTimeoutPreemptively(277,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pmessage(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MassertTimeoutPreemptively(278,java.time.Duration,org.junit.jupiter.api.function.ThrowingSupplier,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Ptimeout(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Psupplier(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PmessageSupplier(2)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MassertTrue(279,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pcondition(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},

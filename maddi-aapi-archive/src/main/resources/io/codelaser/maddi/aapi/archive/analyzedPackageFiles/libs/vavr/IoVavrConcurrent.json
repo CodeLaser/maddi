@@ -28,7 +28,7 @@
  {"name": "Mfilter(13,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MfilterTry(14,io.vavr.CheckedPredicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mfind(15,java.lang.Iterable,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pfutures(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
@@ -44,7 +44,7 @@
  {"name": "MflatMap(19,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MflatMapTry(20,io.vavr.CheckedFunction1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmapper(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pmapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mfold(21,java.lang.Iterable,U,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pfutures(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pzero(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
@@ -89,14 +89,14 @@
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MmapToVoid(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MmapTry(45,io.vavr.CheckedFunction1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pmapper(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pmapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mnarrow(46,io.vavr.concurrent.Future)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pfuture(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mof(47,io.vavr.CheckedFunction0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Pcomputation(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pcomputation(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mof(48,java.util.concurrent.Executor,io.vavr.CheckedFunction0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pexecutor(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
-  {"name": "Pcomputation(1)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Pcomputation(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MonComplete(49,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MonFailure(50,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -121,10 +121,10 @@
   {"name": "Pfutures(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pf(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "Mrun(59,io.vavr.CheckedRunnable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Punit(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Punit(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mrun(60,java.util.concurrent.Executor,io.vavr.CheckedRunnable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pexecutor(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
-  {"name": "Punit(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
+  {"name": "Punit(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "Msequence(61,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pfutures(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Msequence(62,java.util.concurrent.Executor,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[

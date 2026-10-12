@@ -2110,7 +2110,7 @@
    {"name": "MstackSize(7,long)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
     {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
    {"name": "MuncaughtExceptionHandler(8,java.lang.Thread.UncaughtExceptionHandler)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}}]},
+    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}}]},
   {"name": "SOfVirtual(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
    {"name": "MinheritInheritableThreadLocals(0,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
     {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -2120,7 +2120,7 @@
     {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
     {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
    {"name": "MuncaughtExceptionHandler(3,java.lang.Thread.UncaughtExceptionHandler)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}}]},
+    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}}]},
   {"name": "Mfactory(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
   {"name": "MinheritInheritableThreadLocals(1,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -2130,11 +2130,11 @@
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mstart(4,java.lang.Runnable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
   {"name": "MuncaughtExceptionHandler(5,java.lang.Thread.UncaughtExceptionHandler)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
   {"name": "Munstarted(6,java.lang.Runnable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}}}]},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}}]},
  {"name": "SState(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "FBLOCKED(0)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
   {"name": "FNEW(1)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
@@ -2154,27 +2154,27 @@
  {"name": "FNORM_PRIORITY(2)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "C<init>(1,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "C<init>(2,java.lang.Runnable,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "C<init>(3,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "C<init>(4,java.lang.ThreadGroup,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "C<init>(5,java.lang.ThreadGroup,java.lang.Runnable,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "C<init>(6,java.lang.ThreadGroup,java.lang.Runnable,java.lang.String,long)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "C<init>(7,java.lang.ThreadGroup,java.lang.Runnable,java.lang.String,long,boolean)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg4(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -2222,13 +2222,13 @@
  {"name": "MsetDaemon(32,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MsetDefaultUncaughtExceptionHandler(33,java.lang.Thread.UncaughtExceptionHandler)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsetName(34,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MsetPriority(35,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MsetUncaughtExceptionHandler(36,java.lang.Thread.UncaughtExceptionHandler)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Msleep(37,java.time.Duration)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Msleep(38,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -2238,7 +2238,7 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "Mstart(40)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MstartVirtualThread(41,java.lang.Runnable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthreadId(42)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MtoString(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Myield(44)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
