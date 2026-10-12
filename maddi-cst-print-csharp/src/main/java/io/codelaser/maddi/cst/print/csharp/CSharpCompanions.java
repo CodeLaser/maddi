@@ -36,7 +36,8 @@ import java.util.stream.Collectors;
  * C# type argument: none satisfies {@code where Score_ : IScore<Score_>}. As C#'s own {@code IComparable} beside
  * {@code IComparable<T>}, such a type has a companion without its self-bounded type parameters, which the wildcard is:
  * {@code IScore} beside {@code IScore<Score_>}, {@code IInnerScoreDirector<Solution_>} beside
- * {@code IInnerScoreDirector<Solution_, Score_>}; a class's is the interface {@code I} + its name, which it implements.
+ * {@code IInnerScoreDirector<Solution_, Score_>}; a class's or a record's is the interface {@code I} + its name, which it
+ * implements, a record's with its components as properties.
  * <p>
  * The companion declares the type's own members that a wildcard's user can call: those whose parameters do not
  * mention a removed type parameter, with the removed parameter in the result erased to its bound's companion
@@ -56,7 +57,7 @@ final class CSharpCompanions {
     /** The self-bounded type parameters of a program type, which its companion does not have; empty when it has none. */
     static List<TypeParameter> removed(TypeInfo t) {
         if (t == null || !CSharpNames.translated(t) || t.typeParameters().isEmpty() || t.typeNature().isEnum()
-            || t.typeNature().isRecord() || t.isAnonymous() || t.enclosingMethod() != null) {
+            || t.isAnonymous() || t.enclosingMethod() != null) {
             return List.of();
         }
         return CSharpContext.program().companions().computeIfAbsent(t, CSharpCompanions::computeRemoved);
@@ -219,7 +220,24 @@ final class CSharpCompanions {
         CSharpProgram program = CSharpContext.program();
         List<Member> members = new ArrayList<>();
         Set<String> signatures = new HashSet<>();
+        if (t.typeNature().isRecord()) {
+            // a record's components, its properties
+            for (io.codelaser.maddi.cst.api.info.FieldInfo f : t.fields()) {
+                if (f.isStatic()) continue;
+                io.codelaser.maddi.cst.api.type.NullableState nullable = program.facts().nullable(f);
+                String type = mentionsAny(f.type(), removed) ? erased(f.type(), removed, q)
+                        : CSharpTypeName.declared(f.type(), false, nullable, q);
+                if (type == null) continue;
+                String property = CSharpNames.field(f);
+                signatures.add(property);
+                boolean assertNotNull = program.facts().nullabilityAnalysed() && mentionsAny(f.type(), removed)
+                                        && !type.endsWith("?");
+                members.add(new Member(type + " " + property + " { get; }",
+                        type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
+            }
+        }
         for (MethodInfo m : t.methods()) {
+            if (CSharpTypePrinter.isRecordAccessor(m)) continue;
             if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
                 || m.overrides().stream().anyMatch(o -> o != m) || CSharpWildcards.mayCapture(m)
                 || program.typeToken(m) >= 0 || CSharpTypePrinter.interfaceMethodDefaulted(t, m) != null) {

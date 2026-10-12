@@ -1620,7 +1620,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 public record SimpleScore(int value) implements Score<SimpleScore> {
                     public boolean isZero() { return value == 0; }
                 }
-                public record Inner<Score_ extends Score<?>>(Score_ raw) { }
+                public record Inner<Score_ extends Score<Score_>>(Score_ raw) { boolean zero() { return raw.isZero(); } }
                 public interface Director<Solution_, Score_ extends Score<Score_>> { Score_ calculate(Solution_ solution); void reset(); }
                 static class SolverScope<Solution_> {
                     private Inner<?> best;
@@ -1645,7 +1645,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 }
                 interface Acceptor { }
                 static <T> T newInstance(Object bean, String name, Class<T> clazz) {
-                    try { return clazz.getDeclaredConstructor().newInstance(); } catch (Exception e) { throw new RuntimeException(e); }
+                    return null;
                 }
                 static Acceptor acceptor(Class<? extends Acceptor> c) { return newInstance(null, "a", c); }
                 static Object any(Class<?> c) { return newInstance(null, "a", c); }
@@ -1659,13 +1659,16 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     /**
      * A self-bounded type parameter that only the result mentions: Java infers a raw or captured type, which no C#
      * type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
-     * a call where Java's type is writable casts to it. A {@code Class<T>} is C#'s {@code Type}, from which C#
+     * a call where Java's type is writable casts to it. A record's companion has its components. A {@code Class<T>} is C#'s {@code Type}, from which C#
      * infers nothing: T is the wildcard's bound.
      */
     @Test
     public void resultOnlySelfBound() {
         String cs = translate("PhaseScopes", PHASE_SCOPES);
-        contains(cs, "public Inner<IScore> GetBest() => (Inner<IScore>) (object) best;");
+        // a record has a companion too, with its components
+        contains(cs, "public interface IInner { IScore Raw { get; } }");
+        contains(cs, "IScore IInner.Raw => Raw;");
+        contains(cs, "public IInner GetBest() => (IInner) (object) best;");
         contains(cs, "public IDirector<Solution_> GetDirector() => solverScope.GetDirector();");
         contains(cs, "scope.GetBest().Raw.IsZero()");
         contains(cs, "IDirector<Solution_, Score_> d = (IDirector<Solution_, Score_>) (object) scope.GetDirector();");

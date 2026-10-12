@@ -454,7 +454,8 @@ ratchet's report (see below) lists what is left.
   `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
   C#'s `IComparable` beside `IComparable<T>`, such a type has a companion without its self-bounded parameters
   (`CSharpCompanions`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside `IDirector<Solution_, Score_>`;
-  a class's companion is the interface `I` + its name. The wildcard, and the raw type, is the companion. The companion
+  a class's or a record's companion is the interface `I` + its name, a record's with its components as properties
+  (`IScore Raw { get; }`). The wildcard, and the raw type, is the companion. The companion
   declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
   companion (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
