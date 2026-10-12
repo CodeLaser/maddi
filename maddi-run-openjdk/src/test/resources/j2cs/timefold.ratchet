@@ -1,0 +1,14 @@
+# TestJavaToCSharpTimefold: timefold-solver's core/main translated to C# and judged by Roslyn (JavaToCSharpRatchet).
+# Lower is better for printerCrashes, syntaxErrors and unmappedJdkUses, higher for syntaxCleanFiles and
+# compilingFiles; `types` must not move. Write a better value here in the commit that earns it.
+#
+# 2026-10-12, first record: 611 of 1583 files compile, 8744 errors. Most are generics: CS0311 (a type argument that
+# does not satisfy a constraint: an F-bounded type's wildcard, Score<?>, printed as IScore<IScore<object>>) and
+# CS0411 (type inference). 21 syntax errors: OptionalInt's statics (int?.empty()) and a cast of a method reference
+# printed as a lambda. maddi-mod's timefold-facts ratchet measures the same with the analysis's facts.
+types	1583
+printerCrashes	0
+syntaxErrors	21
+syntaxCleanFiles	1579
+compilingFiles	611
+unmappedJdkUses	2087
