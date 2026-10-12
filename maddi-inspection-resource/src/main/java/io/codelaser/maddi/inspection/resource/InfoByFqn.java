@@ -44,6 +44,10 @@ public class InfoByFqn {
 
     private final Map<String, TypeInfo> singleTypeByFqn = new HashMap<>();
     private final Map<String, List<TypeInfo>> multiTypeByFqn = new HashMap<>();
+    // A library type that a class file of ANOTHER jar overwrote: the same name in another version, loaded while
+    // another source set was being scanned. Resolution no longer finds it, but the code parsed before still calls
+    // it, and analysis results must reach it (CodeLaser/maddi-mod#37). Kept here only; getType never reads it.
+    private final Map<String, List<TypeInfo>> displacedLibraryTypesByFqn = new HashMap<>();
 
     private final Set<TypeInfo> loadedForThisSourceSet = new HashSet<>();
 
@@ -179,6 +183,11 @@ public class InfoByFqn {
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
                     prev.compilationUnit().sourceSet(), typeInfo.compilationUnit().sourceSet());
+            if (isDisplacedLibraryCopy(prev, typeInfo)) {
+                SourceSet displacedSet = prev.compilationUnit().sourceSet();
+                displacedLibraryTypesByFqn.merge(fqn, List.of(prev), (known, added) -> Stream.concat(
+                        known.stream().filter(t -> !sameSourceSet(t, displacedSet)), added.stream()).toList());
+            }
             // A same-set overwrite is legal in exactly one case: the same jar re-read through a different
             // class-file entry. A multi-release jar presents one FQN at both x/Y.class and
             // META-INF/versions/N/x/Y.class, and javac selects PER SOURCE SET (--release follows
@@ -266,6 +275,35 @@ public class InfoByFqn {
                 .findFirst()
                 .map(TypeDistance::typeInfo)
                 .orElseThrow();
+    }
+
+    /**
+     * Every type registered under this name, one per source set, stubs left out: what {@link #getType} chooses
+     * from. A library a project carries in two versions has two (CodeLaser/maddi-mod#37); analysis results for it
+     * must reach both, since which one a piece of code resolves depends on that code's source set.
+     */
+    public synchronized List<TypeInfo> allTypes(String fullyQualifiedName) {
+        List<TypeInfo> current;
+        TypeInfo ti = singleTypeByFqn.get(fullyQualifiedName);
+        if (ti != null) current = isStub(ti) ? List.of() : List.of(ti);
+        else {
+            List<TypeInfo> multi = multiTypeByFqn.get(fullyQualifiedName);
+            current = multi == null ? List.of() : multi.stream().filter(m -> !isStub(m)).toList();
+        }
+        List<TypeInfo> displaced = displacedLibraryTypesByFqn.get(fullyQualifiedName);
+        if (displaced == null) return current;
+        // a displaced copy whose source set is registered again (the same jar re-read) is that one, not another
+        return Stream.concat(current.stream(), displaced.stream()
+                .filter(d -> current.stream().noneMatch(c -> sameSourceSet(c, d.compilationUnit().sourceSet()))))
+                .toList();
+    }
+
+    // a real library type replaced by a real one from another source set: another version of the same library
+    private static boolean isDisplacedLibraryCopy(TypeInfo prev, TypeInfo typeInfo) {
+        SourceSet prevSet = prev.compilationUnit().sourceSet();
+        SourceSet newSet = typeInfo.compilationUnit().sourceSet();
+        return prevSet != null && newSet != null && prevSet.externalLibrary() && newSet.externalLibrary()
+               && !prevSet.equals(newSet);
     }
 
     public Collection<TypeInfo> typesLoadedForThisSourceSet() {

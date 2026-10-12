@@ -161,6 +161,16 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         return sourceSetAware;
     }
 
+    // the same narrowness as typeIfLoaded: a name the flat map does not know has no copies
+    @Override
+    public List<TypeInfo> typesIfLoaded(String fullyQualifiedName) {
+        TypeInfo flat = typesLoaded.get(fullyQualifiedName);
+        if (flat == null) return List.of();
+        List<TypeInfo> all = infoByFqn.allTypes(fullyQualifiedName);
+        if (all.isEmpty()) return flat.compilationUnit().sourceSet() == null ? List.of() : List.of(flat);
+        return all;
+    }
+
     // registry first, then a lazy load from bytecode (via the injected loader), so a type first requested by
     // another front-end resolves to the same bytecode-authoritative TypeInfo the Java scan would build. The load
     // is the rare tail: single digits over a whole test module in this front end, zero over most of them.

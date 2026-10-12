@@ -71,6 +71,15 @@ public interface CompiledTypesManager {
      */
     TypeInfo typeIfLoaded(String fullyQualifiedName, SourceSet sourceSetOfRequest);
 
+    /**
+     * Every loaded copy of a type, one per source set (a library in two versions has two); empty when none is
+     * loaded. A peek like {@link #typeIfLoaded(String, SourceSet)}: nothing is loaded. The default knows of no
+     * second copy and answers empty, which callers read as "resolve as before" (CodeLaser/maddi-mod#37).
+     */
+    default List<TypeInfo> typesIfLoaded(String fullyQualifiedName) {
+        return List.of();
+    }
+
     /** The peek by class literal; {@link #javaBase()} is the right source set for the JDK types it is used on. */
     default TypeInfo typeIfLoaded(Class<?> clazz) {
         return typeIfLoaded(clazz.getCanonicalName(), javaBase());
