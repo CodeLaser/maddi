@@ -776,7 +776,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "var visible: Int = 2"); // not private: another class may assign it
         contains(kotlin, "val a = p + 1");
         contains(kotlin, "var b = 0");
-        contains(kotlin, "var c: Int"); // declared without a value: which assignment comes first is flow
+        contains(kotlin, "val c: Int"); // declared without a value, assigned once: Kotlin checks it as javac does
         contains(kotlin, "var x = 1");
         contains(kotlin, "val y = 2");
     }
@@ -1118,5 +1118,43 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String alone = kotlin(READ_ONLY_IN_WORLD.replace("Box", "Alone").replace("Reader", "AloneReader"), KotlinPrintOptions.DEFAULT, TestJavaToKotlinStructure::unmodifiedFields);
         contains(alone, "val names: MutableList<String>");
         contains(alone, "fun names(): MutableList<String> = names");
+    }
+
+    @Language("java")
+    private static final String LOCALS_ASSIGNED_ONCE = """
+            package a;
+            class L {
+                static int f(boolean c, int[] xs) {
+                    int a;
+                    if (c) { a = 1; } else { a = 2; }
+                    int b;
+                    if (c) { b = 3; return b; }
+                    b = 4;
+                    int n;
+                    n = 0;
+                    n = 1;
+                    int len;
+                    while ((len = xs.length) > 10) { break; }
+                    int k = 0;
+                    int m;
+                    for (int x : xs) { m = x; k += m; }
+                    return a + b + n + len + k;
+                }
+            }
+            """;
+
+    /**
+     * A local declared without a value is a {@code val} when each path assigns it at most once in a statement of its
+     * own; a second assignment, one inside an expression (an {@code .also { }} lambda in Kotlin) or one in a loop
+     * keeps the {@code var}.
+     */
+    @Test
+    public void localsAssignedOnce() {
+        String kotlin = kotlin(LOCALS_ASSIGNED_ONCE);
+        contains(kotlin, "val a: Int");
+        contains(kotlin, "val b: Int");
+        contains(kotlin, "var n: Int");
+        contains(kotlin, "var len: Int");
+        contains(kotlin, "var m: Int");
     }
 }

@@ -350,7 +350,13 @@ final class KotlinContext {
         return scope == null || scope.isEmpty() || KotlinAssignments.assignedIn(scope.get(), local);
     }
 
-    /** A label no enclosing construct uses, for a {@code run label@{ }} the translation introduces. */
+    /** A local of the current body declared without a value, which each path assigns at most once: a val. */
+    static boolean assignedOnce(io.codelaser.maddi.cst.api.statement.Statement declaration, Variable local) {
+        var scope = SCOPES.get().peek();
+        return scope != null && scope.isPresent() && KotlinAssignments.assignedOnce(scope.get(), declaration, local);
+    }
+
+        /** A label no enclosing construct uses, for a {@code run label@{ }} the translation introduces. */
     static String freshLabel(String base) {
         return base + (++COUNTER.get()[0]);
     }

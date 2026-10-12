@@ -797,8 +797,9 @@ public class KotlinStatementPrinter {
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
-        // effectively final: a val (one declared without a value stays a var: which assignment comes first is flow)
-        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv);
+        // effectively final: a val; one declared without a value when each path assigns it once, in a statement
+        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
+                      || !hasInitializer && KotlinContext.assignedOnce(lvc, lv);
         OutputBuilder b = new OutputBuilderImpl()
                 .add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
                 .add(new TextImpl(declare(lv.simpleName())));
