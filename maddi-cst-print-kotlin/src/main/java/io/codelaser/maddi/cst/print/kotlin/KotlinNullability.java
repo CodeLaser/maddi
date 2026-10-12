@@ -52,9 +52,11 @@ final class KotlinNullability {
     /**
      * JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). The analysis
      * knows them from its hint archives and stores NULLABILITY_METHOD on them, which {@link PropertyVerdicts}
-     * reads; this list is for a translation without the analysis.
+     * reads; this list is for a translation without the analysis. Kotlin's Throwable declares {@code open val cause:
+     * Throwable?} and {@code message: String?}: open, so no {@code != null} test smart-casts them.
      */
     private static final Map<String, Set<String>> NULLABLE_JDK_RESULTS = Map.of(
+            "java.lang.Throwable", Set.of("getCause", "getMessage"),
             "java.util.Map", Set.of("get", "remove", "put", "putIfAbsent"),
             "java.util.Queue", Set.of("poll", "peek"),
             "java.util.Deque", Set.of("pollFirst", "pollLast", "peekFirst", "peekLast"));
@@ -81,11 +83,33 @@ final class KotlinNullability {
         ParameterizedType shadow = KotlinContext.currentMethod() == parameterInfo.methodInfo()
                 ? KotlinContext.localType(parameterInfo.name()) : null;
         if (shadow != null) return shadow;
-        ParameterizedType verdict = verdicts().parameter(parameterInfo);
-        if (verdict != null) return verdict;
         ParameterizedType declared = parameterInfo.parameterizedType();
-        return isBoxed(declared) && boxedClash(parameterInfo.methodInfo())
-                ? declared.withNullable(NullableState.NULLABLE) : declared;
+        MethodInfo method = parameterInfo.methodInfo();
+        int index = parameterInfo.index();
+        if (isBoxed(declared) && (boxedAbi(method, m -> index < m.parameters().size()
+                ? m.parameters().get(index).parameterizedType() : null) || boxedClash(method))) {
+            return declared.withNullable(NullableState.NULLABLE);
+        }
+        ParameterizedType verdict = verdicts().parameter(parameterInfo);
+        return verdict != null ? verdict : declared;
+    }
+
+    /**
+     * Java's {@code Long} in a signature is Kotlin's {@code Long?}: a non-null {@code Long} is the JVM's {@code long},
+     * and Java code calling {@code from(Long)} or {@code Long total()} finds no such method. Not in a private member,
+     * which Java code cannot call; not where it overrides a member typed by a type parameter, whose {@code Long?}
+     * would not override {@code compareTo(other: Int)}.
+     */
+    private static boolean boxedAbi(MethodInfo method,
+                                    java.util.function.Function<MethodInfo, ParameterizedType> typeIn) {
+        if (!KotlinContext.translatingJava() || !translated(method.typeInfo()) || method.isSynthetic()
+            || method.access() != null && method.access().isPrivate() || method.typeInfo().isAnonymous()) {
+            return false;
+        }
+        return method.overrides().stream().allMatch(m -> {
+            ParameterizedType t = typeIn.apply(m);
+            return t != null && isBoxed(t);
+        });
     }
 
     /**
@@ -117,6 +141,9 @@ final class KotlinNullability {
 
 
     static ParameterizedType returnType(MethodInfo methodInfo) {
+        if (isBoxed(methodInfo.returnType()) && boxedAbi(methodInfo, MethodInfo::returnType)) {
+            return methodInfo.returnType().withNullable(NullableState.NULLABLE);
+        }
         ParameterizedType verdict = verdicts().returnType(methodInfo);
         if (verdict != null && isNullable(verdict)
             && (overridesMappedMember(methodInfo) || returnsNullForTypeVariable(methodInfo))) {
@@ -450,8 +477,13 @@ final class KotlinNullability {
         boolean unboxed = target != null && target.arrays() == 0 && target.isPrimitiveExcludingVoid()
                           && KotlinExpressionPrinter.primitive(target) == KotlinExpressionPrinter.primitive(value.parameterizedType());
         if (!targetTranslated && !unboxed || target == null || isNullable(target) || value instanceof NullConstant
-            || !nullableInKotlin(value)) {
+            || !nullableInKotlin(value) && !nullableTypeVariable(value, target)) {
             return printed;
+        }
+        KotlinExpressionPrinter.Primitive from = KotlinExpressionPrinter.primitive(value.parameterizedType());
+        if (target.arrays() == 0 && target.isPrimitiveExcludingVoid() && from != null
+            && from != KotlinExpressionPrinter.primitive(target)) {
+            return printed; // widened, x!!.toLong(), asserted there
         }
         io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
         if (target.arrays() == 0 && target.typeParameter() != null && method != null
@@ -469,6 +501,24 @@ final class KotlinNullability {
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintMessage.Code.ASSERT_AT_UNBOXING : KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL,
                 value, KotlinContext.describe(value));
         return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
+    }
+
+    /**
+     * A value of an unbounded type variable, whose upper bound is Kotlin's {@code Any?}, into a declaration that is
+     * neither nullable nor a type variable: {@code successWith(json, r.value)} with an {@code Any} parameter.
+     */
+    private static boolean nullableTypeVariable(Expression value, ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || target.isTypeParameter() || target.isPrimitiveExcludingVoid()
+            || !(KotlinExpressionPrinter.unwrap(value) instanceof VariableExpression)) {
+            return false;
+        }
+        ParameterizedType type = kotlinType(value);
+        if (type == null || !type.isTypeParameter() || type.arrays() > 0) return false;
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
+        MethodInfo method = KotlinContext.currentMethod();
+        return !tp.isMethodTypeParameter() || method == null || !method.typeParameters().contains(tp)
+               || !KotlinMethodPrinter.nonNullBound(method, tp);
     }
 
     /** What a for-each loops over: {@code xs!!} when Kotlin types it nullable (a loop over null throws in Java too). */

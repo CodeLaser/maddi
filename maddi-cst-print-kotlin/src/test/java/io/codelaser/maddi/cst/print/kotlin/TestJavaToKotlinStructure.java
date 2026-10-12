@@ -933,4 +933,50 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "tool.name + tool.value.size");
         assertFalse(kotlin.contains(": Annotation"), kotlin);
     }
+
+    @Language("java")
+    private static final String DECLARATIONS = """
+            package a;
+            class D {
+                interface Factory { <T> T create(Class<T> c); }
+                interface Result<T> { T value(); String error(); }
+                record Ok<T>(T value) implements Result<T> { public String error() { return "none"; } }
+                static class Early {
+                    private final String name;
+                    Early(String n) {
+                        if (n == null) {
+                            this.name = "none";
+                            return;
+                        }
+                        this.name = n;
+                    }
+                }
+                static class Holder<T> {
+                    private final Long total;
+                    private final T content;
+                    private final String label;
+                    Holder(Long total, T content) { this(total, content, "x"); }
+                    Holder(Long total, T content, String label) { this.total = total; this.content = content; this.label = label; }
+                    Long total() { return total; }
+                    T content() { return content; }
+                    String label() { return label; }
+                }
+            }
+            """;
+
+    /**
+     * Kotlin has no generic {@code fun interface} method, no property overriding a function, no {@code return} in an
+     * init block, and no lateinit for Long or T.
+     */
+    @Test
+    public void declarations() {
+        String kotlin = kotlin(DECLARATIONS);
+        assertTrue(kotlin.contains("    interface Factory {"), kotlin);
+        assertFalse(kotlin.contains("@JvmRecord"), kotlin);
+        assertTrue(kotlin.contains("override fun value(): T = value"), kotlin);
+        assertTrue(kotlin.contains("constructor(n: String) {"), kotlin);
+        assertTrue(kotlin.contains("internal var total: Long = 0L"), kotlin);
+        assertTrue(kotlin.contains("internal var content: T = null as T"), kotlin);
+        assertTrue(kotlin.contains("internal lateinit var label: String"), kotlin);
+    }
 }

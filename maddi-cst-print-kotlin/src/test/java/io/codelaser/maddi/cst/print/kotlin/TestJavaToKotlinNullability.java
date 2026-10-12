@@ -331,6 +331,63 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String BOXED_SIGNATURES = """
+            package a;
+            class W {
+                private final Long total;
+                private W(Long total) { this.total = total; }
+                static W from(Long total) { return new W(total); }
+                public Long total() { return total; }
+                private Long twice() { return total * 2; }
+                public String describe(Integer count) { return "count=" + count + ", total=" + total; }
+            }
+            """;
+
+    /**
+     * Java code calls {@code total()} returning a {@code java.lang.Long}: Kotlin's non-null Long is a {@code long}, so a
+     * boxed type in a signature Java can call is nullable whatever the verdict. String concatenation prints a null.
+     */
+    @Test
+    public void boxedSignatures() {
+        String kotlin = kotlin(BOXED_SIGNATURES, VERDICTS);
+        contains(kotlin, "fun from(total: Long?): W");
+        contains(kotlin, "open fun total(): Long? = total");
+        contains(kotlin, "private fun twice(): Long");
+        contains(kotlin, "\"count=\" + count + \", total=\" + total");
+    }
+
+    @Language("java")
+    private static final String UNDECLARED = """
+            package a;
+            import java.util.*;
+            class M<T> {
+                private final T value;
+                M(T value) { this.value = value; }
+                static RuntimeException runtime(String format, Object... args) { return new RuntimeException(format); }
+                void use(Object o) { }
+                RuntimeException m(Map<String, ?> s, String name) {
+                    s.forEach((k, w) -> use(w.getClass()));
+                    use(value);
+                    return runtime("%s %s", name, s);
+                }
+                long limit(Integer x) { return x; }
+            }
+            """;
+
+    /**
+     * Values Kotlin types nullable without a verdict saying so: a varargs element, a lambda parameter from a
+     * {@code Map<String, *>}, an unbounded T; and a nullable Integer widened to a long.
+     */
+    @Test
+    public void undeclaredNullable() {
+        String kotlin = kotlin(UNDECLARED, VERDICTS);
+        contains(kotlin, "use(w!!.javaClass)");
+        contains(kotlin, "use(value!!)");
+        contains(kotlin, "runtime(\"%s %s\", name!!, s)");
+        contains(kotlin, "x!!.toLong()");
+    }
+
+    @Language("java")
     private static final String CHECKED = """
             package a;
             class C {

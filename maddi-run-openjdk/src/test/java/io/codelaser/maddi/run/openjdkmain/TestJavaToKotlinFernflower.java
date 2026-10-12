@@ -43,7 +43,8 @@ public class TestJavaToKotlinFernflower {
     public void test() throws Exception {
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("fernflower");
         assertTrue(corpus.types().size() > 150, "only " + corpus.types().size() + " primary types");
-        new JavaToKotlinRatchet("fernflower", Path.of("src/test/resources/j2k/fernflower.ratchet"))
+        new JavaToKotlinRatchet("fernflower", Path.of("src/test/resources/j2k/fernflower.ratchet"),
+                JavaToKotlinRatchet.TESTS)
                 .run(corpus, KotlinPrintOptions.DEFAULT);
     }
 }

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -124,7 +125,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
             out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
-            if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()) {
+            if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
+                && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
                 out.add(new TextImpl("@JvmRecord")).add(SpaceEnum.ONE);
             }
@@ -149,8 +151,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else if (typeInfo.typeNature().isEnum()) {
                 out.add(KeywordImpl.ENUM).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
             } else if (typeInfo.typeNature().isInterface()) {
-                // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`
-                if (companion && typeInfo.isFunctionalInterface() && !typeInfo.typeNature().isAnnotation()) {
+                // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`; a generic method
+                // cannot be one's, nor is it a lambda's target in Java
+                if (companion && typeInfo.isFunctionalInterface() && !typeInfo.typeNature().isAnnotation()
+                    && (typeInfo.singleAbstractMethod() == null
+                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty())) {
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
@@ -234,6 +239,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 OutputBuilder init = initBlock(initConstructor, insideType);
                 if (init != null) members.add(init);
             }
+            if (accessorsAsFunctions(typeInfo, components)) {
+                components.forEach(f -> members.add(componentAccessor(typeInfo, f, insideType)));
+            }
         } finally {
             KotlinContext.shadowingParameters(Set.of());
         }
@@ -264,7 +272,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private MethodInfo soleConstructor(List<MethodInfo> constructors) {
         if (typeInfo.isAnonymous() || typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
         MethodInfo c = constructors.getFirst();
-        return isImplicitDefaultConstructor(c) ? null : c;
+        return isImplicitDefaultConstructor(c) || returnsEarly(c) ? null : c;
+    }
+
+    /** A {@code return} in a constructor body, outside lambdas: an init block cannot return, a secondary constructor can. */
+    static boolean returnsEarly(MethodInfo constructor) {
+        if (constructor.methodBody() == null) return false;
+        boolean[] found = {false};
+        ((Element) constructor.methodBody()).visit((Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda) return false;
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement) found[0] = true;
+            return !found[0];
+        });
+        return found[0];
     }
 
     /** {@code this.x = x; …} and nothing else: the parameters ARE the properties. */
@@ -377,17 +397,56 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return b;
     }
 
+    /**
+     * A record whose component accessor implements a supertype's method, {@code T response()}: a Kotlin property
+     * cannot override a function, and a {@code @JvmRecord}'s getter has the function's JVM signature. Not a JVM record
+     * then; each component gets its accessor as a function, for the Java code that calls it.
+     */
+    private static boolean accessorsAsFunctions(TypeInfo record, List<FieldInfo> components) {
+        return KotlinContext.translatingJava()
+               && components.stream().anyMatch(f -> supertypeMethod(record, f.name(), new java.util.HashSet<>()));
+    }
+
+    private static boolean supertypeMethod(TypeInfo typeInfo, String name, Set<TypeInfo> visited) {
+        List<ParameterizedType> supertypes = new ArrayList<>(typeInfo.interfacesImplemented());
+        if (typeInfo.parentClass() != null) supertypes.add(typeInfo.parentClass());
+        for (ParameterizedType st : supertypes) {
+            TypeInfo t = st.typeInfo();
+            if (t == null || !visited.add(t)) continue;
+            if (t.methods().stream().anyMatch(m -> !m.isStatic() && m.parameters().isEmpty() && name.equals(m.name()))
+                || supertypeMethod(t, name, visited)) return true;
+        }
+        return false;
+    }
+
+    /** {@code [override] fun response(): T = response}, beside the property. */
+    private static OutputBuilder componentAccessor(TypeInfo record, FieldInfo component, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl();
+        if (supertypeMethod(record, component.name(), new java.util.HashSet<>())) {
+            b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
+        }
+        String name = KotlinNames.name(component.name());
+        return b.add(KotlinKeyword.FUN).add(SpaceEnum.ONE).add(new TextImpl(name))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.COLON_LABEL)
+                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(component), q)))
+                .add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(name));
+    }
+
     static boolean isRecordAccessor(MethodInfo m) {
         TypeInfo owner = m.typeInfo();
         return owner.typeNature().isRecord() && !m.isStatic() && m.parameters().isEmpty() && !fromKotlinSource(owner)
                && owner.fields().stream().anyMatch(f -> !f.isStatic() && f.name().equals(m.name()));
     }
 
-    /** A Java class with more than one constructor has no primary one, so its final fields cannot be vals. */
+    /**
+     * A Java class with more than one constructor has no primary one, so its final fields cannot be vals; nor has one
+     * whose constructor returns early.
+     */
     static boolean finalFieldsAssignedInSecondaryConstructors(TypeInfo typeInfo) {
-        return !fromKotlinSource(typeInfo) && !typeInfo.typeNature().isRecord()
-               && typeInfo.constructors().stream().filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c))
-                       .count() > 1;
+        if (fromKotlinSource(typeInfo) || typeInfo.typeNature().isRecord()) return false;
+        List<MethodInfo> explicit = typeInfo.constructors().stream()
+                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c)).toList();
+        return explicit.size() > 1 || explicit.size() == 1 && !typeInfo.isAnonymous() && returnsEarly(explicit.getFirst());
     }
 
     /**

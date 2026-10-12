@@ -266,4 +266,55 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "anyMatch({ it.retry() })");
         contains(kotlin, "(actual as Comparable<Any?>).compareTo(expected)");
     }
+
+    @Language("java")
+    private static final String PROMOTIONS = """
+            package a;
+            import java.util.concurrent.Callable;
+            class G {
+                static <T> T withRetry(Callable<T> action, int n) throws Exception { return action.call(); }
+                static void withRetry(Runnable action, int n) { action.run(); }
+                static <T> T mapped(Callable<T> action) throws Exception { return withRetry(() -> action.call(), 1); }
+                static boolean ascii(char ch) { return ch < 128; }
+                static int low(byte b) { return b & 0xFF; }
+                static long wide(int i, long mask) { return i & mask; }
+                static int shifted(byte b, long d) { return b >>> d; }
+                static Throwable unwrap(Exception e) { if (e.getCause() != null) return e.getCause(); else return e; }
+                static Class<?>[] types() { return new Class<?>[] { int.class, Integer.class }; }
+            }
+            """;
+
+    /**
+     * Java promotes a char to int in a comparison, a byte to int (an int to long) in a bit operation; a lambda beside an
+     * overload taking another interface names Java's; Kotlin's Throwable.cause is an open Throwable?, never smart-cast.
+     */
+    @Test
+    public void promotions() {
+        String kotlin = kotlin(PROMOTIONS);
+        contains(kotlin, "withRetry(Callable<T> { action.call() }, 1)");
+        contains(kotlin, "ch.code < 128");
+        contains(kotlin, "b.toInt() and 255");
+        contains(kotlin, "i.toLong() and mask");
+        contains(kotlin, "b.toInt() ushr d.toInt()");
+        contains(kotlin, "return e.cause!!");
+        contains(kotlin, "Int::class.javaPrimitiveType!!,\nInt::class.javaObjectType)");
+    }
+
+    @Language("java")
+    private static final String COVARIANT_ARRAYS = """
+            package a;
+            class U {
+                static boolean empty(Object[] a) { return a == null || a.length == 0; }
+                static boolean any(String... xs) { return !empty(xs); }
+                static void fill(Object[] a) { a[0] = "x"; }
+            }
+            """;
+
+    /** Java's arrays are covariant: an Object[] parameter whose elements the method does not assign is Array<out Any>. */
+    @Test
+    public void covariantArrays() {
+        String kotlin = kotlin(COVARIANT_ARRAYS);
+        contains(kotlin, "fun empty(a: Array<out Any>): Boolean");
+        contains(kotlin, "fun fill(a: Array<Any>)");
+    }
 }

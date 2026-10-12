@@ -267,9 +267,37 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         ParameterizedType declared = KotlinNullability.parameterType(pi);
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
-                : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q) : KotlinTypeName.of(type, q);
+                : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
+                : covariantArray(pi, type) ? "Array<out " + KotlinTypeName.of(type.componentType(), q) + ">"
+                                             + (KotlinNullability.isNullable(type) ? "?" : "")
+                : KotlinTypeName.of(type, q);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
+    }
+
+    /**
+     * Java's {@code Object[]} parameter takes any reference array; Kotlin's {@code Array<Any?>} is invariant and takes
+     * no {@code Array<Document?>}: {@code isNullOrEmpty(documents)}. {@code Array<out Any?>} does, where the method
+     * assigns no element. Not in an override, whose parameter types are the overridden member's.
+     */
+    private static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
+        if (!KotlinContext.translatingJava() || pi.isVarArgs() || type.arrays() != 1
+            || !pi.methodInfo().overrides().isEmpty() || pi.methodInfo().methodBody() == null) {
+            return false;
+        }
+        ParameterizedType element = type.componentType();
+        if (element.typeInfo() == null || !element.typeInfo().isJavaLangObject()) return false;
+        boolean[] assigned = {false};
+        ((io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody()).visit(
+                (io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+                && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
+                && pi.equals(dv.arrayVariable())) {
+                assigned[0] = true;
+            }
+            return !assigned[0];
+        });
+        return !assigned[0];
     }
 
     /**
