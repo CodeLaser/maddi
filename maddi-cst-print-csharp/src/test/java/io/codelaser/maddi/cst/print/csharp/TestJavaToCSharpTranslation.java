@@ -1490,6 +1490,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 int sizeOf(Map<String, Integer> given) { return size(given); }
                 int width(Map<String, Integer> sized) { return sized.size(); }
                 int fresh() { return width(new HashMap<>()); }
+                int length() { return find("k").length() + description.length(); }
             }
             """;
 
@@ -1535,13 +1536,21 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "string d = description;");
     }
 
-    /** With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is. */
+    /**
+     * With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is, and a
+     * dereference of a value that may be null has a {@code !}.
+     */
     @Test
     public void nullabilityAnalysed() {
         policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
             @Override
             public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
                 return CATALOG_FACTS.nullable(field);
+            }
+
+            @Override
+            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+                return CATALOG_FACTS.nullable(method);
             }
 
             @Override
@@ -1553,5 +1562,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "private string? description;");
         contains(cs, "string? d = description;");
         contains(cs, "int n = 0;");
+        // a dereference of a value that may be null: Java throws there, C# too, and ! says so
+        contains(cs, "Find(\"k\")!.Length + description!.Length");
     }
 }

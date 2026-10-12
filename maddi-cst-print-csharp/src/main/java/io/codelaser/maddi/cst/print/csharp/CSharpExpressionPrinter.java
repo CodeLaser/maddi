@@ -97,8 +97,11 @@ public final class CSharpExpressionPrinter {
                     .add(operand(uo.precedence(), uo.expression(), q));
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            // a field access is where the facts about its scope are asked for, as at a call
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr && fr.scope() != null ->
+                    inCall(ve, () -> variable(ve.variable(), q));
             case VariableExpression ve -> variable(ve.variable(), q);
-            case ArrayLength al -> new OutputBuilderImpl().add(receiver(al.scope(), q)).add(SymbolEnum.DOT)
+            case ArrayLength al -> new OutputBuilderImpl().add(CSharpNullability.dereferenced(al.scope(), q)).add(SymbolEnum.DOT)
                     .add(text("Length"));
             case ArrayInitializer ai -> arrayInitializer(ai, ai.parameterizedType(), q);
             case ClassExpression ce -> text("typeof(" + typeOfArgument(ce.type(), q) + ")");
@@ -183,7 +186,7 @@ public final class CSharpExpressionPrinter {
         return switch (v) {
             case This t -> text(thisOrBase(t));
             case FieldReference fr -> fieldReference(fr, q);
-            case DependentVariable dv -> new OutputBuilderImpl().add(receiver(dv.arrayExpression(), q))
+            case DependentVariable dv -> new OutputBuilderImpl().add(CSharpNullability.dereferenced(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
             case ParameterInfo pi when CSharpContext.program().typeToken(pi.methodInfo()) == pi.index() ->
                     text("typeof(" + CSharpNames.typeParameter(pi.methodInfo().typeParameters().getFirst()) + ")");
@@ -251,7 +254,18 @@ public final class CSharpExpressionPrinter {
         if (fr.isStatic() && fr.scope() instanceof TypeExpression) {
             return text(CSharpTypeName.name(field.owner(), q) + "." + name);
         }
-        return new OutputBuilderImpl().add(receiver(fr.scope(), q)).add(SymbolEnum.DOT).add(text(name));
+        OutputBuilder scope = field.isStatic() ? receiver(fr.scope(), q) : CSharpNullability.dereferenced(fr.scope(), q);
+        return new OutputBuilderImpl().add(scope).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /** A call or field access is printed: the per-expression nullability facts are asked for with it. */
+    private static OutputBuilder inCall(Expression call, java.util.function.Supplier<OutputBuilder> printer) {
+        CSharpContext.pushCall(call);
+        try {
+            return printer.get();
+        } finally {
+            CSharpContext.popCall();
+        }
     }
 
     /**
@@ -300,6 +314,10 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
+        return inCall(mc, () -> methodCallInCall(mc, q, statement));
+    }
+
+    private static OutputBuilder methodCallInCall(MethodCall mc, Qualification q, boolean statement) {
         LibraryMapping.Rule rule = rule(mc);
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
@@ -307,7 +325,7 @@ public final class CSharpExpressionPrinter {
             java.util.function.Supplier<OutputBuilder> receiver = () -> object == null ? text("this")
                     : object instanceof VariableExpression ve && ve.variable() instanceof This t ? text(thisOrBase(t))
                     : object instanceof TypeExpression te ? text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
-                    : receiver(object, q);
+                    : mc.methodInfo().isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q);
             List<Expression> parameterExpressions = mc.parameterExpressions();
             List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
                     .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
@@ -322,15 +340,18 @@ public final class CSharpExpressionPrinter {
         MethodInfo method = mc.methodInfo();
         if (CSharpAttributes.isElement(method) && object != null) {
             // tool.name() reads the attribute's property
-            return new OutputBuilderImpl().add(receiver(object, q)).add(SymbolEnum.DOT).add(text(CSharpAttributes.property(method)));
+            return new OutputBuilderImpl().add(CSharpNullability.dereferenced(object, q)).add(SymbolEnum.DOT)
+                    .add(text(CSharpAttributes.property(method)));
         }
         if (CSharpContext.program().isInvoke(method) && object != null && !mc.objectIsImplicit()) {
             // a call of a delegate is an invocation: f(x)
-            return new OutputBuilderImpl().add(receiver(object, q)).add(arguments(mc.parameterExpressions(), method, q));
+            return new OutputBuilderImpl().add(CSharpNullability.dereferenced(object, q))
+                    .add(arguments(mc.parameterExpressions(), method, q));
         }
         if (defaultThroughClass(method, object, mc.objectIsImplicit())) {
             // a C# class does not inherit its interfaces' default methods: ((IResult) this).IsSuccess()
-            OutputBuilder self = object == null || mc.objectIsImplicit() ? text("this") : receiver(object, q);
+            OutputBuilder self = object == null || mc.objectIsImplicit() ? text("this")
+                    : CSharpNullability.dereferenced(object, q);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(text(interfaceType(method.typeInfo(), object, q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
                     .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
@@ -348,7 +369,7 @@ public final class CSharpExpressionPrinter {
                 b.add(text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
-            b.add(receiver(object, q)).add(SymbolEnum.DOT);
+            b.add(method.isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q)).add(SymbolEnum.DOT);
         }
         String computed = CSharpContext.program().computedProperty(method);
         if (computed != null) return b.add(text(computed)); // x.type() is the property x.Type
@@ -411,6 +432,10 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder constructorCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
+        return inCall(cc, () -> constructorCallInCall(cc, type, q));
+    }
+
+    private static OutputBuilder constructorCallInCall(ConstructorCall cc, ParameterizedType type, Qualification q) {
         if (cc.anonymousClass() != null) {
             TypeLiteral literal = typeLiteral(cc.anonymousClass());
             if (literal != null) {

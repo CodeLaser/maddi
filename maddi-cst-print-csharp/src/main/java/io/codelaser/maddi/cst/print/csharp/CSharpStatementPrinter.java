@@ -61,6 +61,16 @@ public final class CSharpStatementPrinter {
     }
 
     public static OutputBuilder print(Statement s, Qualification q) {
+        // the statement whose nullability facts hold where it starts (CSharpNullability)
+        CSharpContext.pushStatement(s);
+        try {
+            return printLabelled(s, q);
+        } finally {
+            CSharpContext.popStatement();
+        }
+    }
+
+    private static OutputBuilder printLabelled(Statement s, Qualification q) {
         String label = s.label();
         if (label == null || s instanceof ExplicitConstructorInvocation) return printStatement(s, q);
         // a labelled statement: goto targets for the labelled break and continue statements aimed at it
@@ -200,9 +210,11 @@ public final class CSharpStatementPrinter {
         b.add(text(implicitlyTyped(lvc) ? "var" : local(lv.parameterizedType(), q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
             OutputBuilder d = new OutputBuilderImpl().add(text(CSharpContext.declare(v.simpleName())));
+            CSharpNullability.declared(lvc, v);
             Expression init = v.assignmentExpression();
             if (init != null && !init.isEmpty()) {
-                d.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(init, v.parameterizedType(), q));
+                d.add(SymbolEnum.assignment("=")).add(CSharpNullability.initializer(lvc, v, init,
+                        CSharpExpressionPrinter.initializer(init, v.parameterizedType(), q)));
             }
             return d;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -231,7 +243,8 @@ public final class CSharpStatementPrinter {
 
     private static OutputBuilder forEach(ForEachStatement fe, String continueLabel, Qualification q) {
         // the collection is outside the loop variable's scope
-        OutputBuilder collection = CSharpExpressionPrinter.print(fe.expression(), q);
+        OutputBuilder collection = CSharpNullability.mayBeNull(fe.expression())
+                ? CSharpNullability.dereferenced(fe.expression(), q) : CSharpExpressionPrinter.print(fe.expression(), q);
         CSharpContext.enterScope(Set.of());
         try {
             LocalVariable lv = fe.initializer().localVariable();
@@ -239,6 +252,7 @@ public final class CSharpStatementPrinter {
                 // C#'s iteration variable is read-only: the body works on a copy
                 String type = fe.initializer().isVar() ? "var" : CSharpTypeName.of(lv.parameterizedType(), q);
                 String item = CSharpContext.declare(lv.simpleName() + "Item");
+                CSharpNullability.declared(fe, lv);
                 return new OutputBuilderImpl().add(CSharpKeyword.FOREACH).add(SpaceEnum.ONE)
                         .add(SymbolEnum.LEFT_PARENTHESIS).add(text(type + " " + item)).add(SpaceEnum.ONE)
                         .add(CSharpKeyword.IN).add(SpaceEnum.ONE).add(collection)
@@ -272,7 +286,9 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder forEachVariable(ForEachStatement fe, Qualification q) {
         LocalVariable lv = fe.initializer().localVariable();
         String type = fe.initializer().isVar() ? "var" : CSharpTypeName.of(lv.parameterizedType(), q);
-        return text(type + " " + CSharpContext.declare(lv.simpleName()));
+        String name = CSharpContext.declare(lv.simpleName());
+        CSharpNullability.declared(fe, lv);
+        return text(type + " " + name);
     }
 
     private static OutputBuilder forStatement(ForStatement fs, String continueLabel, Qualification q) {
