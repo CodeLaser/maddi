@@ -62,6 +62,11 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
         return typeInfo;
     }
 
+    @Override
+    public java.util.List<TypeInfo> loadedCopies(String fullyQualifiedName) {
+        return compiledTypesManager.typesIfLoaded(fullyQualifiedName);
+    }
+
     private static final String SYNTHETIC_FUNCTION = "SyntheticFunction";
     private static final String SYNTHETIC_CONSUMER = "SyntheticConsumer";
 

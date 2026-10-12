@@ -35,6 +35,15 @@ public interface Types {
        return getFullyQualified(name, complain); // ignore the request
     }
 
+    /**
+     * Every loaded copy of a type, one per source set: a library a project carries in two versions has two
+     * (CodeLaser/maddi-mod#37). Nothing is loaded. Empty when none is, and by default, which means "this runtime does
+     * not tell copies apart; resolve with {@link #getFullyQualified(String, boolean, SourceSet)}".
+     */
+    default java.util.List<TypeInfo> loadedCopies(String fullyQualifiedName) {
+        return java.util.List.of();
+    }
+
     TypeInfo syntheticFunctionalType(int inputParameters, boolean hasReturnValue);
 
     // separate from getFullyQualified, as these have been preloaded

@@ -268,6 +268,19 @@ public class InfoByFqn {
                 .orElseThrow();
     }
 
+    /**
+     * Every type registered under this name, one per source set, stubs left out: what {@link #getType} chooses
+     * from. A library a project carries in two versions has two (CodeLaser/maddi-mod#37); analysis results for it
+     * must reach both, since which one a piece of code resolves depends on that code's source set.
+     */
+    public synchronized List<TypeInfo> allTypes(String fullyQualifiedName) {
+        TypeInfo ti = singleTypeByFqn.get(fullyQualifiedName);
+        if (ti != null) return isStub(ti) ? List.of() : List.of(ti);
+        List<TypeInfo> multi = multiTypeByFqn.get(fullyQualifiedName);
+        if (multi == null) return List.of();
+        return multi.stream().filter(m -> !isStub(m)).toList();
+    }
+
     public Collection<TypeInfo> typesLoadedForThisSourceSet() {
         return loadedForThisSourceSet;
     }
