@@ -1491,6 +1491,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 int width(Map<String, Integer> sized) { return sized.size(); }
                 int fresh() { return width(new HashMap<>()); }
                 int length() { return find("k").length() + description.length(); }
+                void collect(List<String> out) { out.add(find("k")); out.add(description); }
+                boolean has(List<String> l) { return l.contains(description) || l.contains(null); }
             }
             """;
 
@@ -1564,5 +1566,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "int n = 0;");
         // a dereference of a value that may be null: Java throws there, C# too, and ! says so
         contains(cs, "Find(\"k\")!.Length + description!.Length");
+        // a value that may be null into a non-null parameter, a list's element here
+        contains(cs, "@out.Add(Find(\"k\")!);");
+        contains(cs, "@out.Add(description!);");
+        // Java's contains(Object) takes null, C#'s Contains(T) not: it is asserted whatever the hints
+        contains(cs, "l.Contains(description!) || l.Contains(null!)");
     }
 }

@@ -79,8 +79,41 @@ final class CSharpNullability {
             || !facts().assertedAtDeclaration(method, declaration, variable)) {
             return printed;
         }
-        Expression x = CSharpExpressionPrinter.unwrap(init);
-        if (x instanceof MethodCall || x instanceof VariableExpression) return printed.add(NULL_FORGIVING);
+        return asserted(init, printed);
+    }
+
+    /**
+     * An argument, {@code printed}, for the {@code i}-th parameter of {@code method}: with {@code !} when it may be
+     * null and the parameter is not (CS8604). Java passes the null on, and so does C#: the {@code !} does not throw.
+     * A library's parameter is nullable only when the analysis's hints say so; a type argument C# prints is not
+     * nullable either ({@code List<Exprent>}), so that {@code list.Add(x!)} is the write the analysis asserts. A
+     * collection's element or key ({@code elementOrKey}: Java's {@code contains(Object)}, C#'s {@code Contains(T)})
+     * is not nullable whatever the hints, and there even a {@code null} is {@code null!}.
+     */
+    static OutputBuilder intoParameter(Expression value, MethodInfo method, int i, boolean elementOrKey,
+                                       OutputBuilder printed) {
+        if (method == null || method.parameters().isEmpty() || !facts().nullabilityAnalysed()) return printed;
+        boolean nullConstant = CSharpExpressionPrinter.unwrap(value) instanceof NullConstant;
+        if (nullConstant ? !elementOrKey : !mayBeNull(value)) return printed;
+        io.codelaser.maddi.cst.api.info.ParameterInfo parameter =
+                method.parameters().get(Math.min(i, method.parameters().size() - 1));
+        if (parameter.parameterizedType().isPrimitiveExcludingVoid() && parameter.parameterizedType().arrays() == 0
+            || !elementOrKey && facts().nullable(parameter) == NullableState.NULLABLE) {
+            return printed;
+        }
+        return asserted(value, printed);
+    }
+
+    static OutputBuilder intoParameter(Expression value, MethodInfo method, int i, OutputBuilder printed) {
+        return intoParameter(value, method, i, false, printed);
+    }
+
+    /** {@code printed!}, in parentheses unless it is a call, a variable or null. */
+    private static OutputBuilder asserted(Expression value, OutputBuilder printed) {
+        Expression x = CSharpExpressionPrinter.unwrap(value);
+        if (x instanceof MethodCall || x instanceof VariableExpression || x instanceof NullConstant) {
+            return printed.add(NULL_FORGIVING);
+        }
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(NULL_FORGIVING);
     }
@@ -109,10 +142,15 @@ final class CSharpNullability {
                                          && !knownNonNull(lv);
                 default -> false;
             };
-            case InlineConditional ic -> mayBeNull(ic.ifTrue()) || mayBeNull(ic.ifFalse());
+            case InlineConditional ic -> branchMayBeNull(ic.ifTrue()) || branchMayBeNull(ic.ifFalse());
             case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && mayBeNull(c.expression());
             default -> false;
         };
+    }
+
+    /** A branch of a conditional: its null makes the conditional's value one that may be null. */
+    private static boolean branchMayBeNull(Expression branch) {
+        return CSharpExpressionPrinter.unwrap(branch) instanceof NullConstant || mayBeNull(branch);
     }
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */

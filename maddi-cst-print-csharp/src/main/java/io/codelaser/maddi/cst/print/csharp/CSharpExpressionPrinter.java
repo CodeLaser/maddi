@@ -378,8 +378,9 @@ public final class CSharpExpressionPrinter {
             // x.getName() is the property x.Name, x.setName(v) an assignment to it
             b.add(text(property.name()));
             if (method == property.getter()) return b;
-            return b.add(SymbolEnum.assignment("=")).add(converted(mc.parameterExpressions().getFirst(),
-                    method.parameters().getFirst().parameterizedType(), q));
+            Expression value = mc.parameterExpressions().getFirst();
+            return b.add(SymbolEnum.assignment("=")).add(CSharpNullability.intoParameter(value, method, 0,
+                    converted(value, method.parameters().getFirst().parameterizedType(), q)));
         }
         if (CSharpTypePrinter.isRecordAccessor(method)) {
             // p.x() is the record's property p.X
@@ -403,7 +404,7 @@ public final class CSharpExpressionPrinter {
         List<Expression> args = withoutTypeToken(mc);
         if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         return IntStream.range(0, args.size())
-                .mapToObj(i -> converted(args.get(i), parameterType(mc.methodInfo(), i < token ? i : i + 1), q))
+                .mapToObj(i -> argument(args.get(i), mc.methodInfo(), i < token ? i : i + 1, q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
@@ -423,7 +424,7 @@ public final class CSharpExpressionPrinter {
                     .add(CSharpTemplate.NULL_CONDITIONAL).add(text("ToString")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                     .add(SymbolEnum.COMMA).add(print(cause, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        return IntStream.range(0, args.size()).mapToObj(i -> converted(args.get(i), parameterType(method, i), q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
+        return IntStream.range(0, args.size()).mapToObj(i -> argument(args.get(i), method, i, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_PARENTHESIS, SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
 
@@ -499,8 +500,8 @@ public final class CSharpExpressionPrinter {
             rule.namespaces().forEach(CSharpContext::using);
             List<Expression> parameterExpressions = cc.parameterExpressions();
             List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> converted(parameterExpressions.get(i),
-                            parameterType(cc.constructor(), i), q)).toList();
+                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> argument(parameterExpressions.get(i),
+                            cc.constructor(), i, q)).toList();
             List<java.util.function.Supplier<OutputBuilder>> operands = parameterExpressions.stream()
                     .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
@@ -563,6 +564,11 @@ public final class CSharpExpressionPrinter {
                 .fullyQualifiedName());
     }
 
+    /** The {@code i}-th argument of a call of {@code method}: converted to its parameter's type, asserted when null may not go there. */
+    private static OutputBuilder argument(Expression value, MethodInfo method, int i, Qualification q) {
+        return CSharpNullability.intoParameter(value, method, i, converted(value, parameterType(method, i), q));
+    }
+
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
     static ParameterizedType parameterType(MethodInfo method, int i) {
         if (method == null || i >= method.parameters().size()) return null;
@@ -577,11 +583,14 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder templateArgument(MethodInfo method, int i, Expression value, Qualification q) {
         ParameterizedType type = parameterType(method, i);
         Expression inner = unwrap(value);
-        if (type != null && type.isJavaLangObject() && type.arrays() == 0 && unboxed(inner)
-            && "java.util".equals(method.typeInfo().packageName()) && !method.typeInfo().typeParameters().isEmpty()) {
+        boolean elementOrKey = type != null && type.arrays() == 0
+                               && (type.isJavaLangObject() || type.isTypeParameter() && !type.typeParameter().isMethodTypeParameter())
+                               && "java.util".equals(method.typeInfo().packageName())
+                               && !method.typeInfo().typeParameters().isEmpty();
+        if (elementOrKey && type.isJavaLangObject() && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
-        return converted(value, type, q);
+        return CSharpNullability.intoParameter(value, method, i, elementOrKey, converted(value, type, q));
     }
 
     /** Whether {@link #converted} changes the value. */
