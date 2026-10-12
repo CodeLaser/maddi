@@ -75,7 +75,12 @@ public abstract class CommonJavaToKotlin {
 
     /** As {@link #kotlin(String)}, after {@code beforePrint} has seen the parsed type (to set analysis results on it). */
     protected String kotlin(String java, java.util.function.Consumer<TypeInfo> beforePrint) {
-        KotlinCompilationUnitPrinter.Result result = translate(java, KotlinPrintOptions.DEFAULT, beforePrint);
+        return kotlin(java, KotlinPrintOptions.DEFAULT, beforePrint);
+    }
+
+    /** As {@link #kotlin(String, java.util.function.Consumer)}, with print options. */
+    protected String kotlin(String java, KotlinPrintOptions options, java.util.function.Consumer<TypeInfo> beforePrint) {
+        KotlinCompilationUnitPrinter.Result result = translate(java, options, beforePrint);
         Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
         return formatter.write(result.output());
     }

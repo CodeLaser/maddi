@@ -310,7 +310,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
-        if (!closed || !pi.isStructurallyUnmodified()) return false;
+        if (!closed || !KotlinContext.options().modification().structurallyUnmodified(pi)) return false;
         // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
         // is unmodified, and each one's other uses are checked where the cycle is entered
         java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();

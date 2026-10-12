@@ -67,7 +67,7 @@ final class KotlinReadOnly {
     static boolean field(FieldInfo fieldInfo) {
         if (!KotlinContext.translatingJava() || fieldInfo.isSynthetic() || fieldInfo.access() == null
             || !fieldInfo.access().isPrivate() || KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())
-            || !isCollection(KotlinNullability.fieldType(fieldInfo)) || !fieldInfo.isStructurallyUnmodified()
+            || !isCollection(KotlinNullability.fieldType(fieldInfo)) || !KotlinContext.options().modification().structurallyUnmodified(fieldInfo)
             || inPrimaryConstructor(fieldInfo)) {
             return false;
         }
@@ -209,7 +209,7 @@ final class KotlinReadOnly {
     }
 
     private static boolean identity(MethodCall mc) {
-        return mc.methodInfo() != null && !mc.parameterExpressions().isEmpty() && mc.methodInfo().isIdentity();
+        return mc.methodInfo() != null && !mc.parameterExpressions().isEmpty() && KotlinContext.options().modification().identity(mc.methodInfo());
     }
 
     private static Expression unwrapped(Expression e) {

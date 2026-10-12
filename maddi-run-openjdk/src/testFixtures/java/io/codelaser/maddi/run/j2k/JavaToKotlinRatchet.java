@@ -97,7 +97,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * report {@link #TESTS}; the runs with verdicts ratchet them all.
  *
  * @param name         the run's name, for the output directory and the messages
- * @param ratchetFile  the recorded numbers, relative to the module directory
+ * @param ratchetFile  the recorded numbers, relative to the module directory; null for a measurement that is not
+ *                     ratcheted ({@link #measureOnly})
  * @param reportedOnly the metrics this run measures and reports without ratcheting
  */
 public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> reportedOnly) {
@@ -108,6 +109,14 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     /** Every metric ratcheted. */
     public JavaToKotlinRatchet(String name, Path ratchetFile) {
         this(name, ratchetFile, Set.of());
+    }
+
+    /**
+     * The same translation, compilation, tests and report in {@code build/j2k/<name>/}, held to no ratchet file: for a
+     * measurement beside the ratchets (an ablation of the analyses, a scoreboard), which must never move their numbers.
+     */
+    public static JavaToKotlinRatchet measureOnly(String name) {
+        return new JavaToKotlinRatchet(name, null, Set.of());
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaToKotlinRatchet.class);
@@ -560,6 +569,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     }
 
     private void ratchet(Map<String, Long> measured) throws IOException {
+        if (ratchetFile == null) return; // measureOnly
         Path file = ratchetFile;
         String now = measured.entrySet().stream().map(e -> e.getKey() + "\t" + e.getValue())
                 .collect(Collectors.joining("\n"));

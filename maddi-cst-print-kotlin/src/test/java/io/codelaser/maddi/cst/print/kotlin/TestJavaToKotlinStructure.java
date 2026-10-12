@@ -496,6 +496,21 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun keep(map: MutableMap<String, Any>)");
     }
 
+    /**
+     * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
+     * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
+     */
+    @Test
+    public void readOnlyNeedsTheModificationFacts() {
+        String kotlin = kotlin(READ_ONLY_PASSED_ON.replace("class J", "class J2"),
+                KotlinPrintOptions.DEFAULT.withModification(io.codelaser.maddi.cst.impl.analysis.ModificationFacts.NONE),
+                type -> type.methods().forEach(m -> m.parameters().forEach(
+                        p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun fromMap(map: MutableMap<String, Any>): String");
+        contains(kotlin, "fun isRepresentable(map: MutableMap<String, Any>, allowedKeys: MutableSet<String>): Boolean");
+    }
+
     @Language("java")
     private static final String GENERIC_OVERRIDE = """
             package a;

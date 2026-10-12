@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.impl.analysis.ModificationFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 
 import java.util.Objects;
@@ -23,11 +24,28 @@ import java.util.Objects;
  * @param verdicts  the nullability of declarations and locals, and the use-site facts ({@link NullabilityFacts#STORED}:
  *                  what the analysis stored, if it ran; {@link NullabilityFacts#NONE}: every type as declared)
  * @param nullCheck what to write where Kotlin types a value as nullable and its use needs it non-null
+ * @param modification which collections are not modified, for read-only types ({@link ModificationFacts#STORED}:
+ *                     what the analysis stored, if it ran; {@link ModificationFacts#NONE}: every collection mutable)
  */
-public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck) {
+public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification) {
 
     /** The verdicts the analysis stored as properties, if it ran; {@code !!} where needed. */
     public static final KotlinPrintOptions DEFAULT = new KotlinPrintOptions(NullabilityFacts.STORED, NullCheck.ASSERT);
+
+    /** With the modification verdicts the analysis stored, if it ran. */
+    public KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck) {
+        this(verdicts, nullCheck, ModificationFacts.STORED);
+    }
+
+    /** These options with other modification facts: {@link ModificationFacts#NONE} for the printer without them. */
+    public KotlinPrintOptions withModification(ModificationFacts modification) {
+        return new KotlinPrintOptions(verdicts, nullCheck, modification);
+    }
+
+    /** These options with other nullability facts: {@link NullabilityFacts#NONE} for the printer without them. */
+    public KotlinPrintOptions withVerdicts(NullabilityFacts verdicts) {
+        return new KotlinPrintOptions(verdicts, nullCheck, modification);
+    }
 
     /**
      * A nullable value used where Kotlin needs a non-null one: as a receiver, an argument for a non-null
@@ -44,5 +62,6 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck)
     public KotlinPrintOptions {
         Objects.requireNonNull(verdicts);
         Objects.requireNonNull(nullCheck);
+        Objects.requireNonNull(modification);
     }
 }
