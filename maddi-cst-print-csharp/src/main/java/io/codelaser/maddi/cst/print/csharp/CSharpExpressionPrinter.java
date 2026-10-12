@@ -1164,7 +1164,8 @@ public final class CSharpExpressionPrinter {
             String created = type.arrays() > 0
                     ? "new " + CSharpTypeName.of(type.copyWithoutArrays(), q) + "[" + parameters.getFirst() + "]"
                       + "[]".repeat(type.arrays() - 1)
-                    : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", parameters) + ")";
+                    : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", constructorArguments(type, parameters))
+                      + ")";
             return text(parameterList + " => " + created);
         }
         LibraryMapping.Rule rule = CSharpNames.translated(method.typeInfo()) ? null
@@ -1183,7 +1184,7 @@ public final class CSharpExpressionPrinter {
                             scope.parameterizedType(), q).render(rule.template(false)));
         }
         unmapped(method, mr);
-        String name = CSharpNames.method(method);
+        String name = CSharpNames.method(method) + methodGroupTypeArguments(mr, q);
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.name(te.parameterizedType().typeInfo(), q);
             if (method.isStatic()) return text(owner + "." + name);
@@ -1192,6 +1193,49 @@ public final class CSharpExpressionPrinter {
                         + String.join(", ", parameters.subList(1, parameters.size())) + ")");
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /** Slot::new of an inner class: its enclosing instance first, as {@code new Slot(…)} has it (CS7036). */
+    private static List<String> constructorArguments(ParameterizedType type, List<String> parameters) {
+        TypeInfo created = type.typeInfo();
+        if (type.arrays() > 0 || !CSharpInner.withOuter(created)) return parameters;
+        String enclosing = CSharpInner.enclosingInstance(created);
+        if (enclosing == null) return parameters;
+        List<String> arguments = new java.util.ArrayList<>(parameters);
+        arguments.addFirst(enclosing);
+        return arguments;
+    }
+
+    /**
+     * A method group's type arguments that C# does not infer from the delegate it converts to, a type parameter only the
+     * result mentions: {@code AbstractMinMaxSlot::minState} as a {@code Supplier<State<R, R>>} is
+     * {@code AbstractMinMaxSlot.MinState<R>} (CS0411). Empty when C# infers them, or one is not writable.
+     */
+    private static String methodGroupTypeArguments(MethodReference mr, Qualification q) {
+        MethodInfo method = mr.methodInfo();
+        List<TypeParameter> typeParameters = method.typeParameters();
+        if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())
+            || CSharpContext.program().erasedGeneric(method)) {
+            return "";
+        }
+        if (typeParameters.stream().allMatch(tp -> method.parameters().stream()
+                .anyMatch(p -> mentionsInCSharp(p.parameterizedType(), tp)))) {
+            return "";
+        }
+        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        match(method.returnType(), mr.concreteReturnType(), typeParameters, inferred);
+        List<ParameterizedType> concrete = mr.concreteParameterTypes();
+        int offset = concrete.size() - method.parameters().size(); // an unbound receiver comes first
+        for (int i = 0; i < method.parameters().size() && offset >= 0 && i + offset < concrete.size(); i++) {
+            match(method.parameters().get(i).parameterizedType(), concrete.get(i + offset), typeParameters, inferred);
+        }
+        List<String> printed = new java.util.ArrayList<>();
+        for (TypeParameter tp : typeParameters) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, typeParameters)) return "";
+            printed.add(CSharpTypeName.argument(t, q));
+        }
+        return "<" + String.join(", ", printed) + ">";
     }
 
     // ---------------------------------------------------------------- operators

@@ -1565,6 +1565,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
                 static String supplied(java.util.function.Supplier<?> supplier) { return String.valueOf(supplier.get()); }
                 static <P> String supply(java.util.function.Supplier<P> supplier) { return supplied(supplier); }
+                static <R> java.util.List<R> empty() { return new java.util.ArrayList<>(); }
+                static <R> java.util.function.Supplier<java.util.List<R>> emptySupplier() { return Streams::empty; }
                 static <T, R> R max(Function<T, R> mapping, T t) { return mapping.apply(t); }
                 static <T, P> P maxed(Function<T, P> mapping, T t) { return max(mapping, t); }
             }
@@ -1583,6 +1585,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Supplied(() => supplier())");
         // the callee's own R: C# infers it from the variable, a lambda would hide it
         contains(cs, "Max(mapping, t)");
+        // a method group whose type parameter only the result mentions: C# does not infer it from the delegate
+        contains(cs, "=> Streams.Empty<R>;");
     }
 
     private static final String SCORES = """
@@ -1815,7 +1819,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     @Override
                     public abstract int hashCode();
                 }
-                static final class FromSolution extends AbstractDemandEnabledSelector {
+                abstract static class GenericSelector extends AbstractDemandEnabledSelector { }
+                static final class FromSolution extends GenericSelector {
                     private final boolean random;
                     FromSolution(boolean random) { this.random = random; }
                     public boolean isNeverEnding() { return random; }
@@ -1827,7 +1832,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
     /**
      * An interface's method that an abstract class leaves to its subclasses is declared abstract once, by the first
-     * abstract class; an initializer that uses this runs in the constructor, as Java's does.
+     * abstract class, also when another abstract class is in between; an initializer that uses this runs in the
+     * constructor, as Java's does.
      */
     @Test
     public void abstractAndInitializers() {
@@ -1849,6 +1855,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 public Iterator<Long> iterator() { return new Upcoming(); }
                 long width() { return to - from; }
                 Upcoming twice(Range other) { return other.new Upcoming(); }
+                java.util.function.LongFunction<Stepped> stepper() { return Stepped::new; }
                 class Upcoming implements Iterator<Long> {
                     private long next = from;
                     public boolean hasNext() { return next < to; }
@@ -1885,6 +1892,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // created with the enclosing instance from an inner class's code; passed on to the superclass
         contains(cs, "internal Upcoming Copy() => new Upcoming(outer);");
         contains(cs, "internal Stepped(Range outer, long step) : base(outer) {");
+        // a constructor reference takes it too
+        contains(cs, "p0 => new Stepped(this, p0)");
         // an inner class that does not use its enclosing instance does not take it
         contains(cs, "internal sealed class Plain { internal int One() => 1; }");
     }

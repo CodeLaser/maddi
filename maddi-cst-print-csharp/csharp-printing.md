@@ -154,7 +154,7 @@ implements the interface.
   constructor takes first and passes on (`: this(outer, …)`, `: base(outer, …)` to a superclass that takes one too).
   The enclosing instance's members are used through it (`outer.to`, `outer.Width()`), `Range.this` is `outer`, and a
   creation passes it: `new Upcoming(this)` in the enclosing type's code, `new Upcoming(outer)` in an inner class's,
-  `new Upcoming(other)` for `other.new Upcoming()`. Its instance fields' initializers move into the constructors,
+  `new Upcoming(other)` for `other.new Upcoming()`, `p0 => new Stepped(this, p0)` for `Stepped::new`. Its instance fields' initializers move into the constructors,
   after `this.outer = outer;`, where Java runs them: a C# field initializer cannot use `outer` (CS0236).
   So do a class's whose initializer uses `this`, explicitly or through an instance member
   (`getLogger(getClass())`, CS0027): Java runs them after `super(…)`, C# before the base constructor.
@@ -187,7 +187,9 @@ implements the interface.
   `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
   `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
-  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. A `Class<T>` parameter is
+  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. So does a method group,
+  whose type arguments C# does not infer from the delegate it converts to: `AbstractMinMaxSlot::minState` as a
+  supplier is `AbstractMinMaxSlot.MinState<Result_>`. A `Class<T>` parameter is
   C#'s `Type`, from which C# infers nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a
   `Class<?>` its own bound.
 - **Bases of public types.** Java's public class may extend a package-private one; C#'s base class or interface is
