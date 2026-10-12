@@ -37,6 +37,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Prints an {@link Expression} as C#. Every expression form is printed here, recursively, so that a Java-only form
@@ -227,6 +228,11 @@ public final class CSharpExpressionPrinter {
             && CSharpContext.hoistedWithOuter() != null) {
             return "outer";
         }
+        // Outer.this in an inner class
+        if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
+            String path = CSharpInner.pathTo(t.explicitlyWriteType());
+            if (path != null) return path;
+        }
         if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
         }
@@ -251,6 +257,11 @@ public final class CSharpExpressionPrinter {
             && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
                  && t.explicitlyWriteType() != null)) {
             return text("outer." + name);
+        }
+        // a field of the enclosing instance, in an inner class
+        if (!field.isStatic() && fr.isDefaultScope()) {
+            String path = CSharpInner.pathTo(field.owner());
+            if (path != null) return text(path + "." + name);
         }
         if (fr.isDefaultScope() || fr.scope() == null) {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
@@ -396,6 +407,9 @@ public final class CSharpExpressionPrinter {
         if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
             && CSharpAnonymous.viaOuter(method.typeInfo(), withOuter.type())) {
             b.add(text("outer")).add(SymbolEnum.DOT);
+        } else if (!method.isStatic() && mc.objectIsImplicit() && CSharpInner.pathTo(method.typeInfo()) != null) {
+            // a method of the enclosing instance, in an inner class
+            b.add(text(CSharpInner.pathTo(method.typeInfo()))).add(SymbolEnum.DOT);
         } else if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
@@ -525,6 +539,13 @@ public final class CSharpExpressionPrinter {
                 SymbolEnum.LEFT_PARENTHESIS, SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
 
+    /** {@code (first, args…)}: an inner class's enclosing instance, then the arguments. */
+    static OutputBuilder argumentsAfter(OutputBuilder first, List<Expression> args, MethodInfo method, Qualification q) {
+        return Stream.concat(Stream.of(first), IntStream.range(0, args.size()).mapToObj(i -> argument(args.get(i), method, i, q)))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
     private static OutputBuilder constructorCall(ConstructorCall cc, Qualification q) {
         return constructorCall(cc, cc.parameterizedType(), q);
     }
@@ -588,7 +609,17 @@ public final class CSharpExpressionPrinter {
             }
             return b;
         }
-        if (cc.object() != null) {
+        TypeInfo created = cc.constructor() == null ? null : cc.constructor().typeInfo();
+        if (CSharpInner.withOuter(created)) {
+            // an inner class's enclosing instance comes first: range.new Iterator() is new Iterator(range)
+            String enclosing = cc.object() != null ? null : CSharpInner.enclosingInstance(created);
+            if (cc.object() != null || enclosing != null) {
+                OutputBuilder first = cc.object() != null ? receiver(cc.object(), q) : text(enclosing);
+                return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(type, q)))
+                        .add(argumentsAfter(first, cc.parameterExpressions(), cc.constructor(), q));
+            }
+            CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
+        } else if (cc.object() != null) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
         LibraryMapping.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null

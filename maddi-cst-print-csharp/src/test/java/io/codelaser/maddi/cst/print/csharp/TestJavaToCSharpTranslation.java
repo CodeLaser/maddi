@@ -1463,6 +1463,56 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String INNER = """
+            package org.example.inner;
+            import java.util.Iterator;
+            public class Range implements Iterable<Long> {
+                private final long from;
+                private final long to;
+                public Range(long from, long to) { this.from = from; this.to = to; }
+                public Iterator<Long> iterator() { return new Upcoming(); }
+                long width() { return to - from; }
+                Upcoming twice(Range other) { return other.new Upcoming(); }
+                class Upcoming implements Iterator<Long> {
+                    private long next = from;
+                    public boolean hasNext() { return next < to; }
+                    public Long next() { return next++; }
+                    long left() { return width() - (next - Range.this.from); }
+                    Upcoming copy() { return new Upcoming(); }
+                }
+                class Stepped extends Upcoming {
+                    private final long step;
+                    Stepped(long step) { this.step = step; }
+                    long step() { return step; }
+                }
+                class Plain {
+                    int one() { return 1; }
+                }
+            }
+            """;
+
+    /** A Java inner class's enclosing instance is C#'s field outer, which its constructors take first. */
+    @Test
+    public void innerClasses() {
+        String cs = translate("Range", INNER);
+        // created with this in the enclosing type's code, with the scope of other.new Upcoming()
+        contains(cs, "public IJavaIterator<long> Iterator() => new Upcoming(this);");
+        contains(cs, "internal Upcoming Twice(Range other) => new Upcoming(other);");
+        // the field, the default constructor that takes it, and the initializer that uses it, moved after it
+        contains(cs, "private readonly Range outer;");
+        contains(cs, "this.outer = outer;");
+        contains(cs, "this.next = outer.from;");
+        assertFalse(cs.contains("private long next = outer.from;"), cs);
+        // the enclosing instance's members, and Range.this
+        contains(cs, "public bool HasNext() => next < outer.to;");
+        contains(cs, "internal long Left() => outer.Width() - (next - outer.from);");
+        // created with the enclosing instance from an inner class's code; passed on to the superclass
+        contains(cs, "internal Upcoming Copy() => new Upcoming(outer);");
+        contains(cs, "internal Stepped(Range outer, long step) : base(outer) {");
+        // an inner class that does not use its enclosing instance does not take it
+        contains(cs, "internal sealed class Plain { internal int One() => 1; }");
+    }
+
     private static final String FACTS = """
             package org.example.facts;
             import java.util.ArrayList;

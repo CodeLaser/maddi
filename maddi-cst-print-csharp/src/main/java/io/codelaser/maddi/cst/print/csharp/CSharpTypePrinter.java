@@ -145,6 +145,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = new ArrayList<>();
         if (enumClass) enumInstances(q).forEach(members::add);
         if (self != null) members.addAll(hoistedMembers(self, q));
+        // an inner class's enclosing instance (CSharpInner)
+        boolean outer = CSharpInner.withOuter(typeInfo);
+        if (outer) {
+            members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + CSharpInner.outerTypeName(typeInfo)
+                                                                 + " outer;")));
+        }
         if (canonical != null) {
             components.forEach(f -> members.add(new OutputBuilderImpl().add(new TextImpl("public "
                     + CSharpTypeName.of(f.type(), q) + " " + CSharpNames.field(f) + " { get; }"))));
@@ -158,7 +164,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                             : fieldPrinterFactory.create(f, formatter2).print(q, false));
                 });
         typeInfo.constructors().stream()
-                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty())
+                .filter(c -> !c.isSynthetic() && (outer || !isImplicitDefaultConstructor(c))
+                             && !(staticClass && c.parameters().isEmpty())
                              && !CSharpNames.inCompanion(c))
                 .filter(c -> {
                     if (record && c != canonical && c.parameters().size() == components.size()) {
@@ -168,6 +175,17 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     return true;
                 })
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(q)));
+        if (outer && typeInfo.constructors().stream().allMatch(MethodInfo::isSynthetic)) {
+            // Java's default constructor, which takes the enclosing instance
+            ParameterizedType parent = typeInfo.parentClass();
+            String base = parent != null && CSharpInner.withOuter(parent.typeInfo()) ? " : base(outer)" : "";
+            List<OutputBuilder> body = new ArrayList<>();
+            body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            body.addAll(CSharpInner.fieldInitializers(typeInfo, q));
+            members.add(new OutputBuilderImpl().add(new TextImpl("internal " + CSharpNames.type(typeInfo) + "("
+                    + CSharpInner.outerTypeName(typeInfo) + " outer)" + base)).add(SpaceEnum.ONE)
+                    .add(CSharpStatementPrinter.braces(body)));
+        }
         typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m)
                              && CSharpContext.program().accessorOf(m) == null)

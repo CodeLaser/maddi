@@ -152,6 +152,19 @@ public final class CSharpStatementPrinter {
         }
     }
 
+    /** A block whose printed {@code first} statements come before its own: an inner class's {@code this.outer = outer;}. */
+    static OutputBuilder block(List<Statement> statements, List<OutputBuilder> first, Qualification q) {
+        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        CSharpContext.enterScope(CSharpLocals.declaredIn(own));
+        try {
+            List<OutputBuilder> all = new java.util.ArrayList<>(first);
+            own.forEach(st -> all.add(print(st, q)));
+            return braces(all);
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
     static OutputBuilder braces(List<OutputBuilder> printed) {
         List<OutputBuilder> nonEmpty = printed.stream().filter(o -> !o.isEmpty()).toList();
         if (nonEmpty.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
