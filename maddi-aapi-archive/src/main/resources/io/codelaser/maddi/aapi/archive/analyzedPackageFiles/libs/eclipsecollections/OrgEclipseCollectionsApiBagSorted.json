@@ -227,64 +227,64 @@
 
 {"name": "Torg.eclipse.collections.api.bag.sorted.SortedBag", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
  {"name": "Mcollect(0,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectBoolean(1,org.eclipse.collections.api.block.function.primitive.BooleanFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectByte(2,org.eclipse.collections.api.block.function.primitive.ByteFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectChar(3,org.eclipse.collections.api.block.function.primitive.CharFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectDouble(4,org.eclipse.collections.api.block.function.primitive.DoubleFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectFloat(5,org.eclipse.collections.api.block.function.primitive.FloatFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectIf(6,org.eclipse.collections.api.block.predicate.Predicate,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "McollectInt(7,org.eclipse.collections.api.block.function.primitive.IntFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectLong(8,org.eclipse.collections.api.block.function.primitive.LongFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectShort(9,org.eclipse.collections.api.block.function.primitive.ShortFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectWith(10,org.eclipse.collections.api.block.function.Function2,P)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "McollectWithIndex(11,org.eclipse.collections.api.block.function.primitive.ObjectIntToObjectFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Pfunction(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Pfunction(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "McollectWithOccurrences(12,org.eclipse.collections.api.block.function.primitive.ObjectIntToObjectFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mcomparator(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mdistinct(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mdrop(15,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MdropWhile(16,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MflatCollect(17,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MflatCollectWith(18,org.eclipse.collections.api.block.function.Function2,P)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Pfunction(0)", "data":{"annotatedApi":1,"independentParameter":2}},
-  {"name": "Pparameter(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2}}]},
+  {"name": "Pfunction(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Pparameter(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
  {"name": "MgroupBy(19,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MgroupByEach(20,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mmax(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mmin(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mpartition(23,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MpartitionWhile(24,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MpartitionWith(25,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mreject(26,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MrejectWith(27,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mselect(28,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MselectByOccurrences(29,org.eclipse.collections.api.block.predicate.primitive.IntPredicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectDuplicates(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}},
@@ -292,14 +292,14 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MselectUnique(32)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MselectWith(33,org.eclipse.collections.api.block.predicate.Predicate2,P)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mtake(34,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MtakeWhile(35,org.eclipse.collections.api.block.predicate.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mtap(36,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MtoImmutable(37)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "MtoMapOfItemToCount(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}},
  {"name": "MtoReversed(39)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},

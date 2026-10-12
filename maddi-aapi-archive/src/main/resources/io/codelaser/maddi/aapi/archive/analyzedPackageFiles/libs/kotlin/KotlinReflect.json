@@ -3,9 +3,9 @@
 
 {"name": "Tkotlin.reflect.KCallable", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mcall(0,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":1}}},
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "McallBy(1,java.util.Map)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"containerParameter":1}}},
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MgetName(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MgetParameters(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1}},
  {"name": "MgetReturnType(4)", "data":{"defaultsAnalyzer":1}},
