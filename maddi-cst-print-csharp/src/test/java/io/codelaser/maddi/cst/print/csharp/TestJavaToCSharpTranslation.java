@@ -1493,6 +1493,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 int length() { return find("k").length() + description.length(); }
                 void collect(List<String> out) { out.add(find("k")); out.add(description); }
                 boolean has(List<String> l) { return l.contains(description) || l.contains(null); }
+                String[] pair() {
+                    String[] a = { description, null };
+                    a[1] = null;
+                    return a;
+                }
+                String either(boolean b) { return b ? description : null; }
+                Object cast() { return (CharSequence) find("k"); }
             }
             """;
 
@@ -1571,5 +1578,12 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "@out.Add(description!);");
         // Java's contains(Object) takes null, C#'s Contains(T) not: it is asserted whatever the hints
         contains(cs, "l.Contains(description!) || l.Contains(null!)");
+        // an array's elements are not nullable in C#: the null they hold, as in Java, is asserted
+        contains(cs, "{ description!, null! }");
+        contains(cs, "a[1] = null!;");
+        // a method whose result the analysis does not find nullable
+        contains(cs, "(b ? description : null)!");
+        // a cast keeps the null of a value that may be null
+        contains(cs, "(string?) Find(\"k\")");
     }
 }
