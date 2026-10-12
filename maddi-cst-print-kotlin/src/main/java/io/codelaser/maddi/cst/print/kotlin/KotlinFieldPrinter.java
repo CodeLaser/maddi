@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -149,12 +150,8 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     }
 
     private static boolean isConst(FieldInfo fieldInfo) {
-        if (!fieldInfo.isStatic() || !isFinal(fieldInfo) || fieldInfo.initializer() == null
-            || !fieldInfo.initializer().isConstant() || KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())) {
-            return false;
-        }
-        io.codelaser.maddi.cst.api.type.ParameterizedType t = fieldInfo.type();
-        return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
+        return fieldInfo.isStatic() && isFinal(fieldInfo) && !KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())
+               && CstQueries.constantInitializer(fieldInfo);
     }
 
     /**

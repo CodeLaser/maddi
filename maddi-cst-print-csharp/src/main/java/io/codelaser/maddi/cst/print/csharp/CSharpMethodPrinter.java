@@ -14,6 +14,8 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -24,12 +26,10 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.impl.output.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Prints a {@link MethodInfo} as a C# method or constructor:
@@ -117,9 +117,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         Block body = methodInfo.methodBody();
         if (methodInfo.isAbstract() || body == null) return b.add(SymbolEnum.SEMICOLON);
-        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
-        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(rs.expression(), q))
+        List<Statement> statements = CstQueries.own(body.statements());
+        Expression returnedValue = CstQueries.returnedValue(statements);
+        if (returnedValue != null) {
+            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(returnedValue, q))
                     .add(SymbolEnum.SEMICOLON);
         }
         return b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
@@ -133,9 +134,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         b.add(new TextImpl(modifiers + returnType(q))).add(SpaceEnum.ONE).add(new TextImpl(name));
         Block body = methodInfo.methodBody();
         if (methodInfo.isAbstract() || body == null) return b.add(new TextImpl("{ get; }"));
-        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
-        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(rs.expression(), q))
+        List<Statement> statements = CstQueries.own(body.statements());
+        Expression returnedValue = CstQueries.returnedValue(statements);
+        if (returnedValue != null) {
+            return b.add(SymbolEnum.binaryOperator("=>")).add(CSharpExpressionPrinter.returned(returnedValue, q))
                     .add(SymbolEnum.SEMICOLON);
         }
         return b.add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(new TextImpl("get")).add(SpaceEnum.ONE)
@@ -156,7 +158,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private void constructorBody(OutputBuilder b, boolean outer, Qualification q) {
         Block body = methodInfo.methodBody();
         List<Statement> statements = body == null ? List.of()
-                : body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+                : CstQueries.own(body.statements());
         boolean chained = false;
         ParameterizedType parent = typeInfo.parentClass();
         boolean outerParent = outer && parent != null && CSharpInner.withOuter(parent.typeInfo());

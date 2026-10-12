@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
@@ -141,7 +142,6 @@ final class CSharpModifiers {
 
     /** A class that can be extended: not final, not an enum or record. */
     static boolean extensible(TypeInfo typeInfo) {
-        return typeInfo.typeNature().isClass() && !typeInfo.isFinal() && !typeInfo.typeNature().isRecord()
-               && !typeInfo.typeNature().isEnum();
+        return CstQueries.isExtensible(typeInfo);
     }
 }

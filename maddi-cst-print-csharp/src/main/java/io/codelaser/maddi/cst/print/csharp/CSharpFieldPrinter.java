@@ -14,11 +14,11 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
@@ -122,12 +122,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** A static final primitive or String with a constant initializer. */
     static boolean isConst(FieldInfo fieldInfo) {
-        if (!fieldInfo.isStatic() && !fieldInfo.owner().isInterface() || !isFinal(fieldInfo)
-            || fieldInfo.initializer() == null || fieldInfo.initializer().isEmpty()
-            || !fieldInfo.initializer().isConstant()) {
-            return false;
-        }
-        ParameterizedType t = fieldInfo.type();
-        return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
+        return (fieldInfo.isStatic() || fieldInfo.owner().isInterface()) && isFinal(fieldInfo)
+               && CstQueries.constantInitializer(fieldInfo);
     }
 }

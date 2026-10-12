@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
@@ -373,7 +374,7 @@ public class KotlinExpressionPrinter {
         List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
         if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
         List<io.codelaser.maddi.cst.api.info.TypeParameter> resultOnly = typeParameters.stream()
-                .filter(tp -> m.parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp))).toList();
+                .filter(tp -> m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp))).toList();
         if (resultOnly.isEmpty()) return null;
         boolean bounded = resultOnly.stream().anyMatch(tp -> bound(tp) != null);
         boolean noExpectedType = noExpectedType(mc);
@@ -422,13 +423,9 @@ public class KotlinExpressionPrinter {
         return false;
     }
 
-    private static boolean mentions(ParameterizedType type, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        if (tp.equals(type.typeParameter())) return true;
-        return type.parameters().stream().anyMatch(p -> mentions(p, tp));
-    }
 
     private static boolean mentionsAny(ParameterizedType type, List<io.codelaser.maddi.cst.api.info.TypeParameter> tps) {
-        return tps.stream().anyMatch(tp -> mentions(type, tp));
+        return tps.stream().anyMatch(tp -> CstQueries.mentions(type, tp));
     }
 
     private static OutputBuilder arguments(List<Expression> args, Qualification q) {
@@ -630,9 +627,9 @@ public class KotlinExpressionPrinter {
                    && "java.util.Objects".equals(mr.methodInfo().typeInfo().fullyQualifiedName());
         }
         if (e instanceof Lambda l && l.parameters().size() == 1) {
-            List<Statement> statements = l.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
-            return statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
-                   && unwrap(rs.expression()) instanceof BinaryOperator bo && bo.operator() != null
+            List<Statement> statements = CstQueries.own(l.methodBody().statements());
+            Expression value = CstQueries.returnedValue(statements);
+            return value != null && unwrap(value) instanceof BinaryOperator bo && bo.operator() != null
                    && "!=".equals(bo.operator().name())
                    && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), l.parameters().getFirst())
                        || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), l.parameters().getFirst()));
@@ -1422,7 +1419,7 @@ public class KotlinExpressionPrinter {
         List<ParameterInfo> params = lambda.parameters();
         params.forEach(p -> KotlinContext.declared(p.name()));
         Block body = lambda.methodBody();
-        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        List<Statement> statements = CstQueries.own(body.statements());
 
         OutputBuilder inner;
         boolean labelled = false;
@@ -1431,17 +1428,17 @@ public class KotlinExpressionPrinter {
         try {
             // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body, q);
-            if (reassigned.isEmpty() && statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
-                && !rs.hasNoValue()) {
+            Expression value = reassigned.isEmpty() ? CstQueries.returnedValue(statements) : null;
+            if (value != null) {
                 ParameterizedType returnType = lambda.methodInfo().returnType();
-                if (unwrap(rs.expression()) instanceof ConstructorCall cc && inferred(cc)) {
+                if (unwrap(value) instanceof ConstructorCall cc && inferred(cc)) {
                     inner = inferredConstructorCall(cc, q);
-                } else if (primitive(returnType) != null && !(unwrap(rs.expression()) instanceof Assignment)) {
+                } else if (primitive(returnType) != null && !(unwrap(value) instanceof Assignment)) {
                     // thenComparingLong { o -> if (c) o.intValue() else Long.MIN_VALUE }: Java widens to the
                     // functional interface's long, branch by branch; Kotlin's branches stay Int and Long
-                    inner = widened(rs.expression(), returnType, q);
+                    inner = widened(value, returnType, q);
                 } else {
-                    inner = printStatement(rs.expression(), q);
+                    inner = printStatement(value, q);
                 }
             } else {
                 labelled = hasInnerReturn(statements);

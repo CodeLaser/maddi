@@ -15,6 +15,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -30,7 +31,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * A Java inner class, a non-static member class, has an enclosing instance; a C# nested class has none. One that uses
@@ -84,12 +84,12 @@ final class CSharpInner {
         ParameterizedType parent = t.parentClass();
         if (parent != null && parent.typeInfo() != null && withOuter(parent.typeInfo())) return true;
         boolean[] uses = {false};
-        for (Element element : code(t)) {
+        for (Element element : CstQueries.code(t)) {
             element.visit((Element e) -> {
                 if (uses[0]) return false;
                 switch (e) {
                     case VariableExpression ve when ve.variable() instanceof FieldReference fr -> {
-                        if (!fr.fieldInfo().isStatic() && CSharpAnonymous.thisScope(fr)
+                        if (!fr.fieldInfo().isStatic() && CstQueries.onThis(fr)
                             && CSharpAnonymous.viaOuter(fr.fieldInfo().owner(), t)) {
                             uses[0] = true;
                         }
@@ -127,20 +127,10 @@ final class CSharpInner {
     }
 
     private static boolean within(TypeInfo inner, TypeInfo outer) {
-        for (TypeInfo at = CSharpNames.enclosing(inner); at != null; at = CSharpNames.enclosing(at)) {
+        for (TypeInfo at = CstQueries.enclosing(inner); at != null; at = CstQueries.enclosing(at)) {
             if (at.equals(outer)) return true;
         }
         return false;
-    }
-
-    private static List<Element> code(TypeInfo t) {
-        List<Element> code = new ArrayList<>();
-        Stream.concat(t.constructors().stream(), t.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
-        for (FieldInfo f : t.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
-        }
-        return code;
     }
 
     /**
@@ -162,7 +152,7 @@ final class CSharpInner {
                 switch (e) {
                     case VariableExpression ve when ve.variable() instanceof This -> uses[0] = true;
                     case VariableExpression ve when ve.variable() instanceof FieldReference fr
-                                                    && !fr.fieldInfo().isStatic() && CSharpAnonymous.thisScope(fr) ->
+                                                    && !fr.fieldInfo().isStatic() && CstQueries.onThis(fr) ->
                             uses[0] = true;
                     case MethodCall mc when !mc.methodInfo().isStatic() && mc.objectIsImplicit() -> uses[0] = true;
                     default -> {

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -238,7 +239,7 @@ final class CSharpProperties {
     }
 
     private static List<Statement> statements(MethodInfo m) {
-        return m.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
+        return CstQueries.own(m.methodBody().statements());
     }
 
     /** {@code f} or {@code this.f}, a non-static, non-volatile field declared in {@code t}; null otherwise. */

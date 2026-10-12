@@ -15,13 +15,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -38,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * C# has no anonymous classes. One that does not become a lambda (see {@link CSharpProgram#lambdaLike}) is hoisted:
@@ -70,12 +69,7 @@ final class CSharpAnonymous {
     /** The anonymous classes created by the code of {@code owner} (not of its nested types) that are hoisted into it. */
     static List<Hoisted> in(TypeInfo owner) {
         List<ConstructorCall> calls = new ArrayList<>();
-        List<Element> code = new ArrayList<>();
-        Stream.concat(owner.constructors().stream(), owner.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
-        for (FieldInfo f : owner.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
-        }
+        List<Element> code = CstQueries.code(owner);
         for (Element element : code) {
             element.visit((Element e) -> {
                 if (e instanceof ConstructorCall cc && cc.anonymousClass() != null && !CSharpExpressionPrinter.asLambda(cc)
@@ -115,8 +109,7 @@ final class CSharpAnonymous {
 
     /** Collects the captured locals and parameters; true when the enclosing instance is used. */
     private static boolean captures(TypeInfo anonymous, Map<String, Capture> captures) {
-        List<Element> code = new ArrayList<>();
-        collectCode(anonymous, code);
+        List<Element> code = CstQueries.codeWithSubTypes(anonymous);
         Set<String> inside = new HashSet<>();
         Set<String> insideParameters = new HashSet<>();
         for (Element element : code) {
@@ -138,18 +131,18 @@ final class CSharpAnonymous {
                     switch (ve.variable()) {
                         case LocalVariable lv when !inside.contains(lv.simpleName()) ->
                                 captures.putIfAbsent(lv.simpleName(), new Capture(lv.simpleName(), lv.parameterizedType()));
-                        case ParameterInfo pi when pi.methodInfo() != null && !within(pi.methodInfo().typeInfo(), anonymous)
+                        case ParameterInfo pi when pi.methodInfo() != null && !CstQueries.within(pi.methodInfo().typeInfo(), anonymous)
                                                    && !insideParameters.contains(pi.name()) ->
                                 captures.putIfAbsent(pi.name(), new Capture(pi.name(), pi.parameterizedType()));
-                        case FieldReference fr when !fr.fieldInfo().isStatic() && foreign(fr.fieldInfo().owner(), anonymous)
-                                                    && thisScope(fr) -> outer[0] = true;
-                        case This t when t.explicitlyWriteType() != null && !within(t.explicitlyWriteType(), anonymous) ->
+                        case FieldReference fr when !fr.fieldInfo().isStatic() && CSharpNames.foreign(fr.fieldInfo().owner(), anonymous)
+                                                    && CstQueries.onThis(fr) -> outer[0] = true;
+                        case This t when t.explicitlyWriteType() != null && !CstQueries.within(t.explicitlyWriteType(), anonymous) ->
                                 outer[0] = true;
                         default -> {
                         }
                     }
                 } else if (e instanceof MethodCall mc && !mc.methodInfo().isStatic() && mc.objectIsImplicit()
-                           && foreign(mc.methodInfo().typeInfo(), anonymous)) {
+                           && CSharpNames.foreign(mc.methodInfo().typeInfo(), anonymous)) {
                     outer[0] = true;
                 }
                 return true;
@@ -160,30 +153,10 @@ final class CSharpAnonymous {
 
     /** An instance member of the enclosing object, used from {@code hoisted}'s code: through its {@code outer}. */
     static boolean viaOuter(TypeInfo owner, TypeInfo hoisted) {
-        return foreign(owner, hoisted);
+        return CSharpNames.foreign(owner, hoisted);
     }
 
-    static boolean thisScope(FieldReference fr) {
-        return fr.isDefaultScope() || fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This;
-    }
 
-    private static boolean foreign(TypeInfo owner, TypeInfo anonymous) {
-        return !within(owner, anonymous) && !CSharpNames.inherits(anonymous, owner);
-    }
 
-    private static void collectCode(TypeInfo type, List<Element> code) {
-        Stream.concat(type.constructors().stream(), type.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
-        for (FieldInfo f : type.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
-        }
-        type.subTypes().forEach(st -> collectCode(st, code));
-    }
 
-    private static boolean within(TypeInfo t, TypeInfo owner) {
-        for (TypeInfo x = t; x != null; x = CSharpNames.enclosing(x)) {
-            if (x.equals(owner)) return true;
-        }
-        return false;
-    }
 }

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -103,7 +104,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // properties and that constructor
         MethodInfo canonical = record ? canonicalConstructor(components) : null;
         if (enumClass) CSharpContext.message(CSharpPrintCode.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
-        TypeInfo enclosing = enclosingType(typeInfo);
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         if (enclosing != null && !enclosing.typeParameters().isEmpty() && !CSharpNames.hoisted(typeInfo)) {
             CSharpContext.message(CSharpPrintCode.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
         }
@@ -227,7 +228,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             parameters.add(CSharpTypeName.of(h.superArguments().get(i), q) + " p" + i);
         }
         if (h.outer()) {
-            TypeInfo outer = enclosingType(typeInfo);
+            TypeInfo outer = CstQueries.enclosing(typeInfo);
             String outerType = CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? ""
                     : outer.typeParameters().stream().map(CSharpNames::typeParameter)
                             .collect(Collectors.joining(", ", "<", ">")));
@@ -263,9 +264,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
         // a hoisted type is in the namespace, where C# has no private or protected
         if (CSharpNames.hoisted(typeInfo)) {
-            return "public".equals(CSharpModifiers.access(typeInfo, enclosingType(typeInfo))) ? "public" : "internal";
+            return "public".equals(CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo))) ? "public" : "internal";
         }
-        return CSharpModifiers.access(typeInfo, enclosingType(typeInfo));
+        return CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo));
     }
 
     private static final java.util.Set<String> LIST_BASES = java.util.Set.of("java.util.ArrayList",
@@ -802,9 +803,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** {@code x()} of a record with component {@code x}: the record's property {@code X} takes its place. */
     static boolean isRecordAccessor(MethodInfo m) {
-        TypeInfo owner = m.typeInfo();
-        return owner.typeNature().isRecord() && !m.isStatic() && m.parameters().isEmpty()
-               && owner.fields().stream().anyMatch(f -> !f.isStatic() && f.name().equals(m.name()));
+        return CstQueries.isRecordAccessor(m);
     }
 
     /**
@@ -824,10 +823,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return m.methodBody() == null || m.methodBody().statements().stream().allMatch(s -> s.isSynthetic());
     }
 
-    private static TypeInfo enclosingType(TypeInfo typeInfo) {
-        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
-        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
-    }
+
 
     /** A class declared in a method body. */
     private static boolean isLocal(TypeInfo typeInfo) {

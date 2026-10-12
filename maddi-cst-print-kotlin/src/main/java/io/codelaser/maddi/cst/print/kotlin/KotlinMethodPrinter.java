@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -24,7 +25,6 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.*;
@@ -185,7 +185,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      */
     private void constructorBody(OutputBuilder b, Block body, Qualification q) {
         List<Statement> statements = body == null ? List.of()
-                : body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+                : CstQueries.own(body.statements());
         ExplicitConstructorInvocation eci = !statements.isEmpty()
                                             && statements.getFirst() instanceof ExplicitConstructorInvocation e ? e : null;
         if (eci != null) {
@@ -214,12 +214,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** The expression of a single-`return` body (Kotlin `fun … = expr`), or {@code null} for a block body. */
     private static Expression expressionBody(Block body) {
-        List<Statement> statements = body.statements().stream().filter(s -> !s.isSynthetic()).toList();
-        if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs
-            && !rs.hasNoValue()) {
-            return rs.expression();
-        }
-        return null;
+        return CstQueries.returnedValue(CstQueries.own(body.statements()));
     }
 
     /** {@code (a: Int, vararg b: String)}. */
@@ -452,10 +447,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      */
     static boolean typeArgumentOfParameter(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         return methodInfo.parameters().stream().anyMatch(p -> p.parameterizedType().parameters().stream()
-                .anyMatch(a -> mentions(a, tp)));
+                .anyMatch(a -> CstQueries.mentions(a, tp)));
     }
 
-    private static boolean mentions(ParameterizedType type, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        return tp.equals(type.typeParameter()) || type.parameters().stream().anyMatch(a -> mentions(a, tp));
-    }
 }

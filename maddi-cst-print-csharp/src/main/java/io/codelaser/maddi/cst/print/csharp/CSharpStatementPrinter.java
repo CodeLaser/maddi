@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
@@ -144,7 +145,7 @@ public final class CSharpStatementPrinter {
     }
 
     static OutputBuilder block(List<Statement> statements, Qualification q) {
-        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        List<Statement> own = CstQueries.own(statements);
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
             return braces(own.stream().map(st -> print(st, q)).toList());
@@ -155,7 +156,7 @@ public final class CSharpStatementPrinter {
 
     /** A block whose printed {@code first} statements come before its own: an inner class's {@code this.outer = outer;}. */
     static OutputBuilder block(List<Statement> statements, List<OutputBuilder> first, Qualification q) {
-        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        List<Statement> own = CstQueries.own(statements);
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
             List<OutputBuilder> all = new java.util.ArrayList<>(first);
@@ -182,7 +183,7 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder loopBody(Block body, String continueLabel, Qualification q,
                                           java.util.function.Supplier<OutputBuilder> prefix) {
         if (continueLabel == null && prefix == null) return block(body, q);
-        List<Statement> own = body.statements().stream().filter(st -> !st.isSynthetic()).toList();
+        List<Statement> own = CstQueries.own(body.statements());
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
             List<OutputBuilder> printed = new ArrayList<>();
@@ -203,7 +204,7 @@ public final class CSharpStatementPrinter {
                 .add(parenthesized(ife.expression(), q)).add(SpaceEnum.ONE).add(block(ife.block(), q));
         if (ife.elseBlock() != null && !ife.elseBlock().isEmpty()) {
             b.add(SpaceEnum.ONE).add(KeywordImpl.ELSE).add(SpaceEnum.ONE);
-            List<Statement> elseStatements = ife.elseBlock().statements().stream().filter(x -> !x.isSynthetic()).toList();
+            List<Statement> elseStatements = CstQueries.own(ife.elseBlock().statements());
             // else { if … } is else if …
             if (elseStatements.size() == 1 && elseStatements.getFirst() instanceof IfElseStatement chained
                 && chained.label() == null) {
@@ -383,7 +384,7 @@ public final class CSharpStatementPrinter {
         for (int i = 0; i < starts.size(); i++) {
             int from = Math.min(starts.get(i), statements.size());
             int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
-            owns.add(statements.subList(from, to).stream().filter(s -> !s.isSynthetic()).toList());
+            owns.add(CstQueries.own(statements.subList(from, to)));
         }
         // a section fallen into whose label is a pattern, which goto case cannot name: a statement label of its own
         String[] fallenInto = new String[starts.size()];
@@ -445,7 +446,7 @@ public final class CSharpStatementPrinter {
             Statement body = entry.statement();
             // a block arm's statements are the section's
             List<Statement> statements = body instanceof Block block
-                    ? block.statements().stream().filter(s -> !s.isSynthetic()).toList() : List.of(body);
+                    ? CstQueries.own(block.statements()) : List.of(body);
             List<OutputBuilder> lines = new ArrayList<>(statements.stream().map(s -> print(s, q)).toList());
             if (!endsInJump(statements)) lines.add(new OutputBuilderImpl().add(KeywordImpl.BREAK).add(SymbolEnum.SEMICOLON));
             sections.add(section(entryLabels(entry, q), lines));
@@ -607,7 +608,7 @@ public final class CSharpStatementPrinter {
                     .add(CSharpExpressionPrinter.print(ts.expression(), q));
         }
         if (statement instanceof Block block) {
-            List<Statement> statements = block.statements().stream().filter(s -> !s.isSynthetic()).toList();
+            List<Statement> statements = CstQueries.own(block.statements());
             if (statements.size() == 1 && statements.getFirst() instanceof YieldStatement ys) {
                 return CSharpExpressionPrinter.print(ys.expression(), q);
             }

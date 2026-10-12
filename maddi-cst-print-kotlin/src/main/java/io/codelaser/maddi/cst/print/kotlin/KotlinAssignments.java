@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -75,13 +76,7 @@ final class KotlinAssignments {
     }
 
     private static void collect(TypeInfo typeInfo, Set<FieldInfo> assigned) {
-        typeInfo.constructorAndMethodStream().forEach(m -> {
-            if (m.methodBody() != null) collect((Element) m.methodBody(), assigned);
-        });
-        typeInfo.fields().forEach(f -> {
-            if (f.initializer() != null) collect((Element) f.initializer(), assigned);
-        });
-        typeInfo.subTypes().forEach(t -> collect(t, assigned));
+        CstQueries.codeWithSubTypes(typeInfo).forEach(e -> collect(e, assigned));
     }
 
     /** Through lambdas (which {@code visit} enters) and anonymous and local classes (which it does not). */

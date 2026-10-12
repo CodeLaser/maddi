@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -71,15 +72,10 @@ public class KotlinStatementPrinter {
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
-                mentions(mc.methodInfo().returnType(), tp)
-                && mc.methodInfo().parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp)));
+                CstQueries.mentions(mc.methodInfo().returnType(), tp)
+                && mc.methodInfo().parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)));
     }
 
-    private static boolean mentions(ParameterizedType type, TypeParameter tp) {
-        if (type == null) return false;
-        if (tp.equals(type.typeParameter())) return true;
-        return type.parameters().stream().anyMatch(p -> mentions(p, tp));
-    }
 
     /**
      * A block of its own, {@code when { else -> { … } }}: Kotlin has no block statement. Not {@code run { }}, a lambda:
@@ -149,7 +145,7 @@ public class KotlinStatementPrinter {
 
     /** The statements of a block without the enclosing braces; NEWLINE-separated (Kotlin has no `;`). */
     static OutputBuilder statementsNoBraces(Block block, Qualification q) {
-        return statements(block.statements().stream().filter(st -> !st.isSynthetic()).toList(), q);
+        return statements(CstQueries.own(block.statements()), q);
     }
 
     private static OutputBuilder statements(List<Statement> statements, Qualification q) {
@@ -558,7 +554,7 @@ public class KotlinStatementPrinter {
         YIELD_AS_RETURN.set(false);
         try {
             if (s instanceof Block block) {
-                List<Statement> body = withoutFinalBreak(block.statements().stream().filter(x -> !x.isSynthetic()).toList());
+                List<Statement> body = withoutFinalBreak(CstQueries.own(block.statements()));
                 if (yieldsBeforeTheEnd(body)) {
                     YIELD_AS_RETURN.set(true);
                     return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE)
@@ -625,7 +621,7 @@ public class KotlinStatementPrinter {
         for (int i = 0; i < starts.size(); i++) {
             int from = Math.min(starts.get(i), statements.size());
             int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
-            own.add(statements.subList(from, to).stream().filter(s -> !s.isSynthetic()).toList());
+            own.add(CstQueries.own(statements.subList(from, to)));
         }
 
         String label = KotlinContext.freshLabel("switch");
@@ -872,7 +868,7 @@ public class KotlinStatementPrinter {
 
     /** If a block's only (non-synthetic) statement is an if/else, return it — for `else if` chain flattening. */
     private static IfElseStatement soleIfElse(Block block) {
-        List<Statement> body = block.statements().stream().filter(x -> !x.isSynthetic()).toList();
+        List<Statement> body = CstQueries.own(block.statements());
         return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife && ife.label() == null ? ife : null;
     }
 }

@@ -14,13 +14,13 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -179,9 +179,10 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
     private OutputBuilder supplied(int index) {
         Expression arg = CSharpExpressionPrinter.unwrap(call.parameterExpressions().get(index - 1));
         if (arg instanceof Lambda lambda && lambda.parameters().isEmpty()) {
-            List<Statement> statements = lambda.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
-            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-                return CSharpExpressionPrinter.receiver(rs.expression(), q);
+            List<Statement> statements = CstQueries.own(lambda.methodBody().statements());
+            Expression returnedValue = CstQueries.returnedValue(statements);
+            if (returnedValue != null) {
+                return CSharpExpressionPrinter.receiver(returnedValue, q);
             }
             // a block body: the delegate it is, called, ((Func<T>) (() => { … }))()
             String type = lambda.concreteFunctionalType() == null ? null

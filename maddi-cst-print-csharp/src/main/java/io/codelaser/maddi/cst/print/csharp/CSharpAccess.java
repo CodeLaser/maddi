@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -100,7 +101,7 @@ final class CSharpAccess {
     /** A member is no more visible than its type: a public member of an internal class is internal. */
     private static Exposure cap(Exposure exposure, TypeInfo x) {
         if (exposure != Exposure.PUBLIC) return exposure;
-        for (TypeInfo t = x; t != null; t = enclosing(t)) {
+        for (TypeInfo t = x; t != null; t = CstQueries.enclosing(t)) {
             if (t.typeModifiers().stream().anyMatch(TypeModifier::isPrivate)) return Exposure.NONE;
             if (t.typeModifiers().stream().noneMatch(m -> m.isPublic() || m.isProtected())) return Exposure.INTERNAL;
         }
@@ -120,12 +121,12 @@ final class CSharpAccess {
     private static void type(TypeInfo t, TypeInfo x, Set<Object> reached, Exposure exposed) {
         if (t == null || t.isPrimaryType() || !CSharpNames.translated(t)) return;
         // C#'s nested type is no more visible than the types it is nested in
-        if (exposed != Exposure.NONE) type(enclosing(t), x, reached, exposed);
+        if (exposed != Exposure.NONE) type(CstQueries.enclosing(t), x, reached, exposed);
         boolean isPublic = t.typeModifiers().stream().anyMatch(TypeModifier::isPublic);
         // Java's public method may name a less accessible type, C#'s may not: the type becomes as visible
         if (exposed == Exposure.PUBLIC && !isPublic) reached.add(new Exposed(t));
         if (t.typeModifiers().stream().anyMatch(TypeModifier::isPrivate)) {
-            TypeInfo owner = enclosing(t);
+            TypeInfo owner = CstQueries.enclosing(t);
             if (owner != null && (exposed == Exposure.INTERNAL || !within(x, owner))) reached.add(t);
         }
     }
@@ -145,7 +146,7 @@ final class CSharpAccess {
         boolean accessible;
         if (CSharpNames.inCompanion(info)) accessible = fromCompanion && x.equals(owner);
         else if (fromCompanion) {
-            accessible = !CSharpNames.hoisted(x) && enclosing(x) != null && within(enclosing(x), owner) && !owner.equals(x);
+            accessible = !CSharpNames.hoisted(x) && CstQueries.enclosing(x) != null && within(CstQueries.enclosing(x), owner) && !owner.equals(x);
         }
         else accessible = within(x, owner);
         if (!accessible) reached.add(info);
@@ -153,14 +154,11 @@ final class CSharpAccess {
 
     /** {@code x} is {@code owner}, or nested in it in C#: a hoisted type is not (see {@link CSharpNames#hoisted}). */
     private static boolean within(TypeInfo x, TypeInfo owner) {
-        for (TypeInfo t = x; t != null; t = CSharpNames.hoisted(t) ? null : enclosing(t)) {
+        for (TypeInfo t = x; t != null; t = CSharpNames.hoisted(t) ? null : CstQueries.enclosing(t)) {
             if (t == owner) return true;
         }
         return false;
     }
 
-    private static TypeInfo enclosing(TypeInfo t) {
-        var cuOrEnclosing = t.compilationUnitOrEnclosingType();
-        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
-    }
+
 }

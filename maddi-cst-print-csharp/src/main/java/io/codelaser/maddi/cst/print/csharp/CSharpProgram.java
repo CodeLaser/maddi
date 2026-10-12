@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -223,14 +224,9 @@ public final class CSharpProgram {
         return !m.typeInfo().isInterface() && result.isTypeParameter() && result.arrays() == 0
                && m.typeParameters().contains(result.typeParameter())
                && m.parameters().stream().noneMatch(p -> m.typeParameters().stream()
-                .anyMatch(tp -> mentions(p.parameterizedType(), tp)));
+                .anyMatch(tp -> CstQueries.mentions(p.parameterizedType(), tp)));
     }
 
-    private static boolean mentions(ParameterizedType t, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        if (t == null) return false;
-        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
-        return t.parameters().stream().anyMatch(a -> mentions(a, tp));
-    }
 
     /** A generic method printed with its type parameters erased ({@link #erasedGenerics}). */
     boolean erasedGeneric(MethodInfo m) {
@@ -366,13 +362,7 @@ public final class CSharpProgram {
     }
 
     static List<Element> code(TypeInfo t) {
-        List<Element> code = new ArrayList<>();
-        Stream.concat(t.constructors().stream(), t.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
-        for (FieldInfo f : t.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) code.add(f.initializer());
-        }
-        return code;
+        return CstQueries.code(t);
     }
 
     /**

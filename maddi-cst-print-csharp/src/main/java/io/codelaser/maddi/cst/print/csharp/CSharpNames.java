@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -269,8 +270,16 @@ public final class CSharpNames {
     }
 
     static TypeInfo enclosing(TypeInfo typeInfo) {
-        var cuOrEnclosing = typeInfo.compilationUnitOrEnclosingType();
-        return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
+        return CstQueries.enclosing(typeInfo);
+    }
+
+    /**
+     * A declaration of {@code owner} is foreign to {@code inner}, a type declared inside the code of another: owner is
+     * neither {@code inner} nor a type inside it, nor one {@code inner} inherits from. Its instance members then
+     * belong to an enclosing instance, which a hoisted or lifted C# type does not have.
+     */
+    static boolean foreign(TypeInfo owner, TypeInfo inner) {
+        return !CstQueries.within(owner, inner) && !inherits(inner, owner);
     }
 
     /** A translated functional interface: its lambdas are printed with an adapter class, see CSharpTypePrinter. */

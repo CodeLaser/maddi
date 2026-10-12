@@ -15,6 +15,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -24,8 +25,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
-import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
@@ -124,9 +123,7 @@ final class CSharpAttributes {
     /** An element's default: the single return statement of its body, as the CST keeps it. */
     private static Expression defaultValue(MethodInfo element) {
         if (element.methodBody() == null) return null;
-        List<Statement> statements = element.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
-        return statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()
-                ? rs.expression() : null;
+        return CstQueries.returnedValue(CstQueries.own(element.methodBody().statements()));
     }
 
     /** {@code @Target({METHOD, FIELD})}: the attribute's targets; null without a @Target. */

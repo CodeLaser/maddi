@@ -14,11 +14,11 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -63,7 +63,7 @@ final class CSharpLocalTypes {
         Set<String> outside = new HashSet<>();
         if (method.methodBody() != null) declared(method.methodBody(), outside);
         Set<String> inside = new HashSet<>();
-        List<Element> elements = elements(local, new ArrayList<>());
+        List<Element> elements = CstQueries.codeWithSubTypes(local);
         elements.forEach(e -> declared(e, inside));
         boolean[] captures = {false};
         for (Element element : elements) {
@@ -73,13 +73,13 @@ final class CSharpLocalTypes {
                         case LocalVariable lv when outside.contains(lv.simpleName())
                                                    && !inside.contains(lv.simpleName()) -> captures[0] = true;
                         case ParameterInfo pi when method.parameters().contains(pi) -> captures[0] = true;
-                        case FieldReference fr when !fr.fieldInfo().isStatic() && foreign(fr.fieldInfo().owner(), local)
-                                                    && thisScope(fr) -> captures[0] = true;
+                        case FieldReference fr when !fr.fieldInfo().isStatic() && CSharpNames.foreign(fr.fieldInfo().owner(), local)
+                                                    && CstQueries.onThis(fr) -> captures[0] = true;
                         default -> {
                         }
                     }
                 } else if (e instanceof MethodCall mc && !mc.methodInfo().isStatic() && mc.objectIsImplicit()
-                           && foreign(mc.methodInfo().typeInfo(), local)) {
+                           && CSharpNames.foreign(mc.methodInfo().typeInfo(), local)) {
                     captures[0] = true;
                 }
                 return !captures[0];
@@ -89,25 +89,10 @@ final class CSharpLocalTypes {
         return true;
     }
 
-    private static boolean thisScope(FieldReference fr) {
-        return fr.isDefaultScope() || fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This;
-    }
 
     /** An instance member of {@code owner} is not one of the local type's own, or inherited by it. */
-    private static boolean foreign(TypeInfo owner, TypeInfo local) {
-        return !within(owner, local) && !CSharpNames.inherits(local, owner);
-    }
 
     /** The code of {@code type} and its nested types: bodies and initializers. */
-    private static List<Element> elements(TypeInfo type, List<Element> found) {
-        Stream.concat(type.constructors().stream(), type.methods().stream())
-                .filter(m -> m.methodBody() != null).forEach(m -> found.add(m.methodBody()));
-        for (FieldInfo f : type.fields()) {
-            if (f.initializer() != null && !f.initializer().isEmpty()) found.add(f.initializer());
-        }
-        type.subTypes().forEach(st -> elements(st, found));
-        return found;
-    }
 
     private static void declared(Element element, Set<String> names) {
         element.visit((Element e) -> {
@@ -120,10 +105,4 @@ final class CSharpLocalTypes {
         });
     }
 
-    private static boolean within(TypeInfo t, TypeInfo owner) {
-        for (TypeInfo x = t; x != null; x = CSharpNames.enclosing(x)) {
-            if (x.equals(owner)) return true;
-        }
-        return false;
-    }
 }

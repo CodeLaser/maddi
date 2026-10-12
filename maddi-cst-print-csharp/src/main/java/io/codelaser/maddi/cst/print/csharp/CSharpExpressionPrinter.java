@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -252,7 +253,7 @@ public final class CSharpExpressionPrinter {
         }
         String name = CSharpNames.field(field);
         CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
-        if (withOuter != null && !field.isStatic() && CSharpAnonymous.thisScope(fr)
+        if (withOuter != null && !field.isStatic() && CstQueries.onThis(fr)
             && CSharpAnonymous.viaOuter(field.owner(), withOuter.type())
             && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
                  && t.explicitlyWriteType() != null)) {
@@ -472,7 +473,7 @@ public final class CSharpExpressionPrinter {
         List<TypeParameter> typeParameters = method.typeParameters();
         if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())) return "";
         boolean uninferable = typeParameters.stream().anyMatch(tp -> method.parameters().stream()
-                .noneMatch(p -> mentions(p.parameterizedType(), tp)));
+                .noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)));
         if (!uninferable) return "";
         java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
         match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
@@ -492,11 +493,6 @@ public final class CSharpExpressionPrinter {
         return "<" + String.join(", ", printed) + ">";
     }
 
-    private static boolean mentions(ParameterizedType t, TypeParameter tp) {
-        if (t == null) return false;
-        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
-        return t.parameters().stream().anyMatch(a -> mentions(a, tp));
-    }
 
     /** Matches a formal type with Java's concrete one: {@code Value_} with {@code Bucket<…>}. */
     private static void match(ParameterizedType formal, ParameterizedType concrete, List<TypeParameter> typeParameters,
@@ -922,7 +918,7 @@ public final class CSharpExpressionPrinter {
         for (MethodInfo m : anonymous.methods()) {
             if (m.isSynthetic()) continue;
             List<Statement> statements = m.methodBody() == null ? List.of()
-                    : m.methodBody().statements().stream().filter(st -> !st.isSynthetic()).toList();
+                    : CstQueries.own(m.methodBody().statements());
             if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs) || rs.hasNoValue()) {
                 return null;
             }
@@ -973,9 +969,10 @@ public final class CSharpExpressionPrinter {
                     .map(p -> CSharpTypeName.argument(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
                     .collect(Collectors.joining(", ", "(", ")"))));
             b.add(SymbolEnum.binaryOperator("=>"));
-            List<Statement> statements = method.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
-            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-                b.add(returned(rs.expression(), q));
+            List<Statement> statements = CstQueries.own(method.methodBody().statements());
+            Expression returnedValue = CstQueries.returnedValue(statements);
+            if (returnedValue != null) {
+                b.add(returned(returnedValue, q));
             } else {
                 b.add(CSharpStatementPrinter.block(method.methodBody(), q));
             }
@@ -1004,9 +1001,10 @@ public final class CSharpExpressionPrinter {
                         .collect(Collectors.joining(", ", "(", ")"))));
             }
             b.add(SymbolEnum.binaryOperator("=>"));
-            List<Statement> statements = lambda.methodBody().statements().stream().filter(s -> !s.isSynthetic()).toList();
-            if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
-                return b.add(returned(rs.expression(), q));
+            List<Statement> statements = CstQueries.own(lambda.methodBody().statements());
+            Expression returnedValue = CstQueries.returnedValue(statements);
+            if (returnedValue != null) {
+                return b.add(returned(returnedValue, q));
             }
             if (statements.size() == 1 && statements.getFirst() instanceof ExpressionAsStatement eas) {
                 // a lambda of a void method: its expression's value is not used

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.*;
@@ -433,9 +434,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     static boolean isRecordAccessor(MethodInfo m) {
-        TypeInfo owner = m.typeInfo();
-        return owner.typeNature().isRecord() && !m.isStatic() && m.parameters().isEmpty() && !fromKotlinSource(owner)
-               && owner.fields().stream().anyMatch(f -> !f.isStatic() && f.name().equals(m.name()));
+        return !fromKotlinSource(m.typeInfo()) && CstQueries.isRecordAccessor(m);
     }
 
     /**
@@ -571,8 +570,6 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** A class that can be extended: printed {@code open} (or abstract/sealed), so its methods may be open too. */
     static boolean isOpen(TypeInfo typeInfo) {
-        Set<TypeModifier> mods = typeInfo.typeModifiers();
-        return typeInfo.typeNature().isClass() && !mods.contains(TypeModifierEnum.FINAL)
-               && !typeInfo.typeNature().isRecord() && !typeInfo.typeNature().isEnum();
+        return CstQueries.isExtensible(typeInfo);
     }
 }

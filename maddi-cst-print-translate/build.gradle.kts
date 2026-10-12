@@ -27,6 +27,8 @@ dependencies {
     api(project(":maddi-cst-analysis"))
     // the OutputElement building blocks (OutputBuilderImpl, SymbolEnum, TextImpl, ...) the shared emission uses
     implementation(project(":maddi-cst-impl"))
+    // Either, of TypeInfo.compilationUnitOrEnclosingType
+    implementation(project(":maddi-support"))
 
     testImplementation(project(":maddi-cst-impl"))
 }

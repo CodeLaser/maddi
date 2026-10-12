@@ -13,6 +13,7 @@
  */
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
@@ -235,7 +236,7 @@ final class KotlinReadOnly {
             ParameterizedType element = i >= callee.parameters().size() - 1 && callee.parameters().getLast().isVarArgs()
                                         && type.arrays() == 1 ? type.componentType() : type;
             io.codelaser.maddi.cst.api.info.TypeParameter tp = element.typeParameter();
-            if (tp != null && (mentions(callee.returnType(), tp)
+            if (tp != null && (CstQueries.mentions(callee.returnType(), tp)
                                || tp.typeBounds().stream().anyMatch(KotlinReadOnly::isCollection))) {
                 continue;
             }
@@ -243,10 +244,6 @@ final class KotlinReadOnly {
         }
     }
 
-    private static boolean mentions(ParameterizedType type, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        return type != null && (tp.equals(type.typeParameter())
-                                || type.parameters().stream().anyMatch(p -> mentions(p, tp)));
-    }
 
     /**
      * Every body of the compilation unit, with its method (null for a field initializer): the types, nested, anonymous
