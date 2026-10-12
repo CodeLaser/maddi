@@ -76,7 +76,7 @@ public class JavaNetHttp {
                 /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Path path) { return null; }
 
             //@Independent[T]
-            static HttpRequest.BodyPublisher ofByteArrays(Iterable<byte []> iter) { return null; }
+            static HttpRequest.BodyPublisher ofByteArrays(@NotModified Iterable<byte []> iter) { return null; }
 
             //@Independent[T]
             static HttpRequest.BodyPublisher noBody() { return null; }

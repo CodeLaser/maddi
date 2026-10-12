@@ -35,7 +35,8 @@ call-frequency comments), as a starting point to curate. Gradle: `updatedHintsDi
 *Default.* The command-line tools (`maddi`, `maddi-kotlin`) and the Gradle and Maven plugins load the shipped
 JDK and library results when `--preload-analysis-results-dirs` / `preloadAnalysisResultsDirs` is not given:
 `openjdk.jar` and `libs.jar` from `maddi-aapi-archive`, on their class path (the plugins bundle it). `libs.jar`
-holds JUnit Jupiter, AssertJ, the logging APIs and the Kotlin standard library. Naming directories replaces that
+holds JUnit Jupiter, AssertJ, the logging APIs, the Kotlin standard library and Guava's collections
+(`com.google.common.collect`). Naming directories replaces that
 default; `default` names the shipped results in the list (`default,my/results`), and `none` loads nothing. A run
 that compiles or writes hints (`--analysis-results-target-dir`, `--updated-hints-dir`, the
 `compile-analysis-hints` and `write-analysis-hints` goals) loads nothing implicitly, because what it preloads

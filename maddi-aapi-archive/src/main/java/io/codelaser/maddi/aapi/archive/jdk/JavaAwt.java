@@ -468,7 +468,7 @@ public class JavaAwt {
         @NotModified boolean isFocusTraversable() { return false; }
         @NotModified boolean isFocusable() { return false; }
         void setFocusable(boolean focusable) { }
-        void setFocusTraversalKeys(int id, Set<? extends AWTKeyStroke> keystrokes) { }
+        void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
         @NotModified Set<AWTKeyStroke> getFocusTraversalKeys(int id) { return null; }
         boolean areFocusTraversalKeysSet(int id) { return false; }
         void setFocusTraversalKeysEnabled(boolean focusTraversalKeysEnabled) { }
@@ -623,7 +623,7 @@ public class JavaAwt {
         void list(PrintWriter out, int indent) { }
 
         //override from java.awt.Component
-        void setFocusTraversalKeys(int id, Set<? extends AWTKeyStroke> keystrokes) { }
+        void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
 
         //override from java.awt.Component
         @NotModified Set<AWTKeyStroke> getFocusTraversalKeys(int id) { return null; }

@@ -82,7 +82,7 @@ public class JavaTimeFormat {
         DateTimeFormatter withDecimalStyle(DecimalStyle decimalStyle) { return null; }
         DateTimeFormatter withLocale(Locale locale) { return null; }
         DateTimeFormatter withResolverFields(TemporalField ... resolverFields) { return null; }
-        DateTimeFormatter withResolverFields(Set<TemporalField> resolverFields) { return null; }
+        DateTimeFormatter withResolverFields(@NotModified Set<TemporalField> resolverFields) { return null; }
         DateTimeFormatter withResolverStyle(ResolverStyle resolverStyle) { return null; }
         DateTimeFormatter withZone(ZoneId zone) { return null; }
     }

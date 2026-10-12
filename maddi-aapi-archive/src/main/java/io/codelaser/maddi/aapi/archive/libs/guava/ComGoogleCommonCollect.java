@@ -5065,19 +5065,22 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <T> Iterable<List<T>> partition(@Independent @NotModified Iterable<T> iterable, int size) { return null; }
 
+        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static boolean removeAll(
-            @Independent @NotModified Iterable<?> removeFrom,
+            @Independent @Modified Iterable<?> removeFrom,
             @Independent @NotModified Collection<?> elementsToRemove) { return false; }
 
+        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static <T> boolean removeIf(
-            @Independent @NotModified Iterable<T> removeFrom,
+            @Independent @Modified Iterable<T> removeFrom,
             @Independent @Modified Predicate<? super T> predicate) { return false; }
 
+        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static boolean retainAll(
-            @Independent @NotModified Iterable<?> removeFrom,
+            @Independent @Modified Iterable<?> removeFrom,
             @Independent @NotModified Collection<?> elementsToRetain) { return false; }
         @NotModified static int size(@Independent @NotModified Iterable<?> iterable) { return 0; }
         @Independent @NotModified

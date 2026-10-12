@@ -1634,12 +1634,12 @@ public class JavaUtil {
 
         //@NotModified[T]
         static <T> int binarySearch(
-            /*@Independent[M]*/ List<? extends Comparable<? super T>> list,
+            /*@Independent[M]*/ @NotModified List<? extends Comparable<? super T>> list,
             /*@Independent[M] @NotModified[T]*/ T key) { return 0; }
 
         //@NotModified[T]
         static <T> int binarySearch(
-            /*@Independent[M]*/ List<? extends T> list,
+            /*@Independent[M]*/ @NotModified List<? extends T> list,
             /*@Independent[M] @NotModified[T]*/ T key,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Comparator<? super T> c) { return 0; }
 
@@ -1671,19 +1671,19 @@ public class JavaUtil {
             /*@Independent[M]*/ @NotModified List<? extends T> src) { }
 
         //@Immutable(hc=true)[T] @Independent[O] @NotModified[T]
-        static <T extends Comparable<? super T>> T min(/*@Independent[M]*/ Collection<? extends T> coll) { return null; }
+        static <T extends Comparable<? super T>> T min(/*@Independent[M]*/ @NotModified Collection<? extends T> coll) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <T> T min(
-            /*@Independent[M]*/ Collection<? extends T> coll,
+            /*@Independent[M]*/ @NotModified Collection<? extends T> coll,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Comparator<? super T> comp) { return null; }
 
         //@Immutable(hc=true)[T] @Independent[O] @NotModified[T]
-        static <T extends Comparable<? super T>> T max(/*@Independent[M]*/ Collection<? extends T> coll) { return null; }
+        static <T extends Comparable<? super T>> T max(/*@Independent[M]*/ @NotModified Collection<? extends T> coll) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <T> T max(
-            /*@Independent[M]*/ Collection<? extends T> coll,
+            /*@Independent[M]*/ @NotModified Collection<? extends T> coll,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Comparator<? super T> comp) { return null; }
 
         //@NotModified[T]
@@ -1696,10 +1696,10 @@ public class JavaUtil {
             /*@Independent[M] @NotModified[T]*/ T newVal) { return false; }
 
         //@NotModified[T]
-        static int indexOfSubList(/*@Independent[M]*/ List<?> source, /*@Independent[M]*/ List<?> target) { return 0; }
+        static int indexOfSubList(/*@Independent[M]*/ @NotModified List<?> source, /*@Independent[M]*/ @NotModified List<?> target) { return 0; }
 
         //@NotModified[T]
-        static int lastIndexOfSubList(/*@Independent[M]*/ List<?> source, /*@Independent[M]*/ List<?> target) { return 0; }
+        static int lastIndexOfSubList(/*@Independent[M]*/ @NotModified List<?> source, /*@Independent[M]*/ @NotModified List<?> target) { return 0; }
 
         //@Independent[O] @NotModified[T]
         static <T> Collection<T> unmodifiableCollection(
@@ -1868,18 +1868,18 @@ public class JavaUtil {
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Comparator<T> cmp) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> Enumeration<T> enumeration(/*@Independent[M]*/ Collection<T> c) { return null; }
+        static <T> Enumeration<T> enumeration(/*@Independent[M]*/ @NotModified Collection<T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <T> ArrayList<T> list(/*@Independent[M]*/ Enumeration<T> e) { return null; }
 
         //@NotModified[T]
         static int frequency(
-            /*@Independent[M]*/ Collection<?> c,
+            /*@Independent[M]*/ @NotModified Collection<?> c,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Object o) { return 0; }
 
         //@NotModified[T]
-        static boolean disjoint(/*@Independent[M]*/ Collection<?> c1, /*@Independent[M]*/ Collection<?> c2) {
+        static boolean disjoint(/*@Independent[M]*/ @NotModified Collection<?> c1, /*@Independent[M]*/ @NotModified Collection<?> c2) {
             return false;
         }
 
@@ -2793,12 +2793,12 @@ public class JavaUtil {
             static List<Locale.LanguageRange> parse(String ranges) { return null; }
 
             //@Independent[T]
-            static List<Locale.LanguageRange> parse(String ranges, Map<String, List<String>> map) { return null; }
+            static List<Locale.LanguageRange> parse(String ranges, @NotModified Map<String, List<String>> map) { return null; }
 
             //@Independent[T]
             static List<Locale.LanguageRange> mapEquivalents(
-                List<Locale.LanguageRange> priorityList,
-                Map<String, List<String>> map) { return null; }
+                @NotModified List<Locale.LanguageRange> priorityList,
+                @NotModified Map<String, List<String>> map) { return null; }
 
             //override from java.lang.Object
             //@NotModified[H]

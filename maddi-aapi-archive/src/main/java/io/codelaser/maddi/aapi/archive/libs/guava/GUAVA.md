@@ -22,16 +22,12 @@ has and HEAD renamed keeps the compiler's defaults.
 
 ## Using the hints
 
-Guava is **side-loaded**: its results are not in `libs.jar` and not in `LoadAnalysisResults.ANALYZED_RESULTS`.
-Preload them explicitly, together with the JDK hints:
-
-```
---preload-analysis-results-dirs <archive>/analyzedPackageFiles/jdk,<archive>/analyzedPackageFiles/libs/guava
-```
-
-where `<archive>` is `maddi-aapi-archive/src/main/resources/io/codelaser/maddi/aapi/archive`. Guava is the
-likely candidate for promotion into `libs.jar` (every corpus in `test-oss` but one uses it); that is a separate
-decision, on evidence from a consumer's run.
+Guava's results are in `libs.jar` and in `LoadAnalysisResults.ANALYZED_RESULTS` since 2026-10-12, so every run
+that loads the shipped results has them; a project without Guava on its class path skips the file unparsed. Until
+then they were side-loaded, the position vavr and Eclipse Collections are still in: every corpus in `test-oss`
+but one uses Guava, which is the evidence `CompileAnalysisHints.SIDE_LOADED_LIBRARIES` asks for. The parser's
+full-signature overload matching (2026-10-11) had to come first: before it, the 24 bound-only overload pairs
+described below shared one contract.
 
 ## Reading a shadow
 
@@ -113,6 +109,21 @@ both shadow methods landed on the first of the two (24 pairs): one overload carr
 other only defaults. The parser now compares the bounds (`AnalysisHintsParser.sameFullType`) and the compiled
 `ComGoogleCommonCollect.json` was regenerated.
 
+## Parameter review, 2026-10-12
+
+Before the promotion into `libs.jar`, the compiled parameters were read against `javap -public` of the 33.6.0 jar
+and its sources. Every public type of the package has results except the ten protected-use
+`Forwarding*.Standard*` helpers. Of the 2,324 parameters, 297 are not `@NotModified`; nearly all of them rightly
+(iterators consumed, `addAll`'s target, `drain`'s queue and buffer, `invertFrom`'s destination) or conservatively
+(views such as `Lists.reverse` and `Maps.filterKeys`, Guava's `Predicate`/`Function` arguments, `Ordering.compare`'s
+arguments, a few copies such as `Sets.complementOf`). Conservative costs precision only.
+
+The unsound direction had three members: `Iterables.removeAll`, `retainAll` and `removeIf` were computed
+`@NotModified` on `removeFrom`, which both branches of each modify (a cast to `Collection` and a call, or
+`Iterators.removeAll` on `removeFrom.iterator()`). The source run predates maddi-mod#18 (a downcast dropping the
+modification link, fixed 2026-10-09). The three are corrected by hand in the shadow, with a comment; the next
+recomposition with a current engine should compute them, and the hand comments can then go.
+
 ## Regenerating
 
 1. Onboard and build per `corpus/catalogue/guava.yml`.
@@ -130,7 +141,7 @@ other only defaults. The parser now compares the bounds (`AnalysisHintsParser.sa
    `TestAnalysisHintsCompiler` / `TestAnalysisHintsComposer`.
 
 Registries: `compileOnly("com.google.guava:guava:33.6.0-jre")` and `requires static com.google.common` in
-`maddi-aapi-archive`; `testImplementation` in `maddi-aapi-parser`; `CompileAnalysisHints.SIDE_LOADED_LIBRARIES`
+`maddi-aapi-archive`; `testImplementation` in `maddi-aapi-parser`; `CompileAnalysisHints.LIBRARIES`
 plus its inspector factory (anchored on `ImmutableList` and failureaccess's `InternalFutureFailureAccess`).
 
 ## The EXPECTED table
