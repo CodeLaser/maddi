@@ -186,6 +186,8 @@ public final class CSharpTypeName {
             ParameterizedType bound = arguments.getFirst().withWildcard(null);
             return covariant + "<" + of(bound, q, true) + ">";
         }
+        // Score<?> of Score<Score_ extends Score<Score_>>: no C# argument satisfies the self-bound, the companion does
+        if (CSharpCompanions.isWildcardUse(pt)) return CSharpCompanions.wildcardUse(pt, q);
         List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintMessage.Code.RAW_TYPE, null, fqn);
@@ -326,6 +328,11 @@ public final class CSharpTypeName {
     }
 
     /** A raw type's argument: the erasure of the type parameter's bound, which satisfies its constraint. */
+    /** A raw type's argument for {@code tp}: its bound's erasure, which satisfies the constraint. */
+    static String rawArgumentOf(TypeParameter tp, Qualification q) {
+        return rawArgument(tp, q);
+    }
+
     private static String rawArgument(TypeParameter tp, Qualification q) {
         ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst().orElse(null);
         if (bound == null || bound.typeInfo() == null || bound.isTypeParameter()) return "object";

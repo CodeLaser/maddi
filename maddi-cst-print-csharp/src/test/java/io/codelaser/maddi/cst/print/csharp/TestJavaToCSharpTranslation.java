@@ -734,7 +734,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
     /**
      * C# cannot call a lambda where it is written: a supplier argument that a template calls is written in place.
-     * An F-bounded type used raw stops at its own erasure.
+     * An F-bounded type used raw is its companion, which no type argument has to satisfy (see {@link #companions}).
      */
     @Test
     public void suppliers() {
@@ -742,7 +742,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static List<string> Names(List<string> given) => given ?? new List<string>();");
         contains(cs, "internal static List<string> Copy(List<string> given) => given ?? new List<string>();");
         contains(cs, "internal static string Name(string given) => given ?? \"none\";");
-        contains(cs, "internal static Defaults<");
+        contains(cs, "internal static IDefaults Raw() => null;");
     }
 
     @Language("java")
@@ -1464,6 +1464,57 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SCORES = """
+            package org.example.scores;
+            import java.util.List;
+            public class Scores {
+                public interface Score<Score_ extends Score<Score_>> extends Comparable<Score_> {
+                    Score_ add(Score_ other);
+                    Score_ negate();
+                    boolean isZero();
+                    String toShortString();
+                }
+                public record SimpleScore(int value) implements Score<SimpleScore> {
+                    public SimpleScore add(SimpleScore other) { return new SimpleScore(value + other.value); }
+                    public SimpleScore negate() { return new SimpleScore(-value); }
+                    public boolean isZero() { return value == 0; }
+                    public String toShortString() { return "" + value; }
+                    public int compareTo(SimpleScore other) { return Integer.compare(value, other.value); }
+                }
+                public interface Director<Solution_, Score_ extends Score<Score_>> {
+                    Score_ calculate(Solution_ solution);
+                    List<Score_> history();
+                }
+                static boolean anyZero(List<Score<?>> scores) {
+                    for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
+                    return false;
+                }
+                static <S> String describe(Director<S, ?> director, S solution) {
+                    return director.calculate(solution).toShortString();
+                }
+            }
+            """;
+
+    /**
+     * A wildcard of a self-bounded type has no C# type argument: its companion, IScore beside IScore<Score_>, which
+     * declares the members a wildcard's user calls, the removed parameter in a result erased to its bound's companion.
+     */
+    @Test
+    public void companions() {
+        String cs = translate("Scores", SCORES);
+        contains(cs, "public interface IScore<Score_> : IComparable<Score_>, IScore where Score_ : IScore<Score_> {");
+        contains(cs, "public interface IScore {");
+        contains(cs, "IScore Negate();");
+        // the bridges: every IScore<S> is an IScore
+        contains(cs, "IScore IScore.Negate() => Negate();");
+        contains(cs, "bool IScore.IsZero() => IsZero();");
+        // a result of the removed parameter in a collection has no companion form: History is not the companion's
+        contains(cs, "public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }");
+        contains(cs, "internal static bool AnyZero(List<IScore> scores)");
+        contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
+        assertFalse(cs.contains("IScore<object>"), cs);
+    }
+
     private static final String MODES = """
             package org.example.modes;
             public class Modes {

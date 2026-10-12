@@ -432,6 +432,16 @@ ratchet's report (see below) lists what is left.
   constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
   delegate, a sealed class, a type parameter). Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
+- **Self-bounded types.** A wildcard of a type whose parameter is bounded by itself, `Score<?>` of
+  `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
+  C#'s `IComparable` beside `IComparable<T>`, such a type has a companion without its self-bounded parameters
+  (`CSharpCompanions`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside `IDirector<Solution_, Score_>`;
+  a class's companion is the interface `I` + its name. The wildcard, and the raw type, is the companion. The companion
+  declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
+  companion (`IScore Negate();`); the type implements them explicitly, calling its own
+  (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
+  `IScore`. A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
+  companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →

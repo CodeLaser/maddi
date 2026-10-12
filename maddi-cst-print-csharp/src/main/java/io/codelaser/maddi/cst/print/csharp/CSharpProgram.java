@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -121,6 +122,7 @@ public final class CSharpProgram {
     private final Set<ParameterInfo> readOnly;
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
     private final Map<TypeInfo, Boolean> inner = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
@@ -296,6 +298,11 @@ public final class CSharpProgram {
     /** The index of the method's type token parameter, which C# drops for the type argument; -1 when none. */
     public int typeToken(MethodInfo method) {
         return typeTokens.getOrDefault(method, -1);
+    }
+
+    /** The self-bounded type parameters of the program's types ({@link CSharpCompanions#removed}), as they are asked for. */
+    Map<TypeInfo, List<TypeParameter>> companions() {
+        return companions;
     }
 
     /** Which inner classes take an enclosing instance ({@link CSharpInner#withOuter}), as they are asked for. */
