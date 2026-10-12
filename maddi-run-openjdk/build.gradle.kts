@@ -141,6 +141,9 @@ tasks.test {
     // worker even via a reused daemon. Unset -> the helper defaults to ../../test-oss.
     System.getProperty("test.oss.root")?.let { systemProperty("test.oss.root", it) }
     System.getenv("TEST_OSS_ROOT")?.let { environment("TEST_OSS_ROOT", it) }
+    // TestJavaToKotlinExternal (KotlinConf scoreboard, CodeLaser/maddi-mod#36): a translation made elsewhere
+    System.getProperty("maddi.j2k.external")?.let { systemProperty("maddi.j2k.external", it) }
+    System.getProperty("maddi.j2k.corpus")?.let { systemProperty("maddi.j2k.corpus", it) }
     jvmArgs(
         // 6G showed heavy GC under PARALLEL=8 (8 threads allocating link graphs concurrently);
         // 8G was marginal for the elasticsearch-server closure: one green run pinned at the ceiling,
