@@ -111,7 +111,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 rt = rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
             }
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
-                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(rt, qualification)));
+                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinReadOnly.returns(methodInfo)
+                        ? KotlinTypeName.readOnly(rt, qualification) : KotlinTypeName.of(rt, qualification)));
             }
         }
 
@@ -336,10 +337,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * method's collection parameter only when it is itself printed read-only. Not a type variable of the receiver's:
      * {@code ThreadLocal<MutableMap<…>>.set(value: T)} takes the mutable type it was declared with.
      */
-    private static boolean acceptsReadOnly(MethodInfo callee, int index) {
+    static boolean acceptsReadOnly(MethodInfo callee, int index) {
         if (callee == null || callee.parameters().isEmpty()) return false;
         ParameterInfo p = callee.parameters().get(Math.min(index, callee.parameters().size() - 1));
-        if (index >= callee.parameters().size() - 1 && p.isVarArgs()) return false;
+        if (index >= callee.parameters().size() - 1 && p.isVarArgs()) {
+            // Objects.hash(name, items): an element of Object... takes any collection
+            ParameterizedType element = p.parameterizedType().arrays() == 1 ? p.parameterizedType().componentType() : null;
+            return element != null && (element.typeParameter() != null ? element.typeParameter().isMethodTypeParameter()
+                    : KotlinTypeName.readOnly(element, null).equals(KotlinTypeName.of(element, null)));
+        }
         ParameterizedType type = p.parameterizedType();
         if (type.typeParameter() != null) return type.arrays() == 0 && type.typeParameter().isMethodTypeParameter();
         if (KotlinTypeName.readOnly(type, null).equals(KotlinTypeName.of(type, null))) return true; // not a collection
