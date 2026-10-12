@@ -81,7 +81,7 @@ public class KotlinModifiers {
 
     private static void reportProtected(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
         if (subject != null && access != null && access.isProtected() && KotlinContext.translatingJava()) {
-            KotlinContext.message(KotlinPrintMessage.Code.PROTECTED_AS_PUBLIC, subject, KotlinContext.describe(subject));
+            KotlinContext.message(KotlinPrintCode.PROTECTED_AS_PUBLIC, subject, KotlinContext.describe(subject));
         }
     }
 }

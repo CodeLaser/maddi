@@ -15,39 +15,34 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
-import io.codelaser.maddi.cst.api.element.Source;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.cst.print.translate.TranslationState;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
 /**
  * The state of one file's printing, shared by the printers: they are created through the cst-api factories, whose
- * signatures carry no context. One per thread; {@link CSharpCompilationUnitPrinter} resets it per file.
+ * signatures carry no context. One per thread; {@link CSharpCompilationUnitPrinter} resets it per file. What every
+ * Java-to-X printer keeps (the types, methods, statements and calls being printed, the referenced types, the
+ * messages) is a {@link TranslationState}.
  */
 final class CSharpContext {
 
     private static final class State {
-        final Deque<TypeInfo> types = new ArrayDeque<>();
+        final TranslationState<CSharpPrintCode> base = new TranslationState<>();
         TypeInfo companion;
         final java.util.Map<TypeInfo, Boolean> hasCompanion = new java.util.HashMap<>();
-        final Deque<MethodInfo> methods = new ArrayDeque<>();
-        final Set<CSharpPrintMessage> messages = new LinkedHashSet<>();
         final Set<String> usings = new TreeSet<>();
-        final Set<TypeInfo> referenced = new LinkedHashSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
         final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
-        final Deque<io.codelaser.maddi.cst.api.statement.Statement> statements = new ArrayDeque<>();
-        final Deque<io.codelaser.maddi.cst.api.expression.Expression> calls = new ArrayDeque<>();
     }
 
     /**
@@ -99,11 +94,11 @@ final class CSharpContext {
     }
 
     static void pushType(TypeInfo typeInfo) {
-        STATE.get().types.push(typeInfo);
+        STATE.get().base.pushType(typeInfo);
     }
 
     static void popType() {
-        STATE.get().types.pop();
+        STATE.get().base.popType();
     }
 
     /** The type whose companion class is being printed ({@link CSharpNames#hasCompanion}); null when none. */
@@ -126,19 +121,19 @@ final class CSharpContext {
     }
 
     static TypeInfo currentType() {
-        return STATE.get().types.peek();
+        return STATE.get().base.currentType();
     }
 
     static void pushMethod(MethodInfo methodInfo) {
-        STATE.get().methods.push(methodInfo);
+        STATE.get().base.pushMethod(methodInfo);
     }
 
     static void popMethod() {
-        STATE.get().methods.pop();
+        STATE.get().base.popMethod();
     }
 
     static MethodInfo currentMethod() {
-        return STATE.get().methods.peek();
+        return STATE.get().base.currentMethod();
     }
 
     /** A {@code using} directive the printed code needs: a BCL namespace a mapped type lives in. */
@@ -218,67 +213,57 @@ final class CSharpContext {
     }
 
     static void pushStatement(io.codelaser.maddi.cst.api.statement.Statement statement) {
-        STATE.get().statements.push(statement);
+        STATE.get().base.pushStatement(statement);
     }
 
     static void popStatement() {
-        STATE.get().statements.pop();
+        STATE.get().base.popStatement();
     }
 
     /** The innermost statement being printed; null outside a body. */
     static io.codelaser.maddi.cst.api.statement.Statement currentStatement() {
-        return STATE.get().statements.peek();
+        return STATE.get().base.currentStatement();
     }
 
     static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
-        STATE.get().calls.push(call);
+        STATE.get().base.pushCall(call);
     }
 
     static void popCall() {
-        STATE.get().calls.pop();
+        STATE.get().base.popCall();
     }
 
     /** The innermost call or field access being printed; null when none. */
     static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
-        return STATE.get().calls.peek();
+        return STATE.get().base.currentCall();
     }
 
     /** A type the printed code names by its simple name: it must be in scope, through a {@code using}. */
     static void referenced(TypeInfo typeInfo) {
-        STATE.get().referenced.add(typeInfo);
+        STATE.get().base.referenced(typeInfo);
     }
 
     static Set<TypeInfo> referenced() {
-        return STATE.get().referenced;
+        return STATE.get().base.referenced();
+    }
+
+    /** The shared part of the state: see {@link TranslationState}. */
+    static TranslationState<CSharpPrintCode> state() {
+        return STATE.get().base;
     }
 
     /** Records a message about {@code subject}, an element of the type being printed. */
-    static void message(CSharpPrintMessage.Code code, Element subject, String detail) {
-        TypeInfo type = currentType();
-        Element located = subject != null ? subject : type;
-        Source source = located == null ? null : located.source();
-        boolean known = source != null && !source.isNoSource();
-        STATE.get().messages.add(new CSharpPrintMessage(code, type == null ? "?" : type.fullyQualifiedName(),
-                known ? source.beginLine() : -1, known ? source.beginPos() : -1, detail));
+    static void message(CSharpPrintCode code, Element subject, String detail) {
+        STATE.get().base.message(code, subject, detail);
     }
 
     /** The messages recorded since the last reset. */
-    static List<CSharpPrintMessage> messages() {
-        return new ArrayList<>(STATE.get().messages);
+    static List<PrintMessage<CSharpPrintCode>> messages() {
+        return STATE.get().base.messages();
     }
 
     /** An element in a message: its Java text, on one line, shortened. */
     static String describe(Element e) {
-        if (e == null) return "";
-        if (e instanceof MethodInfo m) return m.fullyQualifiedName();
-        if (e instanceof FieldInfo f) return f.owner().simpleName() + "." + f.name();
-        if (e instanceof TypeInfo t) return t.fullyQualifiedName();
-        String text;
-        try {
-            text = e.toString().replaceAll("\\s+", " ").trim();
-        } catch (RuntimeException re) {
-            return e.getClass().getSimpleName();
-        }
-        return text.length() <= 80 ? text : text.substring(0, 77) + "...";
+        return TranslationState.describe(e);
     }
 }

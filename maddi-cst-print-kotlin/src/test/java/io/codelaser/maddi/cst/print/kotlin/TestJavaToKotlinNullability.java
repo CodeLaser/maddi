@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -162,17 +163,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin(EARLY, options);
         contains(kotlin, "val s = find(k)!!");
         contains(kotlin, "seen.add(s)");
-        List<KotlinPrintMessage> messages = messages(EARLY.replace("class D", "class D2"), options);
-        assertTrue(messages.stream().anyMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
+        List<PrintMessage<KotlinPrintCode>> messages = messages(EARLY.replace("class D", "class D2"), options);
+        assertTrue(messages.stream().anyMatch(m -> m.code() == KotlinPrintCode.ASSERT_AT_DECLARATION
                                                    && m.line() == 7), messages.toString());
         // with the linking engine's proof that nothing in between refers to s: INFO, not a behaviour change
-        List<KotlinPrintMessage> proven = messages(EARLY.replace("class D", "class D3"), new KotlinPrintOptions(
+        List<PrintMessage<KotlinPrintCode>> proven = messages(EARLY.replace("class D", "class D3"), new KotlinPrintOptions(
                 new ByName(Set.of("find()"), Set.of("!s", "~s")), KotlinPrintOptions.NullCheck.ASSERT));
-        assertTrue(proven.stream().anyMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION_UNOBSERVED
-                                                 && m.severity() == KotlinPrintMessage.Severity.INFO && m.line() == 7),
+        assertTrue(proven.stream().anyMatch(m -> m.code() == KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
+                                                 && m.severity() == PrintMessage.Severity.INFO && m.line() == 7),
                 proven.toString());
         // t is not asserted at its declaration: its `!!`, if any, is an ordinary one
-        assertTrue(messages.stream().noneMatch(m -> m.code() == KotlinPrintMessage.Code.ASSERT_AT_DECLARATION
+        assertTrue(messages.stream().noneMatch(m -> m.code() == KotlinPrintCode.ASSERT_AT_DECLARATION
                                                     && m.line() == 12), messages.toString());
     }
 

@@ -232,39 +232,7 @@ final class CSharpNullability {
     }
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */
-    private static boolean knownNonNull(Variable variable) {
-        Statement statement = CSharpContext.currentStatement();
-        if (statement != null && facts().nonNullAt(statement, variable)) return true;
-        Expression call = CSharpContext.currentCall();
-        return call != null && !dereferencedInArguments(call, variable) && facts().nonNullAt(call, variable);
-    }
-
-    /**
-     * The fact at a call holds after its receiver and arguments are evaluated, left to right: a dereference of the
-     * variable in an argument would make it claim what the receiver does not have yet ({@code stack.add(g.first)}).
-     */
-    private static boolean dereferencedInArguments(Expression call, Variable variable) {
-        List<Expression> arguments = switch (call) {
-            case MethodCall mc -> mc.parameterExpressions();
-            case ConstructorCall cc -> cc.parameterExpressions();
-            default -> List.of();
-        };
-        boolean[] found = {false};
-        for (Expression argument : arguments) {
-            argument.visit((Element e) -> {
-                Expression scope = switch (e) {
-                    case MethodCall mc -> mc.object();
-                    case VariableExpression ve when ve.variable() instanceof FieldReference fr -> fr.scope();
-                    case VariableExpression ve when ve.variable() instanceof DependentVariable dv -> dv.arrayExpression();
-                    default -> null;
-                };
-                if (scope != null && CSharpExpressionPrinter.unwrap(scope) instanceof VariableExpression sv
-                    && variable.equals(sv.variable())) {
-                    found[0] = true;
-                }
-                return !found[0];
-            });
-        }
-        return found[0];
+    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
+        return CSharpContext.state().knownNonNull(facts(), variable);
     }
 }

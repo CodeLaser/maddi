@@ -79,6 +79,7 @@ everything downstream of parsing operates on it exclusively.
 | `maddi-cst-analysis` | The property/value model in which all analyzer verdicts are stored (`PropertyImpl`, `ValueImpl`, property maps, messages). | `…cst.impl.analysis.PropertyImpl` |
 | `maddi-cst-io` | Codec: (de)serialization of CST and analysis results to/from JSON. | `…cst.io.CodecImpl` |
 | `maddi-cst-print` | Language-neutral formatter: renders the `OutputElement` IR to formatted text. | `…cst.print.formatter2.Formatter2Impl` |
+| `maddi-cst-print-translate` | What the Java-to-X printers share: `PrintMessage` and its severities, the per-thread `TranslationState` of a file's printing, language-neutral CST queries. | `…cst.print.translate.TranslationState` |
 | `maddi-cst-print-kotlin` | Prints the CST as *Kotlin* source (same `OutputElement` IR; the target language is a printer choice, not a CST property). | `…cst.print.kotlin.KotlinTypePrinter`, `kotlin-printing.md` |
 | `maddi-cst-print-csharp` | Prints the CST as *C#* source (Java → C# translation, #115), on the same `OutputElement` IR and printer seam. | `…cst.print.csharp.CSharpTypePrinter`, `csharp-printing.md` |
 

@@ -139,7 +139,7 @@ public class KotlinStatementPrinter {
                     .print(new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q), true);
             default -> {
                 // not-yet-translated statement forms: Java rendering
-                KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, s, s.getClass().getSimpleName());
+                KotlinContext.message(KotlinPrintCode.JAVA_FALLBACK, s, s.getClass().getSimpleName());
                 yield s.print(q);
             }
         };
@@ -840,8 +840,8 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
                          ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
-                                                            ? KotlinPrintMessage.Code.ASSERT_AT_DECLARATION_UNOBSERVED
-                                                            : KotlinPrintMessage.Code.ASSERT_AT_DECLARATION, q)
+                                                            ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
+                                                            : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
                          : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
             if (!writeType) {
                 // Kotlin infers an untyped local's type from its initializer, type arguments and element states

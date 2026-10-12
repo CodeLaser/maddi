@@ -17,6 +17,7 @@ module io.codelaser.maddi.cst.print.csharp {
     requires io.codelaser.maddi.cst.api;
     requires io.codelaser.maddi.cst.impl;
     requires transitive io.codelaser.maddi.cst.analysis;
+    requires transitive io.codelaser.maddi.cst.print.translate;
     requires io.codelaser.maddi.support;
     requires org.slf4j;
 

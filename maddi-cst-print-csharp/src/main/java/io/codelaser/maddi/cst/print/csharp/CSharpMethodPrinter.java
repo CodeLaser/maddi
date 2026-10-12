@@ -63,7 +63,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(methodInfo.methodBody(), q));
         }
         if (methodInfo.isInstanceInitializer()) {
-            CSharpContext.message(CSharpPrintMessage.Code.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
+            CSharpContext.message(CSharpPrintCode.INSTANCE_INITIALIZER, methodInfo, typeInfo.simpleName());
             return b;
         }
         b.add(CSharpAttributes.uses(methodInfo.annotations(), methodInfo.isConstructor() ? LibraryMapping.Target.CONSTRUCTOR

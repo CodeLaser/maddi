@@ -126,12 +126,12 @@ public final class CSharpStatementPrinter {
             // printed in the enclosing type, see CSharpLocalTypes
             case LocalTypeDeclaration ltd -> {
                 if (!CSharpLocalTypes.liftable(ltd.typeInfo())) {
-                    CSharpContext.message(CSharpPrintMessage.Code.LOCAL_CLASS, ltd, ltd.typeInfo().simpleName());
+                    CSharpContext.message(CSharpPrintCode.LOCAL_CLASS, ltd, ltd.typeInfo().simpleName());
                 }
                 yield new OutputBuilderImpl();
             }
             default -> {
-                CSharpContext.message(CSharpPrintMessage.Code.JAVA_FALLBACK, s, s.getClass().getSimpleName());
+                CSharpContext.message(CSharpPrintCode.JAVA_FALLBACK, s, s.getClass().getSimpleName());
                 yield s.print(q);
             }
         };
@@ -493,7 +493,7 @@ public final class CSharpStatementPrinter {
             return text(CSharpTypeName.of(pattern.localVariable().parameterizedType(), q) + " "
                         + CSharpContext.declare(pattern.localVariable().simpleName()));
         }
-        CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, null, "record pattern");
+        CSharpContext.message(CSharpPrintCode.SWITCH_FORM, null, "record pattern");
         return text(CSharpTypeName.of(pattern.parameterizedType(), q));
     }
 
@@ -620,7 +620,7 @@ public final class CSharpStatementPrinter {
                     .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS).add(SymbolEnum.binaryOperator("=>"))
                     .add(block(statements, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
-        CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, statement, CSharpContext.describe(statement));
+        CSharpContext.message(CSharpPrintCode.SWITCH_FORM, statement, CSharpContext.describe(statement));
         return statement.print(q);
     }
 

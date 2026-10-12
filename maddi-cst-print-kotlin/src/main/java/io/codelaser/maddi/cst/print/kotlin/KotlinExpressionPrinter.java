@@ -122,7 +122,7 @@ public class KotlinExpressionPrinter {
             default -> {
                 // constants (int, long, boolean, null) and anything unknown: as in Java
                 if (!(e instanceof ConstantExpression<?>)) {
-                    KotlinContext.message(KotlinPrintMessage.Code.JAVA_FALLBACK, e, e.getClass().getSimpleName());
+                    KotlinContext.message(KotlinPrintCode.JAVA_FALLBACK, e, e.getClass().getSimpleName());
                 }
                 yield e.print(q);
             }
@@ -270,13 +270,13 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isJavaStringOnly(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             // s.stripTrailing() -> (s as java.lang.String).stripTrailing()
             return b.add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, q))
+                    .add(KotlinNullability.asserted(object, KotlinPrintCode.ASSERT_AT_DEREFERENCE, q))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl("java.lang.String"))
                     .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
-            return KotlinNullability.asserted(object, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
+            return KotlinNullability.asserted(object, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
         if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
             return KotlinNullability.asserted(mc.parameterExpressions().getFirst(), q);
@@ -458,7 +458,7 @@ public class KotlinExpressionPrinter {
         for (int i = 0; i < args.size(); i++) {
             if (spread(args, method, i)) {
                 printed.add(new OutputBuilderImpl().add(SPREAD)
-                        .add(KotlinNullability.asserted(args.get(i), KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, q)));
+                        .add(KotlinNullability.asserted(args.get(i), KotlinPrintCode.ASSERT_INTO_NON_NULL, q)));
                 continue;
             }
             boolean hasParameter = method != null && i < method.parameters().size()
@@ -565,7 +565,7 @@ public class KotlinExpressionPrinter {
                     // ensureNotEmpty(values, name) with a vararg values: Kotlin's is an Array<out T?>, and the
                     // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
                     ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
-                    KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
@@ -689,7 +689,7 @@ public class KotlinExpressionPrinter {
     }
 
     private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
-        KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+        KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                 .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
@@ -789,18 +789,18 @@ public class KotlinExpressionPrinter {
                 || KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {
                 return null;
             }
-            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+            KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                     .add(SymbolEnum.DOT).add(new TextImpl(name + "(it!!)")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
         }
         // a library's parameter is a platform type, which takes the null: Objects::isNull stays a reference
         if (m.isStatic() && m.parameters().size() == 1 && KotlinNullability.translated(m.typeInfo())
             && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().getFirst()))) {
-            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+            KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
             return text("{ " + KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + name + "(it!!) }");
         }
         if (!m.isStatic() && m.parameters().isEmpty()) {
-            KotlinContext.message(KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+            KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
             return text("{ it!!." + name + "() }");
         }
         return null;
@@ -1095,7 +1095,7 @@ public class KotlinExpressionPrinter {
             // declaration's elements are non-null. Erased, the cast checks nothing: a slot read before it is filled
             // fails later, as Java's null does
             ParameterizedType created = rawOf(cc.parameterizedType(), target) ? target : cc.parameterizedType();
-            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, cc, KotlinContext.describe(cc));
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, cc, KotlinContext.describe(cc));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(inCall(cc, () -> constructorCall(cc, created, q))).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
                     .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -1111,7 +1111,7 @@ public class KotlinExpressionPrinter {
             return arrayInitializer(cc.arrayInitializer(), target, q);
         }
         if (optionalOfNullable(e, target)) {
-            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -1120,7 +1120,7 @@ public class KotlinExpressionPrinter {
             && rawOf(rawValueType(e), target)) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
-            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                     .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
@@ -1677,14 +1677,14 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder numericOperand(Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
+            return KotlinNullability.asserted(e, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }
 
     private static OutputBuilder valueOperand(Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
+            return KotlinNullability.asserted(e, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
         return receiver(e, q);
     }
@@ -1758,7 +1758,7 @@ public class KotlinExpressionPrinter {
     /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
     private static OutputBuilder condition(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
-            return KotlinNullability.asserted(e, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, q);
+            return KotlinNullability.asserted(e, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
         return operand(precedence, e, q);
     }
@@ -1941,8 +1941,7 @@ public class KotlinExpressionPrinter {
     }
 
     static Expression unwrap(Expression e) {
-        while (e instanceof EnclosedExpression ee) e = ee.inner();
-        return e;
+        return io.codelaser.maddi.cst.print.translate.CstQueries.unwrap(e);
     }
 
     /** Recurse into an operand, parenthesising when the enclosing operator binds tighter (as the Java printer does). */

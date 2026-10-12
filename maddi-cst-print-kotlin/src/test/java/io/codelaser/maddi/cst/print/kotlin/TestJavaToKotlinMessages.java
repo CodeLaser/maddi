@@ -15,6 +15,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -50,34 +51,34 @@ public class TestJavaToKotlinMessages extends CommonJavaToKotlin {
 
     @Test
     public void messages() {
-        List<KotlinPrintMessage> messages = messages(SOURCE);
-        String all = messages.stream().map(KotlinPrintMessage::toString).collect(Collectors.joining("\n"));
-        Map<KotlinPrintMessage.Code, List<KotlinPrintMessage>> byCode = messages.stream()
-                .collect(Collectors.groupingBy(KotlinPrintMessage::code));
+        List<PrintMessage<KotlinPrintCode>> messages = messages(SOURCE);
+        String all = messages.stream().map(PrintMessage::toString).collect(Collectors.joining("\n"));
+        Map<KotlinPrintCode, List<PrintMessage<KotlinPrintCode>>> byCode = messages.stream()
+                .collect(Collectors.groupingBy(PrintMessage::code));
 
-        KotlinPrintMessage clone = first(byCode, KotlinPrintMessage.Code.NULL_OVERRIDE_THROWS, all);
-        assertEquals(KotlinPrintMessage.Severity.BEHAVIOUR_CHANGE, clone.severity(), all);
+        PrintMessage<KotlinPrintCode> clone = first(byCode, KotlinPrintCode.NULL_OVERRIDE_THROWS, all);
+        assertEquals(PrintMessage.Severity.BEHAVIOUR_CHANGE, clone.severity(), all);
         assertEquals("a.M.Placeholder", clone.type(), all);
         assertEquals(9, clone.line(), all);
 
-        KotlinPrintMessage intoField = first(byCode, KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL, all);
+        PrintMessage<KotlinPrintCode> intoField = first(byCode, KotlinPrintCode.ASSERT_INTO_NON_NULL, all);
         assertEquals(14, intoField.line(), all);
         assertTrue(intoField.detail().contains("m.get(k)"), all);
 
-        assertEquals(15, first(byCode, KotlinPrintMessage.Code.ASSERT_AT_DEREFERENCE, all).line(), all);
-        assertEquals(15, first(byCode, KotlinPrintMessage.Code.ASSERT_AT_UNBOXING, all).line(), all);
-        assertEquals(13, first(byCode, KotlinPrintMessage.Code.UNCHECKED_CAST, all).line(), all);
-        assertEquals(6, first(byCode, KotlinPrintMessage.Code.PROTECTED_AS_PUBLIC, all).line(), all);
-        KotlinPrintMessage bounds = first(byCode, KotlinPrintMessage.Code.BOUNDS_DROPPED, all);
+        assertEquals(15, first(byCode, KotlinPrintCode.ASSERT_AT_DEREFERENCE, all).line(), all);
+        assertEquals(15, first(byCode, KotlinPrintCode.ASSERT_AT_UNBOXING, all).line(), all);
+        assertEquals(13, first(byCode, KotlinPrintCode.UNCHECKED_CAST, all).line(), all);
+        assertEquals(6, first(byCode, KotlinPrintCode.PROTECTED_AS_PUBLIC, all).line(), all);
+        PrintMessage<KotlinPrintCode> bounds = first(byCode, KotlinPrintCode.BOUNDS_DROPPED, all);
         assertTrue(bounds.detail().contains("T extends Number & Comparable<T>"), all);
-        assertEquals(KotlinPrintMessage.Severity.LOSS, bounds.severity(), all);
+        assertEquals(PrintMessage.Severity.LOSS, bounds.severity(), all);
         assertEquals(11, bounds.line(), all);
-        assertNull(byCode.get(KotlinPrintMessage.Code.JAVA_FALLBACK), all);
+        assertNull(byCode.get(KotlinPrintCode.JAVA_FALLBACK), all);
     }
 
-    private static KotlinPrintMessage first(Map<KotlinPrintMessage.Code, List<KotlinPrintMessage>> byCode,
-                                            KotlinPrintMessage.Code code, String all) {
-        List<KotlinPrintMessage> list = byCode.get(code);
+    private static PrintMessage<KotlinPrintCode> first(Map<KotlinPrintCode, List<PrintMessage<KotlinPrintCode>>> byCode,
+                                            KotlinPrintCode code, String all) {
+        List<PrintMessage<KotlinPrintCode>> list = byCode.get(code);
         assertNotNull(list, code + " missing in\n" + all);
         return list.getFirst();
     }

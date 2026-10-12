@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -64,7 +65,7 @@ public abstract class CommonJavaToCSharp {
     }
 
     /** The printer's messages about {@code java}'s translation. */
-    protected List<CSharpPrintMessage> messages(String java) {
+    protected List<PrintMessage<CSharpPrintCode>> messages(String java) {
         return translate(java).messages();
     }
 

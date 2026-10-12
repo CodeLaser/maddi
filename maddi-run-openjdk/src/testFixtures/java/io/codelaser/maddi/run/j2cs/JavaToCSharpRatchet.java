@@ -23,7 +23,8 @@ import io.codelaser.maddi.cst.print.csharp.CSharpCompilationUnitPrinter;
 import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
 import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
-import io.codelaser.maddi.cst.print.csharp.CSharpPrintMessage;
+import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 import org.slf4j.Logger;
@@ -107,8 +108,8 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         Set<Path> withSyntaxErrors = judged.syntaxErrors.stream().map(Diagnostic::file).collect(Collectors.toSet());
         long compiling = printed.files.stream().filter(f -> !withErrors.contains(f) && !withSyntaxErrors.contains(f))
                 .count();
-        List<CSharpPrintMessage> unmapped = printed.messages.stream()
-                .filter(m -> m.code() == CSharpPrintMessage.Code.UNMAPPED_JDK).toList();
+        List<PrintMessage<CSharpPrintCode>> unmapped = printed.messages.stream()
+                .filter(m -> m.code() == CSharpPrintCode.UNMAPPED_JDK).toList();
 
         Map<String, Long> measured = new LinkedHashMap<>();
         measured.put("types", (long) corpus.types().size());
@@ -121,12 +122,12 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
 
         String report = report(measured, printed, judged, unmapped, sources);
         Files.writeString(out.resolve("report.txt"), report);
-        Files.write(out.resolve("messages.txt"), printed.messages.stream().map(CSharpPrintMessage::toString).toList());
+        Files.write(out.resolve("messages.txt"), printed.messages.stream().map(PrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
         ratchet(measured);
     }
 
-    private record Printed(List<Path> files, List<String> crashes, List<CSharpPrintMessage> messages) {
+    private record Printed(List<Path> files, List<String> crashes, List<PrintMessage<CSharpPrintCode>> messages) {
     }
 
     /** Each compilation unit of {@code types} as a C# file under {@code src}. */
@@ -134,7 +135,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
                                  CSharpProgram.Policy policy) throws IOException {
         List<Path> files = new ArrayList<>();
         List<String> crashes = new ArrayList<>();
-        List<CSharpPrintMessage> messages = new ArrayList<>();
+        List<PrintMessage<CSharpPrintCode>> messages = new ArrayList<>();
         Runtime runtime = corpus.javaInspector().runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> done = new HashSet<>();
@@ -243,7 +244,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     // ---------------------------------------------------------------- report and ratchet
 
     private String report(Map<String, Long> measured, Printed printed, Judged judged,
-                          List<CSharpPrintMessage> unmapped, List<Path> sources) {
+                          List<PrintMessage<CSharpPrintCode>> unmapped, List<Path> sources) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
@@ -279,7 +280,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         sb.append("\nunmapped uses by library (libraries: ").append(policy.libraries().id()).append("):\n")
                 .append(counted(unmapped.stream().map(m -> library(m.detail())), 20));
         sb.append("\nunmapped library uses, the mappings' work list (messages.txt has each):\n")
-                .append(counted(unmapped.stream().map(CSharpPrintMessage::detail), 60));
+                .append(counted(unmapped.stream().map(PrintMessage::detail), 60));
         sb.append("\nprinter messages, by severity and code:\n").append(counted(printed.messages.stream()
                 .map(m -> String.format("%-16s %s", m.severity(), m.code())), 100));
         return sb.toString();

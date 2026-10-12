@@ -130,7 +130,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             } else if (nullOverride(expressionBody) != null) {
                 // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, the caller
                 // gets the exception instead of the null (fernflower's InstructionSequence.clone(), "to be overwritten")
-                KotlinContext.message(KotlinPrintMessage.Code.NULL_OVERRIDE_THROWS, methodInfo,
+                KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, methodInfo,
                         typeInfo.simpleName() + "." + methodInfo.name() + "()");
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(new TextImpl("throw " + nullOverride(expressionBody) + "()"));

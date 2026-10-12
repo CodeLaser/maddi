@@ -22,9 +22,11 @@ Java alone.
 
 `CSharpTypePrinter`, `CSharpMethodPrinter` and `CSharpFieldPrinter` implement the cst-api `TypePrinter`,
 `MethodPrinter` and `FieldPrinter` interfaces, including the factory overload, as the Java and Kotlin printers do.
-`CSharpCompilationUnitPrinter` prints a file and returns `CSharpPrintMessage`s alongside the text. The state of one
-file's printing (types and methods being printed, messages, `using`s) is in the thread-local `CSharpContext`, because
-the factory signatures carry no context.
+`CSharpCompilationUnitPrinter` prints a file and returns `PrintMessage<CSharpPrintCode>`s alongside the text. The
+state of one file's printing (types and methods being printed, messages, `using`s) is in the thread-local
+`CSharpContext`, because the factory signatures carry no context; its language-neutral part (the type, method,
+statement and call stacks, referenced types, messages) is maddi-cst-print-translate's `TranslationState`, shared with
+the Kotlin printer.
 
 ## Naming (`CSharpNames`)
 
@@ -350,7 +352,7 @@ simple names, which `CSharpTypeName` records:
 
 The file uses a file-scoped `namespace X;`.
 
-## Messages (`CSharpPrintMessage`)
+## Messages (`PrintMessage<CSharpPrintCode>`)
 
 Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR means the file will not compile.
 

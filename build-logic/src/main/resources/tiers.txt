@@ -22,6 +22,8 @@ maddi-cst-impl              base
 maddi-cst-io                base
 maddi-cst-print             base
 maddi-cst-print-kotlin      base
+maddi-cst-print-csharp      base
+maddi-cst-print-translate   base
 maddi-graph                 base
 maddi-inspection-api        base
 maddi-inspection-integration base

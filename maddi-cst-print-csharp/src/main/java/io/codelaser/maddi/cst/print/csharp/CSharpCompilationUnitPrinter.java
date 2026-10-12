@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -50,14 +51,14 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
     }
 
     /** The C# text, and the messages about what it does differently from the Java, or could not translate. */
-    public record Result(OutputBuilder output, List<CSharpPrintMessage> messages) {
+    public record Result(OutputBuilder output, List<PrintMessage<CSharpPrintCode>> messages) {
     }
 
     public OutputBuilder print(ImportComputer importComputer, Qualification qualification) {
         return printWithMessages(importComputer, qualification).output();
     }
 
-    /** As {@link #print}, with the {@link CSharpPrintMessage}s of this file, in the order they were printed. */
+    /** As {@link #print}, with the {@link PrintMessage}s of this file, in the order they were printed. */
     public Result printWithMessages(ImportComputer importComputer, Qualification qualification) {
         CSharpContext.reset();
         try {

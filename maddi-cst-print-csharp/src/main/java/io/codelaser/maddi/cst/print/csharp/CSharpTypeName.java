@@ -152,10 +152,10 @@ public final class CSharpTypeName {
         }
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound() || pt.typeInfo() == null && pt.typeParameter() == null) {
-                CSharpContext.message(CSharpPrintMessage.Code.WILDCARD_AS_BOUND, null, "?");
+                CSharpContext.message(CSharpPrintCode.WILDCARD_AS_BOUND, null, "?");
                 return "object";
             }
-            CSharpContext.message(CSharpPrintMessage.Code.WILDCARD_AS_BOUND, null, pt.toString());
+            CSharpContext.message(CSharpPrintCode.WILDCARD_AS_BOUND, null, pt.toString());
         }
         if (pt.isTypeParameter()) return CSharpNames.typeParameter(pt.typeParameter());
         TypeInfo typeInfo = pt.typeInfo();
@@ -190,7 +190,7 @@ public final class CSharpTypeName {
         if (CSharpCompanions.isWildcardUse(pt)) return CSharpCompanions.wildcardUse(pt, q);
         List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
-            CSharpContext.message(CSharpPrintMessage.Code.RAW_TYPE, null, fqn);
+            CSharpContext.message(CSharpPrintCode.RAW_TYPE, null, fqn);
             // R extends Result<R>: the raw Result's argument is Result's own erasure, which is where it stops
             if (!RAW_IN_PROGRESS.get().add(typeInfo)) {
                 typeInfo.typeParameters().forEach(tp -> printed.add("object"));
@@ -262,7 +262,7 @@ public final class CSharpTypeName {
             return template.startsWith("{") ? "object" : angle < 0 ? template : template.substring(0, angle);
         }
         if (!CSharpNames.translated(typeInfo)) {
-            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
+            CSharpContext.message(CSharpPrintCode.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());
         }
         if (shadowedByMember(typeInfo) || ambiguousHere(typeInfo)) {
             // VideoContent.Video() hides the type Video in VideoContent's code

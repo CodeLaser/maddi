@@ -17,6 +17,8 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import io.codelaser.maddi.cst.print.translate.TranslationState;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -39,6 +41,8 @@ import java.util.function.Supplier;
  *   <li><b>pattern variables.</b> Kotlin has no {@code x instanceof T t}; {@code t} prints as what the
  *   {@code instanceof} tested, smart-cast or cast.</li>
  * </ul>
+ * What every Java-to-X printer keeps (the types, methods, statements and calls being printed, the referenced types,
+ * the messages) is a {@link TranslationState}, one per thread.
  */
 final class KotlinContext {
 
@@ -83,10 +87,9 @@ final class KotlinContext {
 
     private static final ThreadLocal<Deque<Frame>> FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<int[]> COUNTER = ThreadLocal.withInitial(() -> new int[1]);
-    private static final ThreadLocal<Deque<TypeInfo>> TYPES = ThreadLocal.withInitial(ArrayDeque::new);
+    private static final ThreadLocal<TranslationState<KotlinPrintCode>> STATE =
+            ThreadLocal.withInitial(TranslationState::new);
     private static final ThreadLocal<KotlinPrintOptions> OPTIONS = ThreadLocal.withInitial(() -> KotlinPrintOptions.DEFAULT);
-    private static final ThreadLocal<Deque<io.codelaser.maddi.cst.api.info.MethodInfo>> METHODS =
-            ThreadLocal.withInitial(ArrayDeque::new);
     private static final ThreadLocal<Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType>> LOCAL_TYPES =
             ThreadLocal.withInitial(HashMap::new);
     // the body a local variable is declared in: the method's, or a lambda's
@@ -145,46 +148,44 @@ final class KotlinContext {
         return previous;
     }
 
-    private static final ThreadLocal<Deque<Statement>> STATEMENTS = ThreadLocal.withInitial(ArrayDeque::new);
-    private static final ThreadLocal<Deque<io.codelaser.maddi.cst.api.expression.Expression>> CALLS =
-            ThreadLocal.withInitial(ArrayDeque::new);
+    /** The shared part of the state: see {@link TranslationState}. */
+    static TranslationState<KotlinPrintCode> state() {
+        return STATE.get();
+    }
 
     /** The call around the innermost one: {@code Collections.sort(list, …)} while printing its comparingInt(…). */
     static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
-        java.util.Iterator<io.codelaser.maddi.cst.api.expression.Expression> it = CALLS.get().iterator();
-        if (!it.hasNext()) return null;
-        it.next();
-        return it.hasNext() ? it.next() : null;
+        return STATE.get().enclosingCall();
     }
 
     /** The innermost method or constructor call being printed: where a per-expression fact is asked for. */
     static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
-        return CALLS.get().peek();
+        return STATE.get().currentCall();
     }
 
     static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
-        CALLS.get().push(call);
+        STATE.get().pushCall(call);
     }
 
     static void popCall() {
-        CALLS.get().pop();
+        STATE.get().popCall();
     }
 
     /** The innermost statement being printed: where a use-site fact is asked for. */
     static Statement currentStatement() {
-        return STATEMENTS.get().peek();
+        return STATE.get().currentStatement();
     }
 
     static void pushStatement(Statement statement) {
-        STATEMENTS.get().push(statement);
+        STATE.get().pushStatement(statement);
     }
 
     static void popStatement() {
-        STATEMENTS.get().pop();
+        STATE.get().popStatement();
     }
 
     static io.codelaser.maddi.cst.api.info.MethodInfo currentMethod() {
-        return METHODS.get().peek();
+        return STATE.get().currentMethod();
     }
 
     /** The type a local variable was printed with, by name (the innermost declaration of that name wins). */
@@ -198,18 +199,13 @@ final class KotlinContext {
 
     // the top-level types a file names by their simple name: the printer writes types Java never did (a diamond's
     // arguments, a verdict's), and the file must import those
-    private static final ThreadLocal<java.util.Set<TypeInfo>> REFERENCED_TYPES =
-            ThreadLocal.withInitial(java.util.LinkedHashSet::new);
-
     static void referencedType(TypeInfo primaryType) {
-        REFERENCED_TYPES.get().add(primaryType);
+        STATE.get().referenced(primaryType);
     }
 
     /** The types referenced since the last call, which starts a new record. */
     static java.util.Set<TypeInfo> takeReferencedTypes() {
-        java.util.Set<TypeInfo> taken = REFERENCED_TYPES.get();
-        REFERENCED_TYPES.set(new java.util.LinkedHashSet<>());
-        return taken;
+        return STATE.get().takeReferenced();
     }
 
     // the file's private helpers its text calls (KotlinCompilationUnitPrinter appends their declarations)
@@ -226,41 +222,19 @@ final class KotlinContext {
         return taken;
     }
 
-    // what the printing of a file did that its text does not say; a set, as the printer may print an element twice
-    private static final ThreadLocal<java.util.Set<KotlinPrintMessage>> MESSAGES =
-            ThreadLocal.withInitial(java.util.LinkedHashSet::new);
-
     /** Records a message about {@code subject}, an element of the type being printed. */
-    static void message(KotlinPrintMessage.Code code, io.codelaser.maddi.cst.api.element.Element subject, String detail) {
-        TypeInfo type = TYPES.get().peek();
-        // without a subject, the type itself (a class's type parameter)
-        io.codelaser.maddi.cst.api.element.Element located = subject != null ? subject : type;
-        io.codelaser.maddi.cst.api.element.Source source = located == null ? null : located.source();
-        boolean known = source != null && !source.isNoSource();
-        MESSAGES.get().add(new KotlinPrintMessage(code, type == null ? "?" : type.fullyQualifiedName(),
-                known ? source.beginLine() : -1, known ? source.beginPos() : -1, detail));
+    static void message(KotlinPrintCode code, io.codelaser.maddi.cst.api.element.Element subject, String detail) {
+        STATE.get().message(code, subject, detail);
     }
 
     /** An element in a message: its Java text, on one line, shortened. */
     static String describe(io.codelaser.maddi.cst.api.element.Element e) {
-        if (e == null) return "";
-        if (e instanceof io.codelaser.maddi.cst.api.info.MethodInfo m) return m.fullyQualifiedName();
-        if (e instanceof io.codelaser.maddi.cst.api.info.FieldInfo f) return f.owner().simpleName() + "." + f.name();
-        if (e instanceof TypeInfo t) return t.fullyQualifiedName();
-        String text;
-        try {
-            text = e.toString().replaceAll("\\s+", " ").trim();
-        } catch (RuntimeException re) {
-            return e.getClass().getSimpleName();
-        }
-        return text.length() <= 80 ? text : text.substring(0, 77) + "...";
+        return TranslationState.describe(e);
     }
 
     /** The messages recorded since the last call, which starts a new record. */
-    static java.util.List<KotlinPrintMessage> takeMessages() {
-        java.util.List<KotlinPrintMessage> taken = java.util.List.copyOf(MESSAGES.get());
-        MESSAGES.get().clear();
-        return taken;
+    static java.util.List<PrintMessage<KotlinPrintCode>> takeMessages() {
+        return STATE.get().takeMessages();
     }
 
     static void resetLabels() {
@@ -285,27 +259,27 @@ final class KotlinContext {
     }
 
     static void pushType(TypeInfo typeInfo) {
-        TYPES.get().push(typeInfo);
+        STATE.get().pushType(typeInfo);
     }
 
     static void popType() {
-        TYPES.get().pop();
+        STATE.get().popType();
     }
 
     /** The innermost type being printed comes from Java: its {@code java.util.List} is a {@code MutableList}. */
     static boolean translatingJava() {
-        TypeInfo top = TYPES.get().peek();
+        TypeInfo top = STATE.get().currentType();
         return top != null && !KotlinTypePrinter.fromKotlinSource(top);
     }
 
     /** A static member of this type can be written unqualified: the type, or one around it, is being printed. */
     static boolean typeInScope(TypeInfo typeInfo) {
-        return TYPES.get().contains(typeInfo);
+        return STATE.get().typeInScope(typeInfo);
     }
 
     /** A type parameter of one of the types being printed. */
     static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
-        return TYPES.get().stream().anyMatch(t -> t.typeParameters().contains(typeParameter));
+        return STATE.get().typeParameterInScope(typeParameter);
     }
 
     /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */
@@ -332,13 +306,13 @@ final class KotlinContext {
         MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()));
         PATTERNS.get().clear();
         LOCAL_TYPES.get().clear();
-        METHODS.get().push(methodInfo);
+        STATE.get().pushMethod(methodInfo);
         pushScope(methodInfo.methodBody());
         return saved;
     }
 
     static void exitMethod(MethodScope saved) {
-        METHODS.get().pop();
+        STATE.get().popMethod();
         popScope();
         PATTERNS.get().clear();
         PATTERNS.get().putAll(saved.patterns());

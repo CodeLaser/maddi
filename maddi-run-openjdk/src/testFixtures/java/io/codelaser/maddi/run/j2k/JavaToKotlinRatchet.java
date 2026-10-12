@@ -21,7 +21,8 @@ import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.cst.print.kotlin.KotlinCompilationUnitPrinter;
-import io.codelaser.maddi.cst.print.kotlin.KotlinPrintMessage;
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.Summary;
@@ -174,7 +175,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Printed main = print(corpus, corpus.types(), options, out.resolve("src"));
         List<Path> files = main.files;
         List<String> crashes = main.crashes;
-        List<KotlinPrintMessage> messages = main.messages;
+        List<PrintMessage<KotlinPrintCode>> messages = main.messages;
 
         // compile 1: everything, for the syntax errors
         List<String> classPath = libraries(corpus.config());
@@ -245,12 +246,12 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                         + bytecodeReport(bytecode, "compile 3 (the compiling files to class files)") + testReport
                         + messageCounts(messages);
         Files.writeString(out.resolve("report.txt"), report);
-        Files.write(out.resolve("messages.txt"), messages.stream().map(KotlinPrintMessage::toString).toList());
+        Files.write(out.resolve("messages.txt"), messages.stream().map(PrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
         ratchet(measured);
     }
 
-    private record Printed(List<Path> files, List<String> crashes, List<KotlinPrintMessage> messages) {
+    private record Printed(List<Path> files, List<String> crashes, List<PrintMessage<KotlinPrintCode>> messages) {
     }
 
     /** Each compilation unit of {@code types} as a Kotlin file under {@code src}. */
@@ -258,7 +259,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             throws IOException {
         List<Path> files = new ArrayList<>();
         List<String> crashes = new ArrayList<>();
-        List<KotlinPrintMessage> messages = new ArrayList<>();
+        List<PrintMessage<KotlinPrintCode>> messages = new ArrayList<>();
         Runtime runtime = corpus.javaInspector().runtime();
         Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
         Set<Object> printed = new HashSet<>();
@@ -541,7 +542,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * The printer's own messages, by severity and code (all of them in messages.txt): what the Kotlin does differently,
      * loses, or could not translate. Reported, not ratcheted: a better translation may well report more.
      */
-    private static String messageCounts(List<KotlinPrintMessage> messages) {
+    private static String messageCounts(List<PrintMessage<KotlinPrintCode>> messages) {
         Map<String, Long> byCode = messages.stream().collect(Collectors.groupingBy(
                 m -> String.format("%-16s %s", m.severity(), m.code()), TreeMap::new, Collectors.counting()));
         StringBuilder sb = new StringBuilder("\nprinter messages, by severity and code (messages.txt has each):\n");

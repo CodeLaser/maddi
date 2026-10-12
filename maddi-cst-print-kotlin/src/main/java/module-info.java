@@ -16,6 +16,7 @@ module io.codelaser.maddi.cst.print.kotlin {
     requires io.codelaser.maddi.cst.api;
     requires io.codelaser.maddi.cst.impl;
     requires transitive io.codelaser.maddi.cst.analysis;
+    requires transitive io.codelaser.maddi.cst.print.translate;
     requires org.slf4j;
 
     exports io.codelaser.maddi.cst.print.kotlin;

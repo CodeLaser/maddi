@@ -70,7 +70,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType());
             }
             if (typeInfo.typeNature().isAnnotation()) {
-                CSharpContext.message(CSharpPrintMessage.Code.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
+                CSharpContext.message(CSharpPrintCode.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
                 return new OutputBuilderImpl();
             }
             if (typeInfo.typeNature().isEnum() && simpleEnum()) return simpleEnum(importData.insideType());
@@ -102,10 +102,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // a positional record has no constructor body: one with a canonical or compact constructor declares its
         // properties and that constructor
         MethodInfo canonical = record ? canonicalConstructor(components) : null;
-        if (enumClass) CSharpContext.message(CSharpPrintMessage.Code.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
+        if (enumClass) CSharpContext.message(CSharpPrintCode.ENUM_AS_CLASS, typeInfo, typeInfo.simpleName());
         TypeInfo enclosing = enclosingType(typeInfo);
         if (enclosing != null && !enclosing.typeParameters().isEmpty() && !CSharpNames.hoisted(typeInfo)) {
-            CSharpContext.message(CSharpPrintMessage.Code.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
+            CSharpContext.message(CSharpPrintCode.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
         }
 
         OutputBuilder out = new OutputBuilderImpl();
@@ -172,7 +172,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                              && !CSharpNames.inCompanion(c))
                 .filter(c -> {
                     if (record && c != canonical && c.parameters().size() == components.size()) {
-                        CSharpContext.message(CSharpPrintMessage.Code.RECORD_CONSTRUCTOR, c, CSharpContext.describe(c));
+                        CSharpContext.message(CSharpPrintCode.RECORD_CONSTRUCTOR, c, CSharpContext.describe(c));
                         return false;
                     }
                     return true;
@@ -286,7 +286,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 CSharpContext.using(CSharpCompat.NAMESPACE);
                 if (typeInfo.methods().stream().anyMatch(m -> m.overrides().stream()
                         .anyMatch(o -> LIST_BASES.contains(o.typeInfo().fullyQualifiedName())))) {
-                    CSharpContext.message(CSharpPrintMessage.Code.LIST_SUBCLASS, typeInfo, typeInfo.simpleName());
+                    CSharpContext.message(CSharpPrintCode.LIST_SUBCLASS, typeInfo, typeInfo.simpleName());
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
                         .collect(Collectors.joining(", ")) + ">");
@@ -372,7 +372,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .add(SymbolEnum.assignment("="));
             if (f.initializer() instanceof ConstructorCall cc) {
                 if (cc.anonymousClass() != null) {
-                    CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, f, CSharpContext.describe(f));
+                    CSharpContext.message(CSharpPrintCode.ANONYMOUS_CLASS, f, CSharpContext.describe(f));
                 }
                 b.add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(new TextImpl(self))
                         .add(CSharpExpressionPrinter.arguments(cc.parameterExpressions(), q));

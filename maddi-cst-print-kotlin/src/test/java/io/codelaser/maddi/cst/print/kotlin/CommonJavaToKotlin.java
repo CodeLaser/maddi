@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
@@ -63,12 +64,12 @@ public abstract class CommonJavaToKotlin {
     }
 
     /** The printer's messages about {@code java}'s translation. */
-    protected List<KotlinPrintMessage> messages(String java) {
+    protected List<PrintMessage<KotlinPrintCode>> messages(String java) {
         return messages(java, KotlinPrintOptions.DEFAULT);
     }
 
     /** As {@link #messages(String)}, with print options. */
-    protected List<KotlinPrintMessage> messages(String java, KotlinPrintOptions options) {
+    protected List<PrintMessage<KotlinPrintCode>> messages(String java, KotlinPrintOptions options) {
         return translate(java, options).messages();
     }
 

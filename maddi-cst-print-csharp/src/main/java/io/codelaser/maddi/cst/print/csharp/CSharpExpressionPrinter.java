@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 /**
  * Prints an {@link Expression} as C#. Every expression form is printed here, recursively, so that a Java-only form
  * nested anywhere is translated too; only a form this class does not know falls back to the Java
- * {@link Expression#print}, with a {@link CSharpPrintMessage.Code#JAVA_FALLBACK} message.
+ * {@link Expression#print}, with a {@link CSharpPrintCode#JAVA_FALLBACK} message.
  * <p>
  * C#'s operators and their precedence are Java's, so most expressions print as they do in Java. Where they differ:
  * <ul>
@@ -122,7 +122,7 @@ public final class CSharpExpressionPrinter {
             case CommaExpression ce -> ce.expressions().stream().map(x -> print(x, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
             default -> {
-                CSharpContext.message(CSharpPrintMessage.Code.JAVA_FALLBACK, e, e.getClass().getSimpleName());
+                CSharpContext.message(CSharpPrintCode.JAVA_FALLBACK, e, e.getClass().getSimpleName());
                 yield e.print(q);
             }
         };
@@ -234,7 +234,7 @@ public final class CSharpExpressionPrinter {
             if (path != null) return path;
         }
         if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
-            CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
+            CSharpContext.message(CSharpPrintCode.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
         }
         return "this";
     }
@@ -247,7 +247,7 @@ public final class CSharpExpressionPrinter {
                 if (mapped.namespace() != null) CSharpContext.using(mapped.namespace());
                 return text(mapped.value());
             }
-            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, fr.scope() != null ? fr.scope() : null,
+            CSharpContext.message(CSharpPrintCode.UNMAPPED_JDK, fr.scope() != null ? fr.scope() : null,
                     field.owner().fullyQualifiedName() + "." + field.name());
         }
         String name = CSharpNames.field(field);
@@ -597,7 +597,7 @@ public final class CSharpExpressionPrinter {
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                         .add(text(hoisted.name() + typeArguments)).add(arguments);
             }
-            CSharpContext.message(CSharpPrintMessage.Code.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
+            CSharpContext.message(CSharpPrintCode.ANONYMOUS_CLASS, cc, CSharpContext.describe(cc));
             ParameterizedType parent = cc.anonymousClass().parentClass();
             ParameterizedType named = parent != null && !parent.isJavaLangObject() ? parent
                     : cc.anonymousClass().interfacesImplemented().stream().findFirst().orElse(type);
@@ -611,7 +611,7 @@ public final class CSharpExpressionPrinter {
             }
             List<Expression> dimensions = cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).toList();
             if (dimensions.size() > 1) {
-                CSharpContext.message(CSharpPrintMessage.Code.MULTI_DIMENSIONAL_ARRAY, cc, CSharpContext.describe(cc));
+                CSharpContext.message(CSharpPrintCode.MULTI_DIMENSIONAL_ARRAY, cc, CSharpContext.describe(cc));
             }
             // new int[n][] is C#'s jagged array creation, as Java's
             OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
@@ -634,9 +634,9 @@ public final class CSharpExpressionPrinter {
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(type, q)))
                         .add(argumentsAfter(first, cc.parameterExpressions(), cc.constructor(), q));
             }
-            CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
+            CSharpContext.message(CSharpPrintCode.OUTER_THIS, cc, CSharpContext.describe(cc));
         } else if (cc.object() != null) {
-            CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
+            CSharpContext.message(CSharpPrintCode.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
         LibraryMapping.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
                 : CSharpContext.libraries().constructor(cc.constructor());
@@ -863,7 +863,7 @@ public final class CSharpExpressionPrinter {
         LibraryMapping.TypeMapping bcl = type.typeInfo() == null ? null : CSharpContext.libraries().type(type.typeInfo());
         if (bcl != null && (bcl.template().contains("{") || bcl.dropArguments() || bcl.template().contains("?"))) {
             // Optional.class: Optional<T> is T itself in C#, which has no type of its own
-            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, null, type.typeInfo().fullyQualifiedName() + ".class");
+            CSharpContext.message(CSharpPrintCode.UNMAPPED_JDK, null, type.typeInfo().fullyQualifiedName() + ".class");
             return "object";
         }
         if (type.arrays() == 0 && type.typeInfo() != null && !type.typeInfo().typeParameters().isEmpty()) {
@@ -876,7 +876,7 @@ public final class CSharpExpressionPrinter {
     private static void unmapped(MethodInfo method, Expression use) {
         if (!CSharpNames.translated(method.typeInfo()) && !"ToString".equals(CSharpNames.method(method))
             && !"Equals".equals(CSharpNames.method(method)) && !"GetHashCode".equals(CSharpNames.method(method))) {
-            CSharpContext.message(CSharpPrintMessage.Code.UNMAPPED_JDK, use,
+            CSharpContext.message(CSharpPrintCode.UNMAPPED_JDK, use,
                     method.typeInfo().fullyQualifiedName() + "." + method.name() + "/" + method.parameters().size());
         }
     }
@@ -1171,7 +1171,7 @@ public final class CSharpExpressionPrinter {
                     .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
         if (pattern != null) {
-            CSharpContext.message(CSharpPrintMessage.Code.SWITCH_FORM, io, CSharpContext.describe(io));
+            CSharpContext.message(CSharpPrintCode.SWITCH_FORM, io, CSharpContext.describe(io));
         }
         return b.add(text(classPattern != null ? classPattern : CSharpTypeName.pattern(io.testType(), q)));
     }
@@ -1227,9 +1227,7 @@ public final class CSharpExpressionPrinter {
     }
 
     static Expression unwrap(Expression e) {
-        Expression x = e;
-        while (x instanceof EnclosedExpression ee) x = ee.inner();
-        return x;
+        return io.codelaser.maddi.cst.print.translate.CstQueries.unwrap(e);
     }
 
     /** An operand, in parentheses when its precedence is lower than its operator's. */
