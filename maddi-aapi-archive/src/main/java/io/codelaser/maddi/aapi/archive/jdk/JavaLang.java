@@ -76,7 +76,7 @@ public class JavaLang {
         AssertionError$(long detailMessage) { }
         AssertionError$(float detailMessage) { }
         AssertionError$(double detailMessage) { }
-        AssertionError$(String message, Throwable cause) { }
+        AssertionError$(String message, @NotModified Throwable cause) { }
     }
 
     //public interface AutoCloseable
@@ -661,8 +661,8 @@ public class JavaLang {
         Error$() { }
         //override has frequency 7
         Error$(String message) { }
-        Error$(String message, Throwable cause) { }
-        Error$(Throwable cause) { }
+        Error$(String message, @NotModified Throwable cause) { }
+        Error$(@NotModified Throwable cause) { }
     }
 
     //public class Exception extends Throwable
@@ -674,10 +674,10 @@ public class JavaLang {
         Exception$(String message) { }
 
         //override has frequency 1
-        Exception$(String message, Throwable cause) { }
+        Exception$(String message, @NotModified Throwable cause) { }
 
         //override has frequency 4
-        Exception$(Throwable cause) { }
+        Exception$(@NotModified Throwable cause) { }
     }
 
     //public final class Float extends Number implements Comparable<Float>, Constable, ConstantDesc
@@ -815,8 +815,8 @@ public class JavaLang {
         IllegalArgumentException$(String s) { }
 
         //frequency 2
-        IllegalArgumentException$(String message, Throwable cause) { }
-        IllegalArgumentException$(Throwable cause) { }
+        IllegalArgumentException$(String message, @NotModified Throwable cause) { }
+        IllegalArgumentException$(@NotModified Throwable cause) { }
     }
 
     //public class IllegalStateException extends RuntimeException
@@ -826,10 +826,10 @@ public class JavaLang {
         IllegalStateException$(String s) { }
 
         //frequency 1
-        IllegalStateException$(String message, Throwable cause) { }
+        IllegalStateException$(String message, @NotModified Throwable cause) { }
 
         //frequency 4
-        IllegalStateException$(Throwable cause) { }
+        IllegalStateException$(@NotModified Throwable cause) { }
     }
 
     //public final class Integer extends Number implements Comparable<Integer>, Constable, ConstantDesc
@@ -1712,10 +1712,10 @@ public class JavaLang {
         RuntimeException$(String message) { }
 
         //override has frequency 1
-        RuntimeException$(String message, Throwable cause) { }
+        RuntimeException$(String message, @NotModified Throwable cause) { }
 
         //frequency 3
-        RuntimeException$(Throwable cause) { }
+        RuntimeException$(@NotModified Throwable cause) { }
     }
 
     //public final class String implements Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc
@@ -1921,7 +1921,7 @@ public class JavaLang {
         //@NotModified[T]
         static String join(
             /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ CharSequence delimiter,
-            /*@Independent[T]*/ CharSequence ... elements) { return null; }
+            /*@Independent[T]*/ @NotModified CharSequence ... elements) { return null; }
 
         // join only iterates its elements: @NotModified is a contract here, not the type's default, since Iterable is
         // a @Container (a Java field passed to join must stay unmodified: TestKotlinCollectionReadsVsJava's control row)
@@ -2764,7 +2764,7 @@ public class JavaLang {
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
         @NotModified ClassLoader getContextClassLoader() { return null; }
-        void setContextClassLoader(ClassLoader cl) { }
+        void setContextClassLoader(@NotModified ClassLoader cl) { }
         static boolean holdsLock(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object) {
             return false;
         }
@@ -2789,10 +2789,10 @@ public class JavaLang {
         Throwable$(String message) { }
 
         //override has frequency 1
-        Throwable$(String message, Throwable cause) { }
+        Throwable$(String message, @NotModified Throwable cause) { }
 
         //override has frequency 4
-        Throwable$(Throwable cause) { }
+        Throwable$(@NotModified Throwable cause) { }
 
         //frequency 17
         @NotModified
@@ -2801,7 +2801,7 @@ public class JavaLang {
         //frequency 7
         @NotModified
         @Nullable Throwable getCause() { return null; }
-        Throwable initCause(Throwable cause) { return null; }
+        Throwable initCause(@NotModified Throwable cause) { return null; }
         public String toString() { return null; }
         @IgnoreModifications void printStackTrace() { }
         @NotModified void printStackTrace(/*@Independent[M]*/ PrintStream s) { }
@@ -2809,7 +2809,7 @@ public class JavaLang {
         Throwable fillInStackTrace() { return null; }
         StackTraceElement [] getStackTrace() { return null; }
         void setStackTrace(StackTraceElement [] stackTrace) { }
-        void addSuppressed(Throwable exception) { }
+        void addSuppressed(@NotModified Throwable exception) { }
         Throwable [] getSuppressed() { return null; }
     }
 

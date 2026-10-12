@@ -36,22 +36,22 @@ public class JavaNioFile {
     class Files$ {
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static InputStream newInputStream(Path path, OpenOption ... options) { return null; }
+        static InputStream newInputStream(Path path, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static OutputStream newOutputStream(Path path, OpenOption ... options) { return null; }
+        static OutputStream newOutputStream(Path path, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
         static SeekableByteChannel newByteChannel(
             Path path,
             @NotModified Set<? extends OpenOption> options,
-            FileAttribute<?> ... attrs) { return null; }
+            @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static SeekableByteChannel newByteChannel(Path path, OpenOption ... options) { return null; }
+        static SeekableByteChannel newByteChannel(Path path, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @NotModified
@@ -72,36 +72,36 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createFile(Path path, FileAttribute<?> ... attrs) { return null; }
+        static Path createFile(Path path, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //frequency 1
         //@Independent[T]
         @AllowsInterrupt
-        static Path createDirectory(Path dir, FileAttribute<?> ... attrs) { return null; }
+        static Path createDirectory(Path dir, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createDirectories(Path dir, FileAttribute<?> ... attrs) { return null; }
+        static Path createDirectories(Path dir, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempFile(Path dir, String prefix, String suffix, FileAttribute<?> ... attrs) { return null; }
+        static Path createTempFile(Path dir, String prefix, String suffix, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempFile(String prefix, String suffix, FileAttribute<?> ... attrs) { return null; }
+        static Path createTempFile(String prefix, String suffix, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempDirectory(Path dir, String prefix, FileAttribute<?> ... attrs) { return null; }
+        static Path createTempDirectory(Path dir, String prefix, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempDirectory(String prefix, FileAttribute<?> ... attrs) { return null; }
+        static Path createTempDirectory(String prefix, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createSymbolicLink(Path link, Path target, FileAttribute<?> ... attrs) { return null; }
+        static Path createSymbolicLink(Path link, Path target, @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
@@ -112,11 +112,11 @@ public class JavaNioFile {
         static boolean deleteIfExists(Path path) { return false; }
         //@Independent[T]
         @AllowsInterrupt
-        static Path copy(Path source, Path target, CopyOption ... options) { return null; }
+        static Path copy(Path source, Path target, @NotModified CopyOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path move(Path source, Path target, CopyOption ... options) { return null; }
+        static Path move(Path source, Path target, @NotModified CopyOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
@@ -135,13 +135,13 @@ public class JavaNioFile {
         static String probeContentType(Path path) { return null; }
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, LinkOption ... options) {
+        static <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, @NotModified LinkOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, LinkOption ... options) {
+        static <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, @NotModified LinkOption ... options) {
             return null;
         }
 
@@ -151,19 +151,19 @@ public class JavaNioFile {
             Path path,
             String attribute,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object value,
-            LinkOption ... options) { return null; }
+            @NotModified LinkOption ... options) { return null; }
 
         //@Immutable(hc=true)[T] @Independent[T]
         @AllowsInterrupt @NotModified
-        static Object getAttribute(Path path, String attribute, LinkOption ... options) { return null; }
+        static Object getAttribute(Path path, String attribute, @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Map<String, Object> readAttributes(Path path, String attributes, LinkOption ... options) { return null; }
+        static Map<String, Object> readAttributes(Path path, String attributes, @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Set<PosixFilePermission> getPosixFilePermissions(Path path, LinkOption ... options) { return null; }
+        static Set<PosixFilePermission> getPosixFilePermissions(Path path, @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
@@ -171,7 +171,7 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static UserPrincipal getOwner(Path path, LinkOption ... options) { return null; }
+        static UserPrincipal getOwner(Path path, @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
@@ -179,12 +179,12 @@ public class JavaNioFile {
         @AllowsInterrupt @NotModified
         static boolean isSymbolicLink(Path path) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean isDirectory(Path path, LinkOption ... options) { return false; }
+        static boolean isDirectory(Path path, @NotModified LinkOption ... options) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean isRegularFile(Path path, LinkOption ... options) { return false; }
+        static boolean isRegularFile(Path path, @NotModified LinkOption ... options) { return false; }
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static FileTime getLastModifiedTime(Path path, LinkOption ... options) { return null; }
+        static FileTime getLastModifiedTime(Path path, @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
@@ -193,9 +193,9 @@ public class JavaNioFile {
         static long size(Path path) { return 0L; }
         //frequency 1
         @AllowsInterrupt @NotModified
-        static boolean exists(Path path, LinkOption ... options) { return false; }
+        static boolean exists(Path path, @NotModified LinkOption ... options) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean notExists(Path path, LinkOption ... options) { return false; }
+        static boolean notExists(Path path, @NotModified LinkOption ... options) { return false; }
         @AllowsInterrupt @NotModified
         static boolean isReadable(Path path) { return false; }
         @AllowsInterrupt @NotModified
@@ -225,15 +225,15 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt
-        static BufferedWriter newBufferedWriter(Path path, Charset cs, OpenOption ... options) { return null; }
+        static BufferedWriter newBufferedWriter(Path path, Charset cs, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static BufferedWriter newBufferedWriter(Path path, OpenOption ... options) { return null; }
+        static BufferedWriter newBufferedWriter(Path path, @NotModified OpenOption ... options) { return null; }
 
         //frequency 1
         @AllowsInterrupt
-        static long copy(InputStream in, Path target, CopyOption ... options) { return 0L; }
+        static long copy(InputStream in, Path target, @NotModified CopyOption ... options) { return 0L; }
         @AllowsInterrupt
         static long copy(Path source, OutputStream out) { return 0L; }
         //@Independent[T]
@@ -253,24 +253,24 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, byte [] bytes, OpenOption ... options) { return null; }
+        static Path write(Path path, @NotModified byte [] bytes, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, Charset cs, OpenOption ... options) {
+        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, Charset cs, @NotModified OpenOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, OpenOption ... options) { return null; }
+        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
         static Path writeString(
             Path path,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence csq,
-            OpenOption ... options) { return null; }
+            @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
@@ -278,7 +278,7 @@ public class JavaNioFile {
             Path path,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence csq,
             Charset cs,
-            OpenOption ... options) { return null; }
+            @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
@@ -286,11 +286,11 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<Path> walk(Path start, int maxDepth, FileVisitOption ... options) { return null; }
+        static Stream<Path> walk(Path start, int maxDepth, @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<Path> walk(Path start, FileVisitOption ... options) { return null; }
+        static Stream<Path> walk(Path start, @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
@@ -298,7 +298,7 @@ public class JavaNioFile {
             Path start,
             int maxDepth,
             /*@IgnoreModifications[T]*/ BiPredicate<Path, BasicFileAttributes> matcher,
-            FileVisitOption ... options) { return null; }
+            @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
@@ -327,11 +327,17 @@ public class JavaNioFile {
         FileVisitResult visitFileFailed(T file, @NotNull IOException exc) { return null; }
     }
 
+    //public final class Paths
+    class Paths$ {
+        static Path get(String first, @NotModified String ... more) { return null; }
+        static Path get(URI uri) { return null; }
+    }
+
     //public interface Path implements Comparable<Path>, Iterable<Path>, Watchable
     @Immutable
     class Path$ {
         //frequency 2
-        static Path of(String first, String ... more) { return null; }
+        static Path of(String first, @NotModified String ... more) { return null; }
         static Path of(URI uri) { return null; }
         FileSystem getFileSystem() { return null; }
         boolean isAbsolute() { return false; }
@@ -357,7 +363,7 @@ public class JavaNioFile {
         //frequency 1
         URI toUri() { return null; }
         Path toAbsolutePath() { return null; }
-        Path toRealPath(LinkOption ... linkOption) { return null; }
+        Path toRealPath(@NotModified LinkOption ... linkOption) { return null; }
         //frequency 3
         File toFile() { return null; }
 

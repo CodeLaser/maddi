@@ -36,6 +36,8 @@ dependencies {
     // and for the Guava hints (libs/guava, in libs.jar); the corpus is a 2026-07 HEAD, 33.6.0 is the release before it
     compileOnly("com.google.guava:guava:33.6.0-jre")
     compileOnly("org.assertj:assertj-core:3.27.7") // libs/assertj (CodeLaser/maddi#116)
+    compileOnly("org.hamcrest:hamcrest:2.2") // libs/hamcrest
+    compileOnly("org.junit.jupiter:junit-jupiter-params:6.0.3") // libs/junitparams
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }

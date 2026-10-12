@@ -2,6 +2,7 @@ module io.codelaser.maddi.aapi.archive {
     requires ch.qos.logback.classic;
     requires java.datatransfer;
     requires java.desktop;
+    requires java.logging;
     requires java.net.http;
     requires java.xml;
     requires io.codelaser.maddi.support;
@@ -19,6 +20,9 @@ module io.codelaser.maddi.aapi.archive {
     requires static com.google.common;
     // the AssertJ hints (libs/assertj, packed into libs.jar like libs/test) name AssertJ types in their signatures
     requires static org.assertj.core;
+    // the same for hamcrest (libs/hamcrest) and JUnit's parameterized-test arguments (libs/junitparams)
+    requires static org.hamcrest;
+    requires static org.junit.jupiter.params;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;

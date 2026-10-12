@@ -18,6 +18,7 @@ import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 /**
  * The annotated API for AssertJ's {@code org.assertj.core.api} (compiled against assertj-core 3.27.7; CodeLaser/maddi#116).
@@ -56,6 +57,22 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Assertions
     class Assertions$ {
+        // the callable is CALLED, not modified (ThrowingCallable is not @FunctionalInterface, so the shallow
+        // rule for function types does not reach it); the message arguments are formatted, not modified
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.Throwable catchThrowable(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.Class<THROWABLE> arg1) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(java.lang.Class<THROWABLE> arg0, @IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg1) { return null; }
+        static java.lang.Exception catchException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.RuntimeException catchRuntimeException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.NullPointerException catchNullPointerException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IllegalArgumentException catchIllegalArgumentException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.io.IOException catchIOException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.ReflectiveOperationException catchReflectiveOperationException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IllegalStateException catchIllegalStateException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IndexOutOfBoundsException catchIndexOutOfBoundsException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         static <RESULT> org.assertj.core.api.CompletableFutureAssert<RESULT> assertThat(@Independent @NotModified java.util.concurrent.CompletableFuture<RESULT> arg0) { return null; }
         @Independent
@@ -206,6 +223,20 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.BDDAssertions
     class BDDAssertions$ {
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.Throwable catchThrowable(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.Class<THROWABLE> arg1) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(java.lang.Class<THROWABLE> arg0, @IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg1) { return null; }
+        static java.lang.Exception catchException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.RuntimeException catchRuntimeException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.NullPointerException catchNullPointerException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IllegalArgumentException catchIllegalArgumentException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.io.IOException catchIOException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.ReflectiveOperationException catchReflectiveOperationException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IllegalStateException catchIllegalStateException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.IndexOutOfBoundsException catchIndexOutOfBoundsException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         static <VALUE> org.assertj.core.api.OptionalAssert<VALUE> then(@Independent @NotModified java.util.Optional<VALUE> arg0) { return null; }
         @Independent
@@ -358,6 +389,20 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.WithAssertions
     class WithAssertions$ {
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.Throwable catchThrowable(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.Class<THROWABLE> arg1) { return null; }
+        <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(java.lang.Class<THROWABLE> arg0, @IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg1) { return null; }
+        java.lang.Exception catchException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.RuntimeException catchRuntimeException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.NullPointerException catchNullPointerException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.IllegalArgumentException catchIllegalArgumentException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.io.IOException catchIOException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.ReflectiveOperationException catchReflectiveOperationException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.IllegalStateException catchIllegalStateException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        java.lang.IndexOutOfBoundsException catchIndexOutOfBoundsException(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         <T> org.assertj.core.api.ObjectArrayAssert<T> assertThat(@Independent @NotModified T[] arg0) { return null; }
         @Independent
@@ -506,6 +551,12 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.AssertionsForClassTypes
     class AssertionsForClassTypes$ {
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.Throwable catchThrowable(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.Class<THROWABLE> arg1) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(java.lang.Class<THROWABLE> arg0, @IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg1) { return null; }
         @Independent
         static <RESULT> org.assertj.core.api.CompletableFutureAssert<RESULT> assertThat(@Independent @NotModified java.util.concurrent.CompletableFuture<RESULT> arg0) { return null; }
         @Independent
@@ -624,6 +675,12 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Java6Assertions
     class Java6Assertions$ {
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static java.lang.Throwable catchThrowable(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.Class<THROWABLE> arg1) { return null; }
+        static <THROWABLE extends java.lang.Throwable> THROWABLE catchThrowableOfType(java.lang.Class<THROWABLE> arg0, @IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg1) { return null; }
         @Independent
         static org.assertj.core.api.AtomicBooleanAssert assertThat(@Independent @NotModified java.util.concurrent.atomic.AtomicBoolean arg0) { return null; }
         @Independent
@@ -724,6 +781,9 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Java6BDDAssertions
     class Java6BDDAssertions$ {
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         static org.assertj.core.api.AtomicBooleanAssert then(@Independent @NotModified java.util.concurrent.atomic.AtomicBoolean arg0) { return null; }
         @Independent
@@ -868,6 +928,9 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.Java6StandardSoftAssertionsProvider
     class Java6StandardSoftAssertionsProvider$ {
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         org.assertj.core.api.BigDecimalAssert assertThat(@Independent @NotModified java.math.BigDecimal arg0) { return null; }
         @Independent
@@ -1010,6 +1073,9 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.Java6BDDSoftAssertionsProvider
     class Java6BDDSoftAssertionsProvider$ {
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         org.assertj.core.api.BigDecimalAssert then(@Independent @NotModified java.math.BigDecimal arg0) { return null; }
         @Independent
@@ -1108,6 +1174,8 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Assumptions
     class Assumptions$ {
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         static <T> org.assertj.core.api.ObjectAssert<T> assumeThat(@Independent @NotModified T arg0) { return null; }
         @Independent
@@ -1246,6 +1314,8 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.WithAssumptions
     class WithAssumptions$ {
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
         <T> org.assertj.core.api.ObjectArrayAssert<T> assumeThat(@Independent @NotModified T[] arg0) { return null; }
         @Independent

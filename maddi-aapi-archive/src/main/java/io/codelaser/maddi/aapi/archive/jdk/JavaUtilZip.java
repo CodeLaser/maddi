@@ -13,6 +13,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.NotModified;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.zip.ZipEntry;
@@ -32,7 +33,7 @@ public class JavaUtilZip {
         void closeEntry() { }
         //override from java.io.FilterOutputStream, java.io.OutputStream, java.util.zip.DeflaterOutputStream
         //@AllowsInterrupt[H]
-        void write(/*@Independent[H]*/ byte [] b, int off, int len) { }
+        void write(/*@Independent[H]*/ @NotModified byte [] b, int off, int len) { }
 
         //override from java.util.zip.DeflaterOutputStream
         void finish() { }

@@ -1449,7 +1449,7 @@ public class JavaUtil {
         @UtilityClass
         class Decoder {
             //@Independent[O] @NotModified[T]
-            byte [] decode(/*@Independent[M]*/ byte [] src) { return null; }
+            byte [] decode(/*@Independent[M]*/ @NotModified byte [] src) { return null; }
 
             //frequency 2
             //@Independent[O] @NotModified[T]
@@ -1469,14 +1469,14 @@ public class JavaUtil {
         @UtilityClass
         class Encoder {
             //@Independent[O] @NotModified[T]
-            byte [] encode(/*@Independent[M]*/ byte [] src) { return null; }
+            byte [] encode(/*@Independent[M]*/ @NotModified byte [] src) { return null; }
 
             //@NotModified[T]
-            int encode(/*@Independent[M]*/ byte [] src, /*@Independent[M]*/ byte [] dst) { return 0; }
+            int encode(/*@Independent[M]*/ @NotModified byte [] src, /*@Independent[M]*/ @Modified byte [] dst) { return 0; }
 
             //frequency 2
             //@NotModified[T]
-            String encodeToString(/*@Independent[M]*/ byte [] src) { return null; }
+            String encodeToString(/*@Independent[M]*/ @NotModified byte [] src) { return null; }
 
             //@Independent[O] @NotModified[T]
             ByteBuffer encode(/*@Independent[M]*/ ByteBuffer buffer) { return null; }
@@ -3306,8 +3306,8 @@ public class JavaUtil {
     //public class NoSuchElementException extends RuntimeException
     class NoSuchElementException$ {
         NoSuchElementException$() { }
-        NoSuchElementException$(String s, Throwable cause) { }
-        NoSuchElementException$(Throwable cause) { }
+        NoSuchElementException$(String s, @NotModified Throwable cause) { }
+        NoSuchElementException$(@NotModified Throwable cause) { }
         //frequency 12
         NoSuchElementException$(String s) { }
     }

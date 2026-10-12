@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.stream.Stream;
 
 import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
@@ -164,7 +165,7 @@ public class JavaIo {
         void write(int b) { }
 
         //override from java.io.OutputStream
-        void write(/*@Independent[H]*/ @NotNull byte [] b, int off, int len) { }
+        void write(/*@Independent[H]*/ @NotNull @NotModified byte [] b, int off, int len) { }
         void writeBytes(/*@Independent[T]*/ @NotNull byte [] b) { }
         void writeTo(/*@Independent[T]*/ @NotNull OutputStream out) { }
         void reset() { }
@@ -194,7 +195,10 @@ public class JavaIo {
     }
 
     //public class File implements Serializable, Comparable<File>
-    @Independent
+    // immutable like java.nio.file.Path: every field is final, and what delete(), mkdir() or setReadable() change is
+    // the file system, not the object. Before 2026-10-12 it was only @Independent, so every File argument --
+    // new File(parent, child)'s parent, FileInputStream's file, renameTo's dest -- read as modified.
+    @Immutable @Independent
     class File$ {
         static final char separatorChar = '\0';
         static final String separator = null;
@@ -394,11 +398,11 @@ public class JavaIo {
 
         //override from java.io.OutputStream
         @AllowsInterrupt
-        void write(/*@Independent[H]*/ byte [] b) { }
+        void write(/*@Independent[H]*/ @NotModified byte [] b) { }
 
         //override from java.io.OutputStream
         @AllowsInterrupt
-        void write(/*@Independent[H]*/ byte [] b, int off, int len) { }
+        void write(/*@Independent[H]*/ @NotModified byte [] b, int off, int len) { }
 
         //override from java.io.Flushable, java.io.OutputStream
         //@AllowsInterrupt[H]
@@ -418,8 +422,8 @@ public class JavaIo {
         IOException$() { }
         //frequency 5
         IOException$(String message) { }
-        IOException$(String message, Throwable cause) { }
-        IOException$(Throwable cause) { }
+        IOException$(String message, @NotModified Throwable cause) { }
+        IOException$(@NotModified Throwable cause) { }
     }
 
     //public abstract class InputStream implements Closeable
@@ -460,8 +464,8 @@ public class JavaIo {
         //@Independent[O]
         static OutputStream nullOutputStream() { return null; }
         void write(int i) { }
-        void write(/*@Independent[T]*/ byte [] b) { }
-        void write(/*@Independent[T]*/ byte [] b, int off, int len) { }
+        void write(/*@Independent[T]*/ @NotModified byte [] b) { }
+        void write(/*@Independent[T]*/ @NotModified byte [] b, int off, int len) { }
         //override from java.io.Flushable
         //@AllowsInterrupt[H]
         void flush() { }
@@ -540,11 +544,11 @@ public class JavaIo {
 
         //override from java.io.FilterOutputStream, java.io.OutputStream
         //@AllowsInterrupt[H]
-        void write(@Independent byte [] buf, int off, int len) { }
+        void write(@Independent @NotModified byte [] buf, int off, int len) { }
 
         //override from java.io.FilterOutputStream, java.io.OutputStream
         //@AllowsInterrupt[H]
-        void write(@Independent byte [] buf) { }
+        void write(@Independent @NotModified byte [] buf) { }
         @AllowsInterrupt void writeBytes(@Independent byte [] buf) { }
         @AllowsInterrupt void print(boolean b) { }
         @AllowsInterrupt void print(char c) { }
@@ -621,10 +625,10 @@ public class JavaIo {
         void write(int b) { }
 
         //override from java.io.DataOutput
-        void write(byte [] b) { }
+        void write(@NotModified byte [] b) { }
 
         //override from java.io.DataOutput
-        void write(byte [] b, int off, int len) { }
+        void write(@NotModified byte [] b, int off, int len) { }
         long getFilePointer() { return 0L; }
         @AllowsInterrupt
         void seek(long pos) { }
