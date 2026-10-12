@@ -100,13 +100,29 @@ public final class CSharpTypeName {
         boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !pt.isTypeParameter()
                                                && !type.endsWith("?") && !pt.isVoid();
         return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(pt, type)
-                ? type + "?" : type;
+               && !unmapped(pt) ? type + "?" : type;
     }
 
     /**
      * Not a C# value type, for which {@code ?} would be {@code Nullable<T>}, another type: a simple enum (a C# enum), and those the BCL
      * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
      */
+    /**
+     * A library type without a C# mapping (UNMAPPED_JDK), or a mapping that is one: C# reads its {@code X?} as {@code Nullable<X>}, so that every
+     * use of the variable is one more error, where the undeclared {@code X} alone is reported once.
+     */
+    private static boolean unmapped(ParameterizedType pt) {
+        TypeInfo typeInfo = pt.typeInfo();
+        if (pt.arrays() != 0 || typeInfo == null || MAPPED.containsKey(typeInfo.fullyQualifiedName())) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
+        if (bcl == null) return !CSharpNames.translated(typeInfo);
+        // Optional<ByteBuffer> is its argument, {0?}
+        java.util.regex.Matcher argument = java.util.regex.Pattern.compile("\\{(\\d+)\\??}").matcher(bcl.template());
+        if (!argument.matches()) return false;
+        int index = Integer.parseInt(argument.group(1));
+        return index < pt.parameters().size() && unmapped(pt.parameters().get(index));
+    }
+
     private static boolean valueTypeFree(ParameterizedType pt, String type) {
         if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
             && CSharpTypePrinter.simpleEnum(pt.typeInfo())) {

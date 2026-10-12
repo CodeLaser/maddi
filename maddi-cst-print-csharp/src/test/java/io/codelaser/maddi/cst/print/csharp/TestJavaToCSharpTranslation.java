@@ -1507,6 +1507,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     return checked == null ? a : a + b + c + checked;
                 }
                 void put(Map<Integer, String> byId, Integer id) { byId.put(id, description); }
+                static <T> T ensure(T maybe) {
+                    if (maybe == null) throw new IllegalArgumentException();
+                    return maybe;
+                }
             }
             """;
 
@@ -1515,6 +1519,12 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         @Override
         public boolean unmodified(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
             return java.util.Set.of("items", "weights", "more", "list", "table", "sized").contains(parameter.name());
+        }
+
+        @Override
+        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+            return "maybe".equals(parameter.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
         }
 
         @Override
@@ -1573,6 +1583,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
 
             @Override
+            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+                return CATALOG_FACTS.nullable(parameter);
+            }
+
+            @Override
             public boolean nullabilityAnalysed() {
                 return true;
             }
@@ -1601,5 +1616,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "int c = (int) boxed!;");
         // a boxed key is unboxed into Dictionary<int, string>'s K: its cast asserts it, once
         contains(cs, "byId[(int) id!] = description!;");
+        // a nullable parameter of a type parameter's type: T is inferred without ?, the result is not null
+        contains(cs, "internal static T Ensure<T>(T? maybe) {");
     }
 }

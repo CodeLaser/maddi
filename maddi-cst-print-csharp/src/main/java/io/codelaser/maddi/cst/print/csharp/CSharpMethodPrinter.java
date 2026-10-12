@@ -176,10 +176,27 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
     }
 
+    /**
+     * A nullable parameter of a type parameter's type is {@code T?}: C# infers {@code T} from an argument that may be
+     * null as the type without {@code ?}, so that {@code EnsureNotNull<T>(T? o, …)} returns a non-null {@code T}.
+     * A method's own type parameter only in a static method: in one that may override or be overridden, C# reads
+     * that {@code T?} as {@code Nullable<T>} unless the override says {@code where T : default}.
+     */
+    private static boolean nullableTypeParameter(ParameterInfo p, io.codelaser.maddi.cst.api.type.NullableState nullable) {
+        ParameterizedType type = p.parameterizedType();
+        if (nullable != io.codelaser.maddi.cst.api.type.NullableState.NULLABLE || !type.isTypeParameter()
+            || type.arrays() != 0 || p.isVarArgs()) {
+            return false;
+        }
+        MethodInfo method = p.methodInfo();
+        return !type.typeParameter().isMethodTypeParameter() || method.isStatic() || method.isConstructor();
+    }
+
     private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {
         CSharpProgram program = CSharpContext.program();
         String type = wildcardNames != null ? CSharpWildcards.type(p.parameterizedType(), wildcardNames, q)
                 : CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
+        if (wildcardNames == null && nullableTypeParameter(p, program.facts().nullable(p))) type += "?";
         return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), LibraryMapping.Target.PARAMETER, q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }
