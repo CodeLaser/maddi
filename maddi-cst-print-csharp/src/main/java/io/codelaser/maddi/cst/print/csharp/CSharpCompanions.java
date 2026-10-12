@@ -234,13 +234,14 @@ final class CSharpCompanions {
             if (m.typeParameters().stream().anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> mentionsAny(b, removed)))) {
                 continue;
             }
-            String returnType = m.isVoid() ? "void" : erased(m.returnType(), removed, q);
+            String returnType = m.isVoid() ? "void" : result(m, removed, q);
             if (returnType == null) continue;
             String property = program.propertyRead(m);
             if (property != null) {
                 if (!m.parameters().isEmpty() || !signatures.add(property)) continue;
                 members.add(new Member(returnType + " " + property + " { get; }",
-                        returnType + " " + self + "." + property + " => " + property + ";"));
+                        returnType + " " + self + "." + property + " => " + property + asserted(m, removed, returnType)
+                        + ";"));
                 continue;
             }
             String name = CSharpNames.method(m);
@@ -250,7 +251,9 @@ final class CSharpCompanions {
             List<String> arguments = new ArrayList<>();
             for (var p : m.parameters()) {
                 String pn = CSharpNames.name(p.name());
-                parameters.add(CSharpTypeName.of(p.parameterizedType(), q) + " " + pn);
+                // with the nullability the type's own member has, which the bridge passes on (CS8604)
+                parameters.add(CSharpTypeName.declared(p.parameterizedType(), false, program.facts().nullable(p), q)
+                               + " " + pn);
                 arguments.add(pn);
             }
             String signature = name + typeParameters + "(" + String.join(", ", parameters) + ")";
@@ -261,11 +264,34 @@ final class CSharpCompanions {
             List<String> constraints = CSharpTypeName.constraints(m.typeParameters(), q);
             String declaration = returnType + " " + signature
                                  + (constraints.isEmpty() ? "" : " " + String.join(" ", constraints)) + ";";
-            String call = name + typeParameters + "(" + String.join(", ", arguments) + ")";
+            String call = name + typeParameters + "(" + String.join(", ", arguments) + ")" + asserted(m, removed, returnType);
             String bridge = returnType + " " + self + "." + signature + " => " + call + ";";
             members.add(new Member(declaration, bridge));
         }
         return members;
+    }
+
+    /**
+     * A member's result in the companion: the type's own, with its nullability ({@code string?}), which the bridge
+     * returns (CS8603, CS8766); a removed type parameter erased, {@code IScore?} when the member may return null.
+     */
+    private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
+        io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(m);
+        if (!mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
+        String erased = erased(m.returnType(), removed, q);
+        if (erased == null) return null;
+        boolean nullableResult = nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                                 && !erased.endsWith("?");
+        return nullableResult ? erased + "?" : erased;
+    }
+
+    /**
+     * {@code !} on a bridge's call whose result, a removed type parameter, the analysis finds not null: C# sees a type
+     * parameter converted to the companion as possibly null (CS8603), the bridge returns what the member does.
+     */
+    private static String asserted(MethodInfo m, List<TypeParameter> removed, String returnType) {
+        return CSharpContext.program().facts().nullabilityAnalysed() && mentionsAny(m.returnType(), removed)
+               && !returnType.endsWith("?") ? "!" : "";
     }
 
     /** {@code interface IScore : … { members }}, after the type's own declaration. */
