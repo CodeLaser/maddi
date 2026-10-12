@@ -50,9 +50,12 @@
 # CS1503 347 -> 256, CS0246 539 -> 494, 3304 -> 3168 errors, 868 compiling files (the files have other errors too).
 # unmappedJdkUses 1380 -> 1386: the lambdas' parameter casts name types already unmapped (gizmo's Expr, BlockCreator,
 # java.net.URL).
+#
+# 2026-10-12, the bases of a public type are public (Java's public class may extend a package-private one): CS0060
+# 73 -> 1, 868 -> 925 compiling files, 3168 -> 3095 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	868
+compilingFiles	925
 unmappedJdkUses	1386
