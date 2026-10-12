@@ -88,7 +88,9 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return b;
         }
         CSharpWildcards.Captured captured = CSharpWildcards.captured(methodInfo, q);
-        List<String> allTypeParameters = new java.util.ArrayList<>(methodInfo.typeParameters().stream()
+        // <J> J mapping(), which a method that is not generic overrides: J erased to its bound (CSharpProgram)
+        boolean erased = CSharpContext.program().erasedGeneric(methodInfo);
+        List<String> allTypeParameters = new java.util.ArrayList<>(erased ? List.of() : methodInfo.typeParameters().stream()
                 .map(CSharpNames::typeParameter).toList());
         allTypeParameters.addAll(captured.typeParameters());
         String typeParameters = allTypeParameters.isEmpty() ? "" : "<" + String.join(", ", allTypeParameters) + ">";
@@ -107,7 +109,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
         b.add(parameters(methodInfo, captured, q));
-        List<String> constraints = new java.util.ArrayList<>(CSharpTypeName.constraints(methodInfo.typeParameters(), q));
+        List<String> constraints = new java.util.ArrayList<>(erased ? List.of()
+                : CSharpTypeName.constraints(methodInfo.typeParameters(), q));
         constraints.addAll(captured.constraints());
         for (String constraint : constraints) {
             b.add(SpaceEnum.ONE).add(new TextImpl(constraint));
@@ -141,6 +144,9 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** The return type, {@code T?} when the method may return null. */
     private String returnType(Qualification q) {
+        if (CSharpContext.program().erasedGeneric(methodInfo)) {
+            return CSharpTypeName.rawArgumentOf(methodInfo.returnType().typeParameter(), q);
+        }
         io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
         String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
         return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;

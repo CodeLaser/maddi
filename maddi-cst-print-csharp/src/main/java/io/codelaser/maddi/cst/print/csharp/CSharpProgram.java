@@ -122,6 +122,7 @@ public final class CSharpProgram {
     private final Set<ParameterInfo> readOnly;
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
     private final Map<TypeInfo, Boolean> inner = new java.util.concurrent.ConcurrentHashMap<>();
+    private Set<MethodInfo> erasedGenerics = Set.of();
     private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
@@ -174,12 +175,66 @@ public final class CSharpProgram {
         candidates.removeAll(implemented);
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
-        return new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden), policy.inheritance(),
-                namespaceSegments(primaryTypes, all, policy.libraries()), ambiguous(primaryTypes, policy.libraries()),
-                prefixedHoisted(all), typeTokens(all), policy.libraries(),
+        CSharpProgram program = new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden),
+                policy.inheritance(), namespaceSegments(primaryTypes, all, policy.libraries()),
+                ambiguous(primaryTypes, policy.libraries()), prefixedHoisted(all), typeTokens(all), policy.libraries(),
                 policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden, delegates)
                         : CSharpProperties.Analysis.NONE,
                 policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
+        program.erasedGenerics = erasedGenerics(all);
+        return program;
+    }
+
+    /**
+     * Java overrides {@code <J> J mapping()} with a method that is not generic, {@code TriFunction<…> mapping()}, by
+     * erasure; C# does not. Such a method, whose type parameters only its result mentions, is printed with them erased
+     * to their bounds, {@code object Mapping()}, and so are its generic overrides; the others override it with a
+     * covariant result, and a call through it casts the result to the type Java inferred.
+     */
+    private static Set<MethodInfo> erasedGenerics(List<TypeInfo> all) {
+        List<MethodInfo> methods = all.stream().flatMap(t -> t.methods().stream()).toList();
+        Map<MethodInfo, Set<MethodInfo>> family = new java.util.HashMap<>();
+        Set<MethodInfo> erased = new HashSet<>();
+        for (MethodInfo m : methods) {
+            for (MethodInfo o : m.overrides()) {
+                if (o == m || !CSharpNames.translated(o.typeInfo())) continue;
+                family.computeIfAbsent(m, x -> new HashSet<>()).add(o);
+                family.computeIfAbsent(o, x -> new HashSet<>()).add(m);
+                if (m.typeParameters().isEmpty() && !o.typeParameters().isEmpty() && erasable(o)) erased.add(o);
+            }
+        }
+        if (erased.isEmpty()) return Set.of();
+        java.util.Deque<MethodInfo> todo = new java.util.ArrayDeque<>(erased);
+        while (!todo.isEmpty()) {
+            for (MethodInfo f : family.getOrDefault(todo.pop(), Set.of())) {
+                if (!f.typeParameters().isEmpty() && erasable(f) && erased.add(f)) todo.push(f);
+            }
+        }
+        return Set.copyOf(erased);
+    }
+
+    /**
+     * A class's method whose result is one of its type parameters, {@code <J> J}, which no parameter mentions: erased,
+     * it is the bound, which an override's result is covariantly. Not an interface's, whose implementations C# matches
+     * by their exact result.
+     */
+    private static boolean erasable(MethodInfo m) {
+        ParameterizedType result = m.returnType();
+        return !m.typeInfo().isInterface() && result.isTypeParameter() && result.arrays() == 0
+               && m.typeParameters().contains(result.typeParameter())
+               && m.parameters().stream().noneMatch(p -> m.typeParameters().stream()
+                .anyMatch(tp -> mentions(p.parameterizedType(), tp)));
+    }
+
+    private static boolean mentions(ParameterizedType t, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        if (t == null) return false;
+        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
+        return t.parameters().stream().anyMatch(a -> mentions(a, tp));
+    }
+
+    /** A generic method printed with its type parameters erased ({@link #erasedGenerics}). */
+    boolean erasedGeneric(MethodInfo m) {
+        return erasedGenerics.contains(m);
     }
 
     /** What the analysis knows about the program. */

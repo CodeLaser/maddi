@@ -355,11 +355,26 @@ public final class CSharpExpressionPrinter {
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
     private static boolean nonAtomicCall(Expression e) {
-        return e instanceof MethodCall mc && rule(mc) instanceof LibraryMapping.Rule r && !CSharpTemplate.atomic(r.template(false));
+        return e instanceof MethodCall mc && (rule(mc) instanceof LibraryMapping.Rule r && !CSharpTemplate.atomic(r.template(false))
+                                               || erasedResultCast(mc));
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
-        return inCall(mc, () -> methodCallInCall(mc, q, statement));
+        OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
+        String cast = statement ? null : erasedResultCast(mc, q);
+        return cast == null ? call : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(cast))
+                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(call);
+    }
+
+    /** The type Java inferred for a call of a method whose type parameters C# erased; null when none is needed. */
+    private static String erasedResultCast(MethodCall mc, Qualification q) {
+        return erasedResultCast(mc) ? CSharpTypeName.of(mc.concreteReturnType(), q) : null;
+    }
+
+    private static boolean erasedResultCast(MethodCall mc) {
+        if (!CSharpContext.program().erasedGeneric(mc.methodInfo())) return false;
+        ParameterizedType concrete = mc.concreteReturnType();
+        return concrete != null && !concrete.isJavaLangObject() && writable(concrete, mc.methodInfo().typeParameters());
     }
 
     private static OutputBuilder methodCallInCall(MethodCall mc, Qualification q, boolean statement) {
@@ -438,6 +453,7 @@ public final class CSharpExpressionPrinter {
         }
         String tokenArgument = typeTokenArgument(mc, q);
         String typeArguments = tokenArgument != null ? tokenArgument
+                : CSharpContext.program().erasedGeneric(method) ? ""
                 : mc.typeArguments().isEmpty() ? inferredTypeArguments(mc, q) : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
         unmapped(method, mc);

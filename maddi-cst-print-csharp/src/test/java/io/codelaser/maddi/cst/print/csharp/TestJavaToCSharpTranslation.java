@@ -1464,6 +1464,33 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String MAPPINGS = """
+            package org.example.mappings;
+            import java.util.function.Function;
+            public class Mappings {
+                abstract static class Stream {
+                    protected abstract <M> M defaultMapping();
+                    Function<String, Integer> lengths() { return defaultMapping(); }
+                }
+                static final class UniStream extends Stream {
+                    @Override
+                    protected Function<String, Integer> defaultMapping() { return String::length; }
+                }
+            }
+            """;
+
+    /**
+     * Java overrides a generic method with one that is not, by erasure; C# prints the generic one with its type
+     * parameter erased, the override's result covariant, and a call's result cast to what Java inferred.
+     */
+    @Test
+    public void erasedGenerics() {
+        String cs = translate("Mappings", MAPPINGS);
+        contains(cs, "protected internal abstract object DefaultMapping();");
+        contains(cs, "protected internal override Func<string, int> DefaultMapping()");
+        contains(cs, "(Func<string, int>) DefaultMapping()");
+    }
+
     private static final String PLACERS = """
             package org.example.placers;
             import java.util.Iterator;

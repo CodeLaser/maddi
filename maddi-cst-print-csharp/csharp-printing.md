@@ -164,6 +164,10 @@ implements the interface.
   enumerable through default implementations over it (`IEnumerator<T> IEnumerable<T>.GetEnumerator() => …`), so that
   every implementation is; an abstract class that leaves `iterator()` to its subclasses declares it abstract, once,
   and the subclasses' `Iterator()` override it.
+- **Generic methods overridden by erasure.** Java overrides `<J> J mapping()` with a method that is not generic,
+  `TriFunction<…> mapping()`; C# does not. A class's method whose result is its own type parameter, overridden so,
+  is printed with it erased to its bound, `object Mapping()`, and so are its generic overrides; the others override
+  it with a covariant result, and a call through it casts the result to the type Java inferred.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
