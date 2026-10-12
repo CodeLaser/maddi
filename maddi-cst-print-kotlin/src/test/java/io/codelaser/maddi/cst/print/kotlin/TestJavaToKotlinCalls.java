@@ -307,6 +307,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 static boolean empty(Object[] a) { return a == null || a.length == 0; }
                 static boolean any(String... xs) { return !empty(xs); }
                 static void fill(Object[] a) { a[0] = "x"; }
+                static <T> T[] check(T[] a) { return a; }
+                @SafeVarargs static <T> T first(T... xs) { check(xs); return xs[0]; }
             }
             """;
 
@@ -316,5 +318,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(COVARIANT_ARRAYS);
         contains(kotlin, "fun empty(a: Array<out Any>): Boolean");
         contains(kotlin, "fun fill(a: Array<Any>)");
+        // a vararg parameter is an Array<out T>: into an invariant Array<T> parameter, cast
+        contains(kotlin, "check((xs as Array<T>))");
     }
 }

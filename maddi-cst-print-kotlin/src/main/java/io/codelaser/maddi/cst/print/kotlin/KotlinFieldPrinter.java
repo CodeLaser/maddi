@@ -65,7 +65,8 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 .add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinNames.name(fieldInfo.name())))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
-                .add(new TextImpl(KotlinTypeName.of(type, qualification)));
+                .add(new TextImpl(!asParameterInPrimaryConstructor && KotlinReadOnly.field(fieldInfo)
+                        ? KotlinTypeName.readOnly(type, qualification) : KotlinTypeName.of(type, qualification)));
         if (asParameterInPrimaryConstructor) return builder;
         if (hasInitializer) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)

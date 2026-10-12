@@ -561,7 +561,17 @@ public class KotlinExpressionPrinter {
                                             && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
-                if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
+                if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
+                    // ensureNotEmpty(values, name) with a vararg values: Kotlin's is an Array<out T?>, and the
+                    // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
+                    ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
+                    KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
+                                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
                     // new PrimitiveConstant(tag, Integer.valueOf(v)): Java's Integer takes (int, Object), Kotlin's
                     // Int the (int, int) overload; the cast keeps Java's choice
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
@@ -698,6 +708,21 @@ public class KotlinExpressionPrinter {
                 && other.name().equals(method.name()) && other.parameters().size() == method.parameters().size()
                 && other.parameters().get(i).parameterizedType().typeParameter() != null
                 && other.parameters().get(i).parameterizedType().arrays() == 0);
+    }
+
+    /**
+     * A method's own varargs parameter (Kotlin's {@code Array<out T>}) passed to a translated method's reference array
+     * parameter, which Kotlin declares invariant.
+     */
+    private static boolean varargsIntoArray(io.codelaser.maddi.cst.api.info.MethodInfo method, int i, Expression arg) {
+        if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())) return false;
+        if (!(unwrap(arg) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)
+            || !pi.isVarArgs()) {
+            return false;
+        }
+        ParameterizedType target = method.parameters().get(i).parameterizedType();
+        return target.arrays() == 1 && !target.componentType().isPrimitiveExcludingVoid()
+               && !pi.parameterizedType().componentType().isPrimitiveExcludingVoid();
     }
 
     /** The receiver's Java type has a {@code ?} argument: {@code Map<String, ?>}, Kotlin's {@code Map<String, *>}. */

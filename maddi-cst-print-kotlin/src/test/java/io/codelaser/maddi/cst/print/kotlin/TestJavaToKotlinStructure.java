@@ -979,4 +979,71 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertTrue(kotlin.contains("internal var content: T = null as T"), kotlin);
         assertTrue(kotlin.contains("internal lateinit var label: String"), kotlin);
     }
+
+    @Language("java")
+    private static final String READ_ONLY_FIELDS = """
+            package a;
+            import java.util.*;
+            final class R {
+                private final List<String> names;
+                private final List<String> added = new ArrayList<>();
+                private final Map<String, Integer> counts;
+                private final List<String> leaked;
+                private final List<String> tagged = new ArrayList<>();
+                private final List<String> copied;
+                private final List<String> wrapped = new ArrayList<>();
+                R(List<String> names, Map<String, Integer> counts) {
+                    this.names = names;
+                    this.counts = counts;
+                    this.leaked = new ArrayList<>(names);
+                    this.copied = same(names);
+                }
+                static <T> T same(T t) { return t; }
+                int copies() { return copied.size(); }
+                Optional<List<String>> wrapped() { return Optional.of(wrapped); }
+                List<String> names() { return names; }
+                void add(String s) { added.add(s); }
+                int total() {
+                    int n = 0;
+                    for (String s : names) n += counts.getOrDefault(s, 0);
+                    return n + Objects.hash(names, counts);
+                }
+                List<String> leaked() { List<String> copy = leaked; return copy; }
+                List<String> tagged() { return Objects.requireNonNull(tagged); }
+                public String toString() { return "R" + names; }
+            }
+            """;
+
+    /**
+     * A private collection field the analysis proves structurally unmodified, every read of which a read-only type
+     * allows, gets Kotlin's read-only type; so does the result of a closed method that returns it. Set by hand here on
+     * all fields but {@code added}.
+     */
+    @Test
+    public void readOnlyFields() {
+        String kotlin = kotlin(READ_ONLY_FIELDS, type -> {
+            type.fields().stream()
+                    .filter(f -> !f.name().equals("added"))
+                    .forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+            // what the analysis computes for same(T): it returns its argument
+            type.methods().stream().filter(m -> m.name().equals("same"))
+                    .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IDENTITY_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+        });
+        contains(kotlin, "private val names: List<String>");
+        contains(kotlin, "private val counts: Map<String, Int>");
+        contains(kotlin, "fun names(): List<String> = names");
+        // modified: Java's mutable type
+        contains(kotlin, "private val added: MutableList<String>");
+        // read into a local: Kotlin would infer the local's type from it
+        contains(kotlin, "private val leaked: MutableList<String>");
+        contains(kotlin, "fun leaked(): MutableList<String>");
+        // into a type variable's parameter: handed back as T, to whatever the caller declares
+        contains(kotlin, "private val tagged: MutableList<String>");
+        // through an @Identity call into another read-only field: names stays read-only, and so is copied
+        contains(kotlin, "private val copied: List<String>");
+        // Optional.of(T): T comes back in the result, Optional<MutableList<String>>
+        contains(kotlin, "private val wrapped: MutableList<String>");
+    }
 }
