@@ -305,7 +305,15 @@ public class KotlinExpressionPrinter {
         }
         if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo()) || KotlinTypePrinter.isAnnotationElement(mc.methodInfo())) {
             // a data class's property; an annotation's element, Java's too, which Kotlin reads as a property
-            return b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()))); // a data class property
+            b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()))); // a data class property
+            ParameterizedType result = mc.methodInfo().returnType();
+            if (KotlinTypePrinter.isAnnotationElement(mc.methodInfo()) && result.typeInfo() != null
+                && "java.lang.Class".equals(result.typeInfo().fullyQualifiedName())) {
+                // @JsonSubTypes.Type's Class<?> value() is a KClass<*> property in Kotlin: .java is Java's Class
+                if (result.arrays() == 0) b.add(SymbolEnum.DOT).add(new TextImpl("java"));
+                else if (result.arrays() == 1) b.add(new TextImpl(".map { it.java }.toTypedArray()"));
+            }
+            return b;
         }
         if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
             return b.add(new TextImpl("removeAt")).add(arguments(mc.parameterExpressions(), q));
@@ -443,6 +451,30 @@ public class KotlinExpressionPrinter {
     }
 
     /**
+     * The {@code i}-th parameter of {@code method}, a translated method, is nullable where a sibling overload of the
+     * same arity takes the same type non-null, and the argument is not nullable: with Java's choice more specific in
+     * another parameter ({@code Class<T>} over {@code Type}), Kotlin sees neither candidate as the more specific one.
+     */
+    private static boolean nullabilityTiesOverload(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                   Expression argument) {
+        if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())) return false;
+        ParameterizedType mine = KotlinNullability.parameterType(method.parameters().get(i));
+        ParameterizedType declared = method.parameters().get(i).parameterizedType();
+        if (!KotlinNullability.isNullable(mine) || declared.isPrimitiveExcludingVoid()
+            || KotlinNullability.nullableInKotlin(argument)) {
+            return false;
+        }
+        List<io.codelaser.maddi.cst.api.info.MethodInfo> siblings = method.isConstructor()
+                ? method.typeInfo().constructors()
+                : method.typeInfo().methods().stream().filter(m -> m.name().equals(method.name())).toList();
+        return siblings.stream().anyMatch(m -> m != method && !m.isSynthetic()
+                && m.parameters().size() == method.parameters().size() && !m.parameters().get(i).isVarArgs()
+                && m.parameters().get(i).parameterizedType().typeInfo() == declared.typeInfo()
+                && m.parameters().get(i).parameterizedType().arrays() == declared.arrays()
+                && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().get(i))));
+    }
+
+    /**
      * The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). A
      * parameter typed by the receiver's type parameter takes the receiver's type argument as its target
      * ({@code list.add(x)} on a {@code List<String>}: x is asserted non-null when Kotlin types it nullable).
@@ -572,6 +604,13 @@ public class KotlinExpressionPrinter {
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
                                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && nullabilityTiesOverload(method, i, args.get(i))) {
+                    // Json.fromJson(String?, Class<T>) beside fromJson(String, Type), with a non-null String: each is
+                    // more specific in one parameter, and Kotlin finds the call ambiguous; Java's choice, by its type
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
                 } else if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
                     // new PrimitiveConstant(tag, Integer.valueOf(v)): Java's Integer takes (int, Object), Kotlin's
@@ -1059,6 +1098,12 @@ public class KotlinExpressionPrinter {
      * integral type by itself.
      */
     static OutputBuilder widened(Expression e, ParameterizedType target, Qualification q) {
+        if (unwrap(e) instanceof Lambda l && target != null && target.arrays() == 0 && !target.parameters().isEmpty()
+            && samConstructor(l, q) != null && sameUpToStates(l.concreteFunctionalType(), target)) {
+            // DEFAULT_MAX_RESULTS: Function<Query, Int?> = Function<Query, Int?> { 3 }: Kotlin's generics are
+            // invariant, so the SAM constructor takes the type arguments of what it initializes, states included
+            return lambda(l, KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q), q);
+        }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
             // String factory = (String) properties.get(key): Java's cast lets the null through
             return cast(c, true, q);
@@ -1197,6 +1242,11 @@ public class KotlinExpressionPrinter {
     /** The type Kotlin sees for {@code e}, where the printer knows it (a local typed from its initializer is not raw). */
     private static ParameterizedType rawValueType(Expression e) {
         ParameterizedType kotlin = KotlinNullability.kotlinType(e);
+        if (kotlin != null && kotlin.isTypeParameter() && kotlin.arrays() == 0 && unwrap(e) instanceof MethodCall mc
+            && mc.methodInfo().typeParameters().contains(kotlin.typeParameter())) {
+            // CODEC.fromJson(json, Map.class): the callee's own T is what Java infers, a raw Map here
+            return e.parameterizedType();
+        }
         return kotlin != null ? kotlin : e.parameterizedType();
     }
 
@@ -1421,6 +1471,11 @@ public class KotlinExpressionPrinter {
     }
 
     private static OutputBuilder lambda(Lambda lambda, boolean samConstructor, Qualification q) {
+        return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, q);
+    }
+
+    /** As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none. */
+    private static OutputBuilder lambda(Lambda lambda, String sam, Qualification q) {
         List<ParameterInfo> params = lambda.parameters();
         params.forEach(p -> KotlinContext.declared(p.name()));
         Block body = lambda.methodBody();
@@ -1457,7 +1512,6 @@ public class KotlinExpressionPrinter {
             KotlinContext.pop();
         }
         OutputBuilder b = new OutputBuilderImpl();
-        String sam = samConstructor ? samConstructor(lambda, q) : null;
         if (sam != null) b.add(new TextImpl(sam)).add(SpaceEnum.ONE);
         if (labelled) b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
         b.add(SymbolEnum.LEFT_BRACE);
