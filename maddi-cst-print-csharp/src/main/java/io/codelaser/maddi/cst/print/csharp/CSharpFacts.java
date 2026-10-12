@@ -16,11 +16,16 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.analysis.Property;
 import io.codelaser.maddi.cst.api.analysis.Value;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
@@ -113,6 +118,42 @@ public interface CSharpFacts {
     /** The method may return null. */
     default NullableState nullable(MethodInfo method) {
         return NullableState.UNSPECIFIED;
+    }
+
+    /**
+     * A local variable of {@code method}, identified by the element that declares it (a LocalVariableCreation, a
+     * ForEachStatement): {@code NULLABLE} when a null may reach it. Only the analysis's report knows; not stored.
+     */
+    default NullableState nullable(MethodInfo method, Element declaration, LocalVariable variable) {
+        return NullableState.UNSPECIFIED;
+    }
+
+    /**
+     * The local is non-null from its declaration on although its initializer may be null: Java dereferences it
+     * unconditionally later in the same block, with no reassignment in between. The printer asserts the initializer,
+     * {@code blocks.GetWithKey(j)!}; {@link #nullable(MethodInfo, Element, LocalVariable)} answers non-null for it.
+     */
+    default boolean assertedAtDeclaration(MethodInfo method, Element declaration, LocalVariable variable) {
+        return false;
+    }
+
+    /**
+     * The local variable, parameter or field is known non-null where {@code statement} starts: after
+     * {@code if (v == null) return;}, inside {@code if (v != null)}, after {@code v.m()}. C#'s flow analysis knows
+     * it as well, so a dereference there needs no {@code !}.
+     */
+    default boolean nonNullAt(Statement statement, Variable variable) {
+        return false;
+    }
+
+    /** As {@link #nonNullAt(Statement, Variable)}, at a call or a field access: also what its condition establishes. */
+    default boolean nonNullAt(Expression expression, Variable variable) {
+        return false;
+    }
+
+    /** The callee may return null, but not this call: no argument it passes makes the result null. */
+    default boolean callResultNonNull(Expression call) {
+        return false;
     }
 
     /**

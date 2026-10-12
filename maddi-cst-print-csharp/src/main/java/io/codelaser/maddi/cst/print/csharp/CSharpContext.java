@@ -46,10 +46,16 @@ final class CSharpContext {
         CSharpProgram program = CSharpProgram.NONE;
         final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
+        final Deque<io.codelaser.maddi.cst.api.statement.Statement> statements = new ArrayDeque<>();
+        final Deque<io.codelaser.maddi.cst.api.expression.Expression> calls = new ArrayDeque<>();
     }
 
-    /** A block's locals: the Java name to the C# name, and the names it declares at its own level, later ones too. */
-    private record Scope(java.util.Map<String, String> names, Set<String> pending) {
+    /**
+     * A block's locals: the Java name to the C# name, and the names it declares at its own level, later ones too;
+     * the Java name to the local's nullability, as the analysis has it ({@link CSharpNullability}).
+     */
+    private record Scope(java.util.Map<String, String> names, Set<String> pending,
+                         java.util.Map<String, io.codelaser.maddi.cst.api.type.NullableState> states) {
     }
 
     private static final ThreadLocal<State> STATE = ThreadLocal.withInitial(State::new);
@@ -155,7 +161,7 @@ final class CSharpContext {
 
     /** A new scope, which declares {@code pending} at its own level (see {@link CSharpLocals}). */
     static void enterScope(Set<String> pending) {
-        STATE.get().scopes.push(new Scope(new java.util.HashMap<>(), pending));
+        STATE.get().scopes.push(new Scope(new java.util.HashMap<>(), pending, new java.util.HashMap<>()));
     }
 
     static void exitScope() {
@@ -192,6 +198,49 @@ final class CSharpContext {
             if (name != null) return CSharpNames.name(name);
         }
         return CSharpNames.name(javaName);
+    }
+
+    /** The nullability of the local {@code javaName} just declared, for its uses. */
+    static void localState(String javaName, io.codelaser.maddi.cst.api.type.NullableState state) {
+        Deque<Scope> scopes = STATE.get().scopes;
+        if (scopes.isEmpty()) enterScope(Set.of());
+        scopes.peek().states.put(javaName, state);
+    }
+
+    /** The nullability of the innermost declaration of the local {@code javaName}; UNSPECIFIED when not known. */
+    static io.codelaser.maddi.cst.api.type.NullableState localState(String javaName) {
+        for (Scope scope : STATE.get().scopes) {
+            if (scope.names.containsKey(javaName)) {
+                return scope.states.getOrDefault(javaName, io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED);
+            }
+        }
+        return io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+    }
+
+    static void pushStatement(io.codelaser.maddi.cst.api.statement.Statement statement) {
+        STATE.get().statements.push(statement);
+    }
+
+    static void popStatement() {
+        STATE.get().statements.pop();
+    }
+
+    /** The innermost statement being printed; null outside a body. */
+    static io.codelaser.maddi.cst.api.statement.Statement currentStatement() {
+        return STATE.get().statements.peek();
+    }
+
+    static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
+        STATE.get().calls.push(call);
+    }
+
+    static void popCall() {
+        STATE.get().calls.pop();
+    }
+
+    /** The innermost call or field access being printed; null when none. */
+    static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
+        return STATE.get().calls.peek();
     }
 
     /** A type the printed code names by its simple name: it must be in scope, through a {@code using}. */

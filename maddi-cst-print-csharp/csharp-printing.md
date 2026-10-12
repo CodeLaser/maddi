@@ -95,6 +95,14 @@ implements the interface.
   `<Nullable>enable</Nullable>`. A local's explicit reference type is then `T?`, as `var`'s is: the compiler follows
   its null state through the flow, so that the declaration does not have to know it. The ratchet counts the
   compiler's nullable warnings (`nullableWarnings`); maddi-mod's `fernflower-facts` ratchet holds them.
+- A dereference of a value that may be null has a `!` (`CSharpNullability`): `x!.M()`, `x!.f`, `a![i]`,
+  `foreach (… in xs!)`. Java throws a NullPointerException there when it is null, and C# a NullReferenceException; the
+  `!` only tells the compiler so (CS8602), it does not throw. A value may be null when it is the result of a call
+  whose method may return null (unless the analysis knows this call's is not), or a field, parameter or local the
+  analysis finds nullable, unless its use-site facts know it is not null where the statement or the call starts (after
+  `if (v == null) return;`, inside `if (v != null)`), which C#'s flow analysis knows too. The facts for locals and use
+  sites come from the analysis's report, through `CSharpFacts`; a local the analysis asserts at its declaration
+  (`assertedAtDeclaration`) has its initializer asserted instead: `var block = blocks.GetWithKey(j)!;`.
 
 ## Declarations
 

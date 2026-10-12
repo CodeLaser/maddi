@@ -1,0 +1,154 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package io.codelaser.maddi.cst.print.csharp;
+
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+
+import java.util.List;
+
+/**
+ * Where C#'s nullable reference types need a {@code !}: when the analysis's facts say the program's nullability is
+ * known ({@link CSharpFacts#nullabilityAnalysed}), a dereference of a value that may be null is {@code x!.m()}. Java
+ * throws a NullPointerException there if it is null, and C# a NullReferenceException; the {@code !} only tells the
+ * compiler that the code means it, so that it does not warn (CS8602). A value is one that may be null:
+ * <ul>
+ *   <li>the result of a call whose method may return null, unless the analysis knows this call's result is not;</li>
+ *   <li>a field, parameter or local the analysis finds nullable, unless it knows that the variable is not null where
+ *   the statement or the call starts (after {@code if (v == null) return;}, inside {@code if (v != null)}): C#'s flow
+ *   analysis knows those as well.</li>
+ * </ul>
+ * Without such facts nothing changes.
+ */
+final class CSharpNullability {
+
+    /** {@code !}, glued to its operand. */
+    static final SymbolEnum NULL_FORGIVING = new SymbolEnum("!", SpaceEnum.NONE, SpaceEnum.NONE, null);
+
+    private CSharpNullability() {
+    }
+
+    private static CSharpFacts facts() {
+        return CSharpContext.program().facts();
+    }
+
+    /** Remembers the nullability of a local just declared by {@code declaration}, for its uses. */
+    static void declared(Element declaration, LocalVariable variable) {
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || !facts().nullabilityAnalysed()) return;
+        CSharpContext.localState(variable.simpleName(), facts().nullable(method, declaration, variable));
+    }
+
+    /**
+     * A local's initializer, {@code printed}: with {@code !} when the analysis asserts the local at its declaration
+     * ({@link CSharpFacts#assertedAtDeclaration}) and the value may be null.
+     */
+    static OutputBuilder initializer(Element declaration, LocalVariable variable, Expression init, OutputBuilder printed) {
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init)
+            || !facts().assertedAtDeclaration(method, declaration, variable)) {
+            return printed;
+        }
+        Expression x = CSharpExpressionPrinter.unwrap(init);
+        if (x instanceof MethodCall || x instanceof VariableExpression) return printed.add(NULL_FORGIVING);
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(NULL_FORGIVING);
+    }
+
+    /** The receiver of {@code .member}, {@code [i]} or a {@code foreach}: with {@code !} when it may be null. */
+    static OutputBuilder dereferenced(Expression e, Qualification q) {
+        OutputBuilder receiver = CSharpExpressionPrinter.receiver(e, q);
+        if (!mayBeNull(e)) return receiver;
+        return receiver.add(NULL_FORGIVING);
+    }
+
+    /** C#'s compiler will think this value may be null here. */
+    static boolean mayBeNull(Expression e) {
+        if (!facts().nullabilityAnalysed()) return false;
+        Expression x = CSharpExpressionPrinter.unwrap(e);
+        return switch (x) {
+            case NullConstant nc -> false; // null.m() is no code worth helping
+            case MethodCall mc -> !mc.methodInfo().isVoid() && facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
+                                  && !facts().callResultNonNull(mc);
+            case VariableExpression ve -> switch (ve.variable()) {
+                case FieldReference fr -> facts().nullable(fr.fieldInfo()) == NullableState.NULLABLE
+                                          && !knownNonNull(fr);
+                case io.codelaser.maddi.cst.api.info.ParameterInfo pi ->
+                        facts().nullable(pi) == NullableState.NULLABLE && !knownNonNull(pi);
+                case LocalVariable lv -> CSharpContext.localState(lv.simpleName()) == NullableState.NULLABLE
+                                         && !knownNonNull(lv);
+                default -> false;
+            };
+            case InlineConditional ic -> mayBeNull(ic.ifTrue()) || mayBeNull(ic.ifFalse());
+            case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && mayBeNull(c.expression());
+            default -> false;
+        };
+    }
+
+    /** A use-site fact: known non-null where the current statement starts, or at the current call. */
+    private static boolean knownNonNull(Variable variable) {
+        Statement statement = CSharpContext.currentStatement();
+        if (statement != null && facts().nonNullAt(statement, variable)) return true;
+        Expression call = CSharpContext.currentCall();
+        return call != null && !dereferencedInArguments(call, variable) && facts().nonNullAt(call, variable);
+    }
+
+    /**
+     * The fact at a call holds after its receiver and arguments are evaluated, left to right: a dereference of the
+     * variable in an argument would make it claim what the receiver does not have yet ({@code stack.add(g.first)}).
+     */
+    private static boolean dereferencedInArguments(Expression call, Variable variable) {
+        List<Expression> arguments = switch (call) {
+            case MethodCall mc -> mc.parameterExpressions();
+            case ConstructorCall cc -> cc.parameterExpressions();
+            default -> List.of();
+        };
+        boolean[] found = {false};
+        for (Expression argument : arguments) {
+            argument.visit((Element e) -> {
+                Expression scope = switch (e) {
+                    case MethodCall mc -> mc.object();
+                    case VariableExpression ve when ve.variable() instanceof FieldReference fr -> fr.scope();
+                    case VariableExpression ve when ve.variable() instanceof DependentVariable dv -> dv.arrayExpression();
+                    default -> null;
+                };
+                if (scope != null && CSharpExpressionPrinter.unwrap(scope) instanceof VariableExpression sv
+                    && variable.equals(sv.variable())) {
+                    found[0] = true;
+                }
+                return !found[0];
+            });
+        }
+        return found[0];
+    }
+}
