@@ -474,6 +474,13 @@ public class KotlinExpressionPrinter {
                 && !KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().get(i))));
     }
 
+    /** The result of a call to a member Kotlin sees as Java's: its type arguments are inferred, flexible. */
+    private static boolean libraryResult(Expression receiver) {
+        return receiver != null && unwrap(receiver) instanceof MethodCall mc && mc.methodInfo() != null
+               && !KotlinNullability.translated(mc.methodInfo().typeInfo())
+               && !KotlinTypeName.isMapped(mc.methodInfo().typeInfo().fullyQualifiedName());
+    }
+
     /**
      * The arguments, each widened to its parameter's primitive type as Java does implicitly (not a varargs one). A
      * parameter typed by the receiver's type parameter takes the receiver's type argument as its target
@@ -557,8 +564,10 @@ public class KotlinExpressionPrinter {
                 boolean argumentTranslated = translated;
                 if (call != null) {
                     ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);
-                    // the receiver's type argument is a declaration of ours, even on a library member (queue.add)
-                    if (seen != declared) argumentTranslated = true;
+                    // the receiver's type argument is a declaration of ours, even on a library member (queue.add);
+                    // not a library call's result (Optional.ofNullable(d).orElse(e)), whose type argument Kotlin
+                    // infers, and whose member takes the flexible T!: null goes in as in Java, where `!!` throws
+                    if (seen != declared && !libraryResult(call.object())) argumentTranslated = true;
                     declared = seen;
                 }
                 // set.contains(x), map.get(k) with a nullable x or k: Java's take an Object, and null finds nothing;

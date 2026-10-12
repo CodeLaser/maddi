@@ -879,21 +879,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 static Map<String, Object> read(String s) { return fromJson(s, Map.class); }
                 static final Function<String, Integer> DEFAULT = q -> 3;
                 static Class<?> subtype(Sub sub) { return sub.value(); }
+                static String describe(Class<?> c) { return null; }
+                static String orDefault(String d, Class<?> c) { return Optional.ofNullable(d).orElse(describe(c)); }
             }
             """;
 
     /**
      * langchain4j's last printer errors: an overload Java chose, which a nullable parameter makes ambiguous for Kotlin;
      * a raw Map from a generic call; a SAM constructor into a field whose type arguments the verdicts made nullable;
-     * an annotation's Class element, a KClass property in Kotlin.
+     * an annotation's Class element, a KClass property in Kotlin; a nullable value into a library result's member
+     * ({@code Optional.ofNullable(d).orElse(…)}), which takes null as in Java.
      */
     @Test
     public void langchain4jShapes() {
-        String kotlin = kotlin(LANGCHAIN4J_SHAPES, new KotlinPrintOptions(new ByName(Set.of("text", "DEFAULT<,>")),
+        String kotlin = kotlin(LANGCHAIN4J_SHAPES, new KotlinPrintOptions(new ByName(Set.of("text", "DEFAULT<,>", "d", "describe", "orDefault")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "fromJson((s as String?), MutableMap::class.java)");
         contains(kotlin, "as MutableMap<String, Any>)");
         contains(kotlin, "val DEFAULT: Function<String, Int?> = Function<String, Int?> { q -> 3 }");
         contains(kotlin, "fun subtype(sub: Sub): Class<*> = sub.value.java");
+        contains(kotlin, "Optional.ofNullable(d).orElse(describe(c))");
+        assertFalse(kotlin.contains("describe(c)!!"), kotlin);
     }
 }
