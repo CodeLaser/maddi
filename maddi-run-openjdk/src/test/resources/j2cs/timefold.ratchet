@@ -57,9 +57,13 @@
 # 2026-10-12, in a type's own instance members a cast to or a local of its wildcard is the type itself (Java's equals
 # reads the other instance's private fields, which the companion has not): CS1061 371 -> 325, 925 -> 945 compiling
 # files, 3095 -> 3050 errors.
+#
+# 2026-10-12, an abstract redeclaration checked against every ancestor (CS0533 16 -> 0, CS0534 130 -> 109), a method
+# group's type arguments only its result gives (AbstractMinMaxSlot.MinState<Result_>), Slot::new of an inner class with
+# its enclosing instance (CS7036 60 -> 38): 945 -> 986 compiling files, 3050 -> 2981 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	945
+compilingFiles	986
 unmappedJdkUses	1386
