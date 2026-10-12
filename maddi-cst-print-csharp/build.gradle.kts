@@ -25,7 +25,7 @@ dependencies {
     // TextImpl, …) and the import computation, exactly as the Java and Kotlin printers do
     implementation(project(":maddi-cst-impl"))
     // the analysis's verdicts stored on the declarations (CSharpFacts.STORED), as the Kotlin printer reads them
-    implementation(project(":maddi-cst-analysis"))
+    api(project(":maddi-cst-analysis"))
 
     // the tests print Java parsed by the openjdk front end (Java -> C# translation)
     testImplementation(project(":maddi-cst-print"))

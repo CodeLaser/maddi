@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
@@ -35,7 +36,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The {@link NullabilityVerdicts} applied: a declaration's type as the verdict has it, and at a use site, the
+ * The {@link NullabilityFacts} applied: a declaration's type as the verdict has it, and at a use site, the
  * {@link KotlinPrintOptions.NullCheck} where a value Kotlin types as nullable is used as non-null.
  * <p>
  * Kotlin types a value as nullable when it comes from a declaration whose verdict is NULLABLE, or from a JDK
@@ -51,7 +52,7 @@ final class KotlinNullability {
 
     /**
      * JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). The analysis
-     * knows them from its hint archives and stores NULLABILITY_METHOD on them, which {@link PropertyVerdicts}
+     * knows them from its hint archives and stores NULLABILITY_METHOD on them, which {@link NullabilityFacts#STORED}
      * reads; this list is for a translation without the analysis. Kotlin's Throwable declares {@code open val cause:
      * Throwable?} and {@code message: String?}: open, so no {@code != null} test smart-casts them.
      */
@@ -64,7 +65,7 @@ final class KotlinNullability {
     private KotlinNullability() {
     }
 
-    static NullabilityVerdicts verdicts() {
+    static NullabilityFacts verdicts() {
         return KotlinContext.options().verdicts();
     }
 
@@ -226,24 +227,22 @@ final class KotlinNullability {
     /** The type of a local variable declared by {@code declaration}; remembered for the uses that follow. */
     static ParameterizedType localType(Element declaration, LocalVariable variable) {
         MethodInfo method = KotlinContext.currentMethod();
-        ParameterizedType verdict = method == null ? null : verdicts().local(method, declaration, variable);
-        if (verdict != null && verdict.nullable() == NullableState.UNSPECIFIED && !verdict.isPrimitiveExcludingVoid()) {
-            // a verdict that is no decision (a degraded method's unreached local): Kotlin has no platform type for
-            // a local, and nullable is the choice that compiles; without any verdict the declared type stands
-            verdict = verdict.withNullable(NullableState.NULLABLE);
-        }
+        // a verdict that is no decision (a degraded method's unreached local) is nullable, the choice that compiles;
+        // without any verdict the declared type stands
+        ParameterizedType verdict = method == null ? null
+                : NullabilityFacts.decided(verdicts().local(method, declaration, variable));
         ParameterizedType type = verdict != null ? verdict : variable.parameterizedType();
         KotlinContext.localType(variable.simpleName(), type);
         return type;
     }
 
-    /** The pass asserts this local at its declaration: see {@link NullabilityVerdicts#assertedAtDeclaration}. */
+    /** The pass asserts this local at its declaration: see {@link NullabilityFacts#assertedAtDeclaration}. */
     static boolean assertedAtDeclaration(Element declaration, LocalVariable variable) {
         MethodInfo method = KotlinContext.currentMethod();
         return method != null && verdicts().assertedAtDeclaration(method, declaration, variable);
     }
 
-    /** See {@link NullabilityVerdicts#unobservedBeforeDereference}. */
+    /** See {@link NullabilityFacts#unobservedBeforeDereference}. */
     static boolean unobservedBeforeDereference(Element declaration, LocalVariable variable) {
         MethodInfo method = KotlinContext.currentMethod();
         return method != null && verdicts().unobservedBeforeDereference(method, declaration, variable);

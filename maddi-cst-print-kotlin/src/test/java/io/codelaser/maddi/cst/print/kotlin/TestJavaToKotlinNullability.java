@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -47,7 +48,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /** NULLABLE for the declarations named here: fields and parameters by name, returns by method, locals by name. */
-    private record ByName(Set<String> nullable, Set<String> checked) implements NullabilityVerdicts {
+    private record ByName(Set<String> nullable, Set<String> checked) implements NullabilityFacts {
         ByName(Set<String> nullable) {
             this(nullable, Set.of());
         }
