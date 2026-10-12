@@ -46,7 +46,7 @@ public class JavaNioFile {
         @AllowsInterrupt
         static SeekableByteChannel newByteChannel(
             Path path,
-            Set<? extends OpenOption> options,
+            @NotModified Set<? extends OpenOption> options,
             FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
@@ -167,7 +167,7 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path setPosixFilePermissions(Path path, Set<PosixFilePermission> perms) { return null; }
+        static Path setPosixFilePermissions(Path path, @NotModified Set<PosixFilePermission> perms) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
@@ -206,7 +206,7 @@ public class JavaNioFile {
         @AllowsInterrupt @NotModified
         static Path walkFileTree(
             Path start,
-            Set<FileVisitOption> options,
+            @NotModified Set<FileVisitOption> options,
             int maxDepth,
             FileVisitor<? super Path> visitor) { return null; }
 
@@ -257,13 +257,13 @@ public class JavaNioFile {
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, Iterable<? extends CharSequence> lines, Charset cs, OpenOption ... options) {
+        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, Charset cs, OpenOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, Iterable<? extends CharSequence> lines, OpenOption ... options) { return null; }
+        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt

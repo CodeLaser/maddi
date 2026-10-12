@@ -4197,6 +4197,58 @@
  {"name": "Munzip(3,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
   {"name": "P$this$unzip(0)", "data":{"containerParameter":1}}}]},
 
+{"name": "Tkotlin.collections.CollectionsKt__MutableCollectionsKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
+ {"name": "MaddAll(0,java.util.Collection,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$addAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddAll(1,java.util.Collection,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$addAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MaddAll(2,java.util.Collection,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$addAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "MconvertToListIfNotCollection(3,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+  {"name": "P$this$convertToListIfNotCollection(0)", "data":{"containerParameter":1}}},
+ {"name": "MremoveAll(4,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$removeAll(0)", "data":{"containerParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MremoveAll(5,java.util.Collection,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$removeAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveAll(6,java.util.Collection,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$removeAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveAll(7,java.util.Collection,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$removeAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "MremoveAll(8,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$removeAll(0)", "data":{"containerParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MremoveFirst(9,java.util.List)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$removeFirst(0)", "data":{"containerParameter":1}}},
+ {"name": "MremoveFirstOrNull(10,java.util.List)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$removeFirstOrNull(0)", "data":{"containerParameter":1}}},
+ {"name": "MremoveLast(11,java.util.List)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$removeLast(0)", "data":{"containerParameter":1}}},
+ {"name": "MremoveLastOrNull(12,java.util.List)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+  {"name": "P$this$removeLastOrNull(0)", "data":{"containerParameter":1}}},
+ {"name": "MretainAll(13,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$retainAll(0)", "data":{"containerParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]},
+ {"name": "MretainAll(14,java.util.Collection,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$retainAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MretainAll(15,java.util.Collection,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$retainAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MretainAll(16,java.util.Collection,kotlin.sequences.Sequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$retainAll(0)", "data":{"annotatedApi":1,"containerParameter":1}},
+  {"name": "Pelements(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "MretainAll(17,java.util.List,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+  {"name": "P$this$retainAll(0)", "data":{"containerParameter":1}},
+  {"name": "Ppredicate(1)", "data":{"ignoreModsParameter":1}}]}]},
+
 {"name": "Tkotlin.collections.CollectionsKt___CollectionsJvmKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
  {"name": "MfilterIsInstance(0,java.lang.Iterable,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nullabilityMethod":"N"}, "subs":[
@@ -4519,10 +4571,10 @@
  {"name": "MmaxByOrThrow(95,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$maxBy(0)", "data":{"containerParameter":1}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MmaxOrNull(96,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "P$this$maxOrNull(0)", "data":{"containerParameter":1}}},
- {"name": "MmaxOrNull(97,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "P$this$maxOrNull(0)", "data":{"containerParameter":1}}},
+ {"name": "MmaxOrNull(96,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$maxOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MmaxOrNull(97,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$maxOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MmaxOrNull(98,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$maxOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MmaxOrThrow(99,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
@@ -4543,10 +4595,10 @@
  {"name": "MminByOrThrow(105,java.lang.Iterable,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
   {"name": "P$this$minBy(0)", "data":{"containerParameter":1}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1}}]},
- {"name": "MminOrNull(106,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "P$this$minOrNull(0)", "data":{"containerParameter":1}}},
- {"name": "MminOrNull(107,java.lang.Iterable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
-  {"name": "P$this$minOrNull(0)", "data":{"containerParameter":1}}},
+ {"name": "MminOrNull(106,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$minOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MminOrNull(107,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2}, "sub":
+  {"name": "P$this$minOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MminOrNull(108,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
   {"name": "P$this$minOrNull(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MminOrThrow(109,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":

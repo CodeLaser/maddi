@@ -175,8 +175,8 @@ public class JavaxSwing {
         //override from javax.swing.MutableComboBoxModel
         void removeElement(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object anObject) { }
         void removeAllElements() { }
-        void addAll(Collection<? extends E> c) { }
-        void addAll(int index, Collection<? extends E> c) { }
+        void addAll(@NotModified Collection<? extends E> c) { }
+        void addAll(int index, @NotModified Collection<? extends E> c) { }
     }
 
     //public class JComboBox extends JComponent implements ItemSelectable, ListDataListener, ActionListener, Accessible

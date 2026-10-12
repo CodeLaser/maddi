@@ -16,6 +16,7 @@ package io.codelaser.maddi.aapi.archive.libs.kotlin;
 
 import io.codelaser.maddi.annotation.Identity;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import kotlin.Pair;
@@ -508,13 +509,34 @@ public class KotlinCollections {
             return null;
         }
 
-        @Independent(hc = true)
-        static <T extends Comparable<? super T>> T maxOrNull(@NotModified Iterable<? extends T> receiver) {
+        /*
+        public fun Iterable<Double>.maxOrNull(): Double?, and the Float and Comparable overloads: tagged as minOrThrow
+        is. Until the parser matched on the full signature, the one untagged Comparable contract landed on the Double
+        overload; with it, Double and Float had none.
+        */
+        static Double maxOrNull$Double(@NotModified Iterable<Double> receiver) {
+            return null;
+        }
+
+        static Float maxOrNull$Float(@NotModified Iterable<Float> receiver) {
             return null;
         }
 
         @Independent(hc = true)
-        static <T extends Comparable<? super T>> T minOrNull(@NotModified Iterable<? extends T> receiver) {
+        static <T extends Comparable<? super T>> T maxOrNull$Comparable(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        static Double minOrNull$Double(@NotModified Iterable<Double> receiver) {
+            return null;
+        }
+
+        static Float minOrNull$Float(@NotModified Iterable<Float> receiver) {
+            return null;
+        }
+
+        @Independent(hc = true)
+        static <T extends Comparable<? super T>> T minOrNull$Comparable(@NotModified Iterable<? extends T> receiver) {
             return null;
         }
 
@@ -1075,6 +1097,49 @@ public class KotlinCollections {
         @NotNull
         static <T> Sequence<T> asSequence(@NotModified T[] receiver) {
             return null;
+        }
+    }
+
+    /*
+    public fun <T> MutableCollection<in T>.addAll(elements: Iterable<T>): Boolean, and removeAll / retainAll, each with
+    an Iterable, an Array and a Sequence argument: the receiver changes, the argument is only read. The
+    (Collection, Collection) forms and `plusAssign` are @InlineOnly.
+    */
+    class CollectionsKt__MutableCollectionsKt$ {
+        static <T> boolean addAll(@Modified Collection<? super T> receiver, @NotModified Iterable<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean addAll(@Modified Collection<? super T> receiver, @NotModified Sequence<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean addAll(@Modified Collection<? super T> receiver, @NotModified T[] elements) {
+            return false;
+        }
+
+        static <T> boolean removeAll(@Modified Collection<? super T> receiver, @NotModified Iterable<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean removeAll(@Modified Collection<? super T> receiver, @NotModified Sequence<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean removeAll(@Modified Collection<? super T> receiver, @NotModified T[] elements) {
+            return false;
+        }
+
+        static <T> boolean retainAll(@Modified Collection<? super T> receiver, @NotModified Iterable<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean retainAll(@Modified Collection<? super T> receiver, @NotModified Sequence<? extends T> elements) {
+            return false;
+        }
+
+        static <T> boolean retainAll(@Modified Collection<? super T> receiver, @NotModified T[] elements) {
+            return false;
         }
     }
 
