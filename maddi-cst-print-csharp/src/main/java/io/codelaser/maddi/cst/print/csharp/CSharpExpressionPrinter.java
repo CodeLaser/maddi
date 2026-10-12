@@ -132,7 +132,10 @@ public final class CSharpExpressionPrinter {
      */
     private static OutputBuilder cast(Cast cast, Qualification q) {
         // a value that may be null keeps its null through a reference cast, in C# as in Java: (T?) x (CS8600)
-        String type = CSharpNullability.mayBeNull(cast.expression())
+        // (AiMessage) null, which picks an overload, is (AiMessage?) null
+        boolean nullConstant = unwrap(cast.expression()) instanceof NullConstant
+                               && CSharpContext.program().facts().nullabilityAnalysed();
+        String type = nullConstant || CSharpNullability.mayBeNull(cast.expression())
                 ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
                 : CSharpTypeName.of(cast.parameterizedType(), q);
         OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
@@ -311,6 +314,31 @@ public final class CSharpExpressionPrinter {
             return null;
         }
         return CSharpContext.libraries().call(method, mc);
+    }
+
+    /**
+     * The C# members whose result is nullable where Java's is not, or not known to be: reflection's lookups, which
+     * return null where Java throws, JSON deserialization, a dictionary's {@code GetValueOrDefault}.
+     */
+    private static final java.util.regex.Pattern NULLABLE_RESULT = java.util.regex.Pattern.compile(
+            "JsonSerializer\\.Deserialize|JsonConvert\\.DeserializeObject|\\.GetElementType\\(|\\.GetConstructor\\("
+            + "|\\.GetMethod\\(|\\.GetField\\(|\\.GetProperty\\(|\\.Invoke\\(|Type\\.GetType\\(|\\.GetCustomAttribute\\b"
+            + "|Activator\\.CreateInstance\\(|\\.GetValueOrDefault\\(\\$1\\)");
+
+    /** Java members whose C# template's result is nullable, though the template is shared ({@code $0[$1]}). */
+    private static final java.util.Set<String> NULLABLE_MEMBERS = java.util.Set.of(
+            "com.fasterxml.jackson.databind.JsonNode.get", "java.lang.Object.toString");
+
+    /**
+     * Whether C# declares the result of the call {@code mc} nullable, a library's member that the analysis's facts
+     * do not know: {@code object.ToString()}'s {@code string?}, {@code node["k"]}'s {@code JsonNode?}, {@link #NULLABLE_RESULT}.
+     */
+    static boolean nullableResult(MethodCall mc) {
+        MethodInfo method = mc.methodInfo();
+        if (method.isVoid() || method.returnType().isPrimitiveExcludingVoid()) return false;
+        if (NULLABLE_MEMBERS.contains(method.typeInfo().fullyQualifiedName() + "." + method.name())) return true;
+        LibraryMapping.Rule rule = rule(mc);
+        return rule != null && rule.value() != null && NULLABLE_RESULT.matcher(rule.value()).find();
     }
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */

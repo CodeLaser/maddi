@@ -88,8 +88,14 @@ final class CSharpAttributes {
             OutputBuilder b = new OutputBuilderImpl().add(new TextImpl("public " + CSharpTypeName.of(element.returnType(), q)
                                                                         + " " + property(element) + " { get; set; }"));
             Expression defaultValue = defaultValue(element);
+            ParameterizedType type = element.returnType();
             if (defaultValue != null) {
-                b.add(SymbolEnum.assignment("=")).add(value(defaultValue, element.returnType(), q)).add(SymbolEnum.SEMICOLON);
+                b.add(SymbolEnum.assignment("=")).add(value(defaultValue, type, q)).add(SymbolEnum.SEMICOLON);
+            } else if (CSharpContext.program().facts().nullabilityAnalysed()
+                       && (type.arrays() > 0 || type.isJavaLangString() || type.typeInfo() != null
+                                                && "java.lang.Class".equals(type.typeInfo().fullyQualifiedName()))) {
+                // a required element: Java's annotation always has it, C#'s attribute when its user sets it (CS8618)
+                b.add(new TextImpl(" = null!;"));
             }
             members.add(b);
         }

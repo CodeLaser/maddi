@@ -359,7 +359,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .add(SymbolEnum.RIGHT_BRACE);
             return (OutputBuilder) b.add(SymbolEnum.SEMICOLON);
         }).toList());
-        out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }")));
+        // set by each constant's initializer, which C#'s nullable analysis does not see from the constructor (CS8618)
+        String notNull = CSharpContext.program().facts().nullabilityAnalysed() ? " = null!;" : "";
+        out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }" + notNull)));
         out.add(new OutputBuilderImpl().add(new TextImpl("public int Ordinal { get; private init; }")));
         if (typeInfo.methods().stream().noneMatch(m -> "toString".equals(m.name()) && m.parameters().isEmpty())) {
             out.add(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => Name;")));
