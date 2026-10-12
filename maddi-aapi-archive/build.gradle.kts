@@ -38,6 +38,7 @@ dependencies {
     compileOnly("org.assertj:assertj-core:3.27.7") // libs/assertj (CodeLaser/maddi#116)
     compileOnly("org.hamcrest:hamcrest:2.2") // libs/hamcrest
     compileOnly("org.junit.jupiter:junit-jupiter-params:6.0.3") // libs/junitparams
+    compileOnly("org.mockito:mockito-core:5.23.0") // libs/mockito
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }

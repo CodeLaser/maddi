@@ -50,7 +50,7 @@ public final class ShippedAnalysisResults {
     /**
      * The analysis results maddi ships (maddi-aapi-archive, on the run-time class path of the command lines and in
      * the plugin jars): the JDK first, as the libraries were compiled against it, then libs.jar (the test, log,
-     * AssertJ, hamcrest and JUnit-params libraries, the Kotlin stdlib, and Guava's collections).
+     * AssertJ, hamcrest, JUnit-params and Mockito libraries, the Kotlin stdlib, and Guava's collections).
      */
     public static final List<String> RESOURCES = List.of(
             "resource:/io/codelaser/maddi/aapi/archive/analyzedPackageFiles/openjdk.jar",
