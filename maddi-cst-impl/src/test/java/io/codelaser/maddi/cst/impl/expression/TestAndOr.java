@@ -140,4 +140,15 @@ public class TestAndOr extends CommonTest {
         Expression x2 = r.equals(r.newChar('<'), x);
         assertEquals("'!'==x||'<'==x", evalOr.eval(List.of(x1, x2)).toString(), "two terms stay an Or");
     }
+
+    @DisplayName("(A || X) && (!A || X) resolves to X, and only that shape (maddi#117)")
+    @Test
+    public void resolution() {
+        assertEquals("b", r.and(r.or(a, b), r.or(b, r.negate(a))).toString());
+        // c is not dropped: a=false, b=false, c=true satisfies the input
+        assertEquals("(a||b||c)&&(!a||b)", r.and(r.or(a, b, c), r.or(b, r.negate(a))).toString());
+        // two opposite pairs: a=true, b=false, d=false satisfies the input
+        assertEquals("(a||b||d)&&(!a||!b||d)",
+                r.and(r.or(a, b, d), r.or(r.negate(a), r.negate(b), d)).toString());
+    }
 }

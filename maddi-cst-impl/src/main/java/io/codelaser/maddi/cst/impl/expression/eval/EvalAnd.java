@@ -236,21 +236,28 @@ public class EvalAnd {
             }
 
             // A || B &&  A || !B ==> A
+            // resolution: valid only when both ORs have the same components apart from exactly one opposite pair
+            // (A || B || C && A || !B keeps C; A || B || X && !A || !B || X does not imply X)
             if (prev instanceof Or) {
                 List<Expression> components = components(value);
                 List<Expression> prevComponents = components(prev);
                 List<Expression> equal = new ArrayList<>();
+                int opposites = 0;
                 boolean ok = true;
                 for (Expression value1 : components) {
                     if (prevComponents.contains(value1)) {
                         equal.add(value1);
-                    } else if (!prevComponents.contains(runtime.negate(value1))) {
+                    } else if (prevComponents.contains(runtime.negate(value1))) {
+                        ++opposites;
+                    } else {
                         // not opposite, e.g. C
                         ok = false;
                         break;
                     }
                 }
-                if (ok && !equal.isEmpty()) {
+                if (ok && opposites == 1 && !equal.isEmpty()
+                    && components.size() == equal.size() + 1
+                    && prevComponents.size() == equal.size() + 1) {
                     Expression newOr = runtime.or(equal);
                     newConcat.set(newConcat.size() - 1, newOr);
                     LOGGER.debug("Skipping {} in OR, simplified to {}", value, newOr);
