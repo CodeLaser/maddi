@@ -1464,6 +1464,26 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String JOINERS = """
+            package org.example.joiners;
+            public class Joiners<A> {
+                interface BiJoiner<A, B> { }
+                @SuppressWarnings("unchecked")
+                <B> int join(Joiners<B> other, BiJoiner<A, B>... joiners) { return joiners.length; }
+                @SuppressWarnings("unchecked")
+                <B> int join(Joiners<B> other, BiJoiner<A, B> joiner) { return join(other, new BiJoiner[] { joiner }); }
+                <B> int join(Joiners<B> other) { return join(other, new BiJoiner[0]); }
+            }
+            """;
+
+    /** A raw array passed as a variable arity parameter's array gets the parameter's type arguments. */
+    @Test
+    public void rawVarargsArray() {
+        String cs = translate("Joiners", JOINERS);
+        contains(cs, "Join(other, new IBiJoiner<A, B>[] { joiner })");
+        contains(cs, "Join(other, new IBiJoiner<A, B>[0])");
+    }
+
     private static final String MAPPINGS = """
             package org.example.mappings;
             import java.util.function.Function;

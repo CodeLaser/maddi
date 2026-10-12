@@ -744,7 +744,19 @@ public final class CSharpExpressionPrinter {
 
     /** The {@code i}-th argument of a call of {@code method}: converted to its parameter's type, asserted when null may not go there. */
     private static OutputBuilder argument(Expression value, MethodInfo method, int i, Qualification q) {
-        return CSharpNullability.intoParameter(value, method, i, converted(value, parameterType(method, i), q));
+        return CSharpNullability.intoParameter(value, method, i, converted(value, argumentTarget(value, method, i), q));
+    }
+
+    /**
+     * The type an argument converts to: its parameter's; for a variable arity parameter, the array type when the
+     * argument is the array itself, a raw {@code new BiJoiner[] { joiner }} that becomes {@code new IBiJoiner<A, B>[]}.
+     */
+    private static ParameterizedType argumentTarget(Expression value, MethodInfo method, int i) {
+        ParameterizedType target = parameterType(method, i);
+        if (target != null || method == null || i != method.parameters().size() - 1) return target;
+        ParameterInfo p = method.parameters().get(i);
+        ParameterizedType type = value.parameterizedType();
+        return p.isVarArgs() && type != null && type.arrays() == p.parameterizedType().arrays() ? p.parameterizedType() : null;
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
