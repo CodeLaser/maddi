@@ -1563,6 +1563,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static <T, P> String keyed(Function<T, P> mapping, T t) { return key(mapping, t); }
                 static String raw(Function mapping) { return String.valueOf(mapping.apply("x")); }
                 static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
+                static String supplied(java.util.function.Supplier<?> supplier) { return String.valueOf(supplier.get()); }
+                static <P> String supply(java.util.function.Supplier<P> supplier) { return supplied(supplier); }
             }
             """;
 
@@ -1576,6 +1578,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");
+        contains(cs, "Supplied(() => supplier())");
     }
 
     private static final String SCORES = """

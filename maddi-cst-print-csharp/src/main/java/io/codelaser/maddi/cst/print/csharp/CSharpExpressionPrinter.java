@@ -820,8 +820,9 @@ public final class CSharpExpressionPrinter {
             arguments.add(same ? name : "(" + fromS + ") " + name);
         }
         String parameters = names.size() == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
-        return new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q))
-                .add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        OutputBuilder b = new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q));
+        if (arguments.isEmpty()) return b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        return b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */
