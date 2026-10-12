@@ -1161,6 +1161,16 @@ public final class CSharpExpressionPrinter {
         }
         if (method.isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
+            // Triple::new is raw: the type Java inferred for the reference's result, new Triple<A, B, C>(…)
+            // (HashSet::new as an IntFunction<Set<Value>>: HashSet<E> implements Set<E>, new HashSet<Value>(…))
+            ParameterizedType result = mr.concreteReturnType();
+            if (type.arrays() == 0 && type.parameters().isEmpty() && type.typeInfo() != null
+                && !type.typeInfo().typeParameters().isEmpty() && result != null && result.arrays() == 0
+                && result.parameters().size() == type.typeInfo().typeParameters().size()
+                && result.parameters().stream().allMatch(a -> a.wildcard() == null)
+                && (type.typeInfo().equals(result.typeInfo()) || passesOwnParameters(type.typeInfo(), result.typeInfo()))) {
+                type = type.withParameters(result.parameters());
+            }
             String created = type.arrays() > 0
                     ? "new " + CSharpTypeName.of(type.copyWithoutArrays(), q) + "[" + parameters.getFirst() + "]"
                       + "[]".repeat(type.arrays() - 1)
@@ -1193,6 +1203,16 @@ public final class CSharpExpressionPrinter {
                         + String.join(", ", parameters.subList(1, parameters.size())) + ")");
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /** {@code created} declares {@code supertype} with its own type parameters, in order: {@code HashSet<E> : Set<E>}. */
+    private static boolean passesOwnParameters(TypeInfo created, TypeInfo supertype) {
+        List<ParameterizedType> declared = new java.util.ArrayList<>(created.interfacesImplemented());
+        if (created.parentClass() != null) declared.add(created.parentClass());
+        List<TypeParameter> own = created.typeParameters();
+        return declared.stream().anyMatch(s -> supertype.equals(s.typeInfo()) && s.parameters().size() == own.size()
+                && IntStream.range(0, own.size()).allMatch(i -> s.parameters().get(i).isTypeParameter()
+                && own.get(i).equals(s.parameters().get(i).typeParameter())));
     }
 
     /** Slot::new of an inner class: its enclosing instance first, as {@code new Slot(…)} has it (CS7036). */

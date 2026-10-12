@@ -109,9 +109,11 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
         b.add(parameters(methodInfo, captured, q));
-        List<String> constraints = new java.util.ArrayList<>(erased ? List.of()
+        // an override and an explicit implementation inherit the constraints, and may not repeat them (CS0460)
+        boolean inherited = overridden != null || inheritance != null && inheritance.contains("override");
+        List<String> constraints = new java.util.ArrayList<>(erased || inherited ? List.of()
                 : CSharpTypeName.constraints(methodInfo.typeParameters(), q));
-        constraints.addAll(captured.constraints());
+        if (!inherited) constraints.addAll(captured.constraints());
         for (String constraint : constraints) {
             b.add(SpaceEnum.ONE).add(new TextImpl(constraint));
         }

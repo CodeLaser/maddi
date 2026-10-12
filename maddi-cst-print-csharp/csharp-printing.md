@@ -181,6 +181,11 @@ implements the interface.
   it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
   for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
   reference binds.
+- **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
+  `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
+  parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`.
+- **Constraints of overrides.** An override and an explicit interface implementation inherit their constraints and
+  may not repeat them (CS0460).
 - **Delegate variance.** Java passes a `Function<A, P>` where a `Function<A, ?>` is expected; C#'s `Func` is
   covariant only in a reference type, which a type parameter is not known to be (CS1503). A variable is wrapped in a
   lambda that C# converts with the boxing, `x0_ => leftMapping(x0_)`, a parameter that differs cast,

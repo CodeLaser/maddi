@@ -1565,6 +1565,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
                 static String supplied(java.util.function.Supplier<?> supplier) { return String.valueOf(supplier.get()); }
                 static <P> String supply(java.util.function.Supplier<P> supplier) { return supplied(supplier); }
+                abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
+                static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
+                record Pair<L, R>(L left, R right) { }
+                static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
+                static <V> java.util.function.IntFunction<java.util.Set<V>> sets() { return java.util.HashSet::new; }
                 static <R> java.util.List<R> empty() { return new java.util.ArrayList<>(); }
                 static <R> java.util.function.Supplier<java.util.List<R>> emptySupplier() { return Streams::empty; }
                 static <T, R> R max(Function<T, R> mapping, T t) { return mapping.apply(t); }
@@ -1587,6 +1592,12 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Max(mapping, t)");
         // a method group whose type parameter only the result mentions: C# does not infer it from the delegate
         contains(cs, "=> Streams.Empty<R>;");
+        // a raw constructor reference creates the type Java inferred for its result
+        contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
+        contains(cs, "new HashSet<V>(p0)");
+        // an override inherits its constraints, and may not repeat them (CS0460)
+        contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
+        contains(cs, "internal override S Build<S>(S s) => s;");
     }
 
     private static final String SCORES = """
