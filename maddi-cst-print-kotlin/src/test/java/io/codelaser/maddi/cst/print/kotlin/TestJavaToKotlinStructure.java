@@ -981,8 +981,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     /**
-     * Kotlin has no generic {@code fun interface} method, no property overriding a function, no {@code return} in an
-     * init block, and no lateinit for Long or T.
+     * Kotlin has no generic {@code fun interface} method, no property overriding a function and no {@code return} in
+     * an init block; a final field assigned in secondary constructors is a {@code val}, as kotlinc checks those as
+     * javac does.
      */
     @Test
     public void declarations() {
@@ -991,9 +992,11 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("@JvmRecord"), kotlin);
         assertTrue(kotlin.contains("override fun value(): T = value"), kotlin);
         assertTrue(kotlin.contains("constructor(n: String) {"), kotlin);
-        assertTrue(kotlin.contains("internal var total: Long = 0L"), kotlin);
-        assertTrue(kotlin.contains("internal var content: T = null as T"), kotlin);
-        assertTrue(kotlin.contains("internal lateinit var label: String"), kotlin);
+        // final fields are vals without a primary constructor too: each secondary constructor assigns them once
+        assertTrue(kotlin.contains("internal val total: Long\n"), kotlin);
+        assertTrue(kotlin.contains("internal val content: T\n"), kotlin);
+        assertTrue(kotlin.contains("internal val label: String\n"), kotlin);
+        assertTrue(kotlin.contains("internal val name: String\n"), kotlin);
     }
 
     @Language("java")

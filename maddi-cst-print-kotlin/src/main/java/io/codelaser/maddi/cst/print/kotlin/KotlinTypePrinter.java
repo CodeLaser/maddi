@@ -438,17 +438,6 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /**
-     * A Java class with more than one constructor has no primary one, so its final fields cannot be vals; nor has one
-     * whose constructor returns early.
-     */
-    static boolean finalFieldsAssignedInSecondaryConstructors(TypeInfo typeInfo) {
-        if (fromKotlinSource(typeInfo) || typeInfo.typeNature().isRecord()) return false;
-        List<MethodInfo> explicit = typeInfo.constructors().stream()
-                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c)).toList();
-        return explicit.size() > 1 || explicit.size() == 1 && !typeInfo.isAnonymous() && returnsEarly(explicit.getFirst());
-    }
-
-    /**
      * {@code companion object { … }} with the static fields, static methods and static initializers, in that order;
      * nothing when there are none. The enum constants stay entries.
      */

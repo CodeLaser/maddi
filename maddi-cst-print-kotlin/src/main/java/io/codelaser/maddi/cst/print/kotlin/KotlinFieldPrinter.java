@@ -81,8 +81,9 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
     }
 
     private static boolean isVal(FieldInfo fieldInfo, boolean hasInitializer, boolean asParameterInPrimaryConstructor) {
-        return isFinal(fieldInfo) && (hasInitializer || fieldInfo.isStatic()
-                                       || !KotlinTypePrinter.finalFieldsAssignedInSecondaryConstructors(fieldInfo.owner()))
+        // a final field without a value is a val also in a class without a primary constructor: Kotlin, like Java,
+        // checks that each secondary constructor that does not delegate to this(...) assigns it once
+        return isFinal(fieldInfo)
                || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
     }
 
