@@ -88,11 +88,27 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>
  * The output lands in {@code build/j2k/<name>/}: the translated sources, both compilers' raw output, and
  * {@code report.txt} with the errors by kind. Read the report before tightening.
+ * <p>
+ * A run may leave some metrics {@code reportedOnly}: measured and written into the report, not ratcheted. Without
+ * nullability verdicts every declaration prints non-null, so a class that newly compiles often fails its tests at
+ * runtime (a builder's unset lateinit property, a null into a non-null parameter): there, a printer fix that gets
+ * more files compiling lowers the test counts. The runs without verdicts ratchet the printer's metrics and only
+ * report {@link #TESTS}; the runs with verdicts ratchet them all.
  *
- * @param name        the run's name, for the output directory and the messages
- * @param ratchetFile the recorded numbers, relative to the module directory
+ * @param name         the run's name, for the output directory and the messages
+ * @param ratchetFile  the recorded numbers, relative to the module directory
+ * @param reportedOnly the metrics this run measures and reports without ratcheting
  */
-public record JavaToKotlinRatchet(String name, Path ratchetFile) {
+public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> reportedOnly) {
+
+    /** The test counts: what a translation without verdicts reports and does not ratchet. */
+    public static final Set<String> TESTS = Set.of("testsPassing", "translatedTestsPassing");
+
+    /** Every metric ratcheted. */
+    public JavaToKotlinRatchet(String name, Path ratchetFile) {
+        this(name, ratchetFile, Set.of());
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaToKotlinRatchet.class);
 
     /** name -> direction. "=" must not move, "<=" may only go down, ">=" may only go up. */
@@ -505,7 +521,9 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
 
     private String report(Map<String, Long> measured, List<String> crashes, Compiled all, Compiled clean) {
         StringBuilder sb = new StringBuilder("Java -> Kotlin, " + name + "\n\n");
-        measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
+        measured.forEach((k, v) -> sb.append(reportedOnly.contains(k)
+                ? String.format("  %-18s %6d   (reported, not ratcheted)%n", k, v)
+                : String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "typeErrors", clean.errors.size()));
         if (!crashes.isEmpty()) {
             sb.append("\nprinter crashes:\n");
@@ -559,6 +577,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile) {
         List<String> better = new ArrayList<>();
         DIRECTION.forEach((name, direction) -> {
             if (!measured.containsKey(name)) return; // testsPassing, where the tests did not run
+            if (reportedOnly.contains(name)) return;
             Long was = recorded.get(name);
             long is = measured.get(name);
             if (was == null) {

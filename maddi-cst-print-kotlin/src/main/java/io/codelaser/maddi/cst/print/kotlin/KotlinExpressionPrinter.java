@@ -492,18 +492,34 @@ public class KotlinExpressionPrinter {
                     types = params.stream().map(p -> p.parameterizedType().withNullable(
                             io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)).toList();
                 }
+                if (call != null && hasParameter && wildcardReceiver(call)) {
+                    // metadata.forEach { key, value -> } on a Map<String, *>: Kotlin's value is an Any?, where Java's
+                    // capture of ? is an Object
+                    List<ParameterizedType> fromStar = new ArrayList<>(types.size() == params.size() ? types
+                            : java.util.Collections.nCopies(params.size(), (ParameterizedType) null));
+                    for (int j = 0; j < params.size(); j++) {
+                        ParameterizedType java = params.get(j).parameterizedType();
+                        if ((fromStar.get(j) == null || fromStar.get(j).isTypeParameter()) && java.arrays() == 0
+                            && (java.typeInfo() == null ? !java.isTypeParameter() || java.isUnboundWildcard()
+                                : java.typeInfo().isJavaLangObject())) {
+                            fromStar.set(j, java.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+                        }
+                    }
+                    types = fromStar;
+                }
                 boolean typed = types.size() == params.size();
                 for (int j = 0; typed && j < params.size(); j++) {
                     ParameterizedType t = types.get(j);
                     if (t != null && KotlinNullability.isNullable(t)) KotlinContext.lambdaParameterType(params.get(j), t);
                 }
                 try {
-                    printed.add(lambda(l, false, q));
+                    printed.add(lambda(l, hasParameter && besideOtherInterface(method, i), q));
                 } finally {
                     if (typed) params.forEach(p -> KotlinContext.lambdaParameterType(p, null));
                 }
             } else {
-                ParameterizedType declared = !hasParameter ? null : KotlinNullability.parameterType(method.parameters().get(i));
+                ParameterizedType declared = !hasParameter ? mapped ? null : varargsElement(method, i)
+                        : KotlinNullability.parameterType(method.parameters().get(i));
                 boolean argumentTranslated = translated;
                 if (call != null) {
                     ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);
@@ -682,6 +698,40 @@ public class KotlinExpressionPrinter {
                 && other.name().equals(method.name()) && other.parameters().size() == method.parameters().size()
                 && other.parameters().get(i).parameterizedType().typeParameter() != null
                 && other.parameters().get(i).parameterizedType().arrays() == 0);
+    }
+
+    /** The receiver's Java type has a {@code ?} argument: {@code Map<String, ?>}, Kotlin's {@code Map<String, *>}. */
+    private static boolean wildcardReceiver(MethodCall call) {
+        if (call.object() == null || call.objectIsImplicit()) return false;
+        ParameterizedType java = call.object().parameterizedType();
+        return java != null && java.parameters().stream().anyMatch(p -> p != null && p.isUnboundWildcard());
+    }
+
+    /**
+     * An argument passed as one of the varargs: {@code runtime(format, key, value)} into {@code vararg args: Any}, the
+     * element's type with its verdict. Null when {@code i} is no varargs position.
+     */
+    private static ParameterizedType varargsElement(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (method == null || method.parameters().isEmpty()) return null;
+        ParameterInfo last = method.parameters().getLast();
+        if (!last.isVarArgs() || i < method.parameters().size() - 1) return null;
+        ParameterizedType array = KotlinNullability.parameterType(last);
+        return array.arrays() == 1 ? array.componentType() : null;
+    }
+
+    /**
+     * {@code withRetry(() -> …, n)} beside an overload {@code withRetry(Runnable, int)}: Kotlin may take the lambda as
+     * the other interface (a Runnable, whose result is Unit), unless a SAM constructor names Java's.
+     */
+    private static boolean besideOtherInterface(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        if (!KotlinContext.translatingJava()) return false;
+        TypeInfo functional = method.parameters().get(i).parameterizedType().typeInfo();
+        if (functional == null || !functional.isInterface()) return false;
+        return method.typeInfo().methods().stream().anyMatch(other -> other != method
+                && other.name().equals(method.name()) && other.parameters().size() == method.parameters().size()
+                && other.parameters().get(i).parameterizedType().arrays() == 0
+                && other.parameters().get(i).parameterizedType().typeInfo() instanceof TypeInfo t
+                && t != functional && t.isFunctionalInterface());
     }
 
     /** A call on a {@code Stream<X?>}: Kotlin hands its functions an X?. */
@@ -986,6 +1036,15 @@ public class KotlinExpressionPrinter {
             // String factory = (String) properties.get(key): Java's cast lets the null through
             return cast(c, true, q);
         }
+        if (unwrap(e) instanceof Cast c && target != null && !target.parameters().isEmpty()
+            && c.parameterizedType().typeInfo() != null && c.parameterizedType().typeInfo() == target.typeInfo()
+            && c.parameterizedType().arrays() == target.arrays()
+            && c.parameterizedType().parameters().size() == target.parameters().size()) {
+            // (Map<String, Object>) Json.fromJson(…) into a Map<String, Object?>: Kotlin's generics are invariant, and
+            // the cast checks no type argument; it takes those of what it initializes
+            ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
         if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
@@ -1046,7 +1105,8 @@ public class KotlinExpressionPrinter {
             return print(e, q);
         }
         if (unwrap(e) instanceof IntConstant && to != Primitive.FLOAT && to != Primitive.DOUBLE) return print(e, q);
-        OutputBuilder receiver = receiver(e, q);
+        // limit(maxResults) with an Integer field: Java unboxes, and throws on null; Kotlin's Int? has no toLong()
+        OutputBuilder receiver = valueOperand(e, q);
         for (String call : conversion(from, to).split("\\.")) {
             if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
         }
@@ -1290,6 +1350,8 @@ public class KotlinExpressionPrinter {
         if (type.isVoid()) return "Void.TYPE";
         if (type.arrays() > 0) return KotlinTypeName.of(type, q) + "::class.java";
         if (type.typeInfo() == null) return "Any::class.java";
+        // Integer.class: Kotlin's Int::class.java is int.class, the primitive's
+        if (type.typeInfo().isBoxedExcludingVoid()) return KotlinTypeName.name(type.typeInfo(), q) + "::class.javaObjectType";
         return KotlinTypeName.name(type.typeInfo(), q) + "::class.java";
     }
 
@@ -1497,7 +1559,7 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
         String infix = INFIX.get(op);
-        if (infix != null) return infix(bo.lhs(), infix, bo.rhs(), q);
+        if (infix != null) return infix(bo, infix, q);
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
             op = op + "="; // Java's identity comparison of references is Kotlin's === (Kotlin's == calls equals)
         }
@@ -1526,7 +1588,14 @@ public class KotlinExpressionPrinter {
             return new OutputBuilderImpl().add(promoted(bo.lhs(), bo.precedence(), q)).add(KotlinSymbols.binary(op))
                     .add(promoted(bo.rhs(), bo.precedence(), q));
         }
-        if (RELATIONAL.contains(op) && (primitive(bo.lhs().parameterizedType()) != null
+        if (COMPARISON.contains(op) && (primitive(bo.lhs().parameterizedType()) == Primitive.CHAR)
+                                       != (primitive(bo.rhs().parameterizedType()) == Primitive.CHAR)) {
+            // ch < 128: Java compares the char's code; Kotlin compares a Char with a Char only
+            return new OutputBuilderImpl().add(promoted(bo.lhs(), bo.precedence(), q)).add(KotlinSymbols.binary(op))
+                    .add(promoted(bo.rhs(), bo.precedence(), q));
+        }
+        if (RELATIONAL.contains(op) && !(bo.parameterizedType() != null && bo.parameterizedType().isJavaLangString())
+            && (primitive(bo.lhs().parameterizedType()) != null
                                         || primitive(bo.rhs().parameterizedType()) != null)) {
             // numbers only: Kotlin's String? + String is fine, and prints "null" as Java does
             return new OutputBuilderImpl().add(numericOperand(bo.precedence(), bo.lhs(), q))
@@ -1537,6 +1606,8 @@ public class KotlinExpressionPrinter {
                 .add(KotlinSymbols.binary(op))
                 .add(operand(bo.precedence(), bo.rhs(), q));
     }
+
+    private static final java.util.Set<String> COMPARISON = java.util.Set.of("<", ">", "<=", ">=");
 
     private static final java.util.Set<String> RELATIONAL = java.util.Set.of("<", ">", "<=", ">=", "+", "-", "*", "/", "%");
 
@@ -1595,10 +1666,35 @@ public class KotlinExpressionPrinter {
         return lRef && rRef;
     }
 
-    /** {@code a and b}: Kotlin's infix functions bind tighter than comparisons, so anything compound is enclosed. */
+    /**
+     * {@code a and b}: Kotlin's infix functions bind tighter than comparisons, so anything compound is enclosed. Java
+     * promotes a byte, short or char operand to int (an int one to long beside a long); Kotlin has no {@code Byte and
+     * Int}: {@code b.toInt() and 255}. A shift's distance is an Int in Kotlin.
+     */
+    private static OutputBuilder infix(BinaryOperator bo, String function, Qualification q) {
+        Primitive result = primitive(bo.parameterizedType());
+        boolean shift = function.startsWith("sh") || "ushr".equals(function);
+        return new OutputBuilderImpl().add(bitOperand(bo.lhs(), result, q)).add(KotlinSymbols.binary(function))
+               .add(bitOperand(bo.rhs(), shift ? Primitive.INT : result, q));
+    }
+
     private static OutputBuilder infix(Expression lhs, String function, Expression rhs, Qualification q) {
         return new OutputBuilderImpl().add(valueOperand(lhs, q)).add(KotlinSymbols.binary(function))
                .add(valueOperand(rhs, q));
+    }
+
+    private static OutputBuilder bitOperand(Expression e, Primitive to, Qualification q) {
+        Primitive from = primitive(e.parameterizedType());
+        OutputBuilder operand = valueOperand(e, q);
+        // an integer literal takes the type the function expects
+        if (to == null || from == null || from == to || to == Primitive.BOOLEAN || from == Primitive.BOOLEAN
+            || unwrap(e) instanceof IntConstant) {
+            return operand;
+        }
+        for (String call : conversion(from, to).split("\\.")) {
+            if (!call.isEmpty()) operand.add(SymbolEnum.DOT).add(new TextImpl(call));
+        }
+        return operand;
     }
 
     /** Java's {@code 1 + "a"}: Kotlin's {@code +} takes its type from the left, so a non-String left side converts. */
@@ -1702,6 +1798,11 @@ public class KotlinExpressionPrinter {
      * nullable type.
      */
     private static OutputBuilder cast(Cast cast, boolean nullable, Qualification q) {
+        return cast(cast, cast.parameterizedType(), nullable, q);
+    }
+
+    /** As Java's cast, to {@code castType}: Java's type with the type argument states of what it initializes. */
+    private static OutputBuilder cast(Cast cast, ParameterizedType castType, boolean nullable, Qualification q) {
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
         if (to != null && from != null && cast.parameterizedType().isPrimitiveExcludingVoid()) {
@@ -1714,8 +1815,8 @@ public class KotlinExpressionPrinter {
         }
         // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
         ParameterizedType type = nullable
-                ? cast.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
-                : cast.parameterizedType();
+                ? castType.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
+                : castType;
         String typeName = rawComparable(cast.parameterizedType())
                 // ((Comparable) actual).compareTo(expected): Comparable<*> takes nothing, Comparable<Any?> anything,
                 // unchecked, as Java's raw type does

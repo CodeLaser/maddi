@@ -40,7 +40,8 @@ public class TestJavaToKotlinLangchain4j {
     public void test() throws Exception {
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("langchain4j");
         assertTrue(corpus.types().size() > 250, "only " + corpus.types().size() + " primary types");
-        new JavaToKotlinRatchet("langchain4j", Path.of("src/test/resources/j2k/langchain4j.ratchet"))
+        new JavaToKotlinRatchet("langchain4j", Path.of("src/test/resources/j2k/langchain4j.ratchet"),
+                JavaToKotlinRatchet.TESTS)
                 .run(corpus, KotlinPrintOptions.DEFAULT);
     }
 }

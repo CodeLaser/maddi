@@ -37,8 +37,11 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         boolean needsDefault = !asParameterInPrimaryConstructor && !hasInitializer && !isVal
                                && !fieldInfo.owner().isInterface();
         io.codelaser.maddi.cst.api.type.ParameterizedType type = KotlinNullability.fieldType(fieldInfo);
-        // Java's default for a reference is null: written out when the verdict allows it, else lateinit
-        String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null" : defaultValue(type);
+        // Java's default for a reference is null: written out when the verdict allows it, else lateinit. Kotlin has
+        // no lateinit for Int or Long (Java's Integer and Long too), nor for T, whose upper bound is nullable
+        String zero = !needsDefault ? null : KotlinNullability.isNullable(type) ? "null"
+                : type.isTypeParameter() && type.arrays() == 0 ? "null as " + KotlinTypeName.of(type, qualification)
+                : defaultValue(type);
 
         OutputBuilder builder = new OutputBuilderImpl();
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
@@ -153,16 +156,19 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
     }
 
-    /** Java's default value of a primitive field, as Kotlin writes it; null for a reference type. */
+    /**
+     * Java's default value of a primitive field, as Kotlin writes it; null for a reference type. A boxed one that is
+     * not nullable prints as the primitive: its zero, which no one reads before the constructor assigns it.
+     */
     static String defaultValue(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
         if (type.arrays() > 0 || type.typeInfo() == null) return null;
         return switch (type.typeInfo().fullyQualifiedName()) {
-            case "boolean" -> "false";
-            case "char" -> "'\\u0000'";
-            case "byte", "short", "int" -> "0";
-            case "long" -> "0L";
-            case "float" -> "0f";
-            case "double" -> "0.0";
+            case "boolean", "java.lang.Boolean" -> "false";
+            case "char", "java.lang.Character" -> "'\\u0000'";
+            case "byte", "short", "int", "java.lang.Byte", "java.lang.Short", "java.lang.Integer" -> "0";
+            case "long", "java.lang.Long" -> "0L";
+            case "float", "java.lang.Float" -> "0f";
+            case "double", "java.lang.Double" -> "0.0";
             default -> null;
         };
     }
