@@ -18,6 +18,7 @@ maddi_java_library(
     visibility = ["//visibility:public"],
     deps = [
         "//maddi-cst-api",
+        "//maddi-cst-analysis",
         "//maddi-cst-impl",
         "//maddi-support",
     ],

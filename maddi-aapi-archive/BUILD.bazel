@@ -24,5 +24,12 @@ maddi_java_library(
         "//maddi-support",
         "@maven//:org_junit_jupiter_junit_jupiter_api",
         "@maven//:ch_qos_logback_logback_classic",
+        # Gradle's compileOnly: the libraries whose types the hints name (parsed by the hints compiler, never run)
+        "@maven//:org_jetbrains_kotlin_kotlin_stdlib",
+        "@maven//:io_vavr_vavr",
+        "@maven//:org_eclipse_collections_eclipse_collections_api",
+        "@maven//:org_eclipse_collections_eclipse_collections",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_assertj_assertj_core",
     ],
 )
