@@ -8,6 +8,8 @@
 // Until then the loggers log nothing. A logger resolves the factory when it is first used, not when it is created,
 // so the static logger fields of translated classes log to the factory the application set, whenever it set it.
 
+#nullable enable
+
 using System;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -26,8 +28,8 @@ public static class JavaLogging
     /// <summary>A logger of the factory as it is when the logger is first used.</summary>
     private sealed class Deferred(Func<ILogger> create) : ILogger
     {
-        private ILoggerFactory resolvedWith;
-        private ILogger logger;
+        private ILoggerFactory? resolvedWith;
+        private ILogger? logger;
 
         private ILogger Logger
         {
@@ -39,15 +41,15 @@ public static class JavaLogging
                     logger = create();
                     resolvedWith = factory;
                 }
-                return logger;
+                return logger!;
             }
         }
 
-        public IDisposable BeginScope<TState>(TState state) where TState : notnull => Logger.BeginScope(state);
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => Logger.BeginScope(state);
 
         public bool IsEnabled(LogLevel logLevel) => Logger.IsEnabled(logLevel);
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception,
-            Func<TState, Exception, string> formatter) => Logger.Log(logLevel, eventId, state, exception, formatter);
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Logger.Log(logLevel, eventId, state, exception, formatter);
     }
 }

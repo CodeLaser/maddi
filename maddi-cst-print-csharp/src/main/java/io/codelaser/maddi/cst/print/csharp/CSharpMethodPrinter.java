@@ -139,8 +139,9 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** The return type, {@code T?} when the method may return null. */
     private String returnType(Qualification q) {
-        return CSharpTypeName.declared(methodInfo.returnType(), false,
-                CSharpContext.program().facts().nullable(methodInfo), q);
+        io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
+        String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
+        return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */
@@ -177,19 +178,22 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /**
-     * A nullable parameter of a type parameter's type is {@code T?}: C# infers {@code T} from an argument that may be
-     * null as the type without {@code ?}, so that {@code EnsureNotNull<T>(T? o, …)} returns a non-null {@code T}.
-     * A method's own type parameter only in a static method: in one that may override or be overridden, C# reads
-     * that {@code T?} as {@code Nullable<T>} unless the override says {@code where T : default}.
+     * A nullable parameter or result of a method's own type parameter's type is {@code T?} in a static method, as
+     * {@link CSharpTypeName#declared} has a class's type parameter: C# infers {@code T} from an argument that may be
+     * null as the type without {@code ?}, so that {@code EnsureNotNull<T>(T? o, …)} returns a non-null {@code T}. In a
+     * method that may override or be overridden, C# reads that {@code T?} as {@code Nullable<T>} unless the override
+     * says {@code where T : default}.
      */
     private static boolean nullableTypeParameter(ParameterInfo p, io.codelaser.maddi.cst.api.type.NullableState nullable) {
-        ParameterizedType type = p.parameterizedType();
-        if (nullable != io.codelaser.maddi.cst.api.type.NullableState.NULLABLE || !type.isTypeParameter()
-            || type.arrays() != 0 || p.isVarArgs()) {
-            return false;
-        }
-        MethodInfo method = p.methodInfo();
-        return !type.typeParameter().isMethodTypeParameter() || method.isStatic() || method.isConstructor();
+        return !p.isVarArgs() && nullableTypeParameter(p.parameterizedType(), p.methodInfo(), nullable);
+    }
+
+    /** A nullable parameter or result of {@code method} whose type is a type parameter: as above, {@code T?}. */
+    private static boolean nullableTypeParameter(ParameterizedType type, MethodInfo method,
+                                                 io.codelaser.maddi.cst.api.type.NullableState nullable) {
+        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && type.isTypeParameter()
+               && type.arrays() == 0 && type.typeParameter().isMethodTypeParameter()
+               && (method.isStatic() || method.isConstructor());
     }
 
     private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {

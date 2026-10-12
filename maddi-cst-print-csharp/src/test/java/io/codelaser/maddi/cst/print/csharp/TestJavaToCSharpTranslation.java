@@ -1511,6 +1511,14 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     if (maybe == null) throw new IllegalArgumentException();
                     return maybe;
                 }
+                void over(String s) { }
+                void over(Integer i) { }
+                void callOver() { over((String) null); }
+                int printed(Object o) { return o.toString().length(); }
+                static class Holder<T> {
+                    T held;
+                    T held() { return held; }
+                }
             }
             """;
 
@@ -1529,7 +1537,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
         @Override
         public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
-            return "description".equals(field.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+            return "description".equals(field.name()) || "held".equals(field.name())
+                    ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
                     : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
         }
 
@@ -1618,5 +1627,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "byId[(int) id!] = description!;");
         // a nullable parameter of a type parameter's type: T is inferred without ?, the result is not null
         contains(cs, "internal static T Ensure<T>(T? maybe) {");
+        // a cast of null, which picks an overload, keeps the null
+        contains(cs, "Over((string?) null);");
+        // C#'s object.ToString() is string?
+        contains(cs, "o.ToString()!.Length");
+        // a class's type parameter takes the ? of a nullable declaration
+        contains(cs, "internal T? Held { get; }");
     }
 }

@@ -88,12 +88,16 @@ implements the interface.
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
 - A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
-  (primitives, simple enums, the BCL's structs such as `KeyValuePair`), type parameters and types that already end in
-  `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. So is a library type without a
+  (primitives, simple enums, the BCL's structs such as `KeyValuePair`), a method's own type parameters and types that
+  already end in `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. A class's type
+  parameter takes it, `T? held`: an unconstrained `T?` is `T` itself for a value type. So is a library type without a
   mapping (UNMAPPED_JDK): C# reads its `X?` as `Nullable<X>`, and every use of the variable becomes another error.
-- A nullable parameter of a type parameter's type is `T?` all the same: C# infers `T` without the `?` from an argument
-  that may be null, so that langchain4j's `EnsureNotNull<T>(T? o, …)` returns a non-null `T`. Of a method's own type
-  parameter only in a static method: an override's `T?` is `Nullable<T>` unless it says `where T : default`.
+- A nullable parameter or result of a method's own type parameter's type is `T?` in a static method: C# infers `T`
+  without the `?` from an argument that may be null, so that langchain4j's `EnsureNotNull<T>(T? o, …)` returns a
+  non-null `T`. Not in another method: an override's `T?` is `Nullable<T>` unless it says `where T : default`.
+- A field the analysis finds non-null that C# cannot see assigned in the constructor gets `= null!`: the `Name` of a
+  class translated from an enum, which each constant's initializer sets, and an attribute's required property (an
+  annotation element without a default).
 - When the analysis covered the whole program under a null-marked policy (`CSharpFacts.nullabilityAnalysed()`,
   `STORED_NULL_MARKED`), every other declaration is not null, and C# checks it: the translation's project file has
   `<Nullable>enable</Nullable>`. A local's explicit reference type is then `T?`, as `var`'s is: the compiler follows
@@ -117,7 +121,11 @@ implements the interface.
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
-  in Java (CS8600).
+  in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`.
+- The result of a library call may be null where C# declares it so, whatever the analysis says of the Java method:
+  `object.ToString()` is `string?`, Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
+  (`GetConstructor`, `GetMethod`, `GetElementType`, `Invoke`) return null where Java throws. The printer knows these
+  from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`).
 - An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
   Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
   `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it

@@ -97,8 +97,9 @@ public final class CSharpTypeName {
         } else {
             type = of(pt, q);
         }
-        boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !pt.isTypeParameter()
-                                               && !type.endsWith("?") && !pt.isVoid();
+        // a method's own type parameter only where its method's signature allows (CSharpMethodPrinter)
+        boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !type.endsWith("?") && !pt.isVoid()
+                                               && !(pt.isTypeParameter() && pt.typeParameter().isMethodTypeParameter());
         return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(pt, type)
                && !unmapped(pt) ? type + "?" : type;
     }

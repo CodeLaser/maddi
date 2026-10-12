@@ -208,8 +208,9 @@ final class CSharpNullability {
         Expression x = CSharpExpressionPrinter.unwrap(e);
         return switch (x) {
             case NullConstant nc -> false; // null.m() is no code worth helping
-            case MethodCall mc -> !mc.methodInfo().isVoid() && facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
-                                  && !facts().callResultNonNull(mc);
+            case MethodCall mc -> !mc.methodInfo().isVoid() && !facts().callResultNonNull(mc)
+                                  && (facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
+                                      || CSharpExpressionPrinter.nullableResult(mc));
             case VariableExpression ve -> switch (ve.variable()) {
                 case FieldReference fr -> facts().nullable(fr.fieldInfo()) == NullableState.NULLABLE
                                           && !knownNonNull(fr);
