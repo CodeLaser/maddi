@@ -30,9 +30,17 @@
 #
 # 2026-10-12, companions of self-bounded types (CSharpCompanions: IScore beside IScore<Score_>) for their wildcards
 # and raw uses: CS0311 2198 -> 76, 787 -> 827 compiling files, 6751 -> 4586 errors.
+#
+# 2026-10-12, the logging mapping's using for its extension methods, a diamond's arguments from its constructor's
+# arguments, Iterable interfaces enumerable by default implementations: 827 -> 833 compiling files, 4586 -> 4302
+# errors.
+#
+# 2026-10-12, a generic method overridden by erasure printed erased (CS0534 215 -> 130); a raw array passed as a
+# variable arity parameter's array gets the parameter's type arguments, new IBiJoiner<A, B>[] { joiner }: 833 -> 837
+# compiling files, 4302 -> 3594 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	827
+compilingFiles	837
 unmappedJdkUses	1379

@@ -405,23 +405,80 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * foreach and LINQ work on it.
      */
     private List<OutputBuilder> enumerable(Qualification q) {
-        if (typeInfo.isInterface()) return List.of();
         ParameterizedType iterable = typeInfo.interfacesImplemented().stream()
                 .filter(i -> i.typeInfo() != null && "java.lang.Iterable".equals(i.typeInfo().fullyQualifiedName()))
                 .findFirst().orElse(null);
-        if (iterable == null) return List.of();
+        List<OutputBuilder> out = new ArrayList<>();
+        // an abstract class that leaves iterator() to its subclasses declares it, for the GetEnumerator of its own or
+        // its interface's
+        boolean abstractIterator = needsAbstractIterator(typeInfo);
+        if (abstractIterator) {
+            ParameterizedType seen = iterableAsSeen(typeInfo);
+            String element = seen == null || seen.parameters().isEmpty() ? "object"
+                    : CSharpTypeName.argument(seen.parameters().getFirst(), q);
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            out.add(new OutputBuilderImpl().add(new TextImpl("public abstract IJavaIterator<" + element + "> Iterator();")));
+        }
+        if (iterable == null) return out;
         MethodInfo iterator = typeInfo.methods().stream()
                 .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty()).findFirst()
                 .orElse(null);
-        if (iterator == null) return List.of();
         String element = iterable.parameters().isEmpty() ? "object" : CSharpTypeName.argument(iterable.parameters().getFirst(), q);
         CSharpContext.using(CSharpBcl.GENERIC);
         CSharpContext.using(CSharpCompat.NAMESPACE);
-        return List.of(
+        if (typeInfo.isInterface()) {
+            // an interface's implementations are enumerable through its default implementations, over its Iterator()
+            String name = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+            if (iterator == null) {
+                out.add(new OutputBuilderImpl().add(new TextImpl("IJavaIterator<" + element + "> Iterator();")));
+            }
+            out.add(new OutputBuilderImpl().add(new TextImpl("IEnumerator<" + element + "> IEnumerable<" + element
+                                                             + ">.GetEnumerator() => " + name + "().AsEnumerator();")));
+            out.add(new OutputBuilderImpl().add(new TextImpl("System.Collections.IEnumerator System.Collections.IEnumerable"
+                                                             + ".GetEnumerator() => " + name + "().AsEnumerator();")));
+            return out;
+        }
+        if (iterator == null && !abstractIterator) return out;
+        String iteratorName = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+        out.addAll(List.of(
                 new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
-                                                         + CSharpNames.method(iterator) + "().AsEnumerator();")),
+                                                         + iteratorName + "().AsEnumerator();")),
                 new OutputBuilderImpl().add(new TextImpl(
-                        "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();")));
+                        "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();"))));
+        return out;
+    }
+
+    /** {@code Iterable<E>} as {@code t} implements it, directly or through its supertypes; null when it does not. */
+    private static ParameterizedType iterableAsSeen(TypeInfo t) {
+        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
+        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        if (t.parentClass() != null) todo.add(t.parentClass());
+        todo.addAll(t.interfacesImplemented());
+        while (!todo.isEmpty()) {
+            ParameterizedType pt = todo.poll();
+            TypeInfo at = pt.typeInfo();
+            if (at == null || !seen.add(at)) continue;
+            if ("java.lang.Iterable".equals(at.fullyQualifiedName())) return pt;
+            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(pt);
+            if (at.parentClass() != null) todo.add(substitute(at.parentClass(), map));
+            at.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
+        }
+        return null;
+    }
+
+    /**
+     * An abstract class of the program that is iterable, and that neither it nor a superclass gives an iterator(): it
+     * declares {@code Iterator()} abstract, which its interface's GetEnumerator calls. Once, by the first such class.
+     */
+    static boolean needsAbstractIterator(TypeInfo t) {
+        if (t.isInterface() || !t.isAbstract() || !CSharpNames.translated(t) || iterableAsSeen(t) == null) return false;
+        for (TypeInfo at = t; at != null; at = at.parentClass() == null ? null : at.parentClass().typeInfo()) {
+            if (at.methods().stream().anyMatch(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty())) {
+                return false;
+            }
+        }
+        TypeInfo parent = t.parentClass() == null ? null : t.parentClass().typeInfo();
+        return parent == null || !needsAbstractIterator(parent);
     }
 
     /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */
