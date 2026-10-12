@@ -196,9 +196,19 @@ final class CSharpCompanions {
             } else if (has(st)) {
                 String erased = erased(s, removed, q);
                 if (erased != null) supers.add(erased);
+            } else if (comparableOfRemoved(s, removed)) {
+                // Comparable<Score_>: C#'s non-generic IComparable, which the type implements by a cast
+                CSharpContext.using("System");
+                supers.add("IComparable");
             }
         }
         return List.copyOf(supers);
+    }
+
+    private static boolean comparableOfRemoved(ParameterizedType s, List<TypeParameter> removed) {
+        return s.typeInfo() != null && "java.lang.Comparable".equals(s.typeInfo().fullyQualifiedName())
+               && s.parameters().size() == 1 && s.parameters().getFirst().isTypeParameter()
+               && removed.contains(s.parameters().getFirst().typeParameter());
     }
 
     private static String companionOfClosed(ParameterizedType s, Qualification q) {
@@ -335,8 +345,16 @@ final class CSharpCompanions {
 
     /** The type's explicit implementations of its companion's members. */
     static List<OutputBuilder> bridges(TypeInfo t, Qualification q) {
-        return members(t, q).stream()
-                .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.bridge()))).toList();
+        List<OutputBuilder> bridges = new ArrayList<>(members(t, q).stream()
+                .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.bridge()))).toList());
+        List<TypeParameter> removed = removed(t);
+        t.interfacesImplemented().stream().filter(s -> comparableOfRemoved(s, removed)).findFirst().ifPresent(s -> {
+            String object = CSharpContext.program().facts().nullabilityAnalysed() ? "object?" : "object";
+            String self = CSharpNames.typeParameter(s.parameters().getFirst().typeParameter());
+            bridges.add(new OutputBuilderImpl().add(new TextImpl("int IComparable.CompareTo(" + object + " other) => CompareTo(("
+                    + self + ") other!);")));
+        });
+        return bridges;
     }
 
     static boolean mentionsAny(ParameterizedType t, List<TypeParameter> tps) {

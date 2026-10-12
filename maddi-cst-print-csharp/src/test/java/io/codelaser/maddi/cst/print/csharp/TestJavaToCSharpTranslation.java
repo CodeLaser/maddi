@@ -1583,6 +1583,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     Score_ calculate(Solution_ solution);
                     List<Score_> history();
                 }
+                static int compare(Score<?> a, Score<?> b) { return ((Score) a).compareTo(b); }
                 static boolean anyZero(List<Score<?>> scores) {
                     for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
                     return false;
@@ -1601,7 +1602,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void companions() {
         String cs = translate("Scores", SCORES);
         contains(cs, "public interface IScore<Score_> : IComparable<Score_>, IScore where Score_ : IScore<Score_> {");
-        contains(cs, "public interface IScore {");
+        // Comparable<Score_>: the companion is C#'s non-generic IComparable, which the type implements by a cast
+        contains(cs, "public interface IScore : IComparable {");
+        contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Score_) other!);");
         contains(cs, "IScore Negate();");
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");

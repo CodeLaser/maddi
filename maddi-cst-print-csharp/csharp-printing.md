@@ -169,7 +169,8 @@ implements the interface.
   is printed with it erased to its bound, `object Mapping()`, and so are its generic overrides; the others override
   it with a covariant result, and a call through it casts the result to the type Java inferred.
 - **Self-bounded type parameters only a result mentions.** `<Score_ extends Score<Score_>> InnerScore<Score_>
-  getScore()`: where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint (CS0411).
+  getScore()`, bounded by a program type (not `Comparable<? super R>`, whose type argument C# infers from a method
+  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint (CS0411).
   Such a method, with all its overrides, is printed with the type parameter erased, a wildcard in its signature and
   body: `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the companion). A call
   where Java's type is writable casts to it through `object`, `(InnerScore<SimpleScore>) (object) scope.GetScore()`,
@@ -459,7 +460,8 @@ ratchet's report (see below) lists what is left.
   declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
   companion (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
-  `IScore`. A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
+  `IScore`. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
+  implements by a cast (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
   companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.

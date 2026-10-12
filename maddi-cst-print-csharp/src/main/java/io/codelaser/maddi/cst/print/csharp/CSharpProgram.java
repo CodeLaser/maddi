@@ -242,12 +242,17 @@ public final class CSharpProgram {
                 .anyMatch(tp -> mentions(p.parameterizedType(), tp)));
     }
 
-    /** Every type parameter of {@code m} self-bounded, none mentioned by a parameter, one by the result. */
+    /**
+     * Every type parameter of {@code m} self-bounded by a program type, which has a companion
+     * ({@code Score_ extends Score<Score_>}, not {@code Comparable<? super R>}), none mentioned by a parameter, one by
+     * the result.
+     */
     private static boolean selfBoundErasable(MethodInfo m) {
         List<TypeParameter> typeParameters = m.typeParameters();
         return !typeParameters.isEmpty() && CSharpNames.translated(m.typeInfo())
                && typeParameters.stream().anyMatch(tp -> mentions(m.returnType(), tp))
-               && typeParameters.stream().allMatch(tp -> tp.typeBounds().stream().anyMatch(b -> mentions(b, tp))
+               && typeParameters.stream().allMatch(tp -> tp.typeBounds().stream().anyMatch(b -> mentions(b, tp)
+                    && b.typeInfo() != null && CSharpNames.translated(b.typeInfo()))
                     && m.parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp)));
     }
 
