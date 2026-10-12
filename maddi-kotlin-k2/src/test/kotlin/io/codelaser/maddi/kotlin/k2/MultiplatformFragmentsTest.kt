@@ -102,4 +102,47 @@ class MultiplatformFragmentsTest : KotlinScanTestBase() {
         assertNull(multiplatformFragments(listOf(root.resolve("src/main/kotlin"), root.resolve("src/main/generated"))))
         assertNull(multiplatformFragments(listOf(root.resolve("src/jvmMain/kotlin"), root.resolve("src/commonMain/kotlin"))))
     }
+
+    /**
+     * A `@JvmField actual` companion property read from common code: K2 resolves the read to the `expect` property,
+     * which has no @JvmField, but kotlinc compiles the actual to a static field of the enclosing interface, with no
+     * getter. maddi#96 reported a `Companion.getNONE()` here: its fixture had no kotlin-stdlib on the library path, so
+     * `@JvmField` itself was unresolved and the `actual` read as a plain property. With the stdlib, as every real
+     * build has it, the read is the field.
+     */
+    @Test
+    fun jvmFieldActualCompanionPropertyIsAField(@TempDir root: Path) {
+        write(root, "commonMain", "Listener.kt", """
+            package p
+            expect abstract class Listener {
+                fun interface Factory {
+                    fun create(): Listener
+                    companion object { val NONE: Factory }
+                }
+            }
+            class User { fun none(f: Listener.Factory?): Listener.Factory = f ?: Listener.Factory.NONE }
+            """)
+        write(root, "jvmMain", "Listener.jvm.kt", """
+            package p
+            actual abstract class Listener {
+                actual fun interface Factory {
+                    actual fun create(): Listener
+                    actual companion object { @JvmField actual val NONE = Factory { object : Listener() {} } }
+                }
+            }
+            """)
+        val main = SourceSetImpl.Builder().setName("main").setUri(root.toUri())
+            .setSourceDirectories(listOf("commonMain", "jvmMain").map { root.resolve("src/$it/kotlin") })
+            .build()
+        // kotlin.jvm.JvmField is in kotlin-stdlib: without it on the library path, the annotation is unresolved
+        val stdlib = Paths.get(JvmField::class.java.protectionDomain.codeSource.location.toURI())
+        val types = KotlinProjectScan(runtime, InfoByFqn())
+            .parse(listOf(main), listOf(stdlib), Paths.get(System.getProperty("java.home")), emptyList(), listOf())
+            .getValue(main)
+        val user = all(types).single { it.simpleName() == "User" }
+        assertEquals("return f==null?Factory.NONE:f;",
+            user.findUniqueMethod("none", 1).methodBody().statements().joinToString(" "))
+        val census = PlaceholderCensus.of(types)
+        assertEquals(0, census.total, census.dumpLines().joinToString("\n"))
+    }
 }
