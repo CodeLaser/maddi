@@ -125,6 +125,13 @@ final class CSharpModifiers {
 
     private static boolean redeclaredAbove(MethodInfo m, TypeInfo owner) {
         if (m.overrides().stream().noneMatch(o -> o != m && o.typeInfo().isInterface())) return false;
+        // iterator(), which an abstract superclass declares for its interface's GetEnumerator
+        if ("iterator".equals(m.name()) && m.parameters().isEmpty() && !m.isStatic()) {
+            for (TypeInfo s = owner.parentClass() == null ? null : owner.parentClass().typeInfo(); s != null;
+                 s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
+                if (CSharpTypePrinter.needsAbstractIterator(s)) return true;
+            }
+        }
         for (TypeInfo s = owner.parentClass() == null ? null : owner.parentClass().typeInfo(); s != null;
              s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
             if (CSharpTypePrinter.leftAbstract(s).stream().anyMatch(l -> m.overrides().contains(l.method()))) return true;

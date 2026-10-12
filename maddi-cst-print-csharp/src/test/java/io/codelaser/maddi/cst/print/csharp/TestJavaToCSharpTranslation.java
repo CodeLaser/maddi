@@ -1464,6 +1464,57 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String PLACERS = """
+            package org.example.placers;
+            import java.util.Iterator;
+            import java.util.List;
+            public class Placers {
+                interface Placer<P> extends Iterable<P> { boolean isEmpty(); }
+                abstract static class AbstractPlacer<P> implements Placer<P> {
+                    public boolean isEmpty() { return !iterator().hasNext(); }
+                }
+                static final class ListPlacer extends AbstractPlacer<String> {
+                    private final List<String> list = List.of("a");
+                    public Iterator<String> iterator() { return list.iterator(); }
+                }
+            }
+            """;
+
+    /**
+     * An interface that extends Iterable is enumerable by default implementations over its Iterator(), which an
+     * abstract class that leaves it to its subclasses declares abstract.
+     */
+    @Test
+    public void iterableInterfaces() {
+        String cs = translate("Placers", PLACERS);
+        contains(cs, "IJavaIterator<P> Iterator();");
+        contains(cs, "IEnumerator<P> IEnumerable<P>.GetEnumerator() => Iterator().AsEnumerator();");
+        contains(cs, "public abstract IJavaIterator<P> Iterator();");
+        contains(cs, "public override IJavaIterator<string> Iterator() => list.Iterator();");
+    }
+
+    private static final String STREAMS = """
+            package org.example.streams;
+            import java.util.function.Function;
+            public class Streams<A> {
+                interface Stream<T> { }
+                static final class MapStream<A, NewA> implements Stream<NewA> {
+                    MapStream(Streams<A> parent, Function<A, NewA> mapping) { }
+                }
+                <S extends Stream<?>> S share(S stream) { return stream; }
+                <ResultA_> Stream<ResultA_> map(Function<A, ResultA_> mapping) {
+                    return share(new MapStream<>(this, mapping));
+                }
+            }
+            """;
+
+    /** A diamond's type arguments are the ones Java infers, never the created class's own type parameters. */
+    @Test
+    public void diamond() {
+        String cs = translate("Streams", STREAMS);
+        contains(cs, "new MapStream<A, ResultA_>(");
+    }
+
     private static final String SCORES = """
             package org.example.scores;
             import java.util.List;

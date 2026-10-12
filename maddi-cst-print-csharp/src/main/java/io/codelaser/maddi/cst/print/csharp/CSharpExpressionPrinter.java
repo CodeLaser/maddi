@@ -634,8 +634,41 @@ public final class CSharpExpressionPrinter {
                     .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
-        return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(type, q)))
-                .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
+                .add(text(CSharpTypeName.of(diamond(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+    }
+
+    /**
+     * {@code new UniMap<>(…)} whose type arguments the parser left as the class's own type parameters, which are not in
+     * scope where it is created: inferred from the constructor's arguments, {@code mapping}'s
+     * {@code UniNeighborhoodsMapper<Solution_, A, ResultA_>} for the parameter's {@code …Mapper<Solution_, A, NewA>}.
+     */
+    private static ParameterizedType diamond(ConstructorCall cc, ParameterizedType type) {
+        TypeInfo created = type.typeInfo();
+        if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
+        List<TypeParameter> own = created.typeParameters();
+        if (type.parameters().stream().noneMatch(a -> a.isTypeParameter() && own.contains(a.typeParameter()))) return type;
+        for (TypeInfo at = CSharpContext.currentType(); at != null; at = CSharpNames.enclosing(at)) {
+            if (at.equals(created)) return type; // its own type parameters are in scope
+        }
+        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        List<ParameterInfo> parameters = cc.constructor().parameters();
+        for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
+            if (parameters.get(i).isVarArgs()) break;
+            match(parameters.get(i).parameterizedType(), cc.parameterExpressions().get(i).parameterizedType(), own,
+                    inferred);
+        }
+        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        for (ParameterizedType a : type.parameters()) {
+            if (a.isTypeParameter() && own.contains(a.typeParameter())) {
+                ParameterizedType t = inferred.get(a.typeParameter());
+                if (t == null || !writable(t, own)) return type;
+                arguments.add(t);
+            } else {
+                arguments.add(a);
+            }
+        }
+        return type.withParameters(arguments);
     }
 
     /**

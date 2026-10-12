@@ -30,9 +30,13 @@
 #
 # 2026-10-12, companions of self-bounded types (CSharpCompanions: IScore beside IScore<Score_>) for their wildcards
 # and raw uses: CS0311 2198 -> 76, 787 -> 827 compiling files, 6751 -> 4586 errors.
+#
+# 2026-10-12, the logging mapping's using for its extension methods, a diamond's arguments from its constructor's
+# arguments, Iterable interfaces enumerable by default implementations: 827 -> 833 compiling files, 4586 -> 4302
+# errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	827
+compilingFiles	833
 unmappedJdkUses	1379
