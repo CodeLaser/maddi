@@ -77,17 +77,18 @@ class TestSharedJdkCore {
         val javaInspector = openjdkWithJavaUtil()
         val ctm = javaInspector.compiledTypesManager()
 
-        // java.time was NOT preloaded -- nothing has loaded LocalDate yet
-        assertNull(ctm.typeIfLoaded("java.time.LocalDate", javaInspector.javaBase()), "precondition: not yet loaded")
+        // javax.crypto was NOT preloaded, and no java.util signature names Cipher: nothing has loaded it yet
+        // (a type java.util only mentions, java.time.LocalDate, is committed by the preload pass since maddi#119)
+        assertNull(ctm.typeIfLoaded("javax.crypto.Cipher", javaInspector.javaBase()), "precondition: not yet loaded")
 
-        // a Kotlin reference to java.time.LocalDate forces type() past the registry -> a lazy bytecode load
-        val kotlinLocalDate = kotlinParamType(
-            javaInspector.runtime(), ctm, "class K { fun f(d: java.time.LocalDate) {} }\n"
+        // a Kotlin reference to javax.crypto.Cipher forces type() past the registry -> a lazy bytecode load
+        val kotlinCipher = kotlinParamType(
+            javaInspector.runtime(), ctm, "class K { fun f(c: javax.crypto.Cipher) {} }\n"
         )
-        assertEquals("java.time.LocalDate", kotlinLocalDate.fullyQualifiedName())
+        assertEquals("javax.crypto.Cipher", kotlinCipher.fullyQualifiedName())
 
         // it is now bytecode-loaded and cached in the shared manager -- the SAME instance
-        assertSame(kotlinLocalDate, ctm.typeIfLoaded("java.time.LocalDate", javaInspector.javaBase()),
+        assertSame(kotlinCipher, ctm.typeIfLoaded("javax.crypto.Cipher", javaInspector.javaBase()),
             "the lazily loaded type is cached and shared")
     }
 }
