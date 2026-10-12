@@ -1079,7 +1079,9 @@ public final class CSharpExpressionPrinter {
     /** An operand, in parentheses when its precedence is lower than its operator's. */
     static OutputBuilder operand(Precedence precedence, Expression e, Qualification q) {
         OutputBuilder inner = print(e, q);
-        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda || nonAtomicCall(e)) {
+        // a method reference may print as a lambda, p0 => new HashSet<object>(p0)
+        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda || e instanceof MethodReference
+            || nonAtomicCall(e)) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         return inner;

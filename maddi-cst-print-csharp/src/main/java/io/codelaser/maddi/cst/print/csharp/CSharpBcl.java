@@ -863,6 +863,10 @@ final class CSharpBcl implements LibraryMapping {
             m(optional + ".isPresent/0", "$0.HasValue");
             m(optional + ".isEmpty/0", "!$0.HasValue");
             m(optional + ".orElse/1", "$0 ?? $1");
+            m(optional + ".orElseGet/1", "$0 ?? $1()");
+            m(optional + ".orElseThrow/0", "$0 ?? throw new InvalidOperationException()", SYSTEM);
+            m(optional + ".of/1", "({R}) $1");
+            m(optional + ".empty/0", "({R}) null");
             m(optional + ".getAsInt/0", "$0.Value");
             m(optional + ".getAsLong/0", "$0.Value");
             m(optional + ".getAsDouble/0", "$0.Value");

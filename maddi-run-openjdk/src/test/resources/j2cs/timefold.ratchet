@@ -6,9 +6,12 @@
 # does not satisfy a constraint: an F-bounded type's wildcard, Score<?>, printed as IScore<IScore<object>>) and
 # CS0411 (type inference). 21 syntax errors: OptionalInt's statics (int?.empty()) and a cast of a method reference
 # printed as a lambda. maddi-mod's timefold-facts ratchet measures the same with the analysis's facts.
+#
+# 2026-10-12, OptionalInt's of and empty ((int?) x, (int?) null) and a method reference in parentheses as an operand:
+# 21 -> 0 syntax errors, 611 -> 615 compiling files (8879 errors: the 4 syntax-clean files now compile further).
 types	1583
 printerCrashes	0
-syntaxErrors	21
-syntaxCleanFiles	1579
-compilingFiles	611
-unmappedJdkUses	2087
+syntaxErrors	0
+syntaxCleanFiles	1583
+compilingFiles	615
+unmappedJdkUses	2082
