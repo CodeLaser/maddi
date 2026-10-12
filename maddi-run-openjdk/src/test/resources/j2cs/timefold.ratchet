@@ -71,9 +71,13 @@
 # call throws NotSupportedException. 1386 -> 834 unmapped uses (Gizmo's 552), 2834 -> 2641 errors. types stays the
 # corpus's 1583; 18 fewer files: syntaxCleanFiles 1583 -> 1565, compilingFiles 1013 -> 1005 (8 of the excluded
 # compiled; none of the printed files got worse).
+#
+# 2026-10-12, Micrometer as System.Diagnostics.Metrics (micrometer-system-diagnostics-metrics.csmap, JavaMetrics.cs, the
+# printer's default option): its 57 uses mapped, 834 -> 777 unmapped uses, 1005 -> 1007 compiling files, 2641 -> 2589
+# errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1005
-unmappedJdkUses	834
+compilingFiles	1007
+unmappedJdkUses	777

@@ -1551,6 +1551,10 @@ public class AtomicInteger
 
     public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
 
+    public double DoubleValue() => Get();
+
+    public long LongValue() => Get();
+
     public override string ToString() => Get().ToString();
 }
 
@@ -1580,6 +1584,8 @@ public class AtomicLong
     public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
 
     public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public double DoubleValue() => Get();
 
     public override string ToString() => Get().ToString();
 }

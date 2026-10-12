@@ -1,0 +1,41 @@
+# Micrometer as System.Diagnostics.Metrics, through the compatibility library's JavaMetrics: a global registry whose
+# gauges are kept by name and tags, so that they can be read back and removed, as Micrometer's; each name is an
+# ObservableGauge of the meter Maddi.JavaCompat.Micrometer. Tags are JavaTags, equal by content.
+mapping micrometer:system-diagnostics-metrics
+compat JavaMetrics.cs
+name JavaTags
+name JavaMetrics
+type io.micrometer.core.instrument.Tags -> JavaTags using Maddi.JavaCompat
+type io.micrometer.core.instrument.MeterRegistry -> JavaMeterRegistry using Maddi.JavaCompat
+type io.micrometer.core.instrument.Gauge -> JavaGauge using Maddi.JavaCompat
+type io.micrometer.core.instrument.Counter -> JavaCounter using Maddi.JavaCompat
+type io.micrometer.core.instrument.LongTaskTimer -> JavaLongTaskTimer using Maddi.JavaCompat
+type io.micrometer.core.instrument.LongTaskTimer.Sample -> JavaLongTaskTimer.Sample using Maddi.JavaCompat
+type io.micrometer.core.instrument.search.Search -> JavaMeterSearch using Maddi.JavaCompat
+type io.micrometer.core.instrument.Meter.Id -> JavaMeterId using Maddi.JavaCompat
+type io.micrometer.core.instrument.Meter.Type -> JavaMeterType using Maddi.JavaCompat
+type io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics -> JavaMemoryMetrics using Maddi.JavaCompat
+# tags
+member io.micrometer.core.instrument.Tags.empty/0 -> JavaTags.Empty using Maddi.JavaCompat
+member io.micrometer.core.instrument.Tags.of/2 -> JavaTags.Of($1, $2) using Maddi.JavaCompat
+member io.micrometer.core.instrument.Tags.and/2 -> $0.And($1, $2)
+member io.micrometer.core.instrument.Tags.and/1 -> $0.And($1)
+# the global registry and its meters
+field io.micrometer.core.instrument.Metrics.globalRegistry -> JavaMetrics.GlobalRegistry using Maddi.JavaCompat
+member io.micrometer.core.instrument.Metrics.gauge/3 -> JavaMetrics.Gauge($1, $2, $3) using Maddi.JavaCompat
+member io.micrometer.core.instrument.Metrics.gauge/4 -> JavaMetrics.Gauge($1, $2, $3, $4) using Maddi.JavaCompat
+member io.micrometer.core.instrument.Metrics.counter/2 -> JavaMetrics.Counter($*) using Maddi.JavaCompat
+member io.micrometer.core.instrument.Metrics.more/0 -> JavaMetrics.More using Maddi.JavaCompat
+member io.micrometer.core.instrument.Metrics.More.longTaskTimer/2 -> $0.LongTaskTimer($*)
+member io.micrometer.core.instrument.Counter.increment/0 -> $0.Increment()
+member io.micrometer.core.instrument.LongTaskTimer.start/0 -> $0.Start()
+member io.micrometer.core.instrument.LongTaskTimer.Sample.stop/0 -> $0.Stop()
+member io.micrometer.core.instrument.MeterRegistry.remove/1 -> $0.Remove($1)
+member io.micrometer.core.instrument.MeterRegistry.find/1 -> $0.Find($1)
+member io.micrometer.core.instrument.search.Search.tags/1 -> $0.Tags($1)
+member io.micrometer.core.instrument.search.Search.gauge/0 -> $0.Gauge()
+member io.micrometer.core.instrument.Gauge.value/0 -> $0.Value()
+member io.micrometer.core.instrument.Meter.Id.new/5 -> new JavaMeterId($1, $2, $3, $4, $5) using Maddi.JavaCompat
+field io.micrometer.core.instrument.Meter.Type.GAUGE -> JavaMeterType.Gauge using Maddi.JavaCompat
+member io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics.new/1 -> new JavaMemoryMetrics($1) using Maddi.JavaCompat
+member io.micrometer.core.instrument.binder.jvm.JvmMemoryMetrics.bindTo/1 -> $0.BindTo($1)

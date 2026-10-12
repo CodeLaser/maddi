@@ -1357,7 +1357,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */
     @Test
     public void libraryRequirements() {
-        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none").withFirst(CSharpMappingFile.parse("""
+        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none,micrometer=none").withFirst(CSharpMappingFile.parse("""
                 mapping slf4j:example
                 nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
                 type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
