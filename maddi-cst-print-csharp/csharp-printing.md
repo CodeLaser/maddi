@@ -147,6 +147,22 @@ implements the interface.
   parameters it uses become its constructor's arguments and its fields, and so does the enclosing instance, `outer`,
   when it uses one of its instance members; its fields' initializers move into that constructor, after the captures.
   Its superclass's constructor arguments come first. A generic method's type parameters become the class's.
+- **Inner classes.** A Java inner class, a non-static member class, has an enclosing instance; a C# nested class
+  has none. One that uses it (`CSharpInner`) gets it as a field, `private readonly Range outer;`, which every
+  constructor takes first and passes on (`: this(outer, …)`, `: base(outer, …)` to a superclass that takes one too).
+  The enclosing instance's members are used through it (`outer.to`, `outer.Width()`), `Range.this` is `outer`, and a
+  creation passes it: `new Upcoming(this)` in the enclosing type's code, `new Upcoming(outer)` in an inner class's,
+  `new Upcoming(other)` for `other.new Upcoming()`. Its instance fields' initializers move into the constructors,
+  after `this.outer = outer;`, where Java runs them: a C# field initializer cannot use `outer` (CS0236).
+  So do a class's whose initializer uses `this`, explicitly or through an instance member
+  (`getLogger(getClass())`, CS0027): Java runs them after `super(…)`, C# before the base constructor.
+- **Switch on an enum C# declares as a class.** Its constants are static instances, not constants, so a case is a
+  property pattern on the instance's `Name`, the Java constant's: `case { Name: "FAST" }:`, `{ Name: "FULL" } => …`
+  (CS9135). A fall-through into such a section, which `goto case` cannot name, jumps to a statement label at its
+  start: `goto case_FULL;` … `case_FULL: ;`.
+- **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
+  `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
+  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write.
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
@@ -332,7 +348,7 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
   - local classes that capture a local variable, a parameter or the enclosing instance. One that captures nothing
     is lifted: printed as a private nested type of the enclosing type (`CSharpLocalTypes`);
   - instance initializers;
-  - `Outer.this`, because a C# nested class has no enclosing instance;
+  - `Outer.this` where no `outer` leads to it (an inner class's and a hoisted anonymous class's are translated);
   - `new int[a][b]`;
   - record patterns;
   - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
@@ -416,6 +432,16 @@ ratchet's report (see below) lists what is left.
   constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
   delegate, a sealed class, a type parameter). Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
+- **Self-bounded types.** A wildcard of a type whose parameter is bounded by itself, `Score<?>` of
+  `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
+  C#'s `IComparable` beside `IComparable<T>`, such a type has a companion without its self-bounded parameters
+  (`CSharpCompanions`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside `IDirector<Solution_, Score_>`;
+  a class's companion is the interface `I` + its name. The wildcard, and the raw type, is the companion. The companion
+  declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
+  companion (`IScore Negate();`); the type implements them explicitly, calling its own
+  (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
+  `IScore`. A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
+  companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →

@@ -55,8 +55,10 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         OutputBuilder b = new OutputBuilderImpl().add(attributes).add(new TextImpl(modifiers + type)).add(SpaceEnum.ONE)
                 .add(new TextImpl(name));
         // a hoisted anonymous class initialises its instance fields in its constructor, after its captures
-        boolean inConstructor = !fieldInfo.isStatic() && fieldInfo.owner().isAnonymous()
-                                && CSharpContext.hoisted(fieldInfo.owner()) != null;
+        // and an inner class's, whose initializers may use its enclosing instance (CSharpInner)
+        boolean inConstructor = !fieldInfo.isStatic() && (fieldInfo.owner().isAnonymous()
+                                                          && CSharpContext.hoisted(fieldInfo.owner()) != null
+                                                          || CSharpInner.initializedInConstructor(fieldInfo.owner()));
         if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty() && !inConstructor) {
             b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(fieldInfo.initializer(),
                     fieldInfo.type(), q));
@@ -106,7 +108,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         b.add(new TextImpl(modifiers + " " + CSharpTypeName.declared(f.type(), false,
                         CSharpContext.program().facts().nullable(f), q))).add(SpaceEnum.ONE)
                 .add(new TextImpl(property.name() + " " + accessors));
-        if (f.initializer() != null && !f.initializer().isEmpty()) {
+        if (f.initializer() != null && !f.initializer().isEmpty() && (f.isStatic() || !CSharpInner.initializedInConstructor(f.owner()))) {
             b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
                     .add(SymbolEnum.SEMICOLON);
         }

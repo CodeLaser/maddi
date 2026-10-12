@@ -133,7 +133,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             }
-            List<String> supers = superTypes(q);
+            List<String> supers = new ArrayList<>(superTypes(q));
+            // the companion of a self-bounded type, which its wildcard is (CSharpCompanions)
+            if (CSharpCompanions.has(typeInfo)) supers.add(CSharpCompanions.selfReference(typeInfo));
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
@@ -145,6 +147,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = new ArrayList<>();
         if (enumClass) enumInstances(q).forEach(members::add);
         if (self != null) members.addAll(hoistedMembers(self, q));
+        // an inner class's enclosing instance (CSharpInner)
+        boolean outer = CSharpInner.withOuter(typeInfo);
+        boolean inConstructor = self == null && CSharpInner.initializedInConstructor(typeInfo);
+        if (outer) {
+            members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + CSharpInner.outerTypeName(typeInfo)
+                                                                 + " outer;")));
+        }
         if (canonical != null) {
             components.forEach(f -> members.add(new OutputBuilderImpl().add(new TextImpl("public "
                     + CSharpTypeName.of(f.type(), q) + " " + CSharpNames.field(f) + " { get; }"))));
@@ -158,7 +167,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                             : fieldPrinterFactory.create(f, formatter2).print(q, false));
                 });
         typeInfo.constructors().stream()
-                .filter(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c) && !(staticClass && c.parameters().isEmpty())
+                .filter(c -> !c.isSynthetic() && (inConstructor || !isImplicitDefaultConstructor(c))
+                             && !(staticClass && c.parameters().isEmpty())
                              && !CSharpNames.inCompanion(c))
                 .filter(c -> {
                     if (record && c != canonical && c.parameters().size() == components.size()) {
@@ -168,6 +178,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     return true;
                 })
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(q)));
+        if (inConstructor && typeInfo.constructors().stream().allMatch(MethodInfo::isSynthetic)) {
+            // Java's default constructor, which takes the enclosing instance, and initializes the fields
+            ParameterizedType parent = typeInfo.parentClass();
+            String base = outer && parent != null && CSharpInner.withOuter(parent.typeInfo()) ? " : base(outer)" : "";
+            List<OutputBuilder> body = new ArrayList<>();
+            if (outer) body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            body.addAll(CSharpInner.fieldInitializers(typeInfo, q));
+            String access = outer ? "internal " : typeInfo.isAbstract() ? "protected " : "public ";
+            members.add(new OutputBuilderImpl().add(new TextImpl(access + CSharpNames.type(typeInfo) + "("
+                    + (outer ? CSharpInner.outerTypeName(typeInfo) + " outer" : "") + ")" + base)).add(SpaceEnum.ONE)
+                    .add(CSharpStatementPrinter.braces(body)));
+        }
         typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m)
                              && CSharpContext.program().accessorOf(m) == null)
@@ -181,11 +203,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record) members.addAll(accessorImplementations(components, q));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
+        if (CSharpCompanions.has(typeInfo)) members.addAll(CSharpCompanions.bridges(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
         out.add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(nonEmpty));
+        if (doTypeDeclaration && CSharpCompanions.has(typeInfo)) {
+            out.add(SpaceEnum.NEWLINE).add(CSharpCompanions.declaration(typeInfo, typeAccess(), q));
+        }
         return out;
     }
 
@@ -693,10 +719,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
                 .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
+        // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
+        // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
+        TypeInfo parent = cls.parentClass() == null ? null : cls.parentClass().typeInfo();
+        java.util.Set<MethodInfo> declaredAbove = parent == null ? java.util.Set.of()
+                : leftAbstract(parent).stream().map(LeftAbstract::method).collect(java.util.stream.Collectors.toSet());
         List<LeftAbstract> left = new ArrayList<>();
         interfaces.forEach((iface, i) -> {
             if (!CSharpNames.translated(iface)) return;
             for (MethodInfo m : iface.methods()) {
+                if (declaredAbove.contains(m)) continue;
                 if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
                     || CSharpWildcards.mayCapture(m)) continue;
                 if (OBJECT_METHODS.contains(m.name() + "/" + m.parameters().size())) continue;

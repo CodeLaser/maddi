@@ -17,6 +17,7 @@ package io.codelaser.maddi.cst.print.csharp;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.IOException;
@@ -733,7 +734,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
     /**
      * C# cannot call a lambda where it is written: a supplier argument that a template calls is written in place.
-     * An F-bounded type used raw stops at its own erasure.
+     * An F-bounded type used raw is its companion, which no type argument has to satisfy (see {@link #companions}).
      */
     @Test
     public void suppliers() {
@@ -741,7 +742,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static List<string> Names(List<string> given) => given ?? new List<string>();");
         contains(cs, "internal static List<string> Copy(List<string> given) => given ?? new List<string>();");
         contains(cs, "internal static string Name(string given) => given ?? \"none\";");
-        contains(cs, "internal static Defaults<");
+        contains(cs, "internal static IDefaults Raw() => null;");
     }
 
     @Language("java")
@@ -1463,6 +1464,213 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SCORES = """
+            package org.example.scores;
+            import java.util.List;
+            public class Scores {
+                public interface Score<Score_ extends Score<Score_>> extends Comparable<Score_> {
+                    Score_ add(Score_ other);
+                    Score_ negate();
+                    boolean isZero();
+                    String toShortString();
+                }
+                public record SimpleScore(int value) implements Score<SimpleScore> {
+                    public SimpleScore add(SimpleScore other) { return new SimpleScore(value + other.value); }
+                    public SimpleScore negate() { return new SimpleScore(-value); }
+                    public boolean isZero() { return value == 0; }
+                    public String toShortString() { return "" + value; }
+                    public int compareTo(SimpleScore other) { return Integer.compare(value, other.value); }
+                }
+                public interface Director<Solution_, Score_ extends Score<Score_>> {
+                    Score_ calculate(Solution_ solution);
+                    List<Score_> history();
+                }
+                static boolean anyZero(List<Score<?>> scores) {
+                    for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
+                    return false;
+                }
+                static <S> String describe(Director<S, ?> director, S solution) {
+                    return director.calculate(solution).toShortString();
+                }
+            }
+            """;
+
+    /**
+     * A wildcard of a self-bounded type has no C# type argument: its companion, IScore beside IScore<Score_>, which
+     * declares the members a wildcard's user calls, the removed parameter in a result erased to its bound's companion.
+     */
+    @Test
+    public void companions() {
+        String cs = translate("Scores", SCORES);
+        contains(cs, "public interface IScore<Score_> : IComparable<Score_>, IScore where Score_ : IScore<Score_> {");
+        contains(cs, "public interface IScore {");
+        contains(cs, "IScore Negate();");
+        // the bridges: every IScore<S> is an IScore
+        contains(cs, "IScore IScore.Negate() => Negate();");
+        contains(cs, "bool IScore.IsZero() => IsZero();");
+        // a result of the removed parameter in a collection has no companion form: History is not the companion's
+        contains(cs, "public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }");
+        contains(cs, "internal static bool AnyZero(List<IScore> scores)");
+        contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
+        assertFalse(cs.contains("IScore<object>"), cs);
+    }
+
+    private static final String MODES = """
+            package org.example.modes;
+            public class Modes {
+                enum Mode {
+                    FAST(1), FULL_ASSERT(3);
+                    private final int level;
+                    Mode(int level) { this.level = level; }
+                    int level() { return level; }
+                }
+                static boolean asserted(Mode mode) {
+                    return switch (mode) {
+                        case FULL_ASSERT -> true;
+                        case FAST -> false;
+                    };
+                }
+                static int weight(Mode mode) {
+                    int w = 0;
+                    switch (mode) {
+                        case FAST: w++;
+                        case FULL_ASSERT: w += mode.level(); break;
+                    }
+                    return w;
+                }
+            }
+            """;
+
+    /** An enum C# declares as a class has no constants for a case: its instances match on their Name. */
+    @Test
+    public void switchOnEnumClass() {
+        String cs = translate("Modes", MODES);
+        contains(cs, "{ Name: \"FULL_ASSERT\" } => true");
+        contains(cs, "case { Name: \"FAST\" }:");
+        // a fall-through into a pattern's section: goto case cannot name it, a statement label can
+        contains(cs, "goto case_FULL_ASSERT;");
+        contains(cs, "case_FULL_ASSERT: ;");
+    }
+
+    private static final String STORE = """
+            package org.example.store;
+            import java.util.Objects;
+            public class Store {
+                private final Object[] values = new Object[4];
+                @SuppressWarnings("unchecked")
+                <V> V get(int i) { return (V) values[i]; }
+                String name() {
+                    String s = get(0);
+                    return Objects.requireNonNullElseGet(s, () -> {
+                        String fallback = "x";
+                        return fallback + values.length;
+                    });
+                }
+            }
+            """;
+
+    /**
+     * A method type parameter only the result mentions gets Java's inferred type argument (CS0411); a supplier with a
+     * block body is called through its delegate where a template calls it.
+     */
+    @Test
+    public void inferredAndSupplied() {
+        String cs = translate("Store", STORE);
+        contains(cs, "string s = Get<string>(0);");
+        contains(cs, "s ?? ((Func<string>) (() => {");
+        contains(cs, "}))();");
+    }
+
+    private static final String SELECTORS = """
+            package org.example.selectors;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Selectors {
+                interface Selector { boolean isNeverEnding(); }
+                abstract static class AbstractSelector implements Selector {
+                    protected final String name = getClass().getSimpleName();
+                    protected final List<String> seen = new ArrayList<>();
+                }
+                abstract static class AbstractDemandEnabledSelector extends AbstractSelector {
+                    @Override
+                    public abstract boolean equals(Object other);
+                    @Override
+                    public abstract int hashCode();
+                }
+                static final class FromSolution extends AbstractDemandEnabledSelector {
+                    private final boolean random;
+                    FromSolution(boolean random) { this.random = random; }
+                    public boolean isNeverEnding() { return random; }
+                    public boolean equals(Object other) { return other == this; }
+                    public int hashCode() { return 1; }
+                }
+            }
+            """;
+
+    /**
+     * An interface's method that an abstract class leaves to its subclasses is declared abstract once, by the first
+     * abstract class; an initializer that uses this runs in the constructor, as Java's does.
+     */
+    @Test
+    public void abstractAndInitializers() {
+        String cs = translate("Selectors", SELECTORS);
+        assertEquals(1, cs.split("public abstract bool NeverEnding", -1).length - 1, cs);
+        contains(cs, "protected internal readonly string name;");
+        contains(cs, "this.name = this.GetType().Name;");
+        contains(cs, "protected AbstractSelector() {");
+        contains(cs, "this.seen = new List<string>();");
+    }
+
+    private static final String INNER = """
+            package org.example.inner;
+            import java.util.Iterator;
+            public class Range implements Iterable<Long> {
+                private final long from;
+                private final long to;
+                public Range(long from, long to) { this.from = from; this.to = to; }
+                public Iterator<Long> iterator() { return new Upcoming(); }
+                long width() { return to - from; }
+                Upcoming twice(Range other) { return other.new Upcoming(); }
+                class Upcoming implements Iterator<Long> {
+                    private long next = from;
+                    public boolean hasNext() { return next < to; }
+                    public Long next() { return next++; }
+                    long left() { return width() - (next - Range.this.from); }
+                    Upcoming copy() { return new Upcoming(); }
+                }
+                class Stepped extends Upcoming {
+                    private final long step;
+                    Stepped(long step) { this.step = step; }
+                    long step() { return step; }
+                }
+                class Plain {
+                    int one() { return 1; }
+                }
+            }
+            """;
+
+    /** A Java inner class's enclosing instance is C#'s field outer, which its constructors take first. */
+    @Test
+    public void innerClasses() {
+        String cs = translate("Range", INNER);
+        // created with this in the enclosing type's code, with the scope of other.new Upcoming()
+        contains(cs, "public IJavaIterator<long> Iterator() => new Upcoming(this);");
+        contains(cs, "internal Upcoming Twice(Range other) => new Upcoming(other);");
+        // the field, the default constructor that takes it, and the initializer that uses it, moved after it
+        contains(cs, "private readonly Range outer;");
+        contains(cs, "this.outer = outer;");
+        contains(cs, "this.next = outer.from;");
+        assertFalse(cs.contains("private long next = outer.from;"), cs);
+        // the enclosing instance's members, and Range.this
+        contains(cs, "public bool HasNext() => next < outer.to;");
+        contains(cs, "internal long Left() => outer.Width() - (next - outer.from);");
+        // created with the enclosing instance from an inner class's code; passed on to the superclass
+        contains(cs, "internal Upcoming Copy() => new Upcoming(outer);");
+        contains(cs, "internal Stepped(Range outer, long step) : base(outer) {");
+        // an inner class that does not use its enclosing instance does not take it
+        contains(cs, "internal sealed class Plain { internal int One() => 1; }");
+    }
+
     private static final String FACTS = """
             package org.example.facts;
             import java.util.ArrayList;

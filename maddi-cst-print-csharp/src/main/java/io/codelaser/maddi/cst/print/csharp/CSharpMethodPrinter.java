@@ -81,8 +81,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (inheritance != null) modifiers.append(inheritance).append(' ');
 
         if (methodInfo.isConstructor()) {
-            b.add(new TextImpl(modifiers + CSharpNames.type(typeInfo))).add(parameters(methodInfo, q));
-            constructorBody(b, q);
+            boolean outer = CSharpInner.withOuter(typeInfo);
+            b.add(new TextImpl(modifiers + CSharpNames.type(typeInfo)))
+                    .add(outer ? outerParameters(methodInfo, q) : parameters(methodInfo, q));
+            constructorBody(b, outer, q);
             return b;
         }
         CSharpWildcards.Captured captured = CSharpWildcards.captured(methodInfo, q);
@@ -145,18 +147,48 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */
-    private void constructorBody(OutputBuilder b, Qualification q) {
+    private void constructorBody(OutputBuilder b, boolean outer, Qualification q) {
         Block body = methodInfo.methodBody();
         List<Statement> statements = body == null ? List.of()
                 : body.statements().stream().filter(s -> !s.isSynthetic()).toList();
+        boolean chained = false;
+        ParameterizedType parent = typeInfo.parentClass();
+        boolean outerParent = outer && parent != null && CSharpInner.withOuter(parent.typeInfo());
         if (!statements.isEmpty() && statements.getFirst() instanceof ExplicitConstructorInvocation eci) {
-            if (!eci.isSuper() || !eci.parameterExpressions().isEmpty()) {
+            chained = !eci.isSuper();
+            // an inner class passes its enclosing instance on: this(outer, …), base(outer, …)
+            boolean passOuter = outer && (chained || outerParent);
+            if (passOuter) {
+                b.add(SymbolEnum.COLON).add(eci.isSuper() ? CSharpKeyword.BASE : KeywordImpl.THIS)
+                        .add(CSharpExpressionPrinter.argumentsAfter(new OutputBuilderImpl().add(new TextImpl("outer")), eci.parameterExpressions(),
+                                eci.methodInfo(), q));
+            } else if (!eci.isSuper() || !eci.parameterExpressions().isEmpty()) {
                 b.add(SymbolEnum.COLON).add(eci.isSuper() ? CSharpKeyword.BASE : KeywordImpl.THIS)
                         .add(CSharpExpressionPrinter.arguments(eci.parameterExpressions(), eci.methodInfo(), q));
             }
             statements = statements.subList(1, statements.size());
+        } else if (outerParent) {
+            b.add(SymbolEnum.COLON).add(CSharpKeyword.BASE).add(CSharpExpressionPrinter.argumentsAfter(
+                    new OutputBuilderImpl().add(new TextImpl("outer")), List.of(), null, q));
         }
-        b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
+        if (!chained && (outer || CSharpInner.initializedInConstructor(typeInfo))) {
+            List<OutputBuilder> first = new java.util.ArrayList<>();
+            if (outer) first.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            first.addAll(CSharpInner.fieldInitializers(typeInfo, q));
+            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, first, q));
+        } else {
+            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
+        }
+    }
+
+    /** An inner class's constructor's parameters: its enclosing instance first, {@code (Outer outer, …)}. */
+    private static OutputBuilder outerParameters(MethodInfo methodInfo, Qualification q) {
+        OutputBuilder first = new OutputBuilderImpl().add(new TextImpl(CSharpInner.outerTypeName(methodInfo.typeInfo())
+                                                                      + " outer"));
+        return java.util.stream.Stream.concat(java.util.stream.Stream.of(first), methodInfo.parameters().stream()
+                        .map(p -> parameter(p, null, q)))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
     }
 
     /** {@code (int a, params string[] rest)}. */

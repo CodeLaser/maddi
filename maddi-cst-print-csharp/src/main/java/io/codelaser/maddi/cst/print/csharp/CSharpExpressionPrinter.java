@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -36,6 +37,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Prints an {@link Expression} as C#. Every expression form is printed here, recursively, so that a Java-only form
@@ -226,6 +228,11 @@ public final class CSharpExpressionPrinter {
             && CSharpContext.hoistedWithOuter() != null) {
             return "outer";
         }
+        // Outer.this in an inner class
+        if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
+            String path = CSharpInner.pathTo(t.explicitlyWriteType());
+            if (path != null) return path;
+        }
         if (t.explicitlyWriteType() != null && t.explicitlyWriteType() != CSharpContext.currentType()) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, null, t.explicitlyWriteType().simpleName() + ".this");
         }
@@ -250,6 +257,11 @@ public final class CSharpExpressionPrinter {
             && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
                  && t.explicitlyWriteType() != null)) {
             return text("outer." + name);
+        }
+        // a field of the enclosing instance, in an inner class
+        if (!field.isStatic() && fr.isDefaultScope()) {
+            String path = CSharpInner.pathTo(field.owner());
+            if (path != null) return text(path + "." + name);
         }
         if (fr.isDefaultScope() || fr.scope() == null) {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
@@ -395,6 +407,9 @@ public final class CSharpExpressionPrinter {
         if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
             && CSharpAnonymous.viaOuter(method.typeInfo(), withOuter.type())) {
             b.add(text("outer")).add(SymbolEnum.DOT);
+        } else if (!method.isStatic() && mc.objectIsImplicit() && CSharpInner.pathTo(method.typeInfo()) != null) {
+            // a method of the enclosing instance, in an inner class
+            b.add(text(CSharpInner.pathTo(method.typeInfo()))).add(SymbolEnum.DOT);
         } else if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
@@ -423,11 +438,74 @@ public final class CSharpExpressionPrinter {
         }
         String tokenArgument = typeTokenArgument(mc, q);
         String typeArguments = tokenArgument != null ? tokenArgument
-                : mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
+                : mc.typeArguments().isEmpty() ? inferredTypeArguments(mc, q) : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
         unmapped(method, mc);
         b.add(text(CSharpNames.method(method) + typeArguments));
         return b.add(argumentsWithoutTypeToken(mc, q));
+    }
+
+    /**
+     * The type arguments Java infers and C# cannot: a method type parameter that no parameter's type mentions,
+     * {@code <Value_> Value_ getStore(int index)}, which Java infers from the call's target and C# not at all (CS0411).
+     * C# takes all type arguments or none, so all are printed, as Java inferred them from the call's result and its
+     * arguments; none when one of them is not a type C# can write (a wildcard, a capture, the method's own parameter).
+     */
+    private static String inferredTypeArguments(MethodCall mc, Qualification q) {
+        MethodInfo method = mc.methodInfo();
+        List<TypeParameter> typeParameters = method.typeParameters();
+        if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())) return "";
+        boolean uninferable = typeParameters.stream().anyMatch(tp -> method.parameters().stream()
+                .noneMatch(p -> mentions(p.parameterizedType(), tp)));
+        if (!uninferable) return "";
+        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
+        for (int i = 0; i < method.parameters().size() && i < mc.parameterExpressions().size(); i++) {
+            ParameterInfo p = method.parameters().get(i);
+            if (p.isVarArgs()) break;
+            match(p.parameterizedType(), mc.parameterExpressions().get(i).parameterizedType(), typeParameters, inferred);
+        }
+        List<String> printed = new java.util.ArrayList<>();
+        for (TypeParameter tp : typeParameters) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, typeParameters)) return "";
+            // Object for a bounded parameter would trade CS0411 for CS0311
+            if (t.isJavaLangObject() && tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return "";
+            printed.add(CSharpTypeName.argument(t, q));
+        }
+        return "<" + String.join(", ", printed) + ">";
+    }
+
+    private static boolean mentions(ParameterizedType t, TypeParameter tp) {
+        if (t == null) return false;
+        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
+        return t.parameters().stream().anyMatch(a -> mentions(a, tp));
+    }
+
+    /** Matches a formal type with Java's concrete one: {@code Value_} with {@code Bucket<…>}. */
+    private static void match(ParameterizedType formal, ParameterizedType concrete, List<TypeParameter> typeParameters,
+                              java.util.Map<TypeParameter, ParameterizedType> inferred) {
+        if (formal == null || concrete == null) return;
+        if (formal.isTypeParameter() && typeParameters.contains(formal.typeParameter())) {
+            if (concrete.arrays() >= formal.arrays()) {
+                inferred.putIfAbsent(formal.typeParameter(), concrete.copyWithFewerArrays(formal.arrays()));
+            }
+            return;
+        }
+        if (formal.typeInfo() != null && formal.typeInfo().equals(concrete.typeInfo())
+            && formal.parameters().size() == concrete.parameters().size()) {
+            for (int i = 0; i < formal.parameters().size(); i++) {
+                match(formal.parameters().get(i), concrete.parameters().get(i), typeParameters, inferred);
+            }
+        }
+    }
+
+    /** A type C# can write as a type argument: no wildcard, and none of the called method's own type parameters. */
+    private static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
+        if (t.wildcard() != null) return false;
+        if (t.isTypeParameter()) return !typeParameters.contains(t.typeParameter());
+        if (t.typeInfo() == null) return false;
+        return t.parameters().stream().allMatch(a -> writable(a, typeParameters));
     }
 
     /** The arguments of a call; a type token's index is shifted out, and the others keep their parameter's type. */
@@ -459,6 +537,13 @@ public final class CSharpExpressionPrinter {
         }
         return IntStream.range(0, args.size()).mapToObj(i -> argument(args.get(i), method, i, q)).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_PARENTHESIS, SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
+    }
+
+    /** {@code (first, args…)}: an inner class's enclosing instance, then the arguments. */
+    static OutputBuilder argumentsAfter(OutputBuilder first, List<Expression> args, MethodInfo method, Qualification q) {
+        return Stream.concat(Stream.of(first), IntStream.range(0, args.size()).mapToObj(i -> argument(args.get(i), method, i, q)))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
 
     private static OutputBuilder constructorCall(ConstructorCall cc, Qualification q) {
@@ -524,7 +609,17 @@ public final class CSharpExpressionPrinter {
             }
             return b;
         }
-        if (cc.object() != null) {
+        TypeInfo created = cc.constructor() == null ? null : cc.constructor().typeInfo();
+        if (CSharpInner.withOuter(created)) {
+            // an inner class's enclosing instance comes first: range.new Iterator() is new Iterator(range)
+            String enclosing = cc.object() != null ? null : CSharpInner.enclosingInstance(created);
+            if (cc.object() != null || enclosing != null) {
+                OutputBuilder first = cc.object() != null ? receiver(cc.object(), q) : text(enclosing);
+                return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(type, q)))
+                        .add(argumentsAfter(first, cc.parameterExpressions(), cc.constructor(), q));
+            }
+            CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
+        } else if (cc.object() != null) {
             CSharpContext.message(CSharpPrintMessage.Code.OUTER_THIS, cc, CSharpContext.describe(cc));
         }
         LibraryMapping.Rule rule = cc.constructor() == null || CSharpNames.translated(cc.constructor().typeInfo()) ? null
@@ -1079,7 +1174,9 @@ public final class CSharpExpressionPrinter {
     /** An operand, in parentheses when its precedence is lower than its operator's. */
     static OutputBuilder operand(Precedence precedence, Expression e, Qualification q) {
         OutputBuilder inner = print(e, q);
-        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda || nonAtomicCall(e)) {
+        // a method reference may print as a lambda, p0 => new HashSet<object>(p0)
+        if (precedence.greaterThan(e.precedence()) || e instanceof Lambda || e instanceof MethodReference
+            || nonAtomicCall(e)) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         return inner;

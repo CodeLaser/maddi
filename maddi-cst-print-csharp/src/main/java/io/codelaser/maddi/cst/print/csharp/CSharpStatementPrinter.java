@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
@@ -147,6 +148,19 @@ public final class CSharpStatementPrinter {
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
             return braces(own.stream().map(st -> print(st, q)).toList());
+        } finally {
+            CSharpContext.exitScope();
+        }
+    }
+
+    /** A block whose printed {@code first} statements come before its own: an inner class's {@code this.outer = outer;}. */
+    static OutputBuilder block(List<Statement> statements, List<OutputBuilder> first, Qualification q) {
+        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        CSharpContext.enterScope(CSharpLocals.declaredIn(own));
+        try {
+            List<OutputBuilder> all = new java.util.ArrayList<>(first);
+            own.forEach(st -> all.add(print(st, q)));
+            return braces(all);
         } finally {
             CSharpContext.exitScope();
         }
@@ -365,15 +379,28 @@ public final class CSharpStatementPrinter {
             byStart.computeIfAbsent(l.startFromPosition(), _ -> new ArrayList<>()).add(l);
         }
         List<Integer> starts = new ArrayList<>(byStart.keySet());
-        List<OutputBuilder> sections = new ArrayList<>();
+        List<List<Statement>> owns = new ArrayList<>();
         for (int i = 0; i < starts.size(); i++) {
             int from = Math.min(starts.get(i), statements.size());
             int to = i + 1 < starts.size() ? Math.min(starts.get(i + 1), statements.size()) : statements.size();
-            List<Statement> own = statements.subList(from, to).stream().filter(s -> !s.isSynthetic()).toList();
+            owns.add(statements.subList(from, to).stream().filter(s -> !s.isSynthetic()).toList());
+        }
+        // a section fallen into whose label is a pattern, which goto case cannot name: a statement label of its own
+        String[] fallenInto = new String[starts.size()];
+        for (int i = 1; i < starts.size(); i++) {
+            SwitchStatementOldStyle.SwitchLabel first = byStart.get(starts.get(i)).getFirst();
+            if (!endsInJump(owns.get(i - 1)) && enumClassConstant(first.literal()) != null) {
+                fallenInto[i] = "case_" + enumClassConstant(first.literal()).name();
+            }
+        }
+        List<OutputBuilder> sections = new ArrayList<>();
+        for (int i = 0; i < starts.size(); i++) {
+            List<Statement> own = owns.get(i);
             List<OutputBuilder> labels = new ArrayList<>();
             byStart.get(starts.get(i)).forEach(l -> labels.add(caseLabel(l.literal(), l.patternVariable(),
                     l.whenExpression(), q)));
             List<OutputBuilder> lines = new ArrayList<>();
+            if (fallenInto[i] != null) lines.add(text(fallenInto[i] + ": ;"));
             own.forEach(s -> lines.add(print(s, q)));
             if (!endsInJump(own)) {
                 if (i + 1 < starts.size()) {
@@ -381,6 +408,9 @@ public final class CSharpStatementPrinter {
                     lines.add(isDefault(next.literal())
                             ? new OutputBuilderImpl().add(KeywordImpl.GOTO).add(SpaceEnum.ONE).add(KeywordImpl.DEFAULT)
                                     .add(SymbolEnum.SEMICOLON)
+                            : fallenInto[i + 1] != null
+                            ? new OutputBuilderImpl().add(KeywordImpl.GOTO).add(SpaceEnum.ONE)
+                                    .add(text(fallenInto[i + 1])).add(SymbolEnum.SEMICOLON)
                             : new OutputBuilderImpl().add(KeywordImpl.GOTO).add(SpaceEnum.ONE).add(KeywordImpl.CASE)
                                     .add(SpaceEnum.ONE).add(caseConstant(next.literal(), q)).add(SymbolEnum.SEMICOLON));
                 } else {
@@ -479,6 +509,11 @@ public final class CSharpStatementPrinter {
             // case 0x8: on a char is C#'s case '\b':
             return text(CSharpExpressionPrinter.charLiteral((char) ic.constant().intValue()));
         }
+        FieldInfo enumClassConstant = enumClassConstant(literal);
+        if (enumClassConstant != null) {
+            // an enum C# declares as a class has no constants: its instance's Name, the Java constant's (CS9135)
+            return text("{ Name: \"" + enumClassConstant.name() + "\" }");
+        }
         if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
             && CSharpNames.isEnumConstant(fr.fieldInfo())) {
             return text(CSharpTypeName.name(fr.fieldInfo().owner(), q) + "." + CSharpNames.field(fr.fieldInfo()));
@@ -488,6 +523,16 @@ public final class CSharpStatementPrinter {
             return text(CSharpTypeName.of(te.parameterizedType(), q));
         }
         return CSharpExpressionPrinter.print(literal, q);
+    }
+
+    /** A constant of an enum C# declares as a class, whose case is a pattern; null for any other label. */
+    private static FieldInfo enumClassConstant(Expression literal) {
+        if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+            && CSharpNames.isEnumConstant(fr.fieldInfo()) && CSharpNames.translated(fr.fieldInfo().owner())
+            && !CSharpTypePrinter.simpleEnum(fr.fieldInfo().owner())) {
+            return fr.fieldInfo();
+        }
+        return null;
     }
 
     private static boolean isDefault(Expression literal) {
