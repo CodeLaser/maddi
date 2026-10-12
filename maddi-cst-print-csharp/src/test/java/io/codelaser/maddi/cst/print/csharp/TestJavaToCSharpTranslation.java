@@ -1500,6 +1500,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 }
                 String either(boolean b) { return b ? description : null; }
                 Object cast() { return (CharSequence) find("k"); }
+                int unbox(Map<String, Integer> m, List<Integer> l, Integer boxed, Integer checked) {
+                    int a = m.get("k");
+                    int b = l.get(0);
+                    int c = boxed;
+                    return checked == null ? a : a + b + c + checked;
+                }
+                void put(Map<Integer, String> byId, Integer id) { byId.put(id, description); }
             }
             """;
 
@@ -1518,7 +1525,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
         @Override
         public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
-            return "find".equals(method.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+            // Map.get as an annotated JDK has it
+            return "find".equals(method.name()) || "get".equals(method.name())
+                                                   && "java.util.Map".equals(method.typeInfo().fullyQualifiedName())
+                    ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
                     : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
         }
     };
@@ -1585,5 +1595,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "(b ? description : null)!");
         // a cast keeps the null of a value that may be null
         contains(cs, "(string?) Find(\"k\")");
+        // unboxing throws on null, in C# as in Java: an Integer is C#'s int? whatever its declaration's verdict
+        contains(cs, "int a = (int) m.GetValueOrNull(\"k\")!;");
+        contains(cs, "int b = (int) l[0];");
+        contains(cs, "int c = (int) boxed!;");
+        // a boxed key is unboxed into Dictionary<int, string>'s K: its cast asserts it, once
+        contains(cs, "byId[(int) id!] = description!;");
     }
 }

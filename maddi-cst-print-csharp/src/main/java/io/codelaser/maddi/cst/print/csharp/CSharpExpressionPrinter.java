@@ -557,7 +557,8 @@ public final class CSharpExpressionPrinter {
         Expression operand = inner instanceof Cast cast && cast.parameterizedType().isBoxedExcludingVoid()
                 ? cast.expression() : value;
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(primitive))
-                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(operand, q));
+                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
+                .add(CSharpNullability.unboxed(operand, receiver(operand, q)));
     }
 
     /** A JDK exception's constructor of its cause. */

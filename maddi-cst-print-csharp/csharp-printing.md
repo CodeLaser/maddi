@@ -114,6 +114,10 @@ implements the interface.
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
   in Java (CS8600).
+- An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
+  Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
+  `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it
+  non-null, and a call unless its result is the value type itself (`List<int>`'s `l[0]`) and not nullable.
 
 ## Declarations
 
