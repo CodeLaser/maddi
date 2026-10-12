@@ -261,7 +261,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (typeInfo.isAnonymous() && CSharpContext.hoisted(typeInfo) != null) return "private";
         if (isLocal(typeInfo)) return "private"; // lifted into the enclosing type
         // a top-level type is public or internal
-        if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
+        // a base of a public type is public too (CSharpProgram#exposedBase)
+        if (typeInfo.isPrimaryType()) {
+            return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic)
+                   || CSharpContext.program().exposedBase(typeInfo) ? "public" : "internal";
+        }
         // a hoisted type is in the namespace, where C# has no private or protected
         if (CSharpNames.hoisted(typeInfo)) {
             return "public".equals(CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo))) ? "public" : "internal";
@@ -779,9 +783,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
         // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
         // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
-        TypeInfo parent = cls.parentClass() == null ? null : cls.parentClass().typeInfo();
-        java.util.Set<MethodInfo> declaredAbove = parent == null ? java.util.Set.of()
-                : leftAbstract(parent).stream().map(LeftAbstract::method).collect(java.util.stream.Collectors.toSet());
+        // (any of them: one in between that declares nothing does not make a third one's declaration go away)
+        java.util.Set<MethodInfo> declaredAbove = new java.util.HashSet<>();
+        for (TypeInfo t = cls.parentClass() == null ? null : cls.parentClass().typeInfo(); t != null;
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            leftAbstract(t).forEach(l -> declaredAbove.add(l.method()));
+        }
         List<LeftAbstract> left = new ArrayList<>();
         interfaces.forEach((iface, i) -> {
             if (!CSharpNames.translated(iface)) return;

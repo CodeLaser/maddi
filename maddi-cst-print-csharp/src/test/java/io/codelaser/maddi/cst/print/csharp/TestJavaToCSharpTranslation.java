@@ -1552,6 +1552,28 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 <ResultA_> Stream<ResultA_> map(Function<A, ResultA_> mapping) {
                     return share(new MapStream<>(this, mapping));
                 }
+                static final class Bridge<A> implements Stream<A> { Bridge(Streams<?> parent) { } }
+                static final class Group<A, NewA> implements Stream<NewA> { void setBridge(Bridge<NewA> bridge) { } }
+                <S extends Stream<?>> S share(S stream, java.util.function.Consumer<S> consumer) {
+                    consumer.accept(stream);
+                    return stream;
+                }
+                <NewA> Stream<NewA> group(Group<A, NewA> group) { return share(new Bridge<>(this), group::setBridge); }
+                static <T> String key(Function<T, ?> mapping, T t) { return String.valueOf(mapping.apply(t)); }
+                static <T, P> String keyed(Function<T, P> mapping, T t) { return key(mapping, t); }
+                static String raw(Function mapping) { return String.valueOf(mapping.apply("x")); }
+                static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
+                static String supplied(java.util.function.Supplier<?> supplier) { return String.valueOf(supplier.get()); }
+                static <P> String supply(java.util.function.Supplier<P> supplier) { return supplied(supplier); }
+                abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
+                static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
+                record Pair<L, R>(L left, R right) { }
+                static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
+                static <V> java.util.function.IntFunction<java.util.Set<V>> sets() { return java.util.HashSet::new; }
+                static <R> java.util.List<R> empty() { return new java.util.ArrayList<>(); }
+                static <R> java.util.function.Supplier<java.util.List<R>> emptySupplier() { return Streams::empty; }
+                static <T, R> R max(Function<T, R> mapping, T t) { return mapping.apply(t); }
+                static <T, P> P maxed(Function<T, P> mapping, T t) { return max(mapping, t); }
             }
             """;
 
@@ -1560,6 +1582,22 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void diamond() {
         String cs = translate("Streams", STREAMS);
         contains(cs, "new MapStream<A, ResultA_>(");
+        // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
+        contains(cs, "new Bridge<NewA>(this)");
+        // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
+        contains(cs, "Key(x0_ => mapping(x0_), t)");
+        contains(cs, "Raw(x0_ => mapping((T) x0_))");
+        contains(cs, "Supplied(() => supplier())");
+        // the callee's own R: C# infers it from the variable, a lambda would hide it
+        contains(cs, "Max(mapping, t)");
+        // a method group whose type parameter only the result mentions: C# does not infer it from the delegate
+        contains(cs, "=> Streams.Empty<R>;");
+        // a raw constructor reference creates the type Java inferred for its result
+        contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
+        contains(cs, "new HashSet<V>(p0)");
+        // an override inherits its constraints, and may not repeat them (CS0460)
+        contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
+        contains(cs, "internal override S Build<S>(S s) => s;");
     }
 
     private static final String SCORES = """
@@ -1584,6 +1622,16 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     List<Score_> history();
                 }
                 static int compare(Score<?> a, Score<?> b) { return ((Score) a).compareTo(b); }
+                static final class MinCollector<A, P extends Comparable<? super P>> {
+                    private final java.util.function.Function<A, P> mapper;
+                    MinCollector(java.util.function.Function<A, P> mapper) { this.mapper = mapper; }
+                    @Override public boolean equals(Object o) {
+                        if (o == null || getClass() != o.getClass()) return false;
+                        MinCollector<?, ?> that = (MinCollector<?, ?>) o;
+                        return java.util.Objects.equals(mapper, that.mapper);
+                    }
+                    @Override public int hashCode() { return mapper.hashCode(); }
+                }
                 static boolean anyZero(List<Score<?>> scores) {
                     for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
                     return false;
@@ -1614,6 +1662,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
+        // in its own equals, the type's wildcard is the type itself, which has the private field
+        contains(cs, "MinCollector<A, P> that = (MinCollector<A, P>) o;");
     }
 
     private static final String PHASE_SCOPES = """
@@ -1678,6 +1728,24 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Inner<SimpleScore> best = (Inner<SimpleScore>) (object) scope.GetBest();");
         contains(cs, "NewInstance<IAcceptor>(null, \"a\", c)");
         contains(cs, "NewInstance<object>(null, \"a\", c)");
+    }
+
+    private static final String NODES = """
+            package org.example.nodes;
+            public class Nodes {
+                abstract static class AbstractNode<A> { abstract A value(); }
+                public static final class TextNode extends AbstractNode<String> { String value() { return "x"; } }
+                static class Hidden { }
+            }
+            """;
+
+    /** Java's public class may extend a package-private one, C#'s may not (CS0060): the base is public. */
+    @Test
+    public void exposedBases() {
+        String cs = translate("Nodes", NODES);
+        contains(cs, "public abstract class AbstractNode<A>");
+        contains(cs, "public sealed class TextNode : AbstractNode<string>");
+        assertFalse(cs.contains("public class Hidden"), cs);
     }
 
     private static final String MODES = """
@@ -1762,7 +1830,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     @Override
                     public abstract int hashCode();
                 }
-                static final class FromSolution extends AbstractDemandEnabledSelector {
+                abstract static class GenericSelector extends AbstractDemandEnabledSelector { }
+                static final class FromSolution extends GenericSelector {
                     private final boolean random;
                     FromSolution(boolean random) { this.random = random; }
                     public boolean isNeverEnding() { return random; }
@@ -1774,7 +1843,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
     /**
      * An interface's method that an abstract class leaves to its subclasses is declared abstract once, by the first
-     * abstract class; an initializer that uses this runs in the constructor, as Java's does.
+     * abstract class, also when another abstract class is in between; an initializer that uses this runs in the
+     * constructor, as Java's does.
      */
     @Test
     public void abstractAndInitializers() {
@@ -1796,6 +1866,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 public Iterator<Long> iterator() { return new Upcoming(); }
                 long width() { return to - from; }
                 Upcoming twice(Range other) { return other.new Upcoming(); }
+                java.util.function.LongFunction<Stepped> stepper() { return Stepped::new; }
                 class Upcoming implements Iterator<Long> {
                     private long next = from;
                     public boolean hasNext() { return next < to; }
@@ -1832,6 +1903,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // created with the enclosing instance from an inner class's code; passed on to the superclass
         contains(cs, "internal Upcoming Copy() => new Upcoming(outer);");
         contains(cs, "internal Stepped(Range outer, long step) : base(outer) {");
+        // a constructor reference takes it too
+        contains(cs, "p0 => new Stepped(this, p0)");
         // an inner class that does not use its enclosing instance does not take it
         contains(cs, "internal sealed class Plain { internal int One() => 1; }");
     }

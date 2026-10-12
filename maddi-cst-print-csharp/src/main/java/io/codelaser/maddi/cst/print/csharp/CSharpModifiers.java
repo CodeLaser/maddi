@@ -62,7 +62,8 @@ final class CSharpModifiers {
             else if (m.isProtected()) declared = Declared.PROTECTED;
             else if (m.isPrivate()) declared = Declared.PRIVATE;
         }
-        if (declared != Declared.PUBLIC && CSharpContext.reachedFromOutside(new CSharpAccess.Exposed(t))) {
+        if (declared != Declared.PUBLIC && (CSharpContext.reachedFromOutside(new CSharpAccess.Exposed(t))
+                                            || CSharpContext.program().exposedBase(t))) {
             return "public";
         }
         return csharp(declared, enclosing, t);

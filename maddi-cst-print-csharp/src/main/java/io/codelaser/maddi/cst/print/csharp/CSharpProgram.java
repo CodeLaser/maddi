@@ -124,6 +124,7 @@ public final class CSharpProgram {
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
     private final Map<TypeInfo, Boolean> inner = new java.util.concurrent.ConcurrentHashMap<>();
     private Set<MethodInfo> erasedGenerics = Set.of();
+    private Set<TypeInfo> exposedBases = Set.of();
     private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
@@ -183,7 +184,53 @@ public final class CSharpProgram {
                         : CSharpProperties.Analysis.NONE,
                 policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
         program.erasedGenerics = erasedGenerics(all);
+        program.exposedBases = exposedBases(all);
         return program;
+    }
+
+    /**
+     * Java's public class may extend a package-private one, {@code public final class Group0Mapping1CollectorBiNode
+     * extends AbstractGroupBiNode}; C#'s base class or interface is at least as accessible as the type (CS0060,
+     * CS0061). The supertypes of a public type that are not public, transitively, are printed public.
+     */
+    private static Set<TypeInfo> exposedBases(List<TypeInfo> all) {
+        Set<TypeInfo> exposed = new HashSet<>();
+        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>();
+        for (TypeInfo t : all) {
+            if (publicThroughout(t)) todo.push(t);
+        }
+        Set<TypeInfo> seen = new HashSet<>();
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.pop();
+            if (!seen.add(t)) continue;
+            List<ParameterizedType> supers = new ArrayList<>(t.interfacesImplemented());
+            if (t.parentClass() != null) supers.add(t.parentClass());
+            for (ParameterizedType s : supers) {
+                TypeInfo st = s.typeInfo();
+                if (st == null || !CSharpNames.translated(st)) continue;
+                // a nested base needs the types it is nested in as visible
+                for (TypeInfo x = st; x != null && !publicThroughout(x); x = CstQueries.enclosing(x)) exposed.add(x);
+                todo.push(st);
+            }
+        }
+        return Set.copyOf(exposed);
+    }
+
+    /** Public, as declared or as a member of an interface, and so is every type it is nested in. */
+    private static boolean publicThroughout(TypeInfo t) {
+        for (TypeInfo x = t; x != null; x = CstQueries.enclosing(x)) {
+            TypeInfo enclosing = CstQueries.enclosing(x);
+            if (x.typeModifiers().stream().noneMatch(io.codelaser.maddi.cst.api.info.TypeModifier::isPublic)
+                && (enclosing == null || !enclosing.isInterface())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** A type printed public because a public type extends or implements it ({@link #exposedBases}). */
+    boolean exposedBase(TypeInfo t) {
+        return exposedBases.contains(t);
     }
 
     /**

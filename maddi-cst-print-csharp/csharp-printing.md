@@ -154,7 +154,7 @@ implements the interface.
   constructor takes first and passes on (`: this(outer, …)`, `: base(outer, …)` to a superclass that takes one too).
   The enclosing instance's members are used through it (`outer.to`, `outer.Width()`), `Range.this` is `outer`, and a
   creation passes it: `new Upcoming(this)` in the enclosing type's code, `new Upcoming(outer)` in an inner class's,
-  `new Upcoming(other)` for `other.new Upcoming()`. Its instance fields' initializers move into the constructors,
+  `new Upcoming(other)` for `other.new Upcoming()`, `p0 => new Stepped(this, p0)` for `Stepped::new`. Its instance fields' initializers move into the constructors,
   after `this.outer = outer;`, where Java runs them: a C# field initializer cannot use `outer` (CS0236).
   So do a class's whose initializer uses `this`, explicitly or through an instance member
   (`getLogger(getClass())`, CS0027): Java runs them after `super(…)`, C# before the base constructor.
@@ -178,12 +178,28 @@ implements the interface.
   where Java's type is writable casts to it through `object`, `(InnerScore<SimpleScore>) (object) scope.GetScore()`,
   since C# relates no two instantiations of a class.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
-  it is created, gets the ones its constructor's arguments give.
+  it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
+  for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
+  reference binds.
+- **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
+  `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
+  parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`.
+- **Constraints of overrides.** An override and an explicit interface implementation inherit their constraints and
+  may not repeat them (CS0460).
+- **Delegate variance.** Java passes a `Function<A, P>` where a `Function<A, ?>` is expected; C#'s `Func` is
+  covariant only in a reference type, which a type parameter is not known to be (CS1503). A variable is wrapped in a
+  lambda that C# converts with the boxing, `x0_ => leftMapping(x0_)`, a parameter that differs cast,
+  `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
   `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
-  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. A `Class<T>` parameter is
+  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. So does a method group,
+  whose type arguments C# does not infer from the delegate it converts to: `AbstractMinMaxSlot::minState` as a
+  supplier is `AbstractMinMaxSlot.MinState<Result_>`. A `Class<T>` parameter is
   C#'s `Type`, from which C# infers nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a
   `Class<?>` its own bound.
+- **Bases of public types.** Java's public class may extend a package-private one; C#'s base class or interface is
+  at least as accessible as the type (CS0060, CS0061). Every supertype of a public type, transitively, and the types
+  it is nested in, is printed public (`CSharpProgram.exposedBases`).
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
@@ -462,7 +478,10 @@ ratchet's report (see below) lists what is left.
   declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
   companion (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
-  `IScore`. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
+  `IScore`. In an instance member of the type itself, a cast to or a local of its wildcard is the type with its own
+  type parameters, which has the private members the companion has not: Java's `equals`,
+  `MinCollector<?, ?> that = (MinCollector<?, ?>) o`, is `MinCollector<A, P> that = (MinCollector<A, P>) o`, after the
+  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
   implements by a cast (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
   companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become

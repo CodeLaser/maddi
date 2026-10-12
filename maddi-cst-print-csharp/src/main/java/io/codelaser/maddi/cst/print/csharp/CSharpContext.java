@@ -249,6 +249,11 @@ final class CSharpContext {
         return STATE.get().base.currentCall();
     }
 
+    /** The call around the innermost one: {@code share(…)} while printing its argument {@code new Bridge<>(…)}. */
+    static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
+        return STATE.get().base.enclosingCall();
+    }
+
     /** A type the printed code names by its simple name: it must be in scope, through a {@code using}. */
     static void referenced(TypeInfo typeInfo) {
         STATE.get().base.referenced(typeInfo);
