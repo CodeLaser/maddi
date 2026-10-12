@@ -19,9 +19,14 @@
 # 2026-10-12, an interface's method left abstract is declared once, by the first abstract class (a second hid it:
 # CS0533, and the subclasses' overrides missed it: CS0534 393 -> 215); field initializers that use this run in the
 # constructor (CS0027): 696 -> 725 compiling files, 7848 -> 7578 errors.
+#
+# 2026-10-12, mappings: RandomGenerator (Random), BigDecimal's constants and the rest of its arithmetic, BigInteger's,
+# RoundingMode (MidpointRounding), the To*Function delegates, getCanonicalName, emptyIterator, newHashMap(n), …; a
+# supplier with a block body called through its delegate in a template: 2082 -> 1379 unmapped JDK uses, 725 -> 777
+# compiling files.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1583
-compilingFiles	725
-unmappedJdkUses	2082
+compilingFiles	777
+unmappedJdkUses	1379

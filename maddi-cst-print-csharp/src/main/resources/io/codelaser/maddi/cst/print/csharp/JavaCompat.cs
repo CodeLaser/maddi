@@ -522,6 +522,16 @@ public static class JavaMath
     public static int FloorDiv(int x, int y) => (int)Math.Floor((double)x / y);
 
     public static long FloorDiv(long x, long y) => x / y - ((x % y != 0 && (x ^ y) < 0) ? 1 : 0);
+
+    /// <summary>BigDecimal.stripTrailingZeros: a decimal divided by 1.000…0 keeps the fewest digits that represent it.</summary>
+    public static decimal StripTrailingZeros(decimal d) => d / 1.0000000000000000000000000000m;
+}
+
+/// <summary>java.lang.Class's names that .NET's Type does not have.</summary>
+public static class JavaClass
+{
+    /// <summary>getCanonicalName: a nested type's FullName has a '+' where Java's has a '.'.</summary>
+    public static string CanonicalName(Type t) => t.FullName?.Replace('+', '.');
 }
 
 public static class JavaArrays

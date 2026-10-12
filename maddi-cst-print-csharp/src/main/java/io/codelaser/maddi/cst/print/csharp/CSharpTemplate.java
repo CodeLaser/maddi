@@ -183,7 +183,14 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             if (statements.size() == 1 && statements.getFirst() instanceof ReturnStatement rs && !rs.hasNoValue()) {
                 return CSharpExpressionPrinter.receiver(rs.expression(), q);
             }
-            return null;
+            // a block body: the delegate it is, called, ((Func<T>) (() => { … }))()
+            String type = lambda.concreteFunctionalType() == null ? null
+                    : CSharpTypeName.of(lambda.concreteFunctionalType(), q);
+            if (type == null || !type.startsWith("Func<")) return null;
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(CSharpExpressionPrinter.print(lambda, q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
         if (arg instanceof MethodReference mr && mr.methodInfo().isConstructor() && mr.concreteParameterTypes().isEmpty()
             && mr.concreteReturnType() != null && mr.concreteReturnType().arrays() == 0) {

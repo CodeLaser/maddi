@@ -1464,6 +1464,35 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String STORE = """
+            package org.example.store;
+            import java.util.Objects;
+            public class Store {
+                private final Object[] values = new Object[4];
+                @SuppressWarnings("unchecked")
+                <V> V get(int i) { return (V) values[i]; }
+                String name() {
+                    String s = get(0);
+                    return Objects.requireNonNullElseGet(s, () -> {
+                        String fallback = "x";
+                        return fallback + values.length;
+                    });
+                }
+            }
+            """;
+
+    /**
+     * A method type parameter only the result mentions gets Java's inferred type argument (CS0411); a supplier with a
+     * block body is called through its delegate where a template calls it.
+     */
+    @Test
+    public void inferredAndSupplied() {
+        String cs = translate("Store", STORE);
+        contains(cs, "string s = Get<string>(0);");
+        contains(cs, "s ?? ((Func<string>) (() => {");
+        contains(cs, "}))();");
+    }
+
     private static final String SELECTORS = """
             package org.example.selectors;
             import java.util.ArrayList;

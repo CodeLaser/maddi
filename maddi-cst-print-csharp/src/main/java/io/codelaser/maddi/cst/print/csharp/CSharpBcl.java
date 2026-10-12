@@ -171,6 +171,8 @@ final class CSharpBcl implements LibraryMapping {
         // a Java Number is not)
         type("java.lang.Number", "IConvertible", SYSTEM);
         type("java.util.Random", "Random", SYSTEM);
+        type("java.util.random.RandomGenerator", "Random", SYSTEM);
+        type("java.math.RoundingMode", "MidpointRounding", SYSTEM);
         type("java.lang.StringBuffer", "StringBuilder", TEXT);
         type("java.security.MessageDigest", "HashAlgorithm", CRYPTOGRAPHY);
         type("java.security.NoSuchAlgorithmException", "CryptographicException", CRYPTOGRAPHY);
@@ -197,6 +199,11 @@ final class CSharpBcl implements LibraryMapping {
         type("java.util.function.BinaryOperator", "Func<{0}, {0}, {0}>", SYSTEM);
         type("java.util.function.IntFunction", "Func<int, {0}>", SYSTEM);
         type("java.util.function.ToIntFunction", "Func<{0}, int>", SYSTEM);
+        type("java.util.function.ToLongFunction", "Func<{0}, long>", SYSTEM);
+        type("java.util.function.ToDoubleFunction", "Func<{0}, double>", SYSTEM);
+        type("java.util.function.ToIntBiFunction", "Func<{0}, {1}, int>", SYSTEM);
+        type("java.util.function.ToLongBiFunction", "Func<{0}, {1}, long>", SYSTEM);
+        type("java.util.function.ToDoubleBiFunction", "Func<{0}, {1}, double>", SYSTEM);
         type("java.util.function.IntPredicate", "Func<int, bool>", SYSTEM);
         type("java.lang.Runnable", "Action", SYSTEM);
         type("java.util.concurrent.Callable", "Func", SYSTEM);
@@ -524,6 +531,12 @@ final class CSharpBcl implements LibraryMapping {
         // Collections, Arrays, Objects
         m("java.util.Collections.emptyList/0", "new List<{R0}>()");
         m("java.util.Collections.emptySet/0", "new HashSet<{R0}>()");
+        m("java.util.Collections.emptyIterator/0", "new JavaIterator<{R0}>(new List<{R0}>())", COMPAT);
+        // Java 19's factories of a capacity
+        m("java.util.HashMap.newHashMap/1", "new {R}($1)");
+        m("java.util.LinkedHashMap.newLinkedHashMap/1", "new {R}($1)");
+        m("java.util.HashSet.newHashSet/1", "new {R}($1)");
+        m("java.util.LinkedHashSet.newLinkedHashSet/1", "new {R}($1)");
         m("java.util.Collections.emptyMap/0", "new Dictionary<{R0}, {R1}>()");
         m("java.util.Collections.singletonList/1", "new List<{R0}> { $1 }");
         m("java.util.Collections.singleton/1", "new HashSet<{R0}> { $1 }");
@@ -562,6 +575,7 @@ final class CSharpBcl implements LibraryMapping {
         ms("java.util.Objects.requireNonNull/2", "$1 ?? throw new NullReferenceException($2)",
                 "_ = $1 ?? throw new NullReferenceException($2)", SYSTEM);
         m("java.util.Objects.requireNonNullElse/2", "$1 ?? $2");
+        m("java.util.Objects.requireNonNullElseGet/2", "$1 ?? $2()");
         m("java.util.Objects.toString/1", "JavaString.ValueOf($1)", COMPAT);
         m("java.util.Objects.toString/2", "@1?.ToString() ?? $2");
     }
@@ -732,6 +746,8 @@ final class CSharpBcl implements LibraryMapping {
         m(st + "of/1", "new[] { $* }");
         m(st + "concat/2", "$1.Concat($2)", LINQ);
         m(st + "toArray/0", "$0.ToArray()", LINQ);
+        // the generator, String[]::new, is the array's type, which C#'s ToArray knows
+        m(st + "toArray/1", "$0.ToArray()", LINQ);
         m(st + "max/1", "$0.Max(Comparer<{R}>.Create($1))", LINQ);
         m(st + "reduce/1", "$0.Reduce($1)", COMPAT);
         m(st + "reduce/2", "$0.Aggregate($1, $2)", LINQ);
@@ -756,6 +772,7 @@ final class CSharpBcl implements LibraryMapping {
         m(o + "isEmpty/0", "$0 == null");
         m(o + "get/0", "$0");
         m(o + "orElseThrow/0", "$0 ?? throw new InvalidOperationException()", SYSTEM);
+        m(o + "orElseThrow/1", "$0 ?? throw $1()");
         m(o + "orElse/1", "$0 ?? $1");
         m(o + "orElseGet/1", "$0 ?? $1()");
         m(o + "of/1", "$1");
@@ -771,6 +788,9 @@ final class CSharpBcl implements LibraryMapping {
                 "java.util.function.BiConsumer.accept", "java.util.function.Predicate.test",
                 "java.util.function.BiPredicate.test", "java.util.function.IntFunction.apply",
                 "java.util.function.ToIntFunction.applyAsInt", "java.util.function.IntPredicate.test",
+                "java.util.function.ToLongFunction.applyAsLong", "java.util.function.ToDoubleFunction.applyAsDouble",
+                "java.util.function.ToIntBiFunction.applyAsInt", "java.util.function.ToLongBiFunction.applyAsLong",
+                "java.util.function.ToDoubleBiFunction.applyAsDouble",
                 "java.lang.Runnable.run", "java.util.concurrent.Callable.call", "java.util.Comparator.compare")) {
             m(f, "$0($*)");
         }
@@ -814,6 +834,7 @@ final class CSharpBcl implements LibraryMapping {
                 ? rule("({R}) @0.Clone()") : rule("$0.MemberwiseClone()"));
         m("java.lang.Class.getName/0", "$0.FullName");
         m("java.lang.Class.getSimpleName/0", "$0.Name");
+        m("java.lang.Class.getCanonicalName/0", "JavaClass.CanonicalName($0)", COMPAT);
         m("java.lang.Thread.currentThread/0", "Thread.CurrentThread", THREADING);
         m("java.lang.AutoCloseable.close/0", "$0.Dispose()");
         m("java.io.Closeable.close/0", "$0.Dispose()");
@@ -944,15 +965,31 @@ final class CSharpBcl implements LibraryMapping {
         m("java.math.BigDecimal.doubleValue/0", "(double) @0");
         m("java.math.BigDecimal.intValue/0", "(int) @0");
         m("java.math.BigDecimal.longValue/0", "(long) @0");
+        m("java.math.BigDecimal.signum/0", "Math.Sign(@0)", SYSTEM);
+        m("java.math.BigDecimal.abs/0", "Math.Abs(@0)", SYSTEM);
+        m("java.math.BigDecimal.scale/0", "@0.Scale");
+        m("java.math.BigDecimal.stripTrailingZeros/0", "JavaMath.StripTrailingZeros($0)", COMPAT);
+        m("java.math.BigDecimal.setScale/2", "Math.Round(@0, $1, $2)", SYSTEM);
+        m("java.math.BigDecimal.divide/3", "Math.Round(@0 / @1, $2, $3)", SYSTEM);
+        m("java.math.BigInteger.add/1", "@0 + @1");
+        m("java.math.BigInteger.subtract/1", "@0 - @1");
+        m("java.math.BigInteger.multiply/1", "@0 * @1");
+        m("java.math.BigInteger.negate/0", "-@0");
         m("java.math.BigInteger.valueOf/1", "new BigInteger($1)", NUMERICS);
 
-        m("java.util.Random.nextInt/0", "$0.Next()");
-        m("java.util.Random.nextInt/1", "$0.Next($1)");
-        m("java.util.Random.nextInt/2", "$0.Next($1, $2)");
-        m("java.util.Random.nextLong/0", "$0.NextInt64()");
-        m("java.util.Random.nextDouble/0", "$0.NextDouble()");
-        m("java.util.Random.nextFloat/0", "$0.NextSingle()");
-        m("java.util.Random.nextBoolean/0", "$0.Next(2) == 1");
+        // Random and the interface it implements since Java 17, RandomGenerator
+        for (String r : List.of("java.util.Random.", "java.util.random.RandomGenerator.")) {
+            m(r + "nextInt/0", "$0.Next()");
+            m(r + "nextInt/1", "$0.Next($1)");
+            m(r + "nextInt/2", "$0.Next($1, $2)");
+            m(r + "nextLong/0", "$0.NextInt64()");
+            m(r + "nextLong/1", "$0.NextInt64($1)");
+            m(r + "nextLong/2", "$0.NextInt64($1, $2)");
+            m(r + "nextDouble/0", "$0.NextDouble()");
+            m(r + "nextDouble/1", "($0.NextDouble() * @1)");
+            m(r + "nextFloat/0", "$0.NextSingle()");
+            m(r + "nextBoolean/0", "$0.Next(2) == 1");
+        }
 
         // the encoder and decoder are Convert's methods; Java's byte[] is C#'s sbyte[]
         m("java.util.Base64.Encoder.encodeToString/1", "Convert.ToBase64String((byte[]) (object) $1)", SYSTEM);
@@ -1197,6 +1234,21 @@ final class CSharpBcl implements LibraryMapping {
             Map.entry("java.lang.System.out", "Console.Out"),
             Map.entry("java.lang.System.err", "Console.Error"),
             Map.entry("java.lang.Integer.MAX_VALUE", "int.MaxValue"),
+            Map.entry("java.math.BigDecimal.ZERO", "0m"),
+            Map.entry("java.math.BigDecimal.ONE", "1m"),
+            Map.entry("java.math.BigDecimal.TWO", "2m"),
+            Map.entry("java.math.BigDecimal.TEN", "10m"),
+            Map.entry("java.math.BigInteger.ZERO", "BigInteger.Zero"),
+            Map.entry("java.math.BigInteger.ONE", "BigInteger.One"),
+            Map.entry("java.math.BigInteger.TWO", "new BigInteger(2)"),
+            Map.entry("java.math.BigInteger.TEN", "new BigInteger(10)"),
+            // a directed rounding: FLOOR, CEILING and DOWN round every value, as Java's do; HALF_UP and HALF_EVEN
+            // a midpoint; UP and HALF_DOWN have no MidpointRounding, and stay unmapped
+            Map.entry("java.math.RoundingMode.FLOOR", "MidpointRounding.ToNegativeInfinity"),
+            Map.entry("java.math.RoundingMode.CEILING", "MidpointRounding.ToPositiveInfinity"),
+            Map.entry("java.math.RoundingMode.DOWN", "MidpointRounding.ToZero"),
+            Map.entry("java.math.RoundingMode.HALF_UP", "MidpointRounding.AwayFromZero"),
+            Map.entry("java.math.RoundingMode.HALF_EVEN", "MidpointRounding.ToEven"),
             Map.entry("java.lang.Integer.MIN_VALUE", "int.MinValue"),
             Map.entry("java.lang.Long.MAX_VALUE", "long.MaxValue"),
             Map.entry("java.lang.Long.MIN_VALUE", "long.MinValue"),
