@@ -377,6 +377,10 @@ final class KotlinNullability {
                 // List<? extends Statement?>.get(i): what comes out is a Statement?, a Kotlin `out` projection's
                 argument = argument.withWildcard(null);
             }
+            if (argument != null && !input && argument.isUnboundWildcard()) {
+                // comparisonValues.iterator().next() on a Collection<*>: what comes out of a star is an Any?
+                return declared.withNullable(NullableState.NULLABLE);
+            }
             if (argument == null || argument.wildcard() != null
                 || argument.typeInfo() == null && !argument.isTypeParameter()) {
                 return declared;
@@ -498,6 +502,18 @@ final class KotlinNullability {
                     .add(new TextImpl(KotlinTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
+        ParameterizedType valueType = kotlinType(value);
+        if (target.arrays() == 0 && unboundTypeVariable(target) && valueType != null && valueType.arrays() == 0
+            && unboundTypeVariable(valueType)) {
+            // Success<T>(response) with a T? response: a parameter typed by an unbounded type variable is not checked
+            // at runtime, so the null reaches the callee as in Java, whose ensureNotNull throws what the caller
+            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased
+            KotlinContext.message(KotlinPrintMessage.Code.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(valueType.withNullable(NullableState.NONNULL), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintMessage.Code.ASSERT_AT_UNBOXING : KotlinPrintMessage.Code.ASSERT_INTO_NON_NULL,
                 value, KotlinContext.describe(value));
         return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
@@ -508,17 +524,31 @@ final class KotlinNullability {
      * neither nullable nor a type variable: {@code successWith(json, r.value)} with an {@code Any} parameter.
      */
     private static boolean nullableTypeVariable(Expression value, ParameterizedType target) {
+        Expression unwrapped = KotlinExpressionPrinter.unwrap(value);
         if (!KotlinContext.translatingJava() || target.isTypeParameter() || target.isPrimitiveExcludingVoid()
-            || !(KotlinExpressionPrinter.unwrap(value) instanceof VariableExpression)) {
+            || !(unwrapped instanceof VariableExpression || unwrapped instanceof MethodCall)) {
             return false;
         }
         ParameterizedType type = kotlinType(value);
         if (type == null || !type.isTypeParameter() || type.arrays() > 0) return false;
         io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        // ArgumentMatchers.any(): the callee's own T, which Kotlin infers from the parameter
+        if (unwrapped instanceof MethodCall mc && mc.methodInfo().typeParameters().contains(tp)) return false;
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         MethodInfo method = KotlinContext.currentMethod();
         return !tp.isMethodTypeParameter() || method == null || !method.typeParameters().contains(tp)
                || !KotlinMethodPrinter.nonNullBound(method, tp);
+    }
+
+    /** A type variable whose upper bound is Kotlin's {@code Any?}: no {@code T : Any} printed for it. */
+    private static boolean unboundTypeVariable(ParameterizedType type) {
+        if (!type.isTypeParameter() || type.wildcard() != null) return false;
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
+        if (!tp.isMethodTypeParameter()) return true;
+        // a method's: only the current one's, whose bound is known here (a callee's may be printed T : Any)
+        MethodInfo method = KotlinContext.currentMethod();
+        return method != null && method.typeParameters().contains(tp) && !KotlinMethodPrinter.nonNullBound(method, tp);
     }
 
     /** What a for-each loops over: {@code xs!!} when Kotlin types it nullable (a loop over null throws in Java too). */

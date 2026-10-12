@@ -39,10 +39,13 @@
 # Throwable's cause and message nullable, boxed types nullable in signatures Java calls, Integer.class as
 # Int::class.javaObjectType, a read-only Object[] parameter as Array<out Any?>: 296 files compiling (135 type
 # errors), 292 to class files.
+# 2026-10-12, a constructor call takes the target's states beside a star, Java's Annotation is Kotlin's, an element
+# out of a Collection<*> is an Any?, a cast keeps its own type variables: 300 files compiling (128 type errors), 297
+# to class files.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	296
-bytecodeFiles	292
+compilingFiles	300
+bytecodeFiles	297
 testBytecodeFiles	94

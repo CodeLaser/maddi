@@ -1064,7 +1064,9 @@ public class KotlinExpressionPrinter {
         if (unwrap(e) instanceof Cast c && target != null && !target.parameters().isEmpty()
             && c.parameterizedType().typeInfo() != null && c.parameterizedType().typeInfo() == target.typeInfo()
             && c.parameterizedType().arrays() == target.arrays()
-            && c.parameterizedType().parameters().size() == target.parameters().size()) {
+            && c.parameterizedType().parameters().size() == target.parameters().size()
+            // states only: guardrailClass(Class<C>) takes (Class<G>) x, whose G is no C
+            && sameUpToStates(c.parameterizedType(), target)) {
             // (Map<String, Object>) Json.fromJson(…) into a Map<String, Object?>: Kotlin's generics are invariant, and
             // the cast checks no type argument; it takes those of what it initializes
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
@@ -1152,13 +1154,20 @@ public class KotlinExpressionPrinter {
             return null;
         }
         boolean changed = false;
+        List<ParameterizedType> arguments = new ArrayList<>();
         for (int i = 0; i < constructed.parameters().size(); i++) {
             ParameterizedType mine = constructed.parameters().get(i);
             ParameterizedType theirs = target.parameters().get(i);
+            // Metadata(new HashMap<>()) into a MutableMap<String?, *>: a star takes any argument, the constructed one
+            if (theirs != null && theirs.isUnboundWildcard()) {
+                arguments.add(mine);
+                continue;
+            }
             if (!sameUpToStates(mine, theirs)) return null;
             changed |= !mine.equals(theirs);
+            arguments.add(theirs);
         }
-        return changed ? constructed.withParameters(target.parameters()) : null;
+        return changed ? constructed.withParameters(arguments) : null;
     }
 
     /** The same type, ignoring the nullable states of it and its arguments; a wildcard is never the same. */

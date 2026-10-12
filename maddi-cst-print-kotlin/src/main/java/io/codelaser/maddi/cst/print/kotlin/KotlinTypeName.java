@@ -42,6 +42,8 @@ public class KotlinTypeName {
             Map.entry("java.lang.Float", "Float"), Map.entry("java.lang.Double", "Double"),
             Map.entry("java.lang.Void", "Unit"), Map.entry("java.lang.String", "String"),
             Map.entry("java.lang.Object", "Any"), Map.entry("java.lang.CharSequence", "CharSequence"),
+            // Kotlin reads Java's Annotation as its own: imported, Java's would be another type
+            Map.entry("java.lang.annotation.Annotation", "Annotation"),
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
             Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
 

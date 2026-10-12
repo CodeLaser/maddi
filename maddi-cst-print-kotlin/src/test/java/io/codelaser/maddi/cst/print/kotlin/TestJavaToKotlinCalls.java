@@ -321,4 +321,21 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         // a vararg parameter is an Array<out T>: into an invariant Array<T> parameter, cast
         contains(kotlin, "check((xs as Array<T>))");
     }
+
+    @Language("java")
+    private static final String CAST_INTO_TYPE_VARIABLE = """
+            package a;
+            class E<G> {
+                <C extends G> void take(Class<C> c) { }
+                @SuppressWarnings("unchecked")
+                void fire(G guardrail) { take((Class<G>) guardrail.getClass()); }
+            }
+            """;
+
+    /** A generic cast keeps its own type arguments where the parameter's are the callee's type variables. */
+    @Test
+    public void castIntoTypeVariable() {
+        String kotlin = kotlin(CAST_INTO_TYPE_VARIABLE);
+        contains(kotlin, "as Class<G>");
+    }
 }

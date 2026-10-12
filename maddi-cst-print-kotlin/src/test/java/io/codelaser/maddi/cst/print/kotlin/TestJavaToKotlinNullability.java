@@ -388,6 +388,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String UNCHECKED_TYPE_VARIABLE = """
+            package a;
+            class Box<T> {
+                private final T value;
+                Box(T value) {
+                    if (value == null) throw new IllegalArgumentException("value");
+                    this.value = value;
+                }
+                static <T> Box<T> of(T x) { return new Box<>(x); }
+            }
+            """;
+
+    /**
+     * A null into a parameter typed by an unbounded type variable: Kotlin checks nothing there, so the null reaches the
+     * constructor, whose own check throws what Java's caller expects; {@code x!!} would throw an NPE first.
+     */
+    @Test
+    public void uncheckedTypeVariable() {
+        String kotlin = kotlin(UNCHECKED_TYPE_VARIABLE, VERDICTS);
+        contains(kotlin, "Box<T>((x as T))");
+    }
+
+    @Language("java")
     private static final String CHECKED = """
             package a;
             class C {
