@@ -32,11 +32,12 @@ call-frequency comments), as a starting point to curate. Gradle: `updatedHintsDi
 // library end-to-end.
 [NOTE]
 ====
-*Default.* The command-line tools (`maddi`, `maddi-kotlin`) load the shipped JDK and library results when
-`--preload-analysis-results-dirs` is not given: `openjdk.jar` and `libs.jar` from `maddi-aapi-archive`, on
-their class path. Naming directories replaces that default; `default` names the shipped results in the list
-(`--preload-analysis-results-dirs default,my/results`), and `none` loads nothing. A run that compiles or writes hints
-(`--analysis-results-target-dir`, `--updated-hints-dir`) loads nothing implicitly, because what it preloads
-changes what it writes. The Gradle and Maven plugins still preload only what `preloadAnalysisResultsDirs`
-names.
+*Default.* The command-line tools (`maddi`, `maddi-kotlin`) and the Gradle and Maven plugins load the shipped
+JDK and library results when `--preload-analysis-results-dirs` / `preloadAnalysisResultsDirs` is not given:
+`openjdk.jar` and `libs.jar` from `maddi-aapi-archive`, on their class path (the plugins bundle it). `libs.jar`
+holds JUnit Jupiter, AssertJ, the logging APIs and the Kotlin standard library. Naming directories replaces that
+default; `default` names the shipped results in the list (`default,my/results`), and `none` loads nothing. A run
+that compiles or writes hints (`--analysis-results-target-dir`, `--updated-hints-dir`, the
+`compile-analysis-hints` and `write-analysis-hints` goals) loads nothing implicitly, because what it preloads
+changes what it writes.
 ====

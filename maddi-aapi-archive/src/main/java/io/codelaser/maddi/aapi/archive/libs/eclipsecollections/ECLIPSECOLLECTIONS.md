@@ -144,6 +144,12 @@ directory by per-package type counts, never by file count.
 `maddi-java-parser` rejects explicit type arguments on a `super.` call in eight `Synchronized*` files. javac
 parses them, so the verdicts are unaffected; those files lose detailed sources (refactoring positions) only.
 
+### F7: `MutableStack.pop(int, R)` overloads shared one contract (fixed 2026-10-11)
+
+`<R extends Collection<T>> pop(int, R)` and `<R extends MutableStack<T>> pop(int, R)` erase alike to the hints
+parser, which compared a type parameter by presence only: both shadow methods landed on the first, the second
+carried defaults. The parser now compares type-parameter bounds; `OrgEclipseCollectionsApiStack.json` regenerated.
+
 ## How faithful the hint files are
 
 Compiled hint JSON against the 2026-09-29 source run, over the values of the hinted types: 2,444 differ.

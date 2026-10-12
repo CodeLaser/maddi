@@ -498,14 +498,36 @@ public class ScanCompilationUnits {
                                && d.path() != null && d.path().equals(uri.getPath()));
     }
 
+    /** At most three of javac's errors for {@code uri}, as "line L: message"; null when it reported none. */
+    private String javacErrorsFor(URI uri) {
+        if (uri == null) return null;
+        List<String> errors = diagnosticCollector.diagnostics().stream()
+                .filter(d -> d.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR
+                             && d.path() != null && d.path().equals(uri.getPath()))
+                .map(d -> "line " + d.line() + ": " + d.msg())
+                .toList();
+        if (errors.isEmpty()) return null;
+        String shown = String.join(" | ", errors.subList(0, Math.min(3, errors.size())));
+        return errors.size() > 3 ? shown + " | (" + (errors.size() - 3) + " more)" : shown;
+    }
+
     /** Record a dropped compilation unit; an {@link UnresolvedSymbolException} cause is tolerable (→ warning). */
-    private static void recordFailure(List<CompilationUnitFailure> failures, CompilationUnitTree unit, Throwable e) {
+    private void recordFailure(List<CompilationUnitFailure> failures, CompilationUnitTree unit, Throwable e) {
         addFailure(failures, unit.getSourceFile() == null ? null : unit.getSourceFile().toUri(), e);
     }
 
-    private static void addFailure(List<CompilationUnitFailure> failures, URI uri, Throwable e) {
+    private void addFailure(List<CompilationUnitFailure> failures, URI uri, Throwable e) {
         boolean tolerable = UnresolvedSymbolException.isTolerable(e);
-        String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        String exceptionDetail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        // For a non-tolerable failure, javac's own errors for the unit come first: the scanner's exception is often
+        // only their symptom. A name clash in a hints shadow (two overloads with the same erasure) leaves javac's
+        // second method unentered, and the scanner then reports "Cannot find element 'T' on stack" for its type
+        // parameter -- a message that sends the reader to the scanner rather than to the source line javac already
+        // named. A tolerable failure is a partial-classpath miss: javac's errors are the expected unresolved
+        // symbols, and its message stays the scanner's (TestLambdaWithoutTargetType).
+        String javacErrors = tolerable ? null : javacErrorsFor(uri);
+        String detail = javacErrors == null ? exceptionDetail
+                : "javac reported " + javacErrors + "; then " + exceptionDetail;
         LOGGER.warn("Dropping compilation unit {} ({}): {}", uri, tolerable ? "unresolved symbol" : "error", detail);
         // ⛔ THE STACK OF A NON-TOLERABLE FAILURE IS THE ONE THING THE CALLER CANNOT REACH. It is captured into
         // CompilationUnitFailure and carried all the way into Summary.ParseException#cause, and no logger ever

@@ -204,11 +204,39 @@ public class KotlinCollections {
         }
 
         /*
-        ⚠ NOT contracted: `min()`/`max()` over an Iterable (@JvmName("minOrThrow"), "maxOrThrow"), which `minOf { }` and
-        `maxOf { }` (@InlineOnly) are lowered to. The Double, Float and Comparable overloads erase to one
-        `minOrThrow(Iterable)`, differing only by return type, and the hints parser keys a contract by erasure: one of the
-        three took it, which one undetermined. (A shadow returning a self-bounded T also drops the whole unit.)
+        public fun Iterable<Double>.min(): Double     @JvmName("minOrThrow"), and the Float and Comparable overloads;
+        `minOf { }` / `maxOf { }` (@InlineOnly) are lowered to `minOrThrow(map(..))` / `maxOrThrow(map(..))`.
+
+        The three erase to one `minOrThrow(Iterable)` and differ only by type argument and return type, which Java
+        cannot declare side by side (a name clash). The `$Tag` suffix names the same target method: the hints parser
+        strips it and matches the overload on its full signature (type arguments and return type).
         */
+        static double minOrThrow$Double(@NotModified Iterable<Double> receiver) {
+            return 0d;
+        }
+
+        static float minOrThrow$Float(@NotModified Iterable<Float> receiver) {
+            return 0f;
+        }
+
+        @Independent(hc = true)
+        static <T extends Comparable<? super T>> T minOrThrow$Comparable(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
+        static double maxOrThrow$Double(@NotModified Iterable<Double> receiver) {
+            return 0d;
+        }
+
+        static float maxOrThrow$Float(@NotModified Iterable<Float> receiver) {
+            return 0f;
+        }
+
+        @Independent(hc = true)
+        static <T extends Comparable<? super T>> T maxOrThrow$Comparable(@NotModified Iterable<? extends T> receiver) {
+            return null;
+        }
+
         /* the predicate forms: `findLast` (@InlineOnly) is lowered to them */
         @Independent(hc = true)
         static <T> T lastOrNull(@NotModified Iterable<? extends T> receiver, Function1<? super T, Boolean> predicate) {
