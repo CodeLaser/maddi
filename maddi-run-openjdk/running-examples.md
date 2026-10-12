@@ -5,12 +5,10 @@ JDK, on [Timefold Solver](https://github.com/TimefoldAI/timefold-solver), and on
 [LangChain4j](https://github.com/langchain4j/langchain4j). For the full option reference see the
 manual's command-line section (`maddi-manual/.../050-command-line.adoc`).
 
-Each example is given twice: once via the Gradle `application` plugin, once as a **bazel-initiated
-run**. Both launchers already apply the javac `--add-exports` the openjdk front-end needs, and both
-require **JDK 26** (see `../.bazelrc` and the module `build.gradle.kts`).
-
-> `bazel run` executes from a runfiles directory, not the repo root, so pass **absolute** paths to
-> logs and sources (the `$PWD/…` below assumes you launch from the repo root).
+The CLI lives in the `maddi-dist` repository since the split: run the examples there with
+`./gradlew :maddi-cli:run --args="…"`, or with an installed `maddi`. The launcher applies the javac
+`--add-exports` the openjdk front-end needs; it requires **JDK 27**. Pass **absolute** paths to logs and
+sources (the `$MADDI/…` below is this repository's root).
 
 ## Two bundled Maven build logs
 
@@ -22,22 +20,11 @@ checked out at the paths recorded in the log.
 
 ## Timefold Solver — derive the input configuration from the bundled log
 
-Gradle:
-
 ```console
 $ ./gradlew :maddi-cli:run --args="\
-    --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnTimefold-solver.txt.gz \
+    --compile-log $MADDI/maddi-run-openjdk/src/test/resources/javac/mvnTimefold-solver.txt.gz \
     --extra-jmod java.sql \
     --write-input-configuration /tmp/timefold-ic.json"
-```
-
-Bazel:
-
-```console
-$ bazel run //maddi-cli:maddi -- \
-    --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnTimefold-solver.txt.gz \
-    --extra-jmod java.sql \
-    --write-input-configuration /tmp/timefold-ic.json
 ```
 
 `--write-input-configuration` is terminal (write and exit, no analysis). Drop it and add
@@ -46,15 +33,10 @@ that needs the Timefold checkout present at the paths in the log.
 
 ## LangChain4j — same, from its bundled log
 
-Bazel:
-
 ```console
-$ bazel run //maddi-cli:maddi -- \
-    --compile-log $PWD/maddi-run-openjdk/src/test/resources/javac/mvnLangchain4j.txt.gz \
+$ maddi --compile-log $MADDI/maddi-run-openjdk/src/test/resources/javac/mvnLangchain4j.txt.gz \
     --write-input-configuration /tmp/lc4j-ic.json
 ```
-
-Gradle is the same call via `./gradlew :maddi-cli:run --args="…"`.
 
 ## Parts of the JDK — java.base on the module path
 
@@ -62,10 +44,9 @@ To analyze sources against a JDK module directly (no build log), put the module 
 `--jmod` and point `--source` at the code. This is the shape exercised by `TestRunAnalyzer`:
 
 ```console
-$ bazel run //maddi-cli:maddi -- \
-    --jmod=java.base \
-    --classpath=$PWD/maddi-support/build/libs/maddi-support-<version>.jar \
-    --source=$PWD/maddi-cst-api/src/main/java \
+$ maddi --jmod=java.base \
+    --classpath=$MADDI/maddi-support/build/libs/maddi-support-<version>.jar \
+    --source=$MADDI/maddi-cst-api/src/main/java \
     --analysis-steps=prep
 ```
 
@@ -77,7 +58,8 @@ differ.
 ## This project itself — input configuration from the Bazel build
 
 Bazel is a fourth way (alongside Gradle, Maven, and debug logs) to obtain an input
-configuration. Rather than a build log, we read Bazel's *action graph* and emit an
+configuration. This repository's Bazel build is a proof of concept over the base modules only (Gradle is the
+build); it is enough to show the route. Rather than a build log, we read Bazel's *action graph* and emit an
 `InputConfiguration` JSON directly, with `bazel_inputconfiguration.py` (in this module):
 
 ```console

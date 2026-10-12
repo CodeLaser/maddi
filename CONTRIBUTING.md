@@ -46,9 +46,10 @@ Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading p
   Discovery: `TestOssCorpus` (in `maddi-run-openjdk`'s tests)
   defaults to `../../test-oss`, i.e. a sibling of the maddi checkout; override with
   `-Dtest.oss.root=/path/to/test-oss`. `TestCorpusSweep` sweeps whatever projects are present.
-- **Bazel** builds in parallel to Gradle: `bazel build //...`,
+- **Bazel** is a proof of concept, not a second build: it covers the base modules of this repository
+  (not the run-* front ends, which need maddi-mod), on JDK 27: `bazel build //...`,
   `bazel test //maddi-graph:maddi-graph_test`. Some tests only run under Gradle (relative
-  class-file paths); Gradle remains the authoritative build.
+  class-file paths); Gradle is the build.
 
 ## Rules that are easy to violate and expensive to learn
 

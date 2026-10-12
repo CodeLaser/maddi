@@ -11,23 +11,25 @@ MODULE.bazel - Bazel module file (replaces WORKSPACE)
 module(name = "maddi")
 
 # Java rules
-bazel_dep(name = "rules_java", version = "8.14.0")
+bazel_dep(name = "rules_java", version = "9.9.0")
 
 # JVM external dependencies
-bazel_dep(name = "rules_jvm_external", version = "6.3")
+bazel_dep(name = "rules_jvm_external", version = "7.1")
 
 
 # Java toolchains
-bazel_dep(name = "platforms", version = "0.0.11")
+bazel_dep(name = "platforms", version = "1.0.0")
 
-# Local JDK 26 toolchain. rules_java has no hermetic remotejdk_26 yet, and the project
-# needs JDK 26 to compile (e.g. java.lang.Process is AutoCloseable only from 26). The
-# `toolchains` extension exposes @local_jdk, auto-detected from JAVA_HOME / PATH; the
-# //:java26_toolchain built on it is registered first so it wins toolchain resolution.
+# Local JDK 27 toolchain, the JDK the Gradle build and the committed JDK hint results use. rules_java has no
+# hermetic remotejdk_27 yet. The `toolchains` extension exposes @local_jdk, auto-detected from JAVA_HOME / PATH
+# at repo-fetch time; the //:java27_toolchain built on it is registered first so it wins toolchain resolution.
+#
+# A proof of concept, not a second build: the base modules of this repository only. The run-* front ends that
+# need maddi-mod's analysis are not in it (CodeLaser/maddi#118).
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(java_toolchains, "local_jdk")
 
-register_toolchains("//:java26_toolchain_definition")
+register_toolchains("//:java27_toolchain_definition")
 
 # Register Java toolchains
 register_toolchains("@bazel_tools//tools/jdk:all")
@@ -68,11 +70,18 @@ maven.install(
         "commons-cli:commons-cli:1.10.0",
 
         # ASM
-        "org.ow2.asm:asm:9.7.1",
+        "org.ow2.asm:asm:9.10.1", # as platform/build.gradle.kts: 9.7 cannot read JDK 27 class files (major 71)
+
+        # the libraries maddi-aapi-archive's hints name (Gradle compileOnly there)
+        "org.jetbrains.kotlin:kotlin-stdlib:2.4.0",
+        "io.vavr:vavr:1.0.1",
+        "org.eclipse.collections:eclipse-collections-api:13.0.0",
+        "org.eclipse.collections:eclipse-collections:13.0.0",
+        "com.google.guava:guava:33.6.0-jre",
 
         # used for testing the parser (need not be updated for compilation, building)
         "org.apiguardian:apiguardian-api:1.1.2",
-        "org.assertj:assertj-core:3.27.3",
+        "org.assertj:assertj-core:3.27.7",
         "org.springframework:spring-test:6.1.19",
         "org.springframework:spring-core:6.1.19",
         "org.projectlombok:lombok:1.18.42",
@@ -80,6 +89,11 @@ maven.install(
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
+    # not the default coursier: rules_jvm_external launches it with `java -noverify`, an option JDK 27 rejects
+    # ("Unrecognized option: -noverify"), and every release up to 7.1 still does. The maven resolver runs as a
+    # tool Bazel builds itself, and needs a lock file: after changing the artifacts, `bazel run @maven//:pin`
+    resolver = "maven",
+    lock_file = "//:maven_install.json",
 )
 
 use_repo(maven, "maven")
