@@ -3,9 +3,12 @@
 # referenced (see JavaToCSharpRatchet). It keeps the options compiling; langchain4j.ratchet holds the defaults.
 #
 # 2026-10-11, first record: the same numbers as the default options: 271 files compile; 232 errors (not ratcheted).
+#
+# 2026-10-12, the type arguments Java infers and C# cannot (a method type parameter no parameter mentions, Value_
+# getStore(int)) printed explicitly: 271 -> 273 compiling files.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	271
+compilingFiles	273
 unmappedJdkUses	154

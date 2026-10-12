@@ -57,9 +57,12 @@
 # Jackson as System.Text.Json (JsonSerializer with the mapper's options, the tree as JsonNode, annotations as
 # attributes, @JsonSubTypes as JsonDerivedType); unmapped uses now count every library's: 271 files compile;
 # errors 292 -> 232; unmapped 296 -> 154 (jackson 123: its framework configuration; jdk 28; slf4j 3, Marker).
+#
+# 2026-10-12, the type arguments Java infers and C# cannot (a method type parameter no parameter mentions, Value_
+# getStore(int)) printed explicitly: 271 -> 273 compiling files, 232 -> 220 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	271
+compilingFiles	273
 unmappedJdkUses	154

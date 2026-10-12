@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
@@ -423,11 +424,74 @@ public final class CSharpExpressionPrinter {
         }
         String tokenArgument = typeTokenArgument(mc, q);
         String typeArguments = tokenArgument != null ? tokenArgument
-                : mc.typeArguments().isEmpty() ? "" : mc.typeArguments().stream()
+                : mc.typeArguments().isEmpty() ? inferredTypeArguments(mc, q) : mc.typeArguments().stream()
                 .map(t -> CSharpTypeName.argument(t, q)).collect(Collectors.joining(", ", "<", ">"));
         unmapped(method, mc);
         b.add(text(CSharpNames.method(method) + typeArguments));
         return b.add(argumentsWithoutTypeToken(mc, q));
+    }
+
+    /**
+     * The type arguments Java infers and C# cannot: a method type parameter that no parameter's type mentions,
+     * {@code <Value_> Value_ getStore(int index)}, which Java infers from the call's target and C# not at all (CS0411).
+     * C# takes all type arguments or none, so all are printed, as Java inferred them from the call's result and its
+     * arguments; none when one of them is not a type C# can write (a wildcard, a capture, the method's own parameter).
+     */
+    private static String inferredTypeArguments(MethodCall mc, Qualification q) {
+        MethodInfo method = mc.methodInfo();
+        List<TypeParameter> typeParameters = method.typeParameters();
+        if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())) return "";
+        boolean uninferable = typeParameters.stream().anyMatch(tp -> method.parameters().stream()
+                .noneMatch(p -> mentions(p.parameterizedType(), tp)));
+        if (!uninferable) return "";
+        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
+        for (int i = 0; i < method.parameters().size() && i < mc.parameterExpressions().size(); i++) {
+            ParameterInfo p = method.parameters().get(i);
+            if (p.isVarArgs()) break;
+            match(p.parameterizedType(), mc.parameterExpressions().get(i).parameterizedType(), typeParameters, inferred);
+        }
+        List<String> printed = new java.util.ArrayList<>();
+        for (TypeParameter tp : typeParameters) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, typeParameters)) return "";
+            // Object for a bounded parameter would trade CS0411 for CS0311
+            if (t.isJavaLangObject() && tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return "";
+            printed.add(CSharpTypeName.argument(t, q));
+        }
+        return "<" + String.join(", ", printed) + ">";
+    }
+
+    private static boolean mentions(ParameterizedType t, TypeParameter tp) {
+        if (t == null) return false;
+        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
+        return t.parameters().stream().anyMatch(a -> mentions(a, tp));
+    }
+
+    /** Matches a formal type with Java's concrete one: {@code Value_} with {@code Bucket<…>}. */
+    private static void match(ParameterizedType formal, ParameterizedType concrete, List<TypeParameter> typeParameters,
+                              java.util.Map<TypeParameter, ParameterizedType> inferred) {
+        if (formal == null || concrete == null) return;
+        if (formal.isTypeParameter() && typeParameters.contains(formal.typeParameter())) {
+            if (concrete.arrays() >= formal.arrays()) {
+                inferred.putIfAbsent(formal.typeParameter(), concrete.copyWithFewerArrays(formal.arrays()));
+            }
+            return;
+        }
+        if (formal.typeInfo() != null && formal.typeInfo().equals(concrete.typeInfo())
+            && formal.parameters().size() == concrete.parameters().size()) {
+            for (int i = 0; i < formal.parameters().size(); i++) {
+                match(formal.parameters().get(i), concrete.parameters().get(i), typeParameters, inferred);
+            }
+        }
+    }
+
+    /** A type C# can write as a type argument: no wildcard, and none of the called method's own type parameters. */
+    private static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
+        if (t.wildcard() != null) return false;
+        if (t.isTypeParameter()) return !typeParameters.contains(t.typeParameter());
+        if (t.typeInfo() == null) return false;
+        return t.parameters().stream().allMatch(a -> writable(a, typeParameters));
     }
 
     /** The arguments of a call; a type token's index is shifted out, and the others keep their parameter's type. */
