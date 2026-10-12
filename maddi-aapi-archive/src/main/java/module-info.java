@@ -23,6 +23,7 @@ module io.codelaser.maddi.aapi.archive {
     // the same for hamcrest (libs/hamcrest) and JUnit's parameterized-test arguments (libs/junitparams)
     requires static org.hamcrest;
     requires static org.junit.jupiter.params;
+    requires static org.mockito; // libs/mockito
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;
