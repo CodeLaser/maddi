@@ -701,7 +701,7 @@
  {"name": "MisXmlEqualTo(75,java.lang.CharSequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PexpectedXml(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MisXmlEqualToContentOf(76,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PxmlFile(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "PxmlFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mmatches(77,java.lang.CharSequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pregex(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mmatches(78,java.util.regex.Pattern)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -1392,7 +1392,7 @@
  {"name": "MhasContent(8,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pexpected(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhasContentEqualTo(9,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasDigest(10,java.lang.String,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Palgorithm(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pexpected(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -1416,18 +1416,18 @@
  {"name": "MhasParent(19,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pexpected(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhasParent(20,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasSameBinaryContentAs(21,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasSameContentAs(22,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasSameContentAs(23,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PexpectedCharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MhasSameTextualContentAs(24,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MhasSameTextualContentAs(25,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pexpected(0)", "data":{"unmodifiedParameter":1}},
+  {"name": "Pexpected(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PexpectedCharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MhasSize(26,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PexpectedSizeInBytes(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -4232,7 +4232,7 @@
  {"name": "MassertThat(46,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(47,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(48,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(49,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4359,8 +4359,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCharSequence(109,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatCode(110,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatCode(110,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCollection(111,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatComparable(112,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4392,12 +4392,12 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatTemporal(130,java.time.temporal.Temporal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatThrownBy(131,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatThrownBy(132,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MassertThatThrownBy(131,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatThrownBy(132,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MassertWith(133,T,java.util.function.Consumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Prequirements(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
@@ -4424,37 +4424,37 @@
  {"name": "MbyLessThan(144,long,java.time.temporal.TemporalUnit)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pvalue(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "McatchException(145,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIOException(146,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalArgumentException(147,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalStateException(148,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIndexOutOfBoundsException(149,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchNullPointerException(150,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchReflectiveOperationException(151,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchRuntimeException(152,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowable(153,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowableOfType(154,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PshouldRaiseThrowable(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "McatchThrowableOfType(155,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McatchException(145,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIOException(146,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalArgumentException(147,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalStateException(148,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIndexOutOfBoundsException(149,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchNullPointerException(150,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchReflectiveOperationException(151,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchRuntimeException(152,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowable(153,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowableOfType(154,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Ptype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PshouldRaiseThrowable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McatchThrowableOfType(155,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(156,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McontentOf(157,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(158,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(159,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4496,12 +4496,12 @@
  {"name": "Min(175,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MlinesOf(176,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlinesOf(177,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(178,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(179,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4676,7 +4676,7 @@
  {"name": "MassertThat(37,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(38,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(39,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(40,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4731,34 +4731,34 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(65,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatCode(66,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatCode(66,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatExceptionOfType(67,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PexceptionType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatNoException(68)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MassertThatThrownBy(69,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatThrownBy(70,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MassertThatThrownBy(69,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatThrownBy(70,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MatIndex(71,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "McatchThrowable(72,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowableOfType(73,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PshouldRaiseThrowable(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "McatchThrowableOfType(74,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McatchThrowable(72,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowableOfType(73,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Ptype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PshouldRaiseThrowable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McatchThrowableOfType(74,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(75,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McontentOf(76,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(77,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(78,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4795,12 +4795,12 @@
  {"name": "Min(92,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MlinesOf(93,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlinesOf(94,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(95,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(96,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -5015,7 +5015,7 @@
  {"name": "MassumeThat(37,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThat(38,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(39,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassumeThat(40,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5132,8 +5132,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThatCharSequence(96,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassumeThatCode(97,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThatCode(97,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThatCollection(98,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThatComparable(99,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5163,8 +5163,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThatTemporal(115,java.time.temporal.Temporal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassumeThatThrownBy(116,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThatThrownBy(116,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsetPreferredAssumptionException(118,org.assertj.core.configuration.PreferredAssumptionException)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PpreferredAssumptionException(0)", "data":{"unmodifiedParameter":0}}}]},
 
@@ -5705,37 +5705,37 @@
  {"name": "MbyLessThan(18,long,java.time.temporal.TemporalUnit)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pvalue(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "McatchException(19,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIOException(20,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalArgumentException(21,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalStateException(22,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIndexOutOfBoundsException(23,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchNullPointerException(24,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchReflectiveOperationException(25,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchRuntimeException(26,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowable(27,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowableOfType(28,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PthrowingCallable(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "McatchThrowableOfType(29,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McatchException(19,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIOException(20,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalArgumentException(21,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalStateException(22,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIndexOutOfBoundsException(23,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchNullPointerException(24,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchReflectiveOperationException(25,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchRuntimeException(26,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowable(27,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowableOfType(28,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Ptype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PthrowingCallable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McatchThrowableOfType(29,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(30,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McontentOf(31,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(32,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(33,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -5771,12 +5771,12 @@
  {"name": "Min(46,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MlinesOf(47,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlinesOf(48,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(49,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(50,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -5910,7 +5910,7 @@
  {"name": "Mthen(111,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mthen(112,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(113,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "Mthen(114,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6037,8 +6037,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenCharSequence(174,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MthenCode(175,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenCode(175,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenCollection(176,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenComparable(177,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6070,12 +6070,12 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenTemporal(195,java.time.temporal.Temporal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MthenThrownBy(196,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MthenThrownBy(197,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MthenThrownBy(196,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenThrownBy(197,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MthenWith(198,T,java.util.function.Consumer[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Prequirements(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
@@ -6493,7 +6493,7 @@
 
 {"name": "Torg.assertj.core.api.FileAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "sub":
  {"name": "C<init>(0,java.io.File)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"unmodifiedParameter":1}}}},
+  {"name": "Pactual(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}}},
 
 {"name": "Torg.assertj.core.api.FileSizeAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,org.assertj.core.api.AbstractFileAssert)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6727,7 +6727,7 @@
  {"name": "MassertThat(42,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(43,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(44,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(45,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6798,16 +6798,16 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCharSequence(77,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatCode(78,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatCode(78,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatObject(79,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatThrownBy(80,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatThrownBy(81,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MassertThatThrownBy(80,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatThrownBy(81,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MatIndex(82,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pindex(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MbyLessThan(83,java.lang.Byte)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6826,21 +6826,21 @@
   {"name": "Pvalue(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MbyLessThan(90,java.math.BigInteger)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalue(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "McatchThrowable(91,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowableOfType(92,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PshouldRaiseThrowable(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "McatchThrowableOfType(93,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McatchThrowable(91,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowableOfType(92,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Ptype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PshouldRaiseThrowable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McatchThrowableOfType(93,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(94,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McontentOf(95,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(96,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(97,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -6877,12 +6877,12 @@
  {"name": "Min(110,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MlinesOf(111,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlinesOf(112,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(113,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(114,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -7028,7 +7028,7 @@
  {"name": "Mthen(38,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mthen(39,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(40,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "Mthen(41,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7099,16 +7099,16 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenCharSequence(73,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MthenCode(74,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenCode(74,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenObject(75,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MthenThrownBy(76,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MthenThrownBy(77,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]}]},
+ {"name": "MthenThrownBy(76,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenThrownBy(77,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.Java6BDDSoftAssertionsProvider", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mthen(0,java.lang.Boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7186,7 +7186,7 @@
  {"name": "Mthen(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mthen(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "Mthen(39,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7247,8 +7247,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenCharSequence(67,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MthenCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MthenCollection(69,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenComparable(70,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7271,12 +7271,12 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenReflectiveOperationException(82)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MthenRuntimeException(83)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MthenThrownBy(84,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MthenThrownBy(85,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]}]},
+ {"name": "MthenThrownBy(84,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenThrownBy(85,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.Java6StandardSoftAssertionsProvider", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MassertThat(0,java.lang.Boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7354,7 +7354,7 @@
  {"name": "MassertThat(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(39,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7415,8 +7415,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCharSequence(67,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCollection(69,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatComparable(70,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7439,12 +7439,12 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatReflectiveOperationException(82)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MassertThatRuntimeException(83)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MassertThatThrownBy(84,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatThrownBy(85,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]}]},
+ {"name": "MassertThatThrownBy(84,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatThrownBy(85,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.ListAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.util.List)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8151,7 +8151,7 @@
  {"name": "MassertThat(45,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(46,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(47,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(48,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8276,8 +8276,8 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(107,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatCode(108,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatCode(108,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCollection(109,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatComparable(110,java.lang.Comparable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8309,12 +8309,12 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatTemporal(128,java.time.temporal.Temporal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Ptemporal(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassertThatThrownBy(129,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThatThrownBy(130,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Pdescription(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Pargs(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MassertThatThrownBy(129,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThatThrownBy(130,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pdescription(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MassertWith(131,T,java.util.function.Consumer[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Prequirements(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
@@ -8341,37 +8341,37 @@
  {"name": "MbyLessThan(142,long,java.time.temporal.TemporalUnit)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pvalue(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "McatchException(143,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIOException(144,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalArgumentException(145,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIllegalStateException(146,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchIndexOutOfBoundsException(147,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchNullPointerException(148,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchReflectiveOperationException(149,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchRuntimeException(150,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowable(151,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "McatchThrowableOfType(152,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PshouldRaiseThrowable(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "McatchThrowableOfType(153,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "McatchException(143,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIOException(144,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalArgumentException(145,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIllegalStateException(146,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchIndexOutOfBoundsException(147,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchNullPointerException(148,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchReflectiveOperationException(149,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchRuntimeException(150,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PthrowingCallable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowable(151,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McatchThrowableOfType(152,java.lang.Class,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Ptype(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PshouldRaiseThrowable(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McatchThrowableOfType(153,org.assertj.core.api.ThrowableAssert.ThrowingCallable,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Ptype(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(154,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McontentOf(155,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(156,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "McontentOf(157,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -8413,12 +8413,12 @@
  {"name": "Min(173,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MlinesOf(174,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MlinesOf(175,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(176,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfile(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MlinesOf(177,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -8591,7 +8591,7 @@
  {"name": "MassumeThat(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThat(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassumeThat(39,java.math.BigDecimal)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8704,12 +8704,12 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThat(93,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThatCode(94,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThatCode(94,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThatObject(95,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MassumeThatThrownBy(96,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThatThrownBy(96,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PshouldRaiseThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MsetPreferredAssumptionException(97,org.assertj.core.configuration.PreferredAssumptionException)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PpreferredAssumptionException(0)", "data":{"unmodifiedParameter":0}}}]},
 
