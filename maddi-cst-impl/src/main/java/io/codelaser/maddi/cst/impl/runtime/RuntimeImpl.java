@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.runtime.Eval;
 import io.codelaser.maddi.cst.api.runtime.LanguageConfiguration;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
@@ -32,6 +33,7 @@ import io.codelaser.maddi.cst.impl.info.ComputeMethodOverridesImpl;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -330,7 +332,7 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
             return null;
         }
         ParameterizedType concreteType;
-        ParameterizedType getSetFieldType = getSetField.field().type();
+        ParameterizedType getSetFieldType = concreteFieldType(getSetField.field(), methodCall.object());
         if (getSetFieldType.typeParameter() != null && getSetFieldType.typeParameter().getOwner().isLeft() && getSetFieldType.typeParameter().getOwner().getLeft().fullyQualifiedName().equals("java.util.List")) {
             ParameterizedType pt = setter ? methodCall.parameterExpressions().get(methodCall.parameterExpressions().size() - 1).parameterizedType() : methodCall.concreteReturnType();
             concreteType = pt.copyWithArrays(pt.arrays() + 1);
@@ -368,6 +370,24 @@ public class RuntimeImpl extends FactoryImpl implements Runtime {
                 .setSource(methodCall.object().source())
                 .build();
         return newDependentVariable(array, index);
+    }
+
+    /*
+    the field's declared type is in terms of its owner's type parameters: substitute them through the
+    object's type, so that ArrayList<K> in Coll<E, K> becomes ArrayList<Integer> on a Coll<String, Integer>.
+     */
+    private ParameterizedType concreteFieldType(FieldInfo field, Expression object) {
+        ParameterizedType declared = field.type();
+        TypeInfo owner = field.owner();
+        if (object == null || owner.typeParameters().isEmpty()) return declared;
+        ParameterizedType objectType = object.parameterizedType();
+        if (objectType.typeInfo() == null || objectType.arrays() > 0) return declared;
+        ParameterizedType concreteOwner = objectType.typeInfo() == owner ? objectType
+                : objectType.concreteSuperType(owner.asParameterizedType());
+        if (concreteOwner == null) return declared;
+        Map<NamedType, ParameterizedType> map = concreteOwner.initialTypeParameterMap();
+        if (map.isEmpty()) return declared;
+        return declared.applyTranslation(this, map);
     }
 
 }
