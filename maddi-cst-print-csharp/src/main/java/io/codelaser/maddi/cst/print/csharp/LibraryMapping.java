@@ -120,6 +120,14 @@ public interface LibraryMapping {
     }
 
     /** The C# counterpart of {@code typeInfo}, a type of the library. */
+    /**
+     * Whether the program's own {@code primaryType} is left out of the translation: not printed, and used as a library
+     * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file).
+     */
+    default boolean excludes(TypeInfo primaryType) {
+        return false;
+    }
+
     default TypeMapping type(TypeInfo typeInfo) {
         return null;
     }

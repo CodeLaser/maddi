@@ -64,6 +64,8 @@ import java.util.regex.Pattern;
  * name ILogger                                              a C# type name the mapping writes, besides the types'
  * nuget Microsoft.Extensions.Logging.Abstractions 10.0.0    a package the translated code references
  * compat JavaLogging.cs                                     a source that goes with it, beside the file
+ * exclude com.example.gizmo.GizmoClassLoader                a program's primary type left out, used through the rules;
+ * exclude com.example.gizmo                                   or a package, and the packages in it
  * </pre>
  * A member's key is the declaring type, the name, and the number of parameters ({@code List.get/1}) or their erased
  * simple types ({@code List.remove(int)}); a call matches the rules of its method or of a method it overrides, the
@@ -163,6 +165,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     private final Set<String> typeNames = new HashSet<>();
     private final List<NuGetPackage> packages = new ArrayList<>();
     private final List<Source> sources = new ArrayList<>();
+    private final List<String> excluded = new ArrayList<>();
     /** Where the file's {@code compat} sources are: the file's directory, or null for a resource beside this class. */
     private final Path directory;
 
@@ -207,6 +210,13 @@ public final class CSharpMappingFile implements LibraryMapping {
         return file;
     }
 
+    @Override
+    public boolean excludes(TypeInfo primaryType) {
+        if (excluded.isEmpty()) return false;
+        String fqn = primaryType.fullyQualifiedName();
+        return excluded.stream().anyMatch(e -> fqn.equals(e) || fqn.startsWith(e + "."));
+    }
+
     /** The mapping in the file {@code path}. */
     public static CSharpMappingFile load(Path path) {
         try {
@@ -235,6 +245,11 @@ public final class CSharpMappingFile implements LibraryMapping {
             String[] parts = rest.split("\\s+");
             if (parts.length != 2) throw new IllegalArgumentException("expected: nuget <package> <version>");
             packages.add(new NuGetPackage(parts[0], parts[1]));
+            return;
+        }
+        if ("exclude".equals(directive)) {
+            if (rest.isEmpty() || rest.contains(" ")) throw new IllegalArgumentException("expected: exclude <type or package>");
+            excluded.add(rest);
             return;
         }
         if ("compat".equals(directive)) {

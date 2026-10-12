@@ -121,6 +121,14 @@ public final class CSharpLibraries implements LibraryMapping {
                 .toList());
     }
 
+    @Override
+    public boolean excludes(TypeInfo primaryType) {
+        for (LibraryMapping m : mappings) {
+            if (m.excludes(primaryType)) return true;
+        }
+        return false;
+    }
+
     public List<LibraryMapping> mappings() {
         return mappings;
     }

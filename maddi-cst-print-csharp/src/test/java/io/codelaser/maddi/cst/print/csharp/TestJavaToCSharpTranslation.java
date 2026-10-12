@@ -1295,6 +1295,42 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
     }
 
+    private static final String ACCESSORS = """
+            package org.example.accessors;
+            final class Generator {
+                static boolean supported() { return false; }
+                Object generate(String name) { return null; }
+            }
+            public class Accessors {
+                static String key(String name) { return name + "$Accessor"; }
+                static Object accessor(String name, boolean fast) {
+                    if (fast && Generator.supported()) return new Generator().generate(key(name));
+                    return name;
+                }
+            }
+            """;
+
+    private static final String NO_GENERATOR = """
+            mapping example:no-generator
+            exclude org.example.accessors.Generator
+            member org.example.accessors.Generator.supported/0 -> false
+            member org.example.accessors.Generator.generate/1 -> JavaUnsupported.Value<{R}>("the generator") using Maddi.JavaCompat
+            """;
+
+    /**
+     * A mapping leaves a program's own type out ({@code exclude}): it is not printed, and its uses go through the
+     * mapping's rules as a library's do; a call that cannot work in .NET throws, with the type the call has.
+     */
+    @Test
+    public void excludedTypes() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
+                .withFirst(CSharpMappingFile.parse(NO_GENERATOR, "no-generator.csmap")));
+        String cs = translate("Accessors", ACCESSORS);
+        assertFalse(cs.contains("class Generator"), cs);
+        contains(cs, "if (fast && false) { return JavaUnsupported.Value<object>(\"the generator\"); }");
+        contains(cs, "internal static string Key(string name) => name + \"$Accessor\";");
+    }
+
     private static final String UUID_AS_STRING = """
             # a client's overrides: a UUID is a string
             mapping client:uuid-as-string

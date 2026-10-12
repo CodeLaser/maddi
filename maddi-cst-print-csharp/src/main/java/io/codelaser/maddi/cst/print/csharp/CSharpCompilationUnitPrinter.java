@@ -77,6 +77,7 @@ public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         OutputBuilder types = new OutputBuilderImpl();
         for (TypeInfo typeInfo : compilationUnit.types()) {
             if (typeInfo.typeNature().isPackageInfo()) continue;
+            if (!CSharpNames.translated(typeInfo)) continue; // left out by a mapping (exclude)
             OutputBuilder type = new CSharpTypePrinter(typeInfo, formatter2).print(importData, true);
             if (!type.isEmpty()) types.add(SpaceEnum.NEWLINE).add(type).add(SpaceEnum.NEWLINE);
             for (TypeInfo h : hoisted(typeInfo, new ArrayList<>())) {

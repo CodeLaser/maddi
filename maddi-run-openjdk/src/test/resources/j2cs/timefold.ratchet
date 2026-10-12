@@ -65,9 +65,15 @@
 # 2026-10-12, an override repeats no constraints (CS0460 83 -> 0); a raw constructor reference creates the type Java
 # inferred for its result, Triple::new as new Triple<A, B, C>(…), HashSet::new as new HashSet<V>(…) (CS0029 224 -> 193,
 # CS1662 55 -> 30): 986 -> 1013 compiling files, 2981 -> 2834 errors.
+#
+# 2026-10-12, without Gizmo (timefold-gizmo.csmap): Quarkus's bytecode generation has no .NET counterpart, its 18 types
+# are left out (exclude: not printed, used through the mapping's rules), isGizmoSupported() is false and a forced Gizmo
+# call throws NotSupportedException. 1386 -> 834 unmapped uses (Gizmo's 552), 2834 -> 2641 errors. types stays the
+# corpus's 1583; 18 fewer files: syntaxCleanFiles 1583 -> 1565, compilingFiles 1013 -> 1005 (8 of the excluded
+# compiled; none of the printed files got worse).
 types	1583
 printerCrashes	0
 syntaxErrors	0
-syntaxCleanFiles	1583
-compilingFiles	1013
-unmappedJdkUses	1386
+syntaxCleanFiles	1565
+compilingFiles	1005
+unmappedJdkUses	834

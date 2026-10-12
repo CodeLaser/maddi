@@ -1,0 +1,31 @@
+# timefold-solver without Gizmo: Quarkus's bytecode generator makes timefold's member accessors and solution cloners
+# at run time on the JVM, an option to its default, reflection. .NET has no counterpart to translate them to, so the
+# types that generate or support the generated code are left out (exclude), and the calls the rest of timefold makes
+# into them say so: Gizmo is not supported, as on a JVM without Gizmo on the class path. Kept, translated: the two
+# factories' getGeneratedClassName (the reflection path's cache key), AccessorInfo and the GizmoSolutionCloner interface.
+mapping timefold:no-gizmo
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.AbstractGizmoMemberAccessor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.AbstractReadOnlyExtendedGizmoMemberAccessor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.AbstractReadOnlyGizmoMemberAccessor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.AbstractReadWriteExtendedGizmoMemberAccessor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.AbstractReadWriteGizmoMemberAccessor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoClassLoader
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoFieldHandler
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMemberAccessorImplementor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMemberDescriptor
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMemberHandler
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMemberInfo
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMethodExtendedHandler
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMethodHandler
+exclude ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoSupportStatus
+exclude ai.timefold.solver.core.impl.domain.solution.cloner.gizmo.GizmoCloningUtils
+exclude ai.timefold.solver.core.impl.domain.solution.cloner.gizmo.GizmoSolutionClonerClassOutput
+exclude ai.timefold.solver.core.impl.domain.solution.cloner.gizmo.GizmoSolutionClonerImplementor
+exclude ai.timefold.solver.core.impl.domain.solution.cloner.gizmo.GizmoSolutionOrEntityDescriptor
+# the class loader that would hold the generated classes: an object nothing uses, and Gizmo is never supported
+type ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoClassLoader -> object
+member ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoClassLoader.new/0 -> new object()
+member ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoClassLoader.isGizmoSupported/0 -> false
+# the generators, reached only when Gizmo is forced
+member ai.timefold.solver.core.impl.domain.common.accessor.gizmo.GizmoMemberAccessorImplementor.createAccessorFor/4 -> JavaUnsupported.Value<{R}>("Gizmo's member accessors") using Maddi.JavaCompat
+member ai.timefold.solver.core.impl.domain.solution.cloner.gizmo.GizmoSolutionClonerImplementor.createClonerFor/2 -> JavaUnsupported.Value<{R}>("Gizmo's solution cloner") using Maddi.JavaCompat

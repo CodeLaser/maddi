@@ -446,6 +446,16 @@ mapping file). The JDK mapping's source is the compatibility library. `CSharpLib
 that references the packages. The ratchet writes it beside the translation, restores the packages, and gives their
 assemblies to the judge.
 
+**Excluded program types, the stubbing mechanism.** A mapping may leave the program's own primary types out:
+`exclude <type or package>` (`LibraryMapping.excludes`). An excluded type is not printed, and is no longer the
+program's (`CSharpNames.translated`): its uses go through the mapping's rules as a library's do, and those without a
+rule are in the census of unmapped uses. This is how code that has no .NET counterpart leaves the translation, with
+the calls the rest of the program makes into it: a rule gives the value .NET has (`isGizmoSupported()` is `false`),
+and a call that cannot work throws as Java would without the library, with the type the call has,
+`JavaUnsupported.Value<{R}>("Gizmo's member accessors")` (`JavaUnsupported.Call` for a statement), from the
+compatibility library. A corpus's own mapping is a resource beside the ratchet (`JavaToCSharpRatchet.withMapping`):
+`timefold-gizmo.csmap` leaves out Gizmo's bytecode generation.
+
 The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
 qualified, as one whose name two namespaces declare is.
 

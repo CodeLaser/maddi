@@ -316,6 +316,17 @@ public static class JavaComparator
 }
 
 /// <summary>Java's String methods that differ from the BCL's.</summary>
+/// <summary>
+/// What a mapping leaves out of the translation (<c>exclude</c>), where the translated code still reaches it: a call
+/// that fails as the Java code would without the excluded library, with the type the call has.
+/// </summary>
+public static class JavaUnsupported
+{
+    public static T Value<T>(string what) => throw new NotSupportedException(what + " is not supported in .NET");
+
+    public static void Call(string what) => throw new NotSupportedException(what + " is not supported in .NET");
+}
+
 public static class JavaString
 {
     /// <summary>String.split: a regular expression; trailing empty strings removed unless a limit is given.</summary>
