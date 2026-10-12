@@ -363,11 +363,15 @@ public final class CSharpExpressionPrinter {
         OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
         String cast = statement ? null : erasedResultCast(mc, q);
         if (cast == null) return call;
-        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(cast))
+        // a result that may be null stays nullable through the casts (CS8600)
+        boolean nullable = CSharpContext.program().facts().nullabilityAnalysed() && CSharpNullability.mayBeNull(mc)
+                           && !cast.endsWith("?");
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(nullable ? cast + "?" : cast))
                 .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         // InnerScore<IScore> is no InnerScore<SimpleScore> to C#'s compiler: through object
         if (!mc.methodInfo().returnType().isTypeParameter()) {
-            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(nullable ? "object?" : "object"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
         return b.add(call);
     }
