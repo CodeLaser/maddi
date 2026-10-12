@@ -74,7 +74,7 @@
   {"name": "P$this$toSortedSet(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MtoSortedSet(3,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toSortedSet(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]}]},
 
 {"name": "Tkotlin.sequences.SequencesKt___SequencesKt", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -276,7 +276,7 @@
   {"name": "P$this$isSortedDescending(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MisSortedWith(64,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$isSortedWith(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MjoinTo(65,kotlin.sequences.Sequence,A,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence,int,java.lang.CharSequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$joinTo(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pbuffer(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
@@ -355,10 +355,10 @@
   {"name": "P$this$max(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MmaxWithOrNull(88,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWithOrNull(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmaxWithOrThrow(89,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$maxWith(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminByOrNull(90,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minByOrNull(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
@@ -379,10 +379,10 @@
   {"name": "P$this$min(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MminWithOrNull(98,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWithOrNull(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MminWithOrThrow(99,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minWith(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mminus(100,kotlin.sequences.Sequence,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$minus(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pelements(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
@@ -479,7 +479,7 @@
   {"name": "P$this$sortedDescending(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MsortedWith(132,kotlin.sequences.Sequence,java.util.Comparator)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$sortedWith(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Pcomparator(1)", "data":{"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MsumBy(133,kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "P$this$sumBy(0)", "data":{"unmodifiedParameter":0}},
   {"name": "Pselector(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
