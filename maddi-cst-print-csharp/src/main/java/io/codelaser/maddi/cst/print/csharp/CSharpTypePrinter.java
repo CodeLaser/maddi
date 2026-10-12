@@ -261,7 +261,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (typeInfo.isAnonymous() && CSharpContext.hoisted(typeInfo) != null) return "private";
         if (isLocal(typeInfo)) return "private"; // lifted into the enclosing type
         // a top-level type is public or internal
-        if (typeInfo.isPrimaryType()) return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic) ? "public" : "internal";
+        // a base of a public type is public too (CSharpProgram#exposedBase)
+        if (typeInfo.isPrimaryType()) {
+            return typeInfo.typeModifiers().stream().anyMatch(TypeModifier::isPublic)
+                   || CSharpContext.program().exposedBase(typeInfo) ? "public" : "internal";
+        }
         // a hoisted type is in the namespace, where C# has no private or protected
         if (CSharpNames.hoisted(typeInfo)) {
             return "public".equals(CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo))) ? "public" : "internal";

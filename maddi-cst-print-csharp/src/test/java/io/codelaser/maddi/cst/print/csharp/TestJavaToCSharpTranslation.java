@@ -1703,6 +1703,24 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "NewInstance<object>(null, \"a\", c)");
     }
 
+    private static final String NODES = """
+            package org.example.nodes;
+            public class Nodes {
+                abstract static class AbstractNode<A> { abstract A value(); }
+                public static final class TextNode extends AbstractNode<String> { String value() { return "x"; } }
+                static class Hidden { }
+            }
+            """;
+
+    /** Java's public class may extend a package-private one, C#'s may not (CS0060): the base is public. */
+    @Test
+    public void exposedBases() {
+        String cs = translate("Nodes", NODES);
+        contains(cs, "public abstract class AbstractNode<A>");
+        contains(cs, "public sealed class TextNode : AbstractNode<string>");
+        assertFalse(cs.contains("public class Hidden"), cs);
+    }
+
     private static final String MODES = """
             package org.example.modes;
             public class Modes {

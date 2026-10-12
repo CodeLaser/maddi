@@ -190,6 +190,9 @@ implements the interface.
   inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. A `Class<T>` parameter is
   C#'s `Type`, from which C# infers nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a
   `Class<?>` its own bound.
+- **Bases of public types.** Java's public class may extend a package-private one; C#'s base class or interface is
+  at least as accessible as the type (CS0060, CS0061). Every supertype of a public type, transitively, and the types
+  it is nested in, is printed public (`CSharpProgram.exposedBases`).
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
