@@ -3,8 +3,8 @@
 
 {"name": "Tio.vavr.API", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
  {"name": "SFor1(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"independentMethod":2}},
-  {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}},
+  {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor1Either(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -23,21 +23,21 @@
   {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor1Try(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1}},
-  {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"nonModifyingMethod":0}},
+  {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}}]},
  {"name": "SFor1Validation(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
   {"name": "Myield(1,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2Either(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2Future(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2List(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -46,19 +46,19 @@
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2Try(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor2Validation(13)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3Either(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3Future(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3List(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -67,19 +67,19 @@
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3Try(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor3Validation(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4(21)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4Either(22)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4Future(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4List(24)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -88,19 +88,19 @@
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4Try(26)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor4Validation(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5(28)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5Either(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5Future(30)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5List(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -109,19 +109,19 @@
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5Try(33)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor5Validation(34)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6(35)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6Either(36)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6Future(37)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6List(38)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -130,19 +130,19 @@
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6Try(40)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor6Validation(41)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7(42)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7Either(43)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7Future(44)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7List(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -151,19 +151,19 @@
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7Try(47)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor7Validation(48)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8(49)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8Either(50)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8Future(51)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8List(52)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -172,7 +172,7 @@
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8Try(54)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SFor8Validation(55)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -181,7 +181,7 @@
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy2Future(57)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy2List(58)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -190,7 +190,7 @@
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy2Try(60)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy2Validation(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -199,7 +199,7 @@
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy3Future(63)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy3List(64)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -208,7 +208,7 @@
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy3Try(66)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy3Validation(67)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -217,7 +217,7 @@
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy4Future(69)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy4List(70)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -226,7 +226,7 @@
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy4Try(72)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy4Validation(73)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -235,7 +235,7 @@
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy5Future(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy5List(76)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -244,7 +244,7 @@
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy5Try(78)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy5Validation(79)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -253,7 +253,7 @@
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy6Future(81)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy6List(82)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -262,7 +262,7 @@
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy6Try(84)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy6Validation(85)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -271,7 +271,7 @@
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy7Future(87)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy7List(88)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -280,7 +280,7 @@
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy7Try(90)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy7Validation(91)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -289,7 +289,7 @@
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy8Future(93)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2}, "sub":
+  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy8List(94)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -298,7 +298,7 @@
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy8Try(96)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
-  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1}, "sub":
+  {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["ts1","ts2","ts3","ts4","ts5","ts6","ts7","ts8"],"immutableMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}}]},
  {"name": "SForLazy8Validation(97)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
   {"name": "Myield(0,io.vavr.Function8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -307,47 +307,47 @@
   {"name": "SCase(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1}, "sub":
    {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}}},
   {"name": "SCase0(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase1(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase2(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase3(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase4(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase5(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase6(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase7(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
   {"name": "SCase8(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
-   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+   {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
    {"name": "MisDefinedAt(1,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
     {"name": "Pobj(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}}]},
@@ -1681,7 +1681,7 @@
   {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tio.vavr.CheckedConsumer", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
- {"name": "Maccept(0,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "Maccept(0,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}},
  {"name": "MandThen(1,io.vavr.CheckedConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
@@ -1693,7 +1693,7 @@
  {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "MandThen(0,io.vavr.CheckedFunction1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mapply(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}},
+ {"name": "Mapply(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}},
  {"name": "Marity(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mconstant(3,R)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -1718,7 +1718,7 @@
  {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "MandThen(0,io.vavr.CheckedFunction1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "sub":
+ {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}},
  {"name": "Marity(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mcompose(3,io.vavr.CheckedFunction1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -1751,7 +1751,7 @@
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Marity(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
@@ -1787,7 +1787,7 @@
  {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(3,T1,T2,T3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(3,T1,T2,T3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}]},
@@ -1830,7 +1830,7 @@
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(4,T1,T2,T3,T4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(4,T1,T2,T3,T4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -1881,7 +1881,7 @@
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(5,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(5,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -1941,7 +1941,7 @@
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(6,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(6,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2011,7 +2011,7 @@
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(7,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(7,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2092,7 +2092,7 @@
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt7(6)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(8,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(8,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2141,32 +2141,32 @@
  {"name": "Mnegate(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mof(1,io.vavr.CheckedPredicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PmethodReference(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mtest(2,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mtest(2,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}},
  {"name": "Munchecked(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tio.vavr.CheckedRunnable", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
  {"name": "Mof(0,io.vavr.CheckedRunnable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PmethodReference(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mrun(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "Mrun(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Munchecked(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tio.vavr.Function0", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1,"independentType":2}, "subs":[
  {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "MandThen(0,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mapply(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}},
+ {"name": "Mapply(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}},
  {"name": "Marity(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mconstant(3,R)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mcurried(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mget(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
+ {"name": "Mget(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MisMemoized(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mlift(7,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PpartialFunction(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MliftTry(8,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PpartialFunction(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mmemoized(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "Mmemoized(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mnarrow(10,io.vavr.Function0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mof(11,io.vavr.Function0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -2178,7 +2178,7 @@
  {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
  {"name": "MandThen(0,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "sub":
+ {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Marity(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mcompose(3,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
@@ -2199,7 +2199,7 @@
   {"name": "Pf(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mof(13,io.vavr.Function1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PmethodReference(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mpartial(14,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+ {"name": "Mpartial(14,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PisDefinedAt(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mreversed(15)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mtupled(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}}]},
@@ -2210,7 +2210,7 @@
   {"name": "Pafter(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mapply(1,T1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Marity(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
@@ -2243,7 +2243,7 @@
  {"name": "Mapply(2,T1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(3,T1,T2,T3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(3,T1,T2,T3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}}]},
@@ -2283,7 +2283,7 @@
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(4,T1,T2,T3,T4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(4,T1,T2,T3,T4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2331,7 +2331,7 @@
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(5,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(5,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2388,7 +2388,7 @@
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(6,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(6,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2455,7 +2455,7 @@
   {"name": "Pt4(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(7,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(7,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2533,7 +2533,7 @@
   {"name": "Pt5(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt6(5)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pt7(6)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Mapply(8,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "subs":[
+ {"name": "Mapply(8,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"unmodifiedParameter":1}},
@@ -2576,34 +2576,34 @@
  {"name": "Mtupled(27)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tio.vavr.Lazy", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
- {"name": "Mequals(0,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mequals(0,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Po(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "Mfilter(1,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}, "sub":
+ {"name": "Mfilter(1,java.util.function.Predicate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mget(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MhashCode(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "Mget(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
+ {"name": "MhashCode(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MisAsync(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisEmpty(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisEvaluated(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisLazy(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisSingleValued(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Miterator(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "Mmap(10,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "Miterator(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "Mmap(10,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MmapTo(11,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "MmapTo(11,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MmapToVoid(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MmapToVoid(12)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mnarrow(13,io.vavr.Lazy)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Plazy(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mof(14,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mpeek(15,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mpeek(15,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Msequence(16,java.lang.Iterable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pvalues(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MstringPrefix(17)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoString(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mtransform(19,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "Mtransform(19,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mval(20,java.util.function.Supplier,java.lang.Class)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
@@ -2613,13 +2613,13 @@
  {"name": "MgetObject(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"getSetField":["Fobj(0)",false,false],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tio.vavr.NotImplementedError", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
- {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "C<init>(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "C<init>(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tio.vavr.PartialFunction", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
  {"name": "FserialVersionUID(0)", "data":{"annotatedApi":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
- {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2}, "sub":
+ {"name": "Mapply(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MgetIfDefined(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MisDefinedAt(2,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
@@ -2881,7 +2881,7 @@
 
 {"name": "Tio.vavr.Tuple1", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "F_1(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "C<init>(0,T1)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "M_1(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["F_1(0)",false,false],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mappend(1,T2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
@@ -2920,7 +2920,7 @@
 {"name": "Tio.vavr.Tuple2", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":2}, "subs":[
  {"name": "F_1(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_2(1)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "M_1(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["F_1(0)",false,false],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -2972,7 +2972,7 @@
  {"name": "F_1(0)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_2(1)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_3(2)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -3029,7 +3029,7 @@
  {"name": "F_2(1)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_3(2)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_4(3)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3,T4)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3,T4)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -3093,7 +3093,7 @@
  {"name": "F_3(2)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_4(3)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_5(4)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3,T4,T5)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -3164,7 +3164,7 @@
  {"name": "F_4(3)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_5(4)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_6(5)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3,T4,T5,T6)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -3242,7 +3242,7 @@
  {"name": "F_5(4)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_6(5)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_7(6)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3,T4,T5,T6,T7)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -3327,7 +3327,7 @@
  {"name": "F_6(5)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_7(6)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
  {"name": "F_8(7)", "data":{"annotatedApi":1,"containerField":1,"finalField":1,"immutableField":2,"independentField":1,"unmodifiedField":1}},
- {"name": "C<init>(0,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "C<init>(0,T1,T2,T3,T4,T5,T6,T7,T8)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pt1(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt2(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Pt3(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
@@ -3408,20 +3408,20 @@
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}}]},
 
 {"name": "Tio.vavr.Value", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":1}, "subs":[
- {"name": "Mcollect(0,java.util.function.Supplier,java.util.function.BiConsumer,java.util.function.BiConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "Mcollect(0,java.util.function.Supplier,java.util.function.BiConsumer,java.util.function.BiConsumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Paccumulator(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pcombiner(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "Mcollect(1,java.util.stream.Collector)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "Mcollect(1,java.util.stream.Collector)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcollector(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mcontains(2,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pelement(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mcorresponds(3,java.lang.Iterable,java.util.function.BiPredicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+ {"name": "Mcorresponds(3,java.lang.Iterable,java.util.function.BiPredicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pthat(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Ppredicate(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "Meq(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "Meq(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Po(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mequals(5,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "Mequals(5,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "Mexists(6,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
@@ -3429,51 +3429,51 @@
   {"name": "Ppredicate(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MforEach(8,java.util.function.Consumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "Mget(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1}},
- {"name": "MgetOrElse(10,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "Mget(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
+ {"name": "MgetOrElse(10,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pother(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MgetOrElse(11,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MgetOrElse(11,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MgetOrElseThrow(12,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MgetOrElseThrow(12,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MgetOrElseTry(13,io.vavr.CheckedFunction0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MgetOrElseTry(13,io.vavr.CheckedFunction0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Psupplier(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MgetOrNull(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MhashCode(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "MgetOrNull(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MhashCode(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MisAsync(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MisEmpty(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "MisEmpty(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MisLazy(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisSingleValued(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "Miterator(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"nullabilityMethod":"N"}},
- {"name": "Mmap(21,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+ {"name": "Miterator(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "Mmap(21,java.util.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
- {"name": "MmapTo(22,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+ {"name": "MmapTo(22,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MmapToVoid(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}},
+ {"name": "MmapToVoid(23)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mnarrow(24,io.vavr.Value)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"identityMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mout(25,java.io.PrintStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pout(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mout(26,java.io.PrintWriter)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pwriter(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mpeek(27,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}, "sub":
+ {"name": "Mpeek(27,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "Mspliterator(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nullabilityMethod":"N"}},
+ {"name": "Mspliterator(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mstderr(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mstdout(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "MstringPrefix(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["emptyContainer"],"immutableMethod":3,"independentMethod":2}},
- {"name": "MtoArray(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoCharSeq(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoCompletableFuture(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "MtoEither(35,L)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MstringPrefix(31)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"eventuallyNonModifyingMethod":["emptyContainer"],"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoArray(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoCharSeq(33)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoCompletableFuture(34)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoEither(35,L)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Pleft(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
- {"name": "MtoEither(36,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoEither(36,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "PleftSupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoInvalid(37,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoInvalid(37,U)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pvalue(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoInvalid(38,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoInvalid(38,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PvalueSupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoJavaArray(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2}},
+ {"name": "MtoJavaArray(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MtoJavaArray(40,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "PcomponentType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MtoJavaArray(41,java.util.function.IntFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
@@ -3483,78 +3483,78 @@
  {"name": "MtoJavaList(43)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoJavaList(44,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pfactory(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoJavaMap(45,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "sub":
+ {"name": "MtoJavaMap(45,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoJavaMap(46,java.util.function.Supplier,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+ {"name": "MtoJavaMap(46,java.util.function.Supplier,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfactory(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Pf(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoJavaMap(47,java.util.function.Supplier,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}, "subs":[
+ {"name": "MtoJavaMap(47,java.util.function.Supplier,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfactory(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PkeyMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PvalueMapper(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoJavaOptional(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoJavaParallelStream(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
+ {"name": "MtoJavaOptional(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoJavaParallelStream(49)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MtoJavaSet(50)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoJavaSet(51,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pfactory(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoJavaStream(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2}},
- {"name": "MtoLeft(53,R)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoJavaStream(52)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoLeft(53,R)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pright(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoLeft(54,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoLeft(54,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pright(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoLinkedMap(55,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoLinkedMap(55,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoLinkedMap(56,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "MtoLinkedMap(56,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PkeyMapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PvalueMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoLinkedSet(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoList(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoMap(59,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoLinkedSet(57)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoList(58)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoMap(59,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoMap(60,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "MtoMap(60,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PkeyMapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PvalueMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoOption(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoPriorityQueue(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoPriorityQueue(63,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoOption(61)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoPriorityQueue(62)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoPriorityQueue(63,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoQueue(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoRight(65,L)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoQueue(64)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoRight(65,L)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pleft(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoRight(66,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoRight(66,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pleft(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoSet(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoSortedMap(68,java.util.Comparator,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "MtoSet(67)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoSortedMap(68,java.util.Comparator,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pf(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoSortedMap(69,java.util.Comparator,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "MtoSortedMap(69,java.util.Comparator,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PkeyMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PvalueMapper(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoSortedMap(70,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoSortedMap(70,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoSortedMap(71,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "subs":[
+ {"name": "MtoSortedMap(71,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PkeyMapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PvalueMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoSortedSet(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoSortedSet(73,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoSortedSet(72)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoSortedSet(73,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomparator(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoStream(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoString(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoTree(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}},
- {"name": "MtoTree(77,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}, "subs":[
+ {"name": "MtoStream(74)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoString(75)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoTree(76)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MtoTree(77,java.util.function.Function,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "PidMapper(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PparentMapper(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}]},
- {"name": "MtoTry(78)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nullabilityMethod":"N"}},
- {"name": "MtoTry(79,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoTry(78)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoTry(79,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "PifEmpty(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoValid(80,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoValid(80,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Perror(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoValid(81,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoValid(81,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PerrorSupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoValidation(82,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}, "sub":
+ {"name": "MtoValidation(82,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pinvalid(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MtoValidation(83,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoValidation(83,java.util.function.Supplier)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "PinvalidSupplier(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MtoVector(84)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2}}]}
+ {"name": "MtoVector(84)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}}]}
 ]
