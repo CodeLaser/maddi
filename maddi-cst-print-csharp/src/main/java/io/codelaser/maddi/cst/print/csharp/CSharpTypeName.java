@@ -157,7 +157,13 @@ public final class CSharpTypeName {
             }
             CSharpContext.message(CSharpPrintMessage.Code.WILDCARD_AS_BOUND, null, pt.toString());
         }
-        if (pt.isTypeParameter()) return CSharpNames.typeParameter(pt.typeParameter());
+        List<TypeParameter> erased = CSharpContext.erasedTypeParameters();
+        if (pt.isTypeParameter()) {
+            // in a method C# prints with its type parameters erased (CSharpProgram): the bound
+            return erased.contains(pt.typeParameter()) ? rawArgument(pt.typeParameter(), q)
+                    : CSharpNames.typeParameter(pt.typeParameter());
+        }
+        if (!erased.isEmpty()) pt = erasedToWildcards(pt, erased);
         TypeInfo typeInfo = pt.typeInfo();
         if (typeInfo == null) return "object";
         String fqn = typeInfo.fullyQualifiedName();
@@ -325,6 +331,21 @@ public final class CSharpTypeName {
             segments.addFirst(CSharpNames.type(t));
         }
         return String.join(".", segments);
+    }
+
+    /** {@code InnerScore<Score_>} with {@code Score_} erased: {@code InnerScore<?>}. */
+    private static ParameterizedType erasedToWildcards(ParameterizedType pt, List<TypeParameter> erased) {
+        if (pt.parameters().isEmpty()) return pt;
+        boolean changed = false;
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (ParameterizedType a : pt.parameters()) {
+            ParameterizedType e = a.isTypeParameter() && erased.contains(a.typeParameter()) && a.arrays() == 0
+                    ? a.withWildcard(io.codelaser.maddi.cst.impl.type.WildcardEnum.UNBOUND)
+                    : erasedToWildcards(a, erased);
+            changed |= e != a;
+            arguments.add(e);
+        }
+        return changed ? pt.withParameters(arguments) : pt;
     }
 
     /** A raw type's argument: the erasure of the type parameter's bound, which satisfies its constraint. */

@@ -190,6 +190,11 @@ public final class CSharpProgram {
      * erasure; C# does not. Such a method, whose type parameters only its result mentions, is printed with them erased
      * to their bounds, {@code object Mapping()}, and so are its generic overrides; the others override it with a
      * covariant result, and a call through it casts the result to the type Java inferred.
+     * <p>
+     * So is a method whose type parameters are self-bounded and only its result mentions,
+     * {@code <Score_ extends Score<Score_>> InnerScore<Score_> getScore()}, with all its overrides: where Java infers
+     * a raw or captured {@code Score_}, C# has no type argument that satisfies the constraint (CS0411). Erased, each
+     * such type parameter is a wildcard, {@code InnerScore<IScore> GetScore()} ({@link CSharpTypeName}).
      */
     private static Set<MethodInfo> erasedGenerics(List<TypeInfo> all) {
         List<MethodInfo> methods = all.stream().flatMap(t -> t.methods().stream()).toList();
@@ -202,6 +207,17 @@ public final class CSharpProgram {
                 family.computeIfAbsent(o, x -> new HashSet<>()).add(m);
                 if (m.typeParameters().isEmpty() && !o.typeParameters().isEmpty() && erasable(o)) erased.add(o);
             }
+        }
+        for (MethodInfo m : methods) {
+            if (erased.contains(m) || !selfBoundErasable(m)) continue;
+            Set<MethodInfo> component = new HashSet<>(Set.of(m));
+            java.util.Deque<MethodInfo> pending = new java.util.ArrayDeque<>(component);
+            while (!pending.isEmpty()) {
+                for (MethodInfo f : family.getOrDefault(pending.pop(), Set.of())) {
+                    if (component.add(f)) pending.push(f);
+                }
+            }
+            if (component.stream().allMatch(CSharpProgram::selfBoundErasable)) erased.addAll(component);
         }
         if (erased.isEmpty()) return Set.of();
         java.util.Deque<MethodInfo> todo = new java.util.ArrayDeque<>(erased);
@@ -226,6 +242,15 @@ public final class CSharpProgram {
                 .anyMatch(tp -> mentions(p.parameterizedType(), tp)));
     }
 
+    /** Every type parameter of {@code m} self-bounded, none mentioned by a parameter, one by the result. */
+    private static boolean selfBoundErasable(MethodInfo m) {
+        List<TypeParameter> typeParameters = m.typeParameters();
+        return !typeParameters.isEmpty() && CSharpNames.translated(m.typeInfo())
+               && typeParameters.stream().anyMatch(tp -> mentions(m.returnType(), tp))
+               && typeParameters.stream().allMatch(tp -> tp.typeBounds().stream().anyMatch(b -> mentions(b, tp))
+                    && m.parameters().stream().noneMatch(p -> mentions(p.parameterizedType(), tp)));
+    }
+
     private static boolean mentions(ParameterizedType t, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         if (t == null) return false;
         if (t.isTypeParameter()) return tp.equals(t.typeParameter());
@@ -235,6 +260,11 @@ public final class CSharpProgram {
     /** A generic method printed with its type parameters erased ({@link #erasedGenerics}). */
     boolean erasedGeneric(MethodInfo m) {
         return erasedGenerics.contains(m);
+    }
+
+    /** Whether any method is printed with its type parameters erased. */
+    boolean anyErasedGeneric() {
+        return !erasedGenerics.isEmpty();
     }
 
     /** What the analysis knows about the program. */

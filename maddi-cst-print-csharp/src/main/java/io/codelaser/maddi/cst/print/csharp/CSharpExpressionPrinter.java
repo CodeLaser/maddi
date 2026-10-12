@@ -362,8 +362,14 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
         OutputBuilder call = inCall(mc, () -> methodCallInCall(mc, q, statement));
         String cast = statement ? null : erasedResultCast(mc, q);
-        return cast == null ? call : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(cast))
-                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(call);
+        if (cast == null) return call;
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(cast))
+                .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+        // InnerScore<IScore> is no InnerScore<SimpleScore> to C#'s compiler: through object
+        if (!mc.methodInfo().returnType().isTypeParameter()) {
+            b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
+        }
+        return b.add(call);
     }
 
     /** The type Java inferred for a call of a method whose type parameters C# erased; null when none is needed. */
@@ -374,7 +380,10 @@ public final class CSharpExpressionPrinter {
     private static boolean erasedResultCast(MethodCall mc) {
         if (!CSharpContext.program().erasedGeneric(mc.methodInfo())) return false;
         ParameterizedType concrete = mc.concreteReturnType();
-        return concrete != null && !concrete.isJavaLangObject() && writable(concrete, mc.methodInfo().typeParameters());
+        // a type that mentions an enclosing erased method's type parameter is printed erased already
+        List<TypeParameter> enclosing = CSharpContext.erasedTypeParameters();
+        return concrete != null && !concrete.isJavaLangObject() && writable(concrete, mc.methodInfo().typeParameters())
+               && enclosing.stream().noneMatch(tp -> mentions(concrete, tp));
     }
 
     private static OutputBuilder methodCallInCall(MethodCall mc, Qualification q, boolean statement) {
@@ -472,7 +481,7 @@ public final class CSharpExpressionPrinter {
         List<TypeParameter> typeParameters = method.typeParameters();
         if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())) return "";
         boolean uninferable = typeParameters.stream().anyMatch(tp -> method.parameters().stream()
-                .noneMatch(p -> mentions(p.parameterizedType(), tp)));
+                .noneMatch(p -> mentionsInCSharp(p.parameterizedType(), tp)));
         if (!uninferable) return "";
         java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
         match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
@@ -484,6 +493,15 @@ public final class CSharpExpressionPrinter {
         List<String> printed = new java.util.ArrayList<>();
         for (TypeParameter tp : typeParameters) {
             ParameterizedType t = inferred.get(tp);
+            if (t != null && t.wildcard() != null) {
+                // T from a Class<? extends Acceptor>: the bound, as Java's result is; from a Class<?>: T's own bound
+                if (t.wildcard().isExtendsNoIntersection() && t.typeInfo() != null) {
+                    t = t.withWildcard(null);
+                } else if (t.wildcard().isUnbound()) {
+                    printed.add(CSharpTypeName.rawArgumentOf(tp, q));
+                    continue;
+                }
+            }
             if (t == null || !writable(t, typeParameters)) return "";
             // Object for a bounded parameter would trade CS0411 for CS0311
             if (t.isJavaLangObject() && tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return "";
@@ -496,6 +514,14 @@ public final class CSharpExpressionPrinter {
         if (t == null) return false;
         if (t.isTypeParameter()) return tp.equals(t.typeParameter());
         return t.parameters().stream().anyMatch(a -> mentions(a, tp));
+    }
+
+    /** As {@link #mentions}, but not through a {@code Class<T>}, which is C#'s {@code Type}, without arguments. */
+    private static boolean mentionsInCSharp(ParameterizedType t, TypeParameter tp) {
+        if (t == null) return false;
+        if (t.isTypeParameter()) return tp.equals(t.typeParameter());
+        if (t.typeInfo() != null && "java.lang.Class".equals(t.typeInfo().fullyQualifiedName())) return false;
+        return t.parameters().stream().anyMatch(a -> mentionsInCSharp(a, tp));
     }
 
     /** Matches a formal type with Java's concrete one: {@code Value_} with {@code Bucket<…>}. */

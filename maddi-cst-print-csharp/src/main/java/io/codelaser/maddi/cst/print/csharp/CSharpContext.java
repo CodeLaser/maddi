@@ -141,6 +141,17 @@ final class CSharpContext {
         return STATE.get().methods.peek();
     }
 
+    /** The type parameters of the enclosing methods that C# prints erased ({@link CSharpProgram#erasedGeneric}). */
+    static List<io.codelaser.maddi.cst.api.info.TypeParameter> erasedTypeParameters() {
+        State state = STATE.get();
+        if (!state.program.anyErasedGeneric()) return List.of();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> erased = new ArrayList<>();
+        for (MethodInfo m : state.methods) {
+            if (state.program.erasedGeneric(m)) erased.addAll(m.typeParameters());
+        }
+        return erased;
+    }
+
     /** A {@code using} directive the printed code needs: a BCL namespace a mapped type lives in. */
     static void using(String namespace) {
         STATE.get().usings.add(namespace);

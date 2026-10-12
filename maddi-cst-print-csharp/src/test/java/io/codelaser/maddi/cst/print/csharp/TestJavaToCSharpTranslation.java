@@ -1613,6 +1613,67 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         assertFalse(cs.contains("IScore<object>"), cs);
     }
 
+    private static final String PHASE_SCOPES = """
+            package org.example.phasescopes;
+            public class PhaseScopes {
+                public interface Score<Score_ extends Score<Score_>> { boolean isZero(); }
+                public record SimpleScore(int value) implements Score<SimpleScore> {
+                    public boolean isZero() { return value == 0; }
+                }
+                public record Inner<Score_ extends Score<?>>(Score_ raw) { }
+                public interface Director<Solution_, Score_ extends Score<Score_>> { Score_ calculate(Solution_ solution); void reset(); }
+                static class SolverScope<Solution_> {
+                    private Inner<?> best;
+                    private Director<Solution_, ?> director;
+                    public <Score_ extends Score<Score_>> Inner<Score_> getBest() { return (Inner<Score_>) best; }
+                    public <Score_ extends Score<Score_>> Director<Solution_, Score_> getDirector() {
+                        return (Director<Solution_, Score_>) director;
+                    }
+                }
+                static class PhaseScope<Solution_> {
+                    SolverScope<Solution_> solverScope;
+                    public <Score_ extends Score<Score_>> Director<Solution_, Score_> getDirector() {
+                        return solverScope.getDirector();
+                    }
+                    public <Score_ extends Score<Score_>> Inner<Score_> getBest() { return solverScope.getBest(); }
+                }
+                static <Solution_> boolean zero(PhaseScope<Solution_> scope) { return scope.getBest().raw().isZero(); }
+                static <Solution_> String log(PhaseScope<Solution_> scope) { return "" + scope.getBest(); }
+                static <Solution_, Score_ extends Score<Score_>> Score_ calculate(PhaseScope<Solution_> scope, Solution_ s) {
+                    Director<Solution_, Score_> d = scope.getDirector();
+                    return d.calculate(s);
+                }
+                interface Acceptor { }
+                static <T> T newInstance(Object bean, String name, Class<T> clazz) {
+                    try { return clazz.getDeclaredConstructor().newInstance(); } catch (Exception e) { throw new RuntimeException(e); }
+                }
+                static Acceptor acceptor(Class<? extends Acceptor> c) { return newInstance(null, "a", c); }
+                static Object any(Class<?> c) { return newInstance(null, "a", c); }
+                static SimpleScore simple(PhaseScope<String> scope) {
+                    Inner<SimpleScore> best = scope.getBest();
+                    return best.raw();
+                }
+            }
+            """;
+
+    /**
+     * A self-bounded type parameter that only the result mentions: Java infers a raw or captured type, which no C#
+     * type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
+     * a call where Java's type is writable casts to it. A {@code Class<T>} is C#'s {@code Type}, from which C#
+     * infers nothing: T is the wildcard's bound.
+     */
+    @Test
+    public void resultOnlySelfBound() {
+        String cs = translate("PhaseScopes", PHASE_SCOPES);
+        contains(cs, "public Inner<IScore> GetBest() => (Inner<IScore>) (object) best;");
+        contains(cs, "public IDirector<Solution_> GetDirector() => solverScope.GetDirector();");
+        contains(cs, "scope.GetBest().Raw.IsZero()");
+        contains(cs, "IDirector<Solution_, Score_> d = (IDirector<Solution_, Score_>) (object) scope.GetDirector();");
+        contains(cs, "Inner<SimpleScore> best = (Inner<SimpleScore>) (object) scope.GetBest();");
+        contains(cs, "NewInstance<IAcceptor>(null, \"a\", c)");
+        contains(cs, "NewInstance<object>(null, \"a\", c)");
+    }
+
     private static final String MODES = """
             package org.example.modes;
             public class Modes {
