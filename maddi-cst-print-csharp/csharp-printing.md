@@ -89,7 +89,11 @@ implements the interface.
     test when the value is a value type).
 - A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
   (primitives, simple enums, the BCL's structs such as `KeyValuePair`), type parameters and types that already end in
-  `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type.
+  `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. So is a library type without a
+  mapping (UNMAPPED_JDK): C# reads its `X?` as `Nullable<X>`, and every use of the variable becomes another error.
+- A nullable parameter of a type parameter's type is `T?` all the same: C# infers `T` without the `?` from an argument
+  that may be null, so that langchain4j's `EnsureNotNull<T>(T? o, …)` returns a non-null `T`. Of a method's own type
+  parameter only in a static method: an override's `T?` is `Nullable<T>` unless it says `where T : default`.
 - When the analysis covered the whole program under a null-marked policy (`CSharpFacts.nullabilityAnalysed()`,
   `STORED_NULL_MARKED`), every other declaration is not null, and C# checks it: the translation's project file has
   `<Nullable>enable</Nullable>`. A local's explicit reference type is then `T?`, as `var`'s is: the compiler follows
@@ -114,6 +118,10 @@ implements the interface.
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
   in Java (CS8600).
+- An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
+  Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
+  `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it
+  non-null, and a call unless its result is the value type itself (`List<int>`'s `l[0]`) and not nullable.
 
 ## Declarations
 

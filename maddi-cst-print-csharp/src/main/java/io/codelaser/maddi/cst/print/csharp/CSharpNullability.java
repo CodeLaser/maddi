@@ -97,7 +97,12 @@ final class CSharpNullability {
         if (nullConstant ? !elementOrKey : !mayBeNull(value)) return printed;
         io.codelaser.maddi.cst.api.info.ParameterInfo parameter =
                 method.parameters().get(Math.min(i, method.parameters().size() - 1));
-        if (parameter.parameterizedType().isPrimitiveExcludingVoid() && parameter.parameterizedType().arrays() == 0
+        io.codelaser.maddi.cst.api.type.ParameterizedType type = parameter.parameterizedType();
+        io.codelaser.maddi.cst.api.type.ParameterizedType valueType = value.parameterizedType();
+        // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
+        boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
+                          && type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isTypeParameter());
+        if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0
             || !elementOrKey && facts().nullable(parameter) == NullableState.NULLABLE) {
             return printed;
         }
@@ -147,6 +152,27 @@ final class CSharpNullability {
                                      OutputBuilder printed) {
         if (!facts().nullabilityAnalysed() || !nullOrMayBeNull(value) || valueType(element)) return printed;
         return asserted(value, printed);
+    }
+
+    /**
+     * The operand of an unboxing cast, {@code (int) x}, {@code printed} as a receiver: with {@code !} when it may be null (CS8629,
+     * CS8605); the cast throws there, as Java's unboxing does. A boxed type is C#'s {@code int?} whatever the
+     * analysis says of its declaration, so only a use-site fact makes it non-null.
+     */
+    static OutputBuilder unboxed(Expression operand, OutputBuilder printed) {
+        if (!facts().nullabilityAnalysed()) return printed;
+        Expression x = CSharpExpressionPrinter.unwrap(operand);
+        io.codelaser.maddi.cst.api.type.ParameterizedType type = x.parameterizedType();
+        boolean boxed = type != null && type.arrays() == 0 && type.isBoxedExcludingVoid();
+        boolean mayBe = !boxed ? mayBeNull(x) : switch (x) {
+            // a method of Integer is C#'s int?; one of a type parameter its argument, List<int>'s int, unless nullable
+            case MethodCall mc -> mc.methodInfo().returnType().isBoxedExcludingVoid() || mayBeNull(mc);
+            case VariableExpression ve -> !knownNonNull(ve.variable());
+            case Cast c -> !(CSharpExpressionPrinter.unwrap(c.expression()).parameterizedType() instanceof
+                    io.codelaser.maddi.cst.api.type.ParameterizedType t && t.isPrimitiveExcludingVoid());
+            default -> false;
+        };
+        return mayBe ? printed.add(NULL_FORGIVING) : printed;
     }
 
     private static boolean nullOrMayBeNull(Expression value) {
