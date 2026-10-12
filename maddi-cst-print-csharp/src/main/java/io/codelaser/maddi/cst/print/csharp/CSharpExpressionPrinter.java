@@ -792,7 +792,8 @@ public final class CSharpExpressionPrinter {
      * {@code Func<A, Property_>} where {@code Func<A, object>} is expected: Java's wildcard takes it, C#'s variance
      * only for reference types, which a type parameter is not known to be (CS1503). A variable is wrapped in a lambda,
      * {@code x0_ => leftMapping(x0_)}, which C# converts with the boxing; a parameter that differs is cast,
-     * {@code x0_ => mapping((A) x0_)}. Not another expression, which the lambda would evaluate at every call.
+     * {@code x0_ => mapping((A) x0_)}. Not another expression, which the lambda would evaluate at every call, and only
+     * where each type argument that differs is {@code object} in the target.
      */
     private static OutputBuilder widenedDelegate(Expression inner, ParameterizedType target, Qualification q) {
         if (!(inner instanceof VariableExpression) || target.arrays() != 0) return null;
@@ -802,6 +803,13 @@ public final class CSharpExpressionPrinter {
         }
         String to = CSharpTypeName.of(target, q);
         if (to.equals(CSharpTypeName.of(from, q))) return null;
+        // only Java's wildcard or raw use, object in C#: a position of the callee's own type parameter, Func<A, Result_>,
+        // C# infers from the variable, which a lambda would hide (CS0411)
+        if (!target.parameters().isEmpty() && target.parameters().size() != from.parameters().size()) return null;
+        for (int i = 0; i < target.parameters().size(); i++) { // a raw target is object throughout
+            String t = CSharpTypeName.argument(target.parameters().get(i), q);
+            if (!t.equals(CSharpTypeName.argument(from.parameters().get(i), q)) && !"object".equals(t)) return null;
+        }
         if (!CSharpContext.program().delegate(from.typeInfo()) && !BCL_DELEGATE.matcher(to).find()) return null;
         MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
         if (sam == null) return null;

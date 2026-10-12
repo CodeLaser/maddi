@@ -1565,6 +1565,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static <T, P> String rawKeyed(Function<T, P> mapping) { return raw(mapping); }
                 static String supplied(java.util.function.Supplier<?> supplier) { return String.valueOf(supplier.get()); }
                 static <P> String supply(java.util.function.Supplier<P> supplier) { return supplied(supplier); }
+                static <T, R> R max(Function<T, R> mapping, T t) { return mapping.apply(t); }
+                static <T, P> P maxed(Function<T, P> mapping, T t) { return max(mapping, t); }
             }
             """;
 
@@ -1579,6 +1581,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");
         contains(cs, "Supplied(() => supplier())");
+        // the callee's own R: C# infers it from the variable, a lambda would hide it
+        contains(cs, "Max(mapping, t)");
     }
 
     private static final String SCORES = """
