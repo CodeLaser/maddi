@@ -52,6 +52,30 @@ public class TestInfoByFqnAllTypes {
         assertEquals(List.of(), registry.allTypes("com.example.lib.Other"));
     }
 
+    // what timefold-solver does: its test modules load Mockito 5.21.0 and 5.23.0, each while another source set is
+    // scanned, so the second class file OVERWRITES the first in the registry. Resolution answers the newer copy, as
+    // before; the displaced one stays listed, since the code parsed earlier still calls it
+    @Test
+    public void aCopyOverwrittenFromAnotherJarStaysListed() {
+        Runtime runtime = new RuntimeImpl();
+        SourceSet v1 = library("mockito-core-5.21.0.jar");
+        SourceSet v2 = library("mockito-core-5.23.0.jar");
+        InfoByFqn registry = new InfoByFqn();
+
+        TypeInfo first = type(runtime, v1);
+        registry.put(first.fullyQualifiedName(), first, sourceSet("core/test-classes"));
+        TypeInfo second = type(runtime, v2);
+        registry.put(second.fullyQualifiedName(), second, sourceSet("spring-boot/test-classes"));
+
+        assertEquals(second, registry.getType("com.example.lib.Thing", sourceSet("core/test-classes")));
+        assertEquals(List.of(second, first), registry.allTypes("com.example.lib.Thing"));
+
+        // the first jar re-read: one copy per jar, not two
+        TypeInfo firstAgain = type(runtime, v1);
+        registry.put(firstAgain.fullyQualifiedName(), firstAgain, sourceSet("other/test-classes"));
+        assertEquals(List.of(firstAgain, second), registry.allTypes("com.example.lib.Thing"));
+    }
+
     @Test
     public void aStubIsNoCopy() {
         Runtime runtime = new RuntimeImpl();
@@ -63,6 +87,11 @@ public class TestInfoByFqnAllTypes {
 
     private static SourceSet sourceSet(String name) {
         return new SourceSetImpl.Builder().setName(name).setUri(URI.create("file:/" + name)).build();
+    }
+
+    private static SourceSet library(String jar) {
+        return new SourceSetImpl.Builder().setName(jar).setUri(URI.create("file:/" + jar)).setLibrary(true)
+                .setExternalLibrary(true).build();
     }
 
     private static TypeInfo type(Runtime runtime, SourceSet sourceSet) {
