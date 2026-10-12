@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.print.kotlin.KotlinCompilationUnitPrinter;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
+import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.Summary;
 import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
@@ -178,7 +179,10 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     }
 
     /** Translates, compiles twice, writes the report, and holds the numbers to the ratchet file. */
-    public void run(Corpus corpus, KotlinPrintOptions options) throws Exception {
+    public void run(Corpus corpus, KotlinPrintOptions given) throws Exception {
+        // main and test sources are compiled as one Kotlin code base: a member's uses are all in sight
+        KotlinPrintOptions options = given.world().isFile() ? given.withWorld(KotlinWorld.of(
+                java.util.stream.Stream.concat(corpus.types().stream(), corpus.testTypes().stream()).toList())) : given;
         Path out = Path.of("build/j2k", name);
         deleteRecursively(out);
         Printed main = print(corpus, corpus.types(), options, out.resolve("src"));

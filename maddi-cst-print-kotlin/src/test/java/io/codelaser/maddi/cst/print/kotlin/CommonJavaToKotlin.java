@@ -90,19 +90,38 @@ public abstract class CommonJavaToKotlin {
         });
     }
 
+    /**
+     * As {@link #kotlin(String, KotlinPrintOptions, java.util.function.Consumer)}, with the file's primary types as
+     * the {@link KotlinWorld}: the code translated together.
+     */
+    protected String kotlinInWorld(String java, KotlinPrintOptions options,
+                                   java.util.function.Consumer<TypeInfo> beforePrint) {
+        KotlinCompilationUnitPrinter.Result result = translate(java, types -> options.withWorld(KotlinWorld.of(types)),
+                beforePrint);
+        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
+        return formatter.write(result.output());
+    }
+
     private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options,
+                                                          java.util.function.Consumer<TypeInfo> beforePrint) {
+        return translate(java, types -> options, beforePrint);
+    }
+
+    private KotlinCompilationUnitPrinter.Result translate(String java,
+                                                          java.util.function.Function<List<TypeInfo>, KotlinPrintOptions> options,
                                                           java.util.function.Consumer<TypeInfo> beforePrint) {
         // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
         String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
         String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
-        TypeInfo typeInfo = javaInspector.parse(Map.of(pkg + "." + first, java),
+        List<TypeInfo> primaryTypes = List.copyOf(javaInspector.parse(Map.of(pkg + "." + first, java),
                         new JavaInspector.ParseOptions.Builder().build())
-                .parseResult().primaryTypes().stream()
+                .parseResult().primaryTypes());
+        TypeInfo typeInfo = primaryTypes.stream()
                 .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
                 .orElseThrow();
         beforePrint.accept(typeInfo);
         Runtime runtime = javaInspector.runtime();
-        return new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options)
+        return new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options.apply(primaryTypes))
                 .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
     }
 }

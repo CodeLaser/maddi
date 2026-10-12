@@ -26,8 +26,11 @@ import java.util.Objects;
  * @param nullCheck what to write where Kotlin types a value as nullable and its use needs it non-null
  * @param modification which collections are not modified, for read-only types ({@link ModificationFacts#STORED}:
  *                     what the analysis stored, if it ran; {@link ModificationFacts#NONE}: every collection mutable)
+ * @param world        the code translated together, whose uses of a member decide its read-only type
+ *                     ({@link KotlinWorld#FILE}: the compilation unit being printed)
  */
-public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification) {
+public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification,
+                                 KotlinWorld world) {
 
     /** The verdicts the analysis stored as properties, if it ran; {@code !!} where needed. */
     public static final KotlinPrintOptions DEFAULT = new KotlinPrintOptions(NullabilityFacts.STORED, NullCheck.ASSERT);
@@ -37,14 +40,24 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck,
         this(verdicts, nullCheck, ModificationFacts.STORED);
     }
 
+    /** Printing one compilation unit at a time. */
+    public KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck, ModificationFacts modification) {
+        this(verdicts, nullCheck, modification, KotlinWorld.FILE);
+    }
+
     /** These options with other modification facts: {@link ModificationFacts#NONE} for the printer without them. */
     public KotlinPrintOptions withModification(ModificationFacts modification) {
-        return new KotlinPrintOptions(verdicts, nullCheck, modification);
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
     }
 
     /** These options with other nullability facts: {@link NullabilityFacts#NONE} for the printer without them. */
     public KotlinPrintOptions withVerdicts(NullabilityFacts verdicts) {
-        return new KotlinPrintOptions(verdicts, nullCheck, modification);
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
+    }
+
+    /** These options for the code translated together: {@link KotlinWorld#FILE} for one compilation unit. */
+    public KotlinPrintOptions withWorld(KotlinWorld world) {
+        return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
     }
 
     /**
@@ -63,5 +76,6 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck,
         Objects.requireNonNull(verdicts);
         Objects.requireNonNull(nullCheck);
         Objects.requireNonNull(modification);
+        Objects.requireNonNull(world);
     }
 }

@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import org.intellij.lang.annotations.Language;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
@@ -1060,5 +1061,59 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private val copied: List<String>");
         // Optional.of(T): T comes back in the result, Optional<MutableList<String>>
         contains(kotlin, "private val wrapped: MutableList<String>");
+    }
+
+    @Language("java")
+    private static final String READ_ONLY_IN_WORLD = """
+            package a;
+            import java.util.*;
+            class Box {
+                final List<String> names;
+                final List<String> grown = new ArrayList<>();
+                final List<String> handed;
+                final int size;
+                Box(List<String> names, List<String> handed) {
+                    this.names = names;
+                    this.handed = handed;
+                    this.size = names.size() + handed.size();
+                }
+                List<String> names() { return names; }
+                List<String> handed() { return handed; }
+            }
+            class Reader {
+                int count(Box b) {
+                    int n = 0;
+                    for (String s : b.names) n += s.length();
+                    return n + b.names().size();
+                }
+                void grow(Box b) { b.grown.add("x"); }
+                void take(Box b) { fill(b.handed()); }
+                static void fill(List<String> target) { target.add("y"); }
+            }
+            """;
+
+    private static void unmodifiedFields(TypeInfo type) {
+        type.fields().forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+    }
+
+    /**
+     * With the code translated together ({@link KotlinWorld}), a package-private field and an open method's result
+     * are read-only when every use of them in the world allows it: {@code Reader} only reads {@code names}. Alone, the
+     * printer cannot see {@code Reader}'s uses, and keeps Java's mutable types. A mutator called from another type
+     * ({@code b.grown.add}) and a result handed to a parameter that modifies it keep the mutable type in the world too.
+     */
+    @Test
+    public void readOnlyInWorld() {
+        String world = kotlinInWorld(READ_ONLY_IN_WORLD, KotlinPrintOptions.DEFAULT, TestJavaToKotlinStructure::unmodifiedFields);
+        contains(world, "val names: List<String>");
+        contains(world, "fun names(): List<String> = names");
+        contains(world, "val grown: MutableList<String>");
+        contains(world, "val handed: MutableList<String>");
+        contains(world, "fun handed(): MutableList<String> = handed");
+
+        String alone = kotlin(READ_ONLY_IN_WORLD.replace("Box", "Alone").replace("Reader", "AloneReader"), KotlinPrintOptions.DEFAULT, TestJavaToKotlinStructure::unmodifiedFields);
+        contains(alone, "val names: MutableList<String>");
+        contains(alone, "fun names(): MutableList<String> = names");
     }
 }
