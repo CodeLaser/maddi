@@ -1583,6 +1583,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     Score_ calculate(Solution_ solution);
                     List<Score_> history();
                 }
+                static int compare(Score<?> a, Score<?> b) { return ((Score) a).compareTo(b); }
                 static boolean anyZero(List<Score<?>> scores) {
                     for (Score<?> score : scores) if (score.isZero() || score.negate().isZero()) return true;
                     return false;
@@ -1601,7 +1602,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void companions() {
         String cs = translate("Scores", SCORES);
         contains(cs, "public interface IScore<Score_> : IComparable<Score_>, IScore where Score_ : IScore<Score_> {");
-        contains(cs, "public interface IScore {");
+        // Comparable<Score_>: the companion is C#'s non-generic IComparable, which the type implements by a cast
+        contains(cs, "public interface IScore : IComparable {");
+        contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Score_) other!);");
         contains(cs, "IScore Negate();");
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");
@@ -1611,6 +1614,70 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static bool AnyZero(List<IScore> scores)");
         contains(cs, "internal static string Describe<S>(IDirector<S> director, S solution)");
         assertFalse(cs.contains("IScore<object>"), cs);
+    }
+
+    private static final String PHASE_SCOPES = """
+            package org.example.phasescopes;
+            public class PhaseScopes {
+                public interface Score<Score_ extends Score<Score_>> { boolean isZero(); }
+                public record SimpleScore(int value) implements Score<SimpleScore> {
+                    public boolean isZero() { return value == 0; }
+                }
+                public record Inner<Score_ extends Score<Score_>>(Score_ raw) { boolean zero() { return raw.isZero(); } }
+                public interface Director<Solution_, Score_ extends Score<Score_>> { Score_ calculate(Solution_ solution); void reset(); }
+                static class SolverScope<Solution_> {
+                    private Inner<?> best;
+                    private Director<Solution_, ?> director;
+                    public <Score_ extends Score<Score_>> Inner<Score_> getBest() { return (Inner<Score_>) best; }
+                    public <Score_ extends Score<Score_>> Director<Solution_, Score_> getDirector() {
+                        return (Director<Solution_, Score_>) director;
+                    }
+                }
+                static class PhaseScope<Solution_> {
+                    SolverScope<Solution_> solverScope;
+                    public <Score_ extends Score<Score_>> Director<Solution_, Score_> getDirector() {
+                        return solverScope.getDirector();
+                    }
+                    public <Score_ extends Score<Score_>> Inner<Score_> getBest() { return solverScope.getBest(); }
+                }
+                static <Solution_> boolean zero(PhaseScope<Solution_> scope) { return scope.getBest().raw().isZero(); }
+                static <Solution_> String log(PhaseScope<Solution_> scope) { return "" + scope.getBest(); }
+                static <Solution_, Score_ extends Score<Score_>> Score_ calculate(PhaseScope<Solution_> scope, Solution_ s) {
+                    Director<Solution_, Score_> d = scope.getDirector();
+                    return d.calculate(s);
+                }
+                interface Acceptor { }
+                static <T> T newInstance(Object bean, String name, Class<T> clazz) {
+                    return null;
+                }
+                static Acceptor acceptor(Class<? extends Acceptor> c) { return newInstance(null, "a", c); }
+                static Object any(Class<?> c) { return newInstance(null, "a", c); }
+                static SimpleScore simple(PhaseScope<String> scope) {
+                    Inner<SimpleScore> best = scope.getBest();
+                    return best.raw();
+                }
+            }
+            """;
+
+    /**
+     * A self-bounded type parameter that only the result mentions: Java infers a raw or captured type, which no C#
+     * type argument is. The method is printed with it erased, its result the companion or the wildcard's bound, and
+     * a call where Java's type is writable casts to it. A record's companion has its components. A {@code Class<T>} is C#'s {@code Type}, from which C#
+     * infers nothing: T is the wildcard's bound.
+     */
+    @Test
+    public void resultOnlySelfBound() {
+        String cs = translate("PhaseScopes", PHASE_SCOPES);
+        // a record has a companion too, with its components
+        contains(cs, "public interface IInner { IScore Raw { get; } }");
+        contains(cs, "IScore IInner.Raw => Raw;");
+        contains(cs, "public IInner GetBest() => (IInner) (object) best;");
+        contains(cs, "public IDirector<Solution_> GetDirector() => solverScope.GetDirector();");
+        contains(cs, "scope.GetBest().Raw.IsZero()");
+        contains(cs, "IDirector<Solution_, Score_> d = (IDirector<Solution_, Score_>) (object) scope.GetDirector();");
+        contains(cs, "Inner<SimpleScore> best = (Inner<SimpleScore>) (object) scope.GetBest();");
+        contains(cs, "NewInstance<IAcceptor>(null, \"a\", c)");
+        contains(cs, "NewInstance<object>(null, \"a\", c)");
     }
 
     private static final String MODES = """

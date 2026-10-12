@@ -146,7 +146,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** The return type, {@code T?} when the method may return null. */
     private String returnType(Qualification q) {
-        if (CSharpContext.program().erasedGeneric(methodInfo)) {
+        if (CSharpContext.program().erasedGeneric(methodInfo) && methodInfo.returnType().isTypeParameter()) {
             return CSharpTypeName.rawArgumentOf(methodInfo.returnType().typeParameter(), q);
         }
         io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);

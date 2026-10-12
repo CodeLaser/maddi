@@ -170,11 +170,20 @@ implements the interface.
   `TriFunction<…> mapping()`; C# does not. A class's method whose result is its own type parameter, overridden so,
   is printed with it erased to its bound, `object Mapping()`, and so are its generic overrides; the others override
   it with a covariant result, and a call through it casts the result to the type Java inferred.
+- **Self-bounded type parameters only a result mentions.** `<Score_ extends Score<Score_>> InnerScore<Score_>
+  getScore()`, bounded by a program type (not `Comparable<? super R>`, whose type argument C# infers from a method
+  group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint (CS0411).
+  Such a method, with all its overrides, is printed with the type parameter erased, a wildcard in its signature and
+  body: `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the companion). A call
+  where Java's type is writable casts to it through `object`, `(InnerScore<SimpleScore>) (object) scope.GetScore()`,
+  since C# relates no two instantiations of a class.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
   `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
-  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write.
+  inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. A `Class<T>` parameter is
+  C#'s `Type`, from which C# infers nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a
+  `Class<?>` its own bound.
 - **Inheritance.**
   - A Java method can be overridden unless it is final, static or private. In a class that can be extended, such a
     method becomes `virtual`.
@@ -448,11 +457,13 @@ ratchet's report (see below) lists what is left.
   `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
   C#'s `IComparable` beside `IComparable<T>`, such a type has a companion without its self-bounded parameters
   (`CSharpCompanions`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside `IDirector<Solution_, Score_>`;
-  a class's companion is the interface `I` + its name. The wildcard, and the raw type, is the companion. The companion
+  a class's or a record's companion is the interface `I` + its name, a record's with its components as properties
+  (`IScore Raw { get; }`). The wildcard, and the raw type, is the companion. The companion
   declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
   companion (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
-  `IScore`. A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
+  `IScore`. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
+  implements by a cast (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
   companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.

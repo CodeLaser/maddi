@@ -92,6 +92,11 @@ public final class TranslationState<C extends PrintMessage.Code> {
         return methods.peek();
     }
 
+    /** The methods whose bodies are being printed, innermost first (a lambda's, an anonymous class's, the enclosing). */
+    public List<MethodInfo> methods() {
+        return List.copyOf(methods);
+    }
+
     public void pushStatement(Statement statement) {
         statements.push(statement);
     }
