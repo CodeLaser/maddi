@@ -17,6 +17,7 @@ package io.codelaser.maddi.cst.print.csharp;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.IOException;
@@ -1463,6 +1464,46 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SELECTORS = """
+            package org.example.selectors;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Selectors {
+                interface Selector { boolean isNeverEnding(); }
+                abstract static class AbstractSelector implements Selector {
+                    protected final String name = getClass().getSimpleName();
+                    protected final List<String> seen = new ArrayList<>();
+                }
+                abstract static class AbstractDemandEnabledSelector extends AbstractSelector {
+                    @Override
+                    public abstract boolean equals(Object other);
+                    @Override
+                    public abstract int hashCode();
+                }
+                static final class FromSolution extends AbstractDemandEnabledSelector {
+                    private final boolean random;
+                    FromSolution(boolean random) { this.random = random; }
+                    public boolean isNeverEnding() { return random; }
+                    public boolean equals(Object other) { return other == this; }
+                    public int hashCode() { return 1; }
+                }
+            }
+            """;
+
+    /**
+     * An interface's method that an abstract class leaves to its subclasses is declared abstract once, by the first
+     * abstract class; an initializer that uses this runs in the constructor, as Java's does.
+     */
+    @Test
+    public void abstractAndInitializers() {
+        String cs = translate("Selectors", SELECTORS);
+        assertEquals(1, cs.split("public abstract bool NeverEnding", -1).length - 1, cs);
+        contains(cs, "protected internal readonly string name;");
+        contains(cs, "this.name = this.GetType().Name;");
+        contains(cs, "protected AbstractSelector() {");
+        contains(cs, "this.seen = new List<string>();");
+    }
+
     private static final String INNER = """
             package org.example.inner;
             import java.util.Iterator;

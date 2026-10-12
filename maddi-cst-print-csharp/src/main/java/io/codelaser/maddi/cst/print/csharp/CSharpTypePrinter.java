@@ -147,6 +147,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (self != null) members.addAll(hoistedMembers(self, q));
         // an inner class's enclosing instance (CSharpInner)
         boolean outer = CSharpInner.withOuter(typeInfo);
+        boolean inConstructor = self == null && CSharpInner.initializedInConstructor(typeInfo);
         if (outer) {
             members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + CSharpInner.outerTypeName(typeInfo)
                                                                  + " outer;")));
@@ -164,7 +165,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                             : fieldPrinterFactory.create(f, formatter2).print(q, false));
                 });
         typeInfo.constructors().stream()
-                .filter(c -> !c.isSynthetic() && (outer || !isImplicitDefaultConstructor(c))
+                .filter(c -> !c.isSynthetic() && (inConstructor || !isImplicitDefaultConstructor(c))
                              && !(staticClass && c.parameters().isEmpty())
                              && !CSharpNames.inCompanion(c))
                 .filter(c -> {
@@ -175,15 +176,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     return true;
                 })
                 .forEach(c -> members.add(methodPrinterFactory.create(typeInfo, c, formatter2).print(q)));
-        if (outer && typeInfo.constructors().stream().allMatch(MethodInfo::isSynthetic)) {
-            // Java's default constructor, which takes the enclosing instance
+        if (inConstructor && typeInfo.constructors().stream().allMatch(MethodInfo::isSynthetic)) {
+            // Java's default constructor, which takes the enclosing instance, and initializes the fields
             ParameterizedType parent = typeInfo.parentClass();
-            String base = parent != null && CSharpInner.withOuter(parent.typeInfo()) ? " : base(outer)" : "";
+            String base = outer && parent != null && CSharpInner.withOuter(parent.typeInfo()) ? " : base(outer)" : "";
             List<OutputBuilder> body = new ArrayList<>();
-            body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            if (outer) body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
             body.addAll(CSharpInner.fieldInitializers(typeInfo, q));
-            members.add(new OutputBuilderImpl().add(new TextImpl("internal " + CSharpNames.type(typeInfo) + "("
-                    + CSharpInner.outerTypeName(typeInfo) + " outer)" + base)).add(SpaceEnum.ONE)
+            String access = outer ? "internal " : typeInfo.isAbstract() ? "protected " : "public ";
+            members.add(new OutputBuilderImpl().add(new TextImpl(access + CSharpNames.type(typeInfo) + "("
+                    + (outer ? CSharpInner.outerTypeName(typeInfo) + " outer" : "") + ")" + base)).add(SpaceEnum.ONE)
                     .add(CSharpStatementPrinter.braces(body)));
         }
         typeInfo.methods().stream()
@@ -711,10 +713,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
                 .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
+        // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
+        // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
+        TypeInfo parent = cls.parentClass() == null ? null : cls.parentClass().typeInfo();
+        java.util.Set<MethodInfo> declaredAbove = parent == null ? java.util.Set.of()
+                : leftAbstract(parent).stream().map(LeftAbstract::method).collect(java.util.stream.Collectors.toSet());
         List<LeftAbstract> left = new ArrayList<>();
         interfaces.forEach((iface, i) -> {
             if (!CSharpNames.translated(iface)) return;
             for (MethodInfo m : iface.methods()) {
+                if (declaredAbove.contains(m)) continue;
                 if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
                     || CSharpWildcards.mayCapture(m)) continue;
                 if (OBJECT_METHODS.contains(m.name() + "/" + m.parameters().size())) continue;

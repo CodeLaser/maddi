@@ -154,6 +154,8 @@ implements the interface.
   creation passes it: `new Upcoming(this)` in the enclosing type's code, `new Upcoming(outer)` in an inner class's,
   `new Upcoming(other)` for `other.new Upcoming()`. Its instance fields' initializers move into the constructors,
   after `this.outer = outer;`, where Java runs them: a C# field initializer cannot use `outer` (CS0236).
+  So do a class's whose initializer uses `this`, explicitly or through an instance member
+  (`getLogger(getClass())`, CS0027): Java runs them after `super(…)`, C# before the base constructor.
 - **Type arguments C# cannot infer.** Java infers a method type parameter that no parameter's type mentions,
   `<V> V getStore(int i)`, from the call's target; C# does not (CS0411). The call gets all its type arguments as Java
   inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write.

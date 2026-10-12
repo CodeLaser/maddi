@@ -171,9 +171,9 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(SymbolEnum.COLON).add(CSharpKeyword.BASE).add(CSharpExpressionPrinter.argumentsAfter(
                     new OutputBuilderImpl().add(new TextImpl("outer")), List.of(), null, q));
         }
-        if (outer && !chained) {
+        if (!chained && (outer || CSharpInner.initializedInConstructor(typeInfo))) {
             List<OutputBuilder> first = new java.util.ArrayList<>();
-            first.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            if (outer) first.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
             first.addAll(CSharpInner.fieldInitializers(typeInfo, q));
             b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, first, q));
         } else {

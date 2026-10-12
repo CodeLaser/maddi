@@ -144,6 +144,38 @@ final class CSharpInner {
     }
 
     /**
+     * A class whose instance fields are initialized in its constructors, as Java does after {@code super(…)}: an inner
+     * class with an outer, and one with an initializer that uses {@code this}, explicitly or through an instance member
+     * ({@code getLogger(getClass())}), which a C# field initializer cannot (CS0027, CS0236).
+     */
+    static boolean initializedInConstructor(TypeInfo t) {
+        if (t == null || t.isInterface() || t.isAnonymous() || t.typeNature().isRecord() || t.typeNature().isEnum()
+            || !CSharpNames.translated(t)) {
+            return false;
+        }
+        if (withOuter(t)) return true;
+        for (FieldInfo f : t.fields()) {
+            if (f.isStatic() || f.isSynthetic() || f.initializer() == null || f.initializer().isEmpty()) continue;
+            boolean[] uses = {false};
+            f.initializer().visit((Element e) -> {
+                if (uses[0]) return false;
+                switch (e) {
+                    case VariableExpression ve when ve.variable() instanceof This -> uses[0] = true;
+                    case VariableExpression ve when ve.variable() instanceof FieldReference fr
+                                                    && !fr.fieldInfo().isStatic() && CSharpAnonymous.thisScope(fr) ->
+                            uses[0] = true;
+                    case MethodCall mc when !mc.methodInfo().isStatic() && mc.objectIsImplicit() -> uses[0] = true;
+                    default -> {
+                    }
+                }
+                return true;
+            });
+            if (uses[0]) return true;
+        }
+        return false;
+    }
+
+    /**
      * The instance fields' initializers, as assignments in the constructor after {@code this.outer = outer;}: Java runs
      * them there, and they may use the enclosing instance, which a C# field initializer cannot (CS0236).
      */
