@@ -155,20 +155,20 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ImmutableClassToInstanceMap.Builder` | @FinalFields @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableCollection.Builder` | @FinalFields @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableList.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableListMultimap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableListMultimap.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableMap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableMultimap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableMultimap.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableMultiset.Builder` | @FinalFields @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableRangeMap.Builder` | @FinalFields @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableRangeMap.Builder` | @FinalFields @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableRangeSet.Builder` | @FinalFields @Independent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSet.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableSetMultimap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableSetMultimap.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSortedMap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSortedMultiset.Builder` | @FinalFields (eventual) @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSortedSet.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableTable.Builder` | mutable @Independent(hc = true) @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ArrayListMultimap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.ArrayTable` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableTable.Builder` | mutable @Independent(hc = true) (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ArrayListMultimap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.ArrayTable` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.BiMap` | @FinalFields @Dependent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.BoundType` | @Immutable (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.ClassToInstanceMap` | @FinalFields @Dependent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
@@ -180,11 +180,11 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.EnumBiMap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.EnumHashBiMap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.EnumMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.EvictingQueue` | @FinalFields @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.HashBasedTable` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.EvictingQueue` | @FinalFields @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.HashBasedTable` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.HashBiMap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.HashMultimap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.HashMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.HashMultimap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.HashMultiset` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableBiMap*` | mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableClassToInstanceMap*` | @FinalFields @Dependent @Container (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableCollection*` | @FinalFields @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
@@ -194,7 +194,7 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ImmutableMultiset*` | mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableRangeMap` | @FinalFields @Dependent (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.ImmutableRangeSet` | mutable @Dependent (1) | @Immutable(hc = true) | a value |
-| `com.google.common.collect.ImmutableSet*` | @FinalFields @Independent(hc = true) (conditional) (1), mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
+| `com.google.common.collect.ImmutableSet*` | @FinalFields @Dependent (1), mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableSortedMap*` | mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableSortedMultiset*` | mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
 | `com.google.common.collect.ImmutableSortedSet*` | mutable @Dependent (1) | @ImmutableContainer(hc = true) @Independent(hc = true) | G1: the abstract class is implemented by package-private classes sharing code with the mutable ones |
@@ -202,14 +202,14 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.Interners` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Iterables` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Iterators` | @Immutable (1) | @UtilityClass | static methods only |
-| `com.google.common.collect.LinkedHashMultimap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.LinkedHashMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.LinkedListMultimap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.LinkedHashMultimap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.LinkedHashMultiset` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.LinkedListMultimap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.ListMultimap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Lists` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.MapDifference` | @FinalFields @Dependent @Container (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.Maps` | @Immutable (1) | @UtilityClass | static methods only |
-| `com.google.common.collect.MinMaxPriorityQueue` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.MinMaxPriorityQueue` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.MoreCollectors` | @FinalFields @Dependent @Container (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Multimap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Multimaps` | @Immutable (1) | @UtilityClass | static methods only |
@@ -218,36 +218,71 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.MutableClassToInstanceMap` | @FinalFields @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.ObjectArrays` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Queues` | @Immutable (1) | @UtilityClass | static methods only |
-| `com.google.common.collect.Range` | @FinalFields @Dependent @Container (1) | @Immutable(hc = true) | a value |
+| `com.google.common.collect.Range` | @FinalFields @Dependent (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.RangeMap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.RangeSet` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.RowSortedTable` | @FinalFields @Dependent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.SetMultimap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Sets` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.SortedMapDifference` | @FinalFields @Dependent @Container (1) | @Immutable(hc = true) | a value |
-| `com.google.common.collect.SortedMultiset` | @FinalFields @Dependent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
+| `com.google.common.collect.SortedMultiset` | @FinalFields @Independent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.SortedSetMultimap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Streams` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Table` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Tables` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.TreeBasedTable` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.TreeMultimap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.TreeMultimap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeRangeMap` | @FinalFields @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeRangeSet` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.ArrayTable#clear` | @NotModified | @Modified | M1: a mutator |
+| `com.google.common.collect.ArrayTable#column` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#columnKeySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#contains` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#containsColumn` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#containsRow` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ArrayTable#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#remove` | @NotModified | @Modified | M1: a mutator |
+| `com.google.common.collect.ArrayTable#row` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#rowMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.BiMap#inverse` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.BiMap#values` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ConcurrentHashMultiset#iterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ConcurrentHashMultiset#toArray` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ContiguousSet#headSet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ContiguousSet#subSet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ContiguousSet#tailSet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.EnumMultiset#iterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.EvictingQueue#toArray` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.FluentIterable#isEmpty` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.FluentIterable#stream` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#contains` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#containsAll` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#isEmpty` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#iterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#size` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingCollection#toArray` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingDeque#descendingIterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingListMultimap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#containsKey` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#containsValue` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#entrySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#isEmpty` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#keySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#size` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMap#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#containsEntry` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#containsKey` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#containsValue` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#entries` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMultimap#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMultimap#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#isEmpty` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#keySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultimap#keys` | @Modified | @NotModified | M2: a pure query |
@@ -256,10 +291,28 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ForwardingMultiset#count` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultiset#elementSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingMultiset#entrySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMultiset#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingMultiset#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingNavigableMap#descendingMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingNavigableMap#headMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingNavigableMap#subMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingNavigableMap#tailMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingObject#toString` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingQueue#element` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingQueue#peek` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSet#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSet#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSetMultimap#entries` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSetMultimap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#comparator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#firstKey` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#headMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#lastKey` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#subMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedMap#tailMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSortedMultiset#comparator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSortedMultiset#elementSet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingSortedSetMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#cellSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#column` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#columnKeySet` | @Modified | @NotModified | M2: a pure query |
@@ -268,48 +321,80 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ForwardingTable#containsColumn` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#containsRow` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#containsValue` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingTable#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#get` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#isEmpty` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ForwardingTable#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#row` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#rowMap` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingTable#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.HashBiMap#inverse` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.HashBiMap#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#entries` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#keySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#values` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.LinkedListMultimap#containsValue` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedListMultimap#entries` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedListMultimap#removeAll` | @NotModified | @Modified | M1: a mutator |
 | `com.google.common.collect.LinkedListMultimap#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ListMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.ListMultimap#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ListMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#containsEntry` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#containsKey` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#containsValue` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#entries` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multimap#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multimap#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#isEmpty` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#keySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#keys` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multimap#values` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#contains` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multiset#count` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multiset#elementSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multiset#entrySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#iterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multiset#spliterator` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset#toString` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset.Entry#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset.Entry#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Multiset.Entry#toString` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Ordering#reverse` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeMap#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeMap#get` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeMap#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeMap#span` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeMap#toString` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#asDescendingSetOfRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#asRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#complement` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#contains` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#encloses` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#enclosesAll` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#equals` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#hashCode` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#intersects` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#isEmpty` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#rangeContaining` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#subRangeSet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.RangeSet#toString` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RowSortedTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RowSortedTable#rowMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SetMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SetMultimap#entries` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.SetMultimap#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SetMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SortedMultiset#comparator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SortedMultiset#elementSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SortedMultiset#entrySet` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.SortedMultiset#iterator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SortedSetMultimap#asMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.SortedSetMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#cellSet` | @Modified | @NotModified | M2: a pure query |
@@ -320,16 +405,16 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.Table#containsColumn` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#containsRow` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#containsValue` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Table#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#get` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.Table#isEmpty` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.Table#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#row` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#rowMap` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.Table#size` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Table#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultimap#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultimap#keySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeMultiset#count` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.TreeMultiset#size` | @Modified | @NotModified | M2: a pure query |
+| `com.google.common.collect.TreeMultiset#iterator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeRangeSet#asDescendingSetOfRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.TreeRangeSet#asRanges` | @Modified | @NotModified | M2: a pure query |
