@@ -196,4 +196,16 @@ public class JavaTimeTemporal {
         static java.time.temporal.WeekFields of(@NotNull java.time.DayOfWeek p0, int p1) { return null; }
         static java.time.temporal.WeekFields of(@NotNull java.util.Locale p0) { return null; }
     }
+
+    //public java.time.temporal.TemporalQueries (shadow created for its nullability, generated)
+    class TemporalQueries$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.chrono.Chronology> chronology() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.LocalDate> localDate() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.LocalTime> localTime() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneOffset> offset() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.temporal.TemporalUnit> precision() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneId> zone() { return null; }
+        @NotNull(nullableArguments = 0) static java.time.temporal.TemporalQuery<java.time.ZoneId> zoneId() { return null; }
+    }
 }

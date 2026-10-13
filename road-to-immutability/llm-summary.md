@@ -221,6 +221,12 @@ immutability verdicts are derived.
   modification side counted captured variables already (the closure set in `copyModificationsIntoMethod`). Not yet:
   a captured LOCAL (its link never reaches the summary) and the creation site of the anonymous class, which links
   the new object to nothing it captured (CodeLaser/maddi-mod#43). Gate `NOCAPTURED` for an A/B.
+- **A view factory's result shares its argument's modification component** (2026-10-13, CodeLaser/maddi-mod#40): a
+  library parameter `@Independent(dependentReturnValue = true)` gets `rv.§m ≡ p.§m` from the shallow link computer
+  (`sharedModification`), so `Collections.synchronizedList(list).add(x)` modifies `list` while the call alone does not
+  (the JDK's 19 view factories are `@NotModified @Independent(dependentReturnValue = true)`). The reachability pass
+  does not follow plain `≡` from a local; a local initialised with such a call follows the callee's `rv.§m ≡ p.§m`
+  link to the argument (`ShadowModificationPass.projectViewLocal`, gate `NOVIEWLOCAL`).
 - A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,

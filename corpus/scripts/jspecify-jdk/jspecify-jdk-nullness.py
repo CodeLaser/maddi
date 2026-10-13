@@ -10,6 +10,9 @@ hint file (jdk/Java*.java; AWT and Swing excluded) and that JSpecify declares:
   (PASS_NAMES, PASS_SIGS): the nullability pass follows those per call;
 - a @Nullable parameter becomes @Nullable; a non-null one (in @NullMarked code, not a type variable) @NotNull;
 - non-null returns are not written: the pass seeds nothing from them;
+- a type argument JSpecify annotates @Nullable (also a wildcard's bound, '? super @Nullable V'), or the elements of an
+  array, one level deep, become 'nullableArguments' on the annotation of the position: '@NotNull(nullableArguments =
+  0) Object[] toArray()', '@NotNull(nullableArguments = {1, 2}) BiFunction<..> remappingFunction';
 - equals/hashCode/toString and Object's final, clone and finalize methods are skipped;
 - an annotation already in the hints wins; a disagreement is listed (conflicts.txt) for review;
 - a member the hints do not shadow gets a declaration from javap (the running JDK must be the recorded release,
@@ -145,8 +148,8 @@ def jp_members(t):
 # --- JSpecify
 JS=collections.defaultdict(list)
 for l in open(f'{D}/jspecify-jdk.tsv'):
-    t,n,ps,r,pst,sc,rt=l.rstrip('\n').split('\t')
-    JS[t].append((n,ps,r,pst,sc,rt))
+    t,n,ps,r,pst,sc,rt,nr,npl=l.rstrip('\n').split('\t')
+    JS[t].append((n,ps,r,pst,sc,rt,nr,npl.split(';') if ps else []))
 TYPES=collections.defaultdict(list)
 for l in open(f'{D}/types.txt'):
     p,t=l.rstrip('\n').split('\t'); TYPES[p].append(t)
@@ -157,6 +160,24 @@ def default(rt):
     if rt in ('int','long','short','byte','char','double','float'): return 'return 0; '
     return 'return null; '
 ANN={'Q':'@Nullable','N':'@NotNull'}
+def ann(w,nested):
+    if not nested: return ANN[w]
+    pos=nested.split(',')
+    return f'{ANN[w]}(nullableArguments = {pos[0] if len(pos)==1 else "{"+", ".join(pos)+"}"})'
+def place(edits,span,start,have,w,nested,what,label,conflicts,report,used):
+    """the annotation of one position: insert it, upgrade a plain one of the same state in place, or report"""
+    if have=='-':
+        edits.append((start,ann(w,nested)+' ')); used.add(w); report[f'{what} {w} added (existing member)']+=1
+        if nested: report[f'{what} nullableArguments added']+=1
+        return
+    if have!=w:
+        conflicts.append(f'{label}: ours {have}, JSpecify {w}'); report[f'{what} conflict']+=1; return
+    if not nested or span=='-': return
+    if span=='other':
+        conflicts.append(f'{label}: ours carries other attributes, JSpecify nullableArguments {nested}'); report[f'{what} conflict']+=1; return
+    s,e,attrs=span.split(':')
+    if attrs==nested: return
+    edits.append((int(s),ann(w,nested),int(e))); used.add(w); report[f'{what} nullableArguments added']+=1
 report=collections.Counter(); conflicts=[]; nomatch=[]
 for idxf in sorted(glob.glob(f'{D}/idx/*.tsv')):
     base=os.path.basename(idxf)[:-4]; hf=f'{H}/{base}.java'
@@ -167,32 +188,33 @@ for idxf in sorted(glob.glob(f'{D}/idx/*.tsv')):
         elif c[0]=='IMPORT': imports.append(c[1])
         elif c[0]=='TYPE': types[c[1]]=int(c[2]); kinds[c[1]]=c[4]
         elif c[0]=='MEMBER':
-            fqn,name,ps,start,mann,pstarts,panns=c[1:8]
-            members[(fqn,name,ps)]=(int(start),mann,[int(x) for x in pstarts.split(',') if x],panns)
+            fqn,name,ps,start,mann,pstarts,panns,mspan,pspans=c[1:10]
+            members[(fqn,name,ps)]=(int(start),mann,[int(x) for x in pstarts.split(',') if x],panns,mspan,
+                                    pspans.split(';') if pstarts else [])
             arity[(fqn,name,len(ps.split(',')) if ps else 0)].add(ps)
     edits=[]; newdecls=collections.defaultdict(list); used=set()
     for t in TYPES.get(pkg,[]):
         jpm=jp_members(t)
-        for (n,ps,r,pst,sc,rt) in JS.get(t,[]):
+        for (n,ps,r,pst,sc,rt,nr,npl) in JS.get(t,[]):
             if n in SKIP_METHODS: continue
             want_r = 'Q' if r=='Q' else None
             # a return null only through an argument (orElse, getOrDefault, getProperty(key, def)) or a function
             # (orElseGet, computeIfAbsent): left unhinted, the pass decides per call through its links
             if want_r and (n in PASS_NAMES or f'{t}.{n}({ps})' in PASS_SIGS or f'{t}.{n}({ps})' in TRUSTED_RETURNS):
                 want_r=None; passthrough.append(f'{t}.{n}({ps})'); report['ret Q left out: through an argument']+=1
+            if not want_r and nr and r=='N': want_r='N'   # non-null, with nullable elements or type arguments
             want_p = [x if x in 'NQ' else None for x in pst]
+            nested_p = [npl[i] if i<len(npl) and want_p[i] else '' for i in range(len(want_p))]
             if not want_r and not any(want_p): continue
             key=(t,n,ps)
             if key in members:
-                start,mann,pstarts,panns=members[key]
+                start,mann,pstarts,panns,mspan,pspans=members[key]
                 if want_r:
-                    if mann=='-': edits.append((start,ANN['Q']+' ')); used.add('Q'); report['ret Q added (existing member)']+=1
-                    elif mann!='Q': conflicts.append(f'{t}.{n}({ps}) return: ours {mann}, JSpecify Q'); report['ret conflict']+=1
+                    place(edits,mspan,start,mann,want_r,nr,'ret',f'{t}.{n}({ps}) return',conflicts,report,used)
                 for i,w in enumerate(want_p):
                     if not w or i>=len(pstarts): continue
-                    have=panns[i]
-                    if have=='-': edits.append((pstarts[i],ANN[w]+' ')); used.add(w); report[f'param {w} added (existing member)']+=1
-                    elif have!=w: conflicts.append(f'{t}.{n}({ps}) #{i}: ours {have}, JSpecify {w}'); report['param conflict']+=1
+                    place(edits,pspans[i] if i<len(pspans) else '-',pstarts[i],panns[i],w,nested_p[i],'param',
+                          f'{t}.{n}({ps}) #{i}',conflicts,report,used)
                 continue
             nparams=len(ps.split(',')) if ps else 0
             if arity.get((t,n,nparams)):
@@ -204,9 +226,9 @@ for idxf in sorted(glob.glob(f'{D}/idx/*.tsv')):
                 p=p.replace('$','.')
                 w=want_p[i] if i<len(want_p) else None
                 if w: used.add(w)
-                prm.append((ANN[w]+' ' if w else '')+p+f' p{i}')
-            if want_r: used.add('Q')
-            newdecls[t].append((m,prm,want_r))
+                prm.append((ann(w,nested_p[i] if i<len(nested_p) else '')+' ' if w else '')+p+f' p{i}')
+            if want_r: used.add(want_r)
+            newdecls[t].append((m,prm,ann(want_r,nr) if want_r else None))
             report['new member declarations']+=1
     # render new declarations
     text=open(hf).read()
@@ -221,7 +243,7 @@ for idxf in sorted(glob.glob(f'{D}/idx/*.tsv')):
                 lines.append(f'{ind}{sname}{"$" if top else ""}({", ".join(prm)}) {{ }}')
             else:
                 rt=m['rt'].replace('$','.'); tp=(m['tp']+' ') if m['tp'] else ''
-                lines.append(f'{ind}{"@Nullable " if wr else ""}{"static " if m["static"] else ("default " if iface else "")}{tp}{rt} {m["name"]}({", ".join(prm)}) {{ {default(rt)}}}')
+                lines.append(f'{ind}{wr+" " if wr else ""}{"static " if m["static"] else ("default " if iface else "")}{tp}{rt} {m["name"]}({", ".join(prm)}) {{ {default(rt)}}}')
         return lines
     # group: existing types get members appended; missing types get created (nested under their parent when it exists)
     created=collections.defaultdict(list)   # parent fqn (or pkg) -> list of rendered class blocks
@@ -268,8 +290,9 @@ for idxf in sorted(glob.glob(f'{D}/idx/*.tsv')):
         if k in used and not wild and f'io.codelaser.maddi.annotation.{name}' not in imports: add.append(f'import io.codelaser.maddi.annotation.{name};')
     if add: edits.append((imports_end,'\n'+'\n'.join(add)))
     if WRITE and edits:
-        for pos,txt in sorted(edits,key=lambda e:-e[0]):
-            text=text[:pos]+txt+text[pos:]
+        for e in sorted(edits,key=lambda e:-e[0]):
+            pos,txt=e[0],e[1]; end=e[2] if len(e)>2 else pos
+            text=text[:pos]+txt+text[end:]
         open(hf,'w').write(text)
     report[f'files touched']+= 1 if edits else 0
 for k,v in sorted(report.items()): print(f'{v:6d} {k}')

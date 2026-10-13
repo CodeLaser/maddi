@@ -56,6 +56,18 @@ public @interface Nullable {
     boolean implied() default true;
 
     /**
+     * The type arguments that may hold <code>null</code>, by position: <code>{1, 2}</code> on a
+     * <code>BiFunction&lt;K, V, V&gt;</code> parameter says the function is called with a null second argument and may
+     * return null (<code>Map.compute</code>'s remapping function). On an array type, <code>0</code> is its elements
+     * (<code>Collection.toArray()</code>). One level deep; the other type arguments stay as their declaration says.
+     * The analysis hints write it where the JDK's annotated API (JSpecify) annotates a type argument or array
+     * component.
+     *
+     * @return the positions of the type arguments, or of the array's elements, that may be null
+     */
+    int[] nullableArguments() default {};
+
+    /**
      * Any explanation for the presence of this annotion in this particular place.
      */
     String comment() default "";

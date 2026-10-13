@@ -1981,14 +1981,14 @@ public class JavaLang {
         //@NotModified[T]
         static String join(
             /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
-            /*@Independent[T]*/ @NotNull @NotModified CharSequence ... elements) { return null; }
+            /*@Independent[T]*/ @NotNull(nullableArguments = 0) @NotModified CharSequence ... elements) { return null; }
 
         // join only iterates its elements: @NotModified is a contract here, not the type's default, since Iterable is
         // a @Container (a Java field passed to join must stay unmodified: TestKotlinCollectionReadsVsJava's control row)
         //@NotModified[T]
         static String join(
             /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
-            /*@Independent[T]*/ @NotNull @NotModified Iterable<? extends CharSequence> elements) { return null; }
+            /*@Independent[T]*/ @NotNull(nullableArguments = 0) @NotModified Iterable<? extends CharSequence> elements) { return null; }
 
         //frequency 3
         //@NotModified[T]
@@ -2055,17 +2055,17 @@ public class JavaLang {
         char [] toCharArray() { return null; }
 
         //@NotModified[T]
-        static String format(@NotNull String format, @NotNull @NotModified /*@Independent[T]*/ Object ... args) { return null; }
+        static String format(@NotNull String format, @NotNull(nullableArguments = 0) @NotModified /*@Independent[T]*/ Object ... args) { return null; }
 
         //@NotModified[T]
         static String format(/*@Independent[T]*/ @Nullable Locale l, @NotNull String format,
-            @NotNull @NotModified /*@Independent[T]*/ Object ... args) {
+            @NotNull(nullableArguments = 0) @NotModified /*@Independent[T]*/ Object ... args) {
             return null;
         }
 
         //frequency 37
         //@NotModified[T]
-        String formatted(@NotNull @NotModified /*@Independent[M]*/ Object ... args) { return null; }
+        String formatted(@NotNull(nullableArguments = 0) @NotModified /*@Independent[M]*/ Object ... args) { return null; }
 
         //frequency 1
         //@NotModified[T]
@@ -2836,7 +2836,7 @@ public class JavaLang {
         @NotModified String getName() { return null; }
         @Nullable @NotModified ThreadGroup getThreadGroup() { return null; }
         static int activeCount() { return 0; }
-        static int enumerate(@NotNull Thread [] tarray) { return 0; }
+        static int enumerate(@NotNull(nullableArguments = 0) Thread [] tarray) { return 0; }
         void join(long millis) { }
         void join(long millis, int i) { }
         void join() { }
@@ -3377,10 +3377,10 @@ public class JavaLang {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ThreadGroup$(@Nullable java.lang.String p0) { }
         ThreadGroup$(@NotNull java.lang.ThreadGroup p0, @Nullable java.lang.String p1) { }
-        int enumerate(@NotNull java.lang.ThreadGroup[] p0) { return 0; }
-        int enumerate(@NotNull java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
-        int enumerate(@NotNull java.lang.Thread[] p0) { return 0; }
-        int enumerate(@NotNull java.lang.Thread[] p0, boolean p1) { return 0; }
+        int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0) { return 0; }
+        int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
+        int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0) { return 0; }
+        int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0, boolean p1) { return 0; }
         @Nullable java.lang.String getName() { return null; }
         @Nullable java.lang.ThreadGroup getParent() { return null; }
         boolean parentOf(@NotNull java.lang.ThreadGroup p0) { return false; }

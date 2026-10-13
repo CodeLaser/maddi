@@ -9,6 +9,8 @@ import java.util.stream.*;
  * Parse-only dump of JSpecify's nullness for public JDK API: one line per method/constructor:
  * type FQN, name, erased simple param types, return state, param states, scope.
  * States: N non-null, Q nullable, P parametric (unannotated type variable), U unmarked, - primitive/void.
+ * Then the nested positions that may be null, one level deep (a type argument annotated {@code @Nullable}, a
+ * wildcard bounded by one, or an array's elements as position 0): of the return, and per parameter ({@code ;}-joined).
  */
 public class JSpecifyJdkDump {
     public static void main(String[] args) throws Exception {
@@ -83,17 +85,47 @@ public class JSpecifyJdkDump {
                 String name = ctor ? "<init>" : mt.getName().toString();
                 String ret = ctor ? "-" : state(mt.getReturnType(), mt.getModifiers(), mMarked, tvs);
                 StringBuilder ps = new StringBuilder();
-                List<String> types = new ArrayList<>();
+                List<String> types = new ArrayList<>(), nestedParams = new ArrayList<>();
                 for (VariableTree p : mt.getParameters()) {
                     ps.append(state(p.getType(), p.getModifiers(), mMarked, tvs));
                     types.add(erase(p.getType(), tvs));
+                    nestedParams.add(mMarked ? nested(p.getType(), p.getModifiers()) : "");
                 }
+                String nestedReturn = ctor || !mMarked ? "" : nested(mt.getReturnType(), mt.getModifiers());
                 out.add(fqn + "\t" + name + "\t" + String.join(",", types) + "\t" + ret + "\t" + ps + "\t"
-                        + (mMarked ? "marked" : "unmarked") + "\t" + (ctor ? "-" : erase(mt.getReturnType(), tvs)));
+                        + (mMarked ? "marked" : "unmarked") + "\t" + (ctor ? "-" : erase(mt.getReturnType(), tvs))
+                        + "\t" + nestedReturn + "\t" + String.join(";", nestedParams));
                 tvs.pop();
             }
         }
         tvs.pop();
+    }
+
+    static boolean nullableAnnotated(Tree t) {
+        return t instanceof AnnotatedTypeTree at && at.getAnnotations().stream()
+                .anyMatch(a -> lastSeg(a.getAnnotationType().toString()).equals("Nullable"));
+    }
+
+    /*
+     The positions one level down that may hold null, comma-joined: an array's elements (0), when the annotation in
+     declaration position or on the component says so ('@Nullable Object[] toArray()', '@Nullable Object... args');
+     a type argument annotated @Nullable, or a wildcard whose bound is ('? super @Nullable V', '? extends @Nullable U').
+     */
+    static String nested(Tree type, ModifiersTree mods) {
+        Tree t = type instanceof AnnotatedTypeTree at ? at.getUnderlyingType() : type;
+        if (t instanceof ArrayTypeTree arr) {
+            return has(mods, "Nullable") || nullableAnnotated(arr.getType()) ? "0" : "";
+        }
+        if (!(t instanceof ParameterizedTypeTree ptt)) return "";
+        List<String> positions = new ArrayList<>();
+        List<? extends Tree> args = ptt.getTypeArguments();
+        for (int i = 0; i < args.size(); i++) {
+            Tree a = args.get(i);
+            if (nullableAnnotated(a) || a instanceof WildcardTree w && w.getBound() != null && nullableAnnotated(w.getBound())) {
+                positions.add(String.valueOf(i));
+            }
+        }
+        return String.join(",", positions);
     }
 
     static String bound(TypeParameterTree tp, Deque<Map<String, String>> tvs) {

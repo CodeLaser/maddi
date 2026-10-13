@@ -42,8 +42,8 @@ public class JavaUtilConcurrent {
         static <U> CompletableFuture<U> supplyAsync(/*@IgnoreModifications[T]*/ @NotNull Supplier<U> supplier, @NotNull Executor executor) {
             return null;
         }
-        static CompletableFuture<Void> runAsync(@NotNull Runnable runnable) { return null; }
-        static CompletableFuture<Void> runAsync(@NotNull Runnable runnable, @NotNull Executor executor) { return null; }
+        @NotNull(nullableArguments = 0) static CompletableFuture<Void> runAsync(@NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) static CompletableFuture<Void> runAsync(@NotNull Runnable runnable, @NotNull Executor executor) { return null; }
         //frequency 21
         static <U> CompletableFuture<U> completedFuture(/*@Independent(hc=true)[T] @NotModified[T]*/ U value) {
             return null;
@@ -93,24 +93,24 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenAccept(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenAccept(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenAcceptAsync(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenAcceptAsync(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenAcceptAsync(
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenAcceptAsync(
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action,
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenRun(@NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenRun(@NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenRunAsync(@NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenRunAsync(@NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> thenRunAsync(@NotNull Runnable action, @NotNull Executor executor) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> thenRunAsync(@NotNull Runnable action, @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
         <U, V> CompletableFuture<V> thenCombine(
@@ -129,29 +129,29 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        <U> CompletableFuture<Void> thenAcceptBoth(
+        @NotNull(nullableArguments = 0) <U> CompletableFuture<Void> thenAcceptBoth(
             @NotNull CompletionStage<? extends U> other,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        <U> CompletableFuture<Void> thenAcceptBothAsync(
+        @NotNull(nullableArguments = 0) <U> CompletableFuture<Void> thenAcceptBothAsync(
             @NotNull CompletionStage<? extends U> other,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        <U> CompletableFuture<Void> thenAcceptBothAsync(
+        @NotNull(nullableArguments = 0) <U> CompletableFuture<Void> thenAcceptBothAsync(
             @NotNull CompletionStage<? extends U> other,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> action,
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterBoth(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterBoth(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterBothAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterBothAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterBothAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action, @NotNull Executor executor) {
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterBothAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action, @NotNull Executor executor) {
             return null;
         }
 
@@ -172,29 +172,29 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> acceptEither(
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> acceptEither(
             @NotNull CompletionStage<? extends T> other,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> acceptEitherAsync(
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> acceptEitherAsync(
             @NotNull CompletionStage<? extends T> other,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> acceptEitherAsync(
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> acceptEitherAsync(
             @NotNull CompletionStage<? extends T> other,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> action,
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterEither(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterEither(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterEitherAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterEitherAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<Void> runAfterEitherAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action, @NotNull Executor executor) {
+        @NotNull(nullableArguments = 0) CompletableFuture<Void> runAfterEitherAsync(@NotNull CompletionStage<?> other, @NotNull Runnable action, @NotNull Executor executor) {
             return null;
         }
 
@@ -212,31 +212,31 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<T> whenComplete(/*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> action) {
+        CompletableFuture<T> whenComplete(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> action) {
             return null;
         }
 
         //override from java.util.concurrent.CompletionStage
         CompletableFuture<T> whenCompleteAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> action) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> action) { return null; }
 
         //override from java.util.concurrent.CompletionStage
         CompletableFuture<T> whenCompleteAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> action,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> action,
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        <U> CompletableFuture<U> handle(/*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> fn) {
+        <U> CompletableFuture<U> handle(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> fn) {
             return null;
         }
 
         //override from java.util.concurrent.CompletionStage
         <U> CompletableFuture<U> handleAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> fn) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> fn) { return null; }
 
         //override from java.util.concurrent.CompletionStage
         <U> CompletableFuture<U> handleAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> fn,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> fn,
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
@@ -269,8 +269,8 @@ public class JavaUtilConcurrent {
         CompletableFuture<T> exceptionallyComposeAsync(
             /*@IgnoreModifications[T]*/ @NotNull Function<Throwable, ? extends CompletionStage<T>> fn,
             @NotNull Executor executor) { return null; }
-        static CompletableFuture<Void> allOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
-        static CompletableFuture<Object> anyOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
+        @NotNull(nullableArguments = 0) static CompletableFuture<Void> allOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
+        @NotNull(nullableArguments = 0) static CompletableFuture<Object> anyOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
         //override from java.util.concurrent.Future
         boolean cancel(boolean mayInterruptIfRunning) { return false; }
 
@@ -329,15 +329,15 @@ public class JavaUtilConcurrent {
         <U> CompletionStage<U> thenApplyAsync(
             /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> function,
             @NotNull Executor executor) { return null; }
-        CompletionStage<Void> thenAccept(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
-        CompletionStage<Void> thenAcceptAsync(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenAccept(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenAcceptAsync(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
 
-        CompletionStage<Void> thenAcceptAsync(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenAcceptAsync(
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer,
             @NotNull Executor executor) { return null; }
-        CompletionStage<Void> thenRun(@NotNull Runnable runnable) { return null; }
-        CompletionStage<Void> thenRunAsync(@NotNull Runnable runnable) { return null; }
-        CompletionStage<Void> thenRunAsync(@NotNull Runnable runnable, @NotNull Executor executor) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenRun(@NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenRunAsync(@NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> thenRunAsync(@NotNull Runnable runnable, @NotNull Executor executor) { return null; }
         <U, V> CompletionStage<V> thenCombine(
             @NotNull CompletionStage<? extends U> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, ? super U, ? extends V> biFunction) { return null; }
@@ -351,21 +351,21 @@ public class JavaUtilConcurrent {
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, ? super U, ? extends V> biFunction,
             @NotNull Executor executor) { return null; }
 
-        <U> CompletionStage<Void> thenAcceptBoth(
+        @NotNull(nullableArguments = 0) <U> CompletionStage<Void> thenAcceptBoth(
             @NotNull CompletionStage<? extends U> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> biConsumer) { return null; }
 
-        <U> CompletionStage<Void> thenAcceptBothAsync(
+        @NotNull(nullableArguments = 0) <U> CompletionStage<Void> thenAcceptBothAsync(
             @NotNull CompletionStage<? extends U> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> biConsumer) { return null; }
 
-        <U> CompletionStage<Void> thenAcceptBothAsync(
+        @NotNull(nullableArguments = 0) <U> CompletionStage<Void> thenAcceptBothAsync(
             @NotNull CompletionStage<? extends U> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super U> biConsumer,
             @NotNull Executor executor) { return null; }
-        CompletionStage<Void> runAfterBoth(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
-        CompletionStage<Void> runAfterBothAsync(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
-        CompletionStage<Void> runAfterBothAsync(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterBoth(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterBothAsync(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterBothAsync(
             @NotNull CompletionStage<?> completionStage,
             @NotNull Runnable runnable,
             @NotNull Executor executor) { return null; }
@@ -383,22 +383,22 @@ public class JavaUtilConcurrent {
             /*@IgnoreModifications[T]*/ @NotNull Function<? super T, U> function,
             @NotNull Executor executor) { return null; }
 
-        CompletionStage<Void> acceptEither(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> acceptEither(
             @NotNull CompletionStage<? extends T> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
 
-        CompletionStage<Void> acceptEitherAsync(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> acceptEitherAsync(
             @NotNull CompletionStage<? extends T> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { return null; }
 
-        CompletionStage<Void> acceptEitherAsync(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> acceptEitherAsync(
             @NotNull CompletionStage<? extends T> completionStage,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer,
             @NotNull Executor executor) { return null; }
-        CompletionStage<Void> runAfterEither(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
-        CompletionStage<Void> runAfterEitherAsync(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterEither(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterEitherAsync(@NotNull CompletionStage<?> completionStage, @NotNull Runnable runnable) { return null; }
 
-        CompletionStage<Void> runAfterEitherAsync(
+        @NotNull(nullableArguments = 0) CompletionStage<Void> runAfterEitherAsync(
             @NotNull CompletionStage<?> completionStage,
             @NotNull Runnable runnable,
             @NotNull Executor executor) { return null; }
@@ -414,24 +414,24 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         <U> CompletionStage<U> handle(
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> biFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> biFunction) { return null; }
 
         <U> CompletionStage<U> handleAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> biFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> biFunction) { return null; }
 
         <U> CompletionStage<U> handleAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super T, Throwable, ? extends U> biFunction,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiFunction<? super T, Throwable, ? extends U> biFunction,
             @NotNull Executor executor) { return null; }
 
-        CompletionStage<T> whenComplete(/*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> biConsumer) {
+        CompletionStage<T> whenComplete(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> biConsumer) {
             return null;
         }
 
         CompletionStage<T> whenCompleteAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> biConsumer) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> biConsumer) { return null; }
 
         CompletionStage<T> whenCompleteAsync(
-            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<? super T, ? super Throwable> biConsumer,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {0, 1}) BiConsumer<? super T, ? super Throwable> biConsumer,
             @NotNull Executor executor) { return null; }
 
         CompletionStage<T> exceptionally(/*@IgnoreModifications[T]*/ @NotNull Function<Throwable, ? extends T> function) {
@@ -621,7 +621,7 @@ public class JavaUtilConcurrent {
 
         @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
-            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
         }
 
@@ -630,7 +630,7 @@ public class JavaUtilConcurrent {
 
         V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
-            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
         }
 
@@ -640,7 +640,7 @@ public class JavaUtilConcurrent {
         V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
-            /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull BiFunction<
+            /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<
                 ? super V,
                 ? super V,
                 ? extends V> remappingFunction) { return null; }
@@ -662,18 +662,18 @@ public class JavaUtilConcurrent {
 
         <U> void forEach(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends U> biFunction,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends U> biFunction,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super U> transformer) { }
 
         //@Independent(hc=true)[T]
         @Nullable <U> U search(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends U> biFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends U> biFunction) { return null; }
 
         //@Independent(hc=true)[T]
         @Nullable <U> U reduce(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends U> biFunction,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends U> biFunction,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super U, ? super U, ? extends U> transformer) { return null; }
 
         double reduceToDouble(
@@ -696,13 +696,13 @@ public class JavaUtilConcurrent {
         void forEachKey(long parallelismThreshold, /*@IgnoreModifications[T]*/ @NotNull Consumer<? super K> consumer) { }
         <U> void forEachKey(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super K, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super K, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super U> transformer) { }
 
         //@Independent(hc=true)[T]
         @Nullable <U> U searchKeys(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super K, ? extends U> function) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super K, ? extends U> function) { return null; }
 
         //@Independent(hc=true)[T]
         @Nullable K reduceKeys(
@@ -712,7 +712,7 @@ public class JavaUtilConcurrent {
         //@Independent(hc=true)[T]
         @Nullable <U> U reduceKeys(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super K, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super K, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super U, ? super U, ? extends U> transformer) { return null; }
 
         double reduceKeysToDouble(
@@ -735,13 +735,13 @@ public class JavaUtilConcurrent {
         void forEachValue(long parallelismThreshold, /*@IgnoreModifications[T]*/ @NotNull Consumer<? super V> consumer) { }
         <U> void forEachValue(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super V, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super V, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super U> transformer) { }
 
         //@Independent(hc=true)[T]
         @Nullable <U> U searchValues(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super V, ? extends U> function) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super V, ? extends U> function) { return null; }
 
         //@Independent(hc=true)[T]
         @Nullable V reduceValues(
@@ -751,7 +751,7 @@ public class JavaUtilConcurrent {
         //@Independent(hc=true)[T]
         @Nullable <U> U reduceValues(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<? super V, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super V, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super U, ? super U, ? extends U> transformer) { return null; }
 
         double reduceValuesToDouble(
@@ -778,13 +778,13 @@ public class JavaUtilConcurrent {
 
         <U> void forEachEntry(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<Map.Entry<K, V>, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<Map.Entry<K, V>, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull Consumer<? super U> transformer) { }
 
         //@Independent(hc=true)[T]
         @Nullable <U> U searchEntries(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<Map.Entry<K, V>, ? extends U> function) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<Map.Entry<K, V>, ? extends U> function) { return null; }
 
         @Nullable Map.Entry<K, V> reduceEntries(
             long parallelismThreshold,
@@ -794,7 +794,7 @@ public class JavaUtilConcurrent {
         //@Independent(hc=true)[T]
         @Nullable <U> U reduceEntries(
             long parallelismThreshold,
-            /*@IgnoreModifications[T]*/ @NotNull Function<Map.Entry<K, V>, ? extends U> function,
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<Map.Entry<K, V>, ? extends U> function,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super U, ? super U, ? extends U> transformer) { return null; }
 
         double reduceEntriesToDouble(
@@ -873,7 +873,7 @@ public class JavaUtilConcurrent {
 
         @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
-            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
         }
 
@@ -882,7 +882,7 @@ public class JavaUtilConcurrent {
 
         V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
-            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+            /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
         }
 
@@ -892,7 +892,7 @@ public class JavaUtilConcurrent {
         V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
-            /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull BiFunction<
+            /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<
                 ? super V,
                 ? super V,
                 ? extends V> remappingFunction) { return null; }
@@ -1212,9 +1212,9 @@ public class JavaUtilConcurrent {
         @Nullable java.util.Map.Entry<K, V> ceilingEntry(K p0) { return null; }
         @Nullable K ceilingKey(K p0) { return null; }
         @Nullable java.util.Comparator<? super K> comparator() { return null; }
-        V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        V compute(K p0, @NotNull(nullableArguments = {1, 2}) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
-        @Nullable V computeIfPresent(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         boolean containsKey(@NotNull java.lang.Object p0) { return false; }
         boolean containsValue(@NotNull java.lang.Object p0) { return false; }
         @Nullable java.util.Map.Entry<K, V> firstEntry() { return null; }
@@ -1228,7 +1228,7 @@ public class JavaUtilConcurrent {
         @Nullable java.util.Map.Entry<K, V> lastEntry() { return null; }
         @Nullable java.util.Map.Entry<K, V> lowerEntry(K p0) { return null; }
         @Nullable K lowerKey(K p0) { return null; }
-        V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        V merge(K p0, V p1, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
         @Nullable java.util.Map.Entry<K, V> pollFirstEntry() { return null; }
         @Nullable java.util.Map.Entry<K, V> pollLastEntry() { return null; }
         @Nullable V put(K p0, V p1) { return null; }
@@ -1279,6 +1279,9 @@ public class JavaUtilConcurrent {
         boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         void sort(@Nullable java.util.Comparator<? super E> p0) { }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @NotNull(nullableArguments = 0) java.lang.Object[] toArray() { return null; }
     }
 
     //public java.util.concurrent.CopyOnWriteArraySet (shadow created for its nullability, generated)
@@ -1294,6 +1297,9 @@ public class JavaUtilConcurrent {
         boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
         boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @NotNull(nullableArguments = 0) java.lang.Object[] toArray() { return null; }
     }
 
     //public java.util.concurrent.CountedCompleter (shadow created for its nullability, generated)
@@ -1345,9 +1351,9 @@ public class JavaUtilConcurrent {
     //public java.util.concurrent.Executors (shadow created for its nullability, generated)
     class Executors$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.security.PrivilegedAction<?> p0) { return null; }
-        static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.security.PrivilegedExceptionAction<?> p0) { return null; }
-        static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.lang.Runnable p0) { return null; }
+        @NotNull(nullableArguments = 0) static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.security.PrivilegedAction<?> p0) { return null; }
+        @NotNull(nullableArguments = 0) static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.security.PrivilegedExceptionAction<?> p0) { return null; }
+        @NotNull(nullableArguments = 0) static java.util.concurrent.Callable<java.lang.Object> callable(@NotNull java.lang.Runnable p0) { return null; }
         static <T> java.util.concurrent.Callable<T> callable(@NotNull java.lang.Runnable p0, T p1) { return null; }
         static java.util.concurrent.ExecutorService newCachedThreadPool(@NotNull java.util.concurrent.ThreadFactory p0) { return null; }
         static java.util.concurrent.ExecutorService newFixedThreadPool(int p0, @NotNull java.util.concurrent.ThreadFactory p1) { return null; }

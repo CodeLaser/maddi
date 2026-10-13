@@ -6,7 +6,9 @@ import java.util.*;
 
 /**
  * Index of a maddi hint file: shadow types and members with source offsets, for the JSpecify nullness generator.
- * TYPE fqn bodyEnd | MEMBER fqn name erasedParams declStart methodAnn paramStarts paramAnns | OUTER end importsEnd
+ * TYPE fqn bodyEnd | MEMBER fqn name erasedParams declStart methodAnn paramStarts paramAnns methodAnnSpan paramAnnSpans
+ * | OUTER end importsEnd. A span is the null annotation's start:end:attributes ('-' without one), attributes being
+ * its nullableArguments ('0', '1,2') or empty.
  */
 public class HintIndex {
     static String pkg;
@@ -58,20 +60,38 @@ public class HintIndex {
                 for (TypeParameterTree tp : mt.getTypeParameters()) mtv.put(tp.getName().toString(), bound(tp, tvs));
                 tvs.push(mtv);
                 String name = mt.getReturnType() == null || mt.getName().contentEquals(simple) ? "<init>" : mt.getName().toString();
-                List<String> types = new ArrayList<>(), starts = new ArrayList<>();
+                List<String> types = new ArrayList<>(), starts = new ArrayList<>(), spans = new ArrayList<>();
                 StringBuilder anns = new StringBuilder();
                 for (VariableTree p : mt.getParameters()) {
                     types.add(JSpecifyJdkDump.erase(p.getType(), tvs));
                     starts.add(String.valueOf(pos.getStartPosition(cu, p)));
                     anns.append(ann(p.getModifiers()));
+                    spans.add(span(p.getModifiers()));
                 }
                 out.add("MEMBER\t" + fqn + "\t" + name + "\t" + String.join(",", types) + "\t"
                         + pos.getStartPosition(cu, mt) + "\t" + ann(mt.getModifiers()) + "\t" + String.join(",", starts)
-                        + "\t" + anns);
+                        + "\t" + anns + "\t" + span(mt.getModifiers()) + "\t" + String.join(";", spans));
                 tvs.pop();
             }
         }
         tvs.pop();
+    }
+
+    static String span(ModifiersTree m) {
+        for (AnnotationTree a : m.getAnnotations()) {
+            String simple = JSpecifyJdkDump.lastSeg(a.getAnnotationType().toString());
+            if (!simple.equals("Nullable") && !simple.equals("NotNull")) continue;
+            String attributes = "";
+            for (ExpressionTree e : a.getArguments()) {
+                if (e instanceof AssignmentTree as && as.getVariable().toString().equals("nullableArguments")) {
+                    attributes = as.getExpression().toString().replaceAll("[{} ]", "");
+                } else {
+                    return "other"; // another attribute (content = true, ...): the generator does not touch it
+                }
+            }
+            return pos.getStartPosition(cu, a) + ":" + pos.getEndPosition(cu, a) + ":" + attributes;
+        }
+        return "-";
     }
 
     static String ann(ModifiersTree m) {
