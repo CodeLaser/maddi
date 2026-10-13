@@ -246,8 +246,8 @@ public class JavaNet {
     class DatagramSocket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         DatagramSocket$(@NotNull java.net.DatagramSocketImpl p0) { }
-        DatagramSocket$(int p0, @Nullable java.net.InetAddress p1) { }
         DatagramSocket$(@Nullable java.net.SocketAddress p0) { }
+        DatagramSocket$(int p0, @Nullable java.net.InetAddress p1) { }
         void bind(@Nullable java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.InetAddress p0, int p1) { }
         void connect(@NotNull java.net.SocketAddress p0) { }
@@ -300,8 +300,8 @@ public class JavaNet {
     //public java.net.Inet6Address (shadow created for its nullability, generated)
     class Inet6Address$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2) { return null; }
         static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, @Nullable java.net.NetworkInterface p2) { return null; }
+        static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2) { return null; }
         @Nullable java.net.NetworkInterface getScopedInterface() { return null; }
         static java.net.InetAddress ofLiteral(@NotNull java.lang.String p0) { return null; }
     }
@@ -373,8 +373,8 @@ public class JavaNet {
     //public java.net.ServerSocket (shadow created for its nullability, generated)
     class ServerSocket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ServerSocket$(int p0, int p1, @Nullable java.net.InetAddress p2) { }
         ServerSocket$(@NotNull java.net.SocketImpl p0) { }
+        ServerSocket$(int p0, int p1, @Nullable java.net.InetAddress p2) { }
         void bind(@Nullable java.net.SocketAddress p0) { }
         void bind(@Nullable java.net.SocketAddress p0, int p1) { }
         @Nullable java.nio.channels.ServerSocketChannel getChannel() { return null; }
@@ -390,13 +390,13 @@ public class JavaNet {
     class Socket$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         Socket$(@NotNull java.net.InetAddress p0, int p1) { }
-        Socket$(@NotNull java.net.InetAddress p0, int p1, boolean p2) { }
         Socket$(@NotNull java.net.InetAddress p0, int p1, @Nullable java.net.InetAddress p2, int p3) { }
+        Socket$(@NotNull java.net.InetAddress p0, int p1, boolean p2) { }
         Socket$(@NotNull java.net.Proxy p0) { }
         Socket$(@Nullable java.net.SocketImpl p0) { }
         Socket$(@Nullable java.lang.String p0, int p1) { }
-        Socket$(@Nullable java.lang.String p0, int p1, boolean p2) { }
         Socket$(@Nullable java.lang.String p0, int p1, @Nullable java.net.InetAddress p2, int p3) { }
+        Socket$(@Nullable java.lang.String p0, int p1, boolean p2) { }
         void bind(@Nullable java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.SocketAddress p0, int p1) { }
@@ -456,8 +456,8 @@ public class JavaNet {
         @Nullable java.lang.String getContentEncoding() { return null; }
         @Nullable java.lang.String getContentType() { return null; }
         @Nullable static java.lang.String getDefaultRequestProperty(java.lang.String p0) { return null; }
-        @Nullable java.lang.String getHeaderField(int p0) { return null; }
         @Nullable java.lang.String getHeaderField(java.lang.String p0) { return null; }
+        @Nullable java.lang.String getHeaderField(int p0) { return null; }
         @Nullable java.lang.String getHeaderFieldKey(int p0) { return null; }
         @Nullable java.security.Permission getPermission() { return null; }
         @Nullable java.lang.String getRequestProperty(java.lang.String p0) { return null; }

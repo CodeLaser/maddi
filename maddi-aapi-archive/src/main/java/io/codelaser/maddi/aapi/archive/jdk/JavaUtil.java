@@ -1562,10 +1562,10 @@ public class JavaUtil {
         void and(@NotNull java.util.BitSet p0) { }
         void andNot(@NotNull java.util.BitSet p0) { }
         void or(@NotNull java.util.BitSet p0) { }
-        static java.util.BitSet valueOf(@NotNull byte[] p0) { return null; }
         static java.util.BitSet valueOf(@NotNull java.nio.ByteBuffer p0) { return null; }
-        static java.util.BitSet valueOf(@NotNull long[] p0) { return null; }
         static java.util.BitSet valueOf(@NotNull java.nio.LongBuffer p0) { return null; }
+        static java.util.BitSet valueOf(@NotNull byte[] p0) { return null; }
+        static java.util.BitSet valueOf(@NotNull long[] p0) { return null; }
         void xor(@NotNull java.util.BitSet p0) { }
     }
 
@@ -3756,9 +3756,9 @@ public class JavaUtil {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         PriorityQueue$(@Nullable java.util.Comparator<? super E> p0) { }
-        PriorityQueue$(int p0, @Nullable java.util.Comparator<? super E> p1) { }
         PriorityQueue$(@NotNull java.util.PriorityQueue<? extends E> p0) { }
         PriorityQueue$(@NotNull java.util.SortedSet<? extends E> p0) { }
+        PriorityQueue$(int p0, @Nullable java.util.Comparator<? super E> p1) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         @Nullable E peek() { return null; }
@@ -4831,9 +4831,9 @@ public class JavaUtil {
         static long fromHexDigitsToLong(@NotNull java.lang.CharSequence p0) { return 0; }
         static long fromHexDigitsToLong(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
         static java.util.HexFormat ofDelimiter(@NotNull java.lang.String p0) { return null; }
-        byte[] parseHex(@NotNull char[] p0, int p1, int p2) { return null; }
         byte[] parseHex(@NotNull java.lang.CharSequence p0) { return null; }
         byte[] parseHex(@NotNull java.lang.CharSequence p0, int p1, int p2) { return null; }
+        byte[] parseHex(@NotNull char[] p0, int p1, int p2) { return null; }
         java.util.HexFormat withDelimiter(@NotNull java.lang.String p0) { return null; }
         java.util.HexFormat withPrefix(@NotNull java.lang.String p0) { return null; }
         java.util.HexFormat withSuffix(@NotNull java.lang.String p0) { return null; }
@@ -4986,18 +4986,18 @@ public class JavaUtil {
         static java.util.PrimitiveIterator.OfLong iterator(@NotNull java.util.Spliterator.OfLong p0) { return null; }
         static <T> java.util.Iterator<T> iterator(@NotNull java.util.Spliterator<? extends T> p0) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Collection<? extends T> p0, int p1) { return null; }
-        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1) { return null; }
-        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1, int p2, int p3) { return null; }
-        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1) { return null; }
-        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1, int p2, int p3) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Iterator<? extends T> p0, long p1, int p2) { return null; }
-        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1) { return null; }
-        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1, int p2, int p3) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.lang.Object[] p0, int p1) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.lang.Object[] p0, int p1, int p2, int p3) { return null; }
         static java.util.Spliterator.OfDouble spliterator(@NotNull java.util.PrimitiveIterator.OfDouble p0, long p1, int p2) { return null; }
         static java.util.Spliterator.OfInt spliterator(@NotNull java.util.PrimitiveIterator.OfInt p0, long p1, int p2) { return null; }
         static java.util.Spliterator.OfLong spliterator(@NotNull java.util.PrimitiveIterator.OfLong p0, long p1, int p2) { return null; }
+        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfDouble spliterator(@NotNull double[] p0, int p1, int p2, int p3) { return null; }
+        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfInt spliterator(@NotNull int[] p0, int p1, int p2, int p3) { return null; }
+        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1) { return null; }
+        static java.util.Spliterator.OfLong spliterator(@NotNull long[] p0, int p1, int p2, int p3) { return null; }
         static <T> java.util.Spliterator<T> spliteratorUnknownSize(@NotNull java.util.Iterator<? extends T> p0, int p1) { return null; }
         static java.util.Spliterator.OfDouble spliteratorUnknownSize(@NotNull java.util.PrimitiveIterator.OfDouble p0, int p1) { return null; }
         static java.util.Spliterator.OfInt spliteratorUnknownSize(@NotNull java.util.PrimitiveIterator.OfInt p0, int p1) { return null; }
@@ -5028,8 +5028,8 @@ public class JavaUtil {
     //public java.util.TimeZone (shadow created for its nullability, generated)
     class TimeZone$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.lang.String getDisplayName(boolean p0, int p1, @NotNull java.util.Locale p2) { return null; }
         java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        java.lang.String getDisplayName(boolean p0, int p1, @NotNull java.util.Locale p2) { return null; }
         static java.util.TimeZone getTimeZone(@NotNull java.lang.String p0) { return null; }
         static java.util.TimeZone getTimeZone(@NotNull java.time.ZoneId p0) { return null; }
         boolean hasSameRules(@Nullable java.util.TimeZone p0) { return false; }

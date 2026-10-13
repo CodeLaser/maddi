@@ -823,8 +823,8 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CharArrayReader$(@NotNull char[] p0) { }
         CharArrayReader$(@NotNull char[] p0, int p1, int p2) { }
-        int read(@NotNull char[] p0, int p1, int p2) { return 0; }
         int read(@NotNull java.nio.CharBuffer p0) { return 0; }
+        int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.CharArrayWriter (shadow created for its nullability, generated)
@@ -832,8 +832,8 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.io.CharArrayWriter append(@Nullable java.lang.CharSequence p0) { return null; }
         java.io.CharArrayWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        void write(@NotNull char[] p0, int p1, int p2) { }
         void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        void write(@NotNull char[] p0, int p1, int p2) { }
         void writeTo(@NotNull java.io.Writer p0) { }
     }
 
@@ -951,8 +951,8 @@ public class JavaIo {
     class FilterWriter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         FilterWriter$(@NotNull java.io.Writer p0) { }
-        void write(@NotNull char[] p0, int p1, int p2) { }
         void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        void write(@NotNull char[] p0, int p1, int p2) { }
     }
 
     //public java.io.InputStreamReader (shadow created for its nullability, generated)
@@ -963,8 +963,8 @@ public class JavaIo {
         InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.CharsetDecoder p1) { }
         InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.lang.String p1) { }
         @Nullable java.lang.String getEncoding() { return null; }
-        int read(@NotNull char[] p0, int p1, int p2) { return 0; }
         int read(@NotNull java.nio.CharBuffer p0) { return 0; }
+        int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.io.InterruptedIOException (shadow created for its nullability, generated)
@@ -994,7 +994,6 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         int read(@NotNull byte[] p0) { return 0; }
         int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
-        @Nullable java.lang.Object readObject() { return null; }
     }
 
     //public java.io.ObjectInputFilter (shadow created for its nullability, generated)
@@ -1018,9 +1017,7 @@ public class JavaIo {
         void readFully(@NotNull byte[] p0) { }
         void readFully(@NotNull byte[] p0, int p1, int p2) { }
         @Nullable java.lang.String readLine() { return null; }
-        @Nullable java.lang.Object readObject() { return null; }
         @Nullable java.lang.Object readObjectOverride() { return null; }
-        @Nullable java.lang.Object readUnshared() { return null; }
         void registerValidation(@NotNull java.io.ObjectInputValidation p0, int p1) { }
         java.lang.Class<?> resolveClass(@NotNull java.io.ObjectStreamClass p0) { return null; }
         java.lang.Object resolveObject(@NotNull java.lang.Object p0) { return null; }
@@ -1031,6 +1028,7 @@ public class JavaIo {
         class GetField {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             boolean defaulted(@NotNull java.lang.String p0) { return false; }
+            java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
             boolean get(@NotNull java.lang.String p0, boolean p1) { return false; }
             byte get(@NotNull java.lang.String p0, byte p1) { return 0; }
             char get(@NotNull java.lang.String p0, char p1) { return 0; }
@@ -1038,7 +1036,6 @@ public class JavaIo {
             float get(@NotNull java.lang.String p0, float p1) { return 0; }
             int get(@NotNull java.lang.String p0, int p1) { return 0; }
             long get(@NotNull java.lang.String p0, long p1) { return 0; }
-            java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
             short get(@NotNull java.lang.String p0, short p1) { return 0; }
         }
     }
@@ -1065,12 +1062,13 @@ public class JavaIo {
         void writeClassDescriptor(@NotNull java.io.ObjectStreamClass p0) { }
         void writeObject(@Nullable java.lang.Object p0) { }
         void writeObjectOverride(@Nullable java.lang.Object p0) { }
-        void writeUnshared(@Nullable java.lang.Object p0) { }
         void writeUTF(@NotNull java.lang.String p0) { }
+        void writeUnshared(@Nullable java.lang.Object p0) { }
 
         //public java.io.ObjectOutputStream.PutField (shadow created for its nullability, generated)
         class PutField {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            void put(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { }
             void put(@NotNull java.lang.String p0, boolean p1) { }
             void put(@NotNull java.lang.String p0, byte p1) { }
             void put(@NotNull java.lang.String p0, char p1) { }
@@ -1078,7 +1076,6 @@ public class JavaIo {
             void put(@NotNull java.lang.String p0, float p1) { }
             void put(@NotNull java.lang.String p0, int p1) { }
             void put(@NotNull java.lang.String p0, long p1) { }
-            void put(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { }
             void put(@NotNull java.lang.String p0, short p1) { }
             void write(@NotNull java.io.ObjectOutput p0) { }
         }
@@ -1153,18 +1150,18 @@ public class JavaIo {
         java.io.PrintWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
         java.io.PrintWriter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
         java.io.PrintWriter format(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
-        void print(@NotNull char[] p0) { }
         void print(@Nullable java.lang.Object p0) { }
         void print(@Nullable java.lang.String p0) { }
+        void print(@NotNull char[] p0) { }
         java.io.PrintWriter printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
         java.io.PrintWriter printf(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
-        void println(@NotNull char[] p0) { }
         void println(@Nullable java.lang.Object p0) { }
         void println(@Nullable java.lang.String p0) { }
-        void write(@NotNull char[] p0) { }
-        void write(@NotNull char[] p0, int p1, int p2) { }
+        void println(@NotNull char[] p0) { }
         void write(@NotNull java.lang.String p0) { }
         void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        void write(@NotNull char[] p0) { }
+        void write(@NotNull char[] p0, int p1, int p2) { }
     }
 
     //public java.io.PushbackInputStream (shadow created for its nullability, generated)
@@ -1230,9 +1227,9 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.io.StringWriter append(@Nullable java.lang.CharSequence p0) { return null; }
         java.io.StringWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        void write(@NotNull char[] p0, int p1, int p2) { }
         void write(@NotNull java.lang.String p0) { }
         void write(@NotNull java.lang.String p0, int p1, int p2) { }
+        void write(@NotNull char[] p0, int p1, int p2) { }
     }
 
     //public java.io.UnsupportedEncodingException (shadow created for its nullability, generated)

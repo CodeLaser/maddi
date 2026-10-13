@@ -314,12 +314,12 @@ public class JavaTime {
         long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
-        java.time.LocalTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.LocalTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.LocalTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         static java.time.LocalTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
         static java.time.LocalTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
-        java.time.LocalTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.LocalTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.LocalTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
         long toEpochSecond(@NotNull java.time.LocalDate p0, @NotNull java.time.ZoneOffset p1) { return 0; }
@@ -898,18 +898,18 @@ public class JavaTime {
         boolean isEqual(@NotNull java.time.OffsetDateTime p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
-        java.time.OffsetDateTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.OffsetDateTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetDateTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         static java.time.OffsetDateTime now(@NotNull java.time.Clock p0) { return null; }
         static java.time.OffsetDateTime now(@NotNull java.time.ZoneId p0) { return null; }
-        static java.time.OffsetDateTime of(int p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull java.time.ZoneOffset p7) { return null; }
         static java.time.OffsetDateTime of(@NotNull java.time.LocalDate p0, @NotNull java.time.LocalTime p1, @NotNull java.time.ZoneOffset p2) { return null; }
         static java.time.OffsetDateTime of(@NotNull java.time.LocalDateTime p0, @NotNull java.time.ZoneOffset p1) { return null; }
+        static java.time.OffsetDateTime of(int p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull java.time.ZoneOffset p7) { return null; }
         static java.time.OffsetDateTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
         static java.time.OffsetDateTime parse(@NotNull java.lang.CharSequence p0) { return null; }
         static java.time.OffsetDateTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
-        java.time.OffsetDateTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.OffsetDateTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetDateTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
         java.time.OffsetDateTime truncatedTo(@NotNull java.time.temporal.TemporalUnit p0) { return null; }
@@ -935,17 +935,17 @@ public class JavaTime {
         boolean isEqual(@NotNull java.time.OffsetTime p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
-        java.time.OffsetTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.OffsetTime minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetTime minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         static java.time.OffsetTime now(@NotNull java.time.Clock p0) { return null; }
         static java.time.OffsetTime now(@NotNull java.time.ZoneId p0) { return null; }
-        static java.time.OffsetTime of(int p0, int p1, int p2, int p3, @NotNull java.time.ZoneOffset p4) { return null; }
         static java.time.OffsetTime of(@NotNull java.time.LocalTime p0, @NotNull java.time.ZoneOffset p1) { return null; }
+        static java.time.OffsetTime of(int p0, int p1, int p2, int p3, @NotNull java.time.ZoneOffset p4) { return null; }
         static java.time.OffsetTime ofInstant(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
         static java.time.OffsetTime parse(@NotNull java.lang.CharSequence p0) { return null; }
         static java.time.OffsetTime parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
-        java.time.OffsetTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.OffsetTime plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.OffsetTime plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
         long toEpochSecond(@NotNull java.time.LocalDate p0) { return 0; }
@@ -986,14 +986,14 @@ public class JavaTime {
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
         boolean isValidMonthDay(@NotNull java.time.MonthDay p0) { return false; }
-        java.time.Year minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.Year minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.Year minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         static java.time.Year now(@NotNull java.time.Clock p0) { return null; }
         static java.time.Year now(@NotNull java.time.ZoneId p0) { return null; }
         static java.time.Year parse(@NotNull java.lang.CharSequence p0) { return null; }
         static java.time.Year parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
-        java.time.Year plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.Year plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.Year plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
         long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }
@@ -1014,15 +1014,15 @@ public class JavaTime {
         boolean isBefore(@NotNull java.time.YearMonth p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         boolean isSupported(@NotNull java.time.temporal.TemporalUnit p0) { return false; }
-        java.time.YearMonth minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.YearMonth minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.YearMonth minus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         static java.time.YearMonth now(@NotNull java.time.Clock p0) { return null; }
         static java.time.YearMonth now(@NotNull java.time.ZoneId p0) { return null; }
         static java.time.YearMonth of(int p0, @NotNull java.time.Month p1) { return null; }
         static java.time.YearMonth parse(@NotNull java.lang.CharSequence p0) { return null; }
         static java.time.YearMonth parse(@NotNull java.lang.CharSequence p0, @NotNull java.time.format.DateTimeFormatter p1) { return null; }
-        java.time.YearMonth plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         java.time.YearMonth plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.YearMonth plus(long p0, @NotNull java.time.temporal.TemporalUnit p1) { return null; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
         long until(@NotNull java.time.temporal.Temporal p0, @NotNull java.time.temporal.TemporalUnit p1) { return 0; }

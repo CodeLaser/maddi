@@ -48,23 +48,23 @@ public class JavaUtilZip {
     //public java.util.zip.Adler32 (shadow created for its nullability, generated)
     class Adler32$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void update(@NotNull byte[] p0, int p1, int p2) { }
         void update(@NotNull java.nio.ByteBuffer p0) { }
+        void update(@NotNull byte[] p0, int p1, int p2) { }
     }
 
     //public java.util.zip.CRC32 (shadow created for its nullability, generated)
     class CRC32$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void update(@NotNull byte[] p0, int p1, int p2) { }
         void update(@NotNull java.nio.ByteBuffer p0) { }
+        void update(@NotNull byte[] p0, int p1, int p2) { }
     }
 
     //public java.util.zip.Checksum (shadow created for its nullability, generated)
     class Checksum$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void update(@NotNull java.nio.ByteBuffer p0) { }
         void update(@NotNull byte[] p0) { }
         void update(@NotNull byte[] p0, int p1, int p2) { }
-        void update(@NotNull java.nio.ByteBuffer p0) { }
     }
 
     //public java.util.zip.DataFormatException (shadow created for its nullability, generated)
@@ -76,28 +76,28 @@ public class JavaUtilZip {
     //public java.util.zip.Deflater (shadow created for its nullability, generated)
     class Deflater$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        int deflate(@NotNull java.nio.ByteBuffer p0) { return 0; }
+        int deflate(@NotNull java.nio.ByteBuffer p0, int p1) { return 0; }
         int deflate(@NotNull byte[] p0) { return 0; }
         int deflate(@NotNull byte[] p0, int p1, int p2) { return 0; }
         int deflate(@NotNull byte[] p0, int p1, int p2, int p3) { return 0; }
-        int deflate(@NotNull java.nio.ByteBuffer p0) { return 0; }
-        int deflate(@NotNull java.nio.ByteBuffer p0, int p1) { return 0; }
+        void setDictionary(@NotNull java.nio.ByteBuffer p0) { }
         void setDictionary(@NotNull byte[] p0) { }
         void setDictionary(@NotNull byte[] p0, int p1, int p2) { }
-        void setDictionary(@NotNull java.nio.ByteBuffer p0) { }
+        void setInput(@NotNull java.nio.ByteBuffer p0) { }
         void setInput(@NotNull byte[] p0) { }
         void setInput(@NotNull byte[] p0, int p1, int p2) { }
-        void setInput(@NotNull java.nio.ByteBuffer p0) { }
     }
 
     //public java.util.zip.DeflaterOutputStream (shadow created for its nullability, generated)
     class DeflaterOutputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         DeflaterOutputStream$(@NotNull java.io.OutputStream p0) { }
-        DeflaterOutputStream$(@NotNull java.io.OutputStream p0, boolean p1) { }
         DeflaterOutputStream$(@NotNull java.io.OutputStream p0, @NotNull java.util.zip.Deflater p1) { }
         DeflaterOutputStream$(@NotNull java.io.OutputStream p0, @NotNull java.util.zip.Deflater p1, boolean p2) { }
         DeflaterOutputStream$(@NotNull java.io.OutputStream p0, @NotNull java.util.zip.Deflater p1, int p2) { }
         DeflaterOutputStream$(@NotNull java.io.OutputStream p0, @NotNull java.util.zip.Deflater p1, int p2, boolean p3) { }
+        DeflaterOutputStream$(@NotNull java.io.OutputStream p0, boolean p1) { }
         void write(@NotNull byte[] p0, int p1, int p2) { }
     }
 
@@ -122,15 +122,15 @@ public class JavaUtilZip {
     //public java.util.zip.Inflater (shadow created for its nullability, generated)
     class Inflater$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        int inflate(@NotNull java.nio.ByteBuffer p0) { return 0; }
         int inflate(@NotNull byte[] p0) { return 0; }
         int inflate(@NotNull byte[] p0, int p1, int p2) { return 0; }
-        int inflate(@NotNull java.nio.ByteBuffer p0) { return 0; }
+        void setDictionary(@NotNull java.nio.ByteBuffer p0) { }
         void setDictionary(@NotNull byte[] p0) { }
         void setDictionary(@NotNull byte[] p0, int p1, int p2) { }
-        void setDictionary(@NotNull java.nio.ByteBuffer p0) { }
+        void setInput(@NotNull java.nio.ByteBuffer p0) { }
         void setInput(@NotNull byte[] p0) { }
         void setInput(@NotNull byte[] p0, int p1, int p2) { }
-        void setInput(@NotNull java.nio.ByteBuffer p0) { }
     }
 
     //public java.util.zip.InflaterInputStream (shadow created for its nullability, generated)

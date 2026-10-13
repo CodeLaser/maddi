@@ -230,19 +230,19 @@ public class JavaLang {
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static int codePointAt(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
         static int codePointAt(@NotNull char[] p0, int p1) { return 0; }
         static int codePointAt(@NotNull char[] p0, int p1, int p2) { return 0; }
-        static int codePointAt(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
+        static int codePointBefore(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
         static int codePointBefore(@NotNull char[] p0, int p1) { return 0; }
         static int codePointBefore(@NotNull char[] p0, int p1, int p2) { return 0; }
-        static int codePointBefore(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
-        static int codePointCount(@NotNull char[] p0, int p1, int p2) { return 0; }
         static int codePointCount(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static int codePointCount(@NotNull char[] p0, int p1, int p2) { return 0; }
         static int codePointOf(@NotNull java.lang.String p0) { return 0; }
         int compareTo(@NotNull java.lang.Character p0) { return 0; }
         @Nullable static java.lang.String getName(int p0) { return null; }
-        static int offsetByCodePoints(@NotNull char[] p0, int p1, int p2, int p3, int p4) { return 0; }
         static int offsetByCodePoints(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static int offsetByCodePoints(@NotNull char[] p0, int p1, int p2, int p3, int p4) { return 0; }
         static int toChars(int p0, @NotNull char[] p1, int p2) { return 0; }
     }
 
@@ -2142,8 +2142,8 @@ public class JavaLang {
     @ImmutableContainer
     class StackTraceElement$ { 
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        StackTraceElement$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, @Nullable java.lang.String p2, int p3) { }
         StackTraceElement$(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @NotNull java.lang.String p3, @NotNull java.lang.String p4, @Nullable java.lang.String p5, int p6) { }
+        StackTraceElement$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, @Nullable java.lang.String p2, int p3) { }
         @Nullable java.lang.String getClassLoaderName() { return null; }
         @Nullable java.lang.String getFileName() { return null; }
         @Nullable java.lang.String getModuleName() { return null; }
@@ -2956,10 +2956,10 @@ public class JavaLang {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ClassLoader$(@Nullable java.lang.ClassLoader p0) { }
         ClassLoader$(@Nullable java.lang.String p0, @Nullable java.lang.ClassLoader p1) { }
-        java.lang.Class<?> defineClass(@NotNull byte[] p0, int p1, int p2) { return null; }
+        java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull java.nio.ByteBuffer p1, @Nullable java.security.ProtectionDomain p2) { return null; }
         java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2, int p3) { return null; }
         java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2, int p3, @Nullable java.security.ProtectionDomain p4) { return null; }
-        java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull java.nio.ByteBuffer p1, @Nullable java.security.ProtectionDomain p2) { return null; }
+        java.lang.Class<?> defineClass(@NotNull byte[] p0, int p1, int p2) { return null; }
         java.lang.Package definePackage(@NotNull java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable java.lang.String p5, @Nullable java.lang.String p6, @Nullable java.net.URL p7) { return null; }
         java.lang.Class<?> findClass(@NotNull java.lang.String p0) { return null; }
         @Nullable java.lang.Class<?> findClass(@Nullable java.lang.String p0, @NotNull java.lang.String p1) { return null; }
@@ -3377,10 +3377,10 @@ public class JavaLang {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ThreadGroup$(@Nullable java.lang.String p0) { }
         ThreadGroup$(@NotNull java.lang.ThreadGroup p0, @Nullable java.lang.String p1) { }
-        int enumerate(@NotNull java.lang.Thread[] p0) { return 0; }
-        int enumerate(@NotNull java.lang.Thread[] p0, boolean p1) { return 0; }
         int enumerate(@NotNull java.lang.ThreadGroup[] p0) { return 0; }
         int enumerate(@NotNull java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
+        int enumerate(@NotNull java.lang.Thread[] p0) { return 0; }
+        int enumerate(@NotNull java.lang.Thread[] p0, boolean p1) { return 0; }
         @Nullable java.lang.String getName() { return null; }
         @Nullable java.lang.ThreadGroup getParent() { return null; }
         boolean parentOf(@NotNull java.lang.ThreadGroup p0) { return false; }

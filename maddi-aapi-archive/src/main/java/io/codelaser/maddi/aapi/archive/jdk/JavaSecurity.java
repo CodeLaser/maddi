@@ -169,8 +169,8 @@ public class JavaSecurity {
         @Nullable java.util.Date getCreationDate(@NotNull java.lang.String p0) { return null; }
         @Nullable java.time.Instant getCreationInstant(@NotNull java.lang.String p0) { return null; }
         @Nullable java.security.KeyStore.Entry getEntry(@NotNull java.lang.String p0, @Nullable java.security.KeyStore.ProtectionParameter p1) { return null; }
-        static java.security.KeyStore getInstance(@NotNull java.io.File p0, @Nullable char[] p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.io.File p0, @Nullable java.security.KeyStore.LoadStoreParameter p1) { return null; }
+        static java.security.KeyStore getInstance(@NotNull java.io.File p0, @Nullable char[] p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0, @NotNull java.security.Provider p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
@@ -181,8 +181,8 @@ public class JavaSecurity {
         void load(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
         void setCertificateEntry(@NotNull java.lang.String p0, @NotNull java.security.cert.Certificate p1) { }
         void setEntry(@NotNull java.lang.String p0, @NotNull java.security.KeyStore.Entry p1, @Nullable java.security.KeyStore.ProtectionParameter p2) { }
-        void setKeyEntry(@NotNull java.lang.String p0, @NotNull byte[] p1, @Nullable java.security.cert.Certificate[] p2) { }
         void setKeyEntry(@NotNull java.lang.String p0, @NotNull java.security.Key p1, @Nullable char[] p2, @Nullable java.security.cert.Certificate[] p3) { }
+        void setKeyEntry(@NotNull java.lang.String p0, @NotNull byte[] p1, @Nullable java.security.cert.Certificate[] p2) { }
         void store(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
         void store(@NotNull java.io.OutputStream p0, @Nullable char[] p1) { }
 
@@ -300,8 +300,8 @@ public class JavaSecurity {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         SecureClassLoader$(@Nullable java.lang.ClassLoader p0) { }
         SecureClassLoader$(@Nullable java.lang.String p0, @Nullable java.lang.ClassLoader p1) { }
-        java.lang.Class<?> defineClass(@NotNull java.lang.String p0, @NotNull byte[] p1, int p2, int p3, @Nullable java.security.CodeSource p4) { return null; }
         java.lang.Class<?> defineClass(@NotNull java.lang.String p0, @NotNull java.nio.ByteBuffer p1, @Nullable java.security.CodeSource p2) { return null; }
+        java.lang.Class<?> defineClass(@NotNull java.lang.String p0, @NotNull byte[] p1, int p2, int p3, @Nullable java.security.CodeSource p4) { return null; }
         java.security.PermissionCollection getPermissions(@NotNull java.security.CodeSource p0) { return null; }
     }
 
