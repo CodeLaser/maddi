@@ -258,6 +258,8 @@ final class KotlinNullability {
         Expression x = KotlinExpressionPrinter.unwrap(e);
         return switch (x) {
             case NullConstant nc -> true;
+            case MethodCall mc when KotlinSmartCasts.copy(mc) != null ->
+                    isNullable(KotlinSmartCasts.copy(mc).type()) && !KotlinSmartCasts.asserted(KotlinSmartCasts.copy(mc), mc);
             case MethodCall mc -> isNullable(throughReceiver(returnType(mc.methodInfo()), mc))
                                   || nullableJdkResult(mc.methodInfo());
             case VariableExpression ve -> switch (ve.variable()) {

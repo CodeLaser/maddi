@@ -59,7 +59,12 @@ public class KotlinStatementPrinter {
         KotlinContext.pushStatement(s);
         KotlinSmartCasts.beforeStatement(s);
         try {
-            return printStatement(s, q);
+            List<OutputBuilder> copies = KotlinValCopies.before(s, q);
+            OutputBuilder printed = printStatement(s, q);
+            if (copies.isEmpty()) return printed;
+            List<OutputBuilder> lines = new ArrayList<>(copies);
+            lines.add(printed);
+            return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
         } finally {
             KotlinContext.popStatement();
         }
@@ -859,8 +864,7 @@ public class KotlinStatementPrinter {
                 .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ife.expression()), () -> block(ife.block(), q)));
-        java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> whenFalse
-                = KotlinSmartCasts.whenFalse(ife.expression());
+        KotlinSmartCasts.Facts whenFalse = KotlinSmartCasts.whenFalse(ife.expression());
         if (ife.elseBlock() != null && !ife.elseBlock().isEmpty()) {
             b.add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE);
             IfElseStatement chained = soleIfElse(ife.elseBlock());

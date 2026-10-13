@@ -73,6 +73,26 @@ public final class KotlinWorld {
                 .toList();
     }
 
+    // per method, whether a method of the world overrides it, computed when first asked
+    private final Map<Object, Boolean> overridden = new ConcurrentHashMap<>();
+
+    /**
+     * A method of the code translated together overrides {@code method} ({@link #FILE}: of its compilation unit), so
+     * a call of it may run another body.
+     */
+    public boolean overridden(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+        if (isFile()) return overriddenIn(method, method.typeInfo().compilationUnit().types());
+        return overridden.computeIfAbsent(method, m -> overriddenIn(method, types));
+    }
+
+    private static boolean overriddenIn(io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                        Collection<TypeInfo> primaryTypes) {
+        return primaryTypes.stream().flatMap(t -> java.util.stream.Stream.concat(java.util.stream.Stream.of(t),
+                        t.recursiveSubTypeStream()))
+                .flatMap(TypeInfo::constructorAndMethodStream)
+                .anyMatch(m -> m != method && m.overrides().contains(method));
+    }
+
     /** A read-only verdict remembered; null when not decided, or for {@link #FILE}, which remembers nothing. */
     Boolean readOnly(Object member) {
         return readOnly.get(member);
