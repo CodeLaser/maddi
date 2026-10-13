@@ -52,13 +52,13 @@ public class JavaLang {
     @Independent
     class Appendable$ {
         //@Independent[O]
-        Appendable append(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ CharSequence charSequence) {
+        Appendable append(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @Nullable CharSequence charSequence) {
             return null;
         }
 
         //@Independent[O]
         Appendable append(
-            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ CharSequence charSequence,
+            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @Nullable CharSequence charSequence,
             int i,
             int i1) { return null; }
 
@@ -69,14 +69,14 @@ public class JavaLang {
     //public class AssertionError extends Error
     class AssertionError$ {
         AssertionError$() { }
-        AssertionError$(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object detailMessage) { }
+        AssertionError$(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Nullable Object detailMessage) { }
         AssertionError$(boolean detailMessage) { }
         AssertionError$(char detailMessage) { }
         AssertionError$(int detailMessage) { }
         AssertionError$(long detailMessage) { }
         AssertionError$(float detailMessage) { }
         AssertionError$(double detailMessage) { }
-        AssertionError$(String message, @NotModified Throwable cause) { }
+        AssertionError$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
     }
 
     //public interface AutoCloseable
@@ -93,10 +93,10 @@ public class JavaLang {
         static final Boolean FALSE = null;
         static final Class<Boolean> TYPE = null;
         Boolean$(boolean value) { }
-        Boolean$(String s) { }
+        Boolean$(@Nullable String s) { }
         //frequency 1
         //@NotModified[T]
-        static boolean parseBoolean(String s) { return false; }
+        static boolean parseBoolean(@Nullable String s) { return false; }
 
         //@NotModified[T]
         boolean booleanValue() { return false; }
@@ -105,7 +105,7 @@ public class JavaLang {
         static Boolean valueOf(boolean b) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Boolean valueOf(String s) { return null; }
+        static Boolean valueOf(@Nullable String s) { return null; }
 
         //@NotModified[T]
         static String toString(boolean b) { return null; }
@@ -127,11 +127,11 @@ public class JavaLang {
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return false; }
 
         //@NotModified[T]
-        static boolean getBoolean(String name) { return false; }
+        static boolean getBoolean(@Nullable String name) { return false; }
 
         //override from java.lang.Comparable
         //@NotModified[T]
-        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ Boolean b) { return 0; }
+        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ @NotNull Boolean b) { return 0; }
 
         //@NotModified[T]
         static int compare(boolean x, boolean y) { return 0; }
@@ -152,7 +152,16 @@ public class JavaLang {
 
     //public final class Byte extends Number implements Comparable<Byte>, Constable
     @ImmutableContainer
-    class Byte$ { }
+    class Byte$ { 
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Byte$(@NotNull java.lang.String p0) { }
+        int compareTo(@NotNull java.lang.Byte p0) { return 0; }
+        static java.lang.Byte decode(@NotNull java.lang.String p0) { return null; }
+        static byte parseByte(@NotNull java.lang.String p0) { return 0; }
+        static byte parseByte(@NotNull java.lang.String p0, int p1) { return 0; }
+        static java.lang.Byte valueOf(@NotNull java.lang.String p0) { return null; }
+        static java.lang.Byte valueOf(@NotNull java.lang.String p0, int p1) { return null; }
+    }
 
     //public interface CharSequence
     // NOT a @Container: the getChars(...,char[] dst,...) default method fills its array argument (that
@@ -189,14 +198,53 @@ public class JavaLang {
 
         //@NotModified[T]
         static int compare(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence cs1,
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence cs2) { return 0; }
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence cs1,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence cs2) { return 0; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void getChars(int p0, int p1, @NotNull char[] p2, int p3) { }
     }
 
     //public final class Character implements Serializable, Comparable<Character>, Constable
     // has static toChars(int, char[], int) which fills its array argument -> @Immutable (not @Container), like String
     @Immutable
-    class Character$ { }
+    class Character$ { 
+        //public java.lang.Character.Subset (shadow created for its nullability, generated)
+        class Subset {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            Subset(@NotNull java.lang.String p0) { }
+        }
+
+        //public java.lang.Character.UnicodeBlock (shadow created for its nullability, generated)
+        class UnicodeBlock {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            static java.lang.Character.UnicodeBlock forName(@NotNull java.lang.String p0) { return null; }
+            @Nullable static java.lang.Character.UnicodeBlock of(char p0) { return null; }
+            @Nullable static java.lang.Character.UnicodeBlock of(int p0) { return null; }
+        }
+
+        //public java.lang.Character.UnicodeScript (shadow created for its nullability, generated)
+        class UnicodeScript {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            static java.lang.Character.UnicodeScript forName(@NotNull java.lang.String p0) { return null; }
+        }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static int codePointAt(@NotNull char[] p0, int p1) { return 0; }
+        static int codePointAt(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointAt(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
+        static int codePointBefore(@NotNull char[] p0, int p1) { return 0; }
+        static int codePointBefore(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointBefore(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
+        static int codePointCount(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointCount(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static int codePointOf(@NotNull java.lang.String p0) { return 0; }
+        int compareTo(@NotNull java.lang.Character p0) { return 0; }
+        @Nullable static java.lang.String getName(int p0) { return null; }
+        static int offsetByCodePoints(@NotNull char[] p0, int p1, int p2, int p3, int p4) { return 0; }
+        static int offsetByCodePoints(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
+        static int toChars(int p0, @NotNull char[] p1, int p2) { return 0; }
+    }
 
     //public final class Class implements Serializable, GenericDeclaration, Type, AnnotatedElement, TypeDescriptor.OfField<Class<?>>, Constable
     @ImmutableContainer
@@ -209,27 +257,27 @@ public class JavaLang {
         String toGenericString() { return null; }
 
         //@NotModified[T]
-        static Class<?> forName(String className) { return null; }
+        static Class<?> forName(@NotNull String className) { return null; }
 
         //@NotModified[T]
-        static Class<?> forName(String name, boolean initialize, /*@Independent[T] @NotModified[O]*/ ClassLoader loader) {
+        static Class<?> forName(@NotNull String name, boolean initialize, /*@Independent[T] @NotModified[O]*/ @Nullable ClassLoader loader) {
             return null;
         }
 
         //@NotModified[T]
-        static Class<?> forName(/*@Independent[T] @NotModified[O]*/ Module module, String name) { return null; }
+        @Nullable static Class<?> forName(/*@Independent[T] @NotModified[O]*/ @NotNull Module module, @NotNull String name) { return null; }
 
         //@NotModified[T]
-        static Class<?> forPrimitiveName(String primitiveName) { return null; }
+        @Nullable static Class<?> forPrimitiveName(@NotNull String primitiveName) { return null; }
 
         //@Independent[O] @NotModified[T]
         T newInstance() { return null; }
 
         //@NotModified[T]
-        boolean isInstance(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object object) { return false; }
+        boolean isInstance(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object object) { return false; }
 
         //@NotModified[T]
-        boolean isAssignableFrom(Class<?> class0) { return false; }
+        boolean isAssignableFrom(@NotNull Class<?> class0) { return false; }
 
         //@NotModified[T]
         boolean isInterface() { return false; }
@@ -265,7 +313,7 @@ public class JavaLang {
         @Nullable Class<? super T> getSuperclass() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Type getGenericSuperclass() { return null; }
+        @Nullable Type getGenericSuperclass() { return null; }
 
         //@Independent[O] @NotModified[T]
         @Nullable Package getPackage() { return null; }
@@ -289,13 +337,13 @@ public class JavaLang {
         Set<AccessFlag> accessFlags() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Object [] getSigners() { return null; }
+        @Nullable Object [] getSigners() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Method getEnclosingMethod() { return null; }
+        @Nullable Method getEnclosingMethod() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Constructor<?> getEnclosingConstructor() { return null; }
+        @Nullable Constructor<?> getEnclosingConstructor() { return null; }
 
         //@NotModified[T]
         @Nullable Class<?> getDeclaringClass() { return null; }
@@ -311,7 +359,7 @@ public class JavaLang {
         String getTypeName() { return null; }
 
         //@NotModified[T]
-        String getCanonicalName() { return null; }
+        @Nullable String getCanonicalName() { return null; }
 
         //@NotModified[T]
         boolean isAnonymousClass() { return false; }
@@ -335,13 +383,13 @@ public class JavaLang {
         Constructor<?> [] getConstructors() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Field getField(String name) { return null; }
+        Field getField(@NotNull String name) { return null; }
 
         //@Independent[O] @NotModified[T]
-        Method getMethod(String name, /*@Independent[M] @NotModified[O]*/ Class<?> ... parameterTypes) { return null; }
+        Method getMethod(@NotNull String name, /*@Independent[M] @NotModified[O]*/ @Nullable Class<?> ... parameterTypes) { return null; }
 
         //@Independent[O] @NotModified[T]
-        Constructor<T> getConstructor(/*@Independent[M] @NotModified[O]*/ Class<?> ... parameterTypes) { return null; }
+        Constructor<T> getConstructor(/*@Independent[M] @NotModified[O]*/ @Nullable Class<?> ... parameterTypes) { return null; }
 
         //@Independent[O] @NotModified[T]
         Class<?> [] getDeclaredClasses() { return null; }
@@ -350,7 +398,7 @@ public class JavaLang {
         Field [] getDeclaredFields() { return null; }
 
         //@Independent[O] @NotModified[T]
-        RecordComponent [] getRecordComponents() { return null; }
+        @Nullable RecordComponent [] getRecordComponents() { return null; }
 
         //@Independent[O] @NotModified[T]
         Method [] getDeclaredMethods() { return null; }
@@ -359,24 +407,24 @@ public class JavaLang {
         Constructor<?> [] getDeclaredConstructors() { return null; }
 
         //@Independent[O] @NotModified[T]
-        Field getDeclaredField(String name) { return null; }
+        Field getDeclaredField(@NotNull String name) { return null; }
 
         //@Independent[O] @NotModified[T]
-        Method getDeclaredMethod(String name, /*@Independent[M] @NotModified[O]*/ Class<?> ... parameterTypes) {
+        Method getDeclaredMethod(@NotNull String name, /*@Independent[M] @NotModified[O]*/ @Nullable Class<?> ... parameterTypes) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        Constructor<T> getDeclaredConstructor(/*@Independent[M] @NotModified[O]*/ Class<?> ... parameterTypes) {
+        Constructor<T> getDeclaredConstructor(/*@Independent[M] @NotModified[O]*/ @Nullable Class<?> ... parameterTypes) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        InputStream getResourceAsStream(String name) { return null; }
+        @Nullable InputStream getResourceAsStream(@NotNull String name) { return null; }
 
         //frequency 1
         //@Independent[O] @NotModified[T]
-        URL getResource(String name) { return null; }
+        @Nullable URL getResource(@NotNull String name) { return null; }
 
         //@Independent[O] @NotModified[T]
         ProtectionDomain getProtectionDomain() { return null; }
@@ -391,26 +439,26 @@ public class JavaLang {
         boolean isRecord() { return false; }
 
         //@Independent[O] @NotModified[T]
-        T [] getEnumConstants() { return null; }
+        @Nullable T [] getEnumConstants() { return null; }
 
         //frequency 1
         //@Independent[O] @NotModified[T]
-        T cast(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return null; }
+        @Nullable T cast(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object obj) { return null; }
 
         //@NotModified[T]
-        <U> Class<? extends U> asSubclass(Class<U> clazz) { return null; }
+        <U> Class<? extends U> asSubclass(@NotNull Class<U> clazz) { return null; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
-        <A extends Annotation> A getAnnotation(Class<A> annotationClass) { return null; }
+        @Nullable <A extends Annotation> A getAnnotation(@NotNull Class<A> annotationClass) { return null; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@NotModified[T]
-        boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) { return false; }
+        boolean isAnnotationPresent(@NotNull Class<? extends Annotation> annotationClass) { return false; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
-        <A extends Annotation> A [] getAnnotationsByType(Class<A> annotationClass) { return null; }
+        <A extends Annotation> A [] getAnnotationsByType(@NotNull Class<A> annotationClass) { return null; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
@@ -418,18 +466,18 @@ public class JavaLang {
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
-        <A extends Annotation> A getDeclaredAnnotation(Class<A> annotationClass) { return null; }
+        @Nullable <A extends Annotation> A getDeclaredAnnotation(@NotNull Class<A> annotationClass) { return null; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
-        <A extends Annotation> A [] getDeclaredAnnotationsByType(Class<A> annotationClass) { return null; }
+        <A extends Annotation> A [] getDeclaredAnnotationsByType(@NotNull Class<A> annotationClass) { return null; }
 
         //override from java.lang.reflect.AnnotatedElement
         //@Independent[O] @NotModified[T]
         Annotation [] getDeclaredAnnotations() { return null; }
 
         //@Independent[O] @NotModified[T]
-        AnnotatedType getAnnotatedSuperclass() { return null; }
+        @Nullable AnnotatedType getAnnotatedSuperclass() { return null; }
 
         //@Independent[O] @NotModified[T]
         AnnotatedType [] getAnnotatedInterfaces() { return null; }
@@ -438,7 +486,7 @@ public class JavaLang {
         Class<?> getNestHost() { return null; }
 
         //@NotModified[T]
-        boolean isNestmateOf(Class<?> c) { return false; }
+        boolean isNestmateOf(@NotNull Class<?> c) { return false; }
 
         //@Independent[O] @NotModified[T]
         Class<?> [] getNestMembers() { return null; }
@@ -449,7 +497,7 @@ public class JavaLang {
 
         //override from java.lang.invoke.TypeDescriptor.OfField
         //@NotModified[T]
-        Class<?> componentType() { return null; }
+        @Nullable Class<?> componentType() { return null; }
 
         //override from java.lang.invoke.TypeDescriptor.OfField
         //@NotModified[T]
@@ -463,7 +511,7 @@ public class JavaLang {
         boolean isHidden() { return false; }
 
         //@Independent[O] @NotModified[T]
-        Class<?> [] getPermittedSubclasses() { return null; }
+        @Nullable Class<?> [] getPermittedSubclasses() { return null; }
 
         //@NotModified[T]
         boolean isSealed() { return false; }
@@ -498,7 +546,7 @@ public class JavaLang {
         static final int BYTES = 0;
         static final Class<Double> TYPE = null;
         Double$(double value) { }
-        Double$(String s) { }
+        Double$(@NotNull String s) { }
         //@NotModified[T]
         static String toString(double d) { return null; }
 
@@ -506,13 +554,13 @@ public class JavaLang {
         static String toHexString(double d) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Double valueOf(String s) { return null; }
+        static Double valueOf(@NotNull String s) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
         static Double valueOf(double d) { return null; }
 
         //@NotModified[T]
-        static double parseDouble(String s) { return 0.0; }
+        static double parseDouble(@NotNull String s) { return 0.0; }
 
         //@NotModified[T]
         static boolean isNaN(double v) { return false; }
@@ -580,7 +628,7 @@ public class JavaLang {
         //override from java.lang.Comparable
         //frequency 1
         //@NotModified[T]
-        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ Double anotherDouble) { return 0; }
+        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ @NotNull Double anotherDouble) { return 0; }
 
         //@NotModified[T]
         static int compare(double d1, double d) { return 0; }
@@ -600,7 +648,7 @@ public class JavaLang {
 
         //override from java.lang.constant.ConstantDesc
         //@Immutable[T] @Independent[O] @NotModified[T]
-        Double resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ MethodHandles.Lookup lookup) { return null; }
+        Double resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ @NotNull MethodHandles.Lookup lookup) { return null; }
     }
 
     //public abstract class Enum implements Constable, Comparable<E>, Serializable
@@ -609,10 +657,10 @@ public class JavaLang {
     class Enum$<E extends Enum<E>> {
         //public static final class EnumDesc extends DynamicConstantDesc<E>
         class EnumDesc<E extends Enum<E>> {
-            static <E extends Enum<E>> Enum.EnumDesc<E> of(ClassDesc enumClass, String constantName) { return null; }
+            static <E extends Enum<E>> Enum.EnumDesc<E> of(@NotNull ClassDesc enumClass, @NotNull String constantName) { return null; }
             //override from java.lang.constant.ConstantDesc, java.lang.constant.DynamicConstantDesc
             //@Immutable(hc=true)[T] @Independent(hc=true)[H]
-            E resolveConstantDesc(MethodHandles.Lookup lookup) { return null; }
+            E resolveConstantDesc(@NotNull MethodHandles.Lookup lookup) { return null; }
 
             //override from java.lang.Object, java.lang.constant.DynamicConstantDesc
             //@NotModified[H] @NotNull[H]
@@ -653,16 +701,22 @@ public class JavaLang {
         Optional<Enum.EnumDesc<E>> describeConstable() { return null; }
 
         //@Immutable(hc=true)[T] @Independent[T] @NotModified[T]
-        static <T extends Enum<T>> T valueOf(Class<T> enumClass, String name) { return null; }
+        static <T extends Enum<T>> T valueOf(@NotNull Class<T> enumClass, @NotNull String name) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Enum$(@NotNull java.lang.String p0, int p1) { }
     }
 
     //public class Error extends Throwable
     class Error$ {
         Error$() { }
         //override has frequency 7
-        Error$(String message) { }
-        Error$(String message, @NotModified Throwable cause) { }
-        Error$(@NotModified Throwable cause) { }
+        Error$(@Nullable String message) { }
+        Error$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
+        Error$(@Nullable @NotModified Throwable cause) { }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Error$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1, boolean p2, boolean p3) { }
     }
 
     //public class Exception extends Throwable
@@ -671,13 +725,16 @@ public class JavaLang {
         Exception$() { }
 
         //override has frequency 8
-        Exception$(String message) { }
+        Exception$(@Nullable String message) { }
 
         //override has frequency 1
-        Exception$(String message, @NotModified Throwable cause) { }
+        Exception$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
 
         //override has frequency 4
-        Exception$(@NotModified Throwable cause) { }
+        Exception$(@Nullable @NotModified Throwable cause) { }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Exception$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1, boolean p2, boolean p3) { }
     }
 
     //public final class Float extends Number implements Comparable<Float>, Constable, ConstantDesc
@@ -697,7 +754,7 @@ public class JavaLang {
         static final Class<Float> TYPE = null;
         Float$(float value) { }
         Float$(double value) { }
-        Float$(String s) { }
+        Float$(@NotNull String s) { }
         //@NotModified[T]
         static String toString(float f) { return null; }
 
@@ -705,14 +762,14 @@ public class JavaLang {
         static String toHexString(float f) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Float valueOf(String s) { return null; }
+        static Float valueOf(@NotNull String s) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
         static Float valueOf(float f) { return null; }
 
         //frequency 2
         //@NotModified[T]
-        static float parseFloat(String s) { return 0.0F; }
+        static float parseFloat(@NotNull String s) { return 0.0F; }
 
         //@NotModified[T]
         static boolean isNaN(float v) { return false; }
@@ -785,7 +842,7 @@ public class JavaLang {
 
         //override from java.lang.Comparable
         //@NotModified[T]
-        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ Float anotherFloat) { return 0; }
+        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ @NotNull Float anotherFloat) { return 0; }
 
         //@NotModified[T]
         static int compare(float f1, float f2) { return 0; }
@@ -805,31 +862,31 @@ public class JavaLang {
 
         //override from java.lang.constant.ConstantDesc
         //@Immutable[T] @Independent[O] @NotModified[T]
-        Float resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ MethodHandles.Lookup lookup) { return null; }
+        Float resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ @NotNull MethodHandles.Lookup lookup) { return null; }
     }
 
     //public class IllegalArgumentException extends RuntimeException
     class IllegalArgumentException$ {
         IllegalArgumentException$() { }
         //frequency 12
-        IllegalArgumentException$(String s) { }
+        IllegalArgumentException$(@Nullable String s) { }
 
         //frequency 2
-        IllegalArgumentException$(String message, @NotModified Throwable cause) { }
-        IllegalArgumentException$(@NotModified Throwable cause) { }
+        IllegalArgumentException$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
+        IllegalArgumentException$(@Nullable @NotModified Throwable cause) { }
     }
 
     //public class IllegalStateException extends RuntimeException
     class IllegalStateException$ {
         IllegalStateException$() { }
         //frequency 9
-        IllegalStateException$(String s) { }
+        IllegalStateException$(@Nullable String s) { }
 
         //frequency 1
-        IllegalStateException$(String message, @NotModified Throwable cause) { }
+        IllegalStateException$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
 
         //frequency 4
-        IllegalStateException$(@NotModified Throwable cause) { }
+        IllegalStateException$(@Nullable @NotModified Throwable cause) { }
     }
 
     //public final class Integer extends Number implements Comparable<Integer>, Constable, ConstantDesc
@@ -841,7 +898,7 @@ public class JavaLang {
         static final int SIZE = 0;
         static final int BYTES = 0;
         Integer$(int value) { }
-        Integer$(String s) { }
+        Integer$(@NotNull String s) { }
         //@NotModified[T]
         static String toString(int i, int radix) { return null; }
 
@@ -865,37 +922,37 @@ public class JavaLang {
         static String toUnsignedString(int i) { return null; }
 
         //@NotModified[T]
-        static int parseInt(String s, int radix) { return 0; }
+        static int parseInt(@NotNull String s, int radix) { return 0; }
 
         //@NotModified[T]
         static int parseInt(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence s,
             int beginIndex,
             int endIndex,
             int radix) { return 0; }
 
         //frequency 13
         //@NotModified[T]
-        static int parseInt(String s) { return 0; }
+        static int parseInt(@NotNull String s) { return 0; }
 
         //@NotModified[T]
-        static int parseUnsignedInt(String s, int radix) { return 0; }
+        static int parseUnsignedInt(@NotNull String s, int radix) { return 0; }
 
         //@NotModified[T]
         static int parseUnsignedInt(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence s,
             int beginIndex,
             int endIndex,
             int radix) { return 0; }
 
         //@NotModified[T]
-        static int parseUnsignedInt(String s) { return 0; }
+        static int parseUnsignedInt(@NotNull String s) { return 0; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer valueOf(String s, int radix) { return null; }
+        static Integer valueOf(@NotNull String s, int radix) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer valueOf(String s) { return null; }
+        static Integer valueOf(@NotNull String s) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
         static Integer valueOf(int i) { return null; }
@@ -943,22 +1000,22 @@ public class JavaLang {
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return false; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer getInteger(String nm) { return null; }
+        @Nullable static Integer getInteger(@Nullable String nm) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer getInteger(String nm, int val) { return null; }
+        static Integer getInteger(@Nullable String nm, int val) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer getInteger(String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ Integer val) {
+        @Nullable static Integer getInteger(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Integer val) {
             return null;
         }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Integer decode(String nm) { return null; }
+        static Integer decode(@NotNull String nm) { return null; }
 
         //override from java.lang.Comparable
         //@NotModified[T]
-        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ Integer anotherInteger) { return 0; }
+        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ @NotNull Integer anotherInteger) { return 0; }
 
         //@NotModified[T]
         static int compare(int x, int y) { return 0; }
@@ -1026,7 +1083,7 @@ public class JavaLang {
 
         //override from java.lang.constant.ConstantDesc
         //@Immutable[T] @Independent[O] @NotModified[T]
-        Integer resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ MethodHandles.Lookup lookup) { return null; }
+        Integer resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ @NotNull MethodHandles.Lookup lookup) { return null; }
     }
 
     //public interface Iterable
@@ -1058,7 +1115,7 @@ public class JavaLang {
         static final int SIZE = 0;
         static final int BYTES = 0;
         Long$(long value) { }
-        Long$(String s) { }
+        Long$(@NotNull String s) { }
         //@NotModified[T]
         static String toString(long i, int i1) { return null; }
 
@@ -1082,44 +1139,44 @@ public class JavaLang {
         static String toUnsignedString(long i) { return null; }
 
         //@NotModified[T]
-        static long parseLong(String s, int radix) { return 0L; }
+        static long parseLong(@NotNull String s, int radix) { return 0L; }
 
         //@NotModified[T]
         static long parseLong(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence s,
             int beginIndex,
             int endIndex,
             int radix) { return 0L; }
 
         //frequency 7
         //@NotModified[T]
-        static long parseLong(String s) { return 0L; }
+        static long parseLong(@NotNull String s) { return 0L; }
 
         //@NotModified[T]
-        static long parseUnsignedLong(String s, int radix) { return 0L; }
+        static long parseUnsignedLong(@NotNull String s, int radix) { return 0L; }
 
         //@NotModified[T]
         static long parseUnsignedLong(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @NotNull CharSequence s,
             int beginIndex,
             int endIndex,
             int radix) { return 0L; }
 
         //@NotModified[T]
-        static long parseUnsignedLong(String s) { return 0L; }
+        static long parseUnsignedLong(@NotNull String s) { return 0L; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long valueOf(String s, int radix) { return null; }
+        static Long valueOf(@NotNull String s, int radix) { return null; }
 
         //frequency 1
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long valueOf(String s) { return null; }
+        static Long valueOf(@NotNull String s) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
         static Long valueOf(long l) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long decode(String nm) { return null; }
+        static Long decode(@NotNull String nm) { return null; }
 
         //override from java.lang.Number
         //@NotModified[T]
@@ -1164,17 +1221,17 @@ public class JavaLang {
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ Object obj) { return false; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long getLong(String nm) { return null; }
+        @Nullable static Long getLong(@Nullable String nm) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long getLong(String nm, long val) { return null; }
+        static Long getLong(@Nullable String nm, long val) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        static Long getLong(String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ Long val) { return null; }
+        @Nullable static Long getLong(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Long val) { return null; }
 
         //override from java.lang.Comparable
         //@NotModified[T]
-        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ Long anotherLong) { return 0; }
+        int compareTo(/*@Immutable[T] @Independent[T] @NotModified[O] @NotNull[H]*/ @NotNull Long anotherLong) { return 0; }
 
         //frequency 1
         //@NotModified[T]
@@ -1240,7 +1297,7 @@ public class JavaLang {
 
         //override from java.lang.constant.ConstantDesc
         //@Immutable[T] @Independent[O] @NotModified[T]
-        Long resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ MethodHandles.Lookup lookup) { return null; }
+        Long resolveConstantDesc(/*@Independent[M] @NotModified[O]*/ @NotNull MethodHandles.Lookup lookup) { return null; }
     }
 
     //public final class Math
@@ -1692,7 +1749,7 @@ public class JavaLang {
 
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ ProcessHandle processHandle) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull ProcessHandle processHandle) { return 0; }
     }
 
     //public interface Readable
@@ -1709,13 +1766,16 @@ public class JavaLang {
         RuntimeException$() { }
 
         //frequency 8
-        RuntimeException$(String message) { }
+        RuntimeException$(@Nullable String message) { }
 
         //override has frequency 1
-        RuntimeException$(String message, @NotModified Throwable cause) { }
+        RuntimeException$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
 
         //frequency 3
-        RuntimeException$(@NotModified Throwable cause) { }
+        RuntimeException$(@Nullable @NotModified Throwable cause) { }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        RuntimeException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1, boolean p2, boolean p3) { }
     }
 
     //public final class String implements Serializable, Comparable<String>, CharSequence, Constable, ConstantDesc
@@ -1724,24 +1784,24 @@ public class JavaLang {
         //@Immutable(hc=true)[T] @NotModified[T]
         static final Comparator<String> CASE_INSENSITIVE_ORDER = null;
         String$() { }
-        String$(String original) { }
-        String$(/*@Independent[T]*/ @NotModified char [] value) { }
-        String$(/*@Independent[T]*/ @NotModified char [] value, int offset, int count) { }
-        String$(/*@Independent[T]*/ @NotModified int [] codePoints, int offset, int count) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] ascii, int hibyte, int offset, int count) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] ascii, int hibyte) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] bytes, int offset, int length, String charsetName) { }
+        String$(@NotNull String original) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified char [] value) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified char [] value, int offset, int count) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified int [] codePoints, int offset, int count) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] ascii, int hibyte, int offset, int count) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] ascii, int hibyte) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] bytes, int offset, int length, @NotNull String charsetName) { }
         String$(
-            /*@Independent[T]*/ @NotModified byte [] bytes,
+            /*@Independent[T]*/ @NotNull @NotModified byte [] bytes,
             int offset,
             int length,
-            /*@Independent[T]*/ Charset charset) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] bytes, String charsetName) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] bytes, /*@Independent[T]*/ Charset charset) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] bytes, int offset, int length) { }
-        String$(/*@Independent[T]*/ @NotModified byte [] bytes) { }
-        String$(/*@Independent[T]*/ @NotModified StringBuffer buffer) { }
-        String$(/*@Independent[T]*/ @NotModified StringBuilder builder) { }
+            /*@Independent[T]*/ @NotNull Charset charset) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] bytes, @NotNull String charsetName) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] bytes, /*@Independent[T]*/ @NotNull Charset charset) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] bytes, int offset, int length) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified byte [] bytes) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified StringBuffer buffer) { }
+        String$(/*@Independent[T]*/ @NotNull @NotModified StringBuilder builder) { }
         //override from java.lang.CharSequence
         //frequency 17
         //@NotModified[T]
@@ -1769,17 +1829,17 @@ public class JavaLang {
         int offsetByCodePoints(int index, int codePointOffset) { return 0; }
 
         //@NotModified[T]
-        void getChars(int srcBegin, int srcEnd, /*@Independent[M]*/ char [] dst, int dstBegin) { }
+        void getChars(int srcBegin, int srcEnd, /*@Independent[M]*/ @NotNull char [] dst, int dstBegin) { }
 
         //@NotModified[T]
-        void getBytes(int srcBegin, int srcEnd, /*@Independent[M]*/ byte [] dst, int dstBegin) { }
+        void getBytes(int srcBegin, int srcEnd, /*@Independent[M]*/ @NotNull byte [] dst, int dstBegin) { }
 
         //@Independent[O] @NotModified[T]
-        byte [] getBytes(String charsetName) { return null; }
+        byte [] getBytes(@NotNull String charsetName) { return null; }
 
         //frequency 1
         //@Independent[O] @NotModified[T]
-        byte [] getBytes(/*@Independent[M]*/ Charset charset) { return null; }
+        byte [] getBytes(/*@Independent[M]*/ @NotNull Charset charset) { return null; }
 
         //frequency 2
         //@Independent[O] @NotModified[T]
@@ -1794,40 +1854,40 @@ public class JavaLang {
         }
 
         //@NotModified[T]
-        boolean contentEquals(/*@Independent[M]*/ StringBuffer sb) { return false; }
+        boolean contentEquals(/*@Independent[M]*/ @NotNull StringBuffer sb) { return false; }
 
         //@NotModified[T]
-        boolean contentEquals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ CharSequence cs) {
+        boolean contentEquals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull CharSequence cs) {
             return false;
         }
 
         //frequency 13
         //@NotModified[T]
-        boolean equalsIgnoreCase(String anotherString) { return false; }
+        boolean equalsIgnoreCase(@Nullable String anotherString) { return false; }
 
         //override from java.lang.Comparable
         //@NotModified[T]
-        int compareTo(/*@NotNull[H]*/ String anotherString) { return 0; }
+        int compareTo(/*@NotNull[H]*/ @NotNull String anotherString) { return 0; }
 
         //@NotModified[T]
-        int compareToIgnoreCase(String str) { return 0; }
+        int compareToIgnoreCase(@NotNull String str) { return 0; }
 
         //@NotModified[T]
-        boolean regionMatches(int toffset, String other, int ooffset, int len) { return false; }
+        boolean regionMatches(int toffset, @NotNull String other, int ooffset, int len) { return false; }
 
         //@NotModified[T]
-        boolean regionMatches(boolean ignoreCase, int toffset, String other, int ooffset, int len) { return false; }
+        boolean regionMatches(boolean ignoreCase, int toffset, @NotNull String other, int ooffset, int len) { return false; }
 
         //@NotModified[T]
-        boolean startsWith(String prefix, int toffset) { return false; }
+        boolean startsWith(@NotNull String prefix, int toffset) { return false; }
 
         //frequency 4
         //@NotModified[T]
-        boolean startsWith(String prefix) { return false; }
+        boolean startsWith(@NotNull String prefix) { return false; }
 
         //frequency 2
         //@NotModified[T]
-        boolean endsWith(String suffix) { return false; }
+        boolean endsWith(@NotNull String suffix) { return false; }
 
         //override from java.lang.Object
         //frequency 3
@@ -1851,19 +1911,19 @@ public class JavaLang {
 
         //frequency 1
         //@NotModified[T]
-        int indexOf(String str) { return 0; }
+        int indexOf(@NotNull String str) { return 0; }
 
         //@NotModified[T]
-        int indexOf(String str, int fromIndex) { return 0; }
+        int indexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //@NotModified[T]
-        int indexOf(String str, int beginIndex, int endIndex) { return 0; }
+        int indexOf(@NotNull String str, int beginIndex, int endIndex) { return 0; }
 
         //@NotModified[T]
-        int lastIndexOf(String str) { return 0; }
+        int lastIndexOf(@NotNull String str) { return 0; }
 
         //@NotModified[T]
-        int lastIndexOf(String str, int fromIndex) { return 0; }
+        int lastIndexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //frequency 2
         //@NotModified[T]
@@ -1880,7 +1940,7 @@ public class JavaLang {
 
         //frequency 1
         //@NotModified[T]
-        String concat(String str) { return null; }
+        String concat(@NotNull String str) { return null; }
 
         //frequency 2
         //@NotModified[T]
@@ -1888,58 +1948,58 @@ public class JavaLang {
 
         //frequency 1
         //@NotModified[T]
-        boolean matches(String regex) { return false; }
+        boolean matches(@NotNull String regex) { return false; }
 
         //frequency 6
         //@NotModified[T]
-        boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ CharSequence s) { return false; }
+        boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull CharSequence s) { return false; }
 
         //@NotModified[T]
-        String replaceFirst(String regex, String replacement) { return null; }
+        String replaceFirst(@NotNull String regex, @NotNull String replacement) { return null; }
 
         //frequency 7
         //@NotModified[T]
-        String replaceAll(String regex, String replacement) { return null; }
+        String replaceAll(@NotNull String regex, @NotNull String replacement) { return null; }
 
         //frequency 8
         //@NotModified[T]
 
         String replace(
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ CharSequence target,
-            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ CharSequence replacement) { return null; }
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull CharSequence target,
+            /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull CharSequence replacement) { return null; }
 
         //@Independent[O] @NotModified[T]
-        String [] split(String regex, int limit) { return null; }
+        String [] split(@NotNull String regex, int limit) { return null; }
 
         //@Independent[O] @NotModified[T]
-        String [] splitWithDelimiters(String regex, int limit) { return null; }
+        String [] splitWithDelimiters(@NotNull String regex, int limit) { return null; }
 
         //frequency 9
         //@Independent[O] @NotModified[T]
-        String [] split(String regex) { return null; }
+        String [] split(@NotNull String regex) { return null; }
 
         //@NotModified[T]
         static String join(
-            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ CharSequence delimiter,
-            /*@Independent[T]*/ @NotModified CharSequence ... elements) { return null; }
+            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
+            /*@Independent[T]*/ @NotNull @NotModified CharSequence ... elements) { return null; }
 
         // join only iterates its elements: @NotModified is a contract here, not the type's default, since Iterable is
         // a @Container (a Java field passed to join must stay unmodified: TestKotlinCollectionReadsVsJava's control row)
         //@NotModified[T]
         static String join(
-            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ CharSequence delimiter,
-            /*@Independent[T]*/ @NotModified Iterable<? extends CharSequence> elements) { return null; }
+            /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
+            /*@Independent[T]*/ @NotNull @NotModified Iterable<? extends CharSequence> elements) { return null; }
 
         //frequency 3
         //@NotModified[T]
-        String toLowerCase(/*@Independent[M]*/ Locale locale) { return null; }
+        String toLowerCase(/*@Independent[M]*/ @NotNull Locale locale) { return null; }
 
         //frequency 36
         //@NotModified[T]
         String toLowerCase() { return null; }
 
         //@NotModified[T]
-        String toUpperCase(/*@Independent[M]*/ Locale locale) { return null; }
+        String toUpperCase(/*@Independent[M]*/ @NotNull Locale locale) { return null; }
 
         //frequency 3
         //@NotModified[T]
@@ -1975,7 +2035,7 @@ public class JavaLang {
         String translateEscapes() { return null; }
 
         //@Independent[O] @NotModified[T]
-        <R> R transform(/*@IgnoreModifications[T] @Independent[M]*/ Function<? super String, ? extends R> f) {
+        <R> R transform(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull Function<? super String, ? extends R> f) {
             return null;
         }
 
@@ -1995,33 +2055,33 @@ public class JavaLang {
         char [] toCharArray() { return null; }
 
         //@NotModified[T]
-        static String format(String format, @NotModified /*@Independent[T]*/ Object ... args) { return null; }
+        static String format(@NotNull String format, @NotNull @NotModified /*@Independent[T]*/ Object ... args) { return null; }
 
         //@NotModified[T]
-        static String format(/*@Independent[T]*/ Locale l, String format,
-            @NotModified /*@Independent[T]*/ Object ... args) {
+        static String format(/*@Independent[T]*/ @Nullable Locale l, @NotNull String format,
+            @NotNull @NotModified /*@Independent[T]*/ Object ... args) {
             return null;
         }
 
         //frequency 37
         //@NotModified[T]
-        String formatted(@NotModified /*@Independent[M]*/ Object ... args) { return null; }
+        String formatted(@NotNull @NotModified /*@Independent[M]*/ Object ... args) { return null; }
 
         //frequency 1
         //@NotModified[T]
-        static String valueOf(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ Object obj) { return null; }
+        static String valueOf(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @Nullable Object obj) { return null; }
 
         //@NotModified[T]
-        static String valueOf(/*@Independent[T]*/ char [] data) { return null; }
+        static String valueOf(/*@Independent[T]*/ @NotNull char [] data) { return null; }
 
         //@NotModified[T]
-        static String valueOf(/*@Independent[T]*/ char [] data, int offset, int count) { return null; }
+        static String valueOf(/*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
 
         //@NotModified[T]
-        static String copyValueOf(/*@Independent[T]*/ char [] data, int offset, int count) { return null; }
+        static String copyValueOf(/*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
 
         //@NotModified[T]
-        static String copyValueOf(/*@Independent[T]*/ char [] data) { return null; }
+        static String copyValueOf(/*@Independent[T]*/ @NotNull char [] data) { return null; }
 
         //frequency 3
         //@NotModified[T]
@@ -2057,16 +2117,38 @@ public class JavaLang {
 
         //override from java.lang.constant.ConstantDesc
         //@NotModified[T]
-        String resolveConstantDesc(/*@Independent[M]*/ MethodHandles.Lookup lookup) { return null; }
+        String resolveConstantDesc(/*@Independent[M]*/ @NotNull MethodHandles.Lookup lookup) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        int compareToFoldCase(@NotNull java.lang.String p0) { return 0; }
+        int encodedLength(@NotNull java.nio.charset.Charset p0) { return 0; }
+        boolean equalsFoldCase(@Nullable java.lang.String p0) { return false; }
     }
 
     //public final class Short extends Number implements Comparable<Short>, Constable
     @ImmutableContainer
-    class Short$ { }
+    class Short$ { 
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Short$(@NotNull java.lang.String p0) { }
+        int compareTo(@NotNull java.lang.Short p0) { return 0; }
+        static java.lang.Short decode(@NotNull java.lang.String p0) { return null; }
+        static short parseShort(@NotNull java.lang.String p0) { return 0; }
+        static short parseShort(@NotNull java.lang.String p0, int p1) { return 0; }
+        static java.lang.Short valueOf(@NotNull java.lang.String p0) { return null; }
+        static java.lang.Short valueOf(@NotNull java.lang.String p0, int p1) { return null; }
+    }
 
     //public final class StackTraceElement implements Serializable
     @ImmutableContainer
-    class StackTraceElement$ { }
+    class StackTraceElement$ { 
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        StackTraceElement$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, @Nullable java.lang.String p2, int p3) { }
+        StackTraceElement$(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @NotNull java.lang.String p3, @NotNull java.lang.String p4, @Nullable java.lang.String p5, int p6) { }
+        @Nullable java.lang.String getClassLoaderName() { return null; }
+        @Nullable java.lang.String getFileName() { return null; }
+        @Nullable java.lang.String getModuleName() { return null; }
+        @Nullable java.lang.String getModuleVersion() { return null; }
+    }
 
     //public final class StringBuffer extends AbstractStringBuilder implements Appendable, Serializable, Comparable<StringBuffer>, CharSequence
     @Independent
@@ -2074,52 +2156,52 @@ public class JavaLang {
         //frequency 3
         StringBuffer$() { }
         StringBuffer$(int capacity) { }
-        StringBuffer$(String str) { }
-        StringBuffer$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotModified CharSequence seq) { }
+        StringBuffer$(@NotNull String str) { }
+        StringBuffer$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotNull @NotModified CharSequence seq) { }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotModified StringBuffer another) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotNull @NotModified StringBuffer another) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 3
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) { return null; }
+        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified Object obj) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 6
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(String str) { return null; }
+        StringBuffer append(@Nullable String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @NotModified StringBuffer sb) { return null; }
+        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @Nullable @NotModified StringBuffer sb) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) { return null; }
+        StringBuffer append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
 
         StringBuffer append(
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotModified char [] str) { return null; }
+        StringBuffer append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotNull @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) { return null; }
+        StringBuffer append(/*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str, int offset, int len) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2170,13 +2252,13 @@ public class JavaLang {
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer replace(int start, int end, String str) { return null; }
+        StringBuffer replace(int start, int end, @NotNull String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuffer insert(int index, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) {
+        StringBuffer insert(int index, /*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str, int offset, int len) {
             return null;
         }
 
@@ -2184,25 +2266,25 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuffer insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) {
+        StringBuffer insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified Object obj) {
             return null;
         }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer insert(int offset, String str) { return null; }
+        StringBuffer insert(int offset, @Nullable String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuffer insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str) { return null; }
+        StringBuffer insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuffer insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) {
+        StringBuffer insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s) {
             return null;
         }
 
@@ -2212,7 +2294,7 @@ public class JavaLang {
 
         StringBuffer insert(
             int dstOffset,
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
@@ -2247,16 +2329,16 @@ public class JavaLang {
         StringBuffer insert(int offset, double d) { return null; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int indexOf(String str) { return 0; }
+        @NotModified int indexOf(@NotNull String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int indexOf(String str, int fromIndex) { return 0; }
+        @NotModified int indexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int lastIndexOf(String str) { return 0; }
+        @NotModified int lastIndexOf(@NotNull String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int lastIndexOf(String str, int fromIndex) { return 0; }
+        @NotModified int lastIndexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2272,7 +2354,7 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuffer repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence cs, int count) {
+        StringBuffer repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence cs, int count) {
             return null;
         }
 
@@ -2281,6 +2363,9 @@ public class JavaLang {
         //@NotNull[H]
         @NotModified
         public String toString() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void getChars(int p0, int p1, @NotNull char[] p2, int p3) { }
     }
 
     //public final class StringBuilder extends AbstractStringBuilder implements Appendable, Serializable, Comparable<StringBuilder>, CharSequence
@@ -2289,52 +2374,52 @@ public class JavaLang {
         //frequency 3
         StringBuilder$() { }
         StringBuilder$(int capacity) { }
-        StringBuilder$(String str) { }
-        StringBuilder$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotModified CharSequence seq) { }
+        StringBuilder$(@NotNull String str) { }
+        StringBuilder$(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[O]*/ @NotNull @NotModified CharSequence seq) { }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotModified StringBuilder another) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[O] @NotNull[H]*/ @NotNull @NotModified StringBuilder another) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 3
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) { return null; }
+        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified Object obj) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //frequency 6
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(String str) { return null; }
+        StringBuilder append(@Nullable String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @NotModified StringBuffer sb) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @Nullable @NotModified StringBuffer sb) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) { return null; }
+        StringBuilder append(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
 
         StringBuilder append(
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
         //override from java.lang.AbstractStringBuilder, java.lang.Appendable
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotModified char [] str) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O] @NotNull[H]*/ @NotNull @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) { return null; }
+        StringBuilder append(/*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str, int offset, int len) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2385,13 +2470,13 @@ public class JavaLang {
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder replace(int start, int end, String str) { return null; }
+        StringBuilder replace(int start, int end, @NotNull String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int index, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str, int offset, int len) {
+        StringBuilder insert(int index, /*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str, int offset, int len) {
             return null;
         }
 
@@ -2399,25 +2484,25 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified Object obj) {
+        StringBuilder insert(int offset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified Object obj) {
             return null;
         }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder insert(int offset, String str) { return null; }
+        StringBuilder insert(int offset, @Nullable String str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
-        StringBuilder insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotModified char [] str) { return null; }
+        StringBuilder insert(int offset, /*@Independent[H] @NotModified[O]*/ @NotNull @NotModified char [] str) { return null; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s) {
+        StringBuilder insert(int dstOffset, /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s) {
             return null;
         }
 
@@ -2427,7 +2512,7 @@ public class JavaLang {
 
         StringBuilder insert(
             int dstOffset,
-            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence s,
+            /*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence s,
             int start,
             int end) { return null; }
 
@@ -2462,16 +2547,16 @@ public class JavaLang {
         StringBuilder insert(int offset, double d) { return null; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int indexOf(String str) { return 0; }
+        @NotModified int indexOf(@NotNull String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int indexOf(String str, int fromIndex) { return 0; }
+        @NotModified int indexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int lastIndexOf(String str) { return 0; }
+        @NotModified int lastIndexOf(@NotNull String str) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
-        @NotModified int lastIndexOf(String str, int fromIndex) { return 0; }
+        @NotModified int lastIndexOf(@NotNull String str, int fromIndex) { return 0; }
 
         //override from java.lang.AbstractStringBuilder
         //@Independent[O] @NotNull[M]
@@ -2487,7 +2572,7 @@ public class JavaLang {
         //@Independent[O] @NotNull[M]
         @Fluent
 
-        StringBuilder repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @NotModified CharSequence cs, int count) {
+        StringBuilder repeat(/*@Immutable(hc=true)[T] @Independent[H] @NotModified[O]*/ @Nullable @NotModified CharSequence cs, int count) {
             return null;
         }
 
@@ -2535,69 +2620,69 @@ public class JavaLang {
                 int getSeverity() { return 0; }
             }
             @NotModified String getName() { return null; }
-            @NotModified boolean isLoggable(/*@Independent[M]*/ System.Logger.Level level) { return false; }
-            @IgnoreModifications void log(/*@Independent[T]*/ System.Logger.Level level, String msg) { }
+            @NotModified boolean isLoggable(/*@Independent[M]*/ @NotNull System.Logger.Level level) { return false; }
+            @IgnoreModifications void log(/*@Independent[T]*/ @NotNull System.Logger.Level level, @NotNull String msg) { }
             @IgnoreModifications
             void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                /*@IgnoreModifications[T] @Independent[T]*/ Supplier<String> msgSupplier) { }
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                /*@IgnoreModifications[T] @Independent[T]*/ @NotNull Supplier<String> msgSupplier) { }
 
             @IgnoreModifications
             void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ Object obj) { }
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                /*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @NotNull Object obj) { }
 
             @IgnoreModifications
-            void log(/*@Independent[T]*/ System.Logger.Level level, String msg, /*@Independent[T]*/ Throwable thrown) { }
-
-            @IgnoreModifications
-            void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                /*@IgnoreModifications[T] @Independent[T]*/ Supplier<String> msgSupplier,
-                /*@Independent[T]*/ Throwable thrown) { }
+            void log(/*@Independent[T]*/ @NotNull System.Logger.Level level, @NotNull String msg, /*@Independent[T]*/ @NotNull Throwable thrown) { }
 
             @IgnoreModifications
             void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                String format,
-                @NotModified /*@Independent[T]*/ Object ... params) { }
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                /*@IgnoreModifications[T] @Independent[T]*/ @NotNull Supplier<String> msgSupplier,
+                /*@Independent[T]*/ @NotNull Throwable thrown) { }
 
             @IgnoreModifications
             void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                /*@Independent[T]*/ ResourceBundle resourceBundle,
-                String string,
-                /*@Independent[T]*/ Throwable throwable) { }
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                @NotNull String format,
+                @NotNull @NotModified /*@Independent[T]*/ Object ... params) { }
 
             @IgnoreModifications
             void log(
-                /*@Independent[T]*/ System.Logger.Level level,
-                /*@Independent[T]*/ ResourceBundle resourceBundle,
-                String string,
-                @NotModified /*@Independent[T]*/ Object ... object) { }
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                /*@Independent[T]*/ @NotNull ResourceBundle resourceBundle,
+                @NotNull String string,
+                /*@Independent[T]*/ @NotNull Throwable throwable) { }
+
+            @IgnoreModifications
+            void log(
+                /*@Independent[T]*/ @NotNull System.Logger.Level level,
+                /*@Independent[T]*/ @NotNull ResourceBundle resourceBundle,
+                @NotNull String string,
+                @NotNull @NotModified /*@Independent[T]*/ Object ... object) { }
         }
 
         //public abstract static class LoggerFinder
         class LoggerFinder {
-            System.Logger getLogger(String string, Module module) { return null; }
-            System.Logger getLocalizedLogger(String name, ResourceBundle bundle, Module module) { return null; }
+            System.Logger getLogger(@NotNull String string, @NotNull Module module) { return null; }
+            System.Logger getLocalizedLogger(@NotNull String name, @NotNull ResourceBundle bundle, @NotNull Module module) { return null; }
             static System.LoggerFinder getLoggerFinder() { return null; }
         }
         // reconfiguring the process-wide streams is a static side effect (road-to-immutability section 050): the
         // effect (replacing System.out/err/in) is invisible from JDK source, so it is contracted here on the safe
         // surface. A caller inherits the static side effect, which the @IgnoreModifications containment guard uses
         // to tell "reconfiguring the mechanics" (an escape) from "just using System.out" (confined).
-        @StaticSideEffects static void setIn(/*@Independent[T]*/ InputStream in) { }
-        @StaticSideEffects static void setOut(/*@Independent[T]*/ PrintStream out) { }
-        @StaticSideEffects static void setErr(/*@Independent[T]*/ PrintStream err) { }
+        @StaticSideEffects static void setIn(/*@Independent[T]*/ @NotNull InputStream in) { }
+        @StaticSideEffects static void setOut(/*@Independent[T]*/ @NotNull PrintStream out) { }
+        @StaticSideEffects static void setErr(/*@Independent[T]*/ @NotNull PrintStream err) { }
         //@Independent[O]
-        static Console console() { return null; }
+        @Nullable static Console console() { return null; }
 
         //@Independent[O]
-        static Channel inheritedChannel() { return null; }
-        static void setSecurityManager(/*@Independent[T]*/ SecurityManager sm) { }
+        @Nullable static Channel inheritedChannel() { return null; }
+        static void setSecurityManager(/*@Independent[T]*/ @Nullable SecurityManager sm) { }
         //@Independent[O]
-        static SecurityManager getSecurityManager() { return null; }
+        @Nullable static SecurityManager getSecurityManager() { return null; }
 
         //frequency 4
         @IgnoreModifications
@@ -2610,41 +2695,41 @@ public class JavaLang {
             int i1,
             int i2) { }
 
-        static int identityHashCode(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ Object object) {
+        static int identityHashCode(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @Nullable Object object) {
             return 0;
         }
 
         //@Independent[O]
         static Properties getProperties() { return null; }
         static String lineSeparator() { return null; }
-        static void setProperties(/*@Independent[T]*/ Properties props) { }
+        static void setProperties(/*@Independent[T]*/ @Nullable Properties props) { }
         //frequency 2
         @NotModified
-        @Nullable static String getProperty(String key) { return null; }
-        static String getProperty(String key, String def) { return null; }
-        static String setProperty(String key, String value) { return null; }
-        static String clearProperty(String key) { return null; }
+        @Nullable static String getProperty(@NotNull String key) { return null; }
+        @Nullable static String getProperty(@NotNull String key, @Nullable String def) { return null; }
+        @Nullable static String setProperty(@NotNull String key, @NotNull String value) { return null; }
+        @Nullable static String clearProperty(@NotNull String key) { return null; }
         //frequency 1
         @NotModified
-        @Nullable static String getenv(String name) { return null; }
+        @Nullable static String getenv(@NotNull String name) { return null; }
 
         //@Independent[O]
         static Map<String, String> getenv() { return null; }
 
         //@Independent[O]
-        static System.Logger getLogger(String name) { return null; }
+        static System.Logger getLogger(@NotNull String name) { return null; }
 
         //@Independent[O]
-        static System.Logger getLogger(String name, /*@Independent[T]*/ ResourceBundle bundle) { return null; }
+        static System.Logger getLogger(@NotNull String name, /*@Independent[T]*/ @NotNull ResourceBundle bundle) { return null; }
 
         //frequency 1
         @IgnoreModifications
         static void exit(int status) { }
         static void gc() { }
         static void runFinalization() { }
-        static void load(String filename) { }
-        static void loadLibrary(String libname) { }
-        static String mapLibraryName(String string) { return null; }
+        static void load(@NotNull String filename) { }
+        static void loadLibrary(@NotNull String libname) { }
+        static String mapLibraryName(@NotNull String string) { return null; }
     }
 
     //public class Thread implements Runnable
@@ -2676,14 +2761,14 @@ public class JavaLang {
                 Thread.Builder.OfVirtual uncaughtExceptionHandler(
                     Thread.UncaughtExceptionHandler uncaughtExceptionHandler) { return null; }
             }
-            Thread.Builder name(String string) { return null; }
-            Thread.Builder name(String string, long l) { return null; }
+            Thread.Builder name(@NotNull String string) { return null; }
+            Thread.Builder name(@NotNull String string, long l) { return null; }
             Thread.Builder inheritInheritableThreadLocals(boolean b) { return null; }
-            Thread.Builder uncaughtExceptionHandler(Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
+            Thread.Builder uncaughtExceptionHandler(@NotNull Thread.UncaughtExceptionHandler uncaughtExceptionHandler) {
                 return null;
             }
-            Thread unstarted(Runnable runnable) { return null; }
-            Thread start(Runnable runnable) { return null; }
+            Thread unstarted(@NotNull Runnable runnable) { return null; }
+            Thread start(@NotNull Runnable runnable) { return null; }
             ThreadFactory factory() { return null; }
         }
 
@@ -2711,16 +2796,16 @@ public class JavaLang {
         }
 
         //public interface UncaughtExceptionHandler
-        class UncaughtExceptionHandler {void uncaughtException(Thread thread, Throwable throwable) { } }
+        class UncaughtExceptionHandler {void uncaughtException(@NotNull Thread thread, @NotNull Throwable throwable) { } }
         Thread$() { }
-        Thread$(Runnable task) { }
-        Thread$(ThreadGroup group, Runnable task) { }
-        Thread$(String name) { }
-        Thread$(ThreadGroup group, String name) { }
-        Thread$(Runnable task, String name) { }
-        Thread$(ThreadGroup group, Runnable task, String name) { }
-        Thread$(ThreadGroup group, Runnable task, String name, long stackSize) { }
-        Thread$(ThreadGroup group, Runnable task, String name, long stackSize, boolean b) { }
+        Thread$(@Nullable Runnable task) { }
+        Thread$(@Nullable ThreadGroup group, @Nullable Runnable task) { }
+        Thread$(@NotNull String name) { }
+        Thread$(@Nullable ThreadGroup group, @NotNull String name) { }
+        Thread$(@Nullable Runnable task, @NotNull String name) { }
+        Thread$(@Nullable ThreadGroup group, @Nullable Runnable task, @NotNull String name) { }
+        Thread$(@Nullable ThreadGroup group, @Nullable Runnable task, @NotNull String name, long stackSize) { }
+        Thread$(@Nullable ThreadGroup group, @Nullable Runnable task, @NotNull String name, long stackSize, boolean b) { }
         //frequency 3
         @NotModified
         static Thread currentThread() { return null; }
@@ -2729,11 +2814,11 @@ public class JavaLang {
         @IgnoreModifications
         static void sleep(long millis) { }
         static void sleep(long millis, int i) { }
-        static void sleep(Duration duration) { }
+        static void sleep(@NotNull Duration duration) { }
         static void onSpinWait() { }
         static Thread.Builder.OfPlatform ofPlatform() { return null; }
         static Thread.Builder.OfVirtual ofVirtual() { return null; }
-        static Thread startVirtualThread(Runnable task) { return null; }
+        static Thread startVirtualThread(@NotNull Runnable task) { return null; }
         @NotModified boolean isVirtual() { return false; }
         void start() { }
         //override from java.lang.Runnable
@@ -2747,15 +2832,15 @@ public class JavaLang {
         @NotModified boolean isAlive() { return false; }
         void setPriority(int newPriority) { }
         @NotModified int getPriority() { return 0; }
-        void setName(String name) { }
+        void setName(@NotNull String name) { }
         @NotModified String getName() { return null; }
-        @NotModified ThreadGroup getThreadGroup() { return null; }
+        @Nullable @NotModified ThreadGroup getThreadGroup() { return null; }
         static int activeCount() { return 0; }
-        static int enumerate(Thread [] tarray) { return 0; }
+        static int enumerate(@NotNull Thread [] tarray) { return 0; }
         void join(long millis) { }
         void join(long millis, int i) { }
         void join() { }
-        boolean join(Duration duration) { return false; }
+        boolean join(@NotNull Duration duration) { return false; }
         static void dumpStack() { }
         void setDaemon(boolean on) { }
         @NotModified boolean isDaemon() { return false; }
@@ -2763,9 +2848,9 @@ public class JavaLang {
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        @NotModified ClassLoader getContextClassLoader() { return null; }
-        void setContextClassLoader(@NotModified ClassLoader cl) { }
-        static boolean holdsLock(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object object) {
+        @Nullable @NotModified ClassLoader getContextClassLoader() { return null; }
+        void setContextClassLoader(@Nullable @NotModified ClassLoader cl) { }
+        static boolean holdsLock(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Object object) {
             return false;
         }
         @NotModified StackTraceElement [] getStackTrace() { return null; }
@@ -2774,10 +2859,10 @@ public class JavaLang {
         @NotModified long getId() { return 0L; }
         long threadId() { return 0L; }
         @NotModified Thread.State getState() { return null; }
-        static void setDefaultUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
-        @NotModified static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
-        @NotModified Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
-        void setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler ueh) { }
+        static void setDefaultUncaughtExceptionHandler(@Nullable Thread.UncaughtExceptionHandler ueh) { }
+        @Nullable @NotModified static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
+        @Nullable @NotModified Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
+        void setUncaughtExceptionHandler(@Nullable Thread.UncaughtExceptionHandler ueh) { }
     }
 
     //public class Throwable implements Serializable
@@ -2786,13 +2871,13 @@ public class JavaLang {
         Throwable$() { }
 
         //override has frequency 8
-        Throwable$(String message) { }
+        Throwable$(@Nullable String message) { }
 
         //override has frequency 1
-        Throwable$(String message, @NotModified Throwable cause) { }
+        Throwable$(@Nullable String message, @Nullable @NotModified Throwable cause) { }
 
         //override has frequency 4
-        Throwable$(@NotModified Throwable cause) { }
+        Throwable$(@Nullable @NotModified Throwable cause) { }
 
         //frequency 17
         @NotModified
@@ -2801,20 +2886,550 @@ public class JavaLang {
         //frequency 7
         @NotModified
         @Nullable Throwable getCause() { return null; }
-        Throwable initCause(@NotModified Throwable cause) { return null; }
+        Throwable initCause(@Nullable @NotModified Throwable cause) { return null; }
         public String toString() { return null; }
         @IgnoreModifications void printStackTrace() { }
-        @NotModified void printStackTrace(/*@Independent[M]*/ PrintStream s) { }
-        @NotModified void printStackTrace(/*@Independent[M]*/ PrintWriter s) { }
+        @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintStream s) { }
+        @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintWriter s) { }
         Throwable fillInStackTrace() { return null; }
         StackTraceElement [] getStackTrace() { return null; }
-        void setStackTrace(StackTraceElement [] stackTrace) { }
-        void addSuppressed(@NotModified Throwable exception) { }
+        void setStackTrace(@NotNull StackTraceElement [] stackTrace) { }
+        void addSuppressed(@NotNull @NotModified Throwable exception) { }
         Throwable [] getSuppressed() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Throwable$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1, boolean p2, boolean p3) { }
     }
 
     // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
     class ThreadLocal$<T> {
         @Nullable T get() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static <S> java.lang.ThreadLocal<S> withInitial(@NotNull java.util.function.Supplier<? extends S> p0) { return null; }
+    }
+
+    //public java.lang.AbstractMethodError (shadow created for its nullability, generated)
+    class AbstractMethodError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        AbstractMethodError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ArithmeticException (shadow created for its nullability, generated)
+    class ArithmeticException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ArithmeticException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ArrayIndexOutOfBoundsException (shadow created for its nullability, generated)
+    class ArrayIndexOutOfBoundsException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ArrayIndexOutOfBoundsException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ArrayStoreException (shadow created for its nullability, generated)
+    class ArrayStoreException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ArrayStoreException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ClassCastException (shadow created for its nullability, generated)
+    class ClassCastException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ClassCastException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ClassCircularityError (shadow created for its nullability, generated)
+    class ClassCircularityError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ClassCircularityError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ClassFormatError (shadow created for its nullability, generated)
+    class ClassFormatError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ClassFormatError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ClassLoader (shadow created for its nullability, generated)
+    class ClassLoader$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ClassLoader$(@Nullable java.lang.ClassLoader p0) { }
+        ClassLoader$(@Nullable java.lang.String p0, @Nullable java.lang.ClassLoader p1) { }
+        java.lang.Class<?> defineClass(@NotNull byte[] p0, int p1, int p2) { return null; }
+        java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2, int p3) { return null; }
+        java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2, int p3, @Nullable java.security.ProtectionDomain p4) { return null; }
+        java.lang.Class<?> defineClass(@Nullable java.lang.String p0, @NotNull java.nio.ByteBuffer p1, @Nullable java.security.ProtectionDomain p2) { return null; }
+        java.lang.Package definePackage(@NotNull java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable java.lang.String p5, @Nullable java.lang.String p6, @Nullable java.net.URL p7) { return null; }
+        java.lang.Class<?> findClass(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.Class<?> findClass(@Nullable java.lang.String p0, @NotNull java.lang.String p1) { return null; }
+        @Nullable java.lang.String findLibrary(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.Class<?> findLoadedClass(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.net.URL findResource(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.net.URL findResource(@Nullable java.lang.String p0, @NotNull java.lang.String p1) { return null; }
+        java.util.Enumeration<java.net.URL> findResources(@NotNull java.lang.String p0) { return null; }
+        java.lang.Class<?> findSystemClass(@NotNull java.lang.String p0) { return null; }
+        java.lang.Object getClassLoadingLock(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.Package getDefinedPackage(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.String getName() { return null; }
+        @Nullable java.lang.Package getPackage(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.ClassLoader getParent() { return null; }
+        @Nullable java.net.URL getResource(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
+        java.util.Enumeration<java.net.URL> getResources(@NotNull java.lang.String p0) { return null; }
+        @Nullable static java.net.URL getSystemResource(@NotNull java.lang.String p0) { return null; }
+        @Nullable static java.io.InputStream getSystemResourceAsStream(@NotNull java.lang.String p0) { return null; }
+        static java.util.Enumeration<java.net.URL> getSystemResources(@NotNull java.lang.String p0) { return null; }
+        java.lang.Class<?> loadClass(@NotNull java.lang.String p0) { return null; }
+        java.lang.Class<?> loadClass(@NotNull java.lang.String p0, boolean p1) { return null; }
+        void resolveClass(@NotNull java.lang.Class<?> p0) { }
+        java.util.stream.Stream<java.net.URL> resources(@NotNull java.lang.String p0) { return null; }
+        void setClassAssertionStatus(@NotNull java.lang.String p0, boolean p1) { }
+        void setPackageAssertionStatus(@Nullable java.lang.String p0, boolean p1) { }
+        void setSigners(@NotNull java.lang.Class<?> p0, @NotNull java.lang.Object[] p1) { }
+    }
+
+    //public java.lang.ClassNotFoundException (shadow created for its nullability, generated)
+    class ClassNotFoundException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ClassNotFoundException$(@Nullable java.lang.String p0) { }
+        ClassNotFoundException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+    }
+
+    //public java.lang.ClassValue (shadow created for its nullability, generated)
+    class ClassValue$<T> {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        T computeValue(@NotNull java.lang.Class<?> p0) { return null; }
+        T get(@NotNull java.lang.Class<?> p0) { return null; }
+        void remove(@NotNull java.lang.Class<?> p0) { }
+    }
+
+    //public java.lang.CloneNotSupportedException (shadow created for its nullability, generated)
+    class CloneNotSupportedException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        CloneNotSupportedException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.EnumConstantNotPresentException (shadow created for its nullability, generated)
+    class EnumConstantNotPresentException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        EnumConstantNotPresentException$(@NotNull java.lang.Class<? extends java.lang.Enum> p0, @NotNull java.lang.String p1) { }
+    }
+
+    //public java.lang.ExceptionInInitializerError (shadow created for its nullability, generated)
+    class ExceptionInInitializerError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ExceptionInInitializerError$(@Nullable java.lang.String p0) { }
+        ExceptionInInitializerError$(@Nullable java.lang.Throwable p0) { }
+        @Nullable java.lang.Throwable getException() { return null; }
+    }
+
+    //public java.lang.IO (shadow created for its nullability, generated)
+    class IO$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static void print(@Nullable java.lang.Object p0) { }
+        static void println(@Nullable java.lang.Object p0) { }
+        @Nullable static java.lang.String readln() { return null; }
+        @Nullable static java.lang.String readln(@Nullable java.lang.String p0) { return null; }
+    }
+
+    //public java.lang.IllegalAccessError (shadow created for its nullability, generated)
+    class IllegalAccessError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IllegalAccessError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.IllegalAccessException (shadow created for its nullability, generated)
+    class IllegalAccessException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IllegalAccessException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.IllegalCallerException (shadow created for its nullability, generated)
+    class IllegalCallerException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IllegalCallerException$(@Nullable java.lang.String p0) { }
+        IllegalCallerException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        IllegalCallerException$(@Nullable java.lang.Throwable p0) { }
+    }
+
+    //public java.lang.IllegalMonitorStateException (shadow created for its nullability, generated)
+    class IllegalMonitorStateException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IllegalMonitorStateException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.IllegalThreadStateException (shadow created for its nullability, generated)
+    class IllegalThreadStateException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IllegalThreadStateException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.IncompatibleClassChangeError (shadow created for its nullability, generated)
+    class IncompatibleClassChangeError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IncompatibleClassChangeError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.IndexOutOfBoundsException (shadow created for its nullability, generated)
+    class IndexOutOfBoundsException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IndexOutOfBoundsException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.InstantiationError (shadow created for its nullability, generated)
+    class InstantiationError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        InstantiationError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.InstantiationException (shadow created for its nullability, generated)
+    class InstantiationException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        InstantiationException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.InternalError (shadow created for its nullability, generated)
+    class InternalError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        InternalError$(@Nullable java.lang.String p0) { }
+        InternalError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        InternalError$(@Nullable java.lang.Throwable p0) { }
+    }
+
+    //public java.lang.InterruptedException (shadow created for its nullability, generated)
+    class InterruptedException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        InterruptedException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.LinkageError (shadow created for its nullability, generated)
+    class LinkageError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        LinkageError$(@Nullable java.lang.String p0) { }
+        LinkageError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+    }
+
+    //public java.lang.MatchException (shadow created for its nullability, generated)
+    class MatchException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        MatchException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+    }
+
+    //public java.lang.Module (shadow created for its nullability, generated)
+    class Module$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        java.lang.Module addExports(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
+        java.lang.Module addOpens(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
+        java.lang.Module addReads(@NotNull java.lang.Module p0) { return null; }
+        java.lang.Module addUses(@NotNull java.lang.Class<?> p0) { return null; }
+        boolean canRead(@NotNull java.lang.Module p0) { return false; }
+        boolean canUse(@NotNull java.lang.Class<?> p0) { return false; }
+        @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
+        @Nullable java.lang.ClassLoader getClassLoader() { return null; }
+        @Nullable java.lang.module.ModuleDescriptor getDescriptor() { return null; }
+        @Nullable java.lang.ModuleLayer getLayer() { return null; }
+        @Nullable java.lang.String getName() { return null; }
+        @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
+        boolean isExported(@NotNull java.lang.String p0) { return false; }
+        boolean isExported(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return false; }
+        boolean isOpen(@NotNull java.lang.String p0) { return false; }
+        boolean isOpen(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return false; }
+    }
+
+    //public java.lang.ModuleLayer (shadow created for its nullability, generated)
+    class ModuleLayer$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @Nullable static java.lang.ModuleLayer boot() { return null; }
+        java.lang.ModuleLayer defineModules(@NotNull java.lang.module.Configuration p0, @NotNull java.util.function.Function<java.lang.String, java.lang.ClassLoader> p1) { return null; }
+        static java.lang.ModuleLayer.Controller defineModules(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @NotNull java.util.function.Function<java.lang.String, java.lang.ClassLoader> p2) { return null; }
+        java.lang.ModuleLayer defineModulesWithManyLoaders(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        static java.lang.ModuleLayer.Controller defineModulesWithManyLoaders(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @Nullable java.lang.ClassLoader p2) { return null; }
+        java.lang.ModuleLayer defineModulesWithOneLoader(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        static java.lang.ModuleLayer.Controller defineModulesWithOneLoader(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @Nullable java.lang.ClassLoader p2) { return null; }
+        @Nullable java.lang.ClassLoader findLoader(@NotNull java.lang.String p0) { return null; }
+        java.util.Optional<java.lang.Module> findModule(@NotNull java.lang.String p0) { return null; }
+
+        //public java.lang.ModuleLayer.Controller (shadow created for its nullability, generated)
+        class Controller {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            java.lang.ModuleLayer.Controller addExports(@NotNull java.lang.Module p0, @NotNull java.lang.String p1, @NotNull java.lang.Module p2) { return null; }
+            java.lang.ModuleLayer.Controller addOpens(@NotNull java.lang.Module p0, @NotNull java.lang.String p1, @NotNull java.lang.Module p2) { return null; }
+            java.lang.ModuleLayer.Controller addReads(@NotNull java.lang.Module p0, @NotNull java.lang.Module p1) { return null; }
+            java.lang.ModuleLayer.Controller enableNativeAccess(@NotNull java.lang.Module p0) { return null; }
+        }
+    }
+
+    //public java.lang.NegativeArraySizeException (shadow created for its nullability, generated)
+    class NegativeArraySizeException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NegativeArraySizeException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NoClassDefFoundError (shadow created for its nullability, generated)
+    class NoClassDefFoundError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NoClassDefFoundError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NoSuchFieldError (shadow created for its nullability, generated)
+    class NoSuchFieldError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NoSuchFieldError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NoSuchFieldException (shadow created for its nullability, generated)
+    class NoSuchFieldException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NoSuchFieldException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NoSuchMethodError (shadow created for its nullability, generated)
+    class NoSuchMethodError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NoSuchMethodError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NoSuchMethodException (shadow created for its nullability, generated)
+    class NoSuchMethodException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NoSuchMethodException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.NullPointerException (shadow created for its nullability, generated)
+    class NullPointerException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NullPointerException$(@Nullable java.lang.String p0) { }
+        @Nullable java.lang.String getMessage() { return null; }
+    }
+
+    //public java.lang.NumberFormatException (shadow created for its nullability, generated)
+    class NumberFormatException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        NumberFormatException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.OutOfMemoryError (shadow created for its nullability, generated)
+    class OutOfMemoryError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        OutOfMemoryError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.Package (shadow created for its nullability, generated)
+    class Package$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @Nullable <A extends java.lang.annotation.Annotation> A getAnnotation(@NotNull java.lang.Class<A> p0) { return null; }
+        <A extends java.lang.annotation.Annotation> A[] getAnnotationsByType(@NotNull java.lang.Class<A> p0) { return null; }
+        @Nullable <A extends java.lang.annotation.Annotation> A getDeclaredAnnotation(@NotNull java.lang.Class<A> p0) { return null; }
+        <A extends java.lang.annotation.Annotation> A[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<A> p0) { return null; }
+        @Nullable java.lang.String getImplementationTitle() { return null; }
+        @Nullable java.lang.String getImplementationVendor() { return null; }
+        @Nullable java.lang.String getImplementationVersion() { return null; }
+        @Nullable static java.lang.Package getPackage(@NotNull java.lang.String p0) { return null; }
+        @Nullable java.lang.String getSpecificationTitle() { return null; }
+        @Nullable java.lang.String getSpecificationVendor() { return null; }
+        @Nullable java.lang.String getSpecificationVersion() { return null; }
+        boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
+        boolean isCompatibleWith(@NotNull java.lang.String p0) { return false; }
+        boolean isSealed(@NotNull java.net.URL p0) { return false; }
+    }
+
+    //public java.lang.Process (shadow created for its nullability, generated)
+    class Process$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        java.io.BufferedReader errorReader(@NotNull java.nio.charset.Charset p0) { return null; }
+        java.io.BufferedReader inputReader(@NotNull java.nio.charset.Charset p0) { return null; }
+        java.io.BufferedWriter outputWriter(@NotNull java.nio.charset.Charset p0) { return null; }
+        boolean waitFor(@NotNull java.time.Duration p0) { return false; }
+        boolean waitFor(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return false; }
+    }
+
+    //public java.lang.ProcessBuilder (shadow created for its nullability, generated)
+    class ProcessBuilder$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ProcessBuilder$(@NotNull java.util.List<java.lang.String> p0) { }
+        ProcessBuilder$(@NotNull java.lang.String... p0) { }
+        java.lang.ProcessBuilder command(@NotNull java.util.List<java.lang.String> p0) { return null; }
+        java.lang.ProcessBuilder command(@NotNull java.lang.String... p0) { return null; }
+        @Nullable java.io.File directory() { return null; }
+        java.lang.ProcessBuilder directory(@Nullable java.io.File p0) { return null; }
+        java.lang.ProcessBuilder redirectError(@NotNull java.io.File p0) { return null; }
+        java.lang.ProcessBuilder redirectError(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        java.lang.ProcessBuilder redirectInput(@NotNull java.io.File p0) { return null; }
+        java.lang.ProcessBuilder redirectInput(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        java.lang.ProcessBuilder redirectOutput(@NotNull java.io.File p0) { return null; }
+        java.lang.ProcessBuilder redirectOutput(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        static java.util.List<java.lang.Process> startPipeline(@NotNull java.util.List<java.lang.ProcessBuilder> p0) { return null; }
+
+        //public java.lang.ProcessBuilder.Redirect (shadow created for its nullability, generated)
+        class Redirect {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            static java.lang.ProcessBuilder.Redirect appendTo(@NotNull java.io.File p0) { return null; }
+            @Nullable java.io.File file() { return null; }
+            static java.lang.ProcessBuilder.Redirect from(@NotNull java.io.File p0) { return null; }
+            static java.lang.ProcessBuilder.Redirect to(@NotNull java.io.File p0) { return null; }
+        }
+    }
+
+    //public java.lang.ReflectiveOperationException (shadow created for its nullability, generated)
+    class ReflectiveOperationException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ReflectiveOperationException$(@Nullable java.lang.String p0) { }
+        ReflectiveOperationException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        ReflectiveOperationException$(@Nullable java.lang.Throwable p0) { }
+    }
+
+    //public java.lang.Runtime (shadow created for its nullability, generated)
+    class Runtime$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void addShutdownHook(@NotNull java.lang.Thread p0) { }
+        java.lang.Process exec(@NotNull java.lang.String p0) { return null; }
+        java.lang.Process exec(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1) { return null; }
+        java.lang.Process exec(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
+        java.lang.Process exec(@NotNull java.lang.String[] p0) { return null; }
+        java.lang.Process exec(@NotNull java.lang.String[] p0, @Nullable java.lang.String[] p1) { return null; }
+        java.lang.Process exec(@NotNull java.lang.String[] p0, @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
+        void load(@NotNull java.lang.String p0) { }
+        void loadLibrary(@NotNull java.lang.String p0) { }
+        boolean removeShutdownHook(@NotNull java.lang.Thread p0) { return false; }
+
+        //public java.lang.Runtime.Version (shadow created for its nullability, generated)
+        class Version {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            int compareTo(@NotNull java.lang.Runtime.Version p0) { return 0; }
+            int compareToIgnoreOptional(@NotNull java.lang.Runtime.Version p0) { return 0; }
+            boolean equalsIgnoreOptional(@NotNull java.lang.Object p0) { return false; }
+            static java.lang.Runtime.Version parse(@NotNull java.lang.String p0) { return null; }
+        }
+    }
+
+    //public java.lang.RuntimePermission (shadow created for its nullability, generated)
+    class RuntimePermission$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        RuntimePermission$(@NotNull java.lang.String p0) { }
+        RuntimePermission$(@NotNull java.lang.String p0, @Nullable java.lang.String p1) { }
+    }
+
+    //public java.lang.SecurityException (shadow created for its nullability, generated)
+    class SecurityException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        SecurityException$(@Nullable java.lang.String p0) { }
+        SecurityException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        SecurityException$(@Nullable java.lang.Throwable p0) { }
+    }
+
+    //public java.lang.SecurityManager (shadow created for its nullability, generated)
+    class SecurityManager$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void checkAccept(@NotNull java.lang.String p0, int p1) { }
+        void checkAccess(@NotNull java.lang.Thread p0) { }
+        void checkAccess(@NotNull java.lang.ThreadGroup p0) { }
+        void checkConnect(@NotNull java.lang.String p0, int p1) { }
+        void checkConnect(@NotNull java.lang.String p0, int p1, @NotNull java.lang.Object p2) { }
+        void checkDelete(@NotNull java.lang.String p0) { }
+        void checkExec(@NotNull java.lang.String p0) { }
+        void checkLink(@NotNull java.lang.String p0) { }
+        void checkMulticast(@NotNull java.net.InetAddress p0) { }
+        void checkMulticast(@NotNull java.net.InetAddress p0, byte p1) { }
+        void checkPackageAccess(@NotNull java.lang.String p0) { }
+        void checkPackageDefinition(@NotNull java.lang.String p0) { }
+        void checkPermission(@NotNull java.security.Permission p0) { }
+        void checkPermission(@NotNull java.security.Permission p0, @NotNull java.lang.Object p1) { }
+        void checkPropertyAccess(@NotNull java.lang.String p0) { }
+        void checkRead(@NotNull java.io.FileDescriptor p0) { }
+        void checkRead(@NotNull java.lang.String p0) { }
+        void checkRead(@NotNull java.lang.String p0, @NotNull java.lang.Object p1) { }
+        void checkSecurityAccess(@NotNull java.lang.String p0) { }
+        void checkWrite(@NotNull java.io.FileDescriptor p0) { }
+        void checkWrite(@NotNull java.lang.String p0) { }
+    }
+
+    //public java.lang.StackOverflowError (shadow created for its nullability, generated)
+    class StackOverflowError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        StackOverflowError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.StackWalker (shadow created for its nullability, generated)
+    class StackWalker$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        void forEach(@NotNull java.util.function.Consumer<? super java.lang.StackWalker.StackFrame> p0) { }
+        static java.lang.StackWalker getInstance(@NotNull java.lang.StackWalker.Option p0) { return null; }
+        static java.lang.StackWalker getInstance(@NotNull java.util.Set<java.lang.StackWalker.Option> p0) { return null; }
+        static java.lang.StackWalker getInstance(@NotNull java.util.Set<java.lang.StackWalker.Option> p0, int p1) { return null; }
+        <T> T walk(@NotNull java.util.function.Function<? super java.util.stream.Stream<java.lang.StackWalker.StackFrame>, ? extends T> p0) { return null; }
+
+        //public java.lang.StackWalker.StackFrame (shadow created for its nullability, generated)
+        class StackFrame {
+            // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+            @Nullable java.lang.String getFileName() { return null; }
+        }
+    }
+
+    //public java.lang.StringIndexOutOfBoundsException (shadow created for its nullability, generated)
+    class StringIndexOutOfBoundsException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        StringIndexOutOfBoundsException$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.ThreadGroup (shadow created for its nullability, generated)
+    class ThreadGroup$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        ThreadGroup$(@Nullable java.lang.String p0) { }
+        ThreadGroup$(@NotNull java.lang.ThreadGroup p0, @Nullable java.lang.String p1) { }
+        int enumerate(@NotNull java.lang.Thread[] p0) { return 0; }
+        int enumerate(@NotNull java.lang.Thread[] p0, boolean p1) { return 0; }
+        int enumerate(@NotNull java.lang.ThreadGroup[] p0) { return 0; }
+        int enumerate(@NotNull java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
+        @Nullable java.lang.String getName() { return null; }
+        @Nullable java.lang.ThreadGroup getParent() { return null; }
+        boolean parentOf(@NotNull java.lang.ThreadGroup p0) { return false; }
+        void uncaughtException(@NotNull java.lang.Thread p0, @NotNull java.lang.Throwable p1) { }
+    }
+
+    //public java.lang.TypeNotPresentException (shadow created for its nullability, generated)
+    class TypeNotPresentException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        TypeNotPresentException$(@NotNull java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+    }
+
+    //public java.lang.UnknownError (shadow created for its nullability, generated)
+    class UnknownError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        UnknownError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.UnsatisfiedLinkError (shadow created for its nullability, generated)
+    class UnsatisfiedLinkError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        UnsatisfiedLinkError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.UnsupportedClassVersionError (shadow created for its nullability, generated)
+    class UnsupportedClassVersionError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        UnsupportedClassVersionError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.UnsupportedOperationException (shadow created for its nullability, generated)
+    class UnsupportedOperationException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        UnsupportedOperationException$(@Nullable java.lang.String p0) { }
+        UnsupportedOperationException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        UnsupportedOperationException$(@Nullable java.lang.Throwable p0) { }
+    }
+
+    //public java.lang.VerifyError (shadow created for its nullability, generated)
+    class VerifyError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        VerifyError$(@Nullable java.lang.String p0) { }
+    }
+
+    //public java.lang.VirtualMachineError (shadow created for its nullability, generated)
+    class VirtualMachineError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        VirtualMachineError$(@Nullable java.lang.String p0) { }
+        VirtualMachineError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        VirtualMachineError$(@Nullable java.lang.Throwable p0) { }
     }
 }

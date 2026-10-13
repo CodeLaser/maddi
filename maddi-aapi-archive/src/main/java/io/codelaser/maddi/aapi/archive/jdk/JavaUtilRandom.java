@@ -15,6 +15,7 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.random.RandomGenerator;
 import java.util.stream.*;
+import io.codelaser.maddi.annotation.NotNull;
 public class JavaUtilRandom {
     public static final String PACKAGE_NAME = "java.util.random";
     //public interface RandomGenerator
@@ -22,7 +23,7 @@ public class JavaUtilRandom {
         //public interface ArbitrarilyJumpableGenerator implements RandomGenerator.LeapableGenerator
         class ArbitrarilyJumpableGenerator {
             //override from java.util.random.RandomGenerator.JumpableGenerator, java.util.random.RandomGenerator.LeapableGenerator, java.util.random.RandomGenerator.StreamableGenerator
-            static RandomGenerator.ArbitrarilyJumpableGenerator of(String name) { return null; }
+            static RandomGenerator.ArbitrarilyJumpableGenerator of(@NotNull String name) { return null; }
 
             //override from java.util.random.RandomGenerator.JumpableGenerator, java.util.random.RandomGenerator.LeapableGenerator
             RandomGenerator.ArbitrarilyJumpableGenerator copy() { return null; }
@@ -40,7 +41,7 @@ public class JavaUtilRandom {
         //public interface JumpableGenerator implements RandomGenerator.StreamableGenerator
         class JumpableGenerator {
             //override from java.util.random.RandomGenerator.StreamableGenerator
-            static RandomGenerator.JumpableGenerator of(String name) { return null; }
+            static RandomGenerator.JumpableGenerator of(@NotNull String name) { return null; }
             RandomGenerator.JumpableGenerator copy() { return null; }
             void jump() { }
             double jumpDistance() { return 0.0; }
@@ -57,7 +58,7 @@ public class JavaUtilRandom {
         //public interface LeapableGenerator implements RandomGenerator.JumpableGenerator
         class LeapableGenerator {
             //override from java.util.random.RandomGenerator.JumpableGenerator, java.util.random.RandomGenerator.StreamableGenerator
-            static RandomGenerator.LeapableGenerator of(String name) { return null; }
+            static RandomGenerator.LeapableGenerator of(@NotNull String name) { return null; }
 
             //override from java.util.random.RandomGenerator.JumpableGenerator
             RandomGenerator.LeapableGenerator copy() { return null; }
@@ -71,20 +72,20 @@ public class JavaUtilRandom {
         //public interface SplittableGenerator implements RandomGenerator.StreamableGenerator
         class SplittableGenerator {
             //override from java.util.random.RandomGenerator.StreamableGenerator
-            static RandomGenerator.SplittableGenerator of(String name) { return null; }
+            static RandomGenerator.SplittableGenerator of(@NotNull String name) { return null; }
             RandomGenerator.SplittableGenerator split() { return null; }
-            RandomGenerator.SplittableGenerator split(RandomGenerator.SplittableGenerator splittableGenerator) {
+            RandomGenerator.SplittableGenerator split(@NotNull RandomGenerator.SplittableGenerator splittableGenerator) {
                 return null;
             }
             Stream<RandomGenerator.SplittableGenerator> splits() { return null; }
             Stream<RandomGenerator.SplittableGenerator> splits(long l) { return null; }
-            Stream<RandomGenerator.SplittableGenerator> splits(RandomGenerator.SplittableGenerator splittableGenerator) {
+            Stream<RandomGenerator.SplittableGenerator> splits(@NotNull RandomGenerator.SplittableGenerator splittableGenerator) {
                 return null;
             }
 
             Stream<RandomGenerator.SplittableGenerator> splits(
                 long l,
-                RandomGenerator.SplittableGenerator splittableGenerator) { return null; }
+                @NotNull RandomGenerator.SplittableGenerator splittableGenerator) { return null; }
 
             //override from java.util.random.RandomGenerator.StreamableGenerator
             Stream<RandomGenerator> rngs() { return null; }
@@ -95,11 +96,11 @@ public class JavaUtilRandom {
 
         //public interface StreamableGenerator implements RandomGenerator
         class StreamableGenerator {
-            static RandomGenerator.StreamableGenerator of(String name) { return null; }
+            static RandomGenerator.StreamableGenerator of(@NotNull String name) { return null; }
             Stream<RandomGenerator> rngs() { return null; }
             Stream<RandomGenerator> rngs(long streamSize) { return null; }
         }
-        static RandomGenerator of(String name) { return null; }
+        static RandomGenerator of(@NotNull String name) { return null; }
         static RandomGenerator getDefault() { return null; }
         boolean isDeprecated() { return false; }
         DoubleStream doubles() { return null; }
@@ -117,7 +118,7 @@ public class JavaUtilRandom {
         LongStream longs(long streamSize, long l, long randomNumberOrigin) { return null; }
         boolean nextBoolean() { return false; }
         //override has frequency 1
-        void nextBytes(byte [] bytes) { }
+        void nextBytes(@NotNull byte [] bytes) { }
         float nextFloat() { return 0.0F; }
         float nextFloat(float bound) { return 0.0F; }
         float nextFloat(float origin, float bound) { return 0.0F; }
@@ -135,5 +136,12 @@ public class JavaUtilRandom {
         double nextGaussian() { return 0.0; }
         double nextGaussian(double mean, double d) { return 0.0; }
         double nextExponential() { return 0.0; }
+    }
+
+    //public java.util.random.RandomGeneratorFactory (shadow created for its nullability, generated)
+    class RandomGeneratorFactory$<T extends java.util.random.RandomGenerator> {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        T create(@NotNull byte[] p0) { return null; }
+        static <T extends java.util.random.RandomGenerator> java.util.random.RandomGeneratorFactory<T> of(@NotNull java.lang.String p0) { return null; }
     }
 }

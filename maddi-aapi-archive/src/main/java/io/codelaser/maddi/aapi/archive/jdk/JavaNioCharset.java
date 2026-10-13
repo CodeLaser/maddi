@@ -23,6 +23,8 @@ import java.util.Set;
 import java.util.SortedMap;
 
 import io.codelaser.maddi.annotation.Immutable;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaNioCharset {
     public static final String PACKAGE_NAME = "java.nio.charset";
@@ -32,9 +34,9 @@ public class JavaNioCharset {
     // Same shape as java.nio.file.Path.
     @Immutable
     class Charset$ {
-        static boolean isSupported(String charsetName) { return false; }
-        static Charset forName(String charsetName) { return null; }
-        static Charset forName(String charsetName, Charset fallback) { return null; }
+        static boolean isSupported(@NotNull String charsetName) { return false; }
+        static Charset forName(@NotNull String charsetName) { return null; }
+        @Nullable static Charset forName(@NotNull String charsetName, @Nullable Charset fallback) { return null; }
         //@Independent[T]
         static SortedMap<String, Charset> availableCharsets() { return null; }
         static Charset defaultCharset() { return null; }
@@ -43,17 +45,17 @@ public class JavaNioCharset {
         Set<String> aliases() { return null; }
         String displayName() { return null; }
         boolean isRegistered() { return false; }
-        String displayName(Locale locale) { return null; }
-        boolean contains(Charset charset) { return false; }
+        String displayName(@NotNull Locale locale) { return null; }
+        boolean contains(@NotNull Charset charset) { return false; }
         CharsetDecoder newDecoder() { return null; }
         CharsetEncoder newEncoder() { return null; }
         boolean canEncode() { return false; }
-        CharBuffer decode(ByteBuffer bb) { return null; }
-        ByteBuffer encode(CharBuffer cb) { return null; }
-        ByteBuffer encode(String str) { return null; }
+        CharBuffer decode(@NotNull ByteBuffer bb) { return null; }
+        ByteBuffer encode(@NotNull CharBuffer cb) { return null; }
+        ByteBuffer encode(@NotNull String str) { return null; }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ Charset that) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull Charset that) { return 0; }
 
         //override from java.lang.Object
         //@NotModified[H]
@@ -66,5 +68,8 @@ public class JavaNioCharset {
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        Charset$(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1) { }
     }
 }

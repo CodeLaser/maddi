@@ -20,6 +20,8 @@ import java.time.temporal.*;
 import java.util.Comparator;
 
 import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaTimeChrono {
     public static final String PACKAGE_NAME = "java.time.chrono";
@@ -28,55 +30,55 @@ public class JavaTimeChrono {
     class ChronoLocalDate$ {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoLocalDate> timeLineOrder() { return null; }
-        static ChronoLocalDate from(TemporalAccessor temporal) { return null; }
+        static ChronoLocalDate from(@NotNull TemporalAccessor temporal) { return null; }
         Chronology getChronology() { return null; }
         Era getEra() { return null; }
         boolean isLeapYear() { return false; }
         int lengthOfMonth() { return 0; }
         int lengthOfYear() { return 0; }
         //override from java.time.temporal.TemporalAccessor
-        boolean isSupported(TemporalField field) { return false; }
+        boolean isSupported(@NotNull TemporalField field) { return false; }
 
         //override from java.time.temporal.Temporal
-        boolean isSupported(TemporalUnit unit) { return false; }
+        boolean isSupported(@NotNull TemporalUnit unit) { return false; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate with(TemporalAdjuster adjuster) { return null; }
+        ChronoLocalDate with(@NotNull TemporalAdjuster adjuster) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate with(TemporalField field, long newValue) { return null; }
+        ChronoLocalDate with(@NotNull TemporalField field, long newValue) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate plus(TemporalAmount amount) { return null; }
+        ChronoLocalDate plus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate plus(long amountToAdd, TemporalUnit temporalUnit) { return null; }
+        ChronoLocalDate plus(long amountToAdd, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate minus(TemporalAmount amount) { return null; }
+        ChronoLocalDate minus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDate minus(long amountToSubtract, TemporalUnit temporalUnit) { return null; }
+        ChronoLocalDate minus(long amountToSubtract, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.TemporalAccessor
         //@Independent(hc=true)[H]
-        <R> R query(TemporalQuery<R> query) { return null; }
+        <R> R query(@NotNull TemporalQuery<R> query) { return null; }
 
         //override from java.time.temporal.TemporalAdjuster
-        Temporal adjustInto(Temporal temporal) { return null; }
+        Temporal adjustInto(@NotNull Temporal temporal) { return null; }
 
         //override from java.time.temporal.Temporal
-        long until(Temporal temporal, TemporalUnit temporalUnit) { return 0L; }
-        ChronoPeriod until(ChronoLocalDate chronoLocalDate) { return null; }
-        String format(DateTimeFormatter formatter) { return null; }
-        ChronoLocalDateTime<?> atTime(LocalTime localTime) { return null; }
+        long until(@NotNull Temporal temporal, @NotNull TemporalUnit temporalUnit) { return 0L; }
+        ChronoPeriod until(@NotNull ChronoLocalDate chronoLocalDate) { return null; }
+        String format(@NotNull DateTimeFormatter formatter) { return null; }
+        ChronoLocalDateTime<?> atTime(@NotNull LocalTime localTime) { return null; }
         long toEpochDay() { return 0L; }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ ChronoLocalDate other) { return 0; }
-        boolean isAfter(ChronoLocalDate other) { return false; }
-        boolean isBefore(ChronoLocalDate other) { return false; }
-        boolean isEqual(ChronoLocalDate other) { return false; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull ChronoLocalDate other) { return 0; }
+        boolean isAfter(@NotNull ChronoLocalDate other) { return false; }
+        boolean isBefore(@NotNull ChronoLocalDate other) { return false; }
+        boolean isEqual(@NotNull ChronoLocalDate other) { return false; }
         //override from java.lang.Object
         //override has frequency 1
         //@NotModified[H]
@@ -96,51 +98,51 @@ public class JavaTimeChrono {
     class ChronoLocalDateTime$<D extends ChronoLocalDate> {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoLocalDateTime<?>> timeLineOrder() { return null; }
-        static ChronoLocalDateTime<?> from(TemporalAccessor temporal) { return null; }
+        static ChronoLocalDateTime<?> from(@NotNull TemporalAccessor temporal) { return null; }
         Chronology getChronology() { return null; }
         D toLocalDate() { return null; }
         LocalTime toLocalTime() { return null; }
         //override from java.time.temporal.TemporalAccessor
-        boolean isSupported(TemporalField temporalField) { return false; }
+        boolean isSupported(@NotNull TemporalField temporalField) { return false; }
 
         //override from java.time.temporal.Temporal
-        boolean isSupported(TemporalUnit unit) { return false; }
+        boolean isSupported(@NotNull TemporalUnit unit) { return false; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> with(TemporalAdjuster adjuster) { return null; }
+        ChronoLocalDateTime<D> with(@NotNull TemporalAdjuster adjuster) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> with(TemporalField temporalField, long l) { return null; }
+        ChronoLocalDateTime<D> with(@NotNull TemporalField temporalField, long l) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> plus(TemporalAmount amount) { return null; }
+        ChronoLocalDateTime<D> plus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> plus(long l, TemporalUnit temporalUnit) { return null; }
+        ChronoLocalDateTime<D> plus(long l, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> minus(TemporalAmount amount) { return null; }
+        ChronoLocalDateTime<D> minus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoLocalDateTime<D> minus(long amountToSubtract, TemporalUnit temporalUnit) { return null; }
+        ChronoLocalDateTime<D> minus(long amountToSubtract, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.TemporalAccessor
         //@Independent(hc=true)[H]
-        <R> R query(TemporalQuery<R> query) { return null; }
+        <R> R query(@NotNull TemporalQuery<R> query) { return null; }
 
         //override from java.time.temporal.TemporalAdjuster
-        Temporal adjustInto(Temporal temporal) { return null; }
-        String format(DateTimeFormatter formatter) { return null; }
+        Temporal adjustInto(@NotNull Temporal temporal) { return null; }
+        String format(@NotNull DateTimeFormatter formatter) { return null; }
         //override has frequency 1
-        ChronoZonedDateTime<D> atZone(ZoneId zoneId) { return null; }
-        Instant toInstant(ZoneOffset offset) { return null; }
-        long toEpochSecond(ZoneOffset offset) { return 0L; }
+        ChronoZonedDateTime<D> atZone(@NotNull ZoneId zoneId) { return null; }
+        Instant toInstant(@NotNull ZoneOffset offset) { return null; }
+        long toEpochSecond(@NotNull ZoneOffset offset) { return 0L; }
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ ChronoLocalDateTime<?> other) { return 0; }
-        boolean isAfter(ChronoLocalDateTime<?> other) { return false; }
-        boolean isBefore(ChronoLocalDateTime<?> other) { return false; }
-        boolean isEqual(ChronoLocalDateTime<?> other) { return false; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull ChronoLocalDateTime<?> other) { return 0; }
+        boolean isAfter(@NotNull ChronoLocalDateTime<?> other) { return false; }
+        boolean isBefore(@NotNull ChronoLocalDateTime<?> other) { return false; }
+        boolean isEqual(@NotNull ChronoLocalDateTime<?> other) { return false; }
         //override from java.lang.Object
         //@NotModified[H]
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Object object) { return false; }
@@ -159,15 +161,15 @@ public class JavaTimeChrono {
     class ChronoZonedDateTime$<D extends ChronoLocalDate> {
         //@Immutable(hc=true)[T] @Independent[T]
         static Comparator<ChronoZonedDateTime<?>> timeLineOrder() { return null; }
-        static ChronoZonedDateTime<?> from(TemporalAccessor temporal) { return null; }
+        static ChronoZonedDateTime<?> from(@NotNull TemporalAccessor temporal) { return null; }
         //override from java.time.temporal.TemporalAccessor
-        ValueRange range(TemporalField field) { return null; }
+        ValueRange range(@NotNull TemporalField field) { return null; }
 
         //override from java.time.temporal.TemporalAccessor
-        int get(TemporalField field) { return 0; }
+        int get(@NotNull TemporalField field) { return 0; }
 
         //override from java.time.temporal.TemporalAccessor
-        long getLong(TemporalField field) { return 0L; }
+        long getLong(@NotNull TemporalField field) { return 0L; }
 
         //override has frequency 6
         D toLocalDate() { return null; }
@@ -180,51 +182,51 @@ public class JavaTimeChrono {
         ZoneId getZone() { return null; }
         ChronoZonedDateTime<D> withEarlierOffsetAtOverlap() { return null; }
         ChronoZonedDateTime<D> withLaterOffsetAtOverlap() { return null; }
-        ChronoZonedDateTime<D> withZoneSameLocal(ZoneId zoneId) { return null; }
+        ChronoZonedDateTime<D> withZoneSameLocal(@NotNull ZoneId zoneId) { return null; }
         //override has frequency 1
-        ChronoZonedDateTime<D> withZoneSameInstant(ZoneId zoneId) { return null; }
+        ChronoZonedDateTime<D> withZoneSameInstant(@NotNull ZoneId zoneId) { return null; }
 
         //override from java.time.temporal.TemporalAccessor
-        boolean isSupported(TemporalField temporalField) { return false; }
+        boolean isSupported(@NotNull TemporalField temporalField) { return false; }
 
         //override from java.time.temporal.Temporal
-        boolean isSupported(TemporalUnit unit) { return false; }
+        boolean isSupported(@NotNull TemporalUnit unit) { return false; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> with(TemporalAdjuster adjuster) { return null; }
+        ChronoZonedDateTime<D> with(@NotNull TemporalAdjuster adjuster) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> with(TemporalField temporalField, long l) { return null; }
+        ChronoZonedDateTime<D> with(@NotNull TemporalField temporalField, long l) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> plus(TemporalAmount amount) { return null; }
+        ChronoZonedDateTime<D> plus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> plus(long l, TemporalUnit temporalUnit) { return null; }
+        ChronoZonedDateTime<D> plus(long l, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> minus(TemporalAmount amount) { return null; }
+        ChronoZonedDateTime<D> minus(@NotNull TemporalAmount amount) { return null; }
 
         //override from java.time.temporal.Temporal
-        ChronoZonedDateTime<D> minus(long amountToSubtract, TemporalUnit temporalUnit) { return null; }
+        ChronoZonedDateTime<D> minus(long amountToSubtract, @NotNull TemporalUnit temporalUnit) { return null; }
 
         //override from java.time.temporal.TemporalAccessor
         //@Independent(hc=true)[H]
-        <R> R query(TemporalQuery<R> query) { return null; }
-        String format(DateTimeFormatter formatter) { return null; }
+        <R> R query(@NotNull TemporalQuery<R> query) { return null; }
+        String format(@NotNull DateTimeFormatter formatter) { return null; }
         Instant toInstant() { return null; }
         long toEpochSecond() { return 0L; }
         //override from java.lang.Comparable
         //frequency 6
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ ChronoZonedDateTime<?> other) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull ChronoZonedDateTime<?> other) { return 0; }
 
         //frequency 6
-        boolean isBefore(ChronoZonedDateTime<?> other) { return false; }
+        boolean isBefore(@NotNull ChronoZonedDateTime<?> other) { return false; }
 
         //frequency 4
-        boolean isAfter(ChronoZonedDateTime<?> other) { return false; }
-        boolean isEqual(ChronoZonedDateTime<?> other) { return false; }
+        boolean isAfter(@NotNull ChronoZonedDateTime<?> other) { return false; }
+        boolean isEqual(@NotNull ChronoZonedDateTime<?> other) { return false; }
         //override from java.lang.Object
         //@NotModified[H]
         public boolean equals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ Object object) { return false; }
@@ -237,5 +239,47 @@ public class JavaTimeChrono {
         //override has frequency 6
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
+    }
+
+    //public java.time.chrono.AbstractChronology (shadow created for its nullability, generated)
+    class AbstractChronology$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        int compareTo(@NotNull java.time.chrono.Chronology p0) { return 0; }
+        @Nullable java.time.chrono.ChronoLocalDate resolveDate(@NotNull java.util.Map<java.time.temporal.TemporalField, java.lang.Long> p0, @NotNull java.time.format.ResolverStyle p1) { return null; }
+    }
+
+    //public java.time.chrono.ChronoPeriod (shadow created for its nullability, generated)
+    class ChronoPeriod$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        java.time.temporal.Temporal addTo(@NotNull java.time.temporal.Temporal p0) { return null; }
+        static java.time.chrono.ChronoPeriod between(@NotNull java.time.chrono.ChronoLocalDate p0, @NotNull java.time.chrono.ChronoLocalDate p1) { return null; }
+        long get(@NotNull java.time.temporal.TemporalUnit p0) { return 0; }
+        java.time.chrono.ChronoPeriod minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.chrono.ChronoPeriod plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        java.time.temporal.Temporal subtractFrom(@NotNull java.time.temporal.Temporal p0) { return null; }
+    }
+
+    //public java.time.chrono.Chronology (shadow created for its nullability, generated)
+    class Chronology$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        int compareTo(@NotNull java.time.chrono.Chronology p0) { return 0; }
+        java.time.chrono.ChronoLocalDate date(@NotNull java.time.chrono.Era p0, int p1, int p2, int p3) { return null; }
+        java.time.chrono.ChronoLocalDate date(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        java.time.chrono.ChronoLocalDate dateNow(@NotNull java.time.Clock p0) { return null; }
+        java.time.chrono.ChronoLocalDate dateNow(@NotNull java.time.ZoneId p0) { return null; }
+        java.time.chrono.ChronoLocalDate dateYearDay(@NotNull java.time.chrono.Era p0, int p1, int p2) { return null; }
+        long epochSecond(@NotNull java.time.chrono.Era p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull java.time.ZoneOffset p7) { return 0; }
+        long epochSecond(int p0, int p1, int p2, int p3, int p4, int p5, @NotNull java.time.ZoneOffset p6) { return 0; }
+        static java.time.chrono.Chronology from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        @Nullable java.lang.String getCalendarType() { return null; }
+        java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
+        java.time.chrono.ChronoLocalDateTime<? extends java.time.chrono.ChronoLocalDate> localDateTime(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+        static java.time.chrono.Chronology of(@NotNull java.lang.String p0) { return null; }
+        static java.time.chrono.Chronology ofLocale(@NotNull java.util.Locale p0) { return null; }
+        int prolepticYear(@NotNull java.time.chrono.Era p0, int p1) { return 0; }
+        java.time.temporal.ValueRange range(@NotNull java.time.temporal.ChronoField p0) { return null; }
+        @Nullable java.time.chrono.ChronoLocalDate resolveDate(@NotNull java.util.Map<java.time.temporal.TemporalField, java.lang.Long> p0, @NotNull java.time.format.ResolverStyle p1) { return null; }
+        java.time.chrono.ChronoZonedDateTime<? extends java.time.chrono.ChronoLocalDate> zonedDateTime(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
+        java.time.chrono.ChronoZonedDateTime<? extends java.time.chrono.ChronoLocalDate> zonedDateTime(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
     }
 }
