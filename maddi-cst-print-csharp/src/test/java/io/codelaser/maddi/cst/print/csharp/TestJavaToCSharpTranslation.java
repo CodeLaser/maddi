@@ -1604,6 +1604,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
+                static <T> java.util.Set<T> identitySet() { return java.util.Collections.newSetFromMap(new java.util.HashMap<>()); }
+                static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
+                static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
                 static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
                 static <V> java.util.function.IntFunction<java.util.Set<V>> sets() { return java.util.HashSet::new; }
                 static <R> java.util.List<R> empty() { return new java.util.ArrayList<>(); }
@@ -1631,6 +1634,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a raw constructor reference creates the type Java inferred for its result
         contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
         contains(cs, "new HashSet<V>(p0)");
+        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean> of newSetFromMap, as inferred
+        contains(cs, "new Dictionary<T, bool>()");
+        // an argument of a creation: the creation's own type arguments, as printed
+        contains(cs, "new SortedDictionary<R, R>()");
         // an override inherits its constraints, and may not repeat them (CS0460)
         contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
         contains(cs, "internal override S Build<S>(S s) => s;");

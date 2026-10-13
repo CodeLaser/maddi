@@ -180,7 +180,12 @@ implements the interface.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
   for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
-  reference binds.
+  reference binds; through the parameter's whole type and a supertype the class declares with its own type
+  parameters (`newSetFromMap(new HashMap<>())` is `new Dictionary<T, bool>()` for `Map<E, Boolean>`), and an outer
+  creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch.
+- **Type parameters in scope.** Where the printer writes a type Java inferred (a cast after an erased call, explicit
+  type arguments, a diamond), each type parameter in it must be one C# can name there: a method's being printed, or
+  the current type's or an enclosing one's, not in the non-generic companion class of the static members.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`.
