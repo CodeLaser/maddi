@@ -1595,6 +1595,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     return stream;
                 }
                 <NewA> Stream<NewA> group(Group<A, NewA> group) { return share(new Bridge<>(this), group::setBridge); }
+                static final class Bridge2<A, B> implements Stream<B> { Bridge2(Streams<?> parent) { } }
+                static final class Joined<A, B> implements Stream<B> { void setBridge(Bridge2<A, B> bridge) { } }
+                <B> Stream<B> join(Joined<A, B> joined) { return share(new Bridge2<>(this), joined::setBridge); }
                 static <T> String key(Function<T, ?> mapping, T t) { return String.valueOf(mapping.apply(t)); }
                 static <T, P> String keyed(Function<T, P> mapping, T t) { return key(mapping, t); }
                 static String raw(Function mapping) { return String.valueOf(mapping.apply("x")); }
@@ -1623,6 +1626,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "new MapStream<A, ResultA_>(");
         // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
         contains(cs, "new Bridge<NewA>(this)");
+        contains(cs, "new Bridge2<A, B>(this)");
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");

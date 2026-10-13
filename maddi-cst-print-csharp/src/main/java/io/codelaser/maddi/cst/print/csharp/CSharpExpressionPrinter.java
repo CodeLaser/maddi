@@ -900,10 +900,31 @@ public final class CSharpExpressionPrinter {
      */
     private static ParameterizedType argumentTarget(Expression value, MethodInfo method, int i) {
         ParameterizedType target = parameterType(method, i);
-        if (target != null || method == null || i != method.parameters().size() - 1) return target;
+        if (target != null || method == null || i != method.parameters().size() - 1) return createdTypeArguments(target, method);
         ParameterInfo p = method.parameters().get(i);
         ParameterizedType type = value.parameterizedType();
-        return p.isVarArgs() && type != null && type.arrays() == p.parameterizedType().arrays() ? p.parameterizedType() : null;
+        return p.isVarArgs() && type != null && type.arrays() == p.parameterizedType().arrays()
+                ? createdTypeArguments(p.parameterizedType(), method) : null;
+    }
+
+    /**
+     * A constructor's parameter type with the class's type parameters the type arguments it is created with:
+     * {@code new DefaultBiJoiner(new Function[0])}, raw in a static member, is
+     * {@code new DefaultBiJoiner<object, object>(new Func<object, object>[0])}, not the class's {@code A}, out of scope.
+     */
+    private static ParameterizedType createdTypeArguments(ParameterizedType target, MethodInfo method) {
+        if (target == null || method == null || !method.isConstructor()) return target;
+        if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || cc.constructor() != method) return target;
+        ParameterizedType created = CSharpContext.created(cc);
+        if (created == null || created.typeInfo() == null
+            || created.parameters().size() != created.typeInfo().typeParameters().size()) {
+            return target;
+        }
+        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+        for (int k = 0; k < created.parameters().size(); k++) {
+            map.put(created.typeInfo().typeParameters().get(k), created.parameters().get(k));
+        }
+        return CSharpTypePrinter.substitute(target, map);
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
