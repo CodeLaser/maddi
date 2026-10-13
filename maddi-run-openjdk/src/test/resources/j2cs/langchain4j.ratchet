@@ -63,9 +63,12 @@
 #
 # 2026-10-12, companions of self-bounded types (CSharpCompanions) for their wildcards and raw uses: 273 -> 284
 # compiling files.
+#
+# 2026-10-13, the JDK mappings that came with JAXB (java.net.URL, Class.getResource, Duration.parse/toString, Locale's
+# language tags): 154 -> 153 unmapped uses.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
 compilingFiles	284
-unmappedJdkUses	154
+unmappedJdkUses	153

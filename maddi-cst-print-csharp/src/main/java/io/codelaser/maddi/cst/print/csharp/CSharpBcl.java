@@ -792,7 +792,10 @@ final class CSharpBcl implements LibraryMapping {
         m(st + "limit/1", "$0.Take((int) $1)", LINQ);
         m(st + "skip/1", "$0.Skip((int) $1)", LINQ);
         m(st + "empty/0", "Enumerable.Empty<{R0}>()", LINQ);
-        m(st + "of/1", "new[] { $* }");
+        // of(T...) given an array: the array itself is the elements
+        chooser(st + "of/1", (method, call) -> rule(method.isVarargs() && call != null
+                && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
+                ? "$1" : "new[] { $* }"));
         m(st + "concat/2", "$1.Concat($2)", LINQ);
         m(st + "toArray/0", "$0.ToArray()", LINQ);
         // the generator, String[]::new, is the array's type, which C#'s ToArray knows
@@ -983,6 +986,11 @@ final class CSharpBcl implements LibraryMapping {
         m("java.time.Duration.toNanos/0", "@0.Ticks * 100");
         m("java.time.Duration.getSeconds/0", "(long) @0.TotalSeconds");
         m("java.time.Duration.between/2", "@2 - @1");
+        // ISO-8601, PT1H30M, as XML Schema's duration is
+        m("java.time.Duration.parse/1", "XmlConvert.ToTimeSpan($1)", "System.Xml");
+        m("java.time.Duration.toString/0", "XmlConvert.ToString($0)", "System.Xml");
+        m("java.util.Locale.forLanguageTag/1", "CultureInfo.GetCultureInfo($1)", GLOBALIZATION);
+        m("java.util.Locale.toLanguageTag/0", "$0.Name");
         m("java.time.Clock.systemDefaultZone/0", "TimeProvider.System", SYSTEM);
         m("java.time.Clock.systemUTC/0", "TimeProvider.System", SYSTEM);
         m("java.time.Clock.instant/0", "$0.GetUtcNow()");
