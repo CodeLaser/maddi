@@ -186,6 +186,45 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Path out = Path.of("build/j2k", name);
         deleteRecursively(out);
         Printed main = print(corpus, corpus.types(), options, out.resolve("src"));
+        judge(corpus, out, main, () -> print(corpus, corpus.testTypes(), options, out.resolve("test-src")));
+    }
+
+    /** The translation of the test sources, made when the tests run. */
+    @FunctionalInterface
+    private interface TestTranslation {
+        Printed get() throws IOException;
+    }
+
+    /**
+     * A translation made elsewhere (IntelliJ J2K, for the KotlinConf scoreboard, CodeLaser/maddi-mod#36), judged by the
+     * same rules: the .kt files under {@code mainKotlin} are copied into {@code build/j2k/<name>/src}, and those under
+     * {@code testKotlin}, when there are any, into {@code test-src}. Without translated tests, compile 4 and the
+     * translated-test run are left out, and the report says so. For {@link #measureOnly}: nothing is ratcheted.
+     */
+    public void judgeExternal(Corpus corpus, Path mainKotlin, Path testKotlin) throws Exception {
+        Path out = Path.of("build/j2k", name);
+        deleteRecursively(out);
+        Printed main = new Printed(copyKotlin(mainKotlin, out.resolve("src")), List.of(), List.of());
+        List<Path> tests = testKotlin == null ? List.of() : copyKotlin(testKotlin, out.resolve("test-src"));
+        judge(corpus, out, main, tests.isEmpty() ? null : () -> new Printed(tests, List.of(), List.of()));
+    }
+
+    private static List<Path> copyKotlin(Path from, Path to) throws IOException {
+        if (!Files.isDirectory(from)) return List.of();
+        List<Path> copied = new ArrayList<>();
+        try (java.util.stream.Stream<Path> walk = Files.walk(from)) {
+            for (Path kt : walk.filter(p -> p.toString().endsWith(".kt")).sorted().toList()) {
+                Path target = to.resolve(from.relativize(kt).toString());
+                Files.createDirectories(target.getParent());
+                Files.copy(kt, target);
+                copied.add(target.toAbsolutePath().normalize());
+            }
+        }
+        return copied;
+    }
+
+    /** Compiles the main translation twice and to class files, runs the corpus's tests, reports, and ratchets. */
+    private void judge(Corpus corpus, Path out, Printed main, TestTranslation testTranslation) throws Exception {
         List<Path> files = main.files;
         List<String> crashes = main.crashes;
         List<PrintMessage<KotlinPrintCode>> messages = main.messages;
@@ -233,22 +272,26 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
 
             // the tests translated as well: Kotlin tests against the Kotlin translation
-            Printed tests = print(corpus, corpus.testTypes(), options, out.resolve("test-src"));
-            List<String> testClassPath = new ArrayList<>(classPath);
-            testClassPath.add(bytecode.classes.toAbsolutePath().toString());
-            testClassPath.add(Path.of(corpus.main().uri()).toString());
-            testClassPath.add(testClasses.toString());
-            Bytecode testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
-            measured.put("testBytecodeFiles", (long) testBytecode.files.size());
-            Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses, runner,
-                    out.resolve("tests/translated"));
-            measured.put("translatedTestsPassing", (long) translated.passed.size());
-            testReport += "\ntest sources translated: " + corpus.testTypes().size() + " types, "
-                          + tests.crashes.size() + " printer crashes" + bytecodeReport(testBytecode, "compile 4 (the "
-                          + "test sources to class files)")
-                          + testReport(original, translated, out.resolve("tests"), "translated tests");
-            if (!tests.crashes.isEmpty()) testReport += "  test printer crashes:\n" + tests.crashes.stream()
-                    .map(c -> "    " + c + "\n").collect(Collectors.joining());
+            if (testTranslation == null) {
+                testReport += "\ntest sources translated: none given (compile 4 and the translated tests left out)\n";
+            } else {
+                Printed tests = testTranslation.get();
+                List<String> testClassPath = new ArrayList<>(classPath);
+                testClassPath.add(bytecode.classes.toAbsolutePath().toString());
+                testClassPath.add(Path.of(corpus.main().uri()).toString());
+                testClassPath.add(testClasses.toString());
+                Bytecode testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
+                measured.put("testBytecodeFiles", (long) testBytecode.files.size());
+                Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses, runner,
+                        out.resolve("tests/translated"));
+                measured.put("translatedTestsPassing", (long) translated.passed.size());
+                testReport += "\ntest sources translated: " + corpus.testTypes().size() + " types, "
+                              + tests.crashes.size() + " printer crashes" + bytecodeReport(testBytecode, "compile 4 (the "
+                              + "test sources to class files)")
+                              + testReport(original, translated, out.resolve("tests"), "translated tests");
+                if (!tests.crashes.isEmpty()) testReport += "  test printer crashes:\n" + tests.crashes.stream()
+                        .map(c -> "    " + c + "\n").collect(Collectors.joining());
+            }
         } else {
             testReport = "\ntests: not run (" + (testSet.isEmpty() ? "no test source set"
                     : runner == null || runner.isBlank() ? "no -Dmaddi.test.junitConsoleClasspath"
