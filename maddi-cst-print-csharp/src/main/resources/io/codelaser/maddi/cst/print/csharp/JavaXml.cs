@@ -19,13 +19,16 @@ using System.Xml.Xsl;
 
 namespace Maddi.JavaCompat;
 
+// JAXB passes null through an adapter both ways; an override may say that its values are not null
+#nullable enable
 /// <summary>JAXB's XmlAdapter: <typeparamref name="V"/>, what XmlSerializer writes, for <typeparamref name="B"/>.</summary>
 public abstract class JavaXmlAdapter<V, B>
 {
-    public abstract B Unmarshal(V v);
+    public abstract B? Unmarshal(V? v);
 
-    public abstract V Marshal(B b);
+    public abstract V? Marshal(B? b);
 }
+#nullable disable
 
 /// <summary>JAXB's JAXBException.</summary>
 public class JavaJaxbException : Exception
