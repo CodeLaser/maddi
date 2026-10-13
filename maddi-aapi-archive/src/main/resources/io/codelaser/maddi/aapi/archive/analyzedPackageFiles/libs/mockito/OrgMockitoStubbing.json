@@ -1,0 +1,41 @@
+[
+{"format": "maddi-analysis-results", "version": 1},
+
+{"name": "Torg.mockito.stubbing.BaseStubber", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MdoAnswer(0,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MdoCallRealMethod(1)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MdoNothing(2)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MdoReturn(3,java.lang.Object)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdoReturn(4,java.lang.Object,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MdoThrow(5,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MdoThrow(6,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MdoThrow(7,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]},
+
+{"name": "Torg.mockito.stubbing.OngoingStubbing", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "MgetMock(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
+ {"name": "Mthen(1,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenAnswer(2,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MthenCallRealMethod(3)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MthenReturn(4,T)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MthenReturn(5,T,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MthenThrow(6,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MthenThrow(7,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MthenThrow(8,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]}
+]

@@ -843,12 +843,12 @@
   {"name": "Ptimeout(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "McompletesExceptionallyWithin(1,long,java.util.concurrent.TimeUnit)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MfailsWithin(2,java.time.Duration)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ptimeout(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MfailsWithin(3,long,java.util.concurrent.TimeUnit)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MhasFailed(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MhasFailedWithThrowableThat(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MhasNotFailed(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -877,10 +877,10 @@
   {"name": "PassertFactory(1)", "data":{"unmodifiedParameter":1}}]},
  {"name": "MsucceedsWithin(22,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MsucceedsWithin(23,long,java.util.concurrent.TimeUnit,org.assertj.core.api.InstanceOfAssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PassertFactory(2)", "data":{"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.AbstractDateAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
@@ -1691,7 +1691,7 @@
   {"name": "Ptimeout(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MfailsWithin(1,long,java.util.concurrent.TimeUnit)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisCancelled(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisDone(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MisNotCancelled(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -1703,10 +1703,10 @@
   {"name": "PassertFactory(1)", "data":{"unmodifiedParameter":1}}]},
  {"name": "MsucceedsWithin(8,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}}]},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MsucceedsWithin(9,long,java.util.concurrent.TimeUnit,org.assertj.core.api.InstanceOfAssertFactory)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptimeout(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Punit(1)", "data":{"unmodifiedParameter":1}},
+  {"name": "Punit(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PassertFactory(2)", "data":{"unmodifiedParameter":1}}]}]},
 
 {"name": "Torg.assertj.core.api.AbstractInputStreamAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
@@ -4197,40 +4197,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(29,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(30,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(31,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(30,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(31,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(32,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(33,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(34,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(33,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(34,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(35,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(36,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(37,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(36,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(37,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(38,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(39,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(40,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(39,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(40,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(41,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(42,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(43,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(42,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(43,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(44,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(45,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(46,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(45,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(46,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(47,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(48,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4343,20 +4343,20 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(101,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(102,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(103,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(102,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(103,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(104,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Passertion(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(105,org.assertj.core.api.AssertProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomponent(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(106,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(107,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(108,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(107,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(108,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCharSequence(109,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCode(110,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4480,11 +4480,11 @@
  {"name": "Mfail(168,java.lang.String,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mfail(169,java.lang.String,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PrealCause(1)", "data":{"unmodifiedParameter":0}}]},
- {"name": "Mfail(170,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PrealCause(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mfail(169,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PfailureMessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PrealCause(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfail(170,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PrealCause(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MfailBecauseExceptionWasNotThrown(171,java.lang.Class)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowableClass(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mfilter(172,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4641,40 +4641,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(20,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(21,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(22,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(21,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(22,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(23,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(24,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(25,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(24,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(25,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(26,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(27,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(28,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(27,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(28,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(29,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(30,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(31,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(30,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(31,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(32,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(33,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(34,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(33,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(34,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(35,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(36,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(37,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(36,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(37,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(38,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(39,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4721,16 +4721,16 @@
   {"name": "Pactual(0)", "data":{"unmodifiedParameter":0}}},
  {"name": "MassertThat(60,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(61,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(62,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(61,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(62,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(63,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(64,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(65,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(64,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(65,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCode(66,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatExceptionOfType(67,java.lang.Class)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4781,11 +4781,11 @@
  {"name": "Mfail(85)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mfail(86,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mfail(87,java.lang.String,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PrealCause(1)", "data":{"unmodifiedParameter":0}}]},
- {"name": "Mfail(88,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PrealCause(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mfail(87,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PfailureMessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PrealCause(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfail(88,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PrealCause(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MfailBecauseExceptionWasNotThrown(89,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowableClass(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mfilter(90,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -4980,40 +4980,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(20,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(21,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(22,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(21,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(22,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(23,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(24,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(25,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(24,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(25,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(26,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(27,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(28,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(27,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(28,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(29,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(30,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(31,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(30,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(31,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(32,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(33,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(34,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(33,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(34,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(35,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(36,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(37,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(36,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(37,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(38,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(39,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5120,16 +5120,16 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThat(90,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(91,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(92,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(91,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(92,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(93,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(94,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(95,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(94,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(95,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThatCharSequence(96,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThatCode(97,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5761,11 +5761,11 @@
  {"name": "Mfail(42,java.lang.String,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mfail(43,java.lang.String,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PrealCause(1)", "data":{"unmodifiedParameter":0}}]},
- {"name": "Mfail(44,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PrealCause(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mfail(43,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PfailureMessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PrealCause(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfail(44,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PrealCause(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "Mfrom(45,java.util.function.Function)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pextractor(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "Min(46,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -5875,40 +5875,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(94,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(95,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(96,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(95,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(96,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(97,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(98,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(99,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(98,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(99,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(100,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(101,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(102,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(101,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(102,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(103,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(104,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(105,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(104,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(105,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(106,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(107,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(108,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(107,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(108,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(109,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(110,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(111,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(110,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(111,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(112,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(113,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6021,20 +6021,20 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mthen(166,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(167,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(168,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(167,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(168,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(169,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Passertion(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(170,org.assertj.core.api.AssertProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomponent(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(171,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(172,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(173,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(172,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(173,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCharSequence(174,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCode(175,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6692,40 +6692,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(25,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(26,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(27,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(26,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(27,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(28,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(29,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(30,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(29,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(30,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(31,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(32,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(33,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(32,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(33,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(34,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(35,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(36,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(35,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(36,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(37,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(38,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(39,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(38,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(39,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(40,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(41,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(42,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(41,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(42,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(43,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(44,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6782,20 +6782,20 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(69,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(70,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(71,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(70,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(71,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(72,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Passertion(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(73,org.assertj.core.api.AssertProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomponent(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(74,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(75,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(76,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(75,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(76,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCharSequence(77,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCode(78,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6865,9 +6865,9 @@
  {"name": "Mfail(105,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mfail(106,java.lang.String,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PrealCause(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mfail(106,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PfailureMessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PrealCause(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
  {"name": "MfailBecauseExceptionWasNotThrown(107,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowableClass(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mfilter(108,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -6993,40 +6993,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(21,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(22,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(23,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(22,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(23,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(24,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(25,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(26,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(25,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(26,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(27,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(28,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(29,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(28,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(29,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(30,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(31,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(32,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(31,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(32,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(33,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(34,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(35,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(34,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(35,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(36,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(37,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(38,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(37,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(38,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(39,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(40,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7083,20 +7083,20 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(65,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(66,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(67,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(66,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(67,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(68,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Passertion(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(69,org.assertj.core.api.AssertProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomponent(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(70,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(71,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(72,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(71,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(72,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCharSequence(73,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCode(74,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7151,40 +7151,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(19,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(20,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(21,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(20,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(21,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(22,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(23,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(24,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(23,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(24,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(25,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(26,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(27,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(26,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(27,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(28,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(29,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(30,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(29,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(30,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(31,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(32,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(33,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(32,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(33,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(34,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(35,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(35,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(36,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -7235,16 +7235,16 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(61,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(62,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(63,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(62,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(63,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mthen(64,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mthen(65,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mthen(66,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mthen(65,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mthen(66,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCharSequence(67,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MthenCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -7319,40 +7319,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(19,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(20,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(21,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(20,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(21,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(22,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(23,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(24,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(23,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(24,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(25,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(26,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(27,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(26,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(27,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(28,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(29,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(30,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(29,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(30,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(31,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(32,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(33,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(32,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(33,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(34,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(35,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(35,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(36,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -7403,16 +7403,16 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(61,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(62,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(63,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(62,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(63,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(64,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(65,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(66,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(65,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(66,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCharSequence(67,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCode(68,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8037,12 +8037,69 @@
   {"name": "PshouldRaiseThrowable(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Ptype(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]}]},
 
+{"name": "Torg.assertj.core.api.ThrowableAssertAlternative", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0,ACTUAL)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"unmodifiedParameter":1}}},
+ {"name": "Mas(0,org.assertj.core.description.Description)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"unmodifiedParameter":1}}},
+ {"name": "MdescribedAs(1,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MdescribedAs(2,org.assertj.core.description.Description)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"unmodifiedParameter":1}}},
+ {"name": "MhavingCause(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MhavingRootCause(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MwithCause(6,java.lang.Throwable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcause(0)", "data":{"unmodifiedParameter":1}}},
+ {"name": "MwithCauseExactlyInstanceOf(7,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithCauseInstanceOf(8,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessage(9,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pmessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessage(10,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pmessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparameters(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithMessageContaining(11,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageContaining(12,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparameters(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithMessageContainingAll(13,java.lang.CharSequence[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageEndingWith(14,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageEndingWith(15,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparameters(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithMessageMatching(16,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pregex(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageNotContaining(17,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcontent(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageNotContainingAny(18,java.lang.CharSequence[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pvalues(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageStartingWith(19,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithMessageStartingWith(20,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparameters(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwithNoCause(21)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MwithRootCauseExactlyInstanceOf(22,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithRootCauseInstanceOf(23,java.lang.Class)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Ptype(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithStackTraceContaining(24,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MwithStackTraceContaining(25,java.lang.String,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pparameters(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]}]},
+
 {"name": "Torg.assertj.core.api.ThrowableTypeAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.lang.Class)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowableType(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MdescribedAs(2,org.assertj.core.description.Description)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pdescription(0)", "data":{"unmodifiedParameter":1}}},
- {"name": "MisThrownBy(3,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MisThrownBy(3,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowingCallable(0)", "data":{"containerParameter":1,"unmodifiedParameter":1}}}]},
 
 {"name": "Torg.assertj.core.api.UniversalComparableAssert", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}},
@@ -8116,40 +8173,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(28,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(29,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(30,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(29,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(30,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(31,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(32,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(33,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(32,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(33,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(34,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(35,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(36,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(35,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(36,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(37,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(38,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(39,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(38,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(39,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(40,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(41,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(42,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(41,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(42,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(43,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(44,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(45,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(44,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(45,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(46,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(47,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -8262,20 +8319,20 @@
   {"name": "Pactual(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThat(100,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(101,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(102,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(101,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(102,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(103,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Passertion(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(104,org.assertj.core.api.AssertProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pcomponent(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThat(105,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassertThat(106,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassertThat(107,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassertThat(106,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassertThat(107,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassertThatCode(108,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassertThatCollection(109,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -8397,11 +8454,11 @@
  {"name": "Mfail(166,java.lang.String,java.lang.Object[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Pargs(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mfail(167,java.lang.String,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "PfailureMessage(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PrealCause(1)", "data":{"unmodifiedParameter":0}}]},
- {"name": "Mfail(168,java.lang.Throwable)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
-  {"name": "PrealCause(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mfail(167,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "PfailureMessage(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PrealCause(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+ {"name": "Mfail(168,java.lang.Throwable)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PrealCause(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MfailBecauseExceptionWasNotThrown(169,java.lang.Class)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "PthrowableClass(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mfilter(170,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -8556,40 +8613,40 @@
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(19,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(20,boolean[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(21,boolean[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(20,boolean[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(21,boolean[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(22,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(23,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(24,byte[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(23,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(24,byte[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(25,char)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(26,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(27,char[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(26,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(27,char[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(28,double)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(29,double[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(30,double[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(29,double[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(30,double[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(31,float)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(32,float[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(33,float[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(32,float[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(33,float[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(34,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(35,int[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(36,int[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(35,int[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(36,int[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(37,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(38,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
@@ -8694,16 +8751,16 @@
   {"name": "Pstream(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThat(88,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(89,long[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(90,long[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(89,long[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(90,long[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThat(91,short)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pactual(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MassumeThat(92,short[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "MassumeThat(93,short[][])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pactual(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MassumeThat(92,short[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MassumeThat(93,short[][])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pactual(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MassumeThatCode(94,org.assertj.core.api.ThrowableAssert.ThrowingCallable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PshouldRaiseOrNotThrowable(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
  {"name": "MassumeThatObject(95,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":

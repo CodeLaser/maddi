@@ -17,30 +17,30 @@
  {"name": "Moffer(7,E,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MofferFirst(8,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MofferFirst(9,E,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MofferLast(10,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MofferLast(11,E,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mpeek(12)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "Mpoll(13)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "Mpoll(14,long,java.util.concurrent.TimeUnit)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MpollFirst(15,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MpollLast(16,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mpush(17,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mput(18,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -76,10 +76,10 @@
  {"name": "Moffer(5,E,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mpoll(6,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mput(7,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MremainingCapacity(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
@@ -128,7 +128,7 @@
  {"name": "McompleteOnTimeout(13,T,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "McompletedFuture(14,U)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "McompletedStage(15,U)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -137,10 +137,10 @@
  {"name": "MdefaultExecutor(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}},
  {"name": "MdelayedExecutor(18,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MdelayedExecutor(19,long,java.util.concurrent.TimeUnit,java.util.concurrent.Executor)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}}]},
  {"name": "MexceptionNow(20)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mexceptionally(21,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
@@ -164,7 +164,7 @@
  {"name": "Mget(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mget(30,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MgetNow(31,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MgetNumberOfDependents(32)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
@@ -187,7 +187,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MorTimeout(44,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MresultNow(45)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MrunAfterBoth(46,java.util.concurrent.CompletionStage,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"unmodifiedParameter":1}},
@@ -661,20 +661,20 @@
 {"name": "Tjava.util.concurrent.ExecutorService", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MawaitTermination(0,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mclose(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MinvokeAll(2,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MinvokeAll(3,java.util.Collection,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MinvokeAny(4,java.util.Collection)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MinvokeAny(5,java.util.Collection,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisShutdown(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MisTerminated(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mshutdown(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
@@ -702,7 +702,7 @@
  {"name": "Mget(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mget(3,long,java.util.concurrent.TimeUnit)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisCancelled(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MisDone(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MresultNow(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -736,12 +736,12 @@
  {"name": "Moffer(9,E,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mpeek(10)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "Mpoll(11)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "Mpoll(12,long,java.util.concurrent.TimeUnit)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mput(13,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MremainingCapacity(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
@@ -824,5 +824,47 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MsetSeed(28,long)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]}
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
+
+{"name": "Tjava.util.concurrent.TimeUnit", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
+ {"name": "FDAYS(0)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FHOURS(1)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FMICROSECONDS(2)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FMILLISECONDS(3)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FMINUTES(4)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FNANOSECONDS(5)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FSECONDS(6)", "data":{"containerField":1,"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "Mconvert(0,java.time.Duration)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mconvert(1,long,java.util.concurrent.TimeUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mof(2,java.time.temporal.ChronoUnit)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Msleep(3,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtimedJoin(4,java.lang.Thread,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtimedWait(5,java.lang.Object,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoChronoUnit(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoDays(7,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoHours(8,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoMicros(9,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoMillis(10,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoMinutes(11,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoNanos(12,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MtoSeconds(13,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MvalueOf(14,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "Mvalues(15)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}}]}
 ]
