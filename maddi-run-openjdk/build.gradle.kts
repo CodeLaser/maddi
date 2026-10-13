@@ -92,10 +92,21 @@ dependencies {
     junitConsole("org.junit.platform:junit-platform-console:6.0.3")
     junitConsole("org.junit.jupiter:junit-jupiter-engine:6.0.3")
 }
+// JUnit 3 and 4 tests (guava's) need the vintage engine too; only a corpus that says so gets it, so that a JUnit 4
+// class elsewhere does not change another corpus's count
+val junitVintage = configurations.create("junitVintage") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    junitVintage("org.junit.vintage:junit-vintage-engine:6.0.3")
+}
 tasks.withType<Test>().configureEach {
     inputs.files(junitConsole).withPropertyName("junitConsole")
+    inputs.files(junitVintage).withPropertyName("junitVintage")
     jvmArgumentProviders.add(CommandLineArgumentProvider {
-        listOf("-Dmaddi.test.junitConsoleClasspath=" + junitConsole.asPath)
+        listOf("-Dmaddi.test.junitConsoleClasspath=" + junitConsole.asPath,
+               "-Dmaddi.test.junitVintageClasspath=" + junitVintage.asPath)
     })
 }
 

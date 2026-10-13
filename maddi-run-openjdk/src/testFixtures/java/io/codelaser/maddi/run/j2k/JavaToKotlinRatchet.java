@@ -147,17 +147,36 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * sorted by name.
      */
     public record Corpus(InputConfigurationImpl config, JavaInspector javaInspector, Summary summary,
-                         SourceSet main, List<TypeInfo> types, List<TypeInfo> testTypes) {
+                         SourceSet main, List<TypeInfo> types, List<TypeInfo> testTypes, SourceSet test,
+                         boolean junit4) {
     }
 
     /** Parses a corpus of {@link Corpora#oss}, which must be built (its class files are compile 2's class path). */
     public static Corpus parse(String corpusName) throws IOException {
+        return switch (corpusName) {
+            // guava's reactor: `guava/9` compiles guava/src (and the module-info) and absorbs `guava/main`, whose classes
+            // stay on the class path as a library; its tests are guava-tests', not guava-testlib's own
+            case "guava" -> parse(corpusName, "guava/9", "guava-tests/test-classes", true);
+            default -> parse(corpusName, null, null, false);
+        };
+    }
+
+    /**
+     * As {@link #parse(String)}, with the main and test source sets named: a multi-module corpus (guava) has more than
+     * one of each, and the first is not always the one translated. Null for the first non-test source set, and for
+     * every test source set's types with the first test source set's tests run. {@code junit4}: the tests are JUnit 3
+     * or 4 (guava's), run by JUnit's vintage engine beside Jupiter.
+     */
+    public static Corpus parse(String corpusName, String mainName, String testName, boolean junit4) throws IOException {
         Corpora.Corpus corpus = Corpora.oss(corpusName);
         // the locator, not a hand-written assumption: it honours -Dmaddi.corpus.required, which slowTest sets
         corpus.requireConfig();
         InputConfigurationImpl config = JsonStreaming.objectMapper()
                 .readValue(corpus.config().toFile(), InputConfigurationImpl.class);
-        SourceSet main = config.sourceSets().stream().filter(s -> !s.test()).findFirst().orElseThrow();
+        SourceSet main = config.sourceSets().stream().filter(s -> !s.test())
+                .filter(s -> mainName == null || mainName.equals(s.name())).findFirst().orElseThrow();
+        SourceSet test = testName == null ? null : config.sourceSets().stream()
+                .filter(s -> s.test() && testName.equals(s.name())).findFirst().orElseThrow();
         Path originalClasses = Path.of(main.uri());
         assertTrue(Files.isDirectory(originalClasses), corpusName + " is not built: no " + originalClasses
                                                        + " -- task corpus:build NAME=" + corpusName);
@@ -172,10 +191,11 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
         List<TypeInfo> testTypes = summary.parseResult().primaryTypes().stream()
-                .filter(t -> t.compilationUnit().sourceSet().test())
+                .filter(t -> t.compilationUnit().sourceSet().test()
+                             && (test == null || t.compilationUnit().sourceSet().name().equals(test.name())))
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
-        return new Corpus(config, javaInspector, summary, main, types, testTypes);
+        return new Corpus(config, javaInspector, summary, main, types, testTypes, test, junit4);
     }
 
     /** Translates, compiles twice, writes the report, and holds the numbers to the ratchet file. */
@@ -262,8 +282,13 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
         // the corpus's own tests, against the original classes and with the Kotlin classes in front of them
         String testReport = "";
-        Optional<SourceSet> testSet = corpus.config().sourceSets().stream().filter(SourceSet::test).findFirst();
+        Optional<SourceSet> testSet = corpus.test() != null ? Optional.of(corpus.test())
+                : corpus.config().sourceSets().stream().filter(SourceSet::test).findFirst();
         String runner = System.getProperty("maddi.test.junitConsoleClasspath");
+        String vintage = System.getProperty("maddi.test.junitVintageClasspath");
+        if (corpus.junit4() && runner != null && vintage != null && !vintage.isBlank()) {
+            runner = runner + java.io.File.pathSeparator + vintage;
+        }
         if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri())) && runner != null && !runner.isBlank()) {
             Path testClasses = Path.of(testSet.get().uri());
             Tests original = runTests(corpus, null, testClasses, runner, out.resolve("tests/original"));
@@ -472,6 +497,12 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     private record Tests(List<String> passed, List<String> failed, List<String> skipped) {
     }
 
+    private static List<String> concat(List<String> a, List<String> b) {
+        List<String> all = new ArrayList<>(a);
+        all.addAll(b);
+        return all;
+    }
+
     /**
      * The corpus's test classes in a child JVM, from the corpus's working directory (fernflower finds its testData
      * there): JUnit's console launcher scans the (original) test classes, the outcome comes from its XML report.
@@ -510,7 +541,15 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         }
         Path xml = reports.resolve("TEST-junit-jupiter.xml");
         if (!Files.isRegularFile(xml)) fail("no test report " + xml + "; see " + log.toAbsolutePath());
-        return parseReport(xml);
+        Tests tests = parseReport(xml);
+        // JUnit 3 and 4 tests, run by the vintage engine (a corpus with junit4), report beside Jupiter's
+        Path vintageXml = reports.resolve("TEST-junit-vintage.xml");
+        if (Files.isRegularFile(vintageXml)) {
+            Tests vintage = parseReport(vintageXml);
+            tests = new Tests(concat(tests.passed(), vintage.passed()), concat(tests.failed(), vintage.failed()),
+                    concat(tests.skipped(), vintage.skipped()));
+        }
+        return tests;
     }
 
     /**
