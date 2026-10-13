@@ -65,10 +65,10 @@
  {"name": "MgroupingByConcurrent(12,java.util.function.Function,java.util.stream.Collector)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mjoining(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
- {"name": "Mjoining(14,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "Mjoining(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q,U,U)"}},
+ {"name": "Mjoining(14,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q,U,U)"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "Mjoining(15,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+ {"name": "Mjoining(15,java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(Q,U,U)"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -462,11 +462,11 @@
  {"name": "MflatMap(13,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MflatMapToDouble(14,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N(U,Q)","unmodifiedParameter":0}}},
  {"name": "MflatMapToInt(15,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N(U,Q)","unmodifiedParameter":0}}},
  {"name": "MflatMapToLong(16,java.util.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N(U,Q)","unmodifiedParameter":0}}},
  {"name": "MforEach(17,java.util.function.Consumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MforEachOrdered(18,java.util.function.Consumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -530,7 +530,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MtakeWhile(45,java.util.function.Predicate)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MtoArray(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MtoArray(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
  {"name": "MtoArray(47,java.util.function.IntFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MtoList(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},

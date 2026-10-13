@@ -56,28 +56,28 @@ public class JavaUtilLogging {
         @Nullable @NotModified java.util.logging.Filter getFilter() { return null; }
         @NotModified void log(@NotNull @Modified java.util.logging.LogRecord p0) { }
         @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1) { }
-        @NotModified void log(@NotNull java.util.logging.Level p0, @NotNull java.util.function.Supplier<java.lang.String> p1) { }
+        @NotModified void log(@NotNull java.util.logging.Level p0, @NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p1) { }
         @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.Object p2) { }
-        @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.Object[] p2) { }
+        @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable(nullableArguments = 0) java.lang.Object[] p2) { }
         @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.Throwable p2) { }
-        @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.Throwable p1, @NotNull java.util.function.Supplier<java.lang.String> p2) { }
+        @NotModified void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.Throwable p1, @NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p2) { }
         @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3) { }
-        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @NotNull java.util.function.Supplier<java.lang.String> p3) { }
+        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p3) { }
         @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.Object p4) { }
-        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.Object[] p4) { }
+        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable(nullableArguments = 0) java.lang.Object[] p4) { }
         @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.Throwable p4) { }
-        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.Throwable p3, @NotNull java.util.function.Supplier<java.lang.String> p4) { }
+        @NotModified void logp(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.Throwable p3, @NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p4) { }
         @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4) { }
         @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable java.lang.Object p5) { }
-        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable java.lang.Object[] p5) { }
-        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.util.ResourceBundle p3, @Nullable java.lang.String p4, @Nullable java.lang.Object... p5) { }
-        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.util.ResourceBundle p1, @Nullable java.lang.String p2, @Nullable java.lang.Object... p3) { }
+        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable(nullableArguments = 0) java.lang.Object[] p5) { }
+        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.util.ResourceBundle p3, @Nullable java.lang.String p4, @Nullable(nullableArguments = 0) java.lang.Object... p5) { }
+        @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.util.ResourceBundle p1, @Nullable java.lang.String p2, @Nullable(nullableArguments = 0) java.lang.Object... p3) { }
         @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.lang.String p3, @Nullable java.lang.String p4, @Nullable java.lang.Throwable p5) { }
         @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2, @Nullable java.util.ResourceBundle p3, @Nullable java.lang.String p4, @Nullable java.lang.Throwable p5) { }
         @NotModified void logrb(@NotNull java.util.logging.Level p0, @Nullable java.util.ResourceBundle p1, @Nullable java.lang.String p2, @Nullable java.lang.Throwable p3) { }
         @NotModified void entering(@Nullable java.lang.String p0, @Nullable java.lang.String p1) { }
         @NotModified void entering(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.Object p2) { }
-        @NotModified void entering(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.Object[] p2) { }
+        @NotModified void entering(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable(nullableArguments = 0) java.lang.Object[] p2) { }
         @NotModified void exiting(@Nullable java.lang.String p0, @Nullable java.lang.String p1) { }
         @NotModified void exiting(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.Object p2) { }
         @NotModified void throwing(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.Throwable p2) { }
@@ -88,13 +88,13 @@ public class JavaUtilLogging {
         @NotModified void fine(@Nullable java.lang.String p0) { }
         @NotModified void finer(@Nullable java.lang.String p0) { }
         @NotModified void finest(@Nullable java.lang.String p0) { }
-        @NotModified void severe(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void warning(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void info(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void config(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void fine(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void finer(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
-        @NotModified void finest(@NotNull java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void severe(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void warning(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void info(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void config(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void fine(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void finer(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
+        @NotModified void finest(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
         void setLevel(@Nullable java.util.logging.Level p0) { }
         @Nullable @NotModified java.util.logging.Level getLevel() { return null; }
         @NotModified boolean isLoggable(@NotNull java.util.logging.Level p0) { return false; }
@@ -134,7 +134,7 @@ public class JavaUtilLogging {
         LogRecord$(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1) { }
         @Nullable java.lang.String getLoggerName() { return null; }
         @Nullable java.lang.String getMessage() { return null; }
-        @Nullable java.lang.Object[] getParameters() { return null; }
+        @Nullable(nullableArguments = 0) java.lang.Object[] getParameters() { return null; }
         @Nullable java.util.ResourceBundle getResourceBundle() { return null; }
         @Nullable java.lang.String getResourceBundleName() { return null; }
         @Nullable java.lang.String getSourceClassName() { return null; }
@@ -144,7 +144,7 @@ public class JavaUtilLogging {
         void setLevel(@NotNull java.util.logging.Level p0) { }
         void setLoggerName(@Nullable java.lang.String p0) { }
         void setMessage(@Nullable java.lang.String p0) { }
-        void setParameters(@Nullable java.lang.Object[] p0) { }
+        void setParameters(@Nullable(nullableArguments = 0) java.lang.Object[] p0) { }
         void setResourceBundle(@Nullable java.util.ResourceBundle p0) { }
         void setResourceBundleName(@Nullable java.lang.String p0) { }
         void setSourceClassName(@Nullable java.lang.String p0) { }

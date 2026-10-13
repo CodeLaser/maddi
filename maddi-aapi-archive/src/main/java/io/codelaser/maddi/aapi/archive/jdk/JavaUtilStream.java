@@ -88,16 +88,16 @@ public class JavaUtilStream {
         static <T> Collector<T, ?, Set<T>> toUnmodifiableSet() { return null; }
 
         //@Independent[T]
-        static Collector<CharSequence, ?, String> joining() { return null; }
+        @NotNull(nullableArguments = 0) static Collector<CharSequence, ?, String> joining() { return null; }
 
         //frequency 5
         //@Independent[T]
 
-        static Collector<CharSequence, ?, String> joining(
+        @NotNull(nullableArguments = 0) static Collector<CharSequence, ?, String> joining(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence delimiter) { return null; }
 
         //@Independent[T]
-        static Collector<CharSequence, ?, String> joining(
+        @NotNull(nullableArguments = 0) static Collector<CharSequence, ?, String> joining(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence prefix,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence suffix) { return null; }
@@ -635,17 +635,17 @@ public class JavaUtilStream {
         }
 
         @NotNull @Finalizer
-        IntStream flatMapToInt(/*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends IntStream> function) {
+        IntStream flatMapToInt(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super T, ? extends IntStream> function) {
             return null;
         }
 
         @NotNull @Finalizer
-        LongStream flatMapToLong(/*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends LongStream> function) {
+        LongStream flatMapToLong(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super T, ? extends LongStream> function) {
             return null;
         }
 
         @NotNull @Finalizer
-        DoubleStream flatMapToDouble(/*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends DoubleStream> function) {
+        DoubleStream flatMapToDouble(/*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 1) Function<? super T, ? extends DoubleStream> function) {
             return null;
         }
 
@@ -703,7 +703,7 @@ public class JavaUtilStream {
         @Finalizer
         void forEachOrdered(/*@IgnoreModifications[T]*/ @NotNull Consumer<? super T> consumer) { }
         @Independent(hcReturnValue = true)
-        @NotNull @Finalizer
+        @NotNull(nullableArguments = 0) @Finalizer
         Object [] toArray() { return null; }
         //frequency 3
         @Independent(hcReturnValue = true)

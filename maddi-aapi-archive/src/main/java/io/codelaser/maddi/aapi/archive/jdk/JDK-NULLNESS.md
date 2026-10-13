@@ -35,6 +35,7 @@ member that JSpecify declares, of a JDK type in a package with a hint file:
 |---|---|
 | `@Nullable` return | `@Nullable`, unless the null can only come from an argument or a function (below) |
 | `@Nullable` parameter | `@Nullable` |
+| `@Nullable` type argument, wildcard bound or array elements | `nullableArguments` (below) |
 | unannotated reference parameter in `@NullMarked` code | `@NotNull` |
 | type-variable parameter or return | nothing: the instantiation decides |
 | non-null return | nothing |
@@ -65,6 +66,28 @@ the call". `OutputStreamWriter.append(CharSequence)`: JSpecify's non-null is its
 **Ours corrected.** Our `@NotNull` was wrong on `Writer.append(CharSequence)` (four overloads), `Predicate.isEqual`,
 `Stream.ofNullable`, and `FilterOutputStream(OutputStream)`; they follow JSpecify now. `EnumMap`'s shadow gained the
 bound `K extends Enum<K>`.
+
+## One level down: elements and type arguments
+
+JSpecify annotates 170 members of java.base and java.logging below the top level, always one level deep: an array's
+elements, a type argument, or a wildcard's bound. The generator writes them as `nullableArguments` on the position's
+annotation, the positions that may hold null (0 is an array's elements):
+
+| JSpecify | hint |
+|---|---|
+| `@Nullable Object[] toArray()` | `@NotNull(nullableArguments = 0) Object[] toArray()` |
+| `@Nullable Object @Nullable ... values` (`Objects.hash`) | `@Nullable(nullableArguments = 0)` |
+| `BiFunction<? super K, ? super @Nullable V, ? extends @Nullable V>` (`Map.compute`) | `@NotNull(nullableArguments = {1, 2})` |
+| `Function<? super T, ? extends @Nullable U>` (`Optional.map`) | `@NotNull(nullableArguments = 1)` |
+
+188 positions (126 parameters, 62 returns). A non-null return with a nested fact gets `@NotNull`, which it otherwise
+would not (the attribute needs a host). An existing plain annotation of the same state is upgraded in place; one with
+other attributes (`content = true`) is left and listed. The override rule of the shallow analyzer passes the argument
+states on when the override declares the same shape, so guava's and Eclipse Collections' `toArray()` overrides compile
+`N(Q)`.
+
+What the nullability pass does with them, and the measurement: maddi-mod `docs/design/nullability.md`, entry
+"2026-10-13 — JDK hints one level down".
 
 ## Numbers
 

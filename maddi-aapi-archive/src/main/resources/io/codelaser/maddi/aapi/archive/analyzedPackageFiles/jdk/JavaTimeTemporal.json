@@ -161,6 +161,15 @@
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MtoString(11)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
 
+{"name": "Tjava.time.temporal.TemporalQueries", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "Mchronology(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "MlocalDate(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "MlocalTime(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "Moffset(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "Mprecision(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "Mzone(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
+ {"name": "MzoneId(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}}]},
+
 {"name": "Tjava.time.temporal.TemporalQuery", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "sub":
  {"name": "MqueryFrom(0,java.time.temporal.TemporalAccessor)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}}},

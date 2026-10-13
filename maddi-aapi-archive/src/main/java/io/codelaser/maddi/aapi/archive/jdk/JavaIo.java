@@ -571,12 +571,12 @@ public class JavaIo {
         @AllowsInterrupt
         void println(@Nullable String x) { }
         @AllowsInterrupt void println(@Nullable @Independent Object x) { }
-        @AllowsInterrupt PrintStream printf(@NotNull String format, @NotNull @NotModified @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream printf(@NotNull String format, @NotNull(nullableArguments = 0) @NotModified @Independent Object ... args) { return null; }
         @AllowsInterrupt PrintStream printf(@Nullable Locale l, @NotNull String format,
-            @NotNull @NotModified @Independent Object ... args) { return null; }
-        @AllowsInterrupt PrintStream format(@NotNull String format, @NotNull @NotModified @Independent Object ... args) { return null; }
+            @NotNull(nullableArguments = 0) @NotModified @Independent Object ... args) { return null; }
+        @AllowsInterrupt PrintStream format(@NotNull String format, @NotNull(nullableArguments = 0) @NotModified @Independent Object ... args) { return null; }
         @AllowsInterrupt PrintStream format(@Nullable Locale l, @NotNull String format,
-            @NotNull @NotModified @Independent Object ... args) { return null; }
+            @NotNull(nullableArguments = 0) @NotModified @Independent Object ... args) { return null; }
         //override from java.lang.Appendable
         //@Independent[H]
         @AllowsInterrupt
@@ -840,16 +840,16 @@ public class JavaIo {
     //public java.io.Console (shadow created for its nullability, generated)
     class Console$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.io.Console format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        java.io.Console format(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
-        java.io.Console printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        java.io.Console printf(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        java.io.Console format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.io.Console format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
+        java.io.Console printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.io.Console printf(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
         @Nullable java.lang.String readLine() { return null; }
-        @Nullable java.lang.String readLine(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        @Nullable java.lang.String readLine(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        @Nullable java.lang.String readLine(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        @Nullable java.lang.String readLine(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
         @Nullable char[] readPassword() { return null; }
-        @Nullable char[] readPassword(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        @Nullable char[] readPassword(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        @Nullable char[] readPassword(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        @Nullable char[] readPassword(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
     }
 
     //public java.io.DataInputStream (shadow created for its nullability, generated)
@@ -1148,13 +1148,13 @@ public class JavaIo {
         PrintWriter$(@NotNull java.io.Writer p0, boolean p1) { }
         java.io.PrintWriter append(@Nullable java.lang.CharSequence p0) { return null; }
         java.io.PrintWriter append(@Nullable java.lang.CharSequence p0, int p1, int p2) { return null; }
-        java.io.PrintWriter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        java.io.PrintWriter format(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        java.io.PrintWriter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.io.PrintWriter format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
         void print(@Nullable java.lang.Object p0) { }
         void print(@Nullable java.lang.String p0) { }
         void print(@NotNull char[] p0) { }
-        java.io.PrintWriter printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        java.io.PrintWriter printf(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        java.io.PrintWriter printf(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.io.PrintWriter printf(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
         void println(@Nullable java.lang.Object p0) { }
         void println(@Nullable java.lang.String p0) { }
         void println(@NotNull char[] p0) { }

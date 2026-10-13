@@ -10,7 +10,7 @@
  {"name": "Mmerge(2,K,V,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
-  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+  {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N(U,U,Q)","unmodifiedParameter":0}}]},
  {"name": "Mtap(3,org.eclipse.collections.api.block.procedure.Procedure)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MwithMap(4,java.util.Map)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"fluentMethod":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":

@@ -48,7 +48,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.Collection
         //@NotModified[H]
@@ -355,7 +355,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
@@ -912,24 +912,24 @@ public class JavaUtil {
 
         //@NotModified[T]
         static void fill(
-            @NotNull @Independent(hcParameters = { 1 }) Object [] a,
+            @NotNull(nullableArguments = 0) @Independent(hcParameters = { 1 }) Object [] a,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Object val) { }
 
         //@NotModified[T]
         static void fill(
-            @NotNull @Independent(hcParameters = { 3 }) Object [] a,
+            @NotNull(nullableArguments = 0) @Independent(hcParameters = { 3 }) Object [] a,
             int fromIndex,
             int toIndex,
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Object val) { }
 
         //@Independent[O] @NotModified[T]
-        static <T> T [] copyOf(@NotNull @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
+        @NotNull(nullableArguments = 0) static <T> T [] copyOf(@NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified T [] original, int newLength) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        static <T, U> T [] copyOf(
-            @NotNull @Independent(hcReturnValue = true) @NotModified U [] original,
+        @NotNull(nullableArguments = 0) static <T, U> T [] copyOf(
+            @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int newLength,
             @NotNull Class<? extends T []> newType) { return null; }
 
@@ -958,11 +958,11 @@ public class JavaUtil {
         static boolean [] copyOf(/*@Independent[M]*/ @NotNull @NotModified boolean [] original, int newLength) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull @NotModified T [] original, int from, int to) { return null; }
+        @NotNull(nullableArguments = 0) static <T> T [] copyOfRange(/*@Independent[M]*/ @NotNull(nullableArguments = 0) @NotModified T [] original, int from, int to) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T, U> T [] copyOfRange(
-            @NotNull @Independent(hcReturnValue = true) @NotModified U [] original,
+        @NotNull(nullableArguments = 0) static <T, U> T [] copyOfRange(
+            @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true) @NotModified U [] original,
             int from,
             int to,
             @NotNull Class<? extends T []> newType) { return null; }
@@ -1028,10 +1028,10 @@ public class JavaUtil {
         static int hashCode(/*@Independent[M]*/ @NotModified Object [] a) { return 0; }
 
         //@NotModified[T]
-        static int deepHashCode(/*@Independent[M]*/ @Nullable Object [] a) { return 0; }
+        static int deepHashCode(/*@Independent[M]*/ @Nullable(nullableArguments = 0) Object [] a) { return 0; }
 
         //@NotModified[T]
-        static boolean deepEquals(/*@Independent[M]*/ @Nullable Object [] a1, /*@Independent[M]*/ @Nullable Object [] a2) { return false; }
+        static boolean deepEquals(/*@Independent[M]*/ @Nullable(nullableArguments = 0) Object [] a1, /*@Independent[M]*/ @Nullable(nullableArguments = 0) Object [] a2) { return false; }
 
         //@NotModified[T]
         static String toString(/*@Independent[M]*/ long [] a) { return null; }
@@ -1062,7 +1062,7 @@ public class JavaUtil {
         static String toString(/*@Independent[M]*/ @NotModified Object [] a) { return null; }
 
         //@NotModified[T]
-        static String deepToString(/*@Independent[M]*/ @Nullable @NotModified Object [] a) { return null; }
+        static String deepToString(/*@Independent[M]*/ @Nullable(nullableArguments = 0) @NotModified Object [] a) { return null; }
 
         //@NotModified[T]
         static <T> void setAll(
@@ -1312,7 +1312,7 @@ public class JavaUtil {
             int bToIndex) { return 0; }
 
         //@NotModified[T]
-        static <T extends Comparable<? super T>> int compare(/*@Independent[M]*/ @Nullable T [] a, /*@Independent[M]*/ @Nullable T [] b) {
+        static <T extends Comparable<? super T>> int compare(/*@Independent[M]*/ @Nullable(nullableArguments = 0) T [] a, /*@Independent[M]*/ @Nullable(nullableArguments = 0) T [] b) {
             return 0;
         }
 
@@ -1438,14 +1438,14 @@ public class JavaUtil {
             int bToIndex) { return 0; }
 
         //@NotModified[T]
-        static int mismatch(/*@Independent[M]*/ @NotNull Object [] a, /*@Independent[M]*/ @NotNull Object [] b) { return 0; }
+        static int mismatch(/*@Independent[M]*/ @NotNull(nullableArguments = 0) Object [] a, /*@Independent[M]*/ @NotNull(nullableArguments = 0) Object [] b) { return 0; }
 
         //@NotModified[T]
         static int mismatch(
-            /*@Independent[M]*/ @NotNull Object [] a,
+            /*@Independent[M]*/ @NotNull(nullableArguments = 0) Object [] a,
             int aFromIndex,
             int aToIndex,
-            /*@Independent[M]*/ @NotNull Object [] b,
+            /*@Independent[M]*/ @NotNull(nullableArguments = 0) Object [] b,
             int bFromIndex,
             int bToIndex) { return 0; }
 
@@ -1591,7 +1591,7 @@ public class JavaUtil {
         Iterator<E> iterator() { return null; }
 
         //override has frequency 3
-        @Independent(hcReturnValue = true)
+        @NotNull(nullableArguments = 0) @Independent(hcReturnValue = true)
         @NotModified
         Object [] toArray() { return null; }
 
@@ -1982,13 +1982,13 @@ public class JavaUtil {
         static <T extends Comparable<? super T>> Comparator<T> naturalOrder() { return null; }
 
         //@Immutable(hc=true)[T] @Independent(hc=true)[O] @NotModified[T]
-        static <T> Comparator<T> nullsFirst(
+        @NotNull(nullableArguments = 0) static <T> Comparator<T> nullsFirst(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Comparator<? super T> comparator) {
             return null;
         }
 
         //@Immutable(hc=true)[T] @Independent(hc=true)[O] @NotModified[T]
-        static <T> Comparator<T> nullsLast(
+        @NotNull(nullableArguments = 0) static <T> Comparator<T> nullsLast(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Comparator<? super T> comparator) {
             return null;
         }
@@ -2263,14 +2263,14 @@ public class JavaUtil {
 
         @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
         V compute(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
@@ -2278,7 +2278,7 @@ public class JavaUtil {
         V merge(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[O]*/ @NotNull V value,
-            /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull BiFunction<? super V, ? super V, ? extends V>
+            /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super V, ? super V, ? extends V>
                 remappingFunction) { return null; }
 
         //override from java.util.Map
@@ -2333,7 +2333,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.Set
         //@NotModified[H]
@@ -2350,15 +2350,15 @@ public class JavaUtil {
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        V compute(K p0, @NotNull(nullableArguments = {1, 2}) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
-        @Nullable V computeIfPresent(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         boolean containsKey(@NotNull java.lang.Object p0) { return false; }
         boolean containsValue(@NotNull java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
         @Nullable V get(@NotNull java.lang.Object p0) { return null; }
         V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
-        V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        V merge(K p0, V p1, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
         @Nullable V put(K p0, V p1) { return null; }
         void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
         @Nullable V putIfAbsent(K p0, V p1) { return null; }
@@ -2559,7 +2559,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
@@ -2597,7 +2597,7 @@ public class JavaUtil {
 
         //override from java.util.Collection
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.Collection
         //frequency 3
@@ -3147,12 +3147,12 @@ public class JavaUtil {
         //@Independent(hc=true)[T]
         @Nullable V computeIfPresent(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //@Independent(hc=true)[T]
         @Nullable V compute(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //frequency 2
         //@Independent(hc=true)[T]
@@ -3160,7 +3160,7 @@ public class JavaUtil {
         @Nullable V merge(
             /*@Independent(hc=true)[T] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[T] @NotModified[O]*/ @NotNull V value,
-            /*@IgnoreModifications[T]*/ @NotNull @Independent(hc = true) @NotModified BiFunction<
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) @Independent(hc = true) @NotModified BiFunction<
                 ? super V,
                 ? super V,
                 ? extends V> remappingFunction) { return null; }
@@ -3451,7 +3451,7 @@ public class JavaUtil {
 
         //frequency 20
         //@NotModified[T]
-        static int hash(/*@Independent[M] @NotModified[O]*/ @Nullable Object ... values) { return 0; }
+        static int hash(/*@Independent[M] @NotModified[O]*/ @Nullable(nullableArguments = 0) Object ... values) { return 0; }
 
         //@NotModified[T]
         @NotNull
@@ -3508,7 +3508,7 @@ public class JavaUtil {
 
         static <T> T requireNonNullElseGet(
             /*@Independent[M] @NotModified[O]*/ @Nullable T obj,
-            /*@IgnoreModifications[T] @Independent[M]*/ @NotNull Supplier<? extends T> supplier) { return null; }
+            /*@IgnoreModifications[T] @Independent[M]*/ @NotNull(nullableArguments = 0) Supplier<? extends T> supplier) { return null; }
 
         //@Independent[O] @NotModified[T]
         @Identity @NotNull
@@ -3584,7 +3584,7 @@ public class JavaUtil {
         //frequency 211
         //@Immutable(hc=true)[T] @Independent(hc=true)[O] @NotModified[T]
 
-        <U> Optional<U> map(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull Function<? super T, ? extends U> mapper) {
+        <U> Optional<U> map(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull(nullableArguments = 1) Function<? super T, ? extends U> mapper) {
             return null;
         }
 
@@ -3611,7 +3611,7 @@ public class JavaUtil {
 
         //frequency 16
         //@Independent(hc=true)[O] @NotModified[T]
-        T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull Supplier<? extends T> supplier) { return null; }
+        T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull(nullableArguments = 0) Supplier<? extends T> supplier) { return null; }
 
         //frequency 54
         //@Independent(hc=true)[O] @NotModified[T]
@@ -3779,7 +3779,7 @@ public class JavaUtil {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         Properties$(@Nullable java.util.Properties p0) { }
-        java.lang.Object compute(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
+        java.lang.Object compute(@NotNull java.lang.Object p0, @NotNull(nullableArguments = 1) java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
         java.lang.Object computeIfAbsent(@NotNull java.lang.Object p0, @NotNull java.util.function.Function<? super java.lang.Object, ?> p1) { return null; }
         @Nullable java.lang.Object computeIfPresent(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
         boolean contains(@NotNull java.lang.Object p0) { return false; }
@@ -3967,7 +3967,7 @@ public class JavaUtil {
         //override from java.util.Collection
         //frequency 3
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.Collection
         //@NotModified[H]
@@ -4347,14 +4347,14 @@ public class JavaUtil {
 
         @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
         V compute(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
-            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
@@ -4362,7 +4362,7 @@ public class JavaUtil {
         V merge(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[O]*/ @NotNull V value,
-            /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull BiFunction<? super V, ? super V, ? extends V>
+            /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super V, ? super V, ? extends V>
                 remappingFunction) { return null; }
 
         //override from java.util.AbstractMap, java.util.Map
@@ -4578,7 +4578,7 @@ public class JavaUtil {
     @Container
     class Vector$<E> {
         Vector$(@NotNull @Independent(hc = true) @NotModified Collection<? extends E> c) { }
-        @NotModified void copyInto(@NotNull Object [] anArray) { }
+        @NotModified void copyInto(@NotNull(nullableArguments = 0) Object [] anArray) { }
         void trimToSize() { }
         void ensureCapacity(int minCapacity) { }
         void setSize(int newSize) { }
@@ -4631,7 +4631,7 @@ public class JavaUtil {
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
-        Object [] toArray() { return null; }
+        @NotNull(nullableArguments = 0) Object [] toArray() { return null; }
 
         //override from java.util.AbstractCollection, java.util.Collection, java.util.List
         //@NotModified[H]
@@ -4802,8 +4802,8 @@ public class JavaUtil {
         Formatter$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1, @Nullable java.util.Locale p2) { }
         Formatter$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
         Formatter$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, @Nullable java.util.Locale p2) { }
-        java.util.Formatter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull java.lang.Object... p2) { return null; }
-        java.util.Formatter format(@NotNull java.lang.String p0, @NotNull java.lang.Object... p1) { return null; }
+        java.util.Formatter format(@Nullable java.util.Locale p0, @NotNull java.lang.String p1, @NotNull(nullableArguments = 0) java.lang.Object... p2) { return null; }
+        java.util.Formatter format(@NotNull java.lang.String p0, @NotNull(nullableArguments = 0) java.lang.Object... p1) { return null; }
         @Nullable java.io.IOException ioException() { return null; }
         @Nullable java.util.Locale locale() { return null; }
     }
@@ -4987,8 +4987,8 @@ public class JavaUtil {
         static <T> java.util.Iterator<T> iterator(@NotNull java.util.Spliterator<? extends T> p0) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Collection<? extends T> p0, int p1) { return null; }
         static <T> java.util.Spliterator<T> spliterator(@NotNull java.util.Iterator<? extends T> p0, long p1, int p2) { return null; }
-        static <T> java.util.Spliterator<T> spliterator(@NotNull java.lang.Object[] p0, int p1) { return null; }
-        static <T> java.util.Spliterator<T> spliterator(@NotNull java.lang.Object[] p0, int p1, int p2, int p3) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull(nullableArguments = 0) java.lang.Object[] p0, int p1) { return null; }
+        static <T> java.util.Spliterator<T> spliterator(@NotNull(nullableArguments = 0) java.lang.Object[] p0, int p1, int p2, int p3) { return null; }
         static java.util.Spliterator.OfDouble spliterator(@NotNull java.util.PrimitiveIterator.OfDouble p0, long p1, int p2) { return null; }
         static java.util.Spliterator.OfInt spliterator(@NotNull java.util.PrimitiveIterator.OfInt p0, long p1, int p2) { return null; }
         static java.util.Spliterator.OfLong spliterator(@NotNull java.util.PrimitiveIterator.OfLong p0, long p1, int p2) { return null; }

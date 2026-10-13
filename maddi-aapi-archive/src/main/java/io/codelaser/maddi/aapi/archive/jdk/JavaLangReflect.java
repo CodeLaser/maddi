@@ -165,10 +165,10 @@ public class JavaLangReflect {
 
     // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
     class InvocationHandler$ {
-        @Nullable Object invoke(@NotNull Object proxy, @NotNull Method method, @Nullable Object[] args) { return null; }
+        @Nullable Object invoke(@NotNull Object proxy, @NotNull Method method, @Nullable(nullableArguments = 0) Object[] args) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable static java.lang.Object invokeDefault(@NotNull java.lang.Object p0, @NotNull java.lang.reflect.Method p1, @Nullable java.lang.Object... p2) { return null; }
+        @Nullable static java.lang.Object invokeDefault(@NotNull java.lang.Object p0, @NotNull java.lang.reflect.Method p1, @Nullable(nullableArguments = 0) java.lang.Object... p2) { return null; }
     }
 
     //public java.lang.reflect.ClassFileFormatVersion (shadow created for its nullability, generated)
@@ -182,7 +182,7 @@ public class JavaLangReflect {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        T newInstance(@Nullable java.lang.Object... p0) { return null; }
+        T newInstance(@Nullable(nullableArguments = 0) java.lang.Object... p0) { return null; }
     }
 
     //public java.lang.reflect.Executable (shadow created for its nullability, generated)
@@ -232,7 +232,7 @@ public class JavaLangReflect {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         @Nullable java.lang.Object getDefaultValue() { return null; }
-        @Nullable java.lang.Object invoke(@Nullable java.lang.Object p0, @Nullable java.lang.Object... p1) { return null; }
+        @Nullable java.lang.Object invoke(@Nullable java.lang.Object p0, @Nullable(nullableArguments = 0) java.lang.Object... p1) { return null; }
     }
 
     //public java.lang.reflect.Parameter (shadow created for its nullability, generated)
