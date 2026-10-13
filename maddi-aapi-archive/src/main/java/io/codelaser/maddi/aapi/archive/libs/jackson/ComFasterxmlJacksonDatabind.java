@@ -254,12 +254,6 @@ public class ComFasterxmlJacksonDatabind {
         @NotModified com.fasterxml.jackson.databind.jsonschema.JsonSchema generateJsonSchema(java.lang.Class<?> p0) { return null; }
         @NotModified void acceptJsonFormatVisitor(java.lang.Class<?> p0, com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper p1) { }
         @NotModified void acceptJsonFormatVisitor(@NotModified com.fasterxml.jackson.databind.JavaType p0, com.fasterxml.jackson.databind.jsonFormatVisitors.JsonFormatVisitorWrapper p1) { }
-        @NotModified com.fasterxml.jackson.core.TreeNode createArrayNode() { return null; }
-        @NotModified com.fasterxml.jackson.core.TreeNode createObjectNode() { return null; }
-        @NotModified java.util.Iterator readValues(com.fasterxml.jackson.core.JsonParser p0, @NotModified com.fasterxml.jackson.core.type.ResolvedType p1) { return null; }
-        @NotModified java.util.Iterator readValues(com.fasterxml.jackson.core.JsonParser p0, @NotModified com.fasterxml.jackson.core.type.TypeReference p1) { return null; }
-        @NotModified java.util.Iterator readValues(com.fasterxml.jackson.core.JsonParser p0, java.lang.Class p1) { return null; }
-        @NotModified com.fasterxml.jackson.core.TreeNode nullNode() { return null; }
-        @NotModified com.fasterxml.jackson.core.TreeNode missingNode() { return null; }
     }
+
 }

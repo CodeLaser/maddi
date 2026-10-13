@@ -98,4 +98,5 @@ public class OrgApacheCommonsIo {
         static void writeLines(java.io.File p0, java.lang.String p1, @NotModified java.util.Collection<?> p2, java.lang.String p3) { }
         static void writeLines(java.io.File p0, java.lang.String p1, @NotModified java.util.Collection<?> p2, java.lang.String p3, boolean p4) { }
     }
+
 }
