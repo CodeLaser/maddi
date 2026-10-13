@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
@@ -59,9 +60,9 @@ import java.util.Set;
  */
 final class KotlinSmartCasts {
 
-    /** What holds in a block, or in the part of an expression a condition guards. */
-    /** Where an assertion was printed: its statement, and the asserted expression's place in the source. */
     /**
+     * Where an assertion was printed: its statement, and the asserted expression's place in the source.
+     *
      * @param scope for a {@code var}: the body it was asserted in. Kotlin does not smart-cast a var inside a lambda
      *              (which may run after an assignment); null for a val, which it smart-casts there too
      */
@@ -80,10 +81,50 @@ final class KotlinSmartCasts {
         }
     }
 
-    private record Frame(List<Statement> statements, Map<Variable, Fact> asserted,
-                         Map<Variable, ParameterizedType> types, Map<Variable, Statement> typeSources) {
+    /**
+     * A getter call printed as a local val ({@link KotlinValCopies}): {@code val exprents = stat.getExprents()} before
+     * the statement, {@code exprents} for each call of the getter on the same receiver after it.
+     *
+     * @param receiver the receiver's variable, or {@link #THIS}
+     * @param type     the call's Kotlin type, the val's
+     */
+    record Copy(String name, io.codelaser.maddi.cst.api.info.MethodInfo getter, Object receiver, ParameterizedType type) {
+        boolean copies(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+            return call.methodInfo() == getter && call.parameterExpressions().isEmpty() && receiver.equals(receiverKey(call));
+        }
+    }
+
+    /** The receiver of an implicit or explicit {@code this} call. */
+    static final Object THIS = new Object();
+
+    /** The receiver of a call as a key: its variable, {@link #THIS}, or null when it is any other expression. */
+    static Object receiverKey(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+        if (call.object() == null || call.objectIsImplicit()) return THIS;
+        Expression object = KotlinExpressionPrinter.unwrap(call.object());
+        if (object instanceof VariableExpression ve) {
+            if (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.This) return THIS;
+            return ve.variable();
+        }
+        return null;
+    }
+
+    /** What the conditions that hold say: the {@code is} tests' types, and what is not null. */
+    record Facts(Map<Variable, ParameterizedType> types, Set<Object> nonNull) {
+        Facts() {
+            this(new HashMap<>(), new HashSet<>());
+        }
+
+        boolean isEmpty() {
+            return types.isEmpty() && nonNull.isEmpty();
+        }
+    }
+
+    /** What holds in a block, or in the part of an expression a condition guards. */
+    private record Frame(List<Statement> statements, Map<Object, Fact> asserted,
+                         Map<Variable, ParameterizedType> types, Map<Variable, Statement> typeSources,
+                         Map<Object, Statement> nonNull, Map<Copy, Statement> copies) {
         Frame(List<Statement> statements) {
-            this(statements, new HashMap<>(), new HashMap<>(), new HashMap<>());
+            this(statements, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new java.util.LinkedHashMap<>());
         }
 
         /**
@@ -137,14 +178,52 @@ final class KotlinSmartCasts {
         FRAMES.set((Deque<Frame>) saved);
     }
 
-    /** The variable, used at {@code use}, was asserted non-null by a {@code !!} that dominates it. */
-    static boolean asserted(Variable variable, Expression use) {
+    /**
+     * The variable (or a {@link Copy}), used at {@code use}, is known non-null: a {@code !!} that dominates it, an
+     * {@code is} test or a {@code != null} that holds there.
+     */
+    static boolean asserted(Object key, Expression use) {
         for (Frame frame : FRAMES.get()) {
-            Fact fact = frame.asserted().get(variable);
+            Fact fact = frame.asserted().get(key);
             if (fact != null && fact.holdsAt(use)) return true;
-            if (frame.types().containsKey(variable) && Frame.visible(frame.typeSources().get(variable))) return true;
+            if (frame.types().containsKey(key) && Frame.visible(frame.typeSources().get(key))) return true;
+            if (frame.nonNull().containsKey(key) && Frame.visible(frame.nonNull().get(key))) return true;
         }
         return false;
+    }
+
+    /** The copy that prints this getter call, if one was declared for the statement or before it in its block. */
+    static Copy copy(io.codelaser.maddi.cst.api.expression.MethodCall call) {
+        if (call.methodInfo() == null || !call.parameterExpressions().isEmpty()) return null;
+        for (Frame frame : FRAMES.get()) {
+            for (Copy copy : frame.copies().keySet()) {
+                if (copy.copies(call)) return copy;
+            }
+        }
+        return null;
+    }
+
+    /** The statement is one of the innermost block's own: a copy can be declared before it. */
+    static boolean inBlock(Statement statement) {
+        return blockOf(statement) != null;
+    }
+
+    /** {@code copy} is declared before {@code statement}, and prints the getter's calls from there to the block's end. */
+    static void declare(Copy copy, Statement statement) {
+        Frame frame = blockOf(statement);
+        if (frame != null) frame.copies().put(copy, statement);
+    }
+
+    /** The copies declared before {@code statement}: a second print of it declares them again. */
+    static void forget(Statement statement) {
+        for (Frame frame : FRAMES.get()) frame.copies().values().removeIf(s -> s == statement);
+    }
+
+    /** The names of the copies in scope. */
+    static Set<String> copyNames() {
+        Set<String> names = new HashSet<>();
+        for (Frame frame : FRAMES.get()) frame.copies().keySet().forEach(c -> names.add(c.name()));
+        return names;
     }
 
     /** The type an {@code is} test that dominates this point gave the variable; null when none did. */
@@ -156,11 +235,12 @@ final class KotlinSmartCasts {
         return null;
     }
 
-    /** {@code printer} with the variables of {@code types} known to be of those types: an {@code is} test holds. */
-    static <T> T withTypes(Map<Variable, ParameterizedType> types, Supplier<T> printer) {
-        if (types.isEmpty()) return printer.get();
+    /** {@code printer} where {@code facts} hold: an {@code is} test's types, a {@code != null}'s non-null values. */
+    static <T> T withTypes(Facts facts, Supplier<T> printer) {
+        if (facts.isEmpty()) return printer.get();
         Frame frame = new Frame(null);
-        frame.types().putAll(types);
+        frame.types().putAll(facts.types());
+        facts.nonNull().forEach(k -> frame.nonNull().put(k, null));
         FRAMES.get().push(frame);
         try {
             return printer.get();
@@ -170,35 +250,50 @@ final class KotlinSmartCasts {
     }
 
     /** From here to the end of the block, the variables of {@code types} are known to be of those types. */
-    static void addTypes(Map<Variable, ParameterizedType> types) {
+    static void addTypes(Facts facts) {
         Statement statement = KotlinContext.currentStatement();
         Frame frame = blockOf(statement);
         if (frame != null) {
-            frame.types().putAll(types);
-            types.keySet().forEach(v -> frame.typeSources().put(v, statement));
+            frame.types().putAll(facts.types());
+            facts.types().keySet().forEach(v -> frame.typeSources().put(v, statement));
+            facts.nonNull().forEach(k -> frame.nonNull().put(k, statement));
         }
     }
 
     /** The {@code is} tests that hold when {@code condition} is true: {@code x instanceof T}, and those of a {@code &&}. */
-    static Map<Variable, ParameterizedType> whenTrue(Expression condition) {
-        Map<Variable, ParameterizedType> result = new HashMap<>();
+    static Facts whenTrue(Expression condition) {
+        Facts result = new Facts();
         tests(condition, true, result);
         return result;
     }
 
     /** The {@code is} tests that hold when {@code condition} is false: {@code !(x instanceof T)}, and those of a {@code ||}. */
-    static Map<Variable, ParameterizedType> whenFalse(Expression condition) {
-        Map<Variable, ParameterizedType> result = new HashMap<>();
+    static Facts whenFalse(Expression condition) {
+        Facts result = new Facts();
         tests(condition, false, result);
         return result;
     }
 
-    private static void tests(Expression condition, boolean truth, Map<Variable, ParameterizedType> result) {
+    private static void tests(Expression condition, boolean truth, Facts result) {
         Expression e = KotlinExpressionPrinter.unwrap(condition);
         switch (e) {
             case InstanceOf io when truth && io.patternVariable() == null -> {
                 if (KotlinExpressionPrinter.unwrap(io.expression()) instanceof VariableExpression ve && stable(ve.variable())) {
-                    result.put(ve.variable(), io.testType());
+                    result.types().put(ve.variable(), io.testType());
+                    result.nonNull().add(ve.variable());
+                }
+            }
+            case BinaryOperator bo when bo.operator() != null
+                                        && (truth ? "!=" : "==").equals(bo.operator().name()) -> {
+                // x != null holds: a stable x, or a copied getter, is known non-null where it does
+                Expression tested = KotlinExpressionPrinter.unwrap(bo.rhs()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+                        ? bo.lhs() : KotlinExpressionPrinter.unwrap(bo.lhs()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+                        ? bo.rhs() : null;
+                Expression t = tested == null ? null : KotlinExpressionPrinter.unwrap(tested);
+                if (t instanceof VariableExpression ve && stable(ve.variable())) result.nonNull().add(ve.variable());
+                if (t instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+                    Copy copy = copy(mc);
+                    if (copy != null) result.nonNull().add(copy);
                 }
             }
             case Negation neg -> tests(neg.expression(), !truth, result);
@@ -226,6 +321,16 @@ final class KotlinSmartCasts {
     static void assertedAt(Expression e) {
         Deque<Frame> frames = FRAMES.get();
         if (frames.isEmpty() || !KotlinContext.translatingJava()) return;
+        if (KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+            // a copy is a val: after copy!! it is non-null where the assertion dominates
+            Copy copy = copy(mc);
+            Statement statement = KotlinContext.currentStatement();
+            Frame frame = blockOf(statement);
+            if (copy != null && frame != null && unconditional(statement).contains(mc)) {
+                frame.asserted().putIfAbsent(copy, new Fact(statement, mc.source(), null));
+            }
+            return;
+        }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof VariableExpression ve)) return;
         Variable variable = ve.variable();
         if (!(variable instanceof ParameterInfo || variable instanceof LocalVariable)) return;
@@ -245,7 +350,8 @@ final class KotlinSmartCasts {
     static void beforeStatement(Statement statement) {
         for (Frame frame : FRAMES.get()) {
             frame.asserted().entrySet().removeIf(entry -> entry.getValue().scope() != null
-                                                          && KotlinAssignments.assignedIn(statement, entry.getKey()));
+                                                          && entry.getKey() instanceof Variable v
+                                                          && KotlinAssignments.assignedIn(statement, v));
         }
     }
 
@@ -300,6 +406,10 @@ final class KotlinSmartCasts {
                 }
                 case VariableExpression ve -> {
                     result.add(ve);
+                    return true;
+                }
+                case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
+                    result.add(mc);
                     return true;
                 }
                 default -> {

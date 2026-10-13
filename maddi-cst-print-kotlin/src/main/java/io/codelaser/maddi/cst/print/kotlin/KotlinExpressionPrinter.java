@@ -89,6 +89,9 @@ public class KotlinExpressionPrinter {
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
                     .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenFalse(ic.condition()),
                             () -> branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q)));
+            // a getter's call whose value a local val holds (KotlinValCopies)
+            case MethodCall mc when KotlinSmartCasts.copy(mc) != null ->
+                    new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(KotlinSmartCasts.copy(mc).name())));
             case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
@@ -1839,11 +1842,14 @@ public class KotlinExpressionPrinter {
             if (idiom != null) return idiom;
         }
         List<OutputBuilder> printed = new ArrayList<>();
-        java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> known = new java.util.HashMap<>();
+        KotlinSmartCasts.Facts known = new KotlinSmartCasts.Facts();
         for (Expression operand : operands) {
-            java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> before = new java.util.HashMap<>(known);
+            KotlinSmartCasts.Facts before = new KotlinSmartCasts.Facts(new java.util.HashMap<>(known.types()),
+                    new java.util.HashSet<>(known.nonNull()));
             printed.add(KotlinSmartCasts.withTypes(before, () -> condition(precedence, operand, q)));
-            known.putAll(and ? KotlinSmartCasts.whenTrue(operand) : KotlinSmartCasts.whenFalse(operand));
+            KotlinSmartCasts.Facts more = and ? KotlinSmartCasts.whenTrue(operand) : KotlinSmartCasts.whenFalse(operand);
+            known.types().putAll(more.types());
+            known.nonNull().addAll(more.nonNull());
         }
         return printed.stream().collect(OutputBuilderImpl.joining(and ? SymbolEnum.LOGICAL_AND : SymbolEnum.LOGICAL_OR));
     }

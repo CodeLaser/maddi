@@ -984,4 +984,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun some(l: MutableList<String>?): Boolean = !l.isNullOrEmpty()");
         contains(kotlin, "s == null || t!!.isEmpty()");
     }
+
+    private static final String VAL_COPIES = """
+            package a;
+            import java.util.List;
+            class Stat {
+                private final List<String> exprents;
+                private String label;
+                Stat(List<String> e) { exprents = e; }
+                List<String> getExprents() { return exprents; }
+                String getLabel() { return label; }
+                void setLabel(String l) { label = l; }
+                static int count(Stat stat) {
+                    if (stat.getExprents() != null && !stat.getExprents().isEmpty()) return stat.getExprents().size();
+                    if (stat.getLabel() != null) return stat.getLabel().length();
+                    return 0;
+                }
+            }
+            """;
+
+    /**
+     * A getter of a final field, tested against null and used again: a local val copy, which the test smart-casts.
+     * Not for a getter of a field that changes ({@code label}, which {@code setLabel} assigns).
+     */
+    @Test
+    public void valCopyOfAGetter() {
+        String kotlin = kotlin(VAL_COPIES, new KotlinPrintOptions(new ByName(Set.of("getExprents()", "getLabel()",
+                "exprents", "label", "l")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "val exprents = stat.getExprents()\nif (exprents != null && !exprents.isEmpty()) { return exprents.size }");
+        contains(kotlin, "stat.getLabel()!!.length");
+    }
 }
