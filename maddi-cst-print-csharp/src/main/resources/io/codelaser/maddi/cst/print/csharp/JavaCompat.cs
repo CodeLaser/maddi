@@ -666,6 +666,60 @@ public static class JavaMath
 
     /// <summary>BigDecimal.stripTrailingZeros: a decimal divided by 1.000…0 keeps the fewest digits that represent it.</summary>
     public static decimal StripTrailingZeros(decimal d) => d / 1.0000000000000000000000000000m;
+
+    /// <summary>BigDecimal.pow(n): exact, by squaring; a negative exponent throws, as Java's.</summary>
+    public static decimal Pow(decimal d, int n)
+    {
+        if (n < 0) throw new ArithmeticException("Invalid operation");
+        decimal result = 1m;
+        for (var b = d; n > 0; n >>= 1, b *= b)
+        {
+            if ((n & 1) == 1) result *= b;
+        }
+        return result;
+    }
+
+    /// <summary>BigDecimal.unscaledValue: the decimal's 96-bit integer, with its sign.</summary>
+    public static System.Numerics.BigInteger UnscaledValue(decimal d)
+    {
+        var bits = decimal.GetBits(d);
+        var magnitude = new System.Numerics.BigInteger((uint) bits[0])
+                        | new System.Numerics.BigInteger((uint) bits[1]) << 32
+                        | new System.Numerics.BigInteger((uint) bits[2]) << 64;
+        return bits[3] < 0 ? -magnitude : magnitude;
+    }
+
+    /// <summary>Duration.getNano: the nanoseconds within the second, from its whole seconds downwards.</summary>
+    public static int Nano(TimeSpan duration)
+    {
+        var ticks = duration.Ticks % TimeSpan.TicksPerSecond;
+        if (ticks < 0) ticks += TimeSpan.TicksPerSecond;
+        return (int) (ticks * 100);
+    }
+}
+
+/// <summary>java.util.function's default methods on C#'s delegates.</summary>
+public static class JavaFunctions
+{
+    public static Action<T> AndThen<T>(this Action<T> first, Action<T> then) => x =>
+    {
+        first(x);
+        then(x);
+    };
+
+    public static Func<T, V> AndThen<T, R, V>(this Func<T, R> first, Func<R, V> then) => x => then(first(x));
+
+    public static Func<V, R> Compose<V, T, R>(this Func<T, R> second, Func<V, T> first) => x => second(first(x));
+
+    /// <summary>Stream.peek: each element seen by the action as it passes.</summary>
+    public static IEnumerable<T> Peek<T>(this IEnumerable<T> source, Action<T> action)
+    {
+        foreach (var x in source)
+        {
+            action(x);
+            yield return x;
+        }
+    }
 }
 
 /// <summary>java.lang.Class's names that .NET's Type does not have.</summary>

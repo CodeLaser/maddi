@@ -266,6 +266,7 @@ final class CSharpBcl implements LibraryMapping {
             type(executor, "TaskScheduler", TASKS);
         }
         type("java.util.concurrent.CountDownLatch", "CountdownEvent", THREADING);
+        type("java.util.concurrent.Semaphore", "SemaphoreSlim", THREADING);
         // Java's read-write lock is reentrant; its read and write locks are the compatibility library's IJavaLock
         type("java.util.concurrent.locks.ReadWriteLock", "ReaderWriterLockSlim", THREADING);
         type("java.util.concurrent.locks.ReentrantReadWriteLock", "ReaderWriterLockSlim", THREADING);
@@ -769,6 +770,36 @@ final class CSharpBcl implements LibraryMapping {
         m("java.lang.Math.round/1", "JavaMath.Round($1)", COMPAT);
         m("java.lang.Math.floorMod/2", "JavaMath.FloorMod($1, $2)", COMPAT);
         m("java.lang.Math.floorDiv/2", "JavaMath.FloorDiv($1, $2)", COMPAT);
+        // the exact arithmetic: C#'s checked context throws OverflowException where Java throws ArithmeticException
+        m("java.lang.Math.addExact/2", "checked(@1 + @2)");
+        m("java.lang.Math.subtractExact/2", "checked(@1 - @2)");
+        m("java.lang.Math.multiplyExact/2", "checked(@1 * @2)");
+        m("java.lang.Math.negateExact/1", "checked(-@1)");
+        m("java.lang.Math.incrementExact/1", "checked(@1 + 1)");
+        m("java.lang.Math.decrementExact/1", "checked(@1 - 1)");
+        m("java.lang.Math.toIntExact/1", "checked((int) @1)");
+        for (String boxed : List.of("Integer", "Long", "Double", "Float")) {
+            m("java.lang." + boxed + ".sum/2", "@1 + @2");
+        }
+        m("java.lang.Integer.signum/1", "Math.Sign($1)", SYSTEM);
+        m("java.lang.Long.signum/1", "Math.Sign($1)", SYSTEM);
+        m("java.lang.Integer.numberOfTrailingZeros/1", "BitOperations.TrailingZeroCount($1)", NUMERICS);
+        m("java.lang.Long.numberOfTrailingZeros/1", "BitOperations.TrailingZeroCount($1)", NUMERICS);
+        m("java.lang.Integer.numberOfLeadingZeros/1", "BitOperations.LeadingZeroCount((uint) $1)", NUMERICS);
+        m("java.lang.Long.numberOfLeadingZeros/1", "BitOperations.LeadingZeroCount((ulong) $1)", NUMERICS);
+        m("java.lang.Runtime.availableProcessors/0", "Environment.ProcessorCount", SYSTEM);
+        String sem = "java.util.concurrent.Semaphore.";
+        // Java's second argument is fairness, SemaphoreSlim's a maximum count
+        m(sem + "new/2", "new SemaphoreSlim($1)", THREADING);
+        m(sem + "acquire/0", "$0.Wait()");
+        m(sem + "acquireUninterruptibly/0", "$0.Wait()");
+        m(sem + "release/0", "$0.Release()");
+        m(sem + "release/1", "$0.Release($1)");
+        m(sem + "tryAcquire/0", "$0.Wait(0)");
+        m(sem + "availablePermits/0", "$0.CurrentCount");
+        m("java.math.BigDecimal.pow/1", "JavaMath.Pow($0, $1)", COMPAT);
+        m("java.math.BigDecimal.unscaledValue/0", "JavaMath.UnscaledValue($0)", COMPAT);
+        m("java.math.BigInteger.remainder/1", "BigInteger.Remainder($0, $1)", NUMERICS);
     }
 
     private static void streams() {
@@ -797,6 +828,13 @@ final class CSharpBcl implements LibraryMapping {
                 && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
                 ? "$1" : "new[] { $* }"));
         m(st + "concat/2", "$1.Concat($2)", LINQ);
+        m(st + "peek/1", "$0.Peek($1)", COMPAT);
+        m("java.util.function.Function.identity/0", "x_ => x_");
+        m("java.util.function.Function.andThen/1", "$0.AndThen($1)", COMPAT);
+        m("java.util.function.Function.compose/1", "$0.Compose($1)", COMPAT);
+        m("java.util.function.Consumer.andThen/1", "$0.AndThen($1)", COMPAT);
+        m("java.util.Collection.toArray/0", "$0.Cast<object>().ToArray()", LINQ);
+        m("java.util.Map.copyOf/1", "new Dictionary<{R0}, {R1}>($1)", GENERIC);
         m(st + "toArray/0", "$0.ToArray()", LINQ);
         // the generator, String[]::new, is the array's type, which C#'s ToArray knows
         m(st + "toArray/1", "$0.ToArray()", LINQ);
@@ -988,6 +1026,9 @@ final class CSharpBcl implements LibraryMapping {
         m("java.time.Duration.between/2", "@2 - @1");
         // ISO-8601, PT1H30M, as XML Schema's duration is
         m("java.time.Duration.parse/1", "XmlConvert.ToTimeSpan($1)", "System.Xml");
+        m("java.time.Duration.plus/1", "@0 + @1");
+        m("java.time.Duration.minus/1", "@0 - @1");
+        m("java.time.Duration.getNano/0", "JavaMath.Nano($0)", COMPAT);
         m("java.time.Duration.toString/0", "XmlConvert.ToString($0)", "System.Xml");
         m("java.util.Locale.forLanguageTag/1", "CultureInfo.GetCultureInfo($1)", GLOBALIZATION);
         m("java.util.Locale.toLanguageTag/0", "$0.Name");
@@ -1349,6 +1390,7 @@ final class CSharpBcl implements LibraryMapping {
             Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME", "\"yyyy-MM-dd'T'HH:mm:ss.FFFFFFF\""),
             Map.entry("java.lang.Boolean.FALSE", "false"),
             Map.entry("java.lang.Math.PI", "Math.PI"),
+            Map.entry("java.time.Duration.ZERO", "TimeSpan.Zero"),
             Map.entry("java.lang.Math.E", "Math.E"),
             Map.entry("java.util.Locale.ENGLISH", "CultureInfo.InvariantCulture"),
             Map.entry("java.util.Locale.ROOT", "CultureInfo.InvariantCulture"),

@@ -5,6 +5,7 @@
 // part of JAXP that goes with it is System.Xml's: DOM is XmlDocument (mapped directly), a parser is XmlReader, a schema
 // is an XmlSchemaSet, a transformation an XslCompiledTransform. Java's API is kept, in PascalCase, where System.Xml has
 // another shape: factories, sources and results, validation events.
+#nullable disable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
