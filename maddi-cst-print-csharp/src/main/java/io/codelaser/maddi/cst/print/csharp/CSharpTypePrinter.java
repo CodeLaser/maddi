@@ -242,7 +242,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> parameters = new ArrayList<>();
         List<OutputBuilder> body = new ArrayList<>();
         for (int i = 0; i < h.superArguments().size(); i++) {
-            parameters.add(CSharpTypeName.of(h.superArguments().get(i), q) + " p" + i);
+            ParameterizedType superArgument = h.superArguments().get(i);
+            // Holder<int>'s T is int, not int?
+            parameters.add((h.typeArgument(i) ? CSharpTypeName.argument(superArgument, q)
+                    : CSharpTypeName.of(superArgument, q)) + " p" + i);
         }
         if (h.outer()) {
             TypeInfo outer = CstQueries.enclosing(typeInfo);

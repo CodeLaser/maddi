@@ -524,7 +524,7 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.Map.computeIfAbsent/2", "$0.ComputeIfAbsent($1, $2)", COMPAT);
         m("java.util.Map.compute/2", "$0.Compute($1, $2)", COMPAT);
         m("java.util.Map.merge/3", "$0.Merge($1, $2, $3)", COMPAT);
-        m("java.util.Map.entry/2", "KeyValuePair.Create($1, $2)");
+        m("java.util.Map.entry/2", "KeyValuePair.Create($1, $2)", GENERIC);
         m("java.util.Map.ofEntries/1", "new Dictionary<{R0}, {R1}>(new[] { $* })");
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));
         m("java.util.Map.Entry.getKey/0", "$0.Key");
@@ -768,6 +768,20 @@ final class CSharpBcl implements LibraryMapping {
         m("java.lang.Double.doubleToRawLongBits/1", "BitConverter.DoubleToInt64Bits($1)", SYSTEM);
         m("java.lang.Double.longBitsToDouble/1", "BitConverter.Int64BitsToDouble($1)", SYSTEM);
         m("java.lang.Math.round/1", "JavaMath.Round($1)", COMPAT);
+        // the methods .NET's Math has under the same name and with the same meaning; the others are unmapped
+        for (String same : List.of("abs", "max", "min", "sqrt", "cbrt", "pow", "floor", "sin", "cos", "tan", "asin",
+                "acos", "atan", "atan2", "sinh", "cosh", "tanh", "exp", "log", "log10")) {
+            m("java.lang.Math." + same, "Math." + CSharpNames.pascal(same) + "($*)", SYSTEM);
+        }
+        m("java.lang.Math.ceil/1", "Math.Ceiling($1)", SYSTEM);
+        m("java.lang.Math.IEEEremainder/2", "Math.IEEERemainder($1, $2)", SYSTEM);
+        m("java.lang.Math.rint/1", "Math.Round($1)", SYSTEM); // to even, as rint
+        m("java.lang.Math.fma/3", "Math.FusedMultiplyAdd($1, $2, $3)", SYSTEM);
+        m("java.lang.Math.nextUp/1", "Math.BitIncrement($1)", SYSTEM);
+        m("java.lang.Math.nextDown/1", "Math.BitDecrement($1)", SYSTEM);
+        // Java's own formulas: angdeg * DEGREES_TO_RADIANS, which is PI / 180.0
+        m("java.lang.Math.toRadians/1", "@1 * (Math.PI / 180.0)", SYSTEM);
+        m("java.lang.Math.toDegrees/1", "@1 * (180.0 / Math.PI)", SYSTEM);
         m("java.lang.Math.floorMod/2", "JavaMath.FloorMod($1, $2)", COMPAT);
         m("java.lang.Math.floorDiv/2", "JavaMath.FloorDiv($1, $2)", COMPAT);
         // the exact arithmetic: C#'s checked context throws OverflowException where Java throws ArithmeticException
@@ -1302,9 +1316,6 @@ final class CSharpBcl implements LibraryMapping {
                 String name = CSharpNames.pascal(candidate.name());
                 return rule(candidate.isStatic() ? mapping.template() + "." + name + "($*)" : "$0." + name + "($*)",
                         COMPAT);
-            }
-            if ("java.lang.Math".equals(owner.fullyQualifiedName())) {
-                return rule("Math." + CSharpNames.pascal(candidate.name()) + "($*)", SYSTEM);
             }
         }
         return null;

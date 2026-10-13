@@ -151,9 +151,25 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (CSharpContext.program().erasedGeneric(methodInfo) && methodInfo.returnType().isTypeParameter()) {
             return CSharpTypeName.rawArgumentOf(methodInfo.returnType().typeParameter(), q);
         }
+        if (boxedTypeArgument(methodInfo.returnType(), methodInfo, MethodInfo::returnType)) {
+            return CSharpTypeName.argument(methodInfo.returnType(), q);
+        }
         io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
         String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
         return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;
+    }
+
+    /**
+     * A boxed type where a method it overrides has a type parameter of its class: the overridden method's
+     * {@code T Describe()} in {@code Holder<int>} is {@code int Describe()}, so {@code Integer describe()} is
+     * {@code int Describe()}, not {@code int?} (CS0508), and a parameter likewise (CS0115).
+     */
+    private static boolean boxedTypeArgument(ParameterizedType pt, MethodInfo method,
+                                             java.util.function.Function<MethodInfo, ParameterizedType> inOverridden) {
+        if (pt.arrays() != 0 || !pt.isBoxedExcludingVoid()) return false;
+        return method.overrides().stream().filter(o -> o != method).map(inOverridden)
+                .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
+                               && !o.typeParameter().isMethodTypeParameter());
     }
 
     /** {@code : base(…)} or {@code : this(…)} from the first statement, then the rest of the body. */
@@ -240,9 +256,16 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     private static OutputBuilder parameter(ParameterInfo p, List<String> wildcardNames, Qualification q) {
         CSharpProgram program = CSharpContext.program();
-        String type = wildcardNames != null ? CSharpWildcards.type(p.parameterizedType(), wildcardNames, q)
-                : CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
-        if (wildcardNames == null && nullableTypeParameter(p, program.facts().nullable(p))) type += "?";
+        String type;
+        if (wildcardNames != null) {
+            type = CSharpWildcards.type(p.parameterizedType(), wildcardNames, q);
+        } else if (boxedTypeArgument(p.parameterizedType(), p.methodInfo(), o -> o.parameters().size() > p.index()
+                ? o.parameters().get(p.index()).parameterizedType() : null)) {
+            type = CSharpTypeName.argument(p.parameterizedType(), q);
+        } else {
+            type = CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
+            if (nullableTypeParameter(p, program.facts().nullable(p))) type += "?";
+        }
         return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), LibraryMapping.Target.PARAMETER, q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "
                                                         + CSharpContext.declare(p.name())));
     }

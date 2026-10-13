@@ -25,6 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+
+import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 /**
  * The Java forms C# says differently. Each test writes its samples' translations to {@code build/csharp-samples/},
@@ -39,9 +42,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         test = info.getTestMethod().map(java.lang.reflect.Method::getName).orElseThrow();
     }
 
-    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}. */
+    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
+    private List<PrintMessage<CSharpPrintCode>> messages = List.of();
+
     private String translate(String name, String java) {
-        String csharp = csharp(java);
+        Translation translation = translation(java);
+        messages = translation.messages();
+        String csharp = translation.csharp();
         try {
             Path dir = Path.of("build/csharp-samples");
             Files.createDirectories(dir);
@@ -1471,6 +1478,137 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Operators", OPERATORS);
         contains(cs, "(-x).CompareTo(y)");
         contains(cs, "!(object.Equals(c, o))");
+    }
+
+    @Language("java")
+    private static final String BEANS = """
+            package org.example.beans;
+            import jakarta.xml.bind.annotation.XmlElement;
+            import jakarta.xml.bind.annotation.XmlRootElement;
+            @XmlRootElement
+            public class Person {
+                private String name;
+                private int age;
+                private String nick;
+                public String getName() { return name; }
+                public void setName(String name) { this.name = name; }
+                @XmlElement(name = "years")
+                public int getAge() { return age; }
+                public void setAge(int age) { this.age = age; }
+                public String getNick() { return nick == null ? "" : nick; }
+                public void setNick(String nick) { this.nick = nick; }
+                @XmlElement
+                public String getGreeting() { return "hi " + name; }
+            }
+            """;
+
+    /**
+     * JAXB's default access binds public JavaBean properties: a plain one through its field, with its getter's
+     * annotations; a property that does more, or has no field, is reported, not dropped silently.
+     */
+    @Test
+    public void xmlProperties() {
+        String cs = translate("Person", BEANS);
+        contains(cs, "[XmlElement(\"name\")]");
+        contains(cs, "[XmlElement(\"years\")]");
+        List<String> unbound = messages.stream().filter(m -> m.code() == CSharpPrintCode.XML_UNBOUND)
+                .map(PrintMessage::detail).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(
+                "getNick(): a property whose getter or setter does more than access its field",
+                "getGreeting(): a property without a field of its name and type"), unbound);
+    }
+
+    @Language("java")
+    private static final String HOISTED_SUPER = """
+            package org.example.hoisted;
+            import java.util.List;
+            public class Holders {
+                abstract static class Holder<T> {
+                    final T value;
+                    Holder(T value, List<? extends T> more) { this.value = value; }
+                    abstract T describe();
+                }
+                static Holder<String> empty(List<String> names) {
+                    return new Holder<>(null, names) { String describe() { return "none"; } };
+                }
+                static Holder<Integer> one(int i) {
+                    return new Holder<Integer>(i, List.of()) { Integer describe() { return value; } };
+                }
+                static class Ones extends Holder<Integer> {
+                    Ones() { super(1, List.of()); }
+                    Integer describe() { return value; }
+                }
+            }
+            """;
+
+    /**
+     * A hoisted anonymous class's constructor takes the superclass constructor's parameters as the class extends it,
+     * and the creation converts its arguments to them; an override of a type parameter's member with a boxed type
+     * argument has C#'s type argument, {@code int}, not {@code int?}.
+     */
+    @Test
+    public void hoistedSuperArguments() {
+        String cs = translate("Holders", HOISTED_SUPER);
+        contains(cs, "=> new HolderImpl(default, names);");
+        contains(cs, "internal HolderImpl(string p0, List<string> p1) : base(p0, p1) { }");
+        contains(cs, "internal HolderImpl2(int p0, List<int> p1) : base(p0, p1) { }");
+        contains(cs, "internal override int Describe() => value;");
+    }
+
+    @Language("java")
+    private static final String MUTUAL_INNER = """
+            package org.example.mutual;
+            public class Tree {
+                int size;
+                class Branch {
+                    Leaf leaf() { return new Leaf(); }
+                    int size() { return size; }
+                }
+                class Leaf {
+                    Branch branch() { return new Branch(); }
+                }
+            }
+            """;
+
+    /**
+     * Two inner classes that create each other: the one that only creates the other, which uses the enclosing
+     * instance, needs that instance too, whichever of them is decided first.
+     */
+    @Test
+    public void mutualInnerClasses() {
+        String cs = translate("Tree", MUTUAL_INNER);
+        contains(cs, "internal Leaf(Tree outer) { this.outer = outer; }");
+        contains(cs, "internal Branch Branch() => new Branch(outer);");
+        contains(cs, "internal Leaf Leaf() => new Leaf(outer);");
+    }
+
+    @Language("java")
+    private static final String GEOMETRY = """
+            package org.example.geometry;
+            import java.util.Map;
+            public class Geometry {
+                static double up(double x) { return Math.ceil(x); }
+                static double radians(double degrees) { return Math.toRadians(degrees); }
+                static Object pair(String k, int v) { return Map.entry(k, v); }
+            }
+            """;
+
+    /** Math's methods by name and meaning, not by their PascalCase name; Map.entry has its namespace. */
+    @Test
+    public void mathAndEntries() {
+        String cs = translate("Geometry", GEOMETRY);
+        contains(cs, "Math.Ceiling(x)");
+        contains(cs, "degrees * (Math.PI / 180.0)");
+        contains(cs, "using System.Collections.Generic;");
+        contains(cs, "KeyValuePair.Create(k, v)");
+    }
+
+    /** A type or field mapping has one namespace: a second one is an error, not dropped. */
+    @Test
+    public void mappingFileOneNamespace() {
+        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CSharpMappingFile.parse("mapping x\ntype a.B -> B using A, C", "two.csmap"));
+        assertEquals("two.csmap:2: type takes one namespace, not A, C", e.getMessage());
     }
 
     /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */

@@ -60,9 +60,17 @@ public abstract class CommonJavaToCSharp {
 
     /** The C# printing of the compilation unit {@code java}: usings, namespace, and every type in it. */
     protected String csharp(String java) {
+        return translation(java).csharp();
+    }
+
+    /** The C# printing of {@code java}, and the printer's messages about it: one parse for both. */
+    protected record Translation(String csharp, List<PrintMessage<CSharpPrintCode>> messages) {
+    }
+
+    protected Translation translation(String java) {
         CSharpCompilationUnitPrinter.Result result = translate(java);
         Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
-        return formatter.write(result.output());
+        return new Translation(formatter.write(result.output()), result.messages());
     }
 
     /** The printer's messages about {@code java}'s translation. */
