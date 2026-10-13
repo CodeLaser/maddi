@@ -511,6 +511,60 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      */
     private static Tests runTests(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner, Path dir)
             throws Exception {
+        if (!corpus.junit4()) {
+            return runTests(corpus, kotlinClasses, testClasses, runner, dir,
+                    List.of("--scan-classpath", testClasses.toString()), 60, true);
+        }
+        // guava's suite (865,681 tests) one package at a time, each in its own JVM with its own limit: a translated
+        // class that hangs a test (a latch never counted down) costs that package's tests, which then pass on the
+        // original classes and are missing with the Kotlin ones, not the whole run
+        deleteRecursively(dir);
+        Files.createDirectories(dir);
+        List<String> passed = new ArrayList<>(), failed = new ArrayList<>(), skipped = new ArrayList<>();
+        for (String pkg : testPackages(testClasses)) {
+            Tests chunk = runTests(corpus, kotlinClasses, testClasses, runner, dir.resolve(pkg),
+                    List.of("--select-package", pkg), 20, false);
+            if (chunk == null) {
+                failed.add(pkg + " (timed out after 20 minutes)");
+                continue;
+            }
+            passed.addAll(chunk.passed());
+            failed.addAll(chunk.failed());
+            skipped.addAll(chunk.skipped());
+        }
+        return new Tests(passed, failed, skipped);
+    }
+
+    /**
+     * The test packages one level below the classes' common root package: {@code com.google.common.base},
+     * {@code com.google.common.collect}, ... for guava-tests.
+     */
+    private static List<String> testPackages(Path testClasses) throws IOException {
+        Path root = testClasses;
+        List<String> prefix = new ArrayList<>();
+        while (true) {
+            List<Path> dirs;
+            boolean classes;
+            try (var children = Files.list(root)) {
+                List<Path> all = children.toList();
+                dirs = all.stream().filter(Files::isDirectory).filter(d -> !d.getFileName().toString().equals("META-INF")).toList();
+                classes = all.stream().anyMatch(c -> c.getFileName().toString().endsWith(".class"));
+            }
+            if (dirs.size() != 1 || classes) {
+                String base = String.join(".", prefix);
+                return dirs.stream().map(d -> (base.isEmpty() ? "" : base + ".") + d.getFileName()).sorted().toList();
+            }
+            root = dirs.getFirst();
+            prefix.add(root.getFileName().toString());
+        }
+    }
+
+    /**
+     * One JUnit console run in its own JVM, selecting the tests with {@code selection}. Past {@code minutes}: a
+     * failure when {@code failOnTimeout}, else null.
+     */
+    private static Tests runTests(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner, Path dir,
+                                  List<String> selection, int minutes, boolean failOnTimeout) throws Exception {
         deleteRecursively(dir);
         Files.createDirectories(dir);
         List<String> cp = new ArrayList<>();
@@ -528,16 +582,19 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Path reports = dir.resolve("reports");
         Path log = dir.resolve("tests.log");
         Path workingDirectory = workingDirectory(corpus, testClasses);
-        // Mockito attaches its agent at run time, which the JDK will refuse by default
-        Process process = new ProcessBuilder(java.toString(), "-Xmx2g", "-XX:+EnableDynamicAgentLoading",
+        List<String> command = new ArrayList<>(List.of(java.toString(), "-Xmx2g", "-XX:+EnableDynamicAgentLoading",
                 "@" + argFile.toAbsolutePath(),
-                "org.junit.platform.console.ConsoleLauncher", "execute", "--disable-banner", "--details=summary",
-                "--scan-classpath", testClasses.toString(), "--reports-dir", reports.toAbsolutePath().toString())
+                "org.junit.platform.console.ConsoleLauncher", "execute", "--disable-banner", "--details=summary"));
+        command.addAll(selection);
+        command.addAll(List.of("--reports-dir", reports.toAbsolutePath().toString()));
+        // Mockito attaches its agent at run time, which the JDK will refuse by default
+        Process process = new ProcessBuilder(command)
                 .directory(workingDirectory.toFile())
                 .redirectErrorStream(true).redirectOutput(log.toFile()).start();
-        if (!process.waitFor(60, TimeUnit.MINUTES)) {
+        if (!process.waitFor(minutes, TimeUnit.MINUTES)) {
             process.destroyForcibly();
-            fail("the tests did not finish within an hour; see " + log.toAbsolutePath());
+            if (!failOnTimeout) return null;
+            fail("the tests did not finish within " + minutes + " minutes; see " + log.toAbsolutePath());
         }
         Path xml = reports.resolve("TEST-junit-jupiter.xml");
         if (!Files.isRegularFile(xml)) fail("no test report " + xml + "; see " + log.toAbsolutePath());
