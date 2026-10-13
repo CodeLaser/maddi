@@ -315,7 +315,9 @@ final class JaxbXmlSerialization implements LibraryMapping {
             conversion = new Conversion(CSharpTypeName.of(adapted, q), x -> "new " + a + "().Marshal(" + x + ")",
                     x -> "new " + a + "().Unmarshal(" + x + ")");
         } else if (!alternatives.isEmpty() || objectTyped(valueType)) {
-            String cast = CSharpTypeName.of(valueType, q);
+            // a single value may be null; a collection's elements are not
+            String cast = CSharpTypeName.of(valueType, q)
+                          + (!collection && CSharpContext.program().facts().nullabilityAnalysed() ? "?" : "");
             conversion = new Conversion("object", x -> x, x -> "(" + cast + ") " + x);
         } else if (valueType.arrays() == 0 && valueType.typeInfo() != null && valueType.typeInfo().typeNature().isEnum()
                    && CSharpNames.translated(valueType.typeInfo())
@@ -325,7 +327,8 @@ final class JaxbXmlSerialization implements LibraryMapping {
         } else if (valueType.arrays() == 0 && valueType.typeInfo() != null && valueType.typeInfo().typeNature().isEnum()
                    && CSharpNames.translated(valueType.typeInfo())) {
             String e = CSharpTypeName.name(valueType.typeInfo(), q);
-            conversion = new Conversion("string", x -> x + "?.Name", x -> x + " == null ? null : " + e + ".ValueOf(" + x + ")");
+            conversion = collection ? new Conversion("string", x -> x + ".Name", x -> e + ".ValueOf(" + x + ")")
+                    : new Conversion("string", x -> x + "?.Name", x -> x + " == null ? null : " + e + ".ValueOf(" + x + ")");
         } else if (writable(valueType)) {
             conversion = IDENTITY;
         } else {
@@ -362,7 +365,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
             propertyType = conversion.type() + (nullableContext ? "?" : "");
             get = conversion.get().apply(field);
             String value = conversion.set().apply("value");
-            set = field + " = " + value + (nullableContext && nullable != NullableState.NULLABLE ? "!" : "");
+            set = field + " = " + (nullableContext && nullable != NullableState.NULLABLE ? "(" + value + ")!" : value);
         }
 
         String name = "Xml" + CSharpNames.pascal(f.name());
