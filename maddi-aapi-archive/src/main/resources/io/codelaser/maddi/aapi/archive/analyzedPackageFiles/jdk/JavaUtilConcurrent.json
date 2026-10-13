@@ -576,7 +576,7 @@
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "Mget(19,java.lang.Object)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetOrDefault(20,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetOrDefault(20,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "MhashCode(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
@@ -822,7 +822,7 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "MforEach(3,java.util.function.BiConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MgetOrDefault(4,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetOrDefault(4,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "Mmerge(5,K,V,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
@@ -888,7 +888,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mget(19,java.lang.Object)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetOrDefault(20,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetOrDefault(20,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "MheadMap(21,K)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":

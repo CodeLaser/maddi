@@ -4,7 +4,7 @@
 {"name": "Torg.eclipse.collections.api.map.ConcurrentMutableMap", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MforEach(0,java.util.function.BiConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Paction(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MgetOrDefault(1,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetOrDefault(1,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pkey(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":0}},
   {"name": "PdefaultValue(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "Mmerge(2,K,V,java.util.function.BiFunction)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
@@ -576,7 +576,7 @@
  {"name": "MgetIfAbsentPutWithKey(18,K,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MgetOrDefault(19,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetOrDefault(19,java.lang.Object,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pkey(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "PdefaultValue(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "MgroupBy(20,org.eclipse.collections.api.block.function.Function)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0}, "sub":
