@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -59,9 +60,14 @@ import java.util.Set;
 final class KotlinSmartCasts {
 
     /** What holds in a block, or in the part of an expression a condition guards. */
-    private record Frame(Set<Variable> asserted, Map<Variable, ParameterizedType> types) {
-        Frame() {
-            this(new HashSet<>(), new HashMap<>());
+    private record Frame(List<Statement> statements, Set<Variable> asserted, Map<Variable, ParameterizedType> types) {
+        Frame(List<Statement> statements) {
+            this(statements, new HashSet<>(), new HashMap<>());
+        }
+
+        /** A statement of this block itself: what it establishes holds for the statements after it. */
+        boolean holds(Statement statement) {
+            return statements != null && statement != null && statements.stream().anyMatch(s -> s == statement);
         }
     }
 
@@ -70,9 +76,20 @@ final class KotlinSmartCasts {
     private KotlinSmartCasts() {
     }
 
-    /** A block starts: what it asserts holds until it ends. */
-    static void enterBlock() {
-        FRAMES.get().push(new Frame());
+    /** A block starts: what its statements assert holds until it ends. */
+    static void enterBlock(List<Statement> statements) {
+        FRAMES.get().push(new Frame(statements));
+    }
+
+    /**
+     * The innermost block's frame, when {@code statement} is one of its own statements; null otherwise (a switch
+     * entry's statements, printed without a block of their own, whose facts must not reach the other entries).
+     */
+    private static Frame blockOf(Statement statement) {
+        for (Frame frame : FRAMES.get()) {
+            if (frame.statements() != null) return frame.holds(statement) ? frame : null;
+        }
+        return null;
     }
 
     static void exitBlock() {
@@ -111,7 +128,7 @@ final class KotlinSmartCasts {
     /** {@code printer} with the variables of {@code types} known to be of those types: an {@code is} test holds. */
     static <T> T withTypes(Map<Variable, ParameterizedType> types, Supplier<T> printer) {
         if (types.isEmpty()) return printer.get();
-        Frame frame = new Frame();
+        Frame frame = new Frame(null);
         frame.types().putAll(types);
         FRAMES.get().push(frame);
         try {
@@ -123,7 +140,7 @@ final class KotlinSmartCasts {
 
     /** From here to the end of the block, the variables of {@code types} are known to be of those types. */
     static void addTypes(Map<Variable, ParameterizedType> types) {
-        Frame frame = FRAMES.get().peek();
+        Frame frame = blockOf(KotlinContext.currentStatement());
         if (frame != null) frame.types().putAll(types);
     }
 
@@ -178,7 +195,8 @@ final class KotlinSmartCasts {
         Variable variable = ve.variable();
         if (!stable(variable)) return;
         Statement statement = KotlinContext.currentStatement();
-        if (statement != null && unconditional(statement).contains(ve)) frames.peek().asserted().add(variable);
+        Frame frame = blockOf(statement);
+        if (frame != null && unconditional(statement).contains(ve)) frame.asserted().add(variable);
     }
 
     /**
