@@ -157,6 +157,16 @@ public final class CSharpProgram {
 
     /** The facts about the program of {@code primaryTypes}: the translated code, all of it. */
     public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes, Policy policy) {
+        // what the policy's mappings exclude is no program type, as the printing will have it (CSharpNames.translated)
+        CSharpContext.analyzing(policy.libraries());
+        try {
+            return analyzeTranslated(primaryTypes.stream().filter(t -> !policy.libraries().excludes(t)).toList(), policy);
+        } finally {
+            CSharpContext.analyzing(null);
+        }
+    }
+
+    private static CSharpProgram analyzeTranslated(Collection<TypeInfo> primaryTypes, Policy policy) {
         List<TypeInfo> all = new ArrayList<>();
         primaryTypes.forEach(t -> collect(t, all));
         Set<TypeInfo> candidates = new HashSet<>();

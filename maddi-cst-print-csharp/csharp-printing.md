@@ -414,6 +414,7 @@ option of each library is the default, and `none` leaves the library out:
 |---|---|---|
 | slf4j | `ms-logging`, `serilog` | `ILogger` from Microsoft.Extensions.Logging, or Serilog's. A message's `{}` holes become a message template's holes, named after their arguments (`"output: {}", x` → `"output: {X}"`). A trailing exception becomes the first argument. With `ms-logging`, `getLogger` is the compatibility library's `JavaLogging`, which the application connects to its host's `ILoggerFactory`. |
 | jackson | `system-text-json`, `newtonsoft` | An `ObjectMapper` becomes the options of `JsonSerializer` (or `JsonConvert`), and the tree model becomes `JsonNode` (or `JToken`). Annotations become attributes, on the targets C# allows: `@JsonSubTypes` → `[JsonDerivedType]`, a class-level `@JsonInclude` → an option or `[JsonObject]`. Jackson's configuration of its framework (modules, introspectors, custom serializers, builders) stays unmapped. |
+| micrometer | `system-diagnostics-metrics` | `System.Diagnostics.Metrics`, through the compatibility library's `JavaMetrics`: a global registry that keeps gauges by name and tags (`JavaTags`, equal by content), so that they can be read back and removed as Micrometer's, and exports each name as an `ObservableGauge` of the meter `Maddi.JavaCompat.Micrometer`. Counters and long task timers are that meter's `Counter<double>` and `Histogram<double>`; `JvmMemoryMetrics` reports the managed heap. |
 | jdk | `bcl` | The BCL, plus the compatibility library where Java's behaviour differs. |
 
 A library's annotation becomes what its mapping makes of it (`annotation(use, target, print)`, or `annotation` lines in
@@ -445,6 +446,16 @@ A mapping also states what the translated code needs when the mapping is used (`
 mapping file). The JDK mapping's source is the compatibility library. `CSharpLibraries.projectFile` writes a project
 that references the packages. The ratchet writes it beside the translation, restores the packages, and gives their
 assemblies to the judge.
+
+**Excluded program types, the stubbing mechanism.** A mapping may leave the program's own primary types out:
+`exclude <type or package>` (`LibraryMapping.excludes`). An excluded type is not printed, and is no longer the
+program's (`CSharpNames.translated`): its uses go through the mapping's rules as a library's do, and those without a
+rule are in the census of unmapped uses. This is how code that has no .NET counterpart leaves the translation, with
+the calls the rest of the program makes into it: a rule gives the value .NET has (`isGizmoSupported()` is `false`),
+and a call that cannot work throws as Java would without the library, with the type the call has,
+`JavaUnsupported.Value<{R}>("Gizmo's member accessors")` (`JavaUnsupported.Call` for a statement), from the
+compatibility library. A corpus's own mapping is a resource beside the ratchet (`JavaToCSharpRatchet.withMapping`):
+`timefold-gizmo.csmap` leaves out Gizmo's bytecode generation.
 
 The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
 qualified, as one whose name two namespaces declare is.

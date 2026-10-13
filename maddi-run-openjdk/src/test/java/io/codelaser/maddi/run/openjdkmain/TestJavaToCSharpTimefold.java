@@ -27,7 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * timefold-solver's core/main translated to C# and judged by Roslyn; the numbers are held by
  * {@code src/test/resources/j2cs/timefold.ratchet}. See {@link JavaToCSharpRatchet}. The large corpus: the reactor
  * parses whole (65 source sets), its first main source set, core/main, is translated. Generics-heavy (F-bounded
- * score types, functional interfaces of up to five arguments), where fernflower and langchain4j are not.
+ * score types, functional interfaces of up to five arguments), where fernflower and langchain4j are not. Without
+ * Gizmo, Quarkus's bytecode generation, which .NET has no counterpart for: {@code timefold-gizmo.csmap}.
  */
 @Tag("slow")
 // Only READS the shared timefold checkout; as maddi-mod's TestTimefoldSolver, kept apart from the tests that rewrite it.
@@ -38,6 +39,7 @@ public class TestJavaToCSharpTimefold {
     public void test() throws Exception {
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("timefold-solver");
         assertTrue(corpus.types().size() > 1500, "only " + corpus.types().size() + " primary types");
-        new JavaToCSharpRatchet("timefold", Path.of("src/test/resources/j2cs/timefold.ratchet")).run(corpus);
+        new JavaToCSharpRatchet("timefold", Path.of("src/test/resources/j2cs/timefold.ratchet"))
+                .withMapping("timefold-gizmo.csmap").run(corpus);
     }
 }

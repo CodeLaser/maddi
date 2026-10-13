@@ -62,6 +62,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * and those of slf4j and Jackson, which have mappings too. Their number is ratcheted; the report counts them per
  * library and lists them by frequency, the mappings' work list.
  * <p>
+ * A corpus's own mapping ({@link #withMapping}) may leave some of its types out ({@code exclude}): they are not
+ * printed nor counted as files, and their uses go through its rules, as a library's do; {@code types} stays the
+ * corpus's.
+ * <p>
  * The output lands in {@code build/j2cs/<name>/}: the translated sources, the judge's output and {@code report.txt}.
  */
 public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.Policy policy) {
@@ -70,6 +74,21 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     /** The translation as the default policy has it: the libraries the printer maps by default. */
     public JavaToCSharpRatchet(String name, Path ratchetFile) {
         this(name, ratchetFile, CSharpProgram.Policy.DEFAULT);
+    }
+
+    /**
+     * This ratchet with the corpus's own mapping in front of the policy's: the resource {@code resource} beside this
+     * class, such as {@code timefold-gizmo.csmap}, which leaves Gizmo's bytecode generation out of timefold.
+     */
+    public JavaToCSharpRatchet withMapping(String resource) {
+        try (var in = JavaToCSharpRatchet.class.getResourceAsStream(resource)) {
+            if (in == null) throw new IllegalStateException("no " + resource + " beside " + JavaToCSharpRatchet.class);
+            var mapping = io.codelaser.maddi.cst.print.csharp.CSharpMappingFile.parse(
+                    new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8), resource);
+            return new JavaToCSharpRatchet(name, ratchetFile, policy.withLibraries(policy.libraries().withFirst(mapping)));
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     /** name -> direction. "=" must not move, "<=" may only go down, ">=" may only go up. */
@@ -120,7 +139,8 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         measured.put("unmappedJdkUses", (long) unmapped.size());
         if (nullable()) measured.put("nullableWarnings", (long) judged.nullableWarnings.size());
 
-        String report = report(measured, printed, judged, unmapped, sources);
+        long excluded = corpus.types().stream().filter(policy.libraries()::excludes).count();
+        String report = report(measured, printed, judged, unmapped, sources, excluded);
         Files.writeString(out.resolve("report.txt"), report);
         Files.write(out.resolve("messages.txt"), printed.messages.stream().map(PrintMessage::toString).toList());
         LOGGER.info("\n{}", report);
@@ -142,6 +162,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         // the corpus is the whole program: what one file's printing may assume of the others
         CSharpProgram program = CSharpProgram.analyze(types, policy);
         for (TypeInfo type : types) {
+            if (policy.libraries().excludes(type)) continue; // left out by a mapping, used through its rules
             if (!done.add(type.compilationUnit())) continue; // a file with two primary types prints once
             try {
                 CSharpCompilationUnitPrinter.Result result = new CSharpCompilationUnitPrinter(type.compilationUnit(),
@@ -244,10 +265,11 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     // ---------------------------------------------------------------- report and ratchet
 
     private String report(Map<String, Long> measured, Printed printed, Judged judged,
-                          List<PrintMessage<CSharpPrintCode>> unmapped, List<Path> sources) {
+                          List<PrintMessage<CSharpPrintCode>> unmapped, List<Path> sources, long excluded) {
         StringBuilder sb = new StringBuilder("Java -> C#, " + name + "\n\n");
         measured.forEach((k, v) -> sb.append(String.format("  %-18s %6d%n", k, v)));
         sb.append(String.format("  %-18s %6d   (reported, not ratcheted)%n", "errors", judged.errors.size()));
+        if (excluded > 0) sb.append(String.format("  %-18s %6d   (types a mapping leaves out, not printed)%n", "excluded", excluded));
         if (!judged.nullableWarnings.isEmpty()) {
             sb.append("\nnullable warnings by code:\n").append(counted(judged.nullableWarnings.stream().map(d -> d.code
                     + " " + d.message.replaceAll("'[^']*'", "'_'")), 40));

@@ -299,8 +299,10 @@ public final class CSharpNames {
         return abstractMethods.size() == 1 ? abstractMethods.getFirst() : null;
     }
 
+    /** The program's own type, which the translation prints: not a library's, nor one a mapping excludes. */
     static boolean translated(TypeInfo typeInfo) {
-        return typeInfo.compilationUnit() != null && !typeInfo.compilationUnit().externalLibrary();
+        return typeInfo.compilationUnit() != null && !typeInfo.compilationUnit().externalLibrary()
+               && !CSharpContext.libraries().excludes(typeInfo.primaryType());
     }
 
     private static boolean clashesInEnclosingType(TypeInfo typeInfo, String name) {

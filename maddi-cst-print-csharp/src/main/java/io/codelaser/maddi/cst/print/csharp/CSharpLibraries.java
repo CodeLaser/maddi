@@ -38,6 +38,7 @@ import java.util.function.Supplier;
  * <ul>
  *   <li>{@code slf4j}: {@code ms-logging} (Microsoft.Extensions.Logging's ILogger), {@code serilog};</li>
  *   <li>{@code jackson}: {@code system-text-json}, {@code newtonsoft} (Json.NET);</li>
+ *   <li>{@code micrometer}: {@code system-diagnostics-metrics}, through the compatibility library's registry;</li>
  *   <li>{@code jdk}: {@code bcl}, the BCL with the compatibility library where Java's behaviour differs.</li>
  * </ul>
  * Option {@code none} leaves a library untranslated. {@link #choose} picks options, {@code slf4j=serilog,jackson=none}.
@@ -58,6 +59,8 @@ public final class CSharpLibraries implements LibraryMapping {
                 CSharpMappingFile.resource("jackson-system-text-json.csmap")));
         jackson.put("newtonsoft", () -> List.of(CSharpMappingFile.resource("jackson-newtonsoft.csmap")));
         options.put("jackson", jackson);
+        options.put("micrometer", Map.of("system-diagnostics-metrics",
+                () -> List.of(CSharpMappingFile.resource("micrometer-system-diagnostics-metrics.csmap"))));
         options.put("jdk", Map.of("bcl", () -> List.of(CSharpBcl.JDK)));
         return java.util.Collections.unmodifiableMap(options);
     }
@@ -119,6 +122,14 @@ public final class CSharpLibraries implements LibraryMapping {
     public CSharpLibraries withFirst(LibraryMapping first) {
         return new CSharpLibraries(java.util.stream.Stream.concat(java.util.stream.Stream.of(first), mappings.stream())
                 .toList());
+    }
+
+    @Override
+    public boolean excludes(TypeInfo primaryType) {
+        for (LibraryMapping m : mappings) {
+            if (m.excludes(primaryType)) return true;
+        }
+        return false;
     }
 
     public List<LibraryMapping> mappings() {

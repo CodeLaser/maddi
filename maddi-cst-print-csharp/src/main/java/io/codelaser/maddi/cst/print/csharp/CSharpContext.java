@@ -41,6 +41,7 @@ final class CSharpContext {
         final Set<String> usings = new TreeSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
+        CSharpLibraries analyzing;
         final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
@@ -90,7 +91,13 @@ final class CSharpContext {
 
     /** The library mappings of the translation: the program's. */
     static CSharpLibraries libraries() {
-        return STATE.get().program.libraries();
+        State state = STATE.get();
+        return state.analyzing != null ? state.analyzing : state.program.libraries();
+    }
+
+    /** The libraries while {@link CSharpProgram#analyze} computes the program, before it is the context's; null after. */
+    static void analyzing(CSharpLibraries libraries) {
+        STATE.get().analyzing = libraries;
     }
 
     static void pushType(TypeInfo typeInfo) {
