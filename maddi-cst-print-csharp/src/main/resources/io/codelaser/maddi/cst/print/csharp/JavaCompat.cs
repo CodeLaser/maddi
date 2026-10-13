@@ -1854,3 +1854,63 @@ public static class JavaServiceLoader
         }
     }
 }
+
+/// <summary>
+/// Java's resources, Class.getResource and ClassLoader.getResourceAsStream, as an assembly's embedded resources. A
+/// resource is found by its Java path: the manifest name that is the path (an EmbeddedResource with that LogicalName),
+/// or that ends with it, with dots for slashes as MSBuild names them. A name without a leading slash is relative to
+/// the class's package; of several matches, the one whose folders are most like the class's namespace wins. Its URL is
+/// resource://assembly/manifest-name, which OpenStream reads, as it reads a file: URI.
+/// </summary>
+public static class JavaResources
+{
+    public const string Scheme = "resource";
+
+    public static Uri GetResource(Type type, string name) => Uri(type.Assembly, Find(type.Assembly, name, type.Namespace));
+
+    public static Stream GetResourceAsStream(Type type, string name) =>
+        Open(type.Assembly, Find(type.Assembly, name, type.Namespace));
+
+    /// <summary>A class loader's name is absolute, without its leading slash.</summary>
+    public static Uri GetResource(Assembly assembly, string name) => Uri(assembly, Find(assembly, "/" + name, null));
+
+    public static Stream GetResourceAsStream(Assembly assembly, string name) => Open(assembly, Find(assembly, "/" + name, null));
+
+    public static Stream OpenStream(Uri uri)
+    {
+        if (uri.Scheme == Scheme)
+        {
+            var assembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == System.Uri.UnescapeDataString(uri.Host));
+            var stream = assembly?.GetManifestResourceStream(System.Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')));
+            return stream ?? throw new FileNotFoundException(uri.ToString());
+        }
+        if (uri.IsFile) return File.OpenRead(uri.LocalPath);
+        throw new NotSupportedException("reading " + uri);
+    }
+
+    private static Uri Uri(Assembly assembly, string manifestName) => manifestName == null ? null
+        : new Uri(Scheme + "://" + System.Uri.EscapeDataString(assembly.GetName().Name) + "/"
+                  + System.Uri.EscapeDataString(manifestName));
+
+    private static Stream Open(Assembly assembly, string manifestName) =>
+        manifestName == null ? null : assembly.GetManifestResourceStream(manifestName);
+
+    private static string Find(Assembly assembly, string name, string near)
+    {
+        var path = name.TrimStart('/');
+        var dotted = path.Replace('/', '.');
+        var candidates = assembly.GetManifestResourceNames()
+            .Where(m => m == path || m.EndsWith("/" + path, StringComparison.Ordinal)
+                        || m == dotted || m.EndsWith("." + dotted, StringComparison.Ordinal))
+            .ToList();
+        if (candidates.Count <= 1 || near == null || name.StartsWith('/'))
+        {
+            // an absolute name: the shortest match, the one closest to the root
+            return candidates.OrderBy(m => m.Length).FirstOrDefault();
+        }
+        var segments = near.ToLowerInvariant().Split('.');
+        return candidates.OrderByDescending(m => m.ToLowerInvariant().Split('.', '/').Count(s => segments.Contains(s)))
+            .First();
+    }
+}

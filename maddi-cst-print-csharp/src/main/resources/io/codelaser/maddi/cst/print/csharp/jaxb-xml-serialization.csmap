@@ -1,7 +1,130 @@
 # JAXB as System.Xml.Serialization: the binding of a type is what JaxbXmlSerialization adds to it, a public property
-# per bound field that carries XmlSerializer's attributes; an XmlAdapter is the compatibility library's JavaXmlAdapter,
-# which those properties call.
+# per bound field that carries XmlSerializer's attributes; the runtime is the compatibility library's (JavaXml.cs).
 mapping jaxb:xml-serialization
 compat JavaXml.cs
+# the runtime: a context's types are bound by the properties JaxbXmlSerialization adds, read and written by XmlSerializer
 pascal jakarta.xml.bind.annotation.adapters.XmlAdapter -> JavaXmlAdapter using Maddi.JavaCompat
+pascal jakarta.xml.bind.JAXBContext -> JavaJaxbContext using Maddi.JavaCompat
+pascal jakarta.xml.bind.Marshaller -> JavaMarshaller using Maddi.JavaCompat
+pascal jakarta.xml.bind.Unmarshaller -> JavaUnmarshaller using Maddi.JavaCompat
+pascal jakarta.xml.bind.JAXBException -> JavaJaxbException using Maddi.JavaCompat
+pascal jakarta.xml.bind.MarshalException -> JavaJaxbException using Maddi.JavaCompat
+pascal jakarta.xml.bind.UnmarshalException -> JavaJaxbException using Maddi.JavaCompat
+pascal jakarta.xml.bind.ValidationEvent -> JavaValidationEvent using Maddi.JavaCompat
+pascal jakarta.xml.bind.ValidationEventLocator -> JavaValidationEventLocator using Maddi.JavaCompat
+type jakarta.xml.bind.ValidationEventHandler -> JavaValidationEventHandler using Maddi.JavaCompat
+member jakarta.xml.bind.ValidationEventHandler.handleEvent/1 -> $0($1)
+pascal jakarta.xml.bind.util.ValidationEventCollector -> JavaValidationEventCollector using Maddi.JavaCompat
+field jakarta.xml.bind.Marshaller.JAXB_FORMATTED_OUTPUT -> JavaMarshaller.JaxbFormattedOutput using Maddi.JavaCompat
+field jakarta.xml.bind.Marshaller.JAXB_ENCODING -> JavaMarshaller.JaxbEncoding using Maddi.JavaCompat
+field jakarta.xml.bind.Marshaller.JAXB_FRAGMENT -> JavaMarshaller.JaxbFragment using Maddi.JavaCompat
+field jakarta.xml.bind.Marshaller.JAXB_SCHEMA_LOCATION -> JavaMarshaller.JaxbSchemaLocation using Maddi.JavaCompat
+field jakarta.xml.bind.Marshaller.JAXB_NO_NAMESPACE_SCHEMA_LOCATION -> JavaMarshaller.JaxbNoNamespaceSchemaLocation using Maddi.JavaCompat
+field jakarta.xml.bind.ValidationEvent.WARNING -> JavaValidationEvent.Warning using Maddi.JavaCompat
+field jakarta.xml.bind.ValidationEvent.ERROR -> JavaValidationEvent.Error using Maddi.JavaCompat
+field jakarta.xml.bind.ValidationEvent.FATAL_ERROR -> JavaValidationEvent.FatalError using Maddi.JavaCompat
 pascal javax.xml.bind.annotation.adapters.XmlAdapter -> JavaXmlAdapter using Maddi.JavaCompat
+pascal javax.xml.bind.JAXBContext -> JavaJaxbContext using Maddi.JavaCompat
+pascal javax.xml.bind.Marshaller -> JavaMarshaller using Maddi.JavaCompat
+pascal javax.xml.bind.Unmarshaller -> JavaUnmarshaller using Maddi.JavaCompat
+pascal javax.xml.bind.JAXBException -> JavaJaxbException using Maddi.JavaCompat
+pascal javax.xml.bind.MarshalException -> JavaJaxbException using Maddi.JavaCompat
+pascal javax.xml.bind.UnmarshalException -> JavaJaxbException using Maddi.JavaCompat
+pascal javax.xml.bind.ValidationEvent -> JavaValidationEvent using Maddi.JavaCompat
+pascal javax.xml.bind.ValidationEventLocator -> JavaValidationEventLocator using Maddi.JavaCompat
+type javax.xml.bind.ValidationEventHandler -> JavaValidationEventHandler using Maddi.JavaCompat
+member javax.xml.bind.ValidationEventHandler.handleEvent/1 -> $0($1)
+pascal javax.xml.bind.util.ValidationEventCollector -> JavaValidationEventCollector using Maddi.JavaCompat
+field javax.xml.bind.Marshaller.JAXB_FORMATTED_OUTPUT -> JavaMarshaller.JaxbFormattedOutput using Maddi.JavaCompat
+field javax.xml.bind.Marshaller.JAXB_ENCODING -> JavaMarshaller.JaxbEncoding using Maddi.JavaCompat
+field javax.xml.bind.Marshaller.JAXB_FRAGMENT -> JavaMarshaller.JaxbFragment using Maddi.JavaCompat
+field javax.xml.bind.Marshaller.JAXB_SCHEMA_LOCATION -> JavaMarshaller.JaxbSchemaLocation using Maddi.JavaCompat
+field javax.xml.bind.Marshaller.JAXB_NO_NAMESPACE_SCHEMA_LOCATION -> JavaMarshaller.JaxbNoNamespaceSchemaLocation using Maddi.JavaCompat
+field javax.xml.bind.ValidationEvent.WARNING -> JavaValidationEvent.Warning using Maddi.JavaCompat
+field javax.xml.bind.ValidationEvent.ERROR -> JavaValidationEvent.Error using Maddi.JavaCompat
+field javax.xml.bind.ValidationEvent.FATAL_ERROR -> JavaValidationEvent.FatalError using Maddi.JavaCompat
+
+# JAXP as far as it goes with JAXB: DOM is System.Xml's XmlDocument; parsers, sources, results, transformers and
+# schemas keep Java's shape in the compatibility library (JavaXml.cs), over XmlReader, XslCompiledTransform and
+# XmlSchemaSet
+type org.w3c.dom.Document -> XmlDocument using System.Xml
+type org.w3c.dom.Node -> XmlNode using System.Xml
+type org.w3c.dom.Element -> XmlElement using System.Xml
+type org.w3c.dom.Attr -> XmlAttribute using System.Xml
+type org.w3c.dom.Text -> XmlText using System.Xml
+type org.w3c.dom.NodeList -> XmlNodeList using System.Xml
+type org.w3c.dom.NamedNodeMap -> XmlAttributeCollection using System.Xml
+member org.w3c.dom.Node.getNodeName/0 -> $0.Name
+member org.w3c.dom.Node.getLocalName/0 -> $0.LocalName
+member org.w3c.dom.Node.getNamespaceURI/0 -> JavaDom.NamespaceUri($0) using Maddi.JavaCompat
+member org.w3c.dom.Node.getPrefix/0 -> $0.Prefix
+member org.w3c.dom.Node.getNodeType/0 -> $0.NodeType
+member org.w3c.dom.Node.getNodeValue/0 -> $0.Value
+member org.w3c.dom.Node.getTextContent/0 -> $0.InnerText
+member org.w3c.dom.Node.setTextContent/1 -> $0.InnerText = $1
+member org.w3c.dom.Node.getChildNodes/0 -> $0.ChildNodes
+member org.w3c.dom.Node.getFirstChild/0 -> $0.FirstChild
+member org.w3c.dom.Node.getLastChild/0 -> $0.LastChild
+member org.w3c.dom.Node.getNextSibling/0 -> $0.NextSibling
+member org.w3c.dom.Node.getPreviousSibling/0 -> $0.PreviousSibling
+member org.w3c.dom.Node.getParentNode/0 -> $0.ParentNode
+member org.w3c.dom.Node.getAttributes/0 -> $0.Attributes
+member org.w3c.dom.Node.getOwnerDocument/0 -> $0.OwnerDocument
+member org.w3c.dom.Node.hasChildNodes/0 -> $0.HasChildNodes
+member org.w3c.dom.Node.appendChild/1 -> $0.AppendChild($1)
+member org.w3c.dom.Node.removeChild/1 -> $0.RemoveChild($1)
+member org.w3c.dom.Node.cloneNode/1 -> $0.CloneNode($1)
+member org.w3c.dom.NodeList.item/1 -> $0[$1]
+member org.w3c.dom.NodeList.getLength/0 -> $0.Count
+member org.w3c.dom.Element.getAttribute/1 -> $0.GetAttribute($1)
+member org.w3c.dom.Element.setAttribute/2 -> $0.SetAttribute($1, $2)
+member org.w3c.dom.Element.getTagName/0 -> $0.Name
+member org.w3c.dom.Element.getElementsByTagName/1 -> $0.GetElementsByTagName($1)
+member org.w3c.dom.Document.getDocumentElement/0 -> $0.DocumentElement
+member org.w3c.dom.Document.createElement/1 -> $0.CreateElement($1)
+member org.w3c.dom.Document.createElementNS/2 -> $0.CreateElement($2, $1)
+member org.w3c.dom.Document.createTextNode/1 -> $0.CreateTextNode($1)
+member org.w3c.dom.Document.getElementsByTagName/1 -> $0.GetElementsByTagName($1)
+member org.w3c.dom.Document.renameNode/3 -> JavaDom.RenameNode($0, $1, $2, $3) using Maddi.JavaCompat
+field org.w3c.dom.Node.ELEMENT_NODE -> XmlNodeType.Element using System.Xml
+field org.w3c.dom.Node.ATTRIBUTE_NODE -> XmlNodeType.Attribute using System.Xml
+field org.w3c.dom.Node.TEXT_NODE -> XmlNodeType.Text using System.Xml
+field org.w3c.dom.Node.CDATA_SECTION_NODE -> XmlNodeType.CDATA using System.Xml
+field org.w3c.dom.Node.COMMENT_NODE -> XmlNodeType.Comment using System.Xml
+field org.w3c.dom.Node.DOCUMENT_NODE -> XmlNodeType.Document using System.Xml
+pascal org.xml.sax.InputSource -> JavaInputSource using Maddi.JavaCompat
+pascal org.xml.sax.SAXException -> JavaSaxException using Maddi.JavaCompat
+pascal org.xml.sax.SAXParseException -> JavaSaxParseException using Maddi.JavaCompat
+pascal org.xml.sax.SAXNotSupportedException -> JavaSaxNotSupportedException using Maddi.JavaCompat
+pascal org.xml.sax.SAXNotRecognizedException -> JavaSaxNotRecognizedException using Maddi.JavaCompat
+pascal javax.xml.parsers.DocumentBuilderFactory -> JavaDocumentBuilderFactory using Maddi.JavaCompat
+pascal javax.xml.parsers.DocumentBuilder -> JavaDocumentBuilder using Maddi.JavaCompat
+pascal javax.xml.parsers.ParserConfigurationException -> JavaParserConfigurationException using Maddi.JavaCompat
+pascal javax.xml.transform.Source -> JavaXmlSource using Maddi.JavaCompat
+pascal javax.xml.transform.Result -> JavaXmlResult using Maddi.JavaCompat
+pascal javax.xml.transform.dom.DOMSource -> JavaDomSource using Maddi.JavaCompat
+pascal javax.xml.transform.dom.DOMResult -> JavaDomResult using Maddi.JavaCompat
+pascal javax.xml.transform.stream.StreamSource -> JavaStreamSource using Maddi.JavaCompat
+pascal javax.xml.transform.stream.StreamResult -> JavaStreamResult using Maddi.JavaCompat
+pascal javax.xml.transform.TransformerFactory -> JavaTransformerFactory using Maddi.JavaCompat
+pascal javax.xml.transform.Transformer -> JavaTransformer using Maddi.JavaCompat
+pascal javax.xml.transform.TransformerException -> JavaTransformerException using Maddi.JavaCompat
+pascal javax.xml.transform.TransformerConfigurationException -> JavaTransformerConfigurationException using Maddi.JavaCompat
+field javax.xml.transform.OutputKeys.INDENT -> JavaOutputKeys.Indent using Maddi.JavaCompat
+field javax.xml.transform.OutputKeys.ENCODING -> JavaOutputKeys.Encoding using Maddi.JavaCompat
+field javax.xml.transform.OutputKeys.METHOD -> JavaOutputKeys.Method using Maddi.JavaCompat
+field javax.xml.transform.OutputKeys.OMIT_XML_DECLARATION -> JavaOutputKeys.OmitXmlDeclaration using Maddi.JavaCompat
+field javax.xml.transform.OutputKeys.STANDALONE -> JavaOutputKeys.Standalone using Maddi.JavaCompat
+pascal javax.xml.validation.SchemaFactory -> JavaSchemaFactory using Maddi.JavaCompat
+pascal javax.xml.validation.Schema -> JavaSchema using Maddi.JavaCompat
+pascal javax.xml.validation.Validator -> JavaValidator using Maddi.JavaCompat
+pascal javax.xml.XMLConstants -> JavaXmlConstants using Maddi.JavaCompat
+field javax.xml.XMLConstants.NULL_NS_URI -> JavaXmlConstants.NullNsUri using Maddi.JavaCompat
+field javax.xml.XMLConstants.XML_NS_URI -> JavaXmlConstants.XmlNsUri using Maddi.JavaCompat
+field javax.xml.XMLConstants.XMLNS_ATTRIBUTE_NS_URI -> JavaXmlConstants.XmlnsAttributeNsUri using Maddi.JavaCompat
+field javax.xml.XMLConstants.W3C_XML_SCHEMA_NS_URI -> JavaXmlConstants.W3cXmlSchemaNsUri using Maddi.JavaCompat
+field javax.xml.XMLConstants.W3C_XML_SCHEMA_INSTANCE_NS_URI -> JavaXmlConstants.W3cXmlSchemaInstanceNsUri using Maddi.JavaCompat
+field javax.xml.XMLConstants.FEATURE_SECURE_PROCESSING -> JavaXmlConstants.FeatureSecureProcessing using Maddi.JavaCompat
+field javax.xml.XMLConstants.ACCESS_EXTERNAL_DTD -> JavaXmlConstants.AccessExternalDtd using Maddi.JavaCompat
+field javax.xml.XMLConstants.ACCESS_EXTERNAL_SCHEMA -> JavaXmlConstants.AccessExternalSchema using Maddi.JavaCompat
+field javax.xml.XMLConstants.ACCESS_EXTERNAL_STYLESHEET -> JavaXmlConstants.AccessExternalStylesheet using Maddi.JavaCompat

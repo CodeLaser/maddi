@@ -420,7 +420,7 @@ option of each library is the default, and `none` leaves the library out:
 | slf4j | `ms-logging`, `serilog` | `ILogger` from Microsoft.Extensions.Logging, or Serilog's. A message's `{}` holes become a message template's holes, named after their arguments (`"output: {}", x` → `"output: {X}"`). A trailing exception becomes the first argument. With `ms-logging`, `getLogger` is the compatibility library's `JavaLogging`, which the application connects to its host's `ILoggerFactory`. |
 | jackson | `system-text-json`, `newtonsoft` | An `ObjectMapper` becomes the options of `JsonSerializer` (or `JsonConvert`), and the tree model becomes `JsonNode` (or `JToken`). Annotations become attributes, on the targets C# allows: `@JsonSubTypes` → `[JsonDerivedType]`, a class-level `@JsonInclude` → an option or `[JsonObject]`. Jackson's configuration of its framework (modules, introspectors, custom serializers, builders) stays unmapped. |
 | micrometer | `system-diagnostics-metrics` | `System.Diagnostics.Metrics`, through the compatibility library's `JavaMetrics`: a global registry that keeps gauges by name and tags (`JavaTags`, equal by content), so that they can be read back and removed as Micrometer's, and exports each name as an `ObservableGauge` of the meter `Maddi.JavaCompat.Micrometer`. Counters and long task timers are that meter's `Counter<double>` and `Histogram<double>`; `JvmMemoryMetrics` reports the managed heap. |
-| jaxb | `xml-serialization` | `System.Xml.Serialization`'s `XmlSerializer`, through the binding described below; an `XmlAdapter` is the compatibility library's `JavaXmlAdapter`. |
+| jaxb | `xml-serialization` | `System.Xml.Serialization`'s `XmlSerializer`, through the binding described below. JAXB's runtime (`JAXBContext`, `Marshaller`, `Unmarshaller` with a schema and validation events, `XmlAdapter`), and the JAXP that goes with it, keep Java's shape in the compatibility library's `JavaXml.cs`: DOM is `XmlDocument`, a parser is `XmlReader`, a `Schema` is an `XmlSchemaSet`, a `Transformer` is an `XslCompiledTransform` or the identity. Where the meanings differ, the library follows Java's: `getNamespaceURI` gives null for no namespace, `renameNode` replaces the element, and output declares the encoding Java declares. |
 | jdk | `bcl` | The BCL, plus the compatibility library where Java's behaviour differs. |
 
 A library's annotation becomes what its mapping makes of it (`annotation(use, target, print)`, or `annotation` lines in
@@ -637,6 +637,11 @@ ratchet's report (see below) lists what is left.
   (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
   `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`,
   `JavaServiceLoader`.
+- `JavaResources` stands for `Class.getResource(AsStream)` and `ClassLoader.getResource(AsStream)`. A resource is
+  one of the assembly's embedded resources, and is found by its Java path in one of two ways. Either the manifest
+  name is the path itself (an `EmbeddedResource` whose `LogicalName` is the Java path), or the manifest name ends with
+  the path, written with dots as MSBuild writes it. A relative name prefers the match whose folders are most like the
+  class's namespace. Its `java.net.URL`, a `Uri`, is `resource://assembly/name`, which `OpenStream` reads.
 - Java's `byte[]` is `sbyte[]` in C#, so these classes take and give `sbyte[]` and reinterpret it as `byte[]` for the
   BCL.
 
