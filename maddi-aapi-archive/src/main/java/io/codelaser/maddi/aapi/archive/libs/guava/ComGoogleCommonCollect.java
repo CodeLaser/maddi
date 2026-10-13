@@ -61,6 +61,7 @@ import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.method.GetSet;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.annotation.type.UtilityClass;
@@ -69,7 +70,7 @@ public class ComGoogleCommonCollect {
     public static final String PACKAGE_NAME = "com.google.common.collect";
     //public abstract class AbstractIterator extends UnmodifiableIterator<T>
     @Container
-    @Independent(absent = true)
+    @Independent(hc = true)
     class AbstractIterator$<T> {
         //override from java.util.Iterator
         @Modified
@@ -95,7 +96,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class ArrayListMultimap extends AbstractListMultimap<K,V>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class ArrayListMultimap$<K, V> {
@@ -106,11 +107,11 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> ArrayListMultimap<K, V> create(int expectedKeys, int expectedValuesPerKey) { return null; }
-        @NotModified void trimToSize() { }
+        @Modified @NotModified(after = "keys") void trimToSize() { }
     }
 
     //public final class ArrayTable extends AbstractTable<R,C,V> implements Table<R,C,V>, Serializable
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class ArrayTable$<R, C, V> {
@@ -167,7 +168,7 @@ public class ComGoogleCommonCollect {
             return null;
         }
 
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @Modified @NotModified(after = "columnList,rowList")
         V erase(@Independent @NotModified Object rowKey, @Independent @NotModified Object columnKey) { return null; }
         @Modified void eraseAll() { }
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
@@ -179,7 +180,7 @@ public class ComGoogleCommonCollect {
         boolean isEmpty() { return false; }
 
         //override from com.google.common.collect.AbstractTable, com.google.common.collect.Table
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @Modified @NotModified(after = "columnList,rowList")
 
         V put(
             @Independent @NotModified R rowKey,
@@ -206,7 +207,7 @@ public class ComGoogleCommonCollect {
         @Independent(absent = true) @NotModified
         Map<R, Map<C, V>> rowMap() { return null; }
 
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @Modified @NotModified(after = "columnList,rowList")
         V set(int rowIndex, int columnIndex, @Independent(hc = true) @NotModified V value) { return null; }
 
         //override from com.google.common.collect.Table
@@ -229,12 +230,12 @@ public class ComGoogleCommonCollect {
         }
         @Independent(absent = true) @NotModified BiMap<V, K> inverse() { return null; }
         //override from java.util.Map
-        @Independent(hc = true) @Modified
+        @Independent(hc = true) @Modified @Nullable
         V put(@Independent(hc = true) @NotModified K key, @Independent(hc = true) @NotModified V value) { return null; }
 
         //override from java.util.Map
         @Modified
-        void putAll(@Independent @NotModified Map<? extends K, ? extends V> map) { }
+        void putAll(@Independent(absent = true) @NotModified @NotNull Map<? extends K, ? extends V> map) { }
 
         //override from java.util.Map
         @Independent(absent = true) @NotModified
@@ -254,9 +255,13 @@ public class ComGoogleCommonCollect {
     @Container
     @Independent(absent = true)
     class ClassToInstanceMap$<B> {
-        @Independent(hc = true) @Modified <T extends B> T getInstance(Class<T> type) { return null; }
-        @Independent @Modified
-        <T extends B> T putInstance(Class<T> type, @Independent @NotModified T value) { return null; }
+        @Immutable(hc = true) @Independent(hc = true) @NotModified
+        <T extends B> T getInstance(Class<T> type) { return null; }
+
+        @Immutable(hc = true) @Independent @Modified
+        <T extends B> T putInstance(Class<T> type, @Immutable(hc = true) @Independent @NotModified T value) {
+            return null;
+        }
     }
 
     //public final class Collections2
@@ -265,7 +270,7 @@ public class ComGoogleCommonCollect {
     class Collections2$ {
         @Independent @NotModified
         static <E> Collection<E> filter(
-            @Independent @Modified Collection<E> unfiltered,
+            @Independent @NotModified Collection<E> unfiltered,
             @Independent @NotModified Predicate<? super E> predicate) { return null; }
 
         @Independent @NotModified
@@ -278,11 +283,11 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified Comparator<? super E> comparator) { return null; }
 
         @Independent @NotModified
-        static <E> Collection<List<E>> permutations(@Independent @NotModified Collection<E> elements) { return null; }
+        static <E> Collection<List<E>> permutations(@Independent @Modified Collection<E> elements) { return null; }
 
         @Independent @NotModified
         static <F, T> Collection<T> transform(
-            @Independent @Modified Collection<F> fromCollection,
+            @Independent @NotModified Collection<F> fromCollection,
             @Independent @NotModified Function<? super F, T> function) { return null; }
     }
 
@@ -314,7 +319,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified Iterable<? extends T> iterable,
             @Independent @NotModified Comparator<T> comparator) { return false; }
 
-        @Independent @NotModified
+        @Independent @Modified
         static <T> Collector<T, ?, List<T>> least(int k, @Independent @NotModified Comparator<? super T> comparator) {
             return null;
         }
@@ -357,14 +362,16 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         ComparisonChain compare(
-            @Independent @NotModified Comparable<?> left,
-            @Independent @NotModified Comparable<?> right) { return null; }
+            @Immutable(hc = true) @Independent @NotModified Comparable<?> left,
+            @Immutable(hc = true) @Independent @NotModified Comparable<?> right) { return null; }
 
         @Independent @NotModified
         <T> ComparisonChain compare(
             @Independent @NotModified T left,
             @Independent @NotModified T right,
-            @Independent @NotModified Comparator<T> comparator) { return null; }
+            @IgnoreModifications @Immutable(hc = true) @Independent @NotModified Comparator<T> comparator) {
+            return null;
+        }
         @Independent @NotModified ComparisonChain compare(double left, double right) { return null; }
         @Independent @NotModified ComparisonChain compare(float left, float right) { return null; }
         @Independent @NotModified ComparisonChain compare(int left, int right) { return null; }
@@ -446,6 +453,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public abstract class ContiguousSet extends ImmutableSortedSet<C>
+    @Container
     @Independent(absent = true)
     class ContiguousSet$<C extends Comparable> {
         @Independent @NotModified static <E> ImmutableSortedSet.Builder<E> builder() { return null; }
@@ -455,7 +463,7 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified static ContiguousSet<Long> closedOpen(long lower, long upper) { return null; }
         @Independent @NotModified
         static <C extends Comparable> ContiguousSet<C> create(
-            @Independent @Modified Range<C> range,
+            @Independent @NotModified Range<C> range,
             @Independent @NotModified DiscreteDomain<C> domain) { return null; }
 
         //override from com.google.common.collect.ImmutableSortedSet, java.util.NavigableSet, java.util.SortedSet
@@ -471,8 +479,8 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified Range<C> range() { return null; }
         @Independent @NotModified
         Range<C> range(
-            @Independent @NotModified BoundType lowerBoundType,
-            @Independent @NotModified BoundType upperBoundType) { return null; }
+            @Immutable @Independent @NotModified BoundType lowerBoundType,
+            @Immutable @Independent @NotModified BoundType upperBoundType) { return null; }
 
         //override from com.google.common.collect.ImmutableSortedSet, java.util.NavigableSet, java.util.SortedSet
         @Independent @NotModified
@@ -508,13 +516,19 @@ public class ComGoogleCommonCollect {
     @Immutable(hc = true)
     class DiscreteDomain$<C extends Comparable> {
         @Independent @NotModified static DiscreteDomain<BigInteger> bigIntegers() { return null; }
-        @NotModified long distance(@Independent @NotModified C start, @Independent @NotModified C end) { return 0L; }
+        @NotModified
+        long distance(
+            @Immutable(hc = true) @Independent @NotModified C start,
+            @Immutable(hc = true) @Independent @NotModified C end) { return 0L; }
         @Independent @NotModified static DiscreteDomain<Integer> integers() { return null; }
         @Independent @NotModified static DiscreteDomain<Long> longs() { return null; }
         @Independent @NotModified C maxValue() { return null; }
         @Independent @NotModified C minValue() { return null; }
-        @Independent @NotModified C next(@Independent @NotModified C value) { return null; }
-        @Independent @NotModified C previous(@Independent @NotModified C value) { return null; }
+        @Immutable(hc = true) @Independent @NotModified
+        C next(@Immutable(hc = true) @Independent @NotModified C value) { return null; }
+
+        @Immutable(hc = true) @Independent @NotModified
+        C previous(@Immutable(hc = true) @Independent @NotModified C value) { return null; }
     }
 
     //public final class EnumBiMap extends AbstractBiMap<K,V>
@@ -607,7 +621,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class EvictingQueue extends ForwardingQueue<E> implements Serializable
-    //annotated as EXPECTED; computed @FinalFields @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed @FinalFields @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class EvictingQueue$<E> {
@@ -622,7 +636,7 @@ public class ComGoogleCommonCollect {
         //override from com.google.common.collect.ForwardingQueue, java.util.Queue
         @Modified
         boolean offer(@Independent @NotModified E e) { return false; }
-        @Modified int remainingCapacity() { return 0; }
+        @NotModified int remainingCapacity() { return 0; }
         //override from com.google.common.collect.ForwardingCollection, java.util.Collection
         @Independent @NotModified
         Object [] toArray() { return null; }
@@ -665,7 +679,7 @@ public class ComGoogleCommonCollect {
         @NotModified boolean contains(@Independent @NotModified Object target) { return false; }
         @Identity @Independent @NotModified
         <C extends Collection<? super E>> C copyInto(@Independent @Modified C collection) { return null; }
-        @Independent @Modified @NotModified(after = "iterableDelegate") FluentIterable<E> cycle() { return null; }
+        @Independent @NotModified FluentIterable<E> cycle() { return null; }
         @Independent @NotModified <T> FluentIterable<T> filter(Class<T> type) { return null; }
         @Independent @NotModified
         FluentIterable<E> filter(@Independent @Modified Predicate<? super E> predicate) { return null; }
@@ -687,29 +701,30 @@ public class ComGoogleCommonCollect {
         @NotModified boolean isEmpty() { return false; }
         @NotModified String join(@Independent @NotModified Joiner joiner) { return null; }
         @Independent @NotModified Optional<E> last() { return null; }
-        @Independent @Modified @NotModified(after = "iterableDelegate")
-        FluentIterable<E> limit(int maxSize) { return null; }
+        @Independent @NotModified FluentIterable<E> limit(int maxSize) { return null; }
         @Independent @NotModified static <E> FluentIterable<E> of() { return null; }
         @Independent @NotModified
         static <E> FluentIterable<E> of(@Independent @NotModified E element, @Independent @NotModified E ... elements) {
             return null;
         }
         @NotModified int size() { return 0; }
-        @Independent @Modified @NotModified(after = "iterableDelegate")
-        FluentIterable<E> skip(int numberToSkip) { return null; }
+        @Independent @NotModified FluentIterable<E> skip(int numberToSkip) { return null; }
         @Independent @NotModified Stream<E> stream() { return null; }
         @Independent @NotModified E [] toArray(Class<E> type) { return null; }
-        @Independent @NotModified ImmutableList<E> toList() { return null; }
+        @Independent @Modified @NotModified(after = "iterableDelegate") ImmutableList<E> toList() { return null; }
         @Independent @NotModified
         <V> ImmutableMap<E, V> toMap(@Independent @Modified Function<? super E, V> valueFunction) { return null; }
 
         @Independent @Modified @NotModified(after = "iterableDelegate")
         ImmutableMultiset<E> toMultiset() { return null; }
-        @Fluent @Independent @NotModified ImmutableSet<E> toSet() { return null; }
+
+        @Fluent @Independent @Modified @NotModified(after = "iterableDelegate")
+        ImmutableSet<E> toSet() { return null; }
+
         @Independent @NotModified
         ImmutableList<E> toSortedList(@Independent @NotModified Comparator<? super E> comparator) { return null; }
 
-        @Independent @NotModified
+        @Independent @Modified @NotModified(after = "iterableDelegate")
         ImmutableSortedSet<E> toSortedSet(@Independent @NotModified Comparator<? super E> comparator) { return null; }
 
         //override from java.lang.Object
@@ -732,69 +747,72 @@ public class ComGoogleCommonCollect {
     @Independent(absent = true)
     class ForwardingBlockingDeque$<E> {
         //override from java.util.concurrent.BlockingQueue
-        @Modified
+        @NotModified
         int drainTo(@Independent @Modified Collection<? super E> c) { return 0; }
 
         //override from java.util.concurrent.BlockingQueue
-        @Modified
+        @NotModified
         int drainTo(@Independent @Modified Collection<? super E> c, int maxElements) { return 0; }
 
         //override from java.util.concurrent.BlockingDeque, java.util.concurrent.BlockingQueue
-        @Modified
-        boolean offer(@Independent @NotModified E e, long timeout, @Independent @Modified TimeUnit unit) { return false; }
+        @NotModified
 
-        //override from java.util.concurrent.BlockingDeque
-        @Modified
-
-        boolean offerFirst(@Independent @NotModified E e, long timeout, @Independent @Modified TimeUnit unit) {
+        boolean offer(@Independent @NotModified E e, long timeout, @Independent @NotModified TimeUnit unit) {
             return false;
         }
 
         //override from java.util.concurrent.BlockingDeque
-        @Modified
+        @NotModified
 
-        boolean offerLast(@Independent @NotModified E e, long timeout, @Independent @Modified TimeUnit unit) {
+        boolean offerFirst(@Independent @NotModified E e, long timeout, @Independent @NotModified TimeUnit unit) {
+            return false;
+        }
+
+        //override from java.util.concurrent.BlockingDeque
+        @NotModified
+
+        boolean offerLast(@Independent @NotModified E e, long timeout, @Independent @NotModified TimeUnit unit) {
             return false;
         }
 
         //override from java.util.concurrent.BlockingDeque, java.util.concurrent.BlockingQueue
-        @Independent @Modified
-        E poll(long timeout, @Independent @Modified TimeUnit unit) { return null; }
+        @Independent @NotModified
+        E poll(long timeout, @Independent @NotModified TimeUnit unit) { return null; }
 
         //override from java.util.concurrent.BlockingDeque
-        @Independent @Modified
-        E pollFirst(long timeout, @Independent @Modified TimeUnit unit) { return null; }
+        @Independent @NotModified
+        E pollFirst(long timeout, @Independent @NotModified TimeUnit unit) { return null; }
 
         //override from java.util.concurrent.BlockingDeque
-        @Independent @Modified
-        E pollLast(long timeout, @Independent @Modified TimeUnit unit) { return null; }
+        @Independent @NotModified
+        E pollLast(long timeout, @Independent @NotModified TimeUnit unit) { return null; }
 
         //override from java.util.concurrent.BlockingDeque, java.util.concurrent.BlockingQueue
-        @Modified
+        @NotModified
         void put(@Independent @NotModified E e) { }
 
         //override from java.util.concurrent.BlockingDeque
-        @Modified
+        @NotModified
         void putFirst(@Independent @NotModified E e) { }
 
         //override from java.util.concurrent.BlockingDeque
-        @Modified
+        @NotModified
         void putLast(@Independent @NotModified E e) { }
 
         //override from java.util.concurrent.BlockingQueue
-        @Modified
+        @NotModified
         int remainingCapacity() { return 0; }
 
         //override from java.util.concurrent.BlockingDeque, java.util.concurrent.BlockingQueue
-        @Independent @Modified
+        @Independent @NotModified
         E take() { return null; }
 
         //override from java.util.concurrent.BlockingDeque
-        @Independent @Modified
+        @Independent @NotModified
         E takeFirst() { return null; }
 
         //override from java.util.concurrent.BlockingDeque
-        @Independent @Modified
+        @Independent @NotModified
         E takeLast() { return null; }
     }
 
@@ -899,11 +917,11 @@ public class ComGoogleCommonCollect {
         Iterator<E> descendingIterator() { return null; }
 
         //override from java.util.Deque, java.util.SequencedCollection
-        @Independent @Modified
+        @Independent @NotModified
         E getFirst() { return null; }
 
         //override from java.util.Deque, java.util.SequencedCollection
-        @Independent @Modified
+        @Independent @NotModified
         E getLast() { return null; }
 
         //override from java.util.Deque
@@ -915,11 +933,11 @@ public class ComGoogleCommonCollect {
         boolean offerLast(@Independent @NotModified E e) { return false; }
 
         //override from java.util.Deque
-        @Independent @Modified
+        @Independent @NotModified
         E peekFirst() { return null; }
 
         //override from java.util.Deque
-        @Independent @Modified
+        @Independent @NotModified
         E peekLast() { return null; }
 
         //override from java.util.Deque
@@ -975,16 +993,15 @@ public class ComGoogleCommonCollect {
 
     //public abstract class ForwardingList extends ForwardingCollection<E> implements List<E>
     @FinalFields
-    @Container
     @Independent(absent = true)
     class ForwardingList$<E> {
         //override from java.util.List
-        @NotModified
+        @Modified
         void add(int index, @Independent @NotModified E element) { }
 
         //override from java.util.List
-        @NotModified
-        boolean addAll(int index, @Independent @NotModified Collection<? extends E> elements) { return false; }
+        @Modified
+        boolean addAll(int index, @Independent @Modified Collection<? extends E> elements) { return false; }
 
         //override from java.lang.Object, java.util.Collection, java.util.List
         @NotModified
@@ -1015,11 +1032,11 @@ public class ComGoogleCommonCollect {
         ListIterator<E> listIterator(int index) { return null; }
 
         //override from java.util.List
-        @Independent @NotModified
+        @Independent @Modified
         E remove(int index) { return null; }
 
         //override from java.util.List
-        @Independent @NotModified
+        @Independent @Modified
         E set(int index, @Independent @NotModified E element) { return null; }
 
         //override from java.util.List
@@ -1063,16 +1080,16 @@ public class ComGoogleCommonCollect {
     class ForwardingListMultimap$<K, V> {
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.ListMultimap, com.google.common.collect.Multimap
         @Independent @NotModified
-        List<V> get(@Independent @Modified K key) { return null; }
+        List<V> get(@Independent @NotModified K key) { return null; }
 
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.ListMultimap, com.google.common.collect.Multimap
         @Independent @Modified
-        List<V> removeAll(@Independent @Modified Object key) { return null; }
+        List<V> removeAll(@Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.ListMultimap, com.google.common.collect.Multimap
         @Independent @Modified
 
-        List<V> replaceValues(@Independent @Modified K key, @Independent @Modified Iterable<? extends V> values) {
+        List<V> replaceValues(@Independent @NotModified K key, @Independent @Modified Iterable<? extends V> values) {
             return null;
         }
     }
@@ -1173,7 +1190,7 @@ public class ComGoogleCommonCollect {
         Map<K, Collection<V>> asMap() { return null; }
 
         //override from com.google.common.collect.Multimap
-        @Modified
+        @Modified @NotModified(after = "delegate,unusableDelegate")
         void clear() { }
 
         //override from com.google.common.collect.Multimap
@@ -1185,7 +1202,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap
         @NotModified
-        boolean containsKey(@Independent @Modified Object key) { return false; }
+        boolean containsKey(@Independent @NotModified Object key) { return false; }
 
         //override from com.google.common.collect.Multimap
         @NotModified
@@ -1197,11 +1214,11 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap, java.lang.Object
         @NotModified
-        public boolean equals(@Independent @Modified Object object) { return false; }
+        public boolean equals(@Independent @NotModified Object object) { return false; }
 
         //override from com.google.common.collect.Multimap
         @Independent @NotModified
-        Collection<V> get(@Independent @Modified K key) { return null; }
+        Collection<V> get(@Independent @NotModified K key) { return null; }
 
         //override from com.google.common.collect.Multimap, java.lang.Object
         @NotModified
@@ -1220,31 +1237,34 @@ public class ComGoogleCommonCollect {
         Multiset<K> keys() { return null; }
 
         //override from com.google.common.collect.Multimap
-        @Modified
-        boolean put(@Independent @Modified K key, @Independent @NotModified V value) { return false; }
+        @Modified @NotModified(after = "delegate,unusableDelegate")
+        boolean put(@Independent @NotModified K key, @Independent @NotModified V value) { return false; }
 
         //override from com.google.common.collect.Multimap
-        @Modified
-        boolean putAll(@Independent @Modified K key, @Independent @Modified Iterable<? extends V> values) { return false; }
+        @Modified @NotModified(after = "delegate,unusableDelegate")
+
+        boolean putAll(@Independent @NotModified K key, @Independent @Modified Iterable<? extends V> values) {
+            return false;
+        }
 
         //override from com.google.common.collect.Multimap
-        @Modified
+        @Modified @NotModified(after = "delegate,unusableDelegate")
         boolean putAll(@Independent @Modified Multimap<? extends K, ? extends V> multimap) { return false; }
 
         //override from com.google.common.collect.Multimap
-        @Modified
-        boolean remove(@Independent @Modified Object key, @Independent @NotModified Object value) { return false; }
+        @Modified @NotModified(after = "delegate,unusableDelegate")
+        boolean remove(@Independent @NotModified Object key, @Independent @NotModified Object value) { return false; }
 
         //override from com.google.common.collect.Multimap
-        @Independent @Modified
-        Collection<V> removeAll(@Independent @Modified Object key) { return null; }
+        @Independent @Modified @NotModified(after = "delegate,unusableDelegate")
+        Collection<V> removeAll(@Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.Multimap
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "delegate,unusableDelegate")
 
-        Collection<V> replaceValues(@Independent @Modified K key, @Independent @Modified Iterable<? extends V> values) {
-            return null;
-        }
+        Collection<V> replaceValues(
+            @Independent @NotModified K key,
+            @Independent @Modified Iterable<? extends V> values) { return null; }
 
         //override from com.google.common.collect.Multimap
         @NotModified
@@ -1260,12 +1280,12 @@ public class ComGoogleCommonCollect {
     @Independent(absent = true)
     class ForwardingMultiset$<E> {
         //override from com.google.common.collect.Multiset
-        @Modified
-        int add(@Independent @Modified E element, int occurrences) { return 0; }
+        @Modified @NotModified(after = "backingCollection,backingMultiset,delegate")
+        int add(@Independent @NotModified E element, int occurrences) { return 0; }
 
         //override from com.google.common.collect.Multiset
         @NotModified
-        int count(@Independent @Modified Object element) { return 0; }
+        int count(@Independent @NotModified Object element) { return 0; }
 
         //override from com.google.common.collect.Multiset
         @Independent @NotModified
@@ -1277,23 +1297,23 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multiset, java.lang.Object, java.util.Collection
         @NotModified
-        public boolean equals(@Independent @Modified Object object) { return false; }
+        public boolean equals(@Independent @NotModified Object object) { return false; }
 
         //override from com.google.common.collect.Multiset, java.lang.Object, java.util.Collection
         @NotModified
         public int hashCode() { return 0; }
 
         //override from com.google.common.collect.Multiset
-        @Modified
-        int remove(@Independent @Modified Object element, int occurrences) { return 0; }
+        @Modified @NotModified(after = "backingCollection,backingMultiset,delegate")
+        int remove(@Independent @NotModified Object element, int occurrences) { return 0; }
 
         //override from com.google.common.collect.Multiset
-        @Modified
-        int setCount(@Independent @Modified E element, int count) { return 0; }
+        @Modified @NotModified(after = "backingCollection,backingMultiset,delegate")
+        int setCount(@Independent @NotModified E element, int count) { return 0; }
 
         //override from com.google.common.collect.Multiset
-        @Modified
-        boolean setCount(@Independent @Modified E element, int oldCount, int newCount) { return false; }
+        @Modified @NotModified(after = "backingCollection,backingMultiset,delegate")
+        boolean setCount(@Independent @NotModified E element, int oldCount, int newCount) { return false; }
     }
 
     //public abstract class ForwardingNavigableMap extends ForwardingSortedMap<K,V> implements NavigableMap<K,V>
@@ -1302,15 +1322,15 @@ public class ComGoogleCommonCollect {
     @Independent(absent = true)
     class ForwardingNavigableMap$<K, V> {
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> ceilingEntry(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         K ceilingKey(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         NavigableSet<K> descendingKeySet() { return null; }
 
         //override from java.util.NavigableMap
@@ -1318,15 +1338,15 @@ public class ComGoogleCommonCollect {
         NavigableMap<K, V> descendingMap() { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> firstEntry() { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> floorEntry(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         K floorKey(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
@@ -1334,27 +1354,27 @@ public class ComGoogleCommonCollect {
         NavigableMap<K, V> headMap(@Independent @NotModified K toKey, boolean inclusive) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> higherEntry(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         K higherKey(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> lastEntry() { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         Map.Entry<K, V> lowerEntry(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         K lowerKey(@Independent @NotModified K key) { return null; }
 
         //override from java.util.NavigableMap
-        @Independent @Modified
+        @Independent @NotModified
         NavigableSet<K> navigableKeySet() { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
@@ -1437,7 +1457,7 @@ public class ComGoogleCommonCollect {
     //public abstract class ForwardingObject
     @FinalFields
     @Container
-    @Independent(absent = true)
+    @Independent(hc = true)
     class ForwardingObject$ {
         //override from java.lang.Object
         @NotModified
@@ -1472,7 +1492,6 @@ public class ComGoogleCommonCollect {
 
     //public abstract class ForwardingSet extends ForwardingCollection<E> implements Set<E>
     @FinalFields
-    @Container
     @Independent(absent = true)
     class ForwardingSet$<E> {
         //override from java.lang.Object, java.util.Collection, java.util.Set
@@ -1495,16 +1514,16 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.Multimap, com.google.common.collect.SetMultimap
         @Independent @NotModified
-        Set<V> get(@Independent @Modified K key) { return null; }
+        Set<V> get(@Independent @NotModified K key) { return null; }
 
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.Multimap, com.google.common.collect.SetMultimap
-        @Independent @Modified
-        Set<V> removeAll(@Independent @Modified Object key) { return null; }
+        @Independent @Modified @NotModified(after = "delegate")
+        Set<V> removeAll(@Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.ForwardingMultimap, com.google.common.collect.Multimap, com.google.common.collect.SetMultimap
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "delegate")
 
-        Set<V> replaceValues(@Independent @Modified K key, @Independent @Modified Iterable<? extends V> values) {
+        Set<V> replaceValues(@Independent @NotModified K key, @Independent @Modified Iterable<? extends V> values) {
             return null;
         }
     }
@@ -1541,6 +1560,7 @@ public class ComGoogleCommonCollect {
 
     //public abstract class ForwardingSortedMultiset extends ForwardingMultiset<E> implements SortedMultiset<E>
     @FinalFields
+    @Container
     @Independent(absent = true)
     class ForwardingSortedMultiset$<E> {
         //override from com.google.common.collect.SortedIterable, com.google.common.collect.SortedMultiset
@@ -1548,7 +1568,7 @@ public class ComGoogleCommonCollect {
         Comparator<? super E> comparator() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
         SortedMultiset<E> descendingMultiset() { return null; }
 
         //override from com.google.common.collect.ForwardingMultiset, com.google.common.collect.Multiset, com.google.common.collect.SortedMultiset, com.google.common.collect.SortedMultisetBridge
@@ -1556,30 +1576,30 @@ public class ComGoogleCommonCollect {
         NavigableSet<E> elementSet() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
         Multiset.Entry<E> firstEntry() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
 
         SortedMultiset<E> headMultiset(
             @Independent @NotModified E upperBound,
             @Independent @NotModified BoundType boundType) { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
         Multiset.Entry<E> lastEntry() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
         Multiset.Entry<E> pollFirstEntry() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
         Multiset.Entry<E> pollLastEntry() { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
 
         SortedMultiset<E> subMultiset(
             @Independent @NotModified E lowerBound,
@@ -1588,7 +1608,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified BoundType upperBoundType) { return null; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent @Modified
+        @Independent @Modified @NotModified(after = "backingMultiset")
 
         SortedMultiset<E> tailMultiset(
             @Independent @NotModified E lowerBound,
@@ -1693,11 +1713,11 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Table
         @NotModified
-        boolean containsValue(@Independent @Modified Object value) { return false; }
+        boolean containsValue(@Independent @NotModified Object value) { return false; }
 
         //override from com.google.common.collect.Table, java.lang.Object
         @NotModified
-        public boolean equals(@Independent @Modified Object obj) { return false; }
+        public boolean equals(@Independent @NotModified Object obj) { return false; }
 
         //override from com.google.common.collect.Table
         @Independent @NotModified
@@ -1749,7 +1769,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public class HashBasedTable extends StandardTable<R,C,V>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class HashBasedTable$<R, C, V> {
@@ -1825,7 +1845,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class HashMultimap extends AbstractSetMultimap<K,V>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class HashMultimap$<K, V> {
@@ -1840,7 +1860,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class HashMultiset extends AbstractMapBasedMultiset<E>
-    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class HashMultiset$<E> {
@@ -2173,7 +2193,7 @@ public class ComGoogleCommonCollect {
 
         //override from java.util.AbstractCollection, java.util.Collection
         @NotModified
-        boolean contains(@Independent @NotModified Object object) { return false; }
+        boolean contains(@Immutable(hc = true) @Independent @NotModified @Nullable Object object) { return false; }
 
         //override from java.lang.Iterable, java.util.AbstractCollection, java.util.Collection
         @Independent(hc = true) @NotModified @NotNull
@@ -2452,13 +2472,13 @@ public class ComGoogleCommonCollect {
     @ImmutableContainer(hc = true)
     class ImmutableListMultimap$<K, V> {
         //public static final class Builder extends Builder<K,V>
-        //annotated as EXPECTED; computed mutable @Dependent (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
+        //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
         @Container
         @Independent(absent = true)
         class Builder<K, V> {
             Builder() { }
             //override from com.google.common.collect.ImmutableMultimap.Builder
-            @Independent @Modified
+            @Independent @NotModified
             ImmutableListMultimap<K, V> build() { return null; }
 
             //override from com.google.common.collect.ImmutableMultimap.Builder
@@ -2702,8 +2722,8 @@ public class ComGoogleCommonCollect {
         public boolean equals(@Independent @NotModified Object object) { return false; }
 
         //override from java.util.Map
-        @Independent(hc = true) @NotModified
-        V get(@Independent @NotModified Object key) { return null; }
+        @Independent(hc = true) @NotModified @Nullable
+        V get(@Immutable(hc = true) @Independent @NotModified @Nullable Object key) { return null; }
 
         //override from java.util.Map
         @Independent @NotModified
@@ -2934,12 +2954,12 @@ public class ComGoogleCommonCollect {
     @ImmutableContainer(hc = true)
     class ImmutableMultimap$<K, V> {
         //public static class Builder
-        //annotated as EXPECTED; computed mutable @Dependent (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
+        //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
         @Container
         @Independent(absent = true)
         class Builder<K, V> {
             Builder() { }
-            @Independent @Modified ImmutableMultimap<K, V> build() { return null; }
+            @Independent @NotModified ImmutableMultimap<K, V> build() { return null; }
             @Fluent @Independent @Modified
             ImmutableMultimap.Builder<K, V> expectedValuesPerKey(int expectedValuesPerKey) { return null; }
 
@@ -3260,7 +3280,7 @@ public class ComGoogleCommonCollect {
     @Immutable(hc = true)
     class ImmutableRangeMap$<K extends Comparable<?>, V> {
         //public static final class Builder
-        //annotated as EXPECTED; computed @FinalFields @Dependent (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
+        //annotated as EXPECTED; computed @FinalFields @Dependent @Container (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
         @Container
         @Independent(absent = true)
         class Builder<K extends Comparable<?>, V> {
@@ -3294,13 +3314,11 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K extends Comparable<?>, V> ImmutableRangeMap<K, V> copyOf(
-            @Independent @Modified @NotModified(after = "ranges,values") RangeMap<K, ? extends V> rangeMap) {
-            return null;
-        }
+            @Independent @NotModified RangeMap<K, ? extends V> rangeMap) { return null; }
 
         //override from com.google.common.collect.RangeMap, java.lang.Object
         @NotModified
-        public boolean equals(@Independent @Modified Object o) { return false; }
+        public boolean equals(@Independent @NotModified Object o) { return false; }
 
         //override from com.google.common.collect.RangeMap
         @Independent(hc = true) @NotModified
@@ -3349,7 +3367,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.RangeMap
         @Fluent @Independent @NotModified
-        ImmutableRangeMap<K, V> subRangeMap(@Independent @Modified Range<K> range) { return null; }
+        ImmutableRangeMap<K, V> subRangeMap(@Independent @NotModified Range<K> range) { return null; }
 
         @Independent @NotModified
         static <T, K extends Comparable<? super K>, V> Collector<T, ?, ImmutableRangeMap<K, V>> toImmutableRangeMap(
@@ -3415,9 +3433,8 @@ public class ComGoogleCommonCollect {
         ImmutableRangeSet<C> complement() { return null; }
 
         @Independent @NotModified
-        static <C extends Comparable<?>> ImmutableRangeSet<C> copyOf(@Independent @Modified Iterable<Range<C>> ranges) {
-            return null;
-        }
+        static <C extends Comparable<?>> ImmutableRangeSet<C> copyOf(
+            @Independent @NotModified Iterable<Range<C>> ranges) { return null; }
 
         @Independent @NotModified
         static <C extends Comparable> ImmutableRangeSet<C> copyOf(@Independent @Modified RangeSet<C> rangeSet) {
@@ -3436,10 +3453,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.AbstractRangeSet, com.google.common.collect.RangeSet
         @NotModified
-
-        boolean intersects(@Independent @Modified @NotModified(after = "lowerBound,upperBound") Range<C> otherRange) {
-            return false;
-        }
+        boolean intersects(@Independent @NotModified Range<C> otherRange) { return false; }
 
         //override from com.google.common.collect.AbstractRangeSet, com.google.common.collect.RangeSet
         @NotModified
@@ -3470,9 +3484,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.RangeSet
         @Independent @NotModified
-
-        ImmutableRangeSet<C> subRangeSet(
-            @Independent @Modified @NotModified(after = "lowerBound,upperBound") Range<C> range) { return null; }
+        ImmutableRangeSet<C> subRangeSet(@Independent @NotModified Range<C> range) { return null; }
 
         @Independent @NotModified
         static <E extends Comparable<? super E>> Collector<Range<E>, ?, ImmutableRangeSet<E>> toImmutableRangeSet() {
@@ -3485,7 +3497,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public abstract class ImmutableSet extends ImmutableCollection<E> implements Set<E>
-    //annotated as EXPECTED; computed @FinalFields @Dependent (1), mutable @Dependent (1) -- G1: the abstract class is implemented by package-private classes sharing code with the mutable ones (GUAVA.md)
+    //annotated as EXPECTED; computed @FinalFields @Independent(hc = true) (conditional) (1), mutable @Dependent (1) -- G1: the abstract class is implemented by package-private classes sharing code with the mutable ones (GUAVA.md)
     @ImmutableContainer(hc = true)
     class ImmutableSet$<E> {
         //public static class Builder extends Builder<E>
@@ -3580,17 +3592,17 @@ public class ComGoogleCommonCollect {
     }
 
     //public class ImmutableSetMultimap extends ImmutableMultimap<K,V> implements SetMultimap<K,V>
-    //annotated as EXPECTED; computed @FinalFields @Dependent (1), mutable @Dependent (1) -- G1: the abstract class is implemented by package-private classes sharing code with the mutable ones (GUAVA.md)
+    //annotated as EXPECTED; computed @FinalFields @Independent(hc = true) (conditional) (1), mutable @Dependent (1) -- G1: the abstract class is implemented by package-private classes sharing code with the mutable ones (GUAVA.md)
     @ImmutableContainer(hc = true)
     class ImmutableSetMultimap$<K, V> {
         //public static final class Builder extends Builder<K,V>
-        //annotated as EXPECTED; computed mutable @Dependent (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
+        //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
         @Container
         @Independent(absent = true)
         class Builder<K, V> {
             Builder() { }
             //override from com.google.common.collect.ImmutableMultimap.Builder
-            @Independent @Modified
+            @Independent @NotModified
             ImmutableSetMultimap<K, V> build() { return null; }
 
             //override from com.google.common.collect.ImmutableMultimap.Builder
@@ -4358,7 +4370,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified Comparator<? super E> comparator,
             @Independent @NotModified Iterable<? extends E> elements) { return null; }
 
-        @Independent @NotModified
+        @Independent @Modified
         static <E> ImmutableSortedMultiset<E> copyOf(
             @Independent @NotModified Comparator<? super E> comparator,
             @Independent @NotModified Iterator<? extends E> elements) { return null; }
@@ -4386,7 +4398,7 @@ public class ComGoogleCommonCollect {
 
         ImmutableSortedMultiset<E> headMultiset(
             @Independent(hc = true) @NotModified E upperBound,
-            @Independent @NotModified BoundType boundType) { return null; }
+            @Immutable @Independent @NotModified BoundType boundType) { return null; }
 
         @Independent @NotModified
         static <E extends Comparable<?>> ImmutableSortedMultiset.Builder<E> naturalOrder() { return null; }
@@ -4501,7 +4513,7 @@ public class ComGoogleCommonCollect {
 
         ImmutableSortedMultiset<E> tailMultiset(
             @Independent(hc = true) @NotModified E lowerBound,
-            @Independent @NotModified BoundType boundType) { return null; }
+            @Immutable @Independent @NotModified BoundType boundType) { return null; }
 
         @Independent @NotModified
         static <E> Collector<E, ?, ImmutableMultiset<E>> toImmutableMultiset() { return null; }
@@ -4779,7 +4791,7 @@ public class ComGoogleCommonCollect {
     @ImmutableContainer(hc = true)
     class ImmutableTable$<R, C, V> {
         //public static final class Builder
-        //annotated as EXPECTED; computed mutable @Independent(hc = true) (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
+        //annotated as EXPECTED; computed mutable @Independent(hc = true) @Container (1) -- a builder: mutable, stores its arguments, never modifies them (GUAVA.md)
         @Container
         @Independent(hc = true)
         class Builder<R, C, V> {
@@ -4899,8 +4911,9 @@ public class ComGoogleCommonCollect {
 
     //public interface Interner
     @FinalFields
+    @Container
     @Independent
-    class Interner$<E> {@Independent @Modified E intern(@Independent @Modified E sample) { return null; } }
+    class Interner$<E> {@Independent @Modified E intern(@Independent @NotModified E sample) { return null; } }
 
     //public final class Interners
     //annotated as EXPECTED; computed @Immutable (1) -- static methods only (GUAVA.md)
@@ -4911,10 +4924,8 @@ public class ComGoogleCommonCollect {
         @Container
         @Independent(absent = true)
         class InternerBuilder {
-            @Independent(absent = true) @Modified @NotModified(after = "mapMaker")
-            <E> Interner<E> build() { return null; }
-
-            @Fluent @Independent @Modified @NotModified(after = "mapMaker")
+            @Independent(absent = true) @Modified <E> Interner<E> build() { return null; }
+            @Fluent @Independent @Modified
             Interners.InternerBuilder concurrencyLevel(int concurrencyLevel) { return null; }
             @Fluent @Independent @Modified Interners.InternerBuilder strong() { return null; }
             @Fluent @Independent @Modified Interners.InternerBuilder weak() { return null; }
@@ -4934,7 +4945,7 @@ public class ComGoogleCommonCollect {
         @NotModified
         static <T> boolean addAll(
             @Independent @Modified Collection<T> addTo,
-            @Independent @NotModified Iterable<? extends T> elementsToAdd) { return false; }
+            @Independent @Modified Iterable<? extends T> elementsToAdd) { return false; }
 
         @NotModified
         static <T> boolean all(
@@ -4973,7 +4984,7 @@ public class ComGoogleCommonCollect {
         static <T> Iterable<T> concat(@Independent @NotModified Iterable<? extends T> ... inputs) { return null; }
 
         @Independent @NotModified
-        static <T> Iterable<T> consumingIterable(@Independent @Modified Iterable<T> iterable) { return null; }
+        static <T> Iterable<T> consumingIterable(@Independent @NotModified Iterable<T> iterable) { return null; }
 
         @NotModified
         static boolean contains(
@@ -4981,7 +4992,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified Object element) { return false; }
 
         @Independent @NotModified
-        static <T> Iterable<T> cycle(@Independent @Modified Iterable<T> iterable) { return null; }
+        static <T> Iterable<T> cycle(@Independent @NotModified Iterable<T> iterable) { return null; }
 
         @Independent @NotModified
         static <T> Iterable<T> cycle(@Independent @NotModified T ... elements) { return null; }
@@ -5013,7 +5024,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified T defaultValue) { return null; }
 
         @NotModified
-        static int frequency(@Independent @NotModified Iterable<?> iterable, @Independent @Modified Object element) {
+        static int frequency(@Independent @Modified Iterable<?> iterable, @Independent @NotModified Object element) {
             return 0;
         }
 
@@ -5048,9 +5059,9 @@ public class ComGoogleCommonCollect {
         static <T> int indexOf(
             @Independent @NotModified Iterable<T> iterable,
             @Independent @Modified Predicate<? super T> predicate) { return 0; }
-        @NotModified static boolean isEmpty(@Independent @Modified Iterable<?> iterable) { return false; }
+        @NotModified static boolean isEmpty(@Independent @NotModified Iterable<?> iterable) { return false; }
         @Independent @NotModified
-        static <T> Iterable<T> limit(@Independent @Modified Iterable<T> iterable, int limitSize) { return null; }
+        static <T> Iterable<T> limit(@Independent @NotModified Iterable<T> iterable, int limitSize) { return null; }
 
         @Independent @NotModified
         static <T> Iterable<T> mergeSorted(
@@ -5065,26 +5076,23 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <T> Iterable<List<T>> partition(@Independent @NotModified Iterable<T> iterable, int size) { return null; }
 
-        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static boolean removeAll(
             @Independent @Modified Iterable<?> removeFrom,
             @Independent @NotModified Collection<?> elementsToRemove) { return false; }
 
-        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static <T> boolean removeIf(
             @Independent @Modified Iterable<T> removeFrom,
             @Independent @Modified Predicate<? super T> predicate) { return false; }
 
-        // removeFrom by hand, 2026-10-12: computed @NotModified, from a source run before maddi-mod#18 (GUAVA.md)
         @NotModified
         static boolean retainAll(
             @Independent @Modified Iterable<?> removeFrom,
             @Independent @NotModified Collection<?> elementsToRetain) { return false; }
         @NotModified static int size(@Independent @NotModified Iterable<?> iterable) { return 0; }
         @Independent @NotModified
-        static <T> Iterable<T> skip(@Independent @Modified Iterable<T> iterable, int numberToSkip) { return null; }
+        static <T> Iterable<T> skip(@Independent @NotModified Iterable<T> iterable, int numberToSkip) { return null; }
 
         @Independent @NotModified
         static <T> T [] toArray(@Independent @NotModified Iterable<? extends T> iterable, Class<T> type) { return null; }
@@ -5100,7 +5108,7 @@ public class ComGoogleCommonCollect {
             @Independent @Modified Predicate<? super T> predicate) { return null; }
 
         @Independent @NotModified
-        static <T> Iterable<T> unmodifiableIterable(@Independent @Modified Iterable<? extends T> iterable) {
+        static <T> Iterable<T> unmodifiableIterable(@Independent @NotModified Iterable<? extends T> iterable) {
             return null;
         }
 
@@ -5133,27 +5141,27 @@ public class ComGoogleCommonCollect {
         static <T> Enumeration<T> asEnumeration(@Independent @Modified Iterator<T> iterator) { return null; }
 
         @Independent @NotModified
-        static <T> Iterator<T> concat(@Independent @Modified Iterator<? extends Iterator<? extends T>> inputs) {
+        static <T> Iterator<T> concat(@Independent @NotModified Iterator<? extends Iterator<? extends T>> inputs) {
             return null;
         }
 
         @Independent @NotModified
         static <T> Iterator<T> concat(
             @Independent @Modified Iterator<? extends T> a,
-            @Independent @NotModified Iterator<? extends T> b) { return null; }
+            @Independent @Modified Iterator<? extends T> b) { return null; }
 
         @Independent @NotModified
         static <T> Iterator<T> concat(
             @Independent @Modified Iterator<? extends T> a,
-            @Independent @NotModified Iterator<? extends T> b,
-            @Independent @NotModified Iterator<? extends T> c) { return null; }
+            @Independent @Modified Iterator<? extends T> b,
+            @Independent @Modified Iterator<? extends T> c) { return null; }
 
         @Independent @NotModified
         static <T> Iterator<T> concat(
             @Independent @Modified Iterator<? extends T> a,
-            @Independent @NotModified Iterator<? extends T> b,
-            @Independent @NotModified Iterator<? extends T> c,
-            @Independent @NotModified Iterator<? extends T> d) { return null; }
+            @Independent @Modified Iterator<? extends T> b,
+            @Independent @Modified Iterator<? extends T> c,
+            @Independent @Modified Iterator<? extends T> d) { return null; }
 
         @Independent @NotModified
         static <T> Iterator<T> concat(@Independent @NotModified Iterator<? extends T> ... inputs) { return null; }
@@ -5167,7 +5175,7 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <T> Iterator<T> cycle(@Independent @Modified Iterable<T> iterable) { return null; }
+        static <T> Iterator<T> cycle(@Independent @NotModified Iterable<T> iterable) { return null; }
 
         @Independent @NotModified
         static <T> Iterator<T> cycle(@Independent @NotModified T ... elements) { return null; }
@@ -5267,7 +5275,7 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <T> PeekingIterator<T> peekingIterator(@Independent @Modified Iterator<? extends T> iterator) {
+        static <T> PeekingIterator<T> peekingIterator(@Independent @NotModified Iterator<? extends T> iterator) {
             return null;
         }
 
@@ -5313,7 +5321,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class LinkedHashMultimap extends AbstractSetMultimap<K,V>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class LinkedHashMultimap$<K, V> {
@@ -5346,7 +5354,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class LinkedHashMultiset extends AbstractMapBasedMultiset<E>
-    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class LinkedHashMultiset$<E> {
@@ -5357,7 +5365,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public class LinkedListMultimap extends AbstractMultimap<K,V> implements ListMultimap<K,V>, Serializable
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class LinkedListMultimap$<K, V> {
@@ -5424,7 +5432,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap, java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object obj) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
 
         //override from com.google.common.collect.Multimap
         @Independent(absent = true) @NotModified
@@ -5432,7 +5440,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap
         @Independent(hc = true) @Modified
-        List<V> removeAll(@Independent @NotModified Object key) { return null; }
+        List<V> removeAll(@Immutable(hc = true) @Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.Multimap
         @Independent @Modified
@@ -5456,7 +5464,7 @@ public class ComGoogleCommonCollect {
         static <E> List<E> asList(@Independent @NotModified E first, @Independent @NotModified E [] rest) { return null; }
 
         @Independent @NotModified
-        static <B> List<List<B>> cartesianProduct(@Independent @NotModified List<? extends List<? extends B>> lists) {
+        static <B> List<List<B>> cartesianProduct(@Independent @Modified List<? extends List<? extends B>> lists) {
             return null;
         }
 
@@ -5484,17 +5492,17 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified static <E> CopyOnWriteArrayList<E> newCopyOnWriteArrayList() { return null; }
         @Independent @NotModified
         static <E> CopyOnWriteArrayList<E> newCopyOnWriteArrayList(
-            @Independent @Modified Iterable<? extends E> elements) { return null; }
+            @Independent @NotModified Iterable<? extends E> elements) { return null; }
         @Independent @NotModified static <E> LinkedList<E> newLinkedList() { return null; }
         @Independent @NotModified
-        static <E> LinkedList<E> newLinkedList(@Independent @NotModified Iterable<? extends E> elements) { return null; }
+        static <E> LinkedList<E> newLinkedList(@Independent @Modified Iterable<? extends E> elements) { return null; }
 
         @Independent @NotModified
         static <T> List<List<T>> partition(@Independent @NotModified List<T> list, int size) { return null; }
-        @Independent @NotModified static <T> List<T> reverse(@Independent @Modified List<T> list) { return null; }
+        @Independent @NotModified static <T> List<T> reverse(@Independent @NotModified List<T> list) { return null; }
         @Independent @NotModified
         static <F, T> List<T> transform(
-            @Independent @Modified List<F> fromList,
+            @Independent @NotModified List<F> fromList,
             @Independent @NotModified Function<? super F, ? extends T> function) { return null; }
     }
 
@@ -5507,7 +5515,10 @@ public class ComGoogleCommonCollect {
         class ValueDifference<V> {
             //override from java.lang.Object
             @NotModified
-            public boolean equals(@Independent @NotModified Object other) { return false; }
+
+            public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object other) {
+                return false;
+            }
 
             //override from java.lang.Object
             @NotModified
@@ -5523,7 +5534,7 @@ public class ComGoogleCommonCollect {
         @Independent(hc = true) @NotModified Map<K, V> entriesOnlyOnRight() { return null; }
         //override from java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object object) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object object) { return false; }
 
         //override from java.lang.Object
         @NotModified
@@ -5531,14 +5542,13 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class MapMaker
+    @Container
     @Independent
     class MapMaker$ {
         MapMaker$() { }
         @Fluent @Independent @Modified MapMaker concurrencyLevel(int concurrencyLevel) { return null; }
         @Fluent @Independent @Modified MapMaker initialCapacity(int initialCapacity) { return null; }
-        @Fluent @Independent @Modified @NotModified(after = "keyEquivalence")
-        <K, V> ConcurrentMap<K, V> makeMap() { return null; }
-
+        @Fluent @Independent @NotModified <K, V> ConcurrentMap<K, V> makeMap() { return null; }
         //override from java.lang.Object
         @NotModified
         public String toString() { return null; }
@@ -5551,27 +5561,24 @@ public class ComGoogleCommonCollect {
     @UtilityClass
     class Maps$ {
         //public interface EntryTransformer
-        @FinalFields
-        @Container
+        @ImmutableContainer(hc = true)
         @Independent
         class EntryTransformer<K, V1, V2> {
-            @Independent(absent = true) @Modified
-            V2 transformEntry(
-                @Independent(absent = true) @NotModified K key,
-                @Independent(absent = true) @NotModified V1 value) { return null; }
+            @Independent @NotModified
+            V2 transformEntry(@Independent @NotModified K key, @Independent @NotModified V1 value) { return null; }
         }
 
         @Independent @NotModified
-        static <A, B> Converter<A, B> asConverter(@Independent @Modified BiMap<A, B> bimap) { return null; }
+        static <A, B> Converter<A, B> asConverter(@Independent @NotModified BiMap<A, B> bimap) { return null; }
 
         @Independent @NotModified
         static <K, V> NavigableMap<K, V> asMap(
-            @Independent @Modified NavigableSet<K> set,
+            @Independent @NotModified NavigableSet<K> set,
             @Independent @NotModified Function<? super K, V> function) { return null; }
 
         @Independent @NotModified
         static <K, V> Map<K, V> asMap(
-            @Independent @Modified Set<K> set,
+            @Independent @NotModified Set<K> set,
             @Independent @NotModified Function<? super K, V> function) { return null; }
 
         @Independent @NotModified
@@ -5582,7 +5589,7 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <K, V> MapDifference<K, V> difference(
             @Independent @NotModified Map<? extends K, ? extends V> left,
-            @Independent @NotModified Map<? extends K, ? extends V> right) { return null; }
+            @Independent @Modified Map<? extends K, ? extends V> right) { return null; }
 
         @Independent @NotModified
         static <K, V> MapDifference<K, V> difference(
@@ -5593,12 +5600,12 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <K, V> SortedMapDifference<K, V> difference(
             @Independent @NotModified SortedMap<K, ? extends V> left,
-            @Independent @NotModified Map<? extends K, ? extends V> right) { return null; }
+            @Independent @Modified Map<? extends K, ? extends V> right) { return null; }
 
         @Independent @NotModified
         static <K, V> BiMap<K, V> filterEntries(
-            @Independent @Modified BiMap<K, V> unfiltered,
-            @Independent @Modified Predicate<? super Map.Entry<K, V>> entryPredicate) { return null; }
+            @Independent @NotModified BiMap<K, V> unfiltered,
+            @Independent @NotModified Predicate<? super Map.Entry<K, V>> entryPredicate) { return null; }
 
         @Independent @NotModified
         static <K, V> Map<K, V> filterEntries(
@@ -5607,8 +5614,8 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> NavigableMap<K, V> filterEntries(
-            @Independent @Modified NavigableMap<K, V> unfiltered,
-            @Independent @Modified Predicate<? super Map.Entry<K, V>> entryPredicate) { return null; }
+            @Independent @NotModified NavigableMap<K, V> unfiltered,
+            @Independent @NotModified Predicate<? super Map.Entry<K, V>> entryPredicate) { return null; }
 
         @Independent @NotModified
         static <K, V> SortedMap<K, V> filterEntries(
@@ -5617,17 +5624,17 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> BiMap<K, V> filterKeys(
-            @Independent @Modified BiMap<K, V> unfiltered,
+            @Independent @NotModified BiMap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super K> keyPredicate) { return null; }
 
         @Independent @NotModified
         static <K, V> Map<K, V> filterKeys(
             @Independent @NotModified Map<K, V> unfiltered,
-            @Independent @Modified Predicate<? super K> keyPredicate) { return null; }
+            @Independent @NotModified Predicate<? super K> keyPredicate) { return null; }
 
         @Independent @NotModified
         static <K, V> NavigableMap<K, V> filterKeys(
-            @Independent @Modified NavigableMap<K, V> unfiltered,
+            @Independent @NotModified NavigableMap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super K> keyPredicate) { return null; }
 
         @Independent @NotModified
@@ -5637,7 +5644,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> BiMap<K, V> filterValues(
-            @Independent @Modified BiMap<K, V> unfiltered,
+            @Independent @NotModified BiMap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super V> valuePredicate) { return null; }
 
         @Independent @NotModified
@@ -5647,7 +5654,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> NavigableMap<K, V> filterValues(
-            @Independent @Modified NavigableMap<K, V> unfiltered,
+            @Independent @NotModified NavigableMap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super V> valuePredicate) { return null; }
 
         @Independent @NotModified
@@ -5735,7 +5742,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V1, V2> Map<K, V2> transformEntries(
-            @Independent @Modified Map<K, V1> fromMap,
+            @Independent @NotModified Map<K, V1> fromMap,
             @Independent @NotModified Maps.EntryTransformer<? super K, ? super V1, V2> transformer) { return null; }
 
         @Independent @NotModified
@@ -5750,7 +5757,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V1, V2> Map<K, V2> transformValues(
-            @Independent @Modified Map<K, V1> fromMap,
+            @Independent @NotModified Map<K, V1> fromMap,
             @Independent @Modified Function<? super V1, V2> function) { return null; }
 
         @Independent @NotModified
@@ -5774,17 +5781,17 @@ public class ComGoogleCommonCollect {
             @Independent @Modified Function<? super V, K> keyFunction) { return null; }
 
         @Independent @NotModified
-        static <K, V> BiMap<K, V> unmodifiableBiMap(@Independent @Modified BiMap<? extends K, ? extends V> bimap) {
+        static <K, V> BiMap<K, V> unmodifiableBiMap(@Independent @NotModified BiMap<? extends K, ? extends V> bimap) {
             return null;
         }
 
         @Independent @NotModified
         static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(
-            @Independent @Modified NavigableMap<K, ? extends V> map) { return null; }
+            @Independent @NotModified NavigableMap<K, ? extends V> map) { return null; }
     }
 
     //public final class MinMaxPriorityQueue extends AbstractQueue<E>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class MinMaxPriorityQueue$<E> {
@@ -5816,9 +5823,7 @@ public class ComGoogleCommonCollect {
         //override from java.util.AbstractCollection, java.util.AbstractQueue, java.util.Collection
         @Modified
         void clear() { }
-
-        @Independent(absent = true) @NotModified @GetSet("ordering")
-        Comparator<? super E> comparator() { return null; }
+        @Independent(hc = true) @NotModified @GetSet("ordering") Comparator<? super E> comparator() { return null; }
         @Independent @NotModified static <E extends Comparable<E>> MinMaxPriorityQueue<E> create() { return null; }
         @Independent @NotModified
         static <E extends Comparable<E>> MinMaxPriorityQueue<E> create(
@@ -5847,7 +5852,7 @@ public class ComGoogleCommonCollect {
         @Independent(hc = true) @NotModified
         E peek() { return null; }
         @Independent(hc = true) @NotModified E peekFirst() { return null; }
-        @Independent(hc = true) @Modified @NotModified(after = "maxHeap") E peekLast() { return null; }
+        @Independent(hc = true) @NotModified E peekLast() { return null; }
         //override from java.util.Queue
         @Independent(hc = true) @Modified
         E poll() { return null; }
@@ -5881,16 +5886,17 @@ public class ComGoogleCommonCollect {
         @Independent(absent = true) @NotModified Map<K, Collection<V>> asMap() { return null; }
         @Modified void clear() { }
         @NotModified
-        boolean containsEntry(@Independent @NotModified Object key, @Independent @NotModified Object value) {
-            return false;
-        }
-        @NotModified boolean containsKey(@Independent @NotModified Object key) { return false; }
-        @NotModified boolean containsValue(@Independent @NotModified Object value) { return false; }
+        boolean containsEntry(
+            @Immutable(hc = true) @Independent @NotModified Object key,
+            @Immutable(hc = true) @Independent @NotModified Object value) { return false; }
+        @NotModified boolean containsKey(@Immutable(hc = true) @Independent @NotModified Object key) { return false; }
+        @NotModified
+        boolean containsValue(@Immutable(hc = true) @Independent @NotModified Object value) { return false; }
         @Independent(absent = true) @NotModified Collection<Map.Entry<K, V>> entries() { return null; }
         //override from java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object obj) { return false; }
-        @Modified void forEach(@Independent @NotModified BiConsumer<? super K, ? super V> action) { }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
+        @NotModified void forEach(@Independent @NotModified BiConsumer<? super K, ? super V> action) { }
         @Independent(absent = true) @NotModified
         Collection<V> get(@Independent(hc = true) @NotModified K key) { return null; }
 
@@ -5914,12 +5920,12 @@ public class ComGoogleCommonCollect {
         boolean putAll(@Independent @NotModified Multimap<? extends K, ? extends V> multimap) { return false; }
 
         @Modified
-        boolean remove(@Independent(hc = true) @NotModified Object key, @Independent @NotModified Object value) {
-            return false;
-        }
+        boolean remove(
+            @Immutable(hc = true) @Independent(hc = true) @NotModified Object key,
+            @Immutable(hc = true) @Independent @NotModified Object value) { return false; }
 
         @Independent(absent = true) @Modified
-        Collection<V> removeAll(@Independent @NotModified Object key) { return null; }
+        Collection<V> removeAll(@Immutable(hc = true) @Independent @NotModified Object key) { return null; }
 
         @Independent @Modified
         Collection<V> replaceValues(
@@ -6057,7 +6063,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> Multimap<K, V> filterEntries(
-            @Independent @Modified Multimap<K, V> unfiltered,
+            @Independent @NotModified Multimap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super Map.Entry<K, V>> entryPredicate) { return null; }
 
         @Independent @NotModified
@@ -6072,7 +6078,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> Multimap<K, V> filterKeys(
-            @Independent @Modified Multimap<K, V> unfiltered,
+            @Independent @NotModified Multimap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super K> keyPredicate) { return null; }
 
         @Independent @NotModified
@@ -6082,7 +6088,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V> Multimap<K, V> filterValues(
-            @Independent @Modified Multimap<K, V> unfiltered,
+            @Independent @NotModified Multimap<K, V> unfiltered,
             @Independent @NotModified Predicate<? super V> valuePredicate) { return null; }
 
         @Independent @NotModified
@@ -6093,11 +6099,12 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <T, K, V, M extends Multimap<K, V>> Collector<T, ?, M> flatteningToMultimap(
             @Independent @Modified java.util.function.Function<? super T, ? extends K> keyFunction,
-            @Independent @Modified java.util.function.Function<? super T, ? extends Stream<? extends V>> valueFunction,
+            @Independent @NotModified java.util.function.Function<? super T, ? extends Stream<? extends V>>
+                valueFunction,
             @Independent @NotModified Supplier<M> multimapSupplier) { return null; }
 
         @Independent @NotModified
-        static <K, V> SetMultimap<K, V> forMap(@Independent @Modified Map<K, V> map) { return null; }
+        static <K, V> SetMultimap<K, V> forMap(@Independent @NotModified Map<K, V> map) { return null; }
 
         @Independent @NotModified
         static <K, V> ImmutableListMultimap<K, V> index(
@@ -6111,7 +6118,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V, M extends Multimap<K, V>> M invertFrom(
-            @Independent @Modified Multimap<? extends V, ? extends K> source,
+            @Independent @NotModified Multimap<? extends V, ? extends K> source,
             @Independent @Modified M dest) { return null; }
 
         @Independent @NotModified
@@ -6132,7 +6139,7 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <K, V> SortedSetMultimap<K, V> newSortedSetMultimap(
             @Independent @NotModified Map<K, Collection<V>> map,
-            @Independent @Modified com.google.common.base.Supplier<? extends SortedSet<V>> factory) { return null; }
+            @Independent @NotModified com.google.common.base.Supplier<? extends SortedSet<V>> factory) { return null; }
 
         @Independent @NotModified
         static <K, V> ListMultimap<K, V> synchronizedListMultimap(@Independent @NotModified ListMultimap<K, V> multimap) {
@@ -6166,7 +6173,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V1, V2> Multimap<K, V2> transformEntries(
-            @Independent @Modified Multimap<K, V1> fromMap,
+            @Independent @NotModified Multimap<K, V1> fromMap,
             @Independent @NotModified Maps.EntryTransformer<? super K, ? super V1, V2> transformer) { return null; }
 
         @Independent @NotModified
@@ -6176,7 +6183,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <K, V1, V2> Multimap<K, V2> transformValues(
-            @Independent @Modified Multimap<K, V1> fromMultimap,
+            @Independent @NotModified Multimap<K, V1> fromMultimap,
             @Independent @Modified Function<? super V1, V2> function) { return null; }
 
         @Identity @Independent @NotModified
@@ -6194,7 +6201,9 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <K, V> Multimap<K, V> unmodifiableMultimap(@Independent @Modified Multimap<K, V> delegate) { return null; }
+        static <K, V> Multimap<K, V> unmodifiableMultimap(@Independent @NotModified Multimap<K, V> delegate) {
+            return null;
+        }
 
         @Identity @Independent @NotModified
         static <K, V> SetMultimap<K, V> unmodifiableSetMultimap(
@@ -6217,13 +6226,13 @@ public class ComGoogleCommonCollect {
     class Multiset$<E> {
         //interface Entry
         @FinalFields
+        @Container
         @Independent(hc = true)
-        @Immutable(hc = true, after = "comparator")
         class Entry<E> {
             //override from java.lang.Object
             @NotModified
-            public boolean equals(@Independent @Modified Object o) { return false; }
-            @Modified @NotModified(after = "comparator") int getCount() { return 0; }
+            public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object o) { return false; }
+            @Modified int getCount() { return 0; }
             @Independent(hc = true) @NotModified E getElement() { return null; }
             //override from java.lang.Object
             @NotModified
@@ -6240,22 +6249,22 @@ public class ComGoogleCommonCollect {
         @Modified int add(@Independent(hc = true) @NotModified E element, int occurrences) { return 0; }
         //override from java.util.Collection
         @NotModified
-        boolean contains(@Independent @NotModified Object element) { return false; }
+        boolean contains(@Immutable(hc = true) @Independent @NotModified @Nullable Object element) { return false; }
 
         //override from java.util.Collection
         @NotModified
-        boolean containsAll(@Independent(absent = true) @NotModified Collection<?> elements) { return false; }
-        @NotModified int count(@Independent @NotModified Object element) { return 0; }
+        boolean containsAll(@Independent @NotModified @NotNull Collection<?> elements) { return false; }
+        @NotModified int count(@Immutable(hc = true) @Independent @NotModified Object element) { return 0; }
         @Independent(absent = true) @NotModified Set<E> elementSet() { return null; }
         @Independent(absent = true) @NotModified Set<Multiset.Entry<E>> entrySet() { return null; }
         //override from java.lang.Object, java.util.Collection
         @NotModified
-        public boolean equals(@Independent @NotModified Object object) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object object) { return false; }
 
         //override from java.lang.Iterable
-        @Modified
+        @NotModified
         void forEach(@Independent @NotModified Consumer<? super E> action) { }
-        @Modified void forEachEntry(@Independent @NotModified ObjIntConsumer<? super E> action) { }
+        @NotModified void forEachEntry(@Independent @NotModified ObjIntConsumer<? super E> action) { }
         //override from java.lang.Object, java.util.Collection
         @NotModified
         public int hashCode() { return 0; }
@@ -6266,15 +6275,18 @@ public class ComGoogleCommonCollect {
 
         //override from java.util.Collection
         @Modified
-        boolean remove(@Independent @NotModified Object element) { return false; }
-        @Modified int remove(@Independent @NotModified Object element, int occurrences) { return 0; }
-        //override from java.util.Collection
+        boolean remove(@Immutable(hc = true) @Independent @NotModified @Nullable Object element) { return false; }
+
         @Modified
-        boolean removeAll(@Independent @NotModified Collection<?> c) { return false; }
+        int remove(@Immutable(hc = true) @Independent @NotModified Object element, int occurrences) { return 0; }
 
         //override from java.util.Collection
         @Modified
-        boolean retainAll(@Independent @NotModified Collection<?> c) { return false; }
+        boolean removeAll(@Independent @NotModified @NotNull Collection<?> c) { return false; }
+
+        //override from java.util.Collection
+        @Modified
+        boolean retainAll(@Independent @NotModified @NotNull Collection<?> c) { return false; }
         @Modified int setCount(@Independent(hc = true) @NotModified E element, int count) { return 0; }
         @Modified
         boolean setCount(@Independent(hc = true) @NotModified E element, int oldCount, int newCount) { return false; }
@@ -6302,7 +6314,7 @@ public class ComGoogleCommonCollect {
             @Independent @Modified Multiset<?> subMultiset) { return false; }
 
         @Independent @NotModified
-        static <E> ImmutableMultiset<E> copyHighestCountFirst(@Independent @Modified Multiset<E> multiset) {
+        static <E> ImmutableMultiset<E> copyHighestCountFirst(@Independent @NotModified Multiset<E> multiset) {
             return null;
         }
 
@@ -6313,7 +6325,7 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <E> Multiset<E> filter(
-            @Independent @Modified Multiset<E> unfiltered,
+            @Independent @NotModified Multiset<E> unfiltered,
             @Independent @NotModified Predicate<? super E> predicate) { return null; }
 
         @Independent @NotModified
@@ -6361,7 +6373,7 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <E> Multiset<E> unmodifiableMultiset(@Independent @Modified Multiset<? extends E> multiset) {
+        static <E> Multiset<E> unmodifiableMultiset(@Independent @NotModified Multiset<? extends E> multiset) {
             return null;
         }
 
@@ -6386,7 +6398,7 @@ public class ComGoogleCommonCollect {
         Set<Map.Entry<Class<? extends B>, B>> entrySet() { return null; }
 
         //override from com.google.common.collect.ClassToInstanceMap
-        @Independent @Modified
+        @Independent @NotModified
         <T extends B> T getInstance(Class<T> type) { return null; }
 
         //override from com.google.common.collect.ForwardingMap, java.util.Map
@@ -6423,19 +6435,19 @@ public class ComGoogleCommonCollect {
     }
 
     //public abstract class Ordering implements Comparator<T>
-    @FinalFields
-    @Independent(hc = true)
+    @Immutable(hc = true)
+    @Independent
     class Ordering$<T> {
         @Independent @NotModified static Ordering<Object> allEqual() { return null; }
         @Independent @NotModified static Ordering<Object> arbitrary() { return null; }
         @NotModified
-        int binarySearch(@Independent @Modified List<? extends T> sortedList, @Independent @NotModified T key) {
+        int binarySearch(@Independent @NotModified List<? extends T> sortedList, @Independent @NotModified T key) {
             return 0;
         }
 
         //override from java.util.Comparator
-        @Modified
-        int compare(@Independent(hc = true) @Modified T left, @Independent(hc = true) @Modified T right) { return 0; }
+        @NotModified
+        int compare(@Independent @NotModified T left, @Independent @NotModified T right) { return 0; }
 
         @Independent @NotModified
         static <T> Ordering<T> compound(@Independent @NotModified Iterable<? extends Comparator<? super T>> comparators) {
@@ -6461,52 +6473,54 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified
         static <T> Ordering<T> from(@Independent @NotModified Comparator<T> comparator) { return null; }
 
-        @Independent @Modified
+        @Independent @NotModified
         <E extends T> List<E> greatestOf(@Independent @NotModified Iterable<E> iterable, int k) { return null; }
 
-        @Independent @Modified
+        @Independent @NotModified
         <E extends T> List<E> greatestOf(@Independent @Modified Iterator<E> iterator, int k) { return null; }
 
         @Independent @NotModified
         <E extends T> ImmutableList<E> immutableSortedCopy(@Independent @NotModified Iterable<E> elements) {
             return null;
         }
-        @Modified boolean isOrdered(@Independent @NotModified Iterable<? extends T> iterable) { return false; }
-        @Modified boolean isStrictlyOrdered(@Independent @NotModified Iterable<? extends T> iterable) { return false; }
+        @NotModified boolean isOrdered(@Independent @NotModified Iterable<? extends T> iterable) { return false; }
+        @NotModified
+        boolean isStrictlyOrdered(@Independent @NotModified Iterable<? extends T> iterable) { return false; }
+
         @Independent @NotModified
         <E extends T> List<E> leastOf(@Independent @NotModified Iterable<E> iterable, int k) { return null; }
 
         @Independent @NotModified
         <E extends T> List<E> leastOf(@Independent @Modified Iterator<E> iterator, int k) { return null; }
         @Fluent @Independent @NotModified <S extends T> Ordering<Iterable<S>> lexicographical() { return null; }
-        @Independent @Modified <E extends T> E max(@Independent @NotModified Iterable<E> iterable) { return null; }
+        @Independent @NotModified <E extends T> E max(@Independent @NotModified Iterable<E> iterable) { return null; }
         //override from java.util.Comparator
-        @Independent @Modified
-        <E extends T> E max(@Independent @Modified E a, @Independent @Modified E b) { return null; }
+        @Independent @NotModified
+        <E extends T> E max(@Independent @NotModified E a, @Independent @NotModified E b) { return null; }
 
-        @Independent @Modified
+        @Independent @NotModified
         <E extends T> E max(
-            @Independent @Modified E a,
-            @Independent @Modified E b,
-            @Independent @Modified E c,
-            @Independent @Modified E ... rest) { return null; }
-        @Independent @Modified <E extends T> E max(@Independent @Modified Iterator<E> iterator) { return null; }
-        @Independent @Modified <E extends T> E min(@Independent @NotModified Iterable<E> iterable) { return null; }
+            @Independent @NotModified E a,
+            @Independent @NotModified E b,
+            @Independent @NotModified E c,
+            @Independent @NotModified E ... rest) { return null; }
+        @Independent @NotModified <E extends T> E max(@Independent @Modified Iterator<E> iterator) { return null; }
+        @Independent @NotModified <E extends T> E min(@Independent @NotModified Iterable<E> iterable) { return null; }
         //override from java.util.Comparator
-        @Independent @Modified
-        <E extends T> E min(@Independent @Modified E a, @Independent @Modified E b) { return null; }
+        @Independent @NotModified
+        <E extends T> E min(@Independent @NotModified E a, @Independent @NotModified E b) { return null; }
 
-        @Independent @Modified
+        @Independent @NotModified
         <E extends T> E min(
-            @Independent @Modified E a,
-            @Independent @Modified E b,
-            @Independent @Modified E c,
-            @Independent @Modified E ... rest) { return null; }
-        @Independent @Modified <E extends T> E min(@Independent @Modified Iterator<E> iterator) { return null; }
+            @Independent @NotModified E a,
+            @Independent @NotModified E b,
+            @Independent @NotModified E c,
+            @Independent @NotModified E ... rest) { return null; }
+        @Independent @NotModified <E extends T> E min(@Independent @Modified Iterator<E> iterator) { return null; }
         @Independent @NotModified static <C extends Comparable> Ordering<C> natural() { return null; }
-        @Fluent @Independent @Modified <S extends T> Ordering<S> nullsFirst() { return null; }
-        @Fluent @Independent @Modified <S extends T> Ordering<S> nullsLast() { return null; }
-        @Fluent @Independent @Modified
+        @Fluent @Independent @NotModified <S extends T> Ordering<S> nullsFirst() { return null; }
+        @Fluent @Independent @NotModified <S extends T> Ordering<S> nullsLast() { return null; }
+        @Fluent @Independent @NotModified
         <F> Ordering<F> onResultOf(@Independent @NotModified Function<F, ? extends T> function) { return null; }
         @Fluent @Independent @NotModified <S extends T> Ordering<S> reverse() { return null; }
         @Independent @NotModified
@@ -6545,7 +6559,7 @@ public class ComGoogleCommonCollect {
             @Independent @Modified Collection<? super E> buffer,
             int numElements,
             long timeout,
-            @Independent @Modified TimeUnit unit) { return 0; }
+            @Independent @NotModified TimeUnit unit) { return 0; }
 
         @NotModified
         static <E> int drainUninterruptibly(
@@ -6560,11 +6574,11 @@ public class ComGoogleCommonCollect {
             @Independent @Modified Collection<? super E> buffer,
             int numElements,
             long timeout,
-            @Independent @Modified TimeUnit unit) { return 0; }
+            @Independent @NotModified TimeUnit unit) { return 0; }
         @Independent @NotModified static <E> ArrayBlockingQueue<E> newArrayBlockingQueue(int capacity) { return null; }
         @Independent @NotModified static <E> ArrayDeque<E> newArrayDeque() { return null; }
         @Independent @NotModified
-        static <E> ArrayDeque<E> newArrayDeque(@Independent @NotModified Iterable<? extends E> elements) { return null; }
+        static <E> ArrayDeque<E> newArrayDeque(@Independent @Modified Iterable<? extends E> elements) { return null; }
         @Independent @NotModified static <E> ConcurrentLinkedQueue<E> newConcurrentLinkedQueue() { return null; }
         @Independent @NotModified
         static <E> ConcurrentLinkedQueue<E> newConcurrentLinkedQueue(
@@ -6595,7 +6609,7 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified static <E extends Comparable> PriorityQueue<E> newPriorityQueue() { return null; }
         @Independent @NotModified
         static <E extends Comparable> PriorityQueue<E> newPriorityQueue(
-            @Independent @NotModified Iterable<? extends E> elements) { return null; }
+            @Independent @Modified Iterable<? extends E> elements) { return null; }
         @Independent @NotModified static <E> SynchronousQueue<E> newSynchronousQueue() { return null; }
         @Independent @NotModified
         static <E> Deque<E> synchronizedDeque(@Independent @NotModified Deque<E> deque) { return null; }
@@ -6605,7 +6619,7 @@ public class ComGoogleCommonCollect {
     }
 
     //public final class Range implements Predicate<C>, Serializable
-    //annotated as EXPECTED; computed @FinalFields @Dependent (1) -- a value (GUAVA.md)
+    //annotated as EXPECTED; computed @FinalFields @Dependent @Container (1) -- a value (GUAVA.md)
     @Immutable(hc = true)
     class Range$<C extends Comparable> {
         @Independent @NotModified static <C extends Comparable<?>> Range<C> all() { return null; }
@@ -6632,9 +6646,7 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified C lower,
             @Independent @NotModified C upper) { return null; }
         @NotModified boolean contains(@Independent @NotModified C value) { return false; }
-        @NotModified
-        boolean containsAll(@Independent(hc = true) @Modified Iterable<? extends C> values) { return false; }
-
+        @NotModified boolean containsAll(@Independent @NotModified Iterable<? extends C> values) { return false; }
         @Independent @NotModified
         static <C extends Comparable<?>> Range<C> downTo(
             @Independent @NotModified C endpoint,
@@ -6648,12 +6660,7 @@ public class ComGoogleCommonCollect {
         //override from com.google.common.base.Predicate, java.lang.Object
         @NotModified
         public boolean equals(@Independent @NotModified Object object) { return false; }
-
-        @Fluent @Independent @NotModified
-        Range<C> gap(@Independent @Modified @NotModified(after = "lowerBound,upperBound") Range<C> otherRange) {
-            return null;
-        }
-
+        @Fluent @Independent @NotModified Range<C> gap(@Independent @NotModified Range<C> otherRange) { return null; }
         @Independent @NotModified
         static <C extends Comparable<?>> Range<C> greaterThan(@Independent @NotModified C endpoint) { return null; }
         @NotModified boolean hasLowerBound() { return false; }
@@ -6663,10 +6670,7 @@ public class ComGoogleCommonCollect {
         public int hashCode() { return 0; }
 
         @Fluent @Independent @NotModified
-        Range<C> intersection(
-            @Independent(hc = true) @Modified @NotModified(after = "lowerBound,upperBound") Range<C> connectedRange) {
-            return null;
-        }
+        Range<C> intersection(@Independent(hc = true) @NotModified Range<C> connectedRange) { return null; }
         @NotModified boolean isConnected(@Independent @NotModified Range<C> other) { return false; }
         @NotModified boolean isEmpty() { return false; }
         @Independent @NotModified
@@ -6694,9 +6698,7 @@ public class ComGoogleCommonCollect {
         static <C extends Comparable<?>> Range<C> singleton(@Independent @NotModified C value) { return null; }
 
         @Fluent @Independent @NotModified
-        Range<C> span(@Independent(hc = true) @Modified @NotModified(after = "lowerBound,upperBound") Range<C> other) {
-            return null;
-        }
+        Range<C> span(@Independent(hc = true) @NotModified Range<C> other) { return null; }
 
         //override from com.google.common.base.Predicate, java.util.function.Predicate
         @NotModified
@@ -6719,18 +6721,18 @@ public class ComGoogleCommonCollect {
     @Container
     @Independent(absent = true)
     class RangeMap$<K extends Comparable, V> {
-        @Independent @Modified @NotModified(after = "ranges,values")
-        Map<Range<K>, V> asDescendingMapOfRanges() { return null; }
-
-        @Independent(absent = true) @Modified @NotModified(after = "ranges,values")
-        Map<Range<K>, V> asMapOfRanges() { return null; }
+        @Independent @NotModified Map<Range<K>, V> asDescendingMapOfRanges() { return null; }
+        @Independent(absent = true) @NotModified Map<Range<K>, V> asMapOfRanges() { return null; }
         @Modified void clear() { }
         //override from java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object o) { return false; }
-        @Independent(hc = true) @NotModified V get(@Independent @NotModified K key) { return null; }
-        @Independent(absent = true) @Modified
-        Map.Entry<Range<K>, V> getEntry(@Independent @NotModified K key) { return null; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object o) { return false; }
+
+        @Independent(hc = true) @NotModified
+        V get(@Immutable(hc = true) @Independent @NotModified K key) { return null; }
+
+        @Independent(absent = true) @NotModified
+        Map.Entry<Range<K>, V> getEntry(@Immutable(hc = true) @Independent @NotModified K key) { return null; }
 
         //override from java.lang.Object
         @NotModified
@@ -6768,13 +6770,13 @@ public class ComGoogleCommonCollect {
         @Independent(absent = true) @NotModified Set<Range<C>> asRanges() { return null; }
         @Modified void clear() { }
         @Independent(absent = true) @NotModified RangeSet<C> complement() { return null; }
-        @NotModified boolean contains(@Independent @NotModified C value) { return false; }
+        @NotModified boolean contains(@Immutable(hc = true) @Independent @NotModified C value) { return false; }
         @NotModified boolean encloses(@Independent @NotModified Range<C> otherRange) { return false; }
         @NotModified boolean enclosesAll(@Independent @NotModified Iterable<Range<C>> other) { return false; }
         @NotModified boolean enclosesAll(@Independent @NotModified RangeSet<C> other) { return false; }
         //override from java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object obj) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
 
         //override from java.lang.Object
         @NotModified
@@ -6782,7 +6784,7 @@ public class ComGoogleCommonCollect {
         @NotModified boolean intersects(@Independent @NotModified Range<C> otherRange) { return false; }
         @NotModified boolean isEmpty() { return false; }
         @Independent(absent = true) @NotModified
-        Range<C> rangeContaining(@Independent @NotModified C value) { return null; }
+        Range<C> rangeContaining(@Immutable(hc = true) @Independent @NotModified C value) { return null; }
         @Modified void remove(@Independent(hc = true) @NotModified Range<C> range) { }
         @Modified void removeAll(@Independent @NotModified Iterable<Range<C>> ranges) { }
         @Modified void removeAll(@Independent @NotModified RangeSet<C> other) { }
@@ -6824,7 +6826,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap, java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object obj) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
 
         //override from com.google.common.collect.Multimap
         @Independent(absent = true) @NotModified
@@ -6832,7 +6834,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap
         @Independent(absent = true) @Modified
-        Set<V> removeAll(@Independent @NotModified Object key) { return null; }
+        Set<V> removeAll(@Immutable(hc = true) @Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.Multimap
         @Independent @Modified
@@ -6891,7 +6893,7 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <B> Set<List<B>> cartesianProduct(@Independent @NotModified List<? extends Set<? extends B>> sets) {
+        static <B> Set<List<B>> cartesianProduct(@Independent @Modified List<? extends Set<? extends B>> sets) {
             return null;
         }
 
@@ -6902,7 +6904,7 @@ public class ComGoogleCommonCollect {
         static <E> Set<Set<E>> combinations(@Independent @NotModified Set<E> set, int size) { return null; }
 
         @Independent @NotModified
-        static <E extends Enum<E>> EnumSet<E> complementOf(@Independent @Modified Collection<E> collection) {
+        static <E extends Enum<E>> EnumSet<E> complementOf(@Independent @NotModified Collection<E> collection) {
             return null;
         }
 
@@ -6942,21 +6944,20 @@ public class ComGoogleCommonCollect {
         }
 
         @Independent @NotModified
-        static <E> Sets.SetView<E> intersection(@Independent @Modified Set<E> set1, @Independent @Modified Set<?> set2) {
-            return null;
-        }
+        static <E> Sets.SetView<E> intersection(
+            @Independent @NotModified Set<E> set1,
+            @Independent @NotModified Set<?> set2) { return null; }
         @Independent @NotModified static <E> Set<E> newConcurrentHashSet() { return null; }
         @Independent @NotModified
-        static <E> Set<E> newConcurrentHashSet(@Independent @NotModified Iterable<? extends E> elements) { return null; }
+        static <E> Set<E> newConcurrentHashSet(@Independent @Modified Iterable<? extends E> elements) { return null; }
         @Independent @NotModified static <E> CopyOnWriteArraySet<E> newCopyOnWriteArraySet() { return null; }
         @Independent @NotModified
-        static <E> CopyOnWriteArraySet<E> newCopyOnWriteArraySet(@Independent @Modified Iterable<? extends E> elements) {
-            return null;
-        }
+        static <E> CopyOnWriteArraySet<E> newCopyOnWriteArraySet(
+            @Independent @NotModified Iterable<? extends E> elements) { return null; }
 
         @Independent @NotModified
         static <E extends Enum<E>> EnumSet<E> newEnumSet(
-            @Independent @NotModified Iterable<E> iterable,
+            @Independent @Modified Iterable<E> iterable,
             Class<E> elementType) { return null; }
         @Independent @NotModified static <E> HashSet<E> newHashSet() { return null; }
         @Independent @NotModified
@@ -6971,7 +6972,7 @@ public class ComGoogleCommonCollect {
         @Independent @NotModified static <E> Set<E> newIdentityHashSet() { return null; }
         @Independent @NotModified static <E> LinkedHashSet<E> newLinkedHashSet() { return null; }
         @Independent @NotModified
-        static <E> LinkedHashSet<E> newLinkedHashSet(@Independent @NotModified Iterable<? extends E> elements) {
+        static <E> LinkedHashSet<E> newLinkedHashSet(@Independent @Modified Iterable<? extends E> elements) {
             return null;
         }
 
@@ -6982,7 +6983,7 @@ public class ComGoogleCommonCollect {
         static <E> Set<E> newSetFromMap(@Independent @Modified Map<E, Boolean> map) { return null; }
         @Independent @NotModified static <E extends Comparable> TreeSet<E> newTreeSet() { return null; }
         @Independent @NotModified
-        static <E extends Comparable> TreeSet<E> newTreeSet(@Independent @NotModified Iterable<? extends E> elements) {
+        static <E extends Comparable> TreeSet<E> newTreeSet(@Independent @Modified Iterable<? extends E> elements) {
             return null;
         }
 
@@ -7016,7 +7017,9 @@ public class ComGoogleCommonCollect {
             @Independent @NotModified Set<? extends E> set2) { return null; }
 
         @Independent @NotModified
-        static <E> NavigableSet<E> unmodifiableNavigableSet(@Independent @Modified NavigableSet<E> set) { return null; }
+        static <E> NavigableSet<E> unmodifiableNavigableSet(@Independent @NotModified NavigableSet<E> set) {
+            return null;
+        }
     }
 
     //public interface SortedMapDifference implements MapDifference<K,V>
@@ -7041,12 +7044,12 @@ public class ComGoogleCommonCollect {
     }
 
     //public interface SortedMultiset implements SortedMultisetBridge<E>, SortedIterable<E>
-    //annotated as EXPECTED; computed @FinalFields @Independent @Container (1) -- a collection contract with mutators, shared by mutable and immutable implementations (GUAVA.md)
+    //annotated as EXPECTED; computed @FinalFields @Dependent @Container (1) -- a collection contract with mutators, shared by mutable and immutable implementations (GUAVA.md)
     @Container
-    @Independent
+    @Independent(absent = true)
     class SortedMultiset$<E> {
         //override from com.google.common.collect.SortedIterable
-        @Independent(absent = true) @NotModified
+        @Immutable(hc = true) @Independent(hc = true) @NotModified
         Comparator<? super E> comparator() { return null; }
         @Independent(absent = true) @Modified SortedMultiset<E> descendingMultiset() { return null; }
         //override from com.google.common.collect.Multiset, com.google.common.collect.SortedMultisetBridge
@@ -7060,7 +7063,7 @@ public class ComGoogleCommonCollect {
         @Independent(absent = true) @Modified
         SortedMultiset<E> headMultiset(
             @Independent(hc = true) @NotModified E upperBound,
-            @Independent @NotModified BoundType boundType) { return null; }
+            @Immutable @Independent @NotModified BoundType boundType) { return null; }
 
         //override from com.google.common.collect.Multiset, com.google.common.collect.SortedIterable, java.lang.Iterable, java.util.Collection
         @Independent @NotModified @NotNull
@@ -7071,14 +7074,14 @@ public class ComGoogleCommonCollect {
         @Independent @Modified
         SortedMultiset<E> subMultiset(
             @Independent(hc = true) @NotModified E lowerBound,
-            @Independent @NotModified BoundType lowerBoundType,
+            @Immutable @Independent @NotModified BoundType lowerBoundType,
             @Independent(hc = true) @NotModified E upperBound,
-            @Independent @NotModified BoundType upperBoundType) { return null; }
+            @Immutable @Independent @NotModified BoundType upperBoundType) { return null; }
 
         @Independent(absent = true) @Modified
         SortedMultiset<E> tailMultiset(
             @Independent(hc = true) @NotModified E lowerBound,
-            @Independent @NotModified BoundType boundType) { return null; }
+            @Immutable @Independent @NotModified BoundType boundType) { return null; }
     }
 
     //public interface SortedSetMultimap implements SetMultimap<K,V>
@@ -7096,7 +7099,7 @@ public class ComGoogleCommonCollect {
 
         //override from com.google.common.collect.Multimap, com.google.common.collect.SetMultimap
         @Independent @Modified
-        SortedSet<V> removeAll(@Independent @NotModified Object key) { return null; }
+        SortedSet<V> removeAll(@Immutable(hc = true) @Independent @NotModified Object key) { return null; }
 
         //override from com.google.common.collect.Multimap, com.google.common.collect.SetMultimap
         @Independent @Modified
@@ -7104,7 +7107,9 @@ public class ComGoogleCommonCollect {
         SortedSet<V> replaceValues(
             @Independent(hc = true) @NotModified K key,
             @Independent(hc = true) @NotModified Iterable<? extends V> values) { return null; }
-        @Independent(hc = true) @Modified Comparator<? super V> valueComparator() { return null; }
+
+        @Immutable(hc = true) @Independent(hc = true) @Modified
+        Comparator<? super V> valueComparator() { return null; }
     }
 
     //public final class Streams
@@ -7114,34 +7119,32 @@ public class ComGoogleCommonCollect {
         //public interface DoubleFunctionWithIndex
         @FinalFields
         @Container
-        @Independent
+        @Independent(hc = true)
         class DoubleFunctionWithIndex<R> {
-            @Independent(absent = true) @Modified R apply(double from, long index) { return null; }
+            @Independent(hc = true) @Modified R apply(double from, long index) { return null; }
         }
 
         //public interface FunctionWithIndex
         @FinalFields
         @Container
-        @Independent
+        @Independent(hc = true)
         class FunctionWithIndex<T, R> {
-            @Independent(absent = true) @Modified
-            R apply(@Independent(absent = true) @NotModified T from, long index) { return null; }
+            @Independent(hc = true) @Modified
+            R apply(@Independent(hc = true) @NotModified T from, long index) { return null; }
         }
 
         //public interface IntFunctionWithIndex
         @FinalFields
         @Container
-        @Independent
-        class IntFunctionWithIndex<R> {
-            @Independent(absent = true) @Modified R apply(int from, long index) { return null; }
-        }
+        @Independent(hc = true)
+        class IntFunctionWithIndex<R> {@Independent(hc = true) @Modified R apply(int from, long index) { return null; } }
 
         //public interface LongFunctionWithIndex
         @FinalFields
         @Container
-        @Independent
+        @Independent(hc = true)
         class LongFunctionWithIndex<R> {
-            @Independent(absent = true) @Modified R apply(long from, long index) { return null; }
+            @Independent(hc = true) @Modified R apply(long from, long index) { return null; }
         }
 
         @Independent @NotModified
@@ -7157,7 +7160,7 @@ public class ComGoogleCommonCollect {
         static <T> Stream<T> concat(@Independent @NotModified Stream<? extends T> ... streams) { return null; }
 
         @Independent @NotModified
-        static OptionalDouble findLast(@Independent @NotModified DoubleStream stream) { return null; }
+        static OptionalDouble findLast(@Independent @Modified DoubleStream stream) { return null; }
         @Independent @NotModified static OptionalInt findLast(@Independent @Modified IntStream stream) { return null; }
         @Independent @NotModified
         static OptionalLong findLast(@Independent @Modified LongStream stream) { return null; }
@@ -7232,7 +7235,7 @@ public class ComGoogleCommonCollect {
         class Cell<R, C, V> {
             //override from java.lang.Object
             @NotModified
-            public boolean equals(@Independent @NotModified Object obj) { return false; }
+            public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
             @Independent(hc = true) @NotModified C getColumnKey() { return null; }
             @Independent(hc = true) @NotModified R getRowKey() { return null; }
             @Independent(hc = true) @NotModified V getValue() { return null; }
@@ -7247,18 +7250,27 @@ public class ComGoogleCommonCollect {
         @Independent(absent = true) @NotModified Set<C> columnKeySet() { return null; }
         @Independent(absent = true) @NotModified Map<C, Map<R, V>> columnMap() { return null; }
         @NotModified
-        boolean contains(@Independent @NotModified Object rowKey, @Independent @NotModified Object columnKey) {
-            return false;
-        }
-        @NotModified boolean containsColumn(@Independent @NotModified Object columnKey) { return false; }
-        @NotModified boolean containsRow(@Independent @NotModified Object rowKey) { return false; }
-        @NotModified boolean containsValue(@Independent @NotModified Object value) { return false; }
+        boolean contains(
+            @Immutable(hc = true) @Independent @NotModified Object rowKey,
+            @Immutable(hc = true) @Independent @NotModified Object columnKey) { return false; }
+
+        @NotModified
+        boolean containsColumn(@Immutable(hc = true) @Independent @NotModified Object columnKey) { return false; }
+
+        @NotModified
+        boolean containsRow(@Immutable(hc = true) @Independent @NotModified Object rowKey) { return false; }
+
+        @NotModified
+        boolean containsValue(@Immutable(hc = true) @Independent @NotModified Object value) { return false; }
+
         //override from java.lang.Object
         @NotModified
-        public boolean equals(@Independent @NotModified Object obj) { return false; }
+        public boolean equals(@Immutable(hc = true) @Independent @NotModified @Nullable Object obj) { return false; }
 
         @Independent(hc = true) @NotModified
-        V get(@Independent @NotModified Object rowKey, @Independent @NotModified Object columnKey) { return null; }
+        V get(
+            @Immutable(hc = true) @Independent @NotModified Object rowKey,
+            @Immutable(hc = true) @Independent @NotModified Object columnKey) { return null; }
 
         //override from java.lang.Object
         @NotModified
@@ -7271,7 +7283,9 @@ public class ComGoogleCommonCollect {
             @Independent(hc = true) @NotModified V value) { return null; }
         @Modified void putAll(@Independent @NotModified Table<? extends R, ? extends C, ? extends V> table) { }
         @Independent @Modified
-        V remove(@Independent @NotModified Object rowKey, @Independent @NotModified Object columnKey) { return null; }
+        V remove(
+            @Immutable(hc = true) @Independent @NotModified Object rowKey,
+            @Immutable(hc = true) @Independent @NotModified Object columnKey) { return null; }
         @Independent @NotModified Map<C, V> row(@Independent(hc = true) @NotModified R rowKey) { return null; }
         @Independent(absent = true) @NotModified Set<R> rowKeySet() { return null; }
         @Independent(absent = true) @NotModified Map<R, Map<C, V>> rowMap() { return null; }
@@ -7291,8 +7305,8 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <R, C, V> Table<R, C, V> newCustomTable(
-            @Independent @Modified Map<R, Map<C, V>> backingMap,
-            @Independent @Modified com.google.common.base.Supplier<? extends Map<C, V>> factory) { return null; }
+            @Independent @NotModified Map<R, Map<C, V>> backingMap,
+            @Independent @NotModified com.google.common.base.Supplier<? extends Map<C, V>> factory) { return null; }
 
         @Independent @NotModified
         static <R, C, V> Table<R, C, V> synchronizedTable(@Independent @NotModified Table<R, C, V> table) { return null; }
@@ -7314,11 +7328,11 @@ public class ComGoogleCommonCollect {
 
         @Independent @NotModified
         static <R, C, V1, V2> Table<R, C, V2> transformValues(
-            @Independent @Modified Table<R, C, V1> fromTable,
+            @Independent @NotModified Table<R, C, V1> fromTable,
             @Independent @NotModified Function<? super V1, V2> function) { return null; }
 
         @Independent @NotModified
-        static <R, C, V> Table<C, R, V> transpose(@Independent @Modified Table<R, C, V> table) { return null; }
+        static <R, C, V> Table<C, R, V> transpose(@Independent @NotModified Table<R, C, V> table) { return null; }
 
         @Independent @NotModified
         static <R, C, V> RowSortedTable<R, C, V> unmodifiableRowSortedTable(
@@ -7352,11 +7366,11 @@ public class ComGoogleCommonCollect {
         //override from com.google.common.collect.StandardTable, com.google.common.collect.Table
         @Independent @NotModified
         SortedMap<C, V> row(@Independent @NotModified R rowKey) { return null; }
-        @Independent @Modified Comparator<? super R> rowComparator() { return null; }
+        @Independent @NotModified Comparator<? super R> rowComparator() { return null; }
     }
 
     //public class TreeMultimap extends AbstractSortedKeySortedSetMultimap<K,V>
-    //annotated as EXPECTED; computed mutable @Dependent (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
+    //annotated as EXPECTED; computed mutable @Dependent @Container (1) -- a mutable collection stores its arguments, never modifies them (GUAVA.md)
     @Container
     @Independent(absent = true)
     class TreeMultimap$<K, V> {
@@ -7418,11 +7432,11 @@ public class ComGoogleCommonCollect {
         static <E> TreeMultiset<E> create(@Independent @NotModified Comparator<? super E> comparator) { return null; }
 
         //override from com.google.common.collect.Multiset
-        @Modified @NotModified(after = "comparator")
+        @Modified
         void forEachEntry(@Independent @NotModified ObjIntConsumer<? super E> action) { }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
 
         SortedMultiset<E> headMultiset(
             @Independent @NotModified E upperBound,
@@ -7449,7 +7463,7 @@ public class ComGoogleCommonCollect {
         int size() { return 0; }
 
         //override from com.google.common.collect.SortedMultiset
-        @Independent(absent = true) @Modified
+        @Independent(absent = true) @NotModified
 
         SortedMultiset<E> tailMultiset(
             @Independent @NotModified E lowerBound,
@@ -7593,7 +7607,7 @@ public class ComGoogleCommonCollect {
         TreeTraverser$() { }
         @Independent @NotModified
         FluentIterable<T> breadthFirstTraversal(@Independent @NotModified T root) { return null; }
-        @Independent @NotModified Iterable<T> children(@Independent @Modified T root) { return null; }
+        @Independent @NotModified Iterable<T> children(@Independent @NotModified T root) { return null; }
         @Independent @NotModified FluentIterable<T> postOrderTraversal(@Independent @Modified T root) { return null; }
         @Independent @NotModified FluentIterable<T> preOrderTraversal(@Independent @Modified T root) { return null; }
         @Independent @NotModified
