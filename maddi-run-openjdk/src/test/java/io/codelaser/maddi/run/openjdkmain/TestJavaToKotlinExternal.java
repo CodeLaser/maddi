@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /*
@@ -40,6 +41,11 @@ public class TestJavaToKotlinExternal {
         String corpusName = System.getProperty("maddi.j2k.corpus");
         assumeTrue(external != null && corpusName != null, "-Dmaddi.j2k.external and -Dmaddi.j2k.corpus not set");
         Path dir = Path.of(external).toAbsolutePath();
+        // a translation that is not there is not a translation with no compiling file (a lab run on a machine without
+        // the directory judged 0 files and reported success)
+        try (java.util.stream.Stream<Path> walk = java.nio.file.Files.walk(dir.resolve("src"))) {
+            assertTrue(walk.anyMatch(p -> p.toString().endsWith(".kt")), "no .kt files under " + dir.resolve("src"));
+        }
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse(corpusName);
         JavaToKotlinRatchet.measureOnly("external-" + corpusName)
                 .judgeExternal(corpus, dir.resolve("src"), dir.resolve("test-src"));
