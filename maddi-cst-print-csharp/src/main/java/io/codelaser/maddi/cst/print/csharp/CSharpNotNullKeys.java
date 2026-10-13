@@ -39,9 +39,10 @@ import java.util.stream.Stream;
  * The type parameters that are {@code where T : notnull} in a nullable context. C#'s Dictionary, SortedDictionary and
  * OrderedDictionary want a key type that is not null (CS8714); Java's HashMap, TreeMap and LinkedHashMap, which they
  * print as, take any. A type parameter that is such a map's key is not null, and so is one that is passed where such a
- * type parameter is expected: a generic type's argument (its supertypes' too), a generic method's argument as the
- * method's parameters receive it. An override family shares its type parameters' constraints, which C# lets only the
- * first declaration state. {@code Map} itself is {@code IDictionary}, which takes any key.
+ * type parameter is expected, through a wildcard too ({@code ? extends K} is {@code K} in C#): a generic type's
+ * argument (its supertypes' too), a generic method's argument as the method's parameters receive it. An override
+ * family shares its type parameters' constraints, which C# lets only the first declaration state. {@code Map} itself
+ * is {@code IDictionary}, which takes any key.
  */
 final class CSharpNotNullKeys {
 
@@ -114,8 +115,8 @@ final class CSharpNotNullKeys {
     }
 
     private void bind(ParameterizedType formal, ParameterizedType actual) {
-        if (formal.isTypeParameter() && formal.wildcard() == null && formal.arrays() == actual.arrays()) {
-            if (actual.isTypeParameter() && actual.wildcard() == null) link(formal.typeParameter(), actual.typeParameter());
+        if (formal.isTypeParameter() && formal.arrays() == actual.arrays()) {
+            if (plain(actual)) link(formal.typeParameter(), actual.typeParameter());
             return;
         }
         if (formal.typeInfo() != null && formal.typeInfo() == actual.typeInfo()
@@ -142,8 +143,9 @@ final class CSharpNotNullKeys {
         arguments.forEach(this::use);
     }
 
+    /** {@code T}, {@code ? extends T}, {@code ? super T}: C# has {@code T} for each. */
     private static boolean plain(ParameterizedType pt) {
-        return pt.isTypeParameter() && pt.wildcard() == null && pt.arrays() == 0;
+        return pt.isTypeParameter() && pt.typeParameter() != null && pt.arrays() == 0;
     }
 
     private void link(TypeParameter expected, TypeParameter passed) {

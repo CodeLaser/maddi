@@ -2201,6 +2201,12 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 public static <A extends Comparable<A>, B> TreeMap<A, B> sorted(Map<A, B> m) { return new TreeMap<>(m); }
                 public <C> Map<C, V> copy(C first) { Map<C, V> m = new HashMap<>(); return m; }
                 public <D> int size(Map<D, V> m) { return m.size(); }
+                static <E, F> Map<E, F> group(java.util.function.Function<? super F, ? extends E> key) {
+                    return keyed(key);
+                }
+                static <G, H> Map<G, H> keyed(java.util.function.Function<? super H, ? extends G> key) {
+                    return new HashMap<>();
+                }
                 static class Sub<S, U> extends Index<S, U> { }
                 static class Plain<P> { P value; }
             }
@@ -2223,6 +2229,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "where A : notnull, IComparable<A>");
         contains(cs, "Copy<C>(C first) where C : notnull");
         contains(cs, "class Sub<S, U> : Index<S, U> where S : notnull {");
+        // through a wildcard: E is passed as ? extends G
+        contains(cs, "where E : notnull");
+        contains(cs, "where G : notnull");
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where D : notnull"), cs);
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where P : notnull"), cs);
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where V : notnull"), cs);
