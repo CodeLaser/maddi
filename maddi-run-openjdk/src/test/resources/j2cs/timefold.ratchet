@@ -80,9 +80,13 @@
 # class's in its static companion), diamonds through a parameter's whole type and an outer creation, a constructor's
 # arguments with the created type's type arguments, generic constructors' type parameters erased: 2589 -> 2550 errors,
 # fernflower 38 -> 36. unmappedJdkUses 777 -> 778: new TreeMap<>() as a State's argument now names SequencedMap.
+#
+# 2026-10-13, NavigableMap/NavigableSet/SequencedMap/SequencedSet/EnumSet on C#'s sorted and ordered collections, their
+# navigation by the compatibility library (JavaNavigable), Collections.rotate/shuffle/swap/newSetFromMap,
+# Arrays.fill/4/deepEquals/deepHashCode: 778 -> 574 unmapped uses, 1007 -> 1018 compiling files, 2550 -> 2418 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1007
-unmappedJdkUses	778
+compilingFiles	1018
+unmappedJdkUses	574

@@ -1607,7 +1607,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
-                static <T> java.util.Set<T> identitySet() { return java.util.Collections.newSetFromMap(new java.util.HashMap<>()); }
+                static <E> java.util.Set<E> fromMap(java.util.Map<E, Boolean> map) { return map.keySet(); }
+                static <T> java.util.Set<T> identitySet() { return fromMap(new java.util.HashMap<>()); }
                 static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
                 static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
                 static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
@@ -1638,7 +1639,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a raw constructor reference creates the type Java inferred for its result
         contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
         contains(cs, "new HashSet<V>(p0)");
-        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean> of newSetFromMap, as inferred
+        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean>, as inferred
         contains(cs, "new Dictionary<T, bool>()");
         // an argument of a creation: the creation's own type arguments, as printed
         contains(cs, "new SortedDictionary<R, R>()");
@@ -1793,6 +1794,42 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public abstract class AbstractNode<A>");
         contains(cs, "public sealed class TextNode : AbstractNode<string>");
         assertFalse(cs.contains("public class Hidden"), cs);
+    }
+
+    private static final String NAVIGATION = """
+            package org.example.navigation;
+            import java.util.*;
+            public class Navigation {
+                static String floor(NavigableMap<Integer, String> map, int key) {
+                    Map.Entry<Integer, String> entry = map.floorEntry(key);
+                    return entry == null ? null : entry.getValue();
+                }
+                static Integer next(NavigableSet<Integer> set, int x) { return set.higher(x); }
+                static String values(SequencedMap<String, String> map) { return String.join(",", map.sequencedValues()); }
+                static void shake(List<String> list, Random random) {
+                    Collections.rotate(list, 1);
+                    Collections.swap(list, 0, 1);
+                    Collections.shuffle(list, random);
+                }
+                static boolean same(int[][] a, int[][] b) { return Arrays.deepEquals(a, b); }
+                static void blank(int[] a) { Arrays.fill(a, 1, 3, 0); }
+            }
+            """;
+
+    /** NavigableMap, NavigableSet and SequencedMap on C#'s sorted and ordered collections, by the compatibility library. */
+    @Test
+    public void navigation() {
+        String cs = translate("Navigation", NAVIGATION);
+        contains(cs, "SortedDictionary<int, string> map");
+        // a navigation's entry may be null: the local is the JavaEntry, not a KeyValuePair
+        contains(cs, "var entry = map.FloorEntry(key);");
+        contains(cs, "set.Higher(x)");
+        contains(cs, "map.Values");
+        contains(cs, "JavaCollections.Rotate(list, 1);");
+        contains(cs, "JavaCollections.Swap(list, 0, 1);");
+        contains(cs, "JavaCollections.Shuffle(list, random);");
+        contains(cs, "JavaArrays.DeepEquals(a, b)");
+        contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
     }
 
     private static final String MODES = """

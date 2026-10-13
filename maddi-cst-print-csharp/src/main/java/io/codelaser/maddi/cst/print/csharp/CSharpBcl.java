@@ -139,6 +139,13 @@ final class CSharpBcl implements LibraryMapping {
         type("java.util.LinkedHashSet", "HashSet", GENERIC);
         type("java.util.TreeSet", "SortedSet", GENERIC);
         type("java.util.SortedSet", "SortedSet", GENERIC);
+        // the navigable and sequenced interfaces are their one implementation's: TreeMap, TreeSet, LinkedHashMap and
+        // LinkedHashSet; an EnumSet is a set (C#'s enums printed as classes are not comparable)
+        type("java.util.NavigableMap", "SortedDictionary", GENERIC);
+        type("java.util.NavigableSet", "SortedSet", GENERIC);
+        type("java.util.SequencedMap", "OrderedDictionary", GENERIC);
+        type("java.util.SequencedSet", "HashSet", GENERIC);
+        type("java.util.EnumSet", "HashSet", GENERIC);
         type("java.util.Collection", "ICollection", GENERIC);
         type("java.util.AbstractCollection", "ICollection", GENERIC);
         type("java.lang.Iterable", "IEnumerable", GENERIC);
@@ -565,6 +572,47 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.Arrays.toString/1", "JavaArrays.ToString($1)", COMPAT);
         m("java.util.Arrays.fill/2", "Array.Fill($1, $2)", SYSTEM);
         m("java.util.Arrays.sort/1", "Array.Sort($1)", SYSTEM);
+        // navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
+        for (String nav : List.of("firstEntry/0", "lastEntry/0", "pollFirstEntry/0", "pollLastEntry/0")) {
+            String name = nav.substring(0, nav.indexOf('/'));
+            m("java.util.NavigableMap." + nav, "$0." + Character.toUpperCase(name.charAt(0)) + name.substring(1) + "()", COMPAT);
+        }
+        for (String nav : List.of("floorEntry", "lowerEntry", "ceilingEntry", "higherEntry", "floorKey", "lowerKey",
+                "ceilingKey", "higherKey")) {
+            m("java.util.NavigableMap." + nav + "/1", "$0." + Character.toUpperCase(nav.charAt(0)) + nav.substring(1) + "($1)",
+                    COMPAT);
+        }
+        m("java.util.SortedMap.firstKey/0", "$0.Keys.First()", LINQ);
+        m("java.util.SortedMap.lastKey/0", "$0.Keys.Last()", LINQ);
+        m("java.util.SortedMap.headMap/1", "$0.HeadMap($1, false)", COMPAT);
+        m("java.util.SortedMap.tailMap/1", "$0.TailMap($1, true)", COMPAT);
+        m("java.util.NavigableMap.headMap/2", "$0.HeadMap($1, $2)", COMPAT);
+        m("java.util.NavigableMap.tailMap/2", "$0.TailMap($1, $2)", COMPAT);
+        m("java.util.NavigableMap.subMap/4", "$0.SubMap($1, $2, $3, $4)", COMPAT);
+        m("java.util.SortedSet.first/0", "$0.Min");
+        m("java.util.SortedSet.last/0", "$0.Max");
+        m("java.util.SortedSet.comparator/0", "$0.Comparer");
+        for (String nav : List.of("floor", "lower", "ceiling", "higher")) {
+            m("java.util.NavigableSet." + nav + "/1", "$0." + Character.toUpperCase(nav.charAt(0)) + nav.substring(1) + "($1)",
+                    COMPAT);
+        }
+        m("java.util.SequencedMap.sequencedValues/0", "$0.Values");
+        m("java.util.SequencedMap.sequencedKeySet/0", "$0.Keys");
+        m("java.util.EnumSet.noneOf/1", "new HashSet<{R0}>()");
+        m("java.util.EnumSet.copyOf/1", "new HashSet<{R0}>($1)");
+        m("java.util.Collections.rotate/2", "JavaCollections.Rotate($1, $2)", COMPAT);
+        m("java.util.Collections.shuffle/1", "JavaCollections.Shuffle($1, Random.Shared)", COMPAT, SYSTEM);
+        m("java.util.Collections.shuffle/2", "JavaCollections.Shuffle($1, $2)", COMPAT);
+        m("java.util.Collections.swap/3", "JavaCollections.Swap($1, $2, $3)", COMPAT);
+        // a set backed by a map, an empty one: identity is lost with IdentityHashMap's mapping already
+        m("java.util.Collections.newSetFromMap/1", "new HashSet<{R0}>()");
+        m("java.util.Collections.unmodifiableSortedSet/1", "$1");
+        m("java.util.Collections.unmodifiableSortedMap/1", "$1");
+        m("java.util.Collections.reverseOrder/1", "$1.Reversed()", COMPAT);
+        m("java.util.Arrays.fill/4", "Array.Fill($1, $4, @2, @3 - @2)", SYSTEM);
+        m("java.util.Arrays.deepEquals/2", "JavaArrays.DeepEquals($1, $2)", COMPAT);
+        m("java.util.Arrays.deepHashCode/1", "JavaArrays.DeepHashCode($1)", COMPAT);
+        m("java.util.Objects.deepEquals/2", "JavaArrays.DeepEquals($1, $2)", COMPAT);
         m("java.util.Objects.equals/2", "object.Equals($1, $2)");
         m("java.util.Objects.hash/1", "HashCode.Combine($*)", SYSTEM);
         m("java.util.Objects.hashCode/1", "($1?.GetHashCode() ?? 0)");

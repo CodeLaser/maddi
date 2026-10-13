@@ -186,6 +186,25 @@ public static class JavaCollections
     public static void Sort<T>(this IList<T> l) => l.Sort(null);
 
     /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
+    /// <summary>Collections.rotate: the element at i moves to (i + distance) mod size.</summary>
+    public static void Rotate<T>(IList<T> l, int distance)
+    {
+        var n = l.Count;
+        if (n == 0) return;
+        var d = ((distance % n) + n) % n;
+        if (d == 0) return;
+        var copy = l.ToList();
+        for (var i = 0; i < n; i++) l[(i + d) % n] = copy[i];
+    }
+
+    /// <summary>Collections.shuffle: Fisher-Yates from the end, as Java's.</summary>
+    public static void Shuffle<T>(IList<T> l, Random random)
+    {
+        for (var i = l.Count - 1; i > 0; i--) Swap(l, i, random.Next(i + 1));
+    }
+
+    public static void Swap<T>(IList<T> l, int i, int j) => (l[i], l[j]) = (l[j], l[i]);
+
     public static void ReverseInPlace<T>(IList<T> l)
     {
         for (int i = 0, j = l.Count - 1; i < j; i++, j--) (l[i], l[j]) = (l[j], l[i]);
@@ -286,6 +305,117 @@ public static class JavaCollections
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
+/// <summary>
+/// Java's NavigableMap and NavigableSet on SortedDictionary and SortedSet. A SortedSet searches by order in log time
+/// (GetViewBetween); a SortedDictionary keeps its keys in order but searches by order only in a walk over them. A
+/// sub-map is a copy, where Java's is a view.
+/// </summary>
+public static class JavaNavigable
+{
+    public static JavaEntry<K, V> FirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+        m.Count == 0 ? null : new JavaEntry<K, V>(m.First());
+
+    public static JavaEntry<K, V> LastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+        m.Count == 0 ? null : new JavaEntry<K, V>(m.Last());
+
+    public static JavaEntry<K, V> PollFirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
+    {
+        var first = m.FirstEntry();
+        if (first != null) m.Remove(first.Key);
+        return first;
+    }
+
+    public static JavaEntry<K, V> PollLastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
+    {
+        var last = m.LastEntry();
+        if (last != null) m.Remove(last.Key);
+        return last;
+    }
+
+    /// <summary>The greatest entry below <paramref name="key"/>, or at it when <paramref name="inclusive"/>.</summary>
+    private static JavaEntry<K, V> Below<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
+    {
+        JavaEntry<K, V> found = null;
+        foreach (var e in m)
+        {
+            var c = m.Comparer.Compare(e.Key, key);
+            if (c < 0 || inclusive && c == 0) found = new JavaEntry<K, V>(e);
+            else break;
+        }
+        return found;
+    }
+
+    /// <summary>The least entry above <paramref name="key"/>, or at it when <paramref name="inclusive"/>.</summary>
+    private static JavaEntry<K, V> Above<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
+    {
+        foreach (var e in m)
+        {
+            var c = m.Comparer.Compare(e.Key, key);
+            if (c > 0 || inclusive && c == 0) return new JavaEntry<K, V>(e);
+        }
+        return null;
+    }
+
+    public static JavaEntry<K, V> FloorEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true);
+
+    public static JavaEntry<K, V> LowerEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false);
+
+    public static JavaEntry<K, V> CeilingEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true);
+
+    public static JavaEntry<K, V> HigherEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false);
+
+    public static K FloorKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true) is { } e ? e.Key : default;
+
+    public static K LowerKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false) is { } e ? e.Key : default;
+
+    public static K CeilingKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true) is { } e ? e.Key : default;
+
+    public static K HigherKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false) is { } e ? e.Key : default;
+
+    public static SortedDictionary<K, V> HeadMap<K, V>(this SortedDictionary<K, V> m, K to, bool inclusive) where K : notnull =>
+        Copy(m, e => { var c = m.Comparer.Compare(e.Key, to); return c < 0 || inclusive && c == 0; });
+
+    public static SortedDictionary<K, V> TailMap<K, V>(this SortedDictionary<K, V> m, K from, bool inclusive) where K : notnull =>
+        Copy(m, e => { var c = m.Comparer.Compare(e.Key, from); return c > 0 || inclusive && c == 0; });
+
+    public static SortedDictionary<K, V> SubMap<K, V>(this SortedDictionary<K, V> m, K from, bool fromInclusive, K to,
+        bool toInclusive) where K : notnull =>
+        m.TailMap(from, fromInclusive).HeadMap(to, toInclusive);
+
+    private static SortedDictionary<K, V> Copy<K, V>(SortedDictionary<K, V> m, Func<KeyValuePair<K, V>, bool> keep) where K : notnull
+    {
+        var copy = new SortedDictionary<K, V>(m.Comparer);
+        foreach (var e in m.Where(keep)) copy[e.Key] = e.Value;
+        return copy;
+    }
+
+    public static T Floor<T>(this SortedSet<T> s, T x) =>
+        s.Count == 0 || s.Comparer.Compare(s.Min, x) > 0 ? default : s.GetViewBetween(s.Min, x).Max;
+
+    public static T Ceiling<T>(this SortedSet<T> s, T x) =>
+        s.Count == 0 || s.Comparer.Compare(s.Max, x) < 0 ? default : s.GetViewBetween(x, s.Max).Min;
+
+    public static T Lower<T>(this SortedSet<T> s, T x)
+    {
+        if (s.Count == 0 || s.Comparer.Compare(s.Min, x) >= 0) return default;
+        foreach (var e in s.GetViewBetween(s.Min, x).Reverse())
+        {
+            if (s.Comparer.Compare(e, x) < 0) return e;
+        }
+        return default;
+    }
+
+    public static T Higher<T>(this SortedSet<T> s, T x)
+    {
+        if (s.Count == 0 || s.Comparer.Compare(s.Max, x) <= 0) return default;
+        foreach (var e in s.GetViewBetween(x, s.Max))
+        {
+            if (s.Comparer.Compare(e, x) > 0) return e;
+        }
+        return default;
+    }
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -547,6 +677,31 @@ public static class JavaClass
 
 public static class JavaArrays
 {
+    /// <summary>Arrays.deepEquals, Objects.deepEquals: arrays element by element, nested ones too.</summary>
+    public static bool DeepEquals(object a, object b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a is Array x && b is Array y)
+        {
+            if (x.Length != y.Length) return false;
+            for (var i = 0; i < x.Length; i++)
+            {
+                if (!DeepEquals(x.GetValue(i), y.GetValue(i))) return false;
+            }
+            return true;
+        }
+        return Equals(a, b);
+    }
+
+    /// <summary>Arrays.deepHashCode: 31 * h + the element's, nested arrays' deep ones.</summary>
+    public static int DeepHashCode(object a)
+    {
+        if (a is not Array array) return a?.GetHashCode() ?? 0;
+        var h = 1;
+        foreach (var e in array) h = unchecked(31 * h + DeepHashCode(e));
+        return h;
+    }
+
     public static T[] CopyOf<T>(T[] a, int length)
     {
         var copy = new T[length];

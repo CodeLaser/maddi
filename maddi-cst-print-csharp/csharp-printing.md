@@ -476,6 +476,13 @@ ratchet's report (see below) lists what is left.
   `TreeMap` and `EnumMap` `SortedDictionary<K, V>`, and the hash sets `HashSet<T>`. Where the modification analysis
   proves a collection unmodified, a read-only interface (`IReadOnlyList<T>`) is the analysis's refinement. `Collection` becomes `ICollection<T>`, `Iterable` becomes `IEnumerable<T>`, and `Map.Entry`
   becomes `KeyValuePair<K, V>`.
+- **Navigable and sequenced collections.** `NavigableMap` and `NavigableSet` are their one implementation's,
+  `SortedDictionary<K, V>` and `SortedSet<T>`; `SequencedMap` and `SequencedSet` are `OrderedDictionary<K, V>` and
+  `HashSet<T>`, an `EnumSet` a `HashSet<T>`. The navigation is the compatibility library's (`JavaNavigable`):
+  `floorEntry`, `higherKey`, `subMap`, … on a `SortedDictionary`, `floor`, `higher`, … on a `SortedSet`. An entry it
+  returns is a `JavaEntry`, null when there is none, and a local it initializes is `var` (a `KeyValuePair` cannot be
+  null). Two differences: a `SortedDictionary` searches by order in a walk over its keys, not in log time, and a
+  sub-map is a copy, not a view; a key or element of a value type is its default, not null, when there is none.
 - **Wildcards.** Java cannot add to a `List<? extends Node>`: it is C#'s covariant read-only interface,
   `IReadOnlyList<Node>`, which a `List<Block>` is. `Collection` and `Set` of `? extends T` are
   `IReadOnlyCollection<T>`, `Iterable` is `IEnumerable<T>`. A collection of `?` is C#'s non-generic interface, which every generic collection implements: `List<?>` is
