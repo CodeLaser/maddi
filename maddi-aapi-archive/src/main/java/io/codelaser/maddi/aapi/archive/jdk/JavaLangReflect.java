@@ -34,18 +34,18 @@ public class JavaLangReflect {
     interface AnnotatedElement$ {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
-        @Nullable <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
-        boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
+        @Nullable default <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
+        default <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+        @Nullable default <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
+        default <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+        default boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
     }
 
     @ImmutableContainer
     interface AnnotatedType$ {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.reflect.AnnotatedType getAnnotatedOwnerType() { return null; }
+        @Nullable default java.lang.reflect.AnnotatedType getAnnotatedOwnerType() { return null; }
     }
 
     @ImmutableContainer
@@ -58,12 +58,12 @@ public class JavaLangReflect {
 
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        boolean canAccess(@Nullable java.lang.Object p0) { return false; }
-        @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
-        @Nullable <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
-        boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
+        default boolean canAccess(@Nullable java.lang.Object p0) { return false; }
+        @Nullable default <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
+        default <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+        @Nullable default <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
+        default <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+        default boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
         static void setAccessible(@NotNull java.lang.reflect.AccessibleObject[] p0, boolean p1) { }
     }
 

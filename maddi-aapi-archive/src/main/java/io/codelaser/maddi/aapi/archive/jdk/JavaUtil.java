@@ -2127,7 +2127,7 @@ public class JavaUtil {
 
     //public class EnumMap<K extends Enum<K>, V> extends AbstractMap<K, V> implements Cloneable, Serializable
     @Container
-    class EnumMap$<K, V> {
+    class EnumMap$<K extends Enum<K>, V> {
         EnumMap$(/*@NotModified[O]*/ @Independent(hc = true) @NotNull Map<K, ? extends V> m) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
