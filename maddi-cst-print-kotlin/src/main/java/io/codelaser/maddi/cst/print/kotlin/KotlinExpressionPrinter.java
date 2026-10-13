@@ -84,8 +84,11 @@ public class KotlinExpressionPrinter {
             case InlineConditional ic -> new OutputBuilderImpl()
                     .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                    .add(branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q)).add(SpaceEnum.ONE)
-                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE).add(branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q));
+                    .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ic.condition()),
+                            () -> branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q))).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
+                    .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenFalse(ic.condition()),
+                            () -> branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q)));
             case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
@@ -97,11 +100,11 @@ public class KotlinExpressionPrinter {
             case Negation neg -> negation(neg, q);
             case StringConcat sc -> stringConcat(sc, q);
             case BinaryOperator bo when bo.operator() != null -> binaryOperator(bo, q);
-            case And and -> and.expressions().stream().map(x -> condition(and.precedence(), x, q))
-                    .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_AND));
-            case Or or -> or.expressions().stream().map(x -> condition(or.precedence(), x, q))
-                    .collect(OutputBuilderImpl.joining(SymbolEnum.LOGICAL_OR));
+            case And and -> junction(and.expressions(), and.precedence(), true, q);
+            case Or or -> junction(or.expressions(), or.precedence(), false, q);
             case UnaryOperator uo -> unaryOperator(uo, q);
+            // ((T) x).m() where x is a T: the cast and its parentheses go
+            case EnclosedExpression ee when unwrap(ee.inner()) instanceof Cast c && smartCast(c) -> print(c.expression(), q);
             case EnclosedExpression ee -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ee.inner(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
             // a field or array access is where its own per-expression fact is asked: before the dereference
@@ -1653,6 +1656,13 @@ public class KotlinExpressionPrinter {
 
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
+        if ("&&".equals(op) || "||".equals(op)) {
+            // x is T && x.m(): the right-hand side runs where the left one is true (false for ||), and knows its tests
+            OutputBuilder left = operand(bo.precedence(), bo.lhs(), q);
+            OutputBuilder right = KotlinSmartCasts.withTypes("&&".equals(op) ? KotlinSmartCasts.whenTrue(bo.lhs())
+                    : KotlinSmartCasts.whenFalse(bo.lhs()), () -> operand(bo.precedence(), bo.rhs(), q));
+            return new OutputBuilderImpl().add(left).add(KotlinSymbols.binary(op)).add(right);
+        }
         String infix = INFIX.get(op);
         if (infix != null) return infix(bo, infix, q);
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
@@ -1816,6 +1826,22 @@ public class KotlinExpressionPrinter {
                 .add(operand(neg.precedence(), neg.expression(), q));
     }
 
+    /**
+     * The operands of a {@code &&} ({@code and}) or {@code ||}, in the order printed, which Kotlin evaluates: each knows
+     * the {@code is} tests of those before it.
+     */
+    private static OutputBuilder junction(List<Expression> operands, io.codelaser.maddi.cst.api.expression.Precedence precedence,
+                                          boolean and, Qualification q) {
+        List<OutputBuilder> printed = new ArrayList<>();
+        java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> known = new java.util.HashMap<>();
+        for (Expression operand : operands) {
+            java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> before = new java.util.HashMap<>(known);
+            printed.add(KotlinSmartCasts.withTypes(before, () -> condition(precedence, operand, q)));
+            known.putAll(and ? KotlinSmartCasts.whenTrue(operand) : KotlinSmartCasts.whenFalse(operand));
+        }
+        return printed.stream().collect(OutputBuilderImpl.joining(and ? SymbolEnum.LOGICAL_AND : SymbolEnum.LOGICAL_OR));
+    }
+
     /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
     private static OutputBuilder condition(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e, Qualification q) {
         if (!(unwrap(e) instanceof NullConstant) && KotlinNullability.nullableInKotlin(e)) {
@@ -1898,6 +1924,7 @@ public class KotlinExpressionPrinter {
 
     /** As Java's cast, to {@code castType}: Java's type with the type argument states of what it initializes. */
     private static OutputBuilder cast(Cast cast, ParameterizedType castType, boolean nullable, Qualification q) {
+        if (smartCast(cast)) return print(cast.expression(), q);
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
         if (to != null && from != null && cast.parameterizedType().isPrimitiveExcludingVoid()) {
@@ -1919,6 +1946,19 @@ public class KotlinExpressionPrinter {
         return new OutputBuilderImpl().add(operand(cast.precedence(), cast.expression(), q)).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                 .add(new TextImpl(typeName));
+    }
+
+    /**
+     * {@code (T) x} where an {@code x instanceof T} that holds here was tested: Kotlin has smart-cast x to T already
+     * (kotlinc: "no cast needed"). Only to a type without type arguments or array dimensions, the test's own.
+     */
+    private static boolean smartCast(Cast cast) {
+        if (!KotlinContext.translatingJava() || !(unwrap(cast.expression()) instanceof VariableExpression ve)) return false;
+        ParameterizedType known = KotlinSmartCasts.knownType(ve.variable());
+        ParameterizedType type = cast.parameterizedType();
+        return known != null && type != null && type.typeInfo() != null && type.arrays() == 0
+               && type.parameters().isEmpty() && known.arrays() == 0 && known.typeInfo() == type.typeInfo()
+               && known.parameters().isEmpty();
     }
 
     private static String conversion(Primitive from, Primitive to) {

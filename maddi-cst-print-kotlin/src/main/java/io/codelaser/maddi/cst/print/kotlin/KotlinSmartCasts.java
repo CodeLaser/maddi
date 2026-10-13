@@ -29,7 +29,16 @@ import io.codelaser.maddi.cst.api.statement.TryStatement;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
 
+import io.codelaser.maddi.cst.api.expression.And;
+import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.Negation;
+import io.codelaser.maddi.cst.api.expression.Or;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Supplier;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
@@ -42,17 +51,28 @@ import java.util.Set;
  * thing, so the printer would write {@code x!!} at every use (kotlinc: "unnecessary non-null assertion"). This keeps
  * the parameters and the locals that are never reassigned, asserted where their statement always evaluates them,
  * per block: what a branch, a loop body or a lambda asserts holds in that block only.
+ * <p>
+ * The same for Java's {@code instanceof} and Kotlin's {@code is}: where {@code x is T} holds (an if's block, the right
+ * of a {@code &&}, a conditional's branch, the rest of a block after {@code if (x !is T) return}) Kotlin smart-casts
+ * x, and Java's {@code (T) x} needs no cast.
  */
 final class KotlinSmartCasts {
 
-    private static final ThreadLocal<Deque<Set<Variable>>> FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
+    /** What holds in a block, or in the part of an expression a condition guards. */
+    private record Frame(Set<Variable> asserted, Map<Variable, ParameterizedType> types) {
+        Frame() {
+            this(new HashSet<>(), new HashMap<>());
+        }
+    }
+
+    private static final ThreadLocal<Deque<Frame>> FRAMES = ThreadLocal.withInitial(ArrayDeque::new);
 
     private KotlinSmartCasts() {
     }
 
     /** A block starts: what it asserts holds until it ends. */
     static void enterBlock() {
-        FRAMES.get().push(new HashSet<>());
+        FRAMES.get().push(new Frame());
     }
 
     static void exitBlock() {
@@ -60,35 +80,105 @@ final class KotlinSmartCasts {
     }
 
     /** A method body starts: nothing asserted around it holds there (an anonymous class's method). */
-    static Deque<Set<Variable>> enterMethod() {
-        Deque<Set<Variable>> saved = FRAMES.get();
+    static Deque<?> enterMethod() {
+        Deque<Frame> saved = FRAMES.get();
         FRAMES.set(new ArrayDeque<>());
         return saved;
     }
 
-    static void exitMethod(Deque<Set<Variable>> saved) {
-        FRAMES.set(saved);
+    @SuppressWarnings("unchecked")
+    static void exitMethod(Deque<?> saved) {
+        FRAMES.set((Deque<Frame>) saved);
     }
 
     /** The variable was asserted non-null by a {@code !!} that dominates this point. */
     static boolean asserted(Variable variable) {
-        for (Set<Variable> frame : FRAMES.get()) {
-            if (frame.contains(variable)) return true;
+        for (Frame frame : FRAMES.get()) {
+            if (frame.asserted().contains(variable) || frame.types().containsKey(variable)) return true;
         }
         return false;
     }
 
+    /** The type an {@code is} test that dominates this point gave the variable; null when none did. */
+    static ParameterizedType knownType(Variable variable) {
+        for (Frame frame : FRAMES.get()) {
+            ParameterizedType type = frame.types().get(variable);
+            if (type != null) return type;
+        }
+        return null;
+    }
+
+    /** {@code printer} with the variables of {@code types} known to be of those types: an {@code is} test holds. */
+    static <T> T withTypes(Map<Variable, ParameterizedType> types, Supplier<T> printer) {
+        if (types.isEmpty()) return printer.get();
+        Frame frame = new Frame();
+        frame.types().putAll(types);
+        FRAMES.get().push(frame);
+        try {
+            return printer.get();
+        } finally {
+            FRAMES.get().pop();
+        }
+    }
+
+    /** From here to the end of the block, the variables of {@code types} are known to be of those types. */
+    static void addTypes(Map<Variable, ParameterizedType> types) {
+        Frame frame = FRAMES.get().peek();
+        if (frame != null) frame.types().putAll(types);
+    }
+
+    /** The {@code is} tests that hold when {@code condition} is true: {@code x instanceof T}, and those of a {@code &&}. */
+    static Map<Variable, ParameterizedType> whenTrue(Expression condition) {
+        Map<Variable, ParameterizedType> result = new HashMap<>();
+        tests(condition, true, result);
+        return result;
+    }
+
+    /** The {@code is} tests that hold when {@code condition} is false: {@code !(x instanceof T)}, and those of a {@code ||}. */
+    static Map<Variable, ParameterizedType> whenFalse(Expression condition) {
+        Map<Variable, ParameterizedType> result = new HashMap<>();
+        tests(condition, false, result);
+        return result;
+    }
+
+    private static void tests(Expression condition, boolean truth, Map<Variable, ParameterizedType> result) {
+        Expression e = KotlinExpressionPrinter.unwrap(condition);
+        switch (e) {
+            case InstanceOf io when truth && io.patternVariable() == null -> {
+                if (KotlinExpressionPrinter.unwrap(io.expression()) instanceof VariableExpression ve && stable(ve.variable())) {
+                    result.put(ve.variable(), io.testType());
+                }
+            }
+            case Negation neg -> tests(neg.expression(), !truth, result);
+            case io.codelaser.maddi.cst.api.expression.UnaryOperator uo when uo.operator() != null
+                                                                          && "!".equals(uo.operator().name()) ->
+                    tests(uo.expression(), !truth, result);
+            case BinaryOperator bo when bo.operator() != null
+                                        && (truth ? "&&" : "||").equals(bo.operator().name()) -> {
+                tests(bo.lhs(), truth, result);
+                tests(bo.rhs(), truth, result);
+            }
+            case And and when truth -> and.expressions().forEach(x -> tests(x, true, result));
+            case Or or when !truth -> or.expressions().forEach(x -> tests(x, false, result));
+            default -> {
+            }
+        }
+    }
+
+    /** A parameter, or a local never reassigned: Kotlin smart-casts it. */
+    private static boolean stable(Variable variable) {
+        return (variable instanceof ParameterInfo || variable instanceof LocalVariable) && !KotlinContext.reassigned(variable);
+    }
+
     /** {@code e!!} was printed: when e is a stable variable its statement always evaluates, what follows knows it. */
     static void assertedAt(Expression e) {
-        Deque<Set<Variable>> frames = FRAMES.get();
+        Deque<Frame> frames = FRAMES.get();
         if (frames.isEmpty() || !KotlinContext.translatingJava()) return;
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof VariableExpression ve)) return;
         Variable variable = ve.variable();
-        if (!(variable instanceof ParameterInfo || variable instanceof LocalVariable) || KotlinContext.reassigned(variable)) {
-            return;
-        }
+        if (!stable(variable)) return;
         Statement statement = KotlinContext.currentStatement();
-        if (statement != null && unconditional(statement).contains(ve)) frames.peek().add(variable);
+        if (statement != null && unconditional(statement).contains(ve)) frames.peek().asserted().add(variable);
     }
 
     /**

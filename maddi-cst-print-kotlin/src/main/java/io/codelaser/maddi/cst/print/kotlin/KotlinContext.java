@@ -300,7 +300,7 @@ final class KotlinContext {
     /** A method body starts: the pattern variables of the enclosing method are not in scope. Restore with the result. */
     record MethodScope(Map<String, Supplier<OutputBuilder>> patterns,
                        Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType> localTypes,
-                       java.util.Deque<java.util.Set<Variable>> smartCasts) {
+                       java.util.Deque<?> smartCasts) {
     }
 
     static MethodScope enterMethod(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
