@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
  * and non-private methods and constructors are {@link Independent}.
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD})
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
 public @interface Immutable {
 
     /**
