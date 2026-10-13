@@ -264,8 +264,8 @@ final class KotlinNullability {
                 // Kotlin smart-casts a val property, never a var one: a fact about a var field does not hold there
                 case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()))
                                           && !(KotlinFieldPrinter.printsAsVal(fr.fieldInfo()) && knownNonNull(fr));
-                case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi);
-                case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv);
+                case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi, ve);
+                case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv, ve);
                 // nor does it smart-cast an element read: only the element's state counts
                 case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
                     ParameterizedType array = kotlinType(dv.arrayExpression());
@@ -450,7 +450,12 @@ final class KotlinNullability {
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */
     private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
-        return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable);
+        return knownNonNull(variable, null);
+    }
+
+    /** As {@link #knownNonNull(io.codelaser.maddi.cst.api.variable.Variable)}, used at {@code use}: also smart-cast by an earlier {@code !!}. */
+    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable, Expression use) {
+        return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable, use);
     }
 
     static boolean nullableJdkResult(MethodInfo methodInfo) {
