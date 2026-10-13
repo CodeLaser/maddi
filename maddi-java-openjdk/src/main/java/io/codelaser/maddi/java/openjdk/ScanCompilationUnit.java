@@ -117,7 +117,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 classSymbolScanner.syntheticListField());
 
         DocSourcePositions docSourcePositions = docTrees.getSourcePositions();
-        this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap);
+        this.scanJavaDoc = new ScanJavaDoc(runtime, typeData, docSourcePositions, compilationUnitTree, lineMap,
+                new ScanJavaDoc.SourceText(compilationUnitTree));
 
         convertType = classSymbolScanner;
         convertType.startCompilationUnit(this, elementStack);

@@ -370,10 +370,39 @@ public final class SourceCodeScan {
                 case CompactConstructorDeclaration ccd -> scanMethodDeclaration(ccd);
                 case MethodDeclaration _, AnnotationMethodDeclaration _ -> scanMethodDeclaration(node2);
                 case FieldDeclaration fd -> scanFieldDeclaration(fd);
+                case EnumConstant ec -> scanEnumConstant(ec);
                 default -> {
                 }
             }
         }
+    }
+
+    /**
+     * ⛔ AN ENUM CONSTANT HAD NO COMMENTS AT ALL. This switch had no case for it, so a {@code //} or {@code /* *&#47;}
+     * comment in front of a constant was recorded for nothing, and a consumer removing the constant could not tell
+     * that the comment belonged to it: removing B from
+     * <pre>
+     *     // the first
+     *     A,
+     *     // the second
+     *     B,
+     *     // the third
+     *     C;
+     * </pre>
+     * deleted from B's name to C's name, which took "// the third" and left "// the second" above C.
+     * <p>
+     * A single-line comment after the constant on its last line -- {@code B, // the second} -- belongs to B as
+     * well. The comma (or the ';' that ends the list) stands between B and that comment, so the lookahead looks
+     * past it: the comment is a preceding token of whatever comes after the separator, and without this the next
+     * constant takes it as its own leading comment.
+     */
+    private void scanEnumConstant(EnumConstant ec) {
+        Node after = ec.nextSibling();
+        if (after != null && (after.getType() == Token.TokenType.COMMA
+                              || after.getType() == Token.TokenType.SEMICOLON)) {
+            after = after.nextSibling();
+        }
+        addComments(ec, after);
     }
 
     private void scanModifiers(Modifiers modifiers) {
@@ -689,19 +718,24 @@ public final class SourceCodeScan {
      */
 
     private void addComments(Node node, boolean lookahead) {
+        addComments(node, lookahead ? node.nextSibling() : null);
+    }
+
+    /**
+     * @param nextSibling the node whose preceding comments are searched for a single-line comment on the last line
+     *                    of {@code node}; null for no lookahead
+     */
+    private void addComments(Node node, @Nullable Node nextSibling) {
         Source source = source(node);
-        if (lookahead) {
-            Node nextSibling = node.nextSibling();
-            if (nextSibling != null) {
-                List<Comment> comments = comments(nextSibling)
-                        .filter(c -> c.source().endLine() == c.source().beginLine()
-                                     && c.source().beginLine() == source.endLine())
-                        .filter(c -> seen.add(c.source()))
-                        .toList();
-                if (!comments.isEmpty()) {
-                    List<Comment> prev = this.comments.put(source, comments);
-                    assert prev == null;
-                }
+        if (nextSibling != null) {
+            List<Comment> comments = comments(nextSibling)
+                    .filter(c -> c.source().endLine() == c.source().beginLine()
+                                 && c.source().beginLine() == source.endLine())
+                    .filter(c -> seen.add(c.source()))
+                    .toList();
+            if (!comments.isEmpty()) {
+                List<Comment> prev = this.comments.put(source, comments);
+                assert prev == null;
             }
         }
         List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();

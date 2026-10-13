@@ -7,11 +7,14 @@ import com.sun.source.util.DocSourcePositions;
 import com.sun.source.util.DocTreeScanner;
 import com.sun.tools.javac.tree.DCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.JavaDoc;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import org.jetbrains.annotations.Nullable;
 
 import javax.tools.Diagnostic;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,14 +23,67 @@ public record ScanJavaDoc(Runtime runtime,
                           TypeData typeData,
                           DocSourcePositions docSourcePositions,
                           CompilationUnitTree compilationUnitTree,
-                          LineMap lineMap) {
+                          LineMap lineMap,
+                          SourceText sourceText) {
 
     public JavaDoc scan(DocCommentTree docCommentTree) {
         MyScanner myScanner = new MyScanner(docCommentTree);
         Source source = myScanner.source(docCommentTree);
         if (source == runtime.noSource()) source = rawCommentSource(docCommentTree);
+        Source wholeComment = wholeCommentSource(docCommentTree);
+        if (wholeComment != null && source != runtime.noSource()) {
+            source = source.withDetailedSources(runtime.newDetailedSourcesBuilder()
+                    .put(DetailedSources.WHOLE_COMMENT, wholeComment).build());
+        }
         myScanner.scan(docCommentTree, null);
         return runtime.newJavaDoc(source, myScanner.comment.toString(), List.copyOf(myScanner.tags));
+    }
+
+    /**
+     * The text of the compilation unit, read once and only when a javadoc asks for it: {@link #scan} runs for every
+     * javadoc of the unit, and the file object may go back to the disk on each read.
+     */
+    static final class SourceText {
+        private final CompilationUnitTree compilationUnitTree;
+        private String text;
+        private boolean read;
+
+        SourceText(CompilationUnitTree compilationUnitTree) {
+            this.compilationUnitTree = compilationUnitTree;
+        }
+
+        @Nullable String get() {
+            if (!read) {
+                read = true;
+                try {
+                    text = compilationUnitTree.getSourceFile().getCharContent(true).toString();
+                } catch (IOException | RuntimeException e) {
+                    text = null;
+                }
+            }
+            return text;
+        }
+    }
+
+    /**
+     * The comment as written, {@code /**} through {@code *&#47;} (see {@link DetailedSources#WHOLE_COMMENT}). The
+     * tokenizer's comment knows where its {@code /**} is, as in {@link #rawCommentSource}; the closing
+     * {@code *&#47;} is the first one after it, since a comment cannot contain one. Null when either end cannot be
+     * found.
+     */
+    private @Nullable Source wholeCommentSource(DocCommentTree docCommentTree) {
+        if (!(docCommentTree instanceof DCTree.DCDocComment dc) || dc.comment == null) return null;
+        JCDiagnostic.DiagnosticPosition pos = dc.comment.getPos();
+        if (pos == null) return null;
+        int start = pos.getStartPosition();
+        if (start == Diagnostic.NOPOS) return null;
+        String text = sourceText.get();
+        if (text == null || !text.startsWith("/**", start)) return null;
+        int close = text.indexOf("*/", start + 3);
+        if (close < 0) return null;
+        int lastChar = close + 1; // inclusive: the '/' of '*/'
+        return runtime.newParserSource("-", (int) lineMap.getLineNumber(start), (int) lineMap.getColumnNumber(start),
+                (int) lineMap.getLineNumber(lastChar), (int) lineMap.getColumnNumber(lastChar));
     }
 
     /**
