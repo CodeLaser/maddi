@@ -938,7 +938,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             """;
 
     /**
-     * After {@code x!!} Kotlin smart-casts a val: the statements that assertion dominates need none. Not after one on the right
+     * After {@code x!!} Kotlin smart-casts a val: what that assertion dominates needs none. Not after one on the right
      * of {@code &&}, which may not run; not after a branch, whose assertions hold inside it only.
      */
     @Test
@@ -949,8 +949,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "if (c && t!!.isEmpty())");
         contains(kotlin, "n += t!!.length\nreturn n + t.length");
         contains(kotlin, "n = u!!.length\nn += u.length");
-        // within its own statement an assertion is no fact: the printer may print a statement twice
-        contains(kotlin, "return n + u!!.length + u!!.length");
+        // later in its own statement too (in source order: the printer may print a part twice)
+        contains(kotlin, "return n + u!!.length + u.length");
         // a switch entry's assertion does not reach the other entries
         assertTrue(kotlin.split("w!!\\.length", -1).length == 3, kotlin);
     }
