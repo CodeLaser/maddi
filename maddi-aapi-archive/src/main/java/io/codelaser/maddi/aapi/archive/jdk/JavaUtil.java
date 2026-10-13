@@ -1749,65 +1749,65 @@ public class JavaUtil {
         }
 
         //@Independent[O] @NotModified[T]
-        static <T> Collection<T> synchronizedCollection(/*@Independent[M]*/ Collection<T> c) { return null; }
+        static <T> Collection<T> synchronizedCollection(/*@Independent[M]*/ @NotModified Collection<T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> Set<T> synchronizedSet(/*@Independent[M]*/ Set<T> s) { return null; }
+        static <T> Set<T> synchronizedSet(/*@Independent[M]*/ @NotModified Set<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> SortedSet<T> synchronizedSortedSet(/*@Independent[M]*/ SortedSet<T> s) { return null; }
+        static <T> SortedSet<T> synchronizedSortedSet(/*@Independent[M]*/ @NotModified SortedSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> NavigableSet<T> synchronizedNavigableSet(/*@Independent[M]*/ NavigableSet<T> s) { return null; }
+        static <T> NavigableSet<T> synchronizedNavigableSet(/*@Independent[M]*/ @NotModified NavigableSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> List<T> synchronizedList(/*@Independent[M]*/ List<T> list) { return null; }
+        static <T> List<T> synchronizedList(/*@Independent[M]*/ @NotModified List<T> list) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> Map<K, V> synchronizedMap(/*@Independent[M]*/ Map<K, V> m) { return null; }
+        static <K, V> Map<K, V> synchronizedMap(/*@Independent[M]*/ @NotModified Map<K, V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> SortedMap<K, V> synchronizedSortedMap(/*@Independent[M]*/ SortedMap<K, V> m) { return null; }
+        static <K, V> SortedMap<K, V> synchronizedSortedMap(/*@Independent[M]*/ @NotModified SortedMap<K, V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> NavigableMap<K, V> synchronizedNavigableMap(/*@Independent[M]*/ NavigableMap<K, V> m) {
+        static <K, V> NavigableMap<K, V> synchronizedNavigableMap(/*@Independent[M]*/ @NotModified NavigableMap<K, V> m) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        static <E> Collection<E> checkedCollection(/*@Independent[M]*/ Collection<E> c, Class<E> type) { return null; }
+        static <E> Collection<E> checkedCollection(/*@Independent[M]*/ @NotModified Collection<E> c, Class<E> type) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <E> Queue<E> checkedQueue(/*@Independent[M]*/ Queue<E> queue, Class<E> type) { return null; }
+        static <E> Queue<E> checkedQueue(/*@Independent[M]*/ @NotModified Queue<E> queue, Class<E> type) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <E> Set<E> checkedSet(/*@Independent[M]*/ Set<E> s, Class<E> type) { return null; }
+        static <E> Set<E> checkedSet(/*@Independent[M]*/ @NotModified Set<E> s, Class<E> type) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <E> SortedSet<E> checkedSortedSet(/*@Independent[M]*/ SortedSet<E> s, Class<E> type) { return null; }
+        static <E> SortedSet<E> checkedSortedSet(/*@Independent[M]*/ @NotModified SortedSet<E> s, Class<E> type) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <E> NavigableSet<E> checkedNavigableSet(/*@Independent[M]*/ NavigableSet<E> s, Class<E> type) {
+        static <E> NavigableSet<E> checkedNavigableSet(/*@Independent[M]*/ @NotModified NavigableSet<E> s, Class<E> type) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        static <E> List<E> checkedList(/*@Independent[M]*/ List<E> list, Class<E> type) { return null; }
+        static <E> List<E> checkedList(/*@Independent[M]*/ @NotModified List<E> list, Class<E> type) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <K, V> Map<K, V> checkedMap(/*@Independent[M]*/ Map<K, V> m, Class<K> keyType, Class<V> valueType) {
+        static <K, V> Map<K, V> checkedMap(/*@Independent[M]*/ @NotModified Map<K, V> m, Class<K> keyType, Class<V> valueType) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
         static <K, V> SortedMap<K, V> checkedSortedMap(
-            /*@Independent[M]*/ SortedMap<K, V> m,
+            /*@Independent[M]*/ @NotModified SortedMap<K, V> m,
             Class<K> keyType,
             Class<V> valueType) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <K, V> NavigableMap<K, V> checkedNavigableMap(
-            /*@Independent[M]*/ NavigableMap<K, V> m,
+            /*@Independent[M]*/ @NotModified NavigableMap<K, V> m,
             Class<K> keyType,
             Class<V> valueType) { return null; }
 
@@ -1889,7 +1889,7 @@ public class JavaUtil {
             /*@Independent[M]*/ @NotModified T ... elements) { return false; }
 
         //@Independent[O] @NotModified[T]
-        static <E> Set<E> newSetFromMap(/*@Independent[M]*/ Map<E, Boolean> map) { return null; }
+        static <E> Set<E> newSetFromMap(/*@Independent[M]*/ @NotModified Map<E, Boolean> map) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <E> SequencedSet<E> newSequencedSetFromMap(/*@Independent[M]*/ SequencedMap<E, Boolean> map) {
@@ -1897,7 +1897,7 @@ public class JavaUtil {
         }
 
         //@Independent[O] @NotModified[T]
-        static <T> Queue<T> asLifoQueue(/*@Independent[M]*/ Deque<T> deque) { return null; }
+        static <T> Queue<T> asLifoQueue(/*@Independent[M]*/ @NotModified Deque<T> deque) { return null; }
     }
 
     //public interface Comparator
