@@ -119,7 +119,6 @@ public interface LibraryMapping {
         return null;
     }
 
-    /** The C# counterpart of {@code typeInfo}, a type of the library. */
     /**
      * Whether the program's own {@code primaryType} is left out of the translation: not printed, and used as a library
      * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file).
@@ -128,7 +127,35 @@ public interface LibraryMapping {
         return false;
     }
 
+    /** The C# counterpart of {@code typeInfo}, a type of the library. */
     default TypeMapping type(TypeInfo typeInfo) {
+        return null;
+    }
+
+    /** A member the mapping adds to a type of the program: its attributes, each without brackets, and its text. */
+    record AddedMember(List<String> attributes, String declaration) {
+    }
+
+    /**
+     * What the mapping adds to a translated type of the program, which its library gives a meaning beyond its
+     * annotations: attributes on the type, members in it, the namespaces they need. JAXB's binding of a field is a
+     * public property that XmlSerializer sees ({@link JaxbXmlSerialization}).
+     */
+    record Additions(List<String> attributes, List<AddedMember> members, List<String> namespaces) {
+        public static final Additions NONE = new Additions(List.of(), List.of(), List.of());
+    }
+
+    /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. */
+    default Additions additions(TypeInfo typeInfo, io.codelaser.maddi.cst.api.output.Qualification q) {
+        return null;
+    }
+
+    /**
+     * The attributes of the C# member that {@code field} is, a public field or property, or an enum's constant: an
+     * XML-bound type's members are {@code XmlIgnore}, as its additions take their place; the constants of an enum it
+     * writes are {@code XmlEnum("NAME")}. Null: none.
+     */
+    default AttributeMapping memberAttributes(FieldInfo field) {
         return null;
     }
 

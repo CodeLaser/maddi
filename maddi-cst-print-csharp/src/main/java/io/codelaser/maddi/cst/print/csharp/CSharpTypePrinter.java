@@ -109,9 +109,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             CSharpContext.message(CSharpPrintCode.NESTED_IN_GENERIC, typeInfo, typeInfo.fullyQualifiedName());
         }
 
+        // what a library gives the type beyond its annotations: JAXB's binding (LibraryMapping#additions)
+        LibraryMapping.Additions additions = self == null && !enumClass && !typeInfo.isInterface()
+                ? CSharpContext.libraries().additions(typeInfo, q) : null;
+        if (additions == null) additions = LibraryMapping.Additions.NONE;
+        additions.namespaces().forEach(CSharpContext::using);
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
             out.add(CSharpAttributes.uses(typeInfo.annotations(), LibraryMapping.Target.TYPE, q, true));
+            for (String attribute : additions.attributes()) {
+                out.add(SymbolEnum.LEFT_BRACKET).add(new TextImpl(attribute)).add(SymbolEnum.RIGHT_BRACKET)
+                        .add(SpaceEnum.NEWLINE);
+            }
             StringBuilder modifiers = new StringBuilder();
             String access = typeAccess();
             if (access != null) modifiers.append(access).append(' ');
@@ -167,6 +176,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     members.add(property != null ? CSharpFieldPrinter.property(property, q)
                             : fieldPrinterFactory.create(f, formatter2).print(q, false));
                 });
+        for (LibraryMapping.AddedMember added : additions.members()) {
+            OutputBuilder b = new OutputBuilderImpl();
+            for (String attribute : added.attributes()) {
+                b.add(SymbolEnum.LEFT_BRACKET).add(new TextImpl(attribute)).add(SymbolEnum.RIGHT_BRACKET)
+                        .add(SpaceEnum.NEWLINE);
+            }
+            members.add(b.add(new TextImpl(added.declaration())));
+        }
         typeInfo.constructors().stream()
                 .filter(c -> !c.isSynthetic() && (inConstructor || !isImplicitDefaultConstructor(c))
                              && !(staticClass && c.parameters().isEmpty())
@@ -357,7 +374,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         OutputBuilder out = new OutputBuilderImpl().add(new TextImpl((access == null ? "" : access + " ") + "enum"))
                 .add(SpaceEnum.ONE).add(new TextImpl(CSharpNames.type(typeInfo))).add(SpaceEnum.ONE);
         List<OutputBuilder> constants = typeInfo.fields().stream().filter(CSharpNames::isEnumConstant)
-                .map(f -> new OutputBuilderImpl().add(new TextImpl(CSharpNames.field(f)))).map(o -> (OutputBuilder) o)
+                .map(f -> new OutputBuilderImpl().add(CSharpFieldPrinter.libraryAttributes(f, SpaceEnum.ONE))
+                        .add(new TextImpl(CSharpNames.field(f)))).map(o -> (OutputBuilder) o)
                 .toList();
         if (constants.isEmpty()) return out.add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         return out.add(constants.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_BRACE,

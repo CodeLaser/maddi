@@ -41,6 +41,11 @@ public enum CSharpPrintCode implements PrintMessage.Code {
      * are virtual: a call through a C# List-typed reference does not reach its overrides.
      */
     LIST_SUBCLASS(Severity.BEHAVIOUR_CHANGE),
+    /**
+     * A field JAXB binds whose type or annotation XmlSerializer has no counterpart of (a map without adapter, an
+     * {@code @XmlIDREF}): left out of the XML ({@link JaxbXmlSerialization}).
+     */
+    XML_UNBOUND(Severity.LOSS),
     /** An enum with fields, methods or constructors, printed as a class with static readonly instances. */
     ENUM_AS_CLASS(Severity.INFO),
     /** A record's canonical or compact constructor: a positional C# record has none (yet). */

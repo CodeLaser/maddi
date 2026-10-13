@@ -1357,7 +1357,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */
     @Test
     public void libraryRequirements() {
-        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none,micrometer=none").withFirst(CSharpMappingFile.parse("""
+        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none,micrometer=none,jaxb=none").withFirst(CSharpMappingFile.parse("""
                 mapping slf4j:example
                 nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
                 type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
@@ -1451,6 +1451,77 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "JsonSerializer.Serialize(c, mapper)");
         contains(cs, "(node is JsonObject) ? node[\"year\"].GetValue<int>() : 0");
         contains(cs, "public sealed class Text : Content {");
+    }
+
+    @Language("java")
+    private static final String XML = """
+            package org.example.xml;
+            import jakarta.xml.bind.annotation.*;
+            import jakarta.xml.bind.annotation.adapters.XmlAdapter;
+            import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
+            import java.util.HashMap;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Set;
+            public class Settings {
+                public enum Mode { FAST, SAFE }
+                public interface Phase { }
+                public static class Search implements Phase { }
+                public static class Heuristic implements Phase { }
+                @XmlType(namespace = "urn:example")
+                public static class Adapted { @XmlElement(name = "property") private List<Entry> entries; }
+                @XmlType(namespace = "urn:example")
+                public static class Entry { @XmlAttribute private String name; @XmlAttribute private String value; }
+                public static class MapAdapter extends XmlAdapter<Adapted, Map<String, String>> {
+                    @Override public Map<String, String> unmarshal(Adapted a) { return new HashMap<>(); }
+                    @Override public Adapted marshal(Map<String, String> m) { return m == null ? null : new Adapted(); }
+                }
+                @XmlRootElement(name = "solver", namespace = "urn:example")
+                @XmlType(name = "solverConfig", namespace = "urn:example",
+                         propOrder = {"mode", "count", "classes", "phases", "properties", "wrapped", "tags"})
+                @XmlAccessorType(XmlAccessType.FIELD)
+                public static class Solver {
+                    @XmlTransient private Object clock;
+                    @XmlAttribute private String id;
+                    private Mode mode;
+                    private Integer count;
+                    @XmlElement(name = "entityClass") private List<String> classes;
+                    @XmlElements({@XmlElement(name = "search", type = Search.class),
+                                  @XmlElement(name = "heuristic", type = Heuristic.class)})
+                    private List<Phase> phases;
+                    @XmlJavaTypeAdapter(MapAdapter.class) private Map<String, String> properties;
+                    @XmlElementWrapper(name = "wraps") @XmlElement(name = "wrap") private List<String> wrapped;
+                    @XmlElement(name = "tag") private Set<String> tags;
+                    public Mode getMode() { return mode; }
+                    public void setMode(Mode mode) { this.mode = mode; }
+                }
+            }
+            """;
+
+    /**
+     * JAXB as XmlSerializer: a bound field is a public property with the attributes of its annotations, converted to
+     * what XmlSerializer writes; a public member that a getter made of a bound field is {@code [XmlIgnore]}.
+     */
+    @Test
+    public void xml() {
+        String cs = translate("Settings", XML);
+        contains(cs, "using System.Xml.Serialization;");
+        contains(cs, "[XmlRoot(\"solver\", Namespace = \"urn:example\")]\n[XmlType(\"solverConfig\", Namespace = \"urn:example\")]");
+        contains(cs, "[XmlAttribute(\"id\")]\npublic string XmlId { get => this.id; set => this.id = value; }");
+        contains(cs, "public enum Mode { [XmlEnum(\"FAST\")] Fast, [XmlEnum(\"SAFE\")] Safe }");
+        contains(cs, "[XmlElement(\"mode\", Order = 0)]\npublic Mode XmlMode { get => this.Mode; set => this.Mode = value; }");
+        contains(cs, "public int? XmlCount { get => this.count; set => this.count = value; }");
+        contains(cs, "public bool ShouldSerializeXmlCount() => this.count != null;");
+        contains(cs, "[XmlElement(\"entityClass\", Order = 2)]\npublic List<string> XmlClasses");
+        contains(cs, "[XmlElement(\"search\", typeof(Search), Order = 3)]\n[XmlElement(\"heuristic\", typeof(Heuristic), Order = 3)]");
+        contains(cs, "public object[] XmlPhases { get => this.phases?.ToArray(); set => this.phases = value == null ? null : new List<IPhase>(value.Select(e_ => (IPhase) e_)); }");
+        contains(cs, "public Adapted XmlProperties { get => new MapAdapter().Marshal(this.properties); set => this.properties = new MapAdapter().Unmarshal(value); }");
+        contains(cs, "[XmlArray(\"wraps\", Order = 5)]\n[XmlArrayItem(\"wrap\")]");
+        contains(cs, "[XmlElement(\"tag\", Order = 6)]\npublic string[] XmlTags { get => this.tags?.ToArray(); set => this.tags = value == null ? null : value.ToHashSet(); }");
+        contains(cs, "[XmlElement(\"property\")]\npublic List<Entry> XmlEntries");
+        contains(cs, "public sealed class MapAdapter : JavaXmlAdapter<Adapted, IDictionary<string, string>> {");
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("XmlClock"), cs);
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("@Xml"), cs);
     }
 
     @Test
@@ -1607,7 +1678,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
-                static <T> java.util.Set<T> identitySet() { return java.util.Collections.newSetFromMap(new java.util.HashMap<>()); }
+                static <E> java.util.Set<E> fromMap(java.util.Map<E, Boolean> map) { return map.keySet(); }
+                static <T> java.util.Set<T> identitySet() { return fromMap(new java.util.HashMap<>()); }
                 static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
                 static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
                 static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
@@ -1638,7 +1710,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a raw constructor reference creates the type Java inferred for its result
         contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
         contains(cs, "new HashSet<V>(p0)");
-        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean> of newSetFromMap, as inferred
+        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean>, as inferred
         contains(cs, "new Dictionary<T, bool>()");
         // an argument of a creation: the creation's own type arguments, as printed
         contains(cs, "new SortedDictionary<R, R>()");
@@ -1793,6 +1865,42 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public abstract class AbstractNode<A>");
         contains(cs, "public sealed class TextNode : AbstractNode<string>");
         assertFalse(cs.contains("public class Hidden"), cs);
+    }
+
+    private static final String NAVIGATION = """
+            package org.example.navigation;
+            import java.util.*;
+            public class Navigation {
+                static String floor(NavigableMap<Integer, String> map, int key) {
+                    Map.Entry<Integer, String> entry = map.floorEntry(key);
+                    return entry == null ? null : entry.getValue();
+                }
+                static Integer next(NavigableSet<Integer> set, int x) { return set.higher(x); }
+                static String values(SequencedMap<String, String> map) { return String.join(",", map.sequencedValues()); }
+                static void shake(List<String> list, Random random) {
+                    Collections.rotate(list, 1);
+                    Collections.swap(list, 0, 1);
+                    Collections.shuffle(list, random);
+                }
+                static boolean same(int[][] a, int[][] b) { return Arrays.deepEquals(a, b); }
+                static void blank(int[] a) { Arrays.fill(a, 1, 3, 0); }
+            }
+            """;
+
+    /** NavigableMap, NavigableSet and SequencedMap on C#'s sorted and ordered collections, by the compatibility library. */
+    @Test
+    public void navigation() {
+        String cs = translate("Navigation", NAVIGATION);
+        contains(cs, "SortedDictionary<int, string> map");
+        // a navigation's entry may be null: the local is the JavaEntry, not a KeyValuePair
+        contains(cs, "var entry = map.FloorEntry(key);");
+        contains(cs, "set.Higher(x)");
+        contains(cs, "map.Values");
+        contains(cs, "JavaCollections.Rotate(list, 1);");
+        contains(cs, "JavaCollections.Swap(list, 0, 1);");
+        contains(cs, "JavaCollections.Shuffle(list, random);");
+        contains(cs, "JavaArrays.DeepEquals(a, b)");
+        contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
     }
 
     private static final String MODES = """

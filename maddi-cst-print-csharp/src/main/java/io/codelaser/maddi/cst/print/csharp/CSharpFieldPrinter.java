@@ -43,6 +43,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         OutputBuilder attributes = CSharpAttributes.uses(fieldInfo.annotations(), LibraryMapping.Target.FIELD, q, true);
         StringBuilder modifiers = new StringBuilder();
         String access = CSharpModifiers.access(fieldInfo);
+        if ("public".equals(access)) attributes.add(libraryAttributes(fieldInfo, SpaceEnum.NEWLINE));
         if (access != null) modifiers.append(access).append(' ');
         boolean isConst = isConst(fieldInfo);
         if (isConst) {
@@ -89,6 +90,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> getterAnnotations = property.getter().annotations();
         OutputBuilder b = new OutputBuilderImpl()
                 .add(CSharpAttributes.uses(f.annotations(), LibraryMapping.Target.FIELD, q, true))
+                .add("public".equals(access) ? libraryAttributes(f, SpaceEnum.NEWLINE) : new OutputBuilderImpl())
                 .add(CSharpAttributes.uses(getterAnnotations.stream().filter(CSharpAttributes::onProperty).toList(),
                         LibraryMapping.Target.FIELD, q, true));
         String onGet = CSharpAttributes.uses(getterAnnotations.stream().filter(a -> !CSharpAttributes.onProperty(a))
@@ -111,6 +113,21 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         if (f.initializer() != null && !f.initializer().isEmpty() && (f.isStatic() || !CSharpInner.initializedInConstructor(f.owner()))) {
             b.add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
                     .add(SymbolEnum.SEMICOLON);
+        }
+        return b;
+    }
+
+    /**
+     * {@code [XmlIgnore]}: what a library has to say about a public field or property, or an enum's constant
+     * ({@link LibraryMapping#memberAttributes}); each attribute followed by {@code separator}.
+     */
+    static OutputBuilder libraryAttributes(FieldInfo f, SpaceEnum separator) {
+        OutputBuilder b = new OutputBuilderImpl();
+        LibraryMapping.AttributeMapping mapped = CSharpContext.libraries().memberAttributes(f);
+        if (mapped == null) return b;
+        mapped.namespaces().forEach(CSharpContext::using);
+        for (String attribute : mapped.attributes()) {
+            b.add(SymbolEnum.LEFT_BRACKET).add(new TextImpl(attribute)).add(SymbolEnum.RIGHT_BRACKET).add(separator);
         }
         return b;
     }
