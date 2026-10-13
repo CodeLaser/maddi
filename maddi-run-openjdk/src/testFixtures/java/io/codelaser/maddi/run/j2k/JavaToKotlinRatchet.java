@@ -521,41 +521,68 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         deleteRecursively(dir);
         Files.createDirectories(dir);
         List<String> passed = new ArrayList<>(), failed = new ArrayList<>(), skipped = new ArrayList<>();
-        for (String pkg : testPackages(testClasses)) {
-            Tests chunk = runTests(corpus, kotlinClasses, testClasses, runner, dir.resolve(pkg),
-                    List.of("--select-package", pkg), 20, false);
-            if (chunk == null) {
+        for (List<String> chunk : testChunks(testClasses)) {
+            String pkg = chunk.get(1);
+            // scan only the test classes: a package selector also scans the jars, and with them guava-testlib's
+            // tests and jimfs's file system provider, which fails to load beside some translated classes
+            List<String> selection = new ArrayList<>(List.of("--scan-classpath", testClasses.toString()));
+            selection.addAll(chunk);
+            Tests tests = runTests(corpus, kotlinClasses, testClasses, runner, dir.resolve(pkg), selection, 20, false);
+            if (tests == null) {
                 failed.add(pkg + " (timed out after 20 minutes)");
                 continue;
             }
-            passed.addAll(chunk.passed());
-            failed.addAll(chunk.failed());
-            skipped.addAll(chunk.skipped());
+            passed.addAll(tests.passed());
+            failed.addAll(tests.failed());
+            skipped.addAll(tests.skipped());
         }
         return new Tests(passed, failed, skipped);
     }
 
     /**
-     * The test packages one level below the classes' common root package: {@code com.google.common.base},
-     * {@code com.google.common.collect}, ... for guava-tests.
+     * The include and exclude filters of one chunk per package one level below the test classes' common root
+     * package ({@code com.google.common.base}, {@code com.google.common.collect}, ..., {@code com.google.thirdparty}
+     * for guava-tests). A package with classes of its own beside its subpackages is a chunk without them.
      */
-    private static List<String> testPackages(Path testClasses) throws IOException {
+    private static List<List<String>> testChunks(Path testClasses) throws IOException {
         Path root = testClasses;
-        List<String> prefix = new ArrayList<>();
+        String prefix = "";
         while (true) {
-            List<Path> dirs;
-            boolean classes;
-            try (var children = Files.list(root)) {
-                List<Path> all = children.toList();
-                dirs = all.stream().filter(Files::isDirectory).filter(d -> !d.getFileName().toString().equals("META-INF")).toList();
-                classes = all.stream().anyMatch(c -> c.getFileName().toString().endsWith(".class"));
-            }
-            if (dirs.size() != 1 || classes) {
-                String base = String.join(".", prefix);
-                return dirs.stream().map(d -> (base.isEmpty() ? "" : base + ".") + d.getFileName()).sorted().toList();
+            List<Path> dirs = subdirectories(root);
+            if (dirs.size() != 1 || hasClasses(root)) {
+                List<List<String>> chunks = new ArrayList<>();
+                for (Path d : dirs) {
+                    String pkg = prefix + d.getFileName();
+                    List<Path> subs = subdirectories(d);
+                    if (subs.isEmpty()) {
+                        chunks.add(List.of("--include-package", pkg));
+                        continue;
+                    }
+                    for (Path sub : subs) chunks.add(List.of("--include-package", pkg + "." + sub.getFileName()));
+                    if (hasClasses(d)) {
+                        List<String> own = new ArrayList<>(List.of("--include-package", pkg));
+                        for (Path sub : subs) own.addAll(List.of("--exclude-package", pkg + "." + sub.getFileName()));
+                        chunks.add(own);
+                    }
+                }
+                return chunks;
             }
             root = dirs.getFirst();
-            prefix.add(root.getFileName().toString());
+            prefix += root.getFileName() + ".";
+        }
+    }
+
+    private static List<Path> subdirectories(Path dir) throws IOException {
+        try (var children = Files.list(dir)) {
+            return children.filter(Files::isDirectory)
+                    .filter(d -> !d.getFileName().toString().equals("META-INF"))
+                    .sorted().toList();
+        }
+    }
+
+    private static boolean hasClasses(Path dir) throws IOException {
+        try (var children = Files.list(dir)) {
+            return children.anyMatch(c -> c.getFileName().toString().endsWith(".class"));
         }
     }
 
