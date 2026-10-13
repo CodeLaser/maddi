@@ -171,6 +171,7 @@ final class CSharpBcl implements LibraryMapping {
         // a formatter is a custom format string: the ISO ones are constants (FIELDS)
         type("java.time.format.DateTimeFormatter", "string", null);
         type("java.net.URI", "Uri", SYSTEM);
+        type("java.net.URL", "Uri", SYSTEM);
         type("java.util.UUID", "Guid", SYSTEM);
         type("java.math.BigDecimal", "decimal", null);
         type("java.math.BigInteger", "BigInteger", NUMERICS);
@@ -1060,6 +1061,22 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.ServiceLoader.findFirst/0", "$0.FirstOrDefault()", LINQ);
         m("java.util.ServiceLoader.stream/0", "$0");
         m("java.lang.Class.getClassLoader/0", "$0.Assembly");
+        // resources are the assembly's embedded ones, found by their Java path (JavaResources)
+        m("java.lang.Class.getResource/1", "JavaResources.GetResource($0, $1)", COMPAT);
+        m("java.lang.Class.getResourceAsStream/1", "JavaResources.GetResourceAsStream($0, $1)", COMPAT);
+        m("java.lang.ClassLoader.getResource/1", "JavaResources.GetResource($0, $1)", COMPAT);
+        m("java.lang.ClassLoader.getResourceAsStream/1", "JavaResources.GetResourceAsStream($0, $1)", COMPAT);
+        m("java.lang.ClassLoader.getSystemResource/1", "JavaResources.GetResource(Assembly.GetEntryAssembly(), $1)",
+                COMPAT, REFLECTION);
+        m("java.lang.ClassLoader.getSystemResourceAsStream/1",
+                "JavaResources.GetResourceAsStream(Assembly.GetEntryAssembly(), $1)", COMPAT, REFLECTION);
+        m("java.net.URL.openStream/0", "JavaResources.OpenStream($0)", COMPAT);
+        m("java.net.URL.toExternalForm/0", "$0.ToString()");
+        m("java.net.URL.toURI/0", "$0");
+        m("java.net.URL.getPath/0", "$0.AbsolutePath");
+        m("java.net.URL.getProtocol/0", "$0.Scheme");
+        m("java.net.URI.toURL/0", "$0");
+        m("java.net.URL.new(String)", "new Uri($1)", SYSTEM);
         m("java.lang.ClassLoader.loadClass/1", "$0.GetType($1, true)");
         m("java.lang.Class.asSubclass/1", "$0");
         m("java.util.Optional.stream/0", "$0.AsStream()", COMPAT);

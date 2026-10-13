@@ -1456,6 +1456,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Language("java")
     private static final String XML = """
             package org.example.xml;
+            import jakarta.xml.bind.JAXBContext;
             import jakarta.xml.bind.annotation.*;
             import jakarta.xml.bind.annotation.adapters.XmlAdapter;
             import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
@@ -1495,6 +1496,14 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     public Mode getMode() { return mode; }
                     public void setMode(Mode mode) { this.mode = mode; }
                 }
+                static Solver read(java.io.Reader reader) throws Exception {
+                    var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+                    factory.setNamespaceAware(true);
+                    org.w3c.dom.Document document = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(reader));
+                    if (document.getDocumentElement().getNamespaceURI() == null) return null;
+                    JAXBContext context = JAXBContext.newInstance(Solver.class);
+                    return (Solver) context.createUnmarshaller().unmarshal(document);
+                }
             }
             """;
 
@@ -1520,6 +1529,12 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "[XmlElement(\"tag\", Order = 6)]\npublic string[] XmlTags { get => this.tags?.ToArray(); set => this.tags = value == null ? null : value.ToHashSet(); }");
         contains(cs, "[XmlElement(\"property\")]\npublic List<Entry> XmlEntries");
         contains(cs, "public sealed class MapAdapter : JavaXmlAdapter<Adapted, IDictionary<string, string>> {");
+        // the runtime: the compatibility library's JAXB, System.Xml's DOM
+        contains(cs, "var factory = JavaDocumentBuilderFactory.NewInstance();");
+        contains(cs, "XmlDocument document = factory.NewDocumentBuilder().Parse(new JavaInputSource(reader));");
+        contains(cs, "if (JavaDom.NamespaceUri(document.DocumentElement) == null) { return null; }");
+        contains(cs, "JavaJaxbContext context = JavaJaxbContext.NewInstance(typeof(Solver));");
+        contains(cs, "return (Solver) context.CreateUnmarshaller().Unmarshal(document);");
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("XmlClock"), cs);
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("@Xml"), cs);
     }
