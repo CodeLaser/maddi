@@ -1,0 +1,912 @@
+[
+{"format": "maddi-analysis-results", "version": 1},
+
+{"name": "Torg.apache.commons.io.FileUtils", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "FEMPTY_FILE_ARRAY(0)", "data":{"finalField":1,"immutableField":1}},
+ {"name": "FONE_EB(1)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_EB_BI(2)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_GB(3)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_GB_BI(4)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_KB(5)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_KB_BI(6)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_MB(7)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_MB_BI(8)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_PB(9)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_PB_BI(10)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_TB(11)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FONE_TB_BI(12)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_YB(13)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "FONE_ZB(14)", "data":{"containerField":1,"finalField":1,"immutableField":2,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MbyteCountToDisplaySize(1,java.lang.Number)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Psize(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MbyteCountToDisplaySize(2,java.math.BigInteger)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Psize(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MbyteCountToDisplaySize(3,long)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Psize(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "Mchecksum(4,java.io.File,java.util.zip.Checksum)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pchecksum(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MchecksumCRC32(5,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McleanDirectory(6,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McontentEquals(7,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile1(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pfile2(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McontentEqualsIgnoreEOL(8,java.io.File,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile1(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pfile2(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MconvertFileCollectionToFileArray(9,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfiles(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McopyDirectory(10,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyDirectory(11,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PpreserveFileDate(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyDirectory(12,java.io.File,java.io.File,java.io.FileFilter)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pfilter(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McopyDirectory(13,java.io.File,java.io.File,java.io.FileFilter,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pfilter(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PpreserveFileDate(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyDirectory(14,java.io.File,java.io.File,java.io.FileFilter,boolean,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileFilter(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "PpreserveFileDate(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PcopyOptions(4)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyDirectoryToDirectory(15,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsourceDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestinationDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyFile(16,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyFile(17,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PpreserveFileDate(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyFile(18,java.io.File,java.io.File,boolean,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PpreserveFileDate(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PcopyOptions(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyFile(19,java.io.File,java.io.File,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcopyOptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyFile(20,java.io.File,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McopyFileToDirectory(21,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyFileToDirectory(22,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsourceFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestinationDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PpreserveFileDate(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyInputStreamToFile(23,java.io.InputStream,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Psource(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pdestination(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyToDirectory(24,java.lang.Iterable,java.io.File)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsourceIterable(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestinationDir(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyToDirectory(25,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsourceFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestinationDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyToFile(26,java.io.InputStream,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pfile(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyURLToFile(27,java.net.URL,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Psource(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "McopyURLToFile(28,java.net.URL,java.io.File,int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Psource(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pdestination(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PconnectionTimeoutMillis(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PreadTimeoutMillis(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McreateParentDirectories(29,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mcurrent(30)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "Mdelete(32,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdeleteDirectory(33,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdeleteQuietly(34,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MdirectoryContains(35,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pchild(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MforceDelete(36,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforceDeleteOnExit(37,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforceMkdir(38,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MforceMkdirParent(39,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetFile(40,java.lang.String[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pnames(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MgetFile(41,java.io.File,java.lang.String[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pnames(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MgetTempDirectory(42)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetTempDirectoryPath(43)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetUserDirectory(44)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetUserDirectoryPath(45)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MisDirectory(46,java.io.File,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisEmptyDirectory(47,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MisFileNewer(48,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Preference(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(49,java.io.File,java.nio.file.attribute.FileTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileTime(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileNewer(50,java.io.File,java.time.Instant)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pinstant(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(51,java.io.File,java.time.OffsetDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PoffsetDateTime(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileNewer(52,java.io.File,java.time.chrono.ChronoLocalDate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(53,java.io.File,java.time.chrono.ChronoLocalDate,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlocalTime(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(54,java.io.File,java.time.chrono.ChronoLocalDate,java.time.OffsetTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PoffsetTime(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileNewer(55,java.io.File,java.time.chrono.ChronoLocalDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(56,java.io.File,java.time.chrono.ChronoLocalDateTime,java.time.ZoneId)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PzoneId(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(57,java.io.File,java.time.chrono.ChronoZonedDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoZonedDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileNewer(58,java.io.File,java.util.Date)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdate(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileNewer(59,java.io.File,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtimeMillis(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(60,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Preference(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(61,java.io.File,java.nio.file.attribute.FileTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileTime(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileOlder(62,java.io.File,java.time.Instant)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pinstant(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(63,java.io.File,java.time.OffsetDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PoffsetDateTime(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileOlder(64,java.io.File,java.time.chrono.ChronoLocalDate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(65,java.io.File,java.time.chrono.ChronoLocalDate,java.time.LocalTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlocalTime(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(66,java.io.File,java.time.chrono.ChronoLocalDate,java.time.OffsetTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PoffsetTime(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileOlder(67,java.io.File,java.time.chrono.ChronoLocalDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(68,java.io.File,java.time.chrono.ChronoLocalDateTime,java.time.ZoneId)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PzoneId(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(69,java.io.File,java.time.chrono.ChronoZonedDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PchronoZonedDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisFileOlder(70,java.io.File,java.util.Date)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdate(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MisFileOlder(71,java.io.File,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PtimeMillis(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MisRegularFile(72,java.io.File,java.nio.file.LinkOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poptions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MisSymlink(73,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MiterateFiles(74,java.io.File,java.lang.String[],boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pextensions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Precursive(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MiterateFiles(75,java.io.File,org.apache.commons.io.filefilter.IOFileFilter,org.apache.commons.io.filefilter.IOFileFilter)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileFilter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PdirFilter(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MiterateFilesAndDirs(76,java.io.File,org.apache.commons.io.filefilter.IOFileFilter,org.apache.commons.io.filefilter.IOFileFilter)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileFilter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PdirFilter(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MlastModified(77,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlastModifiedFileTime(78,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlastModifiedUnchecked(79,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlineIterator(80,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlineIterator(81,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MlistFiles(82,java.io.File,java.lang.String[],boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pextensions(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Precursive(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MlistFiles(83,java.io.File,org.apache.commons.io.filefilter.IOFileFilter,org.apache.commons.io.filefilter.IOFileFilter)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileFilter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PdirFilter(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MlistFilesAndDirs(84,java.io.File,org.apache.commons.io.filefilter.IOFileFilter,org.apache.commons.io.filefilter.IOFileFilter)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PfileFilter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PdirFilter(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MmoveDirectory(85,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcDir(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MmoveDirectoryToDirectory(86,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Psource(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcreateDestDir(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MmoveFile(87,java.io.File,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MmoveFile(88,java.io.File,java.io.File,java.nio.file.CopyOption[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestFile(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcopyOptions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MmoveFileToDirectory(89,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PsrcFile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcreateDestDir(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MmoveToDirectory(90,java.io.File,java.io.File,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Psrc(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdestDir(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcreateDestDir(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MnewOutputStream(91,java.io.File,boolean)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MopenInputStream(92,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MopenOutputStream(93,java.io.File)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MopenOutputStream(94,java.io.File,boolean)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MreadFileToByteArray(95,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreadFileToString(96,java.io.File)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreadFileToString(97,java.io.File,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MreadFileToString(98,java.io.File,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MreadLines(99,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreadLines(100,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MreadLines(101,java.io.File,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MsizeOf(102,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsizeOfAsBigInteger(103,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsizeOfDirectory(104,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MsizeOfDirectoryAsBigInteger(105,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pdirectory(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MstreamFiles(106,java.io.File,boolean,java.lang.String[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdirectory(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Precursive(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pextensions(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoFile(107,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoFiles(108,java.net.URL[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Purls(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtoURLs(109,java.io.File[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfiles(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mtouch(110,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MwaitFor(111,java.io.File,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pseconds(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mwrite(112,java.io.File,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(113,java.io.File,java.lang.CharSequence,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(114,java.io.File,java.lang.CharSequence,java.lang.String,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mwrite(115,java.io.File,java.lang.CharSequence,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mwrite(116,java.io.File,java.lang.CharSequence,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(117,java.io.File,java.lang.CharSequence,java.nio.charset.Charset,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteByteArrayToFile(118,java.io.File,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteByteArrayToFile(119,java.io.File,byte[],boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteByteArrayToFile(120,java.io.File,byte[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poff(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plen(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteByteArrayToFile(121,java.io.File,byte[],int,int,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poff(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plen(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pappend(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(122,java.io.File,java.lang.String,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plines(2)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(123,java.io.File,java.lang.String,java.util.Collection,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plines(2)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(124,java.io.File,java.lang.String,java.util.Collection,java.lang.String,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plines(2)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pappend(4)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(125,java.io.File,java.lang.String,java.util.Collection,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Plines(2)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(126,java.io.File,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(127,java.io.File,java.util.Collection,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(128,java.io.File,java.util.Collection,java.lang.String,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(129,java.io.File,java.util.Collection,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Plines(1)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(130,java.io.File,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(131,java.io.File,java.lang.String,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(132,java.io.File,java.lang.String,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(133,java.io.File,java.lang.String,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pappend(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(134,java.io.File,java.lang.String,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteStringToFile(135,java.io.File,java.lang.String,java.nio.charset.Charset,boolean)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pdata(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pappend(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
+
+{"name": "Torg.apache.commons.io.IOUtils", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "FCR(0)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FDEFAULT_BUFFER_SIZE(1)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FDIR_SEPARATOR(2)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FDIR_SEPARATOR_UNIX(3)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FDIR_SEPARATOR_WINDOWS(4)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FEMPTY_BYTE_ARRAY(5)", "data":{"finalField":1,"immutableField":1}},
+ {"name": "FEOF(6)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FLF(7)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
+ {"name": "FLINE_SEPARATOR(8)", "data":{"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FLINE_SEPARATOR_UNIX(9)", "data":{"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "FLINE_SEPARATOR_WINDOWS(10)", "data":{"finalField":1,"immutableField":3,"independentField":2,"unmodifiedField":1}},
+ {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "Mbuffer(1,java.io.InputStream)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mbuffer(2,java.io.InputStream,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mbuffer(3,java.io.OutputStream)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PoutputStream(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mbuffer(4,java.io.OutputStream,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PoutputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mbuffer(5,java.io.Reader)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mbuffer(6,java.io.Reader,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mbuffer(7,java.io.Writer)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pwriter(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mbuffer(8,java.io.Writer,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pwriter(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MbyteArray(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MbyteArray(10,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Psize(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "Mclose(12,java.io.Closeable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mclose(13,java.io.Closeable,org.apache.commons.io.function.IOConsumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pcloseable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pconsumer(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mclose(14,java.io.Closeable[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseables(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mclose(15,java.net.URLConnection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pconn(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(16,java.lang.Iterable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseables(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
+ {"name": "McloseQuietly(17,java.io.Closeable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(18,java.io.Closeable,java.util.function.Consumer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pcloseable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pconsumer(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McloseQuietly(19,java.io.Closeable[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseables(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(20,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(21,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Poutput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(22,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(23,java.io.Writer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pwriter(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(24,java.net.ServerSocket)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PserverSocket(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(25,java.net.Socket)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Psocket(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(26,java.nio.channels.Selector)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pselector(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McloseQuietly(27,java.util.stream.Stream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcloseables(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mconsume(28,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mconsume(29,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "McontentEquals(30,java.io.InputStream,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput1(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pinput2(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McontentEquals(31,java.io.Reader,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput1(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pinput2(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McontentEqualsIgnoreEOL(32,java.io.Reader,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader1(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Preader2(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(33,java.io.ByteArrayOutputStream)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PoutputStream(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mcopy(34,java.io.InputStream,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputStream(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(35,java.io.InputStream,java.io.OutputStream,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputStream(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PbufferSize(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mcopy(36,java.io.InputStream,java.io.Writer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(37,java.io.InputStream,java.io.Writer,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputCharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mcopy(38,java.io.InputStream,java.io.Writer,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputCharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mcopy(39,java.io.Reader,java.lang.Appendable)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(40,java.io.Reader,java.lang.Appendable,java.nio.CharBuffer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pbuffer(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(41,java.io.Reader,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(42,java.io.Reader,java.io.OutputStream,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputCharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mcopy(43,java.io.Reader,java.io.OutputStream,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputCharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mcopy(44,java.io.Reader,java.io.Writer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mcopy(45,java.net.URL,java.io.File)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pfile(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mcopy(46,java.net.URL,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PoutputStream(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(47,java.io.InputStream,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputStream(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(48,java.io.InputStream,java.io.OutputStream,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PoutputStream(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(49,java.io.InputStream,java.io.OutputStream,long,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyLarge(50,java.io.InputStream,java.io.OutputStream,long,long,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pbuffer(4)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(51,java.io.Reader,java.io.Writer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(52,java.io.Reader,java.io.Writer,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "McopyLarge(53,java.io.Reader,java.io.Writer,long,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "McopyLarge(54,java.io.Reader,java.io.Writer,long,long,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PinputOffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Pbuffer(4)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mlength(59,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Pcsq(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mlength(60,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mlength(61,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "Mlength(62,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parray(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MlineIterator(63,java.io.InputStream,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MlineIterator(64,java.io.InputStream,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MlineIterator(65,java.io.Reader)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "Mread(66,java.io.InputStream,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mread(67,java.io.InputStream,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
+  {"name": "Poffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mread(68,java.io.Reader,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mread(69,java.io.Reader,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
+  {"name": "Poffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mread(70,java.nio.channels.ReadableByteChannel,java.nio.ByteBuffer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MreadFully(72,java.io.InputStream,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MreadFully(73,java.io.InputStream,byte[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
+  {"name": "Poffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MreadFully(74,java.io.InputStream,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Plength(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MreadFully(75,java.io.Reader,char[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MreadFully(76,java.io.Reader,char[],int,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}},
+  {"name": "Poffset(2)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "Plength(3)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MreadFully(77,java.nio.channels.ReadableByteChannel,java.nio.ByteBuffer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pbuffer(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MreadLines(78,java.lang.CharSequence)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pcsq(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MreadLines(79,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MreadLines(80,java.io.InputStream,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MreadLines(81,java.io.InputStream,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MreadLines(82,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MresourceToByteArray(83,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MresourceToByteArray(84,java.lang.String,java.lang.ClassLoader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PclassLoader(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MresourceToString(85,java.lang.String,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MresourceToString(86,java.lang.String,java.nio.charset.Charset,java.lang.ClassLoader)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PclassLoader(2)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "MresourceToURL(87,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MresourceToURL(88,java.lang.String,java.lang.ClassLoader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PclassLoader(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mskip(89,java.io.InputStream,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pskip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mskip(90,java.io.InputStream,long,java.util.function.Supplier)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pskip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PskipBufferSupplier(2)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mskip(91,java.io.Reader,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "Mskip(92,java.nio.channels.ReadableByteChannel,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MskipFully(93,java.io.InputStream,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MskipFully(94,java.io.InputStream,long,java.util.function.Supplier)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+  {"name": "PskipBufferSupplier(2)", "data":{"containerParameter":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "MskipFully(95,java.io.Reader,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MskipFully(96,java.nio.channels.ReadableByteChannel,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PtoSkip(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoBufferedInputStream(97,java.io.InputStream)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoBufferedInputStream(98,java.io.InputStream,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoBufferedReader(99,java.io.Reader)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoBufferedReader(100,java.io.Reader,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoByteArray(101,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoByteArray(102,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoByteArray(103,java.io.InputStream,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoByteArray(104,java.io.InputStream,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Psize(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
+ {"name": "MtoByteArray(105,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoByteArray(106,java.io.Reader,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoByteArray(107,java.io.Reader,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoByteArray(108,java.net.URI)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Puri(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoByteArray(109,java.net.URL)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoByteArray(110,java.net.URLConnection)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PurlConnection(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoCharArray(112,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoCharArray(113,java.io.InputStream,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoCharArray(114,java.io.InputStream,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PinputStream(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoCharArray(115,java.io.Reader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoInputStream(116,java.lang.CharSequence)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtoInputStream(117,java.lang.CharSequence,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoInputStream(118,java.lang.CharSequence,java.nio.charset.Charset)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoInputStream(119,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoInputStream(120,java.lang.String,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoInputStream(121,java.lang.String,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(122,byte[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
+ {"name": "MtoString(123,byte[],java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(124,java.io.InputStream)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoString(125,java.io.InputStream,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(126,java.io.InputStream,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(127,java.io.Reader)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Preader(0)", "data":{"unmodifiedParameter":0}}},
+ {"name": "MtoString(128,java.net.URI)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Puri(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoString(129,java.net.URI,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Puri(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(130,java.net.URI,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Puri(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pencoding(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(131,java.net.URL)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "MtoString(132,java.net.URL,java.lang.String)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "PcharsetName(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(133,java.net.URL,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Purl(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pencoding(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(134,org.apache.commons.io.function.IOSupplier,java.nio.charset.Charset)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MtoString(135,org.apache.commons.io.function.IOSupplier,java.nio.charset.Charset,org.apache.commons.io.function.IOSupplier)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pinput(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(1)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "PdefaultString(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(136,java.lang.CharSequence,java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(137,java.lang.CharSequence,java.io.OutputStream,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(138,java.lang.CharSequence,java.io.OutputStream,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(139,java.lang.CharSequence,java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(140,java.lang.String,java.io.OutputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(141,java.lang.String,java.io.OutputStream,java.lang.String)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PcharsetName(2)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(142,java.lang.String,java.io.OutputStream,java.nio.charset.Charset)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "Pcharset(2)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(143,java.lang.String,java.io.Writer)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(144,java.lang.StringBuffer,java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(145,java.lang.StringBuffer,java.io.OutputStream,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(146,java.lang.StringBuffer,java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(147,byte[],java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(148,byte[],java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(149,byte[],java.io.Writer,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(150,byte[],java.io.Writer,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(151,char[],java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwrite(152,char[],java.io.OutputStream,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "PcharsetName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(153,char[],java.io.OutputStream,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(2)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "Mwrite(154,char[],java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "MwriteChunked(155,byte[],java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Poutput(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "MwriteChunked(156,char[],java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pdata(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}},
+  {"name": "Pwriter(1)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "MwriteLines(157,java.util.Collection,java.lang.String,java.io.OutputStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Plines(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(2)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "MwriteLines(158,java.util.Collection,java.lang.String,java.io.OutputStream,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Plines(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(2)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "PcharsetName(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(159,java.util.Collection,java.lang.String,java.io.OutputStream,java.nio.charset.Charset)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Plines(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Poutput(2)", "data":{"annotatedApi":1,"unmodifiedParameter":0}},
+  {"name": "Pcharset(3)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
+ {"name": "MwriteLines(160,java.util.Collection,java.lang.String,java.io.Writer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Plines(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}},
+  {"name": "PlineEnding(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Pwriter(2)", "data":{"annotatedApi":1,"unmodifiedParameter":0}}]},
+ {"name": "Mwriter(161,java.lang.Appendable)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Pappendable(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}}]}
+]
