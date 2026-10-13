@@ -1,0 +1,21 @@
+# TestJavaToKotlinGuava: guava's main sources (the guava/9 source set) printed as Kotlin by maddi-cst-print-kotlin,
+# without nullability verdicts, and judged by kotlinc 2.4.0 and by guava-tests' JUnit 3 and 4 suite (see
+# JavaToKotlinRatchet's javadoc). Lower is better for printerCrashes and syntaxErrors, higher for syntaxCleanFiles,
+# compilingFiles, bytecodeFiles and testBytecodeFiles (testsPassing and translatedTestsPassing are reported, not
+# ratcheted); `types` must not move.
+# Write a better value here in the commit that earns it.
+#
+# 2026-10-13, first record: 610 types; 2 printer crashes (CollectCollectors, TableCollectors: a TypeInfo the printer
+# cannot find); 607 files syntax-clean (14 syntax errors), 355 compiling against the original classes (2,340 type
+# errors, 554 of them null into a non-null type), 280 to class files. The tests run one package of guava-tests at a
+# time, each in its own JVM limited to 20 minutes: 868,525 pass on the original classes, 587,517 with the Kotlin
+# classes in front (com.google.common.util hangs in util.concurrent, so the package times out; a class that fails to
+# initialize removes whole suites from collect, cache and io); of the test files, 315 compile against the Kotlin
+# classes, and with those 587,454 pass.
+types	610
+printerCrashes	2
+syntaxErrors	14
+syntaxCleanFiles	607
+compilingFiles	355
+bytecodeFiles	280
+testBytecodeFiles	315

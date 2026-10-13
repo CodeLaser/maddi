@@ -19,18 +19,16 @@ import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ⛔ THE RATCHET FOR JAVA → KOTLIN TRANSLATION, a second corpus: langchain4j-core's main sources through
- * {@link JavaToKotlinRatchet}, with no nullability verdicts. maddi-mod's TestJavaToKotlinGuavaNullability runs
- * the same with the verdicts of its NullabilityPass.
+ * ⛔ THE RATCHET FOR JAVA → KOTLIN TRANSLATION, a third corpus: guava's main sources through
+ * {@link JavaToKotlinRatchet}, with no nullability verdicts.
  * <p>
- * Why langchain4j-core: an API of builders and value objects, unlike fernflower's algorithms. Its collection fields
- * and parameters are mostly read and rarely changed, where the translation chooses Kotlin's {@code List} or
- * {@code MutableList}. Its tests (JUnit 5, Mockito, AssertJ; two kotest files, which the Jupiter launcher leaves
- * alone) run as fernflower's do.
+ * Why guava: generic collections, caches and concurrency utilities, about twice langchain4j-core's size, with a test
+ * suite of over 860,000 JUnit 3 and 4 tests (guava-tests), which the vintage engine runs one package at a time.
  */
 @Tag("slow")
 public class TestJavaToKotlinGuava {
@@ -39,6 +37,7 @@ public class TestJavaToKotlinGuava {
     public void test() throws Exception {
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("guava");
         assertTrue(corpus.types().size() > 500, "only " + corpus.types().size() + " primary types");
-        JavaToKotlinRatchet.measureOnly("guava").run(corpus, KotlinPrintOptions.DEFAULT);
+        new JavaToKotlinRatchet("guava", Path.of("src/test/resources/j2k/guava.ratchet"), JavaToKotlinRatchet.TESTS)
+                .run(corpus, KotlinPrintOptions.DEFAULT);
     }
 }
