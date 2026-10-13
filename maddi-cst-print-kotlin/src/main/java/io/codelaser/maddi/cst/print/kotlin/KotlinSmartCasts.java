@@ -41,14 +41,14 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Kotlin smart-casts a {@code val} to non-null after {@code x!!}, in all the code that assertion dominates: the rest of
- * its statement after it, the statements after it in its block, and the blocks nested in those. Java has no such
+ * Kotlin smart-casts a {@code val} to non-null after {@code x!!}, in all the code that assertion dominates: the
+ * statements after it in its block, and the blocks nested in those (not the rest of its own statement, which the
+ * printer may print twice). Java has no such
  * thing, so the printer would write {@code x!!} at every use (kotlinc: "unnecessary non-null assertion"). This keeps
  * the parameters and the locals that are never reassigned, asserted where their statement always evaluates them,
  * per block: what a branch, a loop body or a lambda asserts holds in that block only.
@@ -60,9 +60,18 @@ import java.util.Set;
 final class KotlinSmartCasts {
 
     /** What holds in a block, or in the part of an expression a condition guards. */
-    private record Frame(List<Statement> statements, Set<Variable> asserted, Map<Variable, ParameterizedType> types) {
+    private record Frame(List<Statement> statements, Map<Variable, Statement> asserted,
+                         Map<Variable, ParameterizedType> types, Map<Variable, Statement> typeSources) {
         Frame(List<Statement> statements) {
-            this(statements, new HashSet<>(), new HashMap<>());
+            this(statements, new HashMap<>(), new HashMap<>(), new HashMap<>());
+        }
+
+        /**
+         * A fact holds where it was established from, never in that statement itself: the printer may print a
+         * statement, or a part of it, twice, and the second print must not take the first's {@code !!} for a smart cast.
+         */
+        static boolean visible(Statement source) {
+            return source == null || source != KotlinContext.currentStatement();
         }
 
         /** A statement of this block itself: what it establishes holds for the statements after it. */
@@ -111,7 +120,8 @@ final class KotlinSmartCasts {
     /** The variable was asserted non-null by a {@code !!} that dominates this point. */
     static boolean asserted(Variable variable) {
         for (Frame frame : FRAMES.get()) {
-            if (frame.asserted().contains(variable) || frame.types().containsKey(variable)) return true;
+            if (frame.asserted().containsKey(variable) && Frame.visible(frame.asserted().get(variable))) return true;
+            if (frame.types().containsKey(variable) && Frame.visible(frame.typeSources().get(variable))) return true;
         }
         return false;
     }
@@ -120,7 +130,7 @@ final class KotlinSmartCasts {
     static ParameterizedType knownType(Variable variable) {
         for (Frame frame : FRAMES.get()) {
             ParameterizedType type = frame.types().get(variable);
-            if (type != null) return type;
+            if (type != null && Frame.visible(frame.typeSources().get(variable))) return type;
         }
         return null;
     }
@@ -140,8 +150,12 @@ final class KotlinSmartCasts {
 
     /** From here to the end of the block, the variables of {@code types} are known to be of those types. */
     static void addTypes(Map<Variable, ParameterizedType> types) {
-        Frame frame = blockOf(KotlinContext.currentStatement());
-        if (frame != null) frame.types().putAll(types);
+        Statement statement = KotlinContext.currentStatement();
+        Frame frame = blockOf(statement);
+        if (frame != null) {
+            frame.types().putAll(types);
+            types.keySet().forEach(v -> frame.typeSources().put(v, statement));
+        }
     }
 
     /** The {@code is} tests that hold when {@code condition} is true: {@code x instanceof T}, and those of a {@code &&}. */
@@ -196,7 +210,7 @@ final class KotlinSmartCasts {
         if (!stable(variable)) return;
         Statement statement = KotlinContext.currentStatement();
         Frame frame = blockOf(statement);
-        if (frame != null && unconditional(statement).contains(ve)) frame.asserted().add(variable);
+        if (frame != null && unconditional(statement).contains(ve)) frame.asserted().putIfAbsent(variable, statement);
     }
 
     /**
