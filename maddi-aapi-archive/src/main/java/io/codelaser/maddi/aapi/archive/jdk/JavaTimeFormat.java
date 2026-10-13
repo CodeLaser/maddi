@@ -31,6 +31,7 @@ import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.Nullable;
 public class JavaTimeFormat {
     public static final String PACKAGE_NAME = "java.time.format";
     //public final class DateTimeFormatter
@@ -71,7 +72,7 @@ public class JavaTimeFormat {
         TemporalAccessor parse(CharSequence text, ParsePosition position) { return null; }
         <T> T parse(CharSequence text, TemporalQuery<T> query) { return null; }
         TemporalAccessor parseBest(CharSequence text, TemporalQuery<?> ... queries) { return null; }
-        TemporalAccessor parseUnresolved(CharSequence text, ParsePosition position) { return null; }
+        @Nullable TemporalAccessor parseUnresolved(CharSequence text, ParsePosition position) { return null; }
         static TemporalQuery<Period> parsedExcessDays() { return null; }
         static TemporalQuery<Boolean> parsedLeapSecond() { return null; }
         Format toFormat() { return null; }

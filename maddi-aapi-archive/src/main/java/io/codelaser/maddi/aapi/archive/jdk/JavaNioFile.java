@@ -36,277 +36,277 @@ public class JavaNioFile {
     class Files$ {
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static InputStream newInputStream(Path path, @NotModified OpenOption ... options) { return null; }
+        static InputStream newInputStream(@NotNull Path path, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static OutputStream newOutputStream(Path path, @NotModified OpenOption ... options) { return null; }
+        static OutputStream newOutputStream(@NotNull Path path, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
         static SeekableByteChannel newByteChannel(
-            Path path,
-            @NotModified Set<? extends OpenOption> options,
-            @NotModified FileAttribute<?> ... attrs) { return null; }
+            @NotNull Path path,
+            @NotNull @NotModified Set<? extends OpenOption> options,
+            @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static SeekableByteChannel newByteChannel(Path path, @NotModified OpenOption ... options) { return null; }
-
-        //@Independent[T]
-        @NotModified
-        @AllowsInterrupt
-        static DirectoryStream<Path> newDirectoryStream(Path dir) { return null; }
+        static SeekableByteChannel newByteChannel(@NotNull Path path, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @NotModified
         @AllowsInterrupt
-        static DirectoryStream<Path> newDirectoryStream(Path dir, String glob) { return null; }
+        static DirectoryStream<Path> newDirectoryStream(@NotNull Path dir) { return null; }
 
         //@Independent[T]
         @NotModified
         @AllowsInterrupt
-        static DirectoryStream<Path> newDirectoryStream(Path dir, DirectoryStream.Filter<? super Path> filter) {
+        static DirectoryStream<Path> newDirectoryStream(@NotNull Path dir, @NotNull String glob) { return null; }
+
+        //@Independent[T]
+        @NotModified
+        @AllowsInterrupt
+        static DirectoryStream<Path> newDirectoryStream(@NotNull Path dir, @NotNull DirectoryStream.Filter<? super Path> filter) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createFile(Path path, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createFile(@NotNull Path path, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //frequency 1
         //@Independent[T]
         @AllowsInterrupt
-        static Path createDirectory(Path dir, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createDirectory(@NotNull Path dir, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createDirectories(Path dir, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createDirectories(@NotNull Path dir, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempFile(Path dir, String prefix, String suffix, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createTempFile(@NotNull Path dir, @Nullable String prefix, @Nullable String suffix, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempFile(String prefix, String suffix, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createTempFile(@Nullable String prefix, @Nullable String suffix, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempDirectory(Path dir, String prefix, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createTempDirectory(@NotNull Path dir, @Nullable String prefix, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createTempDirectory(String prefix, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createTempDirectory(@Nullable String prefix, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createSymbolicLink(Path link, Path target, @NotModified FileAttribute<?> ... attrs) { return null; }
+        static Path createSymbolicLink(@NotNull Path link, @NotNull Path target, @NotNull @NotModified FileAttribute<?> ... attrs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path createLink(Path link, Path existing) { return null; }
+        static Path createLink(@NotNull Path link, @NotNull Path existing) { return null; }
         @AllowsInterrupt
-        static void delete(Path path) { }
+        static void delete(@NotNull Path path) { }
         @AllowsInterrupt
-        static boolean deleteIfExists(Path path) { return false; }
+        static boolean deleteIfExists(@NotNull Path path) { return false; }
         //@Independent[T]
         @AllowsInterrupt
-        static Path copy(Path source, Path target, @NotModified CopyOption ... options) { return null; }
+        static Path copy(@NotNull Path source, @NotNull Path target, @NotNull @NotModified CopyOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path move(Path source, Path target, @NotModified CopyOption ... options) { return null; }
-
-        //@Independent[T]
-        @AllowsInterrupt @NotModified
-        static Path readSymbolicLink(Path link) { return null; }
+        static Path move(@NotNull Path source, @NotNull Path target, @NotNull @NotModified CopyOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static FileStore getFileStore(Path path) { return null; }
-        @AllowsInterrupt @NotModified
-        static boolean isSameFile(Path path, Path path2) { return false; }
-        @AllowsInterrupt @NotModified
-        static long mismatch(Path path, Path path2) { return 0L; }
-        @AllowsInterrupt @NotModified
-        static boolean isHidden(Path path) { return false; }
-        @AllowsInterrupt @NotModified
-        static String probeContentType(Path path) { return null; }
+        static Path readSymbolicLink(@NotNull Path link) { return null; }
+
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static <V extends FileAttributeView> V getFileAttributeView(Path path, Class<V> type, @NotModified LinkOption ... options) {
+        static FileStore getFileStore(@NotNull Path path) { return null; }
+        @AllowsInterrupt @NotModified
+        static boolean isSameFile(@NotNull Path path, @NotNull Path path2) { return false; }
+        @AllowsInterrupt @NotModified
+        static long mismatch(@NotNull Path path, @NotNull Path path2) { return 0L; }
+        @AllowsInterrupt @NotModified
+        static boolean isHidden(@NotNull Path path) { return false; }
+        @Nullable @AllowsInterrupt @NotModified
+        static String probeContentType(@NotNull Path path) { return null; }
+        //@Independent[T]
+        @Nullable @AllowsInterrupt @NotModified
+        static <V extends FileAttributeView> V getFileAttributeView(@NotNull Path path, @NotNull Class<V> type, @NotNull @NotModified LinkOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static <A extends BasicFileAttributes> A readAttributes(Path path, Class<A> type, @NotModified LinkOption ... options) {
+        static <A extends BasicFileAttributes> A readAttributes(@NotNull Path path, @NotNull Class<A> type, @NotNull @NotModified LinkOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt
         static Path setAttribute(
-            Path path,
-            String attribute,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object value,
-            @NotModified LinkOption ... options) { return null; }
+            @NotNull Path path,
+            @NotNull String attribute,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Object value,
+            @NotNull @NotModified LinkOption ... options) { return null; }
 
         //@Immutable(hc=true)[T] @Independent[T]
         @AllowsInterrupt @NotModified
-        static Object getAttribute(Path path, String attribute, @NotModified LinkOption ... options) { return null; }
+        static Object getAttribute(@NotNull Path path, @NotNull String attribute, @NotNull @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Map<String, Object> readAttributes(Path path, String attributes, @NotModified LinkOption ... options) { return null; }
+        static Map<String, Object> readAttributes(@NotNull Path path, @NotNull String attributes, @NotNull @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Set<PosixFilePermission> getPosixFilePermissions(Path path, @NotModified LinkOption ... options) { return null; }
-
-        //@Independent[T]
-        @AllowsInterrupt
-        static Path setPosixFilePermissions(Path path, @NotModified Set<PosixFilePermission> perms) { return null; }
-
-        //@Independent[T]
-        @AllowsInterrupt @NotModified
-        static UserPrincipal getOwner(Path path, @NotModified LinkOption ... options) { return null; }
+        static Set<PosixFilePermission> getPosixFilePermissions(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path setOwner(Path path, UserPrincipal owner) { return null; }
-        @AllowsInterrupt @NotModified
-        static boolean isSymbolicLink(Path path) { return false; }
-        @AllowsInterrupt @NotModified
-        static boolean isDirectory(Path path, @NotModified LinkOption ... options) { return false; }
-        @AllowsInterrupt @NotModified
-        static boolean isRegularFile(Path path, @NotModified LinkOption ... options) { return false; }
+        static Path setPosixFilePermissions(@NotNull Path path, @NotNull @NotModified Set<PosixFilePermission> perms) { return null; }
+
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static FileTime getLastModifiedTime(Path path, @NotModified LinkOption ... options) { return null; }
+        static UserPrincipal getOwner(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path setLastModifiedTime(Path path, FileTime time) { return null; }
+        static Path setOwner(@NotNull Path path, @NotNull UserPrincipal owner) { return null; }
         @AllowsInterrupt @NotModified
-        static long size(Path path) { return 0L; }
+        static boolean isSymbolicLink(@NotNull Path path) { return false; }
+        @AllowsInterrupt @NotModified
+        static boolean isDirectory(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return false; }
+        @AllowsInterrupt @NotModified
+        static boolean isRegularFile(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return false; }
+        //@Independent[T]
+        @AllowsInterrupt @NotModified
+        static FileTime getLastModifiedTime(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return null; }
+
+        //@Independent[T]
+        @AllowsInterrupt
+        static Path setLastModifiedTime(@NotNull Path path, @NotNull FileTime time) { return null; }
+        @AllowsInterrupt @NotModified
+        static long size(@NotNull Path path) { return 0L; }
         //frequency 1
         @AllowsInterrupt @NotModified
-        static boolean exists(Path path, @NotModified LinkOption ... options) { return false; }
+        static boolean exists(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean notExists(Path path, @NotModified LinkOption ... options) { return false; }
+        static boolean notExists(@NotNull Path path, @NotNull @NotModified LinkOption ... options) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean isReadable(Path path) { return false; }
+        static boolean isReadable(@NotNull Path path) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean isWritable(Path path) { return false; }
+        static boolean isWritable(@NotNull Path path) { return false; }
         @AllowsInterrupt @NotModified
-        static boolean isExecutable(Path path) { return false; }
+        static boolean isExecutable(@NotNull Path path) { return false; }
         //@Independent[T]
         @AllowsInterrupt @NotModified
         static Path walkFileTree(
-            Path start,
-            @NotModified Set<FileVisitOption> options,
+            @NotNull Path start,
+            @NotNull @NotModified Set<FileVisitOption> options,
             int maxDepth,
-            FileVisitor<? super Path> visitor) { return null; }
+            @NotNull FileVisitor<? super Path> visitor) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Path walkFileTree(Path start, FileVisitor<? super Path> visitor) { return null; }
+        static Path walkFileTree(@NotNull Path start, @NotNull FileVisitor<? super Path> visitor) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static BufferedReader newBufferedReader(Path path, Charset cs) { return null; }
+        static BufferedReader newBufferedReader(@NotNull Path path, @NotNull Charset cs) { return null; }
 
         //frequency 1
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static BufferedReader newBufferedReader(Path path) { return null; }
+        static BufferedReader newBufferedReader(@NotNull Path path) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static BufferedWriter newBufferedWriter(Path path, Charset cs, @NotModified OpenOption ... options) { return null; }
+        static BufferedWriter newBufferedWriter(@NotNull Path path, @NotNull Charset cs, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static BufferedWriter newBufferedWriter(Path path, @NotModified OpenOption ... options) { return null; }
+        static BufferedWriter newBufferedWriter(@NotNull Path path, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //frequency 1
         @AllowsInterrupt
-        static long copy(InputStream in, Path target, @NotModified CopyOption ... options) { return 0L; }
+        static long copy(@NotNull InputStream in, @NotNull Path target, @NotNull @NotModified CopyOption ... options) { return 0L; }
         @AllowsInterrupt
-        static long copy(Path source, OutputStream out) { return 0L; }
+        static long copy(@NotNull Path source, @NotNull OutputStream out) { return 0L; }
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static byte [] readAllBytes(Path path) { return null; }
+        static byte [] readAllBytes(@NotNull Path path) { return null; }
         @AllowsInterrupt @NotModified
-        static String readString(Path path) { return null; }
+        static String readString(@NotNull Path path) { return null; }
         @AllowsInterrupt @NotModified
-        static String readString(Path path, Charset cs) { return null; }
+        static String readString(@NotNull Path path, @NotNull Charset cs) { return null; }
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static List<String> readAllLines(Path path, Charset cs) { return null; }
+        static List<String> readAllLines(@NotNull Path path, @NotNull Charset cs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static List<String> readAllLines(Path path) { return null; }
+        static List<String> readAllLines(@NotNull Path path) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, @NotModified byte [] bytes, @NotModified OpenOption ... options) { return null; }
+        static Path write(@NotNull Path path, @NotNull @NotModified byte [] bytes, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, Charset cs, @NotModified OpenOption ... options) {
+        static Path write(@NotNull Path path, @NotNull @NotModified Iterable<? extends CharSequence> lines, @NotNull Charset cs, @NotNull @NotModified OpenOption ... options) {
             return null;
         }
 
         //@Independent[T]
         @AllowsInterrupt
-        static Path write(Path path, @NotModified Iterable<? extends CharSequence> lines, @NotModified OpenOption ... options) { return null; }
+        static Path write(@NotNull Path path, @NotNull @NotModified Iterable<? extends CharSequence> lines, @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
         static Path writeString(
-            Path path,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence csq,
-            @NotModified OpenOption ... options) { return null; }
+            @NotNull Path path,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence csq,
+            @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt
         static Path writeString(
-            Path path,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence csq,
-            Charset cs,
-            @NotModified OpenOption ... options) { return null; }
+            @NotNull Path path,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence csq,
+            @NotNull Charset cs,
+            @NotNull @NotModified OpenOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<Path> list(Path dir) { return null; }
+        static Stream<Path> list(@NotNull Path dir) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<Path> walk(Path start, int maxDepth, @NotModified FileVisitOption ... options) { return null; }
+        static Stream<Path> walk(@NotNull Path start, int maxDepth, @NotNull @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<Path> walk(Path start, @NotModified FileVisitOption ... options) { return null; }
+        static Stream<Path> walk(@NotNull Path start, @NotNull @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
         static Stream<Path> find(
-            Path start,
+            @NotNull Path start,
             int maxDepth,
-            /*@IgnoreModifications[T]*/ BiPredicate<Path, BasicFileAttributes> matcher,
-            @NotModified FileVisitOption ... options) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull BiPredicate<Path, BasicFileAttributes> matcher,
+            @NotNull @NotModified FileVisitOption ... options) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<String> lines(Path path, Charset cs) { return null; }
+        static Stream<String> lines(@NotNull Path path, @NotNull Charset cs) { return null; }
 
         //@Independent[T]
         @AllowsInterrupt @NotModified
-        static Stream<String> lines(Path path) { return null; }
+        static Stream<String> lines(@NotNull Path path) { return null; }
     }
 
     //public interface FileVisitor<T>
@@ -337,43 +337,43 @@ public class JavaNioFile {
     @Immutable
     class Path$ {
         //frequency 2
-        static Path of(String first, @NotModified String ... more) { return null; }
-        static Path of(URI uri) { return null; }
+        static Path of(@NotNull String first, @NotNull @NotModified String ... more) { return null; }
+        static Path of(@NotNull URI uri) { return null; }
         FileSystem getFileSystem() { return null; }
         boolean isAbsolute() { return false; }
-        Path getRoot() { return null; }
-        Path getFileName() { return null; }
-        Path getParent() { return null; }
+        @Nullable Path getRoot() { return null; }
+        @Nullable Path getFileName() { return null; }
+        @Nullable Path getParent() { return null; }
         int getNameCount() { return 0; }
         Path getName(int i) { return null; }
         Path subpath(int i, int i1) { return null; }
-        boolean startsWith(Path path) { return false; }
-        boolean startsWith(String other) { return false; }
-        boolean endsWith(Path path) { return false; }
-        boolean endsWith(String other) { return false; }
+        boolean startsWith(@NotNull Path path) { return false; }
+        boolean startsWith(@NotNull String other) { return false; }
+        boolean endsWith(@NotNull Path path) { return false; }
+        boolean endsWith(@NotNull String other) { return false; }
         Path normalize() { return null; }
-        Path resolve(Path path) { return null; }
+        Path resolve(@NotNull Path path) { return null; }
         //frequency 1
-        Path resolve(String other) { return null; }
-        Path resolve(Path first, Path ... more) { return null; }
-        Path resolve(String first, String ... more) { return null; }
-        Path resolveSibling(Path other) { return null; }
-        Path resolveSibling(String other) { return null; }
-        Path relativize(Path path) { return null; }
+        Path resolve(@NotNull String other) { return null; }
+        Path resolve(@NotNull Path first, @NotNull Path ... more) { return null; }
+        Path resolve(@NotNull String first, @NotNull String ... more) { return null; }
+        Path resolveSibling(@NotNull Path other) { return null; }
+        Path resolveSibling(@NotNull String other) { return null; }
+        Path relativize(@NotNull Path path) { return null; }
         //frequency 1
         URI toUri() { return null; }
         Path toAbsolutePath() { return null; }
-        Path toRealPath(@NotModified LinkOption ... linkOption) { return null; }
+        Path toRealPath(@NotNull @NotModified LinkOption ... linkOption) { return null; }
         //frequency 3
         File toFile() { return null; }
 
         //override from java.nio.file.Watchable
-        WatchKey register(WatchService watchService, WatchEvent.Kind<?> [] kind, WatchEvent.Modifier ... modifier) {
+        WatchKey register(@NotNull WatchService watchService, @NotNull WatchEvent.Kind<?> [] kind, @NotNull WatchEvent.Modifier ... modifier) {
             return null;
         }
 
         //override from java.nio.file.Watchable
-        WatchKey register(WatchService watcher, WatchEvent.Kind<?> ... events) { return null; }
+        WatchKey register(@NotNull WatchService watcher, @NotNull WatchEvent.Kind<?> ... events) { return null; }
 
         //override from java.lang.Iterable
         //@NotModified[H] @NotNull[H]
@@ -381,7 +381,7 @@ public class JavaNioFile {
 
         //override from java.lang.Comparable
         //@NotModified[H]
-        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ Path path) { return 0; }
+        int compareTo(/*@Independent[M] @NotModified[H] @NotNull[H]*/ @NotNull Path path) { return 0; }
 
         //override from java.lang.Object
         //@NotModified[H]
@@ -403,5 +403,34 @@ public class JavaNioFile {
             return null;
         }
         WatchKey register(WatchService watchService, WatchEvent.Kind<?> ... kind) { return null; }
+    }
+
+    //public java.nio.file.DirectoryIteratorException (shadow created for its nullability, generated)
+    class DirectoryIteratorException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        DirectoryIteratorException$(@NotNull java.io.IOException p0) { }
+    }
+
+    //public java.nio.file.FileSystemException (shadow created for its nullability, generated)
+    class FileSystemException$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        FileSystemException$(@Nullable java.lang.String p0) { }
+        FileSystemException$(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2) { }
+        @Nullable java.lang.String getFile() { return null; }
+        @Nullable java.lang.String getMessage() { return null; }
+        @Nullable java.lang.String getOtherFile() { return null; }
+        @Nullable java.lang.String getReason() { return null; }
+    }
+
+    //public java.nio.file.FileSystems (shadow created for its nullability, generated)
+    class FileSystems$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static java.nio.file.FileSystem getFileSystem(@NotNull java.net.URI p0) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @NotNull java.util.Map<java.lang.String, ?> p1) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.nio.file.Path p0, @NotNull java.util.Map<java.lang.String, ?> p1, @Nullable java.lang.ClassLoader p2) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, ?> p1) { return null; }
+        static java.nio.file.FileSystem newFileSystem(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, ?> p1, @Nullable java.lang.ClassLoader p2) { return null; }
     }
 }

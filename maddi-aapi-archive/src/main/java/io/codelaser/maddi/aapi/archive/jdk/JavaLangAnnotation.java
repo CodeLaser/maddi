@@ -20,6 +20,8 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
+import io.codelaser.maddi.annotation.Nullable;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaLangAnnotation {
     public static final String PACKAGE_NAME = "java.lang.annotation";
@@ -43,8 +45,11 @@ public class JavaLangAnnotation {
     //public class AnnotationTypeMismatchException extends RuntimeException
     // constructor params (Method, String) are immutable -> @Independent/@NotModified implied, so omitted
     class AnnotationTypeMismatchException$ {
-        @NotModified Method element() { return null; }
-        @NotModified String foundType() { return null; }
+        @Nullable @NotModified Method element() { return null; }
+        @Nullable @NotModified String foundType() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        AnnotationTypeMismatchException$(@Nullable java.lang.reflect.Method p0, @Nullable java.lang.String p1) { }
     }
 
     //public enum ElementType extends Enum<ElementType>
@@ -59,6 +64,9 @@ public class JavaLangAnnotation {
     class IncompleteAnnotationException$ {
         @NotModified Class<? extends Annotation> annotationType() { return null; }
         @NotModified String elementName() { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        IncompleteAnnotationException$(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0, @NotNull java.lang.String p1) { }
     }
 
     //public enum RetentionPolicy extends Enum<RetentionPolicy>
@@ -66,5 +74,13 @@ public class JavaLangAnnotation {
     class RetentionPolicy$ {
         @NotModified static RetentionPolicy [] values() { return null; }
         @NotModified static RetentionPolicy valueOf(String name) { return null; }
+    }
+
+    //public java.lang.annotation.AnnotationFormatError (shadow created for its nullability, generated)
+    class AnnotationFormatError$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        AnnotationFormatError$(@Nullable java.lang.String p0) { }
+        AnnotationFormatError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        AnnotationFormatError$(@Nullable java.lang.Throwable p0) { }
     }
 }

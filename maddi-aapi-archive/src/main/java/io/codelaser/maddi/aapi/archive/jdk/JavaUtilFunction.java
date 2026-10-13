@@ -20,6 +20,7 @@ import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaUtilFunction {
     public static final String PACKAGE_NAME = "java.util.function";
@@ -290,7 +291,7 @@ public class JavaUtilFunction {
         @NotModified Predicate<T> or(/*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> other) { return null; }
         @NotNull
         static <T> Predicate<T> isEqual(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Object targetRef) { return null; }
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @Nullable Object targetRef) { return null; }
         @NotNull
         static <T> Predicate<T> not(/*@IgnoreModifications[T]*/@NotNull Predicate<? super T> target) { return null; }
     }

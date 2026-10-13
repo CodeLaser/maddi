@@ -20,6 +20,7 @@ import io.codelaser.maddi.annotation.NotNull;
 import java.lang.constant.ConstantDesc;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
+import io.codelaser.maddi.annotation.Nullable;
 
 public class JavaLangConstant {
     public static final String PACKAGE_NAME = "java.lang.constant";
@@ -39,5 +40,11 @@ public class JavaLangConstant {
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotNull
         Optional<? extends ConstantDesc> describeConstable() { return null; }
+    }
+
+    //public java.lang.constant.ClassDesc (shadow created for its nullability, generated)
+    class ClassDesc$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        @Nullable java.lang.constant.ClassDesc componentType() { return null; }
     }
 }

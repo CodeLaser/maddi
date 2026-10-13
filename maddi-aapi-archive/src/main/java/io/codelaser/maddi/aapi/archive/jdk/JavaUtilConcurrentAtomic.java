@@ -17,6 +17,7 @@ import java.util.function.*;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.NotNull;
 
 public class JavaUtilConcurrentAtomic {
     public static final String PACKAGE_NAME = "java.util.concurrent.atomic";
@@ -132,20 +133,20 @@ public class JavaUtilConcurrentAtomic {
         V getAndSet(/*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { return null; }
 
         //@Independent(hc=true)[T]
-        V getAndUpdate(/*@IgnoreModifications[T]*/ UnaryOperator<V> updateFunction) { return null; }
+        V getAndUpdate(/*@IgnoreModifications[T]*/ @NotNull UnaryOperator<V> updateFunction) { return null; }
 
         //@Independent(hc=true)[T]
-        V updateAndGet(/*@IgnoreModifications[T]*/ UnaryOperator<V> updateFunction) { return null; }
+        V updateAndGet(/*@IgnoreModifications[T]*/ @NotNull UnaryOperator<V> updateFunction) { return null; }
 
         //@Independent(hc=true)[T]
         V getAndAccumulate(
             /*@Independent(hc=true)[T] @NotModified[T]*/ V x,
-            /*@IgnoreModifications[T]*/ BinaryOperator<V> accumulatorFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<V> accumulatorFunction) { return null; }
 
         //@Independent(hc=true)[T]
         V accumulateAndGet(
             /*@Independent(hc=true)[T] @NotModified[T]*/ V x,
-            /*@IgnoreModifications[T]*/ BinaryOperator<V> accumulatorFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<V> accumulatorFunction) { return null; }
 
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
@@ -186,5 +187,25 @@ public class JavaUtilConcurrentAtomic {
         boolean weakCompareAndSetRelease(
             /*@Independent(hc=true)[T] @NotModified[T]*/ V expectedValue,
             /*@Independent(hc=true)[T] @NotModified[T]*/ V newValue) { return false; }
+    }
+
+    //public java.util.concurrent.atomic.AtomicReferenceArray (shadow created for its nullability, generated)
+    class AtomicReferenceArray$<E> {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        AtomicReferenceArray$(@NotNull E[] p0) { }
+        E accumulateAndGet(int p0, E p1, @NotNull java.util.function.BinaryOperator<E> p2) { return null; }
+        E getAndAccumulate(int p0, E p1, @NotNull java.util.function.BinaryOperator<E> p2) { return null; }
+        E getAndUpdate(int p0, @NotNull java.util.function.UnaryOperator<E> p1) { return null; }
+        E updateAndGet(int p0, @NotNull java.util.function.UnaryOperator<E> p1) { return null; }
+    }
+
+    //public java.util.concurrent.atomic.AtomicReferenceFieldUpdater (shadow created for its nullability, generated)
+    class AtomicReferenceFieldUpdater$<T, V> {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        V accumulateAndGet(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        V getAndAccumulate(T p0, V p1, @NotNull java.util.function.BinaryOperator<V> p2) { return null; }
+        V getAndUpdate(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
+        static <U, W> java.util.concurrent.atomic.AtomicReferenceFieldUpdater<U, W> newUpdater(@NotNull java.lang.Class<U> p0, @NotNull java.lang.Class<W> p1, @NotNull java.lang.String p2) { return null; }
+        V updateAndGet(T p0, @NotNull java.util.function.UnaryOperator<V> p1) { return null; }
     }
 }
