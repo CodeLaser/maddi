@@ -42,6 +42,8 @@ final class CSharpContext {
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
         CSharpLibraries analyzing;
+        final java.util.Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, io.codelaser.maddi.cst.api.type.ParameterizedType>
+                created = new java.util.IdentityHashMap<>();
         final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
@@ -143,13 +145,50 @@ final class CSharpContext {
         return STATE.get().base.currentMethod();
     }
 
-    /** The type parameters of the enclosing methods that C# prints erased ({@link CSharpProgram#erasedGeneric}). */
+    /** The type a creation is printed with, its diamond resolved: what its arguments' diamonds are inferred from. */
+    static void created(io.codelaser.maddi.cst.api.expression.ConstructorCall cc,
+                        io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        STATE.get().created.put(cc, type);
+    }
+
+    static io.codelaser.maddi.cst.api.type.ParameterizedType created(io.codelaser.maddi.cst.api.expression.ConstructorCall cc) {
+        return STATE.get().created.get(cc);
+    }
+
+    /**
+     * Whether C# can name {@code tp} where the printer is: a type parameter of a method being printed (not erased), or
+     * of the current type or one it is nested in, or of one of their supertypes, short of a hoisted type and of a
+     * companion class's static members.
+     */
+    static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        State state = STATE.get();
+        var owner = tp.getOwner();
+        if (owner == null) return false;
+        if (owner.isRight()) {
+            MethodInfo m = owner.getRight();
+            return state.base.methods().stream().anyMatch(m::equals) && !m.isConstructor() && !state.program.erasedGeneric(m);
+        }
+        TypeInfo t = owner.getLeft();
+        for (TypeInfo at = currentType(); at != null; at = CSharpNames.hoisted(at) ? null : CSharpNames.enclosing(at)) {
+            if (at.equals(state.companion)) return false; // the companion class is not generic
+            // a supertype's, as an inherited field's type has it: the subclass passes its own, of the same name, on
+            if (at.equals(t) || CSharpNames.inherits(at, t)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * The type parameters of the enclosing methods that C# prints erased ({@link CSharpProgram#erasedGeneric}), and
+     * of a generic constructor: C# has none.
+     */
     static List<io.codelaser.maddi.cst.api.info.TypeParameter> erasedTypeParameters() {
         State state = STATE.get();
-        if (!state.program.anyErasedGeneric()) return List.of();
-        List<io.codelaser.maddi.cst.api.info.TypeParameter> erased = new java.util.ArrayList<>();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> erased = List.of();
         for (MethodInfo m : state.base.methods()) {
-            if (state.program.erasedGeneric(m)) erased.addAll(m.typeParameters());
+            if (!m.typeParameters().isEmpty() && (m.isConstructor() || state.program.erasedGeneric(m))) {
+                if (erased.isEmpty()) erased = new java.util.ArrayList<>();
+                erased.addAll(m.typeParameters());
+            }
         }
         return erased;
     }

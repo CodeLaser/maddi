@@ -550,10 +550,14 @@ public final class CSharpExpressionPrinter {
         }
     }
 
-    /** A type C# can write as a type argument: no wildcard, and none of the called method's own type parameters. */
+    /**
+     * A type C# can write as a type argument: no wildcard, none of the called method's own type parameters, and only
+     * type parameters in scope where it is printed.
+     */
     private static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
         if (t.wildcard() != null) return false;
-        if (t.isTypeParameter()) return !typeParameters.contains(t.typeParameter());
+        // nor one C# cannot name here: a static member's in the companion class, an override's declaration's
+        if (t.isTypeParameter()) return !typeParameters.contains(t.typeParameter()) && CSharpContext.inScope(t.typeParameter());
         if (t.typeInfo() == null) return false;
         return t.parameters().stream().allMatch(a -> writable(a, typeParameters));
     }
@@ -685,7 +689,7 @@ public final class CSharpExpressionPrinter {
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(diamond(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+                .add(text(CSharpTypeName.of(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
     /**
@@ -695,6 +699,13 @@ public final class CSharpExpressionPrinter {
      * else, as an argument, from the type Java inferred for its parameter: {@code share(new Bridge<>(parent),
      * group::setBridge)}'s {@code S} is {@code Bridge<NewA>}, which the method reference binds.
      */
+    /** The creation's type, its diamond resolved, remembered for its arguments' own diamonds. */
+    private static ParameterizedType created(ConstructorCall cc, ParameterizedType type) {
+        ParameterizedType resolved = diamond(cc, type);
+        CSharpContext.created(cc, resolved);
+        return resolved;
+    }
+
     private static ParameterizedType diamond(ConstructorCall cc, ParameterizedType type) {
         TypeInfo created = type.typeInfo();
         if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
@@ -711,7 +722,10 @@ public final class CSharpExpressionPrinter {
                     inferred);
         }
         ParameterizedType target = argumentTarget(cc);
-        if (target != null && created.equals(target.typeInfo()) && target.parameters().size() == type.parameters().size()) {
+        // the parameter's type, or a supertype the class declares with its own type parameters (HashMap<K, V> : Map<K, V>)
+        if (target != null && (created.equals(target.typeInfo()) || target.typeInfo() != null
+                                                                     && passesOwnParameters(created, target.typeInfo()))
+            && target.parameters().size() == type.parameters().size()) {
             for (int i = 0; i < type.parameters().size(); i++) {
                 ParameterizedType a = type.parameters().get(i);
                 if (a.isTypeParameter() && own.contains(a.typeParameter())) {
@@ -734,19 +748,40 @@ public final class CSharpExpressionPrinter {
 
     /** The type Java inferred for the parameter that {@code cc} is the argument of; null when not a call's argument. */
     private static ParameterizedType argumentTarget(ConstructorCall cc) {
-        if (!(CSharpContext.enclosingCall() instanceof MethodCall mc) || mc.methodInfo() == null) return null;
-        MethodInfo method = mc.methodInfo();
-        List<Expression> args = mc.parameterExpressions();
+        Expression enclosing = CSharpContext.enclosingCall();
+        MethodInfo method;
+        List<Expression> args;
+        java.util.Map<TypeParameter, ParameterizedType> bound = new java.util.HashMap<>();
+        if (enclosing instanceof MethodCall mc && mc.methodInfo() != null) {
+            method = mc.methodInfo();
+            args = mc.parameterExpressions();
+            match(method.returnType(), mc.concreteReturnType(), method.typeParameters(), bound);
+        } else if (enclosing instanceof ConstructorCall outer && outer.constructor() != null
+                   && CSharpContext.created(outer) instanceof ParameterizedType created && created.typeInfo() != null
+                   && created.parameters().size() == created.typeInfo().typeParameters().size()) {
+            // new State<>(true, new TreeMap<>(), …): the outer creation's type arguments, as printed
+            method = outer.constructor();
+            args = outer.parameterExpressions();
+            for (int i = 0; i < created.parameters().size(); i++) {
+                bound.put(created.typeInfo().typeParameters().get(i), created.parameters().get(i));
+            }
+        } else {
+            return null;
+        }
         int index = -1;
         for (int i = 0; i < args.size(); i++) {
-            if (unwrap(args.get(i)) == cc) index = i;
+            Expression arg = unwrap(args.get(i));
+            // cond ? new A<>() : new B<>(): either branch is the argument
+            if (arg == cc || arg instanceof InlineConditional ic && (unwrap(ic.ifTrue()) == cc || unwrap(ic.ifFalse()) == cc)) {
+                index = i;
+            }
         }
         if (index < 0 || index >= method.parameters().size() || method.parameters().get(index).isVarArgs()) return null;
         ParameterizedType formal = method.parameters().get(index).parameterizedType();
-        if (!formal.isTypeParameter() || formal.arrays() != 0) return null;
-        java.util.Map<TypeParameter, ParameterizedType> bound = new java.util.HashMap<>();
-        match(method.returnType(), mc.concreteReturnType(), method.typeParameters(), bound);
-        return bound.get(formal.typeParameter());
+        if (formal.arrays() != 0) return null;
+        if (formal.isTypeParameter()) return bound.get(formal.typeParameter());
+        ParameterizedType target = CSharpTypePrinter.substitute(formal, bound);
+        return target.parameters().stream().allMatch(a -> a.wildcard() == null) ? target : null;
     }
 
     /**
@@ -865,10 +900,31 @@ public final class CSharpExpressionPrinter {
      */
     private static ParameterizedType argumentTarget(Expression value, MethodInfo method, int i) {
         ParameterizedType target = parameterType(method, i);
-        if (target != null || method == null || i != method.parameters().size() - 1) return target;
+        if (target != null || method == null || i != method.parameters().size() - 1) return createdTypeArguments(target, method);
         ParameterInfo p = method.parameters().get(i);
         ParameterizedType type = value.parameterizedType();
-        return p.isVarArgs() && type != null && type.arrays() == p.parameterizedType().arrays() ? p.parameterizedType() : null;
+        return p.isVarArgs() && type != null && type.arrays() == p.parameterizedType().arrays()
+                ? createdTypeArguments(p.parameterizedType(), method) : null;
+    }
+
+    /**
+     * A constructor's parameter type with the class's type parameters the type arguments it is created with:
+     * {@code new DefaultBiJoiner(new Function[0])}, raw in a static member, is
+     * {@code new DefaultBiJoiner<object, object>(new Func<object, object>[0])}, not the class's {@code A}, out of scope.
+     */
+    private static ParameterizedType createdTypeArguments(ParameterizedType target, MethodInfo method) {
+        if (target == null || method == null || !method.isConstructor()) return target;
+        if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || cc.constructor() != method) return target;
+        ParameterizedType created = CSharpContext.created(cc);
+        if (created == null || created.typeInfo() == null
+            || created.parameters().size() != created.typeInfo().typeParameters().size()) {
+            return target;
+        }
+        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+        for (int k = 0; k < created.parameters().size(); k++) {
+            map.put(created.typeInfo().typeParameters().get(k), created.parameters().get(k));
+        }
+        return CSharpTypePrinter.substitute(target, map);
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */

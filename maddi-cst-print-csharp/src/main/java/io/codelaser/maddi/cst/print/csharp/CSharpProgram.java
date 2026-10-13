@@ -319,11 +319,6 @@ public final class CSharpProgram {
         return erasedGenerics.contains(m);
     }
 
-    /** Whether any method is printed with its type parameters erased. */
-    boolean anyErasedGeneric() {
-        return !erasedGenerics.isEmpty();
-    }
-
     /** What the analysis knows about the program. */
     public CSharpFacts facts() {
         return facts;

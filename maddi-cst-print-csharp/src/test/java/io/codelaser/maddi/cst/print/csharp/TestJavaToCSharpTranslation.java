@@ -1595,6 +1595,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     return stream;
                 }
                 <NewA> Stream<NewA> group(Group<A, NewA> group) { return share(new Bridge<>(this), group::setBridge); }
+                static final class Bridge2<A, B> implements Stream<B> { Bridge2(Streams<?> parent) { } }
+                static final class Joined<A, B> implements Stream<B> { void setBridge(Bridge2<A, B> bridge) { } }
+                <B> Stream<B> join(Joined<A, B> joined) { return share(new Bridge2<>(this), joined::setBridge); }
                 static <T> String key(Function<T, ?> mapping, T t) { return String.valueOf(mapping.apply(t)); }
                 static <T, P> String keyed(Function<T, P> mapping, T t) { return key(mapping, t); }
                 static String raw(Function mapping) { return String.valueOf(mapping.apply("x")); }
@@ -1604,6 +1607,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 abstract static class Builder { abstract <S extends Stream<?>> S build(S s); }
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
+                static <T> java.util.Set<T> identitySet() { return java.util.Collections.newSetFromMap(new java.util.HashMap<>()); }
+                static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
+                static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
                 static <L, R> java.util.function.BiFunction<L, R, Pair<L, R>> pairing() { return Pair::new; }
                 static <V> java.util.function.IntFunction<java.util.Set<V>> sets() { return java.util.HashSet::new; }
                 static <R> java.util.List<R> empty() { return new java.util.ArrayList<>(); }
@@ -1620,6 +1626,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "new MapStream<A, ResultA_>(");
         // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
         contains(cs, "new Bridge<NewA>(this)");
+        contains(cs, "new Bridge2<A, B>(this)");
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");
@@ -1631,6 +1638,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a raw constructor reference creates the type Java inferred for its result
         contains(cs, "(p0, p1) => new Pair<L, R>(p0, p1)");
         contains(cs, "new HashSet<V>(p0)");
+        // a diamond whose parameter's type is not a type parameter: Map<E, Boolean> of newSetFromMap, as inferred
+        contains(cs, "new Dictionary<T, bool>()");
+        // an argument of a creation: the creation's own type arguments, as printed
+        contains(cs, "new SortedDictionary<R, R>()");
         // an override inherits its constraints, and may not repeat them (CS0460)
         contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
         contains(cs, "internal override S Build<S>(S s) => s;");
