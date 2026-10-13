@@ -159,7 +159,7 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ImmutableMap.Builder` | mutable @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableMultimap.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableMultiset.Builder` | @FinalFields @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
-| `com.google.common.collect.ImmutableRangeMap.Builder` | @FinalFields @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
+| `com.google.common.collect.ImmutableRangeMap.Builder` | @FinalFields @Dependent @Container (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableRangeSet.Builder` | @FinalFields @Independent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSet.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
 | `com.google.common.collect.ImmutableSetMultimap.Builder` | mutable @Dependent (1) | @Container | a builder: mutable, stores its arguments, never modifies them |
@@ -177,8 +177,8 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ComparisonChain` | @Immutable(hc = true) (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.ConcurrentHashMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.DiscreteDomain` | @Immutable(hc = true) (1) | @Immutable(hc = true) | a value |
-| `com.google.common.collect.EnumBiMap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
-| `com.google.common.collect.EnumHashBiMap` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.EnumBiMap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
+| `com.google.common.collect.EnumHashBiMap` | mutable @Dependent @Container (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.EnumMultiset` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.EvictingQueue` | @FinalFields @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.HashBasedTable` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
@@ -226,7 +226,7 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.Sets` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.SortedMapDifference` | @FinalFields @Dependent @Container (1) | @Immutable(hc = true) | a value |
 | `com.google.common.collect.SortedMultiset` | @FinalFields @Independent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
-| `com.google.common.collect.SortedSetMultimap` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
+| `com.google.common.collect.SortedSetMultimap` | @FinalFields @Dependent @Container (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Streams` | @Immutable (1) | @UtilityClass | static methods only |
 | `com.google.common.collect.Table` | @FinalFields @Dependent (1) | @Container | a collection contract with mutators, shared by mutable and immutable implementations |
 | `com.google.common.collect.Tables` | @Immutable (1) | @UtilityClass | static methods only |
@@ -236,14 +236,8 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.TreeRangeMap` | @FinalFields @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.TreeRangeSet` | mutable @Dependent (1) | @Container | a mutable collection stores its arguments, never modifies them |
 | `com.google.common.collect.ArrayTable#clear` | @NotModified | @Modified | M1: a mutator |
-| `com.google.common.collect.ArrayTable#column` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#columnKeySet` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ArrayTable#contains` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ArrayTable#containsColumn` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ArrayTable#containsRow` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ArrayTable#get` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#remove` | @NotModified | @Modified | M1: a mutator |
-| `com.google.common.collect.ArrayTable#row` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ArrayTable#rowMap` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.BiMap#inverse` | @Modified | @NotModified | M2: a pure query |
@@ -255,7 +249,6 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ContiguousSet#tailSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.EnumMultiset#iterator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.EvictingQueue#toArray` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.FluentIterable#isEmpty` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.FluentIterable#stream` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingCollection#contains` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingCollection#containsAll` | @Modified | @NotModified | M2: a pure query |
@@ -313,21 +306,6 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.ForwardingSortedMultiset#comparator` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSortedMultiset#elementSet` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.ForwardingSortedSetMultimap#get` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#cellSet` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#column` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#columnKeySet` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#columnMap` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#contains` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#containsColumn` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#containsRow` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#containsValue` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#equals` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#get` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#hashCode` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#row` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#rowKeySet` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#rowMap` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.ForwardingTable#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.HashBiMap#inverse` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.HashBiMap#values` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.LinkedHashMultimap#entries` | @Modified | @NotModified | M2: a pure query |
@@ -367,11 +345,8 @@ computed cell summarises the source run over the row's members (count in parenth
 | `com.google.common.collect.Multiset.Entry#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Multiset.Entry#toString` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.Ordering#reverse` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.RangeMap#equals` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeMap#get` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.RangeMap#hashCode` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeMap#span` | @Modified | @NotModified | M2: a pure query |
-| `com.google.common.collect.RangeMap#toString` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#asDescendingSetOfRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#asRanges` | @Modified | @NotModified | M2: a pure query |
 | `com.google.common.collect.RangeSet#complement` | @Modified | @NotModified | M2: a pure query |
