@@ -347,6 +347,12 @@ final class KotlinContext {
         SCOPES.get().pop();
     }
 
+    /** The method or lambda body being printed: where a local variable's assignments are; null outside a body. */
+    static Object currentScope() {
+        var scope = SCOPES.get().peek();
+        return scope == null ? null : scope.orElse(null);
+    }
+
     /** A local variable of the current body is assigned after its declaration; true when there is no body to scan. */
     static boolean reassigned(Variable local) {
         var scope = SCOPES.get().peek();

@@ -57,6 +57,7 @@ public class KotlinStatementPrinter {
 
     public static OutputBuilder print(Statement s, Qualification q) {
         KotlinContext.pushStatement(s);
+        KotlinSmartCasts.beforeStatement(s);
         try {
             return printStatement(s, q);
         } finally {

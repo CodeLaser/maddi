@@ -920,6 +920,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     }
                     return n + u.length() + u.length();
                 }
+                static int m(String p, String q) {
+                    String x = p;
+                    int n = x.length();
+                    n += x.length();
+                    x = q;
+                    n += x.length();
+                    return n + x.length();
+                }
                 static int k(String w, int i) {
                     int n = 0;
                     switch (i) {
@@ -943,7 +951,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void smartCastAfterAssertion() {
-        String kotlin = kotlin(SMART_CASTS, new KotlinPrintOptions(new ByName(Set.of("s", "t", "u", "w")),
+        String kotlin = kotlin(SMART_CASTS, new KotlinPrintOptions(new ByName(Set.of("s", "t", "u", "w", "x", "q")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "var n = s!!.length\nn += s.length");
         contains(kotlin, "if (c && t!!.isEmpty())");
@@ -951,6 +959,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "n = u!!.length\nn += u.length");
         // later in its own statement too (in source order: the printer may print a part twice)
         contains(kotlin, "return n + u!!.length + u.length");
+        // a var: known until it is assigned again
+        contains(kotlin, "var n = x!!.length\nn += x.length\nx = q\nn += x!!.length\nreturn n + x.length");
         // a switch entry's assertion does not reach the other entries
         assertTrue(kotlin.split("w!!\\.length", -1).length == 3, kotlin);
     }
