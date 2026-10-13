@@ -1935,7 +1935,8 @@ public static class JavaResources
         if (uri.Scheme == Scheme)
         {
             var assembly = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == System.Uri.UnescapeDataString(uri.Host));
+                .FirstOrDefault(a => string.Equals(a.GetName().Name, System.Uri.UnescapeDataString(uri.Host),
+                    StringComparison.OrdinalIgnoreCase)); // a URI's host is lower case
             var stream = assembly?.GetManifestResourceStream(System.Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')));
             return stream ?? throw new FileNotFoundException(uri.ToString());
         }

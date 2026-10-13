@@ -435,13 +435,14 @@ type java.util.UUID -> string
 member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
 member org.slf4j.Logger.warn/2 ?lastArgumentThrowable -> $0.LogWarning($2, $1)
 member org.slf4j.Logger.warn/2 -> $0.LogWarning($1, $2)
-statement java.util.Map.put/2 -> $0[$1] = $2
+statement java.util.Map.put/2 -> $0.Add($1, $2)
 ```
 
 - **Directives.** `type`, `plain` (a generic type whose counterpart is not generic) and `pascal` (a class whose
   members are the Java ones in PascalCase) map types. `member` and `statement` map calls (`owner.new` for a
   constructor), `field` maps fields, and `override` gives a C# name to a translated method that overrides a library
-  method.
+  method. A `statement` without a `member` for its key overrides only the statement form: the next mapping still
+  translates the call whose value is used.
 - **Keys and templates** are the JDK table's.
 - **Guards.** A rule with a guard, `?name`, applies only when the guard holds, and the rules of one key are tried in
   order. The guards are named predicates of the call: `arguments=N`, `receiver=fqn`, `lastArgumentThrowable`,
@@ -665,8 +666,8 @@ as the mapping lets the compiler bind more, it gets to report errors it could no
 
 ## Status (first slice)
 
-`TestJavaToCSharpTranslation` has one test per rule. It writes each sample to `build/csharp-samples/`, and all of
-them compile with `dotnet build` (.NET 10) apart from their JDK references. A smoke run over fernflower's 199 main
+`TestJavaToCSharpTranslation` writes each sample's translation to `build/csharp-samples/<test>-<sample>.cs`. Nothing
+compiles them automatically: the unit tests do not need a .NET SDK. The ratchets, which do, are what Roslyn judges. A smoke run over fernflower's 199 main
 files gives:
 
 - no printer crash and no Java fallback;

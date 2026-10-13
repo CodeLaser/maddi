@@ -15,7 +15,9 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,18 +27,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The Java forms C# says differently, one test per translation rule. Each sample is self-contained (no JDK members,
- * which the BCL mapping has yet to translate), and is written to {@code build/csharp-samples/} so that it can be
- * compiled with {@code dotnet build}.
+ * The Java forms C# says differently. Each test writes its samples' translations to {@code build/csharp-samples/},
+ * named after the test and the sample, to be looked at or compiled by hand ({@code tools/csharp-check}).
  */
 public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
 
+    private String test;
+
+    @BeforeEach
+    public void testName(TestInfo info) {
+        test = info.getTestMethod().map(java.lang.reflect.Method::getName).orElseThrow();
+    }
+
+    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}. */
     private String translate(String name, String java) {
         String csharp = csharp(java);
         try {
             Path dir = Path.of("build/csharp-samples");
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve(name + ".cs"), csharp);
+            Files.writeString(dir.resolve(test + "-" + name + ".cs"), csharp);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -1352,6 +1361,116 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> CSharpMappingFile.parse("mapping x\nmember a.B.c/0 ?nope -> d", "bad.csmap"));
         org.junit.jupiter.api.Assertions.assertEquals("bad.csmap:2: no guard ?nope", e.getMessage());
+    }
+
+    @Language("java")
+    private static final String PUTS = """
+            package org.example.puts;
+            import java.util.Map;
+            public class Registry {
+                void add(Map<String, Integer> counts, String key) { counts.put(key, 1); }
+                Integer replace(Map<String, Integer> counts, String key) { return counts.put(key, 2); }
+            }
+            """;
+
+    /** A statement template alone overrides the statement form; the JDK's mapping still has the value form. */
+    @Test
+    public void statementOnlyOverride() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(CSharpMappingFile.parse("""
+                mapping client:add-only
+                statement java.util.Map.put/2 -> $0.Add($1, $2)
+                """, "add-only.csmap")));
+        String cs = translate("Registry", PUTS);
+        contains(cs, "counts.Add(key, 1);");
+        contains(cs, "=> counts.Put(key, 2);");
+    }
+
+    @Language("java")
+    private static final String FIELD_NAMESPACES = """
+            package org.example.fields;
+            import java.math.BigInteger;
+            import java.math.RoundingMode;
+            public class Constants {
+                static boolean zero(Object x) { return BigInteger.ZERO.equals(x); }
+                static Object rounding() { return RoundingMode.HALF_UP; }
+            }
+            """;
+
+    /** A JDK field brings its own namespace, whatever else the file names. */
+    @Test
+    public void fieldNamespaces() {
+        String cs = translate("Constants", FIELD_NAMESPACES);
+        contains(cs, "using System;");
+        contains(cs, "using System.Numerics;");
+        contains(cs, "BigInteger.Zero.Equals(x)");
+        contains(cs, "MidpointRounding.AwayFromZero");
+    }
+
+    @Language("java")
+    private static final String DELEGATE_CLASH = """
+            package org.example.clash;
+            public class Button {
+                public interface Listener { void clicked(); }
+                private Listener listener;
+                public Listener getListener() { return listener; }
+                public void setListener(Listener listener) { this.listener = listener; }
+            }
+            """;
+
+    /**
+     * The properties analysis names types as the printing does: a nested delegate keeps its Java name, so a property
+     * of that name would clash with it (CS0102) and the accessors stay methods.
+     */
+    @Test
+    public void propertyClashesWithDelegate() {
+        String cs = translate("Button", DELEGATE_CLASH);
+        contains(cs, "public delegate void Listener();");
+        contains(cs, "public Listener GetListener()");
+    }
+
+    @Language("java")
+    private static final String SHADOWED_CAPTURE = """
+            package org.example.capture;
+            public class Steps {
+                interface Step { int first(); int second(); }
+                static Step make() {
+                    int x = 5;
+                    return new Step() {
+                        public int first() { int x = 1; return x; }
+                        public int second() { return x; }
+                    };
+                }
+            }
+            """;
+
+    /** A local of one of the anonymous class's methods does not hide a capture of the same name in another. */
+    @Test
+    public void shadowedCapture() {
+        String cs = translate("Steps", SHADOWED_CAPTURE);
+        contains(cs, "return new StepImpl(x);");
+        contains(cs, "internal StepImpl(int x) { this.x = x; }");
+    }
+
+    @Language("java")
+    private static final String OPERATORS = """
+            package org.example.operators;
+            import java.math.BigInteger;
+            public class Operators {
+                enum Color { RED, GREEN }
+                static int compareNegated(BigInteger x, BigInteger y) { return x.negate().compareTo(y); }
+                static boolean differs(Color c, Object o) { return !(c == o); }
+            }
+            """;
+
+    /**
+     * A prefix template is no atom: the negated receiver is parenthesized. A negated == of a value and an object is
+     * the negated object.Equals that == of them is, not C#'s != (CS0019).
+     */
+    @Test
+    public void operators() {
+        String cs = translate("Operators", OPERATORS);
+        contains(cs, "(-x).CompareTo(y)");
+        contains(cs, "!(object.Equals(c, o))");
     }
 
     /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */

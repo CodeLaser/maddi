@@ -22,8 +22,6 @@ import io.codelaser.maddi.cst.print.translate.PrintMessage.Severity;
  * with its {@link Severity}. CSharpCompilationUnitPrinter#printWithMessages returns the messages.
  */
 public enum CSharpPrintCode implements PrintMessage.Code {
-    /** {@code throws} clauses are dropped: C# has no checked exceptions. */
-    THROWS_DROPPED(Severity.INFO),
     /** A wildcard type argument printed as its bound, or {@code object}: C# generics have no wildcards. */
     WILDCARD_AS_BOUND(Severity.LOSS),
     /** A raw generic type printed with {@code object} arguments: C# has no raw types. */

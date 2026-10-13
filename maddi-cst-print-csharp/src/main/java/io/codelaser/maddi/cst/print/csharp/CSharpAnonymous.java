@@ -109,10 +109,12 @@ final class CSharpAnonymous {
 
     /** Collects the captured locals and parameters; true when the enclosing instance is used. */
     private static boolean captures(TypeInfo anonymous, Map<String, Capture> captures) {
-        List<Element> code = CstQueries.codeWithSubTypes(anonymous);
-        Set<String> inside = new HashSet<>();
-        Set<String> insideParameters = new HashSet<>();
-        for (Element element : code) {
+        boolean[] outer = {false};
+        // a local of the anonymous class's code is in scope in the method, initializer or field that declares it
+        // only: one of the same name elsewhere is a capture
+        for (Element element : CstQueries.codeWithSubTypes(anonymous)) {
+            Set<String> inside = new HashSet<>();
+            Set<String> insideParameters = new HashSet<>();
             element.visit((Element e) -> {
                 if (e instanceof LocalVariableCreation lvc) {
                     lvc.localVariableStream().map(LocalVariable::simpleName).forEach(inside::add);
@@ -123,9 +125,6 @@ final class CSharpAnonymous {
                 }
                 return true;
             });
-        }
-        boolean[] outer = {false};
-        for (Element element : code) {
             element.visit((Element e) -> {
                 if (e instanceof VariableExpression ve) {
                     switch (ve.variable()) {

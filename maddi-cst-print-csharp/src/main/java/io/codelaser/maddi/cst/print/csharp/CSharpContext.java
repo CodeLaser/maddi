@@ -41,7 +41,6 @@ final class CSharpContext {
         final Set<String> usings = new TreeSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
-        CSharpLibraries analyzing;
         final java.util.Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, io.codelaser.maddi.cst.api.type.ParameterizedType>
                 created = new java.util.IdentityHashMap<>();
         final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
@@ -93,13 +92,7 @@ final class CSharpContext {
 
     /** The library mappings of the translation: the program's. */
     static CSharpLibraries libraries() {
-        State state = STATE.get();
-        return state.analyzing != null ? state.analyzing : state.program.libraries();
-    }
-
-    /** The libraries while {@link CSharpProgram#analyze} computes the program, before it is the context's; null after. */
-    static void analyzing(CSharpLibraries libraries) {
-        STATE.get().analyzing = libraries;
+        return STATE.get().program.libraries();
     }
 
     static void pushType(TypeInfo typeInfo) {

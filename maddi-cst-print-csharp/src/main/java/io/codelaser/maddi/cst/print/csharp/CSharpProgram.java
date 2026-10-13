@@ -161,12 +161,25 @@ public final class CSharpProgram {
     /** The facts about the program of {@code primaryTypes}: the translated code, all of it. */
     public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes, Policy policy) {
         // what the policy's mappings exclude is no program type, as the printing will have it (CSharpNames.translated)
-        CSharpContext.analyzing(policy.libraries());
+        CSharpProgram previous = CSharpContext.program();
         try {
+            CSharpContext.program(partial(Set.of(), Map.of(), Set.of(), Set.of(), Map.of(), policy));
             return analyzeTranslated(primaryTypes.stream().filter(t -> !policy.libraries().excludes(t)).toList(), policy);
         } finally {
-            CSharpContext.analyzing(null);
+            CSharpContext.program(previous);
         }
+    }
+
+    /**
+     * The program as far as the analyses have it, the context's while the others run: C#'s names of the program's
+     * types ({@link CSharpNames#type}) depend on its delegates, ambiguous and prefixed hoisted names.
+     */
+    private static CSharpProgram partial(Set<TypeInfo> delegates, Map<String, String> namespaceSegments,
+                                         Set<String> ambiguous, Set<TypeInfo> prefixedHoisted,
+                                         Map<MethodInfo, Integer> typeTokens, Policy policy) {
+        return new CSharpProgram(delegates, Set.of(), Set.of(), policy.inheritance(), namespaceSegments, ambiguous,
+                prefixedHoisted, typeTokens, policy.libraries(), CSharpProperties.Analysis.NONE, policy.facts(),
+                Set.of());
     }
 
     private static CSharpProgram analyzeTranslated(Collection<TypeInfo> primaryTypes, Policy policy) {
@@ -190,9 +203,14 @@ public final class CSharpProgram {
         candidates.removeAll(implemented);
         Set<TypeInfo> delegates = policy.functionalInterfaces() == FunctionalInterfaces.ADAPTER ? Set.of()
                 : Set.copyOf(candidates);
+        Map<String, String> namespaceSegments = namespaceSegments(primaryTypes, all, policy.libraries());
+        Set<String> ambiguous = ambiguous(primaryTypes, policy.libraries());
+        Set<TypeInfo> prefixedHoisted = prefixedHoisted(all);
+        Map<MethodInfo, Integer> typeTokens = typeTokens(all);
+        // the analyses below name types as the printing will
+        CSharpContext.program(partial(delegates, namespaceSegments, ambiguous, prefixedHoisted, typeTokens, policy));
         CSharpProgram program = new CSharpProgram(delegates, Set.copyOf(extended), Set.copyOf(overridden),
-                policy.inheritance(), namespaceSegments(primaryTypes, all, policy.libraries()),
-                ambiguous(primaryTypes, policy.libraries()), prefixedHoisted(all), typeTokens(all), policy.libraries(),
+                policy.inheritance(), namespaceSegments, ambiguous, prefixedHoisted, typeTokens, policy.libraries(),
                 policy.accessors() == Accessors.PROPERTIES ? CSharpProperties.analyze(all, overridden, delegates)
                         : CSharpProperties.Analysis.NONE,
                 policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));

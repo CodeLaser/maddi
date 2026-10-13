@@ -329,6 +329,9 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             } else if (c == '!') {
                 b.add(SymbolEnum.UNARY_BOOLEAN_NOT);
                 i++;
+            } else if (c == '-' && prefixPosition(text, i, b.isEmpty())) {
+                b.add(SymbolEnum.UNARY_MINUS);
+                i++;
             } else if (OPERATORS.contains(String.valueOf(c))) {
                 b.add(SymbolEnum.binaryOperator(String.valueOf(c)));
                 i++;
@@ -342,9 +345,26 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         }
     }
 
-    /** A template whose result is not an atom: an operator outside brackets, a cast, a prefix. */
+    /**
+     * The {@code -} at {@code i} of a literal part of a template is a prefix: at the start of the template, or after
+     * an opening bracket, a comma or =; not after an argument ({@code $3 - $2}), which is what the output holds when
+     * the literal part starts there.
+     */
+    private static boolean prefixPosition(String text, int i, boolean startOfTemplate) {
+        int j = i - 1;
+        while (j >= 0 && text.charAt(j) == ' ') j--;
+        return j < 0 ? startOfTemplate : "([,=".indexOf(text.charAt(j)) >= 0;
+    }
+
+    /**
+     * True for a template whose result is an atom; false for one with an operator outside brackets, a cast or a prefix
+     * operator ({@code -@0}), whose result needs parentheses as a receiver or operand.
+     */
     static boolean atomic(String template) {
-        if (template.startsWith("!") || template.startsWith("(") && !template.startsWith("($")) return false;
+        if (!template.isEmpty() && "!-+~".indexOf(template.charAt(0)) >= 0
+            || template.startsWith("(") && !template.startsWith("($")) {
+            return false;
+        }
         int depth = 0;
         for (char c : template.toCharArray()) {
             if (c == '(' || c == '[' || c == '{' || c == '<') depth++;

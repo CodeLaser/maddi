@@ -51,7 +51,8 @@ public interface LibraryMapping {
 
     /**
      * A member's translation: {@code value} for a call whose value is used, {@code statement} for one whose is not
-     * (null: {@code value}). In a template, {@code $0} is the receiver, {@code $1}, {@code $2}, … the arguments,
+     * (null: {@code value}). A rule with only a statement template takes its value from the next mapping that has
+     * one ({@link CSharpLibraries#call}), and when none does, from the statement template. In a template, {@code $0} is the receiver, {@code $1}, {@code $2}, … the arguments,
      * {@code $*} all of them, {@code $+} all but the first, {@code @1} an argument as an operand, {@code $1.2} the
      * second argument of the first, a call, {@code {R}} the call's return type and {@code {R0}} its type arguments,
      * {@code {T0}} the receiver's.
@@ -72,7 +73,7 @@ public interface LibraryMapping {
         }
 
         public String template(boolean asStatement) {
-            return asStatement && statement != null ? statement : value;
+            return asStatement && statement != null || value == null ? statement : value;
         }
     }
 

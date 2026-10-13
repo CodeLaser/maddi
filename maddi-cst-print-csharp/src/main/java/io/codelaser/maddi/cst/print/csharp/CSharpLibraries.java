@@ -153,14 +153,32 @@ public final class CSharpLibraries implements LibraryMapping {
         return first(m -> m.type(typeInfo));
     }
 
+    /** The first rule; one with only a statement template is completed by the next one's value template. */
     @Override
     public Rule call(MethodInfo method, MethodCall call) {
-        return first(m -> m.call(method, call));
+        return firstRule(m -> m.call(method, call));
     }
 
     @Override
     public Rule constructor(MethodInfo constructor) {
-        return first(m -> m.constructor(constructor));
+        return firstRule(m -> m.constructor(constructor));
+    }
+
+    private Rule firstRule(Function<LibraryMapping, Rule> ask) {
+        Rule statementOnly = null;
+        for (LibraryMapping m : mappings) {
+            Rule rule = ask.apply(m);
+            if (rule == null) continue;
+            if (statementOnly == null) {
+                if (rule.value() != null) return rule;
+                statementOnly = rule;
+            } else if (rule.value() != null) {
+                Set<String> namespaces = new java.util.LinkedHashSet<>(statementOnly.namespaces());
+                namespaces.addAll(rule.namespaces());
+                return new Rule(rule.value(), statementOnly.statement(), List.copyOf(namespaces));
+            }
+        }
+        return statementOnly;
     }
 
     @Override

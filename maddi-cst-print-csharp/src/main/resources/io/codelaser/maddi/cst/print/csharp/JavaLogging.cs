@@ -21,13 +21,18 @@ public static class JavaLogging
 {
     public static ILoggerFactory Factory { get; set; } = NullLoggerFactory.Instance;
 
-    public static ILogger GetLogger(Type type) => new Deferred(() => Factory.CreateLogger(type));
+    // the category CreateLogger(Type) gives the type: its full name, with dots between nested types
+    public static ILogger GetLogger(Type type) =>
+        new Deferred(type.FullName?.Replace('+', '.') ?? type.Name, () => Factory.CreateLogger(type));
 
-    public static ILogger GetLogger(string name) => new Deferred(() => Factory.CreateLogger(name));
+    public static ILogger GetLogger(string name) => new Deferred(name, () => Factory.CreateLogger(name));
 
-    /// <summary>A logger of the factory as it is when the logger is first used.</summary>
-    private sealed class Deferred(Func<ILogger> create) : ILogger
+    /// <summary>A logger of the factory as it is when the logger is first used; its name is its category.</summary>
+    private sealed class Deferred(string name, Func<ILogger> create) : ILogger
     {
+        /// <summary>slf4j's Logger.getName.</summary>
+        public override string ToString() => name;
+
         private ILoggerFactory? resolvedWith;
         private ILogger? logger;
 

@@ -54,7 +54,8 @@ import java.util.regex.Pattern;
  * member org.slf4j.Logger.info/1 -> $0.LogInformation($1)
  * member org.slf4j.Logger.warn/2 ?lastArgumentThrowable -> $0.LogWarning($2, $1)
  * member org.slf4j.Logger.warn/2 -> $0.LogWarning($1, $2)
- * statement java.util.Map.put/2 -> $0[$1] = $2              the template for a call whose value is not used
+ * statement java.util.Map.put/2 -> $0.Add($1, $2)          the template for a call whose value is not used; alone,
+ *                                                          the next mapping supplies the value template
  * member java.util.UUID.new/2 -> new Guid(...)              a constructor: owner.new
  * field java.lang.System.out -> Console.Out using System
  * override java.lang.AutoCloseable.close/0 -> Dispose       the name of a translated method that overrides it
@@ -376,17 +377,26 @@ public final class CSharpMappingFile implements LibraryMapping {
                 base + "/" + constructor.parameters().size(), base), constructor, null);
     }
 
-    /** The rule of the first key with a value template whose guard holds, and that key's statement template. */
+    /**
+     * The rule of the first key with a value template whose guard holds, and that key's statement template, or a more
+     * specific key's; a statement template without any value template is a rule of its own, whose value the next
+     * mapping supplies ({@link CSharpLibraries#call}).
+     */
     private Rule rule(List<String> keys, MethodInfo method, MethodCall call) {
+        Entry pending = null;
         for (String key : keys) {
             Entry value = first(values.get(key), method, call);
-            if (value == null) continue;
             Entry statement = first(statements.get(key), method, call);
+            if (statement == null) statement = pending;
+            if (value == null) {
+                pending = statement;
+                continue;
+            }
             Set<String> namespaces = new LinkedHashSet<>(value.namespaces());
             if (statement != null) namespaces.addAll(statement.namespaces());
             return new Rule(value.template(), statement == null ? null : statement.template(), List.copyOf(namespaces));
         }
-        return null;
+        return pending == null ? null : new Rule(null, pending.template(), pending.namespaces());
     }
 
     private static Entry first(List<Entry> entries, MethodInfo method, MethodCall call) {

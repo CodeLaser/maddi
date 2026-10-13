@@ -1373,7 +1373,10 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder negation(Negation neg, Qualification q) {
         Expression inner = unwrap(neg.expression());
         if (inner instanceof InstanceOf io) return instanceOf(io, true, q); // !(x instanceof T) -> x is not T
-        if (inner instanceof Equals equals && !stringIdentity(equals.lhs(), equals.rhs())) {
+        // !(a == b) is a != b, unless == is not C#'s == (binaryOperator): a string identity, or a value against an
+        // object, which the default below negates
+        if (inner instanceof Equals equals && !stringIdentity(equals.lhs(), equals.rhs())
+            && !valueAndObject(equals.lhs(), equals.rhs()) && !valueAndObject(equals.rhs(), equals.lhs())) {
             return new OutputBuilderImpl().add(operand(equals.precedence(), equals.lhs(), q))
                     .add(SymbolEnum.NOT_EQUALS).add(operand(equals.precedence(), equals.rhs(), q));
         }
