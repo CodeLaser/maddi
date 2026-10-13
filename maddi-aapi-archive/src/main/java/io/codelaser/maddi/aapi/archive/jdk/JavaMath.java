@@ -17,6 +17,7 @@ import java.math.*;
 import java.util.Random;
 
 import io.codelaser.maddi.annotation.ImmutableContainer;
+import io.codelaser.maddi.annotation.NotNull;
 public class JavaMath {
     public static final String PACKAGE_NAME = "java.math";
     //public class BigDecimal extends Number implements Comparable<BigDecimal>
@@ -34,39 +35,39 @@ public class JavaMath {
         static final BigDecimal TEN = null;
         static final BigDecimal TWO = null;
         static final BigDecimal ZERO = null;
-        BigDecimal$(String val) { }
-        BigDecimal$(String val, MathContext mc) { }
-        BigDecimal$(char [] in) { }
-        BigDecimal$(char [] in, int offset, int len) { }
-        BigDecimal$(char [] in, int offset, int len, MathContext mc) { }
-        BigDecimal$(char [] in, MathContext mc) { }
+        BigDecimal$(@NotNull String val) { }
+        BigDecimal$(@NotNull String val, @NotNull MathContext mc) { }
+        BigDecimal$(@NotNull char [] in) { }
+        BigDecimal$(@NotNull char [] in, int offset, int len) { }
+        BigDecimal$(@NotNull char [] in, int offset, int len, @NotNull MathContext mc) { }
+        BigDecimal$(@NotNull char [] in, @NotNull MathContext mc) { }
         BigDecimal$(double val) { }
-        BigDecimal$(double val, MathContext mathContext) { }
+        BigDecimal$(double val, @NotNull MathContext mathContext) { }
         BigDecimal$(int val) { }
-        BigDecimal$(int val, MathContext mc) { }
-        BigDecimal$(BigInteger val) { }
-        BigDecimal$(BigInteger unscaledVal, int scale) { }
-        BigDecimal$(BigInteger unscaledVal, int scale, MathContext mc) { }
-        BigDecimal$(BigInteger val, MathContext mc) { }
+        BigDecimal$(int val, @NotNull MathContext mc) { }
+        BigDecimal$(@NotNull BigInteger val) { }
+        BigDecimal$(@NotNull BigInteger unscaledVal, int scale) { }
+        BigDecimal$(@NotNull BigInteger unscaledVal, int scale, @NotNull MathContext mc) { }
+        BigDecimal$(@NotNull BigInteger val, @NotNull MathContext mc) { }
         BigDecimal$(long val) { }
-        BigDecimal$(long val, MathContext mathContext) { }
+        BigDecimal$(long val, @NotNull MathContext mathContext) { }
         BigDecimal abs() { return null; }
-        BigDecimal abs(MathContext mc) { return null; }
-        BigDecimal add(BigDecimal augend) { return null; }
-        BigDecimal add(BigDecimal augend, MathContext mc) { return null; }
+        BigDecimal abs(@NotNull MathContext mc) { return null; }
+        BigDecimal add(@NotNull BigDecimal augend) { return null; }
+        BigDecimal add(@NotNull BigDecimal augend, @NotNull MathContext mc) { return null; }
         byte byteValueExact() { return 0; }
         //override from java.lang.Comparable
-        int compareTo(BigDecimal val) { return 0; }
-        BigDecimal divide(BigDecimal divisor) { return null; }
-        BigDecimal divide(BigDecimal divisor, int roundingMode) { return null; }
-        BigDecimal divide(BigDecimal divisor, int scale, int roundingMode) { return null; }
-        BigDecimal divide(BigDecimal divisor, int scale, RoundingMode roundingMode) { return null; }
-        BigDecimal divide(BigDecimal divisor, MathContext mc) { return null; }
-        BigDecimal divide(BigDecimal divisor, RoundingMode roundingMode) { return null; }
-        BigDecimal [] divideAndRemainder(BigDecimal divisor) { return null; }
-        BigDecimal [] divideAndRemainder(BigDecimal divisor, MathContext mc) { return null; }
-        BigDecimal divideToIntegralValue(BigDecimal divisor) { return null; }
-        BigDecimal divideToIntegralValue(BigDecimal divisor, MathContext mc) { return null; }
+        int compareTo(@NotNull BigDecimal val) { return 0; }
+        BigDecimal divide(@NotNull BigDecimal divisor) { return null; }
+        BigDecimal divide(@NotNull BigDecimal divisor, int roundingMode) { return null; }
+        BigDecimal divide(@NotNull BigDecimal divisor, int scale, int roundingMode) { return null; }
+        BigDecimal divide(@NotNull BigDecimal divisor, int scale, @NotNull RoundingMode roundingMode) { return null; }
+        BigDecimal divide(@NotNull BigDecimal divisor, @NotNull MathContext mc) { return null; }
+        BigDecimal divide(@NotNull BigDecimal divisor, @NotNull RoundingMode roundingMode) { return null; }
+        BigDecimal [] divideAndRemainder(@NotNull BigDecimal divisor) { return null; }
+        BigDecimal [] divideAndRemainder(@NotNull BigDecimal divisor, @NotNull MathContext mc) { return null; }
+        BigDecimal divideToIntegralValue(@NotNull BigDecimal divisor) { return null; }
+        BigDecimal divideToIntegralValue(@NotNull BigDecimal divisor, @NotNull MathContext mc) { return null; }
         //override from java.lang.Number
         double doubleValue() { return 0.0; }
 
@@ -85,33 +86,33 @@ public class JavaMath {
         //override from java.lang.Number
         long longValue() { return 0L; }
         long longValueExact() { return 0L; }
-        BigDecimal max(BigDecimal val) { return null; }
-        BigDecimal min(BigDecimal val) { return null; }
+        BigDecimal max(@NotNull BigDecimal val) { return null; }
+        BigDecimal min(@NotNull BigDecimal val) { return null; }
         BigDecimal movePointLeft(int n) { return null; }
         BigDecimal movePointRight(int n) { return null; }
-        BigDecimal multiply(BigDecimal multiplicand) { return null; }
-        BigDecimal multiply(BigDecimal multiplicand, MathContext mc) { return null; }
+        BigDecimal multiply(@NotNull BigDecimal multiplicand) { return null; }
+        BigDecimal multiply(@NotNull BigDecimal multiplicand, @NotNull MathContext mc) { return null; }
         BigDecimal negate() { return null; }
-        BigDecimal negate(MathContext mc) { return null; }
+        BigDecimal negate(@NotNull MathContext mc) { return null; }
         BigDecimal plus() { return null; }
-        BigDecimal plus(MathContext mc) { return null; }
+        BigDecimal plus(@NotNull MathContext mc) { return null; }
         BigDecimal pow(int n) { return null; }
-        BigDecimal pow(int n, MathContext mc) { return null; }
+        BigDecimal pow(int n, @NotNull MathContext mc) { return null; }
         int precision() { return 0; }
-        BigDecimal remainder(BigDecimal divisor) { return null; }
-        BigDecimal remainder(BigDecimal divisor, MathContext mc) { return null; }
-        BigDecimal round(MathContext mc) { return null; }
+        BigDecimal remainder(@NotNull BigDecimal divisor) { return null; }
+        BigDecimal remainder(@NotNull BigDecimal divisor, @NotNull MathContext mc) { return null; }
+        BigDecimal round(@NotNull MathContext mc) { return null; }
         int scale() { return 0; }
         BigDecimal scaleByPowerOfTen(int n) { return null; }
         BigDecimal setScale(int newScale) { return null; }
         BigDecimal setScale(int newScale, int roundingMode) { return null; }
-        BigDecimal setScale(int newScale, RoundingMode roundingMode) { return null; }
+        BigDecimal setScale(int newScale, @NotNull RoundingMode roundingMode) { return null; }
         short shortValueExact() { return 0; }
         int signum() { return 0; }
-        BigDecimal sqrt(MathContext mc) { return null; }
+        BigDecimal sqrt(@NotNull MathContext mc) { return null; }
         BigDecimal stripTrailingZeros() { return null; }
-        BigDecimal subtract(BigDecimal subtrahend) { return null; }
-        BigDecimal subtract(BigDecimal subtrahend, MathContext mc) { return null; }
+        BigDecimal subtract(@NotNull BigDecimal subtrahend) { return null; }
+        BigDecimal subtract(@NotNull BigDecimal subtrahend, @NotNull MathContext mc) { return null; }
         BigInteger toBigInteger() { return null; }
         BigInteger toBigIntegerExact() { return null; }
         String toEngineeringString() { return null; }
@@ -123,6 +124,9 @@ public class JavaMath {
         static BigDecimal valueOf(double val) { return null; }
         static BigDecimal valueOf(long val) { return null; }
         static BigDecimal valueOf(long unscaledVal, int i) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        java.math.BigDecimal rootn(int p0, @NotNull java.math.MathContext p1) { return null; }
     }
 
     //public class BigInteger extends Number implements Comparable<BigInteger>
@@ -132,26 +136,26 @@ public class JavaMath {
         static final BigInteger TEN = null;
         static final BigInteger TWO = null;
         static final BigInteger ZERO = null;
-        BigInteger$(String val) { }
-        BigInteger$(String val, int radix) { }
-        BigInteger$(byte [] val) { }
-        BigInteger$(byte [] val, int off, int len) { }
-        BigInteger$(int signum, byte [] magnitude) { }
-        BigInteger$(int signum, byte [] magnitude, int off, int len) { }
-        BigInteger$(int bitLength, int certainty, Random rnd) { }
-        BigInteger$(int numBits, Random rnd) { }
+        BigInteger$(@NotNull String val) { }
+        BigInteger$(@NotNull String val, int radix) { }
+        BigInteger$(@NotNull byte [] val) { }
+        BigInteger$(@NotNull byte [] val, int off, int len) { }
+        BigInteger$(int signum, @NotNull byte [] magnitude) { }
+        BigInteger$(int signum, @NotNull byte [] magnitude, int off, int len) { }
+        BigInteger$(int bitLength, int certainty, @NotNull Random rnd) { }
+        BigInteger$(int numBits, @NotNull Random rnd) { }
         BigInteger abs() { return null; }
-        BigInteger add(BigInteger val) { return null; }
-        BigInteger and(BigInteger val) { return null; }
-        BigInteger andNot(BigInteger val) { return null; }
+        BigInteger add(@NotNull BigInteger val) { return null; }
+        BigInteger and(@NotNull BigInteger val) { return null; }
+        BigInteger andNot(@NotNull BigInteger val) { return null; }
         int bitCount() { return 0; }
         int bitLength() { return 0; }
         byte byteValueExact() { return 0; }
         BigInteger clearBit(int n) { return null; }
         //override from java.lang.Comparable
-        int compareTo(BigInteger val) { return 0; }
-        BigInteger divide(BigInteger val) { return null; }
-        BigInteger [] divideAndRemainder(BigInteger val) { return null; }
+        int compareTo(@NotNull BigInteger val) { return 0; }
+        BigInteger divide(@NotNull BigInteger val) { return null; }
+        BigInteger [] divideAndRemainder(@NotNull BigInteger val) { return null; }
         //override from java.lang.Number
         double doubleValue() { return 0.0; }
 
@@ -160,7 +164,7 @@ public class JavaMath {
         BigInteger flipBit(int n) { return null; }
         //override from java.lang.Number
         float floatValue() { return 0.0F; }
-        BigInteger gcd(BigInteger val) { return null; }
+        BigInteger gcd(@NotNull BigInteger val) { return null; }
         int getLowestSetBit() { return 0; }
         //override from java.lang.Object
         public int hashCode() { return 0; }
@@ -172,20 +176,20 @@ public class JavaMath {
         //override from java.lang.Number
         long longValue() { return 0L; }
         long longValueExact() { return 0L; }
-        BigInteger max(BigInteger val) { return null; }
-        BigInteger min(BigInteger val) { return null; }
-        BigInteger mod(BigInteger m) { return null; }
-        BigInteger modInverse(BigInteger m) { return null; }
-        BigInteger modPow(BigInteger exponent, BigInteger m) { return null; }
-        BigInteger multiply(BigInteger val) { return null; }
+        BigInteger max(@NotNull BigInteger val) { return null; }
+        BigInteger min(@NotNull BigInteger val) { return null; }
+        BigInteger mod(@NotNull BigInteger m) { return null; }
+        BigInteger modInverse(@NotNull BigInteger m) { return null; }
+        BigInteger modPow(@NotNull BigInteger exponent, @NotNull BigInteger m) { return null; }
+        BigInteger multiply(@NotNull BigInteger val) { return null; }
         BigInteger negate() { return null; }
         BigInteger nextProbablePrime() { return null; }
         BigInteger not() { return null; }
-        BigInteger or(BigInteger val) { return null; }
-        BigInteger parallelMultiply(BigInteger val) { return null; }
+        BigInteger or(@NotNull BigInteger val) { return null; }
+        BigInteger parallelMultiply(@NotNull BigInteger val) { return null; }
         BigInteger pow(int exponent) { return null; }
-        static BigInteger probablePrime(int bitLength, Random rnd) { return null; }
-        BigInteger remainder(BigInteger val) { return null; }
+        static BigInteger probablePrime(int bitLength, @NotNull Random rnd) { return null; }
+        BigInteger remainder(@NotNull BigInteger val) { return null; }
         BigInteger rootn(int n) { return null; }
         BigInteger [] rootnAndRemainder(int n) { return null; }
         BigInteger setBit(int n) { return null; }
@@ -195,14 +199,14 @@ public class JavaMath {
         int signum() { return 0; }
         BigInteger sqrt() { return null; }
         BigInteger [] sqrtAndRemainder() { return null; }
-        BigInteger subtract(BigInteger val) { return null; }
+        BigInteger subtract(@NotNull BigInteger val) { return null; }
         boolean testBit(int n) { return false; }
         byte [] toByteArray() { return null; }
         //override from java.lang.Object
         public String toString() { return null; }
         String toString(int radix) { return null; }
         static BigInteger valueOf(long val) { return null; }
-        BigInteger xor(BigInteger val) { return null; }
+        BigInteger xor(@NotNull BigInteger val) { return null; }
     }
 
     //public final class MathContext implements Serializable
@@ -212,9 +216,9 @@ public class JavaMath {
         static final MathContext DECIMAL32 = null;
         static final MathContext DECIMAL64 = null;
         static final MathContext UNLIMITED = null;
-        MathContext$(String val) { }
+        MathContext$(@NotNull String val) { }
         MathContext$(int setPrecision) { }
-        MathContext$(int setPrecision, RoundingMode setRoundingMode) { }
+        MathContext$(int setPrecision, @NotNull RoundingMode setRoundingMode) { }
         //override from java.lang.Object
         public boolean equals(Object x) { return false; }
         int getPrecision() { return 0; }

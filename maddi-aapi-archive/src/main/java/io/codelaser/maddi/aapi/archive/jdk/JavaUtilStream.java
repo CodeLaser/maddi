@@ -33,7 +33,7 @@ public class JavaUtilStream {
         S sequential() { return null; }
         S parallel() { return null; }
         S unordered() { return null; }
-        S onClose(/*@IgnoreModifications[T]*/ Runnable runnable) { return null; }
+        S onClose(/*@IgnoreModifications[T]*/ @NotNull Runnable runnable) { return null; }
         //override from java.lang.AutoCloseable
         void close() { }
     }
@@ -56,6 +56,10 @@ public class JavaUtilStream {
         @NotNull(content = true)
         @Modified
         Function<A, R> finisher();
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static <T, R> java.util.stream.Collector<T, R, R> of(@NotNull java.util.function.Supplier<R> p0, @NotNull java.util.function.BiConsumer<R, T> p1, @NotNull java.util.function.BinaryOperator<R> p2, @NotNull java.util.stream.Collector.Characteristics... p3) { return null; }
+        static <T, A, R> java.util.stream.Collector<T, A, R> of(@NotNull java.util.function.Supplier<A> p0, @NotNull java.util.function.BiConsumer<A, T> p1, @NotNull java.util.function.BinaryOperator<A> p2, @NotNull java.util.function.Function<A, R> p3, @NotNull java.util.stream.Collector.Characteristics... p4) { return null; }
     }
 
     //public final class Collectors
@@ -65,7 +69,7 @@ public class JavaUtilStream {
         //@Independent[T]
         @NotNull
         static <T, C extends Collection<T>> Collector<T, ?, C> toCollection(
-            /*@IgnoreModifications[T]*/ Supplier<C> collectionFactory) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<C> collectionFactory) { return null; }
 
         //frequency 16
         //@Independent[T]
@@ -90,203 +94,203 @@ public class JavaUtilStream {
         //@Independent[T]
 
         static Collector<CharSequence, ?, String> joining(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence delimiter) { return null; }
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence delimiter) { return null; }
 
         //@Independent[T]
         static Collector<CharSequence, ?, String> joining(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence delimiter,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence prefix,
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ CharSequence suffix) { return null; }
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence delimiter,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence prefix,
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence suffix) { return null; }
 
         //@Independent[T]
         static <T, U, A, R> Collector<T, ?, R> mapping(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> mapper,
-            Collector<? super U, A, R> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> mapper,
+            @NotNull Collector<? super U, A, R> downstream) { return null; }
 
         //@Independent[T]
         static <T, U, A, R> Collector<T, ?, R> flatMapping(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends Stream<? extends U>> mapper,
-            Collector<? super U, A, R> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends Stream<? extends U>> mapper,
+            @NotNull Collector<? super U, A, R> downstream) { return null; }
 
         //@Independent[T]
         static <T, A, R> Collector<T, ?, R> filtering(
-            /*@IgnoreModifications[T]*/ Predicate<? super T> predicate,
-            Collector<? super T, A, R> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> predicate,
+            @NotNull Collector<? super T, A, R> downstream) { return null; }
 
         //@Independent[T]
         static <T, A, R, RR> Collector<T, A, RR> collectingAndThen(
-            Collector<T, A, R> downstream,
-            /*@IgnoreModifications[T]*/ Function<R, RR> finisher) { return null; }
+            @NotNull Collector<T, A, R> downstream,
+            /*@IgnoreModifications[T]*/ @NotNull Function<R, RR> finisher) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, Long> counting() { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, Optional<T>> minBy(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Comparator<? super T> comparator) {
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Comparator<? super T> comparator) {
             return null;
         }
 
         //@Independent[T]
         static <T> Collector<T, ?, Optional<T>> maxBy(
-            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Comparator<? super T> comparator) {
+            /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull Comparator<? super T> comparator) {
             return null;
         }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Integer> summingInt(/*@IgnoreModifications[T]*/ ToIntFunction<? super T> mapper) {
+        static <T> Collector<T, ?, Integer> summingInt(/*@IgnoreModifications[T]*/ @NotNull ToIntFunction<? super T> mapper) {
             return null;
         }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Long> summingLong(/*@IgnoreModifications[T]*/ ToLongFunction<? super T> mapper) {
+        static <T> Collector<T, ?, Long> summingLong(/*@IgnoreModifications[T]*/ @NotNull ToLongFunction<? super T> mapper) {
             return null;
         }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Double> summingDouble(/*@IgnoreModifications[T]*/ ToDoubleFunction<? super T> mapper) {
+        static <T> Collector<T, ?, Double> summingDouble(/*@IgnoreModifications[T]*/ @NotNull ToDoubleFunction<? super T> mapper) {
             return null;
         }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Double> averagingInt(/*@IgnoreModifications[T]*/ ToIntFunction<? super T> mapper) {
+        static <T> Collector<T, ?, Double> averagingInt(/*@IgnoreModifications[T]*/ @NotNull ToIntFunction<? super T> mapper) {
             return null;
         }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Double> averagingLong(/*@IgnoreModifications[T]*/ ToLongFunction<? super T> mapper) {
+        static <T> Collector<T, ?, Double> averagingLong(/*@IgnoreModifications[T]*/ @NotNull ToLongFunction<? super T> mapper) {
             return null;
         }
 
         //@Independent[T]
         static <T> Collector<T, ?, Double> averagingDouble(
-            /*@IgnoreModifications[T]*/ ToDoubleFunction<? super T> mapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull ToDoubleFunction<? super T> mapper) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, T> reducing(
             /*@Independent(hc=true)[T] @NotModified[T]*/ T identity,
-            /*@IgnoreModifications[T]*/ BinaryOperator<T> op) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<T> op) { return null; }
 
         //@Independent[T]
-        static <T> Collector<T, ?, Optional<T>> reducing(/*@IgnoreModifications[T]*/ BinaryOperator<T> op) {
+        static <T> Collector<T, ?, Optional<T>> reducing(/*@IgnoreModifications[T]*/ @NotNull BinaryOperator<T> op) {
             return null;
         }
 
         //@Independent[T]
         static <T, U> Collector<T, ?, U> reducing(
             /*@Independent(hc=true)[T] @NotModified[T]*/ U identity,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> mapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> op) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> mapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> op) { return null; }
 
         //frequency 1
         //@Independent[T]
 
         static <T, K> Collector<T, ?, Map<K, List<T>>> groupingBy(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier) { return null; }
 
         //@Independent[T]
         static <T, K, A, D> Collector<T, ?, Map<K, D>> groupingBy(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier,
-            Collector<? super T, A, D> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier,
+            @NotNull Collector<? super T, A, D> downstream) { return null; }
 
         //@Independent[T]
         static <T, K, D, A, M extends Map<K, D>> Collector<T, ?, M> groupingBy(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier,
-            /*@IgnoreModifications[T]*/ Supplier<M> mapFactory,
-            Collector<? super T, A, D> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier,
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<M> mapFactory,
+            @NotNull Collector<? super T, A, D> downstream) { return null; }
 
         //@Independent[T]
         static <T, K> Collector<T, ?, ConcurrentMap<K, List<T>>> groupingByConcurrent(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier) { return null; }
 
         //@Independent[T]
         static <T, K, A, D> Collector<T, ?, ConcurrentMap<K, D>> groupingByConcurrent(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier,
-            Collector<? super T, A, D> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier,
+            @NotNull Collector<? super T, A, D> downstream) { return null; }
 
         //@Independent[T]
         static <T, K, A, D, M extends ConcurrentMap<K, D>> Collector<T, ?, M> groupingByConcurrent(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> classifier,
-            /*@IgnoreModifications[T]*/ Supplier<M> mapFactory,
-            Collector<? super T, A, D> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> classifier,
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<M> mapFactory,
+            @NotNull Collector<? super T, A, D> downstream) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, Map<Boolean, List<T>>> partitioningBy(
-            /*@IgnoreModifications[T]*/ Predicate<? super T> predicate) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> predicate) { return null; }
 
         //@Independent[T]
         static <T, D, A> Collector<T, ?, Map<Boolean, D>> partitioningBy(
-            /*@IgnoreModifications[T]*/ Predicate<? super T> predicate,
-            Collector<? super T, A, D> downstream) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Predicate<? super T> predicate,
+            @NotNull Collector<? super T, A, D> downstream) { return null; }
 
         //frequency 7
         //@Independent[T]
         @NotNull
         static <T, K, U> Collector<T, ?, Map<K, U>> toMap(
-            /*@IgnoreModifications[T]*/ @Independent(hcReturnValue = true) Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ @Independent(hcReturnValue = true) Function<? super T, ? extends U> valueMapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull @Independent(hcReturnValue = true) Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull @Independent(hcReturnValue = true) Function<? super T, ? extends U> valueMapper) { return null; }
 
         //@Independent[T]
         static <T, K, U> Collector<T, ?, Map<K, U>> toUnmodifiableMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper) { return null; }
 
         //frequency 2
         //@Independent[T]
 
         static <T, K, U> Collector<T, ?, Map<K, U>> toMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> mergeFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> mergeFunction) { return null; }
 
         //@Independent[T]
         static <T, K, U> Collector<T, ?, Map<K, U>> toUnmodifiableMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> mergeFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> mergeFunction) { return null; }
 
         //@Independent[T]
         static <T, K, U, M extends Map<K, U>> Collector<T, ?, M> toMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> mergeFunction,
-            /*@IgnoreModifications[T]*/ Supplier<M> mapFactory) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> mergeFunction,
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<M> mapFactory) { return null; }
 
         //@Independent[T]
         static <T, K, U> Collector<T, ?, ConcurrentMap<K, U>> toConcurrentMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper) { return null; }
 
         //@Independent[T]
         static <T, K, U> Collector<T, ?, ConcurrentMap<K, U>> toConcurrentMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> mergeFunction) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> mergeFunction) { return null; }
 
         //@Independent[T]
         static <T, K, U, M extends ConcurrentMap<K, U>> Collector<T, ?, M> toConcurrentMap(
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends K> keyMapper,
-            /*@IgnoreModifications[T]*/ Function<? super T, ? extends U> valueMapper,
-            /*@IgnoreModifications[T]*/ BinaryOperator<U> mergeFunction,
-            /*@IgnoreModifications[T]*/ Supplier<M> mapFactory) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends K> keyMapper,
+            /*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> valueMapper,
+            /*@IgnoreModifications[T]*/ @NotNull BinaryOperator<U> mergeFunction,
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<M> mapFactory) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, IntSummaryStatistics> summarizingInt(
-            /*@IgnoreModifications[T]*/ ToIntFunction<? super T> mapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull ToIntFunction<? super T> mapper) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, LongSummaryStatistics> summarizingLong(
-            /*@IgnoreModifications[T]*/ ToLongFunction<? super T> mapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull ToLongFunction<? super T> mapper) { return null; }
 
         //@Independent[T]
         static <T> Collector<T, ?, DoubleSummaryStatistics> summarizingDouble(
-            /*@IgnoreModifications[T]*/ ToDoubleFunction<? super T> mapper) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull ToDoubleFunction<? super T> mapper) { return null; }
 
         //@Independent[T]
         static <T, R1, R2, R> Collector<T, ?, R> teeing(
-            Collector<? super T, ?, R1> downstream1,
-            Collector<? super T, ?, R2> downstream2,
-            /*@IgnoreModifications[T]*/ BiFunction<? super R1, ? super R2, R> merger) { return null; }
+            @NotNull Collector<? super T, ?, R1> downstream1,
+            @NotNull Collector<? super T, ?, R2> downstream2,
+            /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super R1, ? super R2, R> merger) { return null; }
     }
 
     //public interface DoubleStream implements BaseStream<Double,DoubleStream>
@@ -302,55 +306,55 @@ public class JavaUtilStream {
 
         //public interface DoubleMapMultiConsumer
         class DoubleMapMultiConsumer {
-            void accept(double d, /*@IgnoreModifications[T]*/ DoubleConsumer doubleConsumer) { }
+            void accept(double d, /*@IgnoreModifications[T]*/ @NotNull DoubleConsumer doubleConsumer) { }
         }
         @NotNull @Finalizer
-        DoubleStream filter(/*@IgnoreModifications[T]*/ DoublePredicate doublePredicate) { return null; }
+        DoubleStream filter(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate) { return null; }
         @NotNull @Finalizer
-        DoubleStream map(/*@IgnoreModifications[T]*/ DoubleUnaryOperator doubleUnaryOperator) { return null; }
+        DoubleStream map(/*@IgnoreModifications[T]*/ @NotNull DoubleUnaryOperator doubleUnaryOperator) { return null; }
         @NotNull @Finalizer
-        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/ DoubleFunction<? extends U> doubleFunction) { return null; }
+        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/ @NotNull DoubleFunction<? extends U> doubleFunction) { return null; }
         @NotNull @Finalizer
-        IntStream mapToInt(/*@IgnoreModifications[T]*/ DoubleToIntFunction doubleToIntFunction) { return null; }
+        IntStream mapToInt(/*@IgnoreModifications[T]*/ @NotNull DoubleToIntFunction doubleToIntFunction) { return null; }
         @NotNull @Finalizer
-        LongStream mapToLong(/*@IgnoreModifications[T]*/ DoubleToLongFunction doubleToLongFunction) { return null; }
+        LongStream mapToLong(/*@IgnoreModifications[T]*/ @NotNull DoubleToLongFunction doubleToLongFunction) { return null; }
         @NotNull @Finalizer
-        DoubleStream flatMap(/*@IgnoreModifications[T]*/ DoubleFunction<? extends DoubleStream> doubleFunction) {
+        DoubleStream flatMap(/*@IgnoreModifications[T]*/ @NotNull DoubleFunction<? extends DoubleStream> doubleFunction) {
             return null;
         }
-        DoubleStream mapMulti(DoubleStream.DoubleMapMultiConsumer mapper) { return null; }
+        DoubleStream mapMulti(@NotNull DoubleStream.DoubleMapMultiConsumer mapper) { return null; }
         @NotNull @Finalizer
         DoubleStream distinct() { return null; }
         @NotNull @Finalizer
         DoubleStream sorted() { return null; }
         @NotNull @Finalizer
-        DoubleStream peek(/*@IgnoreModifications[T]*/ DoubleConsumer doubleConsumer) { return null; }
+        DoubleStream peek(/*@IgnoreModifications[T]*/ @NotNull DoubleConsumer doubleConsumer) { return null; }
         @NotNull @Finalizer
         DoubleStream limit(long l) { return null; }
         @NotNull @Finalizer
         DoubleStream skip(long l) { return null; }
         @NotNull @Finalizer
-        DoubleStream takeWhile(/*@IgnoreModifications[T]*/ DoublePredicate predicate) { return null; }
+        DoubleStream takeWhile(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate predicate) { return null; }
         @NotNull @Finalizer
-        DoubleStream dropWhile(/*@IgnoreModifications[T]*/ DoublePredicate predicate) { return null; }
+        DoubleStream dropWhile(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate predicate) { return null; }
         @NotNull @Finalizer
-        void forEach(/*@IgnoreModifications[T]*/ DoubleConsumer doubleConsumer) { }
+        void forEach(/*@IgnoreModifications[T]*/ @NotNull DoubleConsumer doubleConsumer) { }
         @NotNull @Finalizer
-        void forEachOrdered(/*@IgnoreModifications[T]*/ DoubleConsumer doubleConsumer) { }
+        void forEachOrdered(/*@IgnoreModifications[T]*/ @NotNull DoubleConsumer doubleConsumer) { }
         @NotNull @Finalizer
         double [] toArray() { return null; }
         @NotNull @Finalizer
-        double reduce(double d, /*@IgnoreModifications[T]*/ DoubleBinaryOperator doubleBinaryOperator) { return 0.0; }
+        double reduce(double d, /*@IgnoreModifications[T]*/ @NotNull DoubleBinaryOperator doubleBinaryOperator) { return 0.0; }
         //@Immutable[T] @Independent[T]
         @NotNull @Finalizer
-        OptionalDouble reduce(/*@IgnoreModifications[T]*/ DoubleBinaryOperator doubleBinaryOperator) { return null; }
+        OptionalDouble reduce(/*@IgnoreModifications[T]*/ @NotNull DoubleBinaryOperator doubleBinaryOperator) { return null; }
 
         //@Independent(hc=true)[T]
         @NotNull @Finalizer
         <R> R collect(
-            /*@IgnoreModifications[T]*/ Supplier<R> supplier,
-            /*@IgnoreModifications[T]*/ ObjDoubleConsumer<R> objDoubleConsumer,
-            /*@IgnoreModifications[T]*/ BiConsumer<R, R> biConsumer) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<R> supplier,
+            /*@IgnoreModifications[T]*/ @NotNull ObjDoubleConsumer<R> objDoubleConsumer,
+            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<R, R> biConsumer) { return null; }
         @NotNull @Finalizer
         double sum() { return 0.0; }
         //@Immutable[T] @Independent[T]
@@ -369,11 +373,11 @@ public class JavaUtilStream {
         @NotNull @Finalizer
         DoubleSummaryStatistics summaryStatistics() { return null; }
         @NotNull @Finalizer
-        boolean anyMatch(/*@IgnoreModifications[T]*/ DoublePredicate doublePredicate) { return false; }
+        boolean anyMatch(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate) { return false; }
         @NotNull @Finalizer
-        boolean allMatch(/*@IgnoreModifications[T]*/ DoublePredicate doublePredicate) { return false; }
+        boolean allMatch(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate) { return false; }
         @NotNull @Finalizer
-        boolean noneMatch(/*@IgnoreModifications[T]*/ DoublePredicate doublePredicate) { return false; }
+        boolean noneMatch(/*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate) { return false; }
         //@Immutable[T] @Independent[T]
         @NotNull @Finalizer
         OptionalDouble findFirst() { return null; }
@@ -401,17 +405,17 @@ public class JavaUtilStream {
         static DoubleStream.Builder builder() { return null; }
         static DoubleStream empty() { return null; }
         static DoubleStream of(double t) { return null; }
-        static DoubleStream of(double ... values) { return null; }
-        static DoubleStream iterate(double seed, /*@IgnoreModifications[T]*/ DoubleUnaryOperator doubleUnaryOperator) {
+        static DoubleStream of(@NotNull double ... values) { return null; }
+        static DoubleStream iterate(double seed, /*@IgnoreModifications[T]*/ @NotNull DoubleUnaryOperator doubleUnaryOperator) {
             return null;
         }
 
         static DoubleStream iterate(
             double seed,
-            /*@IgnoreModifications[T]*/ DoublePredicate doublePredicate,
-            /*@IgnoreModifications[T]*/ DoubleUnaryOperator hasNext) { return null; }
-        static DoubleStream generate(/*@IgnoreModifications[T]*/ DoubleSupplier s) { return null; }
-        static DoubleStream concat(DoubleStream a, DoubleStream b) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull DoublePredicate doublePredicate,
+            /*@IgnoreModifications[T]*/ @NotNull DoubleUnaryOperator hasNext) { return null; }
+        static DoubleStream generate(/*@IgnoreModifications[T]*/ @NotNull DoubleSupplier s) { return null; }
+        static DoubleStream concat(@NotNull DoubleStream a, @NotNull DoubleStream b) { return null; }
     }
 
     //public interface IntStream implements BaseStream<Integer,IntStream>
@@ -426,34 +430,34 @@ public class JavaUtilStream {
         }
 
         //public interface IntMapMultiConsumer
-        class IntMapMultiConsumer {void accept(int i, /*@IgnoreModifications[T]*/ IntConsumer intConsumer) { } }
-        IntStream filter(/*@IgnoreModifications[T]*/ IntPredicate intPredicate) { return null; }
-        IntStream map(/*@IgnoreModifications[T]*/ IntUnaryOperator intUnaryOperator) { return null; }
+        class IntMapMultiConsumer {void accept(int i, /*@IgnoreModifications[T]*/ @NotNull IntConsumer intConsumer) { } }
+        IntStream filter(/*@IgnoreModifications[T]*/ @NotNull IntPredicate intPredicate) { return null; }
+        IntStream map(/*@IgnoreModifications[T]*/ @NotNull IntUnaryOperator intUnaryOperator) { return null; }
         //frequency 1
-        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/@Independent(hcReturnValue = true) IntFunction<? extends U> intFunction) { return null; }
-        LongStream mapToLong(/*@IgnoreModifications[T]*/ IntToLongFunction intToLongFunction) { return null; }
-        DoubleStream mapToDouble(/*@IgnoreModifications[T]*/ IntToDoubleFunction intToDoubleFunction) { return null; }
-        IntStream flatMap(/*@IgnoreModifications[T]*/ IntFunction<? extends IntStream> intFunction) { return null; }
-        IntStream mapMulti(IntStream.IntMapMultiConsumer mapper) { return null; }
+        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/@NotNull @Independent(hcReturnValue = true) IntFunction<? extends U> intFunction) { return null; }
+        LongStream mapToLong(/*@IgnoreModifications[T]*/ @NotNull IntToLongFunction intToLongFunction) { return null; }
+        DoubleStream mapToDouble(/*@IgnoreModifications[T]*/ @NotNull IntToDoubleFunction intToDoubleFunction) { return null; }
+        IntStream flatMap(/*@IgnoreModifications[T]*/ @NotNull IntFunction<? extends IntStream> intFunction) { return null; }
+        IntStream mapMulti(@NotNull IntStream.IntMapMultiConsumer mapper) { return null; }
         IntStream distinct() { return null; }
         IntStream sorted() { return null; }
-        IntStream peek(/*@IgnoreModifications[T]*/ IntConsumer intConsumer) { return null; }
+        IntStream peek(/*@IgnoreModifications[T]*/ @NotNull IntConsumer intConsumer) { return null; }
         IntStream limit(long l) { return null; }
         IntStream skip(long l) { return null; }
-        IntStream takeWhile(/*@IgnoreModifications[T]*/ IntPredicate predicate) { return null; }
-        IntStream dropWhile(/*@IgnoreModifications[T]*/ IntPredicate predicate) { return null; }
-        void forEach(/*@IgnoreModifications[T]*/ IntConsumer intConsumer) { }
-        void forEachOrdered(/*@IgnoreModifications[T]*/ IntConsumer intConsumer) { }
+        IntStream takeWhile(/*@IgnoreModifications[T]*/ @NotNull IntPredicate predicate) { return null; }
+        IntStream dropWhile(/*@IgnoreModifications[T]*/ @NotNull IntPredicate predicate) { return null; }
+        void forEach(/*@IgnoreModifications[T]*/ @NotNull IntConsumer intConsumer) { }
+        void forEachOrdered(/*@IgnoreModifications[T]*/ @NotNull IntConsumer intConsumer) { }
         int [] toArray() { return null; }
-        int reduce(int i, /*@IgnoreModifications[T]*/ IntBinaryOperator intBinaryOperator) { return 0; }
+        int reduce(int i, /*@IgnoreModifications[T]*/ @NotNull IntBinaryOperator intBinaryOperator) { return 0; }
         //@Immutable[T] @Independent[T]
-        OptionalInt reduce(/*@IgnoreModifications[T]*/ IntBinaryOperator intBinaryOperator) { return null; }
+        OptionalInt reduce(/*@IgnoreModifications[T]*/ @NotNull IntBinaryOperator intBinaryOperator) { return null; }
 
         //@Independent(hc=true)[T]
         <R> R collect(
-            /*@IgnoreModifications[T]*/ Supplier<R> supplier,
-            /*@IgnoreModifications[T]*/ ObjIntConsumer<R> objIntConsumer,
-            /*@IgnoreModifications[T]*/ BiConsumer<R, R> biConsumer) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<R> supplier,
+            /*@IgnoreModifications[T]*/ @NotNull ObjIntConsumer<R> objIntConsumer,
+            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<R, R> biConsumer) { return null; }
 
         //frequency 1
         int sum() { return 0; }
@@ -468,9 +472,9 @@ public class JavaUtilStream {
         //@Immutable[T] @Independent[T]
         OptionalDouble average() { return null; }
         IntSummaryStatistics summaryStatistics() { return null; }
-        boolean anyMatch(/*@IgnoreModifications[T]*/ IntPredicate intPredicate) { return false; }
-        boolean allMatch(/*@IgnoreModifications[T]*/ IntPredicate intPredicate) { return false; }
-        boolean noneMatch(/*@IgnoreModifications[T]*/ IntPredicate intPredicate) { return false; }
+        boolean anyMatch(/*@IgnoreModifications[T]*/ @NotNull IntPredicate intPredicate) { return false; }
+        boolean allMatch(/*@IgnoreModifications[T]*/ @NotNull IntPredicate intPredicate) { return false; }
+        boolean noneMatch(/*@IgnoreModifications[T]*/ @NotNull IntPredicate intPredicate) { return false; }
         //@Immutable[T] @Independent[T]
         OptionalInt findFirst() { return null; }
 
@@ -493,17 +497,17 @@ public class JavaUtilStream {
         static IntStream.Builder builder() { return null; }
         static IntStream empty() { return null; }
         static IntStream of(int t) { return null; }
-        static IntStream of(int ... values) { return null; }
-        static IntStream iterate(int seed, /*@IgnoreModifications[T]*/ IntUnaryOperator f) { return null; }
+        static IntStream of(@NotNull int ... values) { return null; }
+        static IntStream iterate(int seed, /*@IgnoreModifications[T]*/ @NotNull IntUnaryOperator f) { return null; }
         static IntStream iterate(
             int seed,
-            /*@IgnoreModifications[T]*/ IntPredicate hasNext,
-            /*@IgnoreModifications[T]*/ IntUnaryOperator next) { return null; }
-        static IntStream generate(/*@IgnoreModifications[T]*/ IntSupplier s) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull IntPredicate hasNext,
+            /*@IgnoreModifications[T]*/ @NotNull IntUnaryOperator next) { return null; }
+        static IntStream generate(/*@IgnoreModifications[T]*/ @NotNull IntSupplier s) { return null; }
         static IntStream range(int startInclusive, int endExclusive) { return null; }
         //frequency 1
         static IntStream rangeClosed(int startInclusive, int endInclusive) { return null; }
-        static IntStream concat(IntStream a, IntStream b) { return null; }
+        static IntStream concat(@NotNull IntStream a, @NotNull IntStream b) { return null; }
     }
 
     //public interface LongStream implements BaseStream<Long,LongStream>
@@ -518,32 +522,32 @@ public class JavaUtilStream {
         }
 
         //public interface LongMapMultiConsumer
-        class LongMapMultiConsumer {void accept(long l, /*@IgnoreModifications[T]*/ LongConsumer longConsumer) { } }
-        LongStream filter(/*@IgnoreModifications[T]*/ LongPredicate longPredicate) { return null; }
-        LongStream map(/*@IgnoreModifications[T]*/ LongUnaryOperator longUnaryOperator) { return null; }
-        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/ LongFunction<? extends U> longFunction) { return null; }
-        IntStream mapToInt(/*@IgnoreModifications[T]*/ LongToIntFunction longToIntFunction) { return null; }
-        DoubleStream mapToDouble(/*@IgnoreModifications[T]*/ LongToDoubleFunction longToDoubleFunction) { return null; }
+        class LongMapMultiConsumer {void accept(long l, /*@IgnoreModifications[T]*/ @NotNull LongConsumer longConsumer) { } }
+        LongStream filter(/*@IgnoreModifications[T]*/ @NotNull LongPredicate longPredicate) { return null; }
+        LongStream map(/*@IgnoreModifications[T]*/ @NotNull LongUnaryOperator longUnaryOperator) { return null; }
+        <U> Stream<U> mapToObj(/*@IgnoreModifications[T]*/ @NotNull LongFunction<? extends U> longFunction) { return null; }
+        IntStream mapToInt(/*@IgnoreModifications[T]*/ @NotNull LongToIntFunction longToIntFunction) { return null; }
+        DoubleStream mapToDouble(/*@IgnoreModifications[T]*/ @NotNull LongToDoubleFunction longToDoubleFunction) { return null; }
 
-        LongStream flatMap(/*@IgnoreModifications[T]*/ LongFunction<? extends LongStream> longFunction) { return null; }
-        LongStream mapMulti(LongStream.LongMapMultiConsumer mapper) { return null; }
+        LongStream flatMap(/*@IgnoreModifications[T]*/ @NotNull LongFunction<? extends LongStream> longFunction) { return null; }
+        LongStream mapMulti(@NotNull LongStream.LongMapMultiConsumer mapper) { return null; }
         LongStream distinct() { return null; }
         LongStream sorted() { return null; }
-        LongStream peek(/*@IgnoreModifications[T]*/ LongConsumer longConsumer) { return null; }
+        LongStream peek(/*@IgnoreModifications[T]*/ @NotNull LongConsumer longConsumer) { return null; }
         LongStream limit(long l) { return null; }
         LongStream skip(long l) { return null; }
-        LongStream takeWhile(/*@IgnoreModifications[T]*/ LongPredicate predicate) { return null; }
-        LongStream dropWhile(/*@IgnoreModifications[T]*/ LongPredicate predicate) { return null; }
-        void forEach(/*@IgnoreModifications[T]*/ LongConsumer longConsumer) { }
-        void forEachOrdered(/*@IgnoreModifications[T]*/ LongConsumer longConsumer) { }
+        LongStream takeWhile(/*@IgnoreModifications[T]*/ @NotNull LongPredicate predicate) { return null; }
+        LongStream dropWhile(/*@IgnoreModifications[T]*/ @NotNull LongPredicate predicate) { return null; }
+        void forEach(/*@IgnoreModifications[T]*/ @NotNull LongConsumer longConsumer) { }
+        void forEachOrdered(/*@IgnoreModifications[T]*/ @NotNull LongConsumer longConsumer) { }
         long [] toArray() { return null; }
-        long reduce(long l, /*@IgnoreModifications[T]*/ LongBinaryOperator longBinaryOperator) { return 0L; }
-        OptionalLong reduce(/*@IgnoreModifications[T]*/ LongBinaryOperator longBinaryOperator) { return null; }
+        long reduce(long l, /*@IgnoreModifications[T]*/ @NotNull LongBinaryOperator longBinaryOperator) { return 0L; }
+        OptionalLong reduce(/*@IgnoreModifications[T]*/ @NotNull LongBinaryOperator longBinaryOperator) { return null; }
         //@Independent(hc=true)[T]
         <R> R collect(
-            /*@IgnoreModifications[T]*/ Supplier<R> supplier,
-            /*@IgnoreModifications[T]*/ ObjLongConsumer<R> objLongConsumer,
-            /*@IgnoreModifications[T]*/ BiConsumer<R, R> biConsumer) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull Supplier<R> supplier,
+            /*@IgnoreModifications[T]*/ @NotNull ObjLongConsumer<R> objLongConsumer,
+            /*@IgnoreModifications[T]*/ @NotNull BiConsumer<R, R> biConsumer) { return null; }
 
         //frequency 1
         long sum() { return 0L; }
@@ -554,9 +558,9 @@ public class JavaUtilStream {
         OptionalDouble average() { return null; }
         LongSummaryStatistics summaryStatistics() { return null; }
         //frequency 1
-        boolean anyMatch(/*@IgnoreModifications[T]*/ LongPredicate longPredicate) { return false; }
-        boolean allMatch(/*@IgnoreModifications[T]*/ LongPredicate longPredicate) { return false; }
-        boolean noneMatch(/*@IgnoreModifications[T]*/ LongPredicate longPredicate) { return false; }
+        boolean anyMatch(/*@IgnoreModifications[T]*/ @NotNull LongPredicate longPredicate) { return false; }
+        boolean allMatch(/*@IgnoreModifications[T]*/ @NotNull LongPredicate longPredicate) { return false; }
+        boolean noneMatch(/*@IgnoreModifications[T]*/ @NotNull LongPredicate longPredicate) { return false; }
         OptionalLong findFirst() { return null; }
         OptionalLong findAny() { return null; }
         DoubleStream asDoubleStream() { return null; }
@@ -575,19 +579,19 @@ public class JavaUtilStream {
         static LongStream.Builder builder() { return null; }
         static LongStream empty() { return null; }
         static LongStream of(long t) { return null; }
-        static LongStream of(long ... values) { return null; }
-        static LongStream iterate(long seed, /*@IgnoreModifications[T]*/ LongUnaryOperator longUnaryOperator) {
+        static LongStream of(@NotNull long ... values) { return null; }
+        static LongStream iterate(long seed, /*@IgnoreModifications[T]*/ @NotNull LongUnaryOperator longUnaryOperator) {
             return null;
         }
 
         static LongStream iterate(
             long seed,
-            /*@IgnoreModifications[T]*/ LongPredicate longPredicate,
-            /*@IgnoreModifications[T]*/ LongUnaryOperator hasNext) { return null; }
-        static LongStream generate(/*@IgnoreModifications[T]*/ LongSupplier s) { return null; }
+            /*@IgnoreModifications[T]*/ @NotNull LongPredicate longPredicate,
+            /*@IgnoreModifications[T]*/ @NotNull LongUnaryOperator hasNext) { return null; }
+        static LongStream generate(/*@IgnoreModifications[T]*/ @NotNull LongSupplier s) { return null; }
         static LongStream range(long startInclusive, long l) { return null; }
         static LongStream rangeClosed(long startInclusive, long l) { return null; }
-        static LongStream concat(LongStream a, LongStream b) { return null; }
+        static LongStream concat(@NotNull LongStream a, @NotNull LongStream b) { return null; }
     }
 
     //public interface Stream implements BaseStream<T,Stream<T>>
@@ -733,7 +737,7 @@ public class JavaUtilStream {
         //frequency 63
         //@Independent(hc=true)[T]
         @NotNull @Finalizer
-        <R, A> R collect(Collector<? super T, A, R> collector) { return null; }
+        <R, A> R collect(@NotNull Collector<? super T, A, R> collector) { return null; }
 
         //frequency 92
         @NotNull @Finalizer
@@ -777,10 +781,10 @@ public class JavaUtilStream {
         @NotNull @Independent @NotModified
         static <T> Stream<T> of(/*@Independent(hc=true)[T] @NotModified[T]*/ @NotNull T t) { return null; }
         @NotNull @Independent @NotModified
-        static <T> Stream<T> ofNullable(/*@Independent(hc=true)[T] @NotModified[T]*/ @NotNull T t) { return null; }
+        static <T> Stream<T> ofNullable(/*@Independent(hc=true)[T] @NotModified[T]*/ @Nullable T t) { return null; }
         //frequency 3
         @NotNull @Independent @NotModified
-        static <T> Stream<T> of(T ... values) { return null; }
+        static <T> Stream<T> of(@NotNull T ... values) { return null; }
 
         @NotNull @Independent @NotModified
         static <T> Stream<T> iterate(
@@ -796,5 +800,21 @@ public class JavaUtilStream {
         static <T> Stream<T> generate(/*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> s) { return null; }
         @NotNull @Independent @NotModified
         static <T> Stream<T> concat(@NotNull Stream<? extends T> a, @NotNull Stream<? extends T> b) { return null; }
+    
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        <R> java.util.stream.Stream<R> gather(@NotNull java.util.stream.Gatherer<? super T, ?, R> p0) { return null; }
+    }
+
+    //public java.util.stream.StreamSupport (shadow created for its nullability, generated)
+    class StreamSupport$ {
+        // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
+        static java.util.stream.DoubleStream doubleStream(@NotNull java.util.Spliterator.OfDouble p0, boolean p1) { return null; }
+        static java.util.stream.DoubleStream doubleStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfDouble> p0, int p1, boolean p2) { return null; }
+        static java.util.stream.IntStream intStream(@NotNull java.util.Spliterator.OfInt p0, boolean p1) { return null; }
+        static java.util.stream.IntStream intStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfInt> p0, int p1, boolean p2) { return null; }
+        static java.util.stream.LongStream longStream(@NotNull java.util.Spliterator.OfLong p0, boolean p1) { return null; }
+        static java.util.stream.LongStream longStream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator.OfLong> p0, int p1, boolean p2) { return null; }
+        static <T> java.util.stream.Stream<T> stream(@NotNull java.util.Spliterator<T> p0, boolean p1) { return null; }
+        static <T> java.util.stream.Stream<T> stream(@NotNull java.util.function.Supplier<? extends java.util.Spliterator<T>> p0, int p1, boolean p2) { return null; }
     }
 }
