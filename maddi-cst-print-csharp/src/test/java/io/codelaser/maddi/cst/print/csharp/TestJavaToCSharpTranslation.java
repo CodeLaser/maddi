@@ -1462,6 +1462,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             import java.util.HashMap;
             import java.util.List;
             import java.util.Map;
+            import java.util.Set;
             public class Settings {
                 public enum Mode { FAST, SAFE }
                 public interface Phase { }
@@ -1477,7 +1478,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 }
                 @XmlRootElement(name = "solver", namespace = "urn:example")
                 @XmlType(name = "solverConfig", namespace = "urn:example",
-                         propOrder = {"mode", "count", "classes", "phases", "properties", "wrapped"})
+                         propOrder = {"mode", "count", "classes", "phases", "properties", "wrapped", "tags"})
                 @XmlAccessorType(XmlAccessType.FIELD)
                 public static class Solver {
                     @XmlTransient private Object clock;
@@ -1490,6 +1491,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     private List<Phase> phases;
                     @XmlJavaTypeAdapter(MapAdapter.class) private Map<String, String> properties;
                     @XmlElementWrapper(name = "wraps") @XmlElement(name = "wrap") private List<String> wrapped;
+                    @XmlElement(name = "tag") private Set<String> tags;
                     public Mode getMode() { return mode; }
                     public void setMode(Mode mode) { this.mode = mode; }
                 }
@@ -1512,9 +1514,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public bool ShouldSerializeXmlCount() => this.count != null;");
         contains(cs, "[XmlElement(\"entityClass\", Order = 2)]\npublic List<string> XmlClasses");
         contains(cs, "[XmlElement(\"search\", typeof(Search), Order = 3)]\n[XmlElement(\"heuristic\", typeof(Heuristic), Order = 3)]");
-        contains(cs, "public object[] XmlPhases { get => this.phases?.Select(e_ => e_).ToArray(); set => this.phases = value == null ? null : new List<IPhase>(value.Select(e_ => (IPhase) e_)); }");
+        contains(cs, "public object[] XmlPhases { get => this.phases?.ToArray(); set => this.phases = value == null ? null : new List<IPhase>(value.Select(e_ => (IPhase) e_)); }");
         contains(cs, "public Adapted XmlProperties { get => new MapAdapter().Marshal(this.properties); set => this.properties = new MapAdapter().Unmarshal(value); }");
         contains(cs, "[XmlArray(\"wraps\", Order = 5)]\n[XmlArrayItem(\"wrap\")]");
+        contains(cs, "[XmlElement(\"tag\", Order = 6)]\npublic string[] XmlTags { get => this.tags?.ToArray(); set => this.tags = value == null ? null : value.ToHashSet(); }");
         contains(cs, "[XmlElement(\"property\")]\npublic List<Entry> XmlEntries");
         contains(cs, "public sealed class MapAdapter : JavaXmlAdapter<Adapted, IDictionary<string, string>> {");
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("XmlClock"), cs);

@@ -59,7 +59,8 @@ import java.util.function.UnaryOperator;
  *       with an {@code [XmlElement(name, typeof(T))]} per type;</li>
  *   <li>{@code @XmlJavaTypeAdapter(A.class)} is the adapter's value type, through {@code new A().Marshal(…)} and
  *       {@code Unmarshal(…)} (the compatibility library's JavaXmlAdapter);</li>
- *   <li>a collection of what is converted so is an array, which XmlSerializer assigns when it has read it all.</li>
+ *   <li>a collection of what is converted so, or one of an interface type ({@code ISet<T>}), is an array, which
+ *       XmlSerializer assigns when it has read it all.</li>
  * </ul>
  * A boxed primitive, {@code int?}, is written when it holds a value ({@code ShouldSerializeXmlName}). A field of a
  * type XmlSerializer cannot write (a map without adapter, an {@code @XmlIDREF}) is left out
@@ -331,6 +332,10 @@ final class JaxbXmlSerialization implements LibraryMapping {
             return unbound(f, "of type " + CSharpTypeName.of(type, q));
         }
         if (!conversion.identity() && type.arrays() > 0) return unbound(f, "an array of a converted type");
+        if (conversion.identity() && collection && CSharpTypeName.of(type, q).matches("I[A-Z][A-Za-z]*<.*")) {
+            // XmlSerializer cannot write a member of an interface type, ISet<T>: its elements as an array
+            conversion = new Conversion(CSharpTypeName.of(valueType, q), x -> x, x -> x);
+        }
 
         CSharpProperties.Property property = CSharpContext.program().property(f);
         String field = "this." + (property != null ? property.name() : CSharpNames.field(f));
@@ -347,8 +352,10 @@ final class JaxbXmlSerialization implements LibraryMapping {
         } else if (collection) {
             namespaces.add("System.Linq");
             propertyType = conversion.type() + "[]" + (nullableContext ? "?" : "");
-            get = field + "?.Select(e_ => " + conversion.get().apply("e_") + ").ToArray()";
-            String elements = "value.Select(e_ => " + conversion.set().apply("e_") + ")";
+            String getElement = conversion.get().apply("e_");
+            String setElement = conversion.set().apply("e_");
+            get = field + "?" + ("e_".equals(getElement) ? "" : ".Select(e_ => " + getElement + ")") + ".ToArray()";
+            String elements = "e_".equals(setElement) ? "value" : "value.Select(e_ => " + setElement + ")";
             set = field + " = value == null ? null" + (nullableContext && nullable != NullableState.NULLABLE ? "!" : "")
                   + " : " + rebuilt(CSharpTypeName.of(type, q), elements);
         } else {

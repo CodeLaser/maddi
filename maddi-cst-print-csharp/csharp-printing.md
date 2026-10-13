@@ -395,8 +395,8 @@ Every message has a severity: INFO, BEHAVIOUR_CHANGE, LOSS or ERROR. An ERROR me
   - record patterns;
   - inner (non-static) classes of a generic type (`NESTED_IN_GENERIC`): C# names them `Outer<E>.Inner`. A static
     one is hoisted (see Declarations).
-- **Recorded as losses:** wildcards and raw types, and a record's constructor of as many parameters as components
-  that is not its canonical one.
+- **Recorded as losses:** wildcards and raw types, a record's constructor of as many parameters as components
+  that is not its canonical one, and a JAXB-bound field that `XmlSerializer` cannot write (`XML_UNBOUND`).
 - **Unknown forms:** a form the printer does not know prints as Java, with `JAVA_FALLBACK`.
 
 ## Library mappings (`LibraryMapping`, `CSharpLibraries`)
@@ -420,6 +420,7 @@ option of each library is the default, and `none` leaves the library out:
 | slf4j | `ms-logging`, `serilog` | `ILogger` from Microsoft.Extensions.Logging, or Serilog's. A message's `{}` holes become a message template's holes, named after their arguments (`"output: {}", x` → `"output: {X}"`). A trailing exception becomes the first argument. With `ms-logging`, `getLogger` is the compatibility library's `JavaLogging`, which the application connects to its host's `ILoggerFactory`. |
 | jackson | `system-text-json`, `newtonsoft` | An `ObjectMapper` becomes the options of `JsonSerializer` (or `JsonConvert`), and the tree model becomes `JsonNode` (or `JToken`). Annotations become attributes, on the targets C# allows: `@JsonSubTypes` → `[JsonDerivedType]`, a class-level `@JsonInclude` → an option or `[JsonObject]`. Jackson's configuration of its framework (modules, introspectors, custom serializers, builders) stays unmapped. |
 | micrometer | `system-diagnostics-metrics` | `System.Diagnostics.Metrics`, through the compatibility library's `JavaMetrics`: a global registry that keeps gauges by name and tags (`JavaTags`, equal by content), so that they can be read back and removed as Micrometer's, and exports each name as an `ObservableGauge` of the meter `Maddi.JavaCompat.Micrometer`. Counters and long task timers are that meter's `Counter<double>` and `Histogram<double>`; `JvmMemoryMetrics` reports the managed heap. |
+| jaxb | `xml-serialization` | `System.Xml.Serialization`'s `XmlSerializer`, through the binding described below; an `XmlAdapter` is the compatibility library's `JavaXmlAdapter`. |
 | jdk | `bcl` | The BCL, plus the compatibility library where Java's behaviour differs. |
 
 A library's annotation becomes what its mapping makes of it (`annotation(use, target, print)`, or `annotation` lines in
@@ -461,6 +462,45 @@ and a call that cannot work throws as Java would without the library, with the t
 `JavaUnsupported.Value<{R}>("Gizmo's member accessors")` (`JavaUnsupported.Call` for a statement), from the
 compatibility library. A corpus's own mapping is a resource beside the ratchet (`JavaToCSharpRatchet.withMapping`):
 `timefold-gizmo.csmap` leaves out Gizmo's bytecode generation.
+
+**What a library adds to a program type.** Some libraries give a program type a meaning that attributes alone do
+not carry. A mapping's `additions(type)` are attributes on the type and members in it. Its `memberAttributes(field)`
+are attributes on a public field or property, or on an enum's constant. The answers of all mappings are put together;
+no single answer wins over the others. JAXB is the case (`JaxbXmlSerialization`). JAXB binds a type's fields, private
+ones too, while `XmlSerializer` binds public properties. So every field JAXB binds gets a public property, `XmlName`,
+that reads and writes the field and carries the attributes of the field's annotations:
+
+```
+[XmlElement("termination", Order = 11)]
+public TerminationConfig XmlTerminationConfig { get => this.terminationConfig; set => this.terminationConfig = value; }
+```
+
+- **Which types are bound.** A type is bound when it, one of its fields or a superclass has a JAXB annotation.
+- **Which fields are bound.** With `@XmlAccessorType(FIELD)` (inherited, or the package's), every instance field
+  that is not `transient` or `@XmlTransient` is bound. Otherwise only the annotated fields and the public ones are.
+- **Field annotations.**
+  - `@XmlElement` becomes `XmlElement`, and `@XmlElements` one `XmlElement(name, typeof(T))` per type.
+  - `@XmlElementWrapper` becomes `XmlArray`/`XmlArrayItem`.
+  - `@XmlAttribute` becomes `XmlAttribute`, and `@XmlValue` becomes `XmlText`.
+  - `propOrder` gives the `Order`.
+- **Type annotations.**
+  - `@XmlRootElement` becomes `XmlRoot`, `@XmlType` becomes `XmlType` and `@XmlSeeAlso` becomes `XmlInclude`.
+  - The namespace is the `@XmlType`'s, or else that of the package's `@XmlSchema` when the schema qualifies its
+    elements (`CSharpProgram.packageInfo`).
+- **The property's type** is the field's, or what `XmlSerializer` can write:
+  - An enum that is a C# enum keeps its type, and its members get `[XmlEnum("NAME")]`.
+  - An enum that is a class in C# becomes its name, through `Name` and `ValueOf`.
+  - An interface, a self-bounded class's companion, or a field with `@XmlElements` becomes `object`.
+  - With `@XmlJavaTypeAdapter(A.class)`, the property has the adapter's value type and goes through
+    `new A().Marshal`/`Unmarshal`.
+  - A collection whose elements are converted becomes an array. `XmlSerializer` assigns an array once it has read
+    all of it, but it fills a list through its getter, so a converted list would lose what was read.
+- **Null values.** A boxed primitive (`int?`) is written only when it holds a value (`ShouldSerializeXmlName`).
+  `XmlSerializer` would write a null as `xsi:nil`, where JAXB leaves the element out.
+- **Public members.** The public members of a bound type are `[XmlIgnore]`, because the added properties take their
+  place.
+- **What stays out.** `XmlSerializer` cannot write some fields: a map without adapter, `@XmlIDREF`, `@XmlAny…`. Such
+  a field is left out with an `XML_UNBOUND` message.
 
 The mapping also lists the C# type names it writes (`typeNames()`). A type of the program with one of those names is
 qualified, as one whose name two namespaces declare is.

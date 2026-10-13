@@ -84,9 +84,13 @@
 # 2026-10-13, NavigableMap/NavigableSet/SequencedMap/SequencedSet/EnumSet on C#'s sorted and ordered collections, their
 # navigation by the compatibility library (JavaNavigable), Collections.rotate/shuffle/swap/newSetFromMap,
 # Arrays.fill/4/deepEquals/deepHashCode: 778 -> 574 unmapped uses, 1007 -> 1018 compiling files, 2550 -> 2418 errors.
+#
+# 2026-10-13, JAXB as System.Xml.Serialization (JaxbXmlSerialization, jaxb=xml-serialization): each of the 220 fields
+# JAXB binds gets a public XmlName property with XmlSerializer's attributes; XmlAdapter is JavaXmlAdapter: 574 -> 570
+# unmapped uses, 1018 -> 1019 compiling files, 2418 -> 2414 errors, none in the added members.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1018
-unmappedJdkUses	574
+compilingFiles	1019
+unmappedJdkUses	570
