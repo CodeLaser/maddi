@@ -1611,6 +1611,34 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         assertEquals("two.csmap:2: type takes one namespace, not A, C", e.getMessage());
     }
 
+    @Language("java")
+    private static final String HISTORY = """
+            package org.example.history;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class History extends ArrayList<String> {
+                @Override
+                public String remove(int index) { return super.remove(index); }
+                void dropFirst() { remove(0); }
+                static void dropFirst(History history) { history.remove(0); }
+                static void dropFirst(List<String> list) { list.remove(0); }
+                static String clean(String s) { return s.replaceAll("\\\\s+", "\\\\$"); }
+            }
+            """;
+
+    /**
+     * A call on a class that extends ArrayList reaches its overrides, also as a statement, and super's is the removal
+     * itself; a plain list's statement is RemoveAt. replaceAll's replacement is in Java's syntax.
+     */
+    @Test
+    public void listSubclassAndReplacement() {
+        String cs = translate("History", HISTORY);
+        contains(cs, "public override string Remove(int index) => base.Remove(index);");
+        contains(cs, "internal static void DropFirst(History history) { history.Remove(0); }");
+        contains(cs, "list.RemoveAt(0);");
+        contains(cs, "JavaString.ReplaceAll(s, \"\\\\s+\", \"\\\\$\")");
+    }
+
     /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */
     @Test
     public void libraryRequirements() {

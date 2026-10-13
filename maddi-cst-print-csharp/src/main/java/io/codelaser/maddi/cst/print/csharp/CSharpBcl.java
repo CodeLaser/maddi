@@ -459,11 +459,17 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.List.listIterator/0", "$0.Iterator()", COMPAT);
 
         m("java.util.List.add/2", "$0.Insert($1, $2)");
-        ms("java.util.List.remove(int)", "$0.RemoveAtAndGet($1)", "$0.RemoveAt($1)", COMPAT);
+        // a program class that extends ArrayList is a JavaArrayList: its virtual Remove(int) reaches an override of
+        // remove, where List's RemoveAt would not
+        Rule removeAt = new Rule("$0.RemoveAtAndGet($1)", "$0.RemoveAt($1)", List.of(COMPAT));
+        Rule removeAtVirtual = rule("$0.Remove($1)");
+        chooser("java.util.List.remove(int)", (method, call) -> arrayListSubclass(call) ? removeAtVirtual : removeAt);
         m("java.util.List.remove(Object)", "$0.Remove($1)");
         ms("java.util.List.addAll/1", "$0.AddAll($1)", "$0.AddRange($1)", COMPAT);
         m("java.util.List.addAll/2", "$0.InsertAll($1, $2)", COMPAT);
-        ms("java.util.List.set/2", "$0.Set($1, $2)", "$0[$1] = $2", COMPAT);
+        Rule set = new Rule("$0.Set($1, $2)", "$0[$1] = $2", List.of(COMPAT));
+        Rule setVirtual = rule("$0.Set($1, $2)", COMPAT);
+        chooser("java.util.List.set/2", (method, call) -> arrayListSubclass(call) ? setVirtual : set);
         chooser("java.util.List.indexOf/1", (method, call) -> readOnlyReceiver(call)
                 ? rule("JavaCollections.IndexOf($0, $1)", COMPAT) : rule("$0.IndexOf($1)"));
         m("java.util.List.lastIndexOf/1", "$0.LastIndexOf($1)", COMPAT);
@@ -659,9 +665,10 @@ final class CSharpBcl implements LibraryMapping {
         m(s + "toUpperCase/1", "$0.ToUpperInvariant()");
         m(s + "trim/0", "$0.Trim()");
         m(s + "strip/0", "$0.Trim()");
-        m(s + "replaceAll/2", "Regex.Replace($0, $1, $2)", REGEX);
-        m(s + "replaceFirst/2", "new Regex($1).Replace($0, $2, 1)", REGEX);
-        m(s + "matches/1", "Regex.IsMatch($0, \"^(?:\" + $1 + \")$\")", REGEX);
+        // the replacement in Java's syntax: \$ and \\ are literal, as .NET's are not
+        m(s + "replaceAll/2", "JavaString.ReplaceAll($0, $1, $2)", COMPAT);
+        m(s + "replaceFirst/2", "JavaString.ReplaceFirst($0, $1, $2)", COMPAT);
+        m(s + "matches/1", "Regex.IsMatch($0, \"^(?:\" + $1 + \")\\\\z\")", REGEX); // $ also matches before a final \n
         // Java's byte[] is C#'s sbyte[]: the compatibility library converts
         m(s + "getBytes/1", "JavaString.GetBytes($0, $1)", COMPAT);
         m(s + "getBytes/0", "JavaString.GetBytes($0, Encoding.UTF8)", COMPAT, TEXT);
@@ -980,7 +987,7 @@ final class CSharpBcl implements LibraryMapping {
         m("java.lang.ThreadLocal.withInitial/1", "new ThreadLocal<{R0}>($1)", THREADING);
         m("java.util.regex.Pattern.compile/1", "new Regex($1)", REGEX);
         m("java.util.regex.Pattern.matcher/1", "new JavaMatcher($0, $1)", COMPAT);
-        m("java.util.regex.Pattern.matches/2", "Regex.IsMatch($2, \"^(?:\" + $1 + \")$\")", REGEX);
+        m("java.util.regex.Pattern.matches/2", "Regex.IsMatch($2, \"^(?:\" + $1 + \")\\\\z\")", REGEX);
         m("java.util.regex.Pattern.quote/1", "Regex.Escape($1)", REGEX);
         m("java.util.regex.Pattern.pattern/0", "$0.ToString()");
         // OptionalInt and its kin: a nullable value
@@ -1496,6 +1503,17 @@ final class CSharpBcl implements LibraryMapping {
     }
 
     /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
+    /** The receiver's type is a class of the program that extends ArrayList, which C# has as a JavaArrayList. */
+    private static boolean arrayListSubclass(MethodCall call) {
+        if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
+        TypeInfo t = call.object().parameterizedType().typeInfo();
+        if (t == null || !CSharpNames.translated(t)) return false;
+        for (TypeInfo s = t; s != null; s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
+            if ("java.util.ArrayList".equals(s.fullyQualifiedName())) return true;
+        }
+        return false;
+    }
+
     private static boolean readOnlyReceiver(MethodCall call) {
         return call != null && call.object() != null
                && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e

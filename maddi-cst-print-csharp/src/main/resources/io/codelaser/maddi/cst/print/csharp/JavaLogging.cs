@@ -23,30 +23,33 @@ public static class JavaLogging
 
     // the category CreateLogger(Type) gives the type: its full name, with dots between nested types
     public static ILogger GetLogger(Type type) =>
-        new Deferred(type.FullName?.Replace('+', '.') ?? type.Name, () => Factory.CreateLogger(type));
+        new Deferred(type.FullName?.Replace('+', '.') ?? type.Name, factory => factory.CreateLogger(type));
 
-    public static ILogger GetLogger(string name) => new Deferred(name, () => Factory.CreateLogger(name));
+    public static ILogger GetLogger(string name) => new Deferred(name, factory => factory.CreateLogger(name));
 
     /// <summary>A logger of the factory as it is when the logger is first used; its name is its category.</summary>
-    private sealed class Deferred(string name, Func<ILogger> create) : ILogger
+    private sealed class Deferred(string name, Func<ILoggerFactory, ILogger> create) : ILogger
     {
         /// <summary>slf4j's Logger.getName.</summary>
         public override string ToString() => name;
 
-        private ILoggerFactory? resolvedWith;
-        private ILogger? logger;
+        /// <summary>The logger and the factory it is of, published together: a thread sees both or neither.</summary>
+        private sealed record Resolved(ILoggerFactory Factory, ILogger Logger);
+
+        private volatile Resolved? resolved;
 
         private ILogger Logger
         {
             get
             {
                 var factory = Factory;
-                if (!ReferenceEquals(factory, resolvedWith))
+                var current = resolved;
+                if (current == null || !ReferenceEquals(factory, current.Factory))
                 {
-                    logger = create();
-                    resolvedWith = factory;
+                    current = new Resolved(factory, create(factory));
+                    resolved = current;
                 }
-                return logger!;
+                return current.Logger;
             }
         }
 

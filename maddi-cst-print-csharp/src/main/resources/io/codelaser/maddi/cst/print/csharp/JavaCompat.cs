@@ -459,6 +459,13 @@ public static class JavaUnsupported
 
 public static class JavaString
 {
+    /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>
+    public static string ReplaceAll(string s, string regex, string replacement) =>
+        new JavaMatcher(new Regex(regex), s).ReplaceAll(replacement);
+
+    public static string ReplaceFirst(string s, string regex, string replacement) =>
+        new JavaMatcher(new Regex(regex), s).ReplaceFirst(replacement);
+
     /// <summary>String.split: a regular expression; trailing empty strings removed unless a limit is given.</summary>
     public static string[] SplitRegex(this string s, string regex, int limit = 0)
     {
@@ -532,6 +539,18 @@ public static class JavaString
         ? ValueOf((double)f)
         : ValueOf(double.Parse(f.ToString("R", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture));
 
+    /// <summary>%x: a negative number in its own width's two's complement, as Java's (ffffffff for an int's -1).</summary>
+    private static string Hex(object arg) => arg switch
+    {
+        int i => ((uint)i).ToString("x", CultureInfo.InvariantCulture),
+        long l => ((ulong)l).ToString("x", CultureInfo.InvariantCulture),
+        short s => ((ushort)s).ToString("x", CultureInfo.InvariantCulture),
+        sbyte b => ((byte)b).ToString("x", CultureInfo.InvariantCulture),
+        System.Numerics.BigInteger big => big.Sign < 0 ? "-" + (-big).ToString("x", CultureInfo.InvariantCulture).TrimStart('0')
+            : big.IsZero ? "0" : big.ToString("x", CultureInfo.InvariantCulture).TrimStart('0'),
+        _ => Convert.ToString(Convert.ToInt64(arg, CultureInfo.InvariantCulture), 16)
+    };
+
     /// <summary>String.format: Java's %-conversions (s, d, x, X, c, b, f, n, %), with flags, width and precision.</summary>
     public static string Format(string format, params object[] args)
     {
@@ -570,8 +589,8 @@ public static class JavaString
                 's' or 'S' => arg is string str ? str : ValueOf(arg),
                 'd' => Convert.ToInt64(arg, CultureInfo.InvariantCulture)
                     .ToString(flags.Contains(',') ? "N0" : "D", CultureInfo.InvariantCulture),
-                'x' => Convert.ToString(Convert.ToInt64(arg, CultureInfo.InvariantCulture), 16),
-                'X' => Convert.ToString(Convert.ToInt64(arg, CultureInfo.InvariantCulture), 16).ToUpperInvariant(),
+                'x' => Hex(arg),
+                'X' => Hex(arg).ToUpperInvariant(),
                 'c' => arg is char ch ? ch.ToString() : ((char)Convert.ToInt32(arg, CultureInfo.InvariantCulture)).ToString(),
                 'b' => ValueOf(arg is bool b ? b : arg != null),
                 'f' => Convert.ToDouble(arg, CultureInfo.InvariantCulture)
@@ -583,7 +602,9 @@ public static class JavaString
             if (spec.Groups[3].Success)
             {
                 var width = int.Parse(spec.Groups[3].Value, CultureInfo.InvariantCulture);
+                // %05d of -5 is -0005: the zeros after the sign
                 text = flags.Contains('-') ? text.PadRight(width)
+                    : flags.Contains('0') && text.StartsWith('-') ? "-" + text[1..].PadLeft(width - 1, '0')
                     : flags.Contains('0') ? text.PadLeft(width, '0') : text.PadLeft(width);
             }
             sb.Append(text);
@@ -632,7 +653,10 @@ public static class JavaCharacter
     {
         if (c == '$' || c == '_') return true;
         var category = CharUnicodeInfo.GetUnicodeCategory(c);
-        return char.IsLetter((char)c) || category is UnicodeCategory.LetterNumber
+        // the categories of char.IsLetter, for a code point outside the BMP too
+        return category is UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter
+                   or UnicodeCategory.TitlecaseLetter or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter
+                   or UnicodeCategory.LetterNumber
             or UnicodeCategory.ConnectorPunctuation or UnicodeCategory.CurrencySymbol;
     }
 
@@ -652,9 +676,19 @@ public static class JavaCharacter
 
 public static class JavaMath
 {
-    public static long Round(double d) => (long)Math.Floor(d + 0.5);
+    // Java's: the nearest, ties up; d + 0.5 would round 0.49999999999999994 up to 1. NaN is 0, an infinity the
+    // extreme value, as .NET's saturating conversion has it
+    public static long Round(double d)
+    {
+        var floor = Math.Floor(d);
+        return (long)(d - floor >= 0.5 ? floor + 1 : floor);
+    }
 
-    public static int Round(float f) => (int)MathF.Floor(f + 0.5f);
+    public static int Round(float f)
+    {
+        var floor = MathF.Floor(f);
+        return (int)(f - floor >= 0.5f ? floor + 1 : floor);
+    }
 
     public static int FloorMod(int x, int y) => ((x % y) + y) % y;
 
@@ -789,9 +823,18 @@ public static class JavaSystem
         "user.dir" => Environment.CurrentDirectory,
         "user.home" => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         "java.io.tmpdir" => Path.GetTempPath(),
-        "os.name" => System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+        "os.name" => OsName(),
         _ => def
     };
+
+    /// <summary>Java's os.name: Mac OS X, Linux, Windows 11; .NET's description says Darwin 24.0.0 or macOS 15.</summary>
+    private static string OsName() =>
+        OperatingSystem.IsMacOS() ? "Mac OS X"
+        : OperatingSystem.IsLinux() ? "Linux"
+        : OperatingSystem.IsWindows() ? "Windows " + (Environment.OSVersion.Version.Build >= 22000 ? "11"
+            : Environment.OSVersion.Version.Major.ToString(CultureInfo.InvariantCulture))
+        : OperatingSystem.IsFreeBSD() ? "FreeBSD"
+        : System.Runtime.InteropServices.RuntimeInformation.OSDescription;
 }
 
 /// <summary>java.io.ByteArrayInputStream: a MemoryStream over a Java byte[].</summary>
@@ -1161,7 +1204,8 @@ public class JavaFile
 
     public JavaFile GetCanonicalFile() => new JavaFile(GetCanonicalPath());
 
-    public string GetParent() => Path.GetDirectoryName(path);
+    // null for a bare name, as Java's; GetDirectoryName gives ""
+    public string GetParent() => Path.GetDirectoryName(path) is { Length: > 0 } parent ? parent : null;
 
     public JavaFile GetParentFile() => GetParent() is { } p ? new JavaFile(p) : null;
 
@@ -1270,7 +1314,8 @@ public class JavaMatcher
 
     public bool Matches()
     {
-        match = Regex.Match(input, "^(?:" + regex + ")$", regex.Options);
+        // \z: .NET's $, as Java's, also matches before a final newline, which matches() does not
+        match = Regex.Match(input, "^(?:" + regex + ")\\z", regex.Options);
         return match.Success;
     }
 
@@ -1292,14 +1337,24 @@ public class JavaMatcher
 
     public int End() => match.Index + match.Length;
 
-    public string ReplaceAll(string replacement) => regex.Replace(input, replacement);
+    public string ReplaceAll(string replacement) => regex.Replace(input, m => Expand(m, replacement));
+
+    public string ReplaceFirst(string replacement) => regex.Replace(input, m => Expand(m, replacement), 1);
 
     private int appendPosition;
 
     /// <summary>Appends the input up to the match and the replacement, in Java's syntax: $n, ${name}, \c.</summary>
     public JavaMatcher AppendReplacement(StringBuilder sb, string replacement)
     {
-        sb.Append(input, appendPosition, match.Index - appendPosition);
+        sb.Append(input, appendPosition, match.Index - appendPosition).Append(Expand(match, replacement));
+        appendPosition = match.Index + match.Length;
+        return this;
+    }
+
+    /// <summary>A replacement in Java's syntax for a match: $n and ${name} are groups, \c is c.</summary>
+    internal static string Expand(Match match, string replacement)
+    {
+        var sb = new StringBuilder();
         for (int i = 0; i < replacement.Length; i++)
         {
             char c = replacement[i];
@@ -1322,8 +1377,7 @@ public class JavaMatcher
                 sb.Append(c);
             }
         }
-        appendPosition = match.Index + match.Length;
-        return this;
+        return sb.ToString();
     }
 
     public StringBuilder AppendTail(StringBuilder sb) => sb.Append(input, appendPosition, input.Length - appendPosition);
@@ -1615,6 +1669,10 @@ public class JavaArrayList<E> : List<E>
         return old;
     }
 
+    /// <summary>
+    /// List.remove(int) on a List: the removal itself, which base.RemoveAtAndGet of an override needs. The translation
+    /// calls Remove(int) on a receiver of a subclass, to reach its override.
+    /// </summary>
     public E RemoveAtAndGet(int index)
     {
         var old = this[index];
@@ -1622,7 +1680,7 @@ public class JavaArrayList<E> : List<E>
         return old;
     }
 
-    public E Set(int index, E item)
+    public virtual E Set(int index, E item)
     {
         var old = this[index];
         this[index] = item;
@@ -1634,27 +1692,30 @@ public class JavaArrayList<E> : List<E>
     public virtual JavaArrayList<E> Clone() => new JavaArrayList<E>(this);
 }
 
-/// <summary>CompletableFuture's continuations, on tasks.</summary>
+/// <summary>
+/// CompletableFuture's continuations, on tasks. A failed task's exception reaches the continuation's task as it is,
+/// as Java wraps it once (GetResult, where Result would wrap it in a second AggregateException).
+/// </summary>
 public static class JavaTasks
 {
-    public static Task<R> ThenApply<T, R>(this Task<T> t, Func<T, R> f) => t.ContinueWith(x => f(x.Result));
+    public static Task<R> ThenApply<T, R>(this Task<T> t, Func<T, R> f) => t.ContinueWith(x => f(x.GetAwaiter().GetResult()));
 
     public static Task<R> ThenApply<R>(this Task t, Func<object, R> f) => t.ContinueWith(x =>
     {
-        x.Wait();
+        x.GetAwaiter().GetResult();
         return f(null);
     });
 
     public static Task<R> ThenCompose<T, R>(this Task<T> t, Func<T, Task<R>> f) =>
-        t.ContinueWith(x => f(x.Result)).Unwrap();
+        t.ContinueWith(x => f(x.GetAwaiter().GetResult())).Unwrap();
 
     public static Task<R> ThenCompose<R>(this Task t, Func<object, Task<R>> f) => t.ContinueWith(x =>
     {
-        x.Wait();
+        x.GetAwaiter().GetResult();
         return f(null);
     }).Unwrap();
 
-    public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.Result));
+    public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.GetAwaiter().GetResult()));
 }
 
 /// <summary>java.util.concurrent.locks.Lock: what a ReentrantLock and a read-write lock's halves are.</summary>
