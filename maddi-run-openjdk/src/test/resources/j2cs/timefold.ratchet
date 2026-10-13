@@ -88,9 +88,14 @@
 # 2026-10-13, JAXB as System.Xml.Serialization (JaxbXmlSerialization, jaxb=xml-serialization): each of the 220 fields
 # JAXB binds gets a public XmlName property with XmlSerializer's attributes; XmlAdapter is JavaXmlAdapter: 574 -> 570
 # unmapped uses, 1018 -> 1019 compiling files, 2418 -> 2414 errors, none in the added members.
+#
+# 2026-10-13, JAXB's runtime and JAXP in the compatibility library (JavaXml.cs: JAXBContext, Marshaller, Unmarshaller
+# with schema validation, DOM as XmlDocument, Transformer, SchemaFactory), Class.getResource as embedded resources
+# (JavaResources), Stream.of(array), Duration.parse, Locale's language tags: 570 -> 473 unmapped uses, 1019 -> 1022
+# compiling files, 2414 -> 2333 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1019
-unmappedJdkUses	570
+compilingFiles	1022
+unmappedJdkUses	473
