@@ -964,4 +964,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // a switch entry's assertion does not reach the other entries
         assertTrue(kotlin.split("w!!\\.length", -1).length == 3, kotlin);
     }
+
+    private static final String NULL_OR_EMPTY = """
+            package a;
+            import java.util.List;
+            class NE {
+                static boolean blank(String s) { return s == null || s.isEmpty(); }
+                static boolean some(List<String> l) { return l != null && !l.isEmpty(); }
+                static boolean other(String s, String t) { return s == null || t.isEmpty(); }
+            }
+            """;
+
+    /** {@code x == null || x.isEmpty()} is Kotlin's {@code x.isNullOrEmpty()}; not when the two test different values. */
+    @Test
+    public void nullOrEmpty() {
+        String kotlin = kotlin(NULL_OR_EMPTY, new KotlinPrintOptions(new ByName(Set.of("s", "l", "t")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun blank(s: String?): Boolean = s.isNullOrEmpty()");
+        contains(kotlin, "fun some(l: MutableList<String>?): Boolean = !l.isNullOrEmpty()");
+        contains(kotlin, "s == null || t!!.isEmpty()");
+    }
 }

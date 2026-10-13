@@ -1657,6 +1657,8 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
         if ("&&".equals(op) || "||".equals(op)) {
+            OutputBuilder idiom = nullOrEmpty(bo.lhs(), bo.rhs(), "||".equals(op), q);
+            if (idiom != null) return idiom;
             // x is T && x.m(): the right-hand side runs where the left one is true (false for ||), and knows its tests
             OutputBuilder left = operand(bo.precedence(), bo.lhs(), q);
             OutputBuilder right = KotlinSmartCasts.withTypes("&&".equals(op) ? KotlinSmartCasts.whenTrue(bo.lhs())
@@ -1832,6 +1834,10 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder junction(List<Expression> operands, io.codelaser.maddi.cst.api.expression.Precedence precedence,
                                           boolean and, Qualification q) {
+        if (operands.size() == 2) {
+            OutputBuilder idiom = nullOrEmpty(operands.get(0), operands.get(1), !and, q);
+            if (idiom != null) return idiom;
+        }
         List<OutputBuilder> printed = new ArrayList<>();
         java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> known = new java.util.HashMap<>();
         for (Expression operand : operands) {
@@ -1840,6 +1846,53 @@ public class KotlinExpressionPrinter {
             known.putAll(and ? KotlinSmartCasts.whenTrue(operand) : KotlinSmartCasts.whenFalse(operand));
         }
         return printed.stream().collect(OutputBuilderImpl.joining(and ? SymbolEnum.LOGICAL_AND : SymbolEnum.LOGICAL_OR));
+    }
+
+    /**
+     * {@code x == null || x.isEmpty()} as {@code x.isNullOrEmpty()}, and {@code x != null && !x.isEmpty()} as
+     * {@code !x.isNullOrEmpty()}, for a variable x of a String, CharSequence, collection or map type; null otherwise.
+     * Kotlin's extension takes a nullable receiver, so neither x's verdict nor a {@code !!} matters.
+     */
+    private static OutputBuilder nullOrEmpty(Expression first, Expression second, boolean or, Qualification q) {
+        Expression tested = nullTest(first, or);
+        if (tested == null || !(unwrap(tested) instanceof VariableExpression ve)) return null;
+        Expression emptyTest = or ? second : negated(second);
+        if (!(emptyTest != null && unwrap(emptyTest) instanceof MethodCall mc) || !"isEmpty".equals(mc.methodInfo().name())
+            || !mc.parameterExpressions().isEmpty() || mc.object() == null
+            || !(unwrap(mc.object()) instanceof VariableExpression receiver) || !ve.variable().equals(receiver.variable())) {
+            return null;
+        }
+        ParameterizedType type = ve.variable().parameterizedType();
+        if (type == null || type.arrays() > 0 || type.typeInfo() == null
+            || !(type.isJavaLangString() || "java.lang.CharSequence".equals(type.typeInfo().fullyQualifiedName())
+                 || KotlinReadOnly.isCollection(type))) {
+            return null;
+        }
+        OutputBuilder b = new OutputBuilderImpl();
+        if (!or) b.add(SymbolEnum.UNARY_BOOLEAN_NOT);
+        return b.add(print(ve, q)).add(SymbolEnum.DOT).add(new TextImpl("isNullOrEmpty"))
+                .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+    }
+
+    /** {@code x == null} ({@code isNull}) or {@code x != null}: x; null for anything else. */
+    private static Expression nullTest(Expression e, boolean isNull) {
+        Expression u = unwrap(e);
+        Expression inner = negated(u);
+        if (inner != null) return nullTest(inner, !isNull);
+        if (u instanceof BinaryOperator bo && bo.operator() != null
+            && (isNull ? "==" : "!=").equals(bo.operator().name())) {
+            if (unwrap(bo.rhs()) instanceof NullConstant) return bo.lhs();
+            if (unwrap(bo.lhs()) instanceof NullConstant) return bo.rhs();
+        }
+        return null;
+    }
+
+    /** The operand of a boolean {@code !}; null when {@code e} is no negation. */
+    private static Expression negated(Expression e) {
+        Expression u = unwrap(e);
+        if (u instanceof Negation neg && !neg.expression().isNumeric()) return neg.expression();
+        if (u instanceof UnaryOperator uo && uo.operator() != null && "!".equals(uo.operator().name())) return uo.expression();
+        return null;
     }
 
     /** An operand of && or ||: Java unboxes a Boolean there ({@code last && map.get(k)}), Kotlin needs the {@code !!}. */
