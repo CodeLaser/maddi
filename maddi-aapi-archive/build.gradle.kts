@@ -39,6 +39,8 @@ dependencies {
     compileOnly("org.hamcrest:hamcrest:2.2") // libs/hamcrest
     compileOnly("org.junit.jupiter:junit-jupiter-params:6.0.3") // libs/junitparams
     compileOnly("org.mockito:mockito-core:5.23.0") // libs/mockito
+    compileOnly("commons-io:commons-io:2.20.0") // libs/commonsio
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.20.2") // libs/jackson
     implementation("org.junit.jupiter:junit-jupiter-api")
     implementation("ch.qos.logback:logback-classic")
 }

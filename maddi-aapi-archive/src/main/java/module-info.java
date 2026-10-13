@@ -24,6 +24,10 @@ module io.codelaser.maddi.aapi.archive {
     requires static org.hamcrest;
     requires static org.junit.jupiter.params;
     requires static org.mockito; // libs/mockito
+    requires static org.apache.commons.io; // libs/commonsio
+    requires static com.fasterxml.jackson.databind; // libs/jackson
+    requires static com.fasterxml.jackson.core;
+    requires static com.fasterxml.jackson.annotation;
 
     exports io.codelaser.maddi.aapi.archive.jdk;
     exports io.codelaser.maddi.aapi.archive.libs.log;
