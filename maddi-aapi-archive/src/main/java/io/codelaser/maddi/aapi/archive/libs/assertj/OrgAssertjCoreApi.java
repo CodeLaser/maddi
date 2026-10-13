@@ -57,6 +57,25 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Assertions
     class Assertions$ {
+        // primitive-array actuals (an entry point like any other: read, not consumed) and fail(.., cause), 2026-10-13
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> assertThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert assertThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> assertThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert assertThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> assertThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert assertThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> assertThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert assertThat(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> assertThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> assertThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert assertThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert assertThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> assertThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert assertThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> assertThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert assertThat(@Independent @NotModified short[][] arg0) { return null; }
+        static <T> T fail(java.lang.String arg0, @NotModified java.lang.Throwable arg1) { return null; }
+        static <T> T fail(@NotModified java.lang.Throwable arg0) { return null; }
         // the callable is CALLED, not modified (ThrowingCallable is not @FunctionalInterface, so the shallow
         // rule for function types does not reach it); the message arguments are formatted, not modified
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -223,6 +242,24 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.BDDAssertions
     class BDDAssertions$ {
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> then(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert then(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> then(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert then(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> then(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert then(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> then(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert then(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> then(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert then(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> then(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert then(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> then(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert then(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> then(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert then(@Independent @NotModified short[][] arg0) { return null; }
+        static <T> T fail(java.lang.String arg0, @NotModified java.lang.Throwable arg1) { return null; }
+        static <T> T fail(@NotModified java.lang.Throwable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -389,6 +426,24 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.WithAssertions
     class WithAssertions$ {
+        <T> T fail(java.lang.String arg0, @NotModified java.lang.Throwable arg1) { return null; }
+        <T> T fail(@NotModified java.lang.Throwable arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractLongArrayAssert<?> assertThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent org.assertj.core.api.Long2DArrayAssert assertThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractShortArrayAssert<?> assertThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent org.assertj.core.api.Short2DArrayAssert assertThat(@Independent @NotModified short[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractCharArrayAssert<?> assertThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent org.assertj.core.api.Char2DArrayAssert assertThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractBooleanArrayAssert<?> assertThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent org.assertj.core.api.Boolean2DArrayAssert assertThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractByteArrayAssert<?> assertThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent org.assertj.core.api.Byte2DArrayAssert assertThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractIntArrayAssert<?> assertThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent org.assertj.core.api.Int2DArrayAssert assertThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent org.assertj.core.api.Float2DArrayAssert assertThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractFloatArrayAssert<?> assertThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractDoubleArrayAssert<?> assertThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent org.assertj.core.api.Double2DArrayAssert assertThat(@Independent @NotModified double[][] arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -551,6 +606,24 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.AssertionsForClassTypes
     class AssertionsForClassTypes$ {
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> assertThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert assertThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> assertThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert assertThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> assertThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert assertThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> assertThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert assertThat(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> assertThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert assertThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> assertThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert assertThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> assertThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert assertThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> assertThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert assertThat(@Independent @NotModified short[][] arg0) { return null; }
+        static void fail(java.lang.String arg0, @NotModified java.lang.Throwable arg1) { }
+        static void fail(@NotModified java.lang.Throwable arg0) { }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -675,6 +748,23 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Java6Assertions
     class Java6Assertions$ {
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> assertThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert assertThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> assertThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert assertThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> assertThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert assertThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> assertThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert assertThat(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> assertThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert assertThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> assertThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert assertThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> assertThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert assertThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> assertThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert assertThat(@Independent @NotModified short[][] arg0) { return null; }
+        static void fail(java.lang.String arg0, @NotModified java.lang.Throwable arg1) { }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -781,6 +871,22 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Java6BDDAssertions
     class Java6BDDAssertions$ {
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> then(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert then(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> then(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert then(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> then(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert then(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> then(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert then(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> then(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> then(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert then(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert then(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> then(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert then(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> then(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert then(@Independent @NotModified short[][] arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -928,6 +1034,22 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.Java6StandardSoftAssertionsProvider
     class Java6StandardSoftAssertionsProvider$ {
+        @Independent org.assertj.core.api.BooleanArrayAssert assertThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent org.assertj.core.api.Boolean2DArrayAssert assertThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent org.assertj.core.api.ByteArrayAssert assertThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent org.assertj.core.api.Byte2DArrayAssert assertThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent org.assertj.core.api.CharArrayAssert assertThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent org.assertj.core.api.Char2DArrayAssert assertThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent org.assertj.core.api.DoubleArrayAssert assertThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent org.assertj.core.api.Double2DArrayAssert assertThat(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent org.assertj.core.api.FloatArrayAssert assertThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent org.assertj.core.api.Float2DArrayAssert assertThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent org.assertj.core.api.IntArrayAssert assertThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent org.assertj.core.api.Int2DArrayAssert assertThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent org.assertj.core.api.LongArrayAssert assertThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent org.assertj.core.api.Long2DArrayAssert assertThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent org.assertj.core.api.ShortArrayAssert assertThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent org.assertj.core.api.Short2DArrayAssert assertThat(@Independent @NotModified short[][] arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assertThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -1073,6 +1195,22 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.Java6BDDSoftAssertionsProvider
     class Java6BDDSoftAssertionsProvider$ {
+        @Independent org.assertj.core.api.BooleanArrayAssert then(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent org.assertj.core.api.Boolean2DArrayAssert then(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent org.assertj.core.api.ByteArrayAssert then(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent org.assertj.core.api.Byte2DArrayAssert then(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent org.assertj.core.api.CharArrayAssert then(@Independent @NotModified char[] arg0) { return null; }
+        @Independent org.assertj.core.api.Char2DArrayAssert then(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent org.assertj.core.api.DoubleArrayAssert then(@Independent @NotModified double[] arg0) { return null; }
+        @Independent org.assertj.core.api.Double2DArrayAssert then(@Independent @NotModified double[][] arg0) { return null; }
+        @Independent org.assertj.core.api.FloatArrayAssert then(@Independent @NotModified float[] arg0) { return null; }
+        @Independent org.assertj.core.api.Float2DArrayAssert then(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent org.assertj.core.api.IntArrayAssert then(@Independent @NotModified int[] arg0) { return null; }
+        @Independent org.assertj.core.api.Int2DArrayAssert then(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent org.assertj.core.api.LongArrayAssert then(@Independent @NotModified long[] arg0) { return null; }
+        @Independent org.assertj.core.api.Long2DArrayAssert then(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent org.assertj.core.api.ShortArrayAssert then(@Independent @NotModified short[] arg0) { return null; }
+        @Independent org.assertj.core.api.Short2DArrayAssert then(@Independent @NotModified short[][] arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0, java.lang.String arg1, @NotModified java.lang.Object... arg2) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> thenCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
@@ -1174,6 +1312,22 @@ public class OrgAssertjCoreApi {
 
     //public class org.assertj.core.api.Assumptions
     class Assumptions$ {
+        @Independent static org.assertj.core.api.AbstractBooleanArrayAssert<?> assumeThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Boolean2DArrayAssert assumeThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractByteArrayAssert<?> assumeThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Byte2DArrayAssert assumeThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractCharArrayAssert<?> assumeThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Char2DArrayAssert assumeThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractShortArrayAssert<?> assumeThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Short2DArrayAssert assumeThat(@Independent @NotModified short[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractIntArrayAssert<?> assumeThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Int2DArrayAssert assumeThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractLongArrayAssert<?> assumeThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Long2DArrayAssert assumeThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractFloatArrayAssert<?> assumeThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Float2DArrayAssert assumeThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent static org.assertj.core.api.AbstractDoubleArrayAssert<?> assumeThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent static org.assertj.core.api.Double2DArrayAssert assumeThat(@Independent @NotModified double[][] arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent static org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
@@ -1314,6 +1468,22 @@ public class OrgAssertjCoreApi {
 
     //public interface org.assertj.core.api.WithAssumptions
     class WithAssumptions$ {
+        @Independent org.assertj.core.api.AbstractLongArrayAssert<?> assumeThat(@Independent @NotModified long[] arg0) { return null; }
+        @Independent org.assertj.core.api.Long2DArrayAssert assumeThat(@Independent @NotModified long[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractShortArrayAssert<?> assumeThat(@Independent @NotModified short[] arg0) { return null; }
+        @Independent org.assertj.core.api.Short2DArrayAssert assumeThat(@Independent @NotModified short[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractCharArrayAssert<?> assumeThat(@Independent @NotModified char[] arg0) { return null; }
+        @Independent org.assertj.core.api.Char2DArrayAssert assumeThat(@Independent @NotModified char[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractBooleanArrayAssert<?> assumeThat(@Independent @NotModified boolean[] arg0) { return null; }
+        @Independent org.assertj.core.api.Boolean2DArrayAssert assumeThat(@Independent @NotModified boolean[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractByteArrayAssert<?> assumeThat(@Independent @NotModified byte[] arg0) { return null; }
+        @Independent org.assertj.core.api.Byte2DArrayAssert assumeThat(@Independent @NotModified byte[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractIntArrayAssert<?> assumeThat(@Independent @NotModified int[] arg0) { return null; }
+        @Independent org.assertj.core.api.Int2DArrayAssert assumeThat(@Independent @NotModified int[][] arg0) { return null; }
+        @Independent org.assertj.core.api.Float2DArrayAssert assumeThat(@Independent @NotModified float[][] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractFloatArrayAssert<?> assumeThat(@Independent @NotModified float[] arg0) { return null; }
+        @Independent org.assertj.core.api.AbstractDoubleArrayAssert<?> assumeThat(@Independent @NotModified double[] arg0) { return null; }
+        @Independent org.assertj.core.api.Double2DArrayAssert assumeThat(@Independent @NotModified double[][] arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatThrownBy(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent org.assertj.core.api.AbstractThrowableAssert<?, ? extends java.lang.Throwable> assumeThatCode(@IgnoreModifications org.assertj.core.api.ThrowableAssert.ThrowingCallable arg0) { return null; }
         @Independent
@@ -1437,6 +1607,10 @@ public class OrgAssertjCoreApi {
     // the assert types: no method modifies its arguments, the expected values (see the class comment)
     @Container
     class Abstract2DArrayAssert$ { }
+    // not named *Assert, but the chain of assertThatExceptionOfType(..).isThrownBy(..): withMessage(fmt, args...),
+    // withMessageContainingAll(values...) read their arguments (2026-10-13, the library-call census)
+    @Container
+    class ThrowableAssertAlternative$ { }
     @Container
     class AbstractArrayAssert$ { }
     @Container

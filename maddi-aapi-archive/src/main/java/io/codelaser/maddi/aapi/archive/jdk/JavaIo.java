@@ -735,6 +735,12 @@ public class JavaIo {
     }
     //public interface Serializable
     @ImmutableContainer(hc = true) @Independent class Serializable$ { }
+    //public class UncheckedIOException extends RuntimeException
+    class UncheckedIOException$ {
+        UncheckedIOException$(String message, @NotModified IOException cause) { }
+        UncheckedIOException$(@NotModified IOException cause) { }
+    }
+
     //public abstract class Writer implements Appendable, Closeable, Flushable
     @Independent
     class Writer$ {

@@ -17,6 +17,7 @@ package io.codelaser.maddi.aapi.archive.libs.mockito;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 
 /**
  * Mockito's verification calls (mockito-core 5.23), from the library-call census (TestLibraryCallCensus, 2026-10-12),
@@ -35,7 +36,13 @@ import io.codelaser.maddi.annotation.NotModified;
  * <li>{@code verifyNoMoreInteractions} and {@code verifyNoInteractions} read their mocks.</li>
  * <li>{@code reset} changes what a mock does (its stubbing is gone) and is {@code @Modified}.</li>
  * </ul>
- * {@code clearInvocations} is left at the default. Names types in full and imports none, like libs/assertj.
+ * {@code clearInvocations} is left at the default.
+ * <p>
+ * Stubbing (2026-10-13, the census leftovers; {@code org.mockito.stubbing} is in OrgMockitoStubbing): the values and
+ * throwables a stub is given are stored and handed out later, never changed by the call, so they are
+ * {@code @NotModified}; {@code inOrder} reads its mocks. An {@code Answer} is the callback the mock runs: it is not
+ * a {@code @FunctionalInterface}, so the functional-type rule misses it, and it gets {@code @IgnoreModifications}
+ * explicitly. Names types in full and imports none, like libs/assertj.
  */
 public class OrgMockito {
     public static final String PACKAGE_NAME = "org.mockito";
@@ -50,6 +57,14 @@ public class OrgMockito {
         static void verifyNoInteractions(@NotModified java.lang.Object... mocks) { }
         @SafeVarargs
         static <T> void reset(@Modified T... mocks) { }
+
+        static <T> T mock(java.lang.Class<T> classToMock, @IgnoreModifications org.mockito.stubbing.Answer defaultAnswer) { return null; }
+        @SafeVarargs
+        static <T> T mock(@IgnoreModifications org.mockito.stubbing.Answer defaultAnswer, T... reified) { return null; }
+        static org.mockito.stubbing.Stubber doThrow(@NotModified java.lang.Throwable... toBeThrown) { return null; }
+        static org.mockito.stubbing.Stubber doAnswer(@IgnoreModifications org.mockito.stubbing.Answer answer) { return null; }
+        static org.mockito.stubbing.Stubber doReturn(java.lang.Object toBeReturned, @NotModified java.lang.Object... toBeReturnedNext) { return null; }
+        static org.mockito.InOrder inOrder(@NotModified java.lang.Object... mocks) { return null; }
     }
 
     //public interface org.mockito.InOrder
@@ -64,6 +79,27 @@ public class OrgMockito {
     class BDDMockito$ {
         @Independent
         static <T> org.mockito.BDDMockito.Then<T> then(@Independent @NotModified T mock) { return null; }
+
+        static org.mockito.BDDMockito.BDDStubber willThrow(@NotModified java.lang.Throwable... toBeThrown) { return null; }
+        static org.mockito.BDDMockito.BDDStubber willAnswer(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+        static org.mockito.BDDMockito.BDDStubber will(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+        static org.mockito.BDDMockito.BDDStubber willReturn(java.lang.Object toBeReturned, @NotModified java.lang.Object... toBeReturnedNext) { return null; }
+
+        //public static interface BDDMyOngoingStubbing<T>
+        class BDDMyOngoingStubbing<T> {
+            org.mockito.BDDMockito.BDDMyOngoingStubbing<T> willAnswer(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+            org.mockito.BDDMockito.BDDMyOngoingStubbing<T> will(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+            org.mockito.BDDMockito.BDDMyOngoingStubbing<T> willReturn(T value, @NotModified T... values) { return null; }
+            org.mockito.BDDMockito.BDDMyOngoingStubbing<T> willThrow(@NotModified java.lang.Throwable... throwables) { return null; }
+        }
+
+        //public static interface BDDStubber
+        class BDDStubber {
+            org.mockito.BDDMockito.BDDStubber willAnswer(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+            org.mockito.BDDMockito.BDDStubber will(@IgnoreModifications org.mockito.stubbing.Answer<?> answer) { return null; }
+            org.mockito.BDDMockito.BDDStubber willReturn(java.lang.Object toBeReturned, @NotModified java.lang.Object... toBeReturnedNext) { return null; }
+            org.mockito.BDDMockito.BDDStubber willThrow(@NotModified java.lang.Throwable... toBeThrown) { return null; }
+        }
 
         //public static interface Then<T>
         class Then<T> {

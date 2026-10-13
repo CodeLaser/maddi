@@ -22,6 +22,7 @@ import java.util.stream.LongStream;
 
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
+import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
@@ -969,6 +970,12 @@ public class JavaUtilConcurrent {
     //public interface ThreadFactory
     @Container
     class ThreadFactory$ {Thread newThread(Runnable runnable) { return null; } }
+
+    //public enum TimeUnit
+    // without it, the unit read as modified in CountDownLatch.await(long, TimeUnit), schedule(.., TimeUnit), ...
+    // (2026-10-13, the library-call census)
+    @ImmutableContainer
+    class TimeUnit$ { }
 
     //public final class ThreadLocalRandom extends Random
     class ThreadLocalRandom$ {
