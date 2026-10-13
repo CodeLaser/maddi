@@ -370,9 +370,15 @@ public final class CSharpTypeName {
         List<String> constraints = new ArrayList<>();
         for (TypeParameter tp : typeParameters) {
             List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
-            if (bounds.isEmpty()) continue;
-            constraints.add("where " + CSharpNames.typeParameter(tp) + " : "
-                            + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(", ")));
+            // a dictionary's key (CSharpNotNullKeys), unless a class bound says it already
+            boolean notNull = CSharpContext.program().notNullKey(tp)
+                              && bounds.stream().noneMatch(b -> b.typeInfo() != null && !b.isTypeParameter()
+                                                                && !b.typeInfo().isInterface());
+            if (bounds.isEmpty() && !notNull) continue;
+            List<String> parts = new ArrayList<>();
+            if (notNull) parts.add("notnull");
+            bounds.forEach(b -> parts.add(of(b, q)));
+            constraints.add("where " + CSharpNames.typeParameter(tp) + " : " + String.join(", ", parts));
         }
         return constraints;
     }
