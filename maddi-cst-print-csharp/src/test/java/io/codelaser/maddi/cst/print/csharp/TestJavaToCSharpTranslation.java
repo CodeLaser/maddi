@@ -2190,6 +2190,44 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "string d = description;");
     }
 
+    @Language("java")
+    private static final String KEYS = """
+            package org.example.keys;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.TreeMap;
+            public class Index<K, V> {
+                private final Map<K, V> byKey = new HashMap<>();
+                public static <A extends Comparable<A>, B> TreeMap<A, B> sorted(Map<A, B> m) { return new TreeMap<>(m); }
+                public <C> Map<C, V> copy(C first) { Map<C, V> m = new HashMap<>(); return m; }
+                public <D> int size(Map<D, V> m) { return m.size(); }
+                static class Sub<S, U> extends Index<S, U> { }
+                static class Plain<P> { P value; }
+            }
+            """;
+
+    /**
+     * In a nullable context, a type parameter that is a dictionary's key is {@code where K : notnull}, as C#'s
+     * Dictionary wants (CS8714), and so is one passed where such a key is expected; IDictionary takes any key.
+     */
+    @Test
+    public void notNullKeys() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Index", KEYS);
+        contains(cs, "public class Index<K, V> where K : notnull {");
+        contains(cs, "where A : notnull, IComparable<A>");
+        contains(cs, "Copy<C>(C first) where C : notnull");
+        contains(cs, "class Sub<S, U> : Index<S, U> where S : notnull {");
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where D : notnull"), cs);
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where P : notnull"), cs);
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where V : notnull"), cs);
+    }
+
     /**
      * With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is, and a
      * dereference of a value that may be null has a {@code !}.

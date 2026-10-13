@@ -127,6 +127,7 @@ public final class CSharpProgram {
     private Set<TypeInfo> exposedBases = Set.of();
     private Map<String, TypeInfo> packageInfos = Map.of();
     private List<TypeInfo> types = List.of();
+    private Set<TypeParameter> notNullKeys = Set.of();
     private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
@@ -202,6 +203,8 @@ public final class CSharpProgram {
                 .forEach(t -> packageInfos.putIfAbsent(t.packageName(), t));
         program.packageInfos = Map.copyOf(packageInfos);
         program.types = List.copyOf(all);
+        // only C#'s nullable context checks a dictionary's key (CS8714)
+        if (policy.facts().nullabilityAnalysed()) program.notNullKeys = CSharpNotNullKeys.analyze(all);
         return program;
     }
 
@@ -337,6 +340,11 @@ public final class CSharpProgram {
     }
 
     /** The property that takes {@code field}'s place; null when it stays a field. */
+    /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */
+    boolean notNullKey(TypeParameter typeParameter) {
+        return notNullKeys.contains(typeParameter);
+    }
+
     /** The program's types, the nested and local ones too. */
     List<TypeInfo> types() {
         return types;
