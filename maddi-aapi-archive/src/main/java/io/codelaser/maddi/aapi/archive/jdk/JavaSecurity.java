@@ -275,13 +275,11 @@ public class JavaSecurity {
     //public java.security.Provider (shadow created for its nullability, generated)
     class Provider$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Object compute(java.lang.Object p0, java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ? extends java.lang.Object> p1) { return null; }
         @Nullable java.lang.Object computeIfPresent(java.lang.Object p0, java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ? extends java.lang.Object> p1) { return null; }
         @Nullable java.lang.Object get(java.lang.Object p0) { return null; }
-        @Nullable java.lang.Object getOrDefault(java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
+        java.lang.Object getOrDefault(java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
         @Nullable java.lang.String getProperty(java.lang.String p0) { return null; }
         @Nullable java.security.Provider.Service getService(java.lang.String p0, java.lang.String p1) { return null; }
-        @Nullable java.lang.Object merge(java.lang.Object p0, java.lang.Object p1, java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ? extends java.lang.Object> p2) { return null; }
         @Nullable java.lang.Object put(java.lang.Object p0, java.lang.Object p1) { return null; }
         @Nullable java.lang.Object putIfAbsent(java.lang.Object p0, java.lang.Object p1) { return null; }
         @Nullable java.lang.Object remove(java.lang.Object p0) { return null; }

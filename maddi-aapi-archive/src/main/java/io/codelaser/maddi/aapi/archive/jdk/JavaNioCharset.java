@@ -36,7 +36,7 @@ public class JavaNioCharset {
     class Charset$ {
         static boolean isSupported(@NotNull String charsetName) { return false; }
         static Charset forName(@NotNull String charsetName) { return null; }
-        @Nullable static Charset forName(@NotNull String charsetName, @Nullable Charset fallback) { return null; }
+        static Charset forName(@NotNull String charsetName, @Nullable Charset fallback) { return null; }
         //@Independent[T]
         static SortedMap<String, Charset> availableCharsets() { return null; }
         static Charset defaultCharset() { return null; }

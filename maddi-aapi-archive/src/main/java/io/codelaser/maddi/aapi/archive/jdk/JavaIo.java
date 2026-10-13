@@ -1038,7 +1038,7 @@ public class JavaIo {
             float get(@NotNull java.lang.String p0, float p1) { return 0; }
             int get(@NotNull java.lang.String p0, int p1) { return 0; }
             long get(@NotNull java.lang.String p0, long p1) { return 0; }
-            @Nullable java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
+            java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
             short get(@NotNull java.lang.String p0, short p1) { return 0; }
         }
     }

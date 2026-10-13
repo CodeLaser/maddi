@@ -443,7 +443,7 @@ public class JavaLang {
 
         //frequency 1
         //@Independent[O] @NotModified[T]
-        @Nullable T cast(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object obj) { return null; }
+        T cast(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object obj) { return null; }
 
         //@NotModified[T]
         <U> Class<? extends U> asSubclass(@NotNull Class<U> clazz) { return null; }
@@ -1006,7 +1006,7 @@ public class JavaLang {
         static Integer getInteger(@Nullable String nm, int val) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        @Nullable static Integer getInteger(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Integer val) {
+        static Integer getInteger(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Integer val) {
             return null;
         }
 
@@ -1227,7 +1227,7 @@ public class JavaLang {
         static Long getLong(@Nullable String nm, long val) { return null; }
 
         //@Immutable[T] @Independent[O] @NotModified[T]
-        @Nullable static Long getLong(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Long val) { return null; }
+        static Long getLong(@Nullable String nm, /*@Immutable[T] @Independent[T] @NotModified[O]*/ @Nullable Long val) { return null; }
 
         //override from java.lang.Comparable
         //@NotModified[T]
@@ -2706,7 +2706,7 @@ public class JavaLang {
         //frequency 2
         @NotModified
         @Nullable static String getProperty(@NotNull String key) { return null; }
-        @Nullable static String getProperty(@NotNull String key, @Nullable String def) { return null; }
+        static String getProperty(@NotNull String key, @Nullable String def) { return null; }
         @Nullable static String setProperty(@NotNull String key, @NotNull String value) { return null; }
         @Nullable static String clearProperty(@NotNull String key) { return null; }
         //frequency 1

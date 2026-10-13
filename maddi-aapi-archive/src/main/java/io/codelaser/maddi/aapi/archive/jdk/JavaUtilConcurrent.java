@@ -595,7 +595,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H] @NotModified[H]
 
-        @Nullable V getOrDefault(
+        V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull Object key,
             /*@Independent[M] @NotModified[T]*/ @Nullable V defaultValue) { return null; }
 
@@ -628,7 +628,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        @Nullable V compute(
+        V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -637,7 +637,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        @Nullable V merge(
+        V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull BiFunction<
@@ -822,7 +822,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H] @NotModified[H]
 
-        @Nullable V getOrDefault(
+        V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Object key,
             /*@Independent[M] @NotModified[T]*/ @Nullable V defaultValue) { return null; }
 
@@ -880,7 +880,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V compute(
+        V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -889,7 +889,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V merge(
+        V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull BiFunction<
@@ -1212,7 +1212,7 @@ public class JavaUtilConcurrent {
         @Nullable java.util.Map.Entry<K, V> ceilingEntry(K p0) { return null; }
         @Nullable K ceilingKey(K p0) { return null; }
         @Nullable java.util.Comparator<? super K> comparator() { return null; }
-        @Nullable V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
         @Nullable V computeIfPresent(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         boolean containsKey(@NotNull java.lang.Object p0) { return false; }
@@ -1222,13 +1222,13 @@ public class JavaUtilConcurrent {
         @Nullable K floorKey(K p0) { return null; }
         void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
         @Nullable V get(@NotNull java.lang.Object p0) { return null; }
-        @Nullable V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
+        V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
         @Nullable java.util.Map.Entry<K, V> higherEntry(K p0) { return null; }
         @Nullable K higherKey(K p0) { return null; }
         @Nullable java.util.Map.Entry<K, V> lastEntry() { return null; }
         @Nullable java.util.Map.Entry<K, V> lowerEntry(K p0) { return null; }
         @Nullable K lowerKey(K p0) { return null; }
-        @Nullable V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
         @Nullable java.util.Map.Entry<K, V> pollFirstEntry() { return null; }
         @Nullable java.util.Map.Entry<K, V> pollLastEntry() { return null; }
         @Nullable V put(K p0, V p1) { return null; }

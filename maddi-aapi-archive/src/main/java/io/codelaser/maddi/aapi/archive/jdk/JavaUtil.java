@@ -2222,7 +2222,7 @@ public class JavaUtil {
         //override from java.util.Map
         //@Independent(hc=true)[H] @NotModified[H]
 
-        @Nullable V getOrDefault(
+        V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object key,
             /*@Independent[M] @NotModified[O]*/ @Nullable V defaultValue) { return null; }
 
@@ -2268,14 +2268,14 @@ public class JavaUtil {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V compute(
+        V compute(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V merge(
+        V merge(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[O]*/ @NotNull V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull BiFunction<? super V, ? super V, ? extends V>
@@ -2350,15 +2350,15 @@ public class JavaUtil {
         }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        V compute(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
         @Nullable V computeIfPresent(K p0, @NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         boolean containsKey(@NotNull java.lang.Object p0) { return false; }
         boolean containsValue(@NotNull java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
         @Nullable V get(@NotNull java.lang.Object p0) { return null; }
-        @Nullable V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
-        @Nullable V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        V getOrDefault(@NotNull java.lang.Object p0, @Nullable V p1) { return null; }
+        V merge(K p0, V p1, @NotNull java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
         @Nullable V put(K p0, V p1) { return null; }
         void putAll(@NotNull java.util.Map<? extends K, ? extends V> p0) { }
         @Nullable V putIfAbsent(K p0, V p1) { return null; }
@@ -2406,7 +2406,7 @@ public class JavaUtil {
         boolean containsValue(@Nullable java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.BiConsumer<? super K, ? super V> p0) { }
         @Nullable V get(@Nullable java.lang.Object p0) { return null; }
-        @Nullable V getOrDefault(@Nullable java.lang.Object p0, @Nullable V p1) { return null; }
+        V getOrDefault(@Nullable java.lang.Object p0, @Nullable V p1) { return null; }
         @Nullable V putFirst(K p0, V p1) { return null; }
         @Nullable V putLast(K p0, V p1) { return null; }
         boolean removeEldestEntry(@NotNull java.util.Map.Entry<K, V> p0) { return false; }
@@ -3108,7 +3108,7 @@ public class JavaUtil {
         public int hashCode() { return 0; }
 
         //@Independent(hc=true)[T]
-        @Nullable @NotModified
+        @NotModified
 
         V getOrDefault(
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[O]*/ @Nullable Object key,
@@ -3607,11 +3607,11 @@ public class JavaUtil {
 
         //frequency 131
         //@Independent(hc=true)[O] @NotModified[T]
-        @Nullable T orElse(@Nullable @Independent(hcReturnValue = true) /*@NotModified[O]*/ T other) { return null; }
+        T orElse(@Nullable @Independent(hcReturnValue = true) /*@NotModified[O]*/ T other) { return null; }
 
         //frequency 16
         //@Independent(hc=true)[O] @NotModified[T]
-        @Nullable T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull Supplier<? extends T> supplier) { return null; }
+        T orElseGet(/*@IgnoreModifications[T] @Independent[M]*/ @NotNull Supplier<? extends T> supplier) { return null; }
 
         //frequency 54
         //@Independent(hc=true)[O] @NotModified[T]
@@ -3774,12 +3774,12 @@ public class JavaUtil {
     @Container
     class Properties$ {
         @Nullable @NotModified String getProperty(/*@Independent[M] @NotModified[O]*/ @NotNull String key) { return null; }
-        @Nullable @NotModified
+        @NotModified
         String getProperty(/*@Independent[M] @NotModified[O]*/ @NotNull String key, @Nullable String defaultValue) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         Properties$(@Nullable java.util.Properties p0) { }
-        @Nullable java.lang.Object compute(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
+        java.lang.Object compute(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
         java.lang.Object computeIfAbsent(@NotNull java.lang.Object p0, @NotNull java.util.function.Function<? super java.lang.Object, ?> p1) { return null; }
         @Nullable java.lang.Object computeIfPresent(@NotNull java.lang.Object p0, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p1) { return null; }
         boolean contains(@NotNull java.lang.Object p0) { return false; }
@@ -3787,13 +3787,13 @@ public class JavaUtil {
         boolean containsValue(@NotNull java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.BiConsumer<? super java.lang.Object, ? super java.lang.Object> p0) { }
         @Nullable java.lang.Object get(@NotNull java.lang.Object p0) { return null; }
-        @Nullable java.lang.Object getOrDefault(@NotNull java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
+        java.lang.Object getOrDefault(@NotNull java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
         void list(@NotNull java.io.PrintStream p0) { }
         void list(@NotNull java.io.PrintWriter p0) { }
         void load(@NotNull java.io.InputStream p0) { }
         void load(@NotNull java.io.Reader p0) { }
         void loadFromXML(@NotNull java.io.InputStream p0) { }
-        @Nullable java.lang.Object merge(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p2) { return null; }
+        java.lang.Object merge(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1, @NotNull java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ?> p2) { return null; }
         @Nullable java.lang.Object put(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
         void putAll(@NotNull java.util.Map<?, ?> p0) { }
         @Nullable java.lang.Object putIfAbsent(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
@@ -4352,14 +4352,14 @@ public class JavaUtil {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V compute(
+        V compute(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@IgnoreModifications[T]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> remappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V merge(
+        V merge(
             /*@Independent(hc=true)[H] @NotModified[O]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[O]*/ @NotNull V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H]*/ @NotNull BiFunction<? super V, ? super V, ? extends V>
