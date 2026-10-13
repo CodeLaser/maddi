@@ -1157,4 +1157,38 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "var len: Int");
         contains(kotlin, "var m: Int");
     }
+
+    @Language("java")
+    private static final String SMART_CAST_AFTER_IS = """
+            package a;
+            class S {
+                static int f(Object o, Object p, Object r) {
+                    int n = 0;
+                    if (o instanceof String) n += ((String) o).length();
+                    if (p instanceof String && ((String) p).isEmpty()) n++;
+                    if (!(r instanceof String)) return n;
+                    n += ((String) r).length();
+                    return n + (o instanceof Integer ? (Integer) o : 0);
+                }
+                static int g(Object o) {
+                    int n = o instanceof String ? 1 : 0;
+                    return n + ((String) o).length();
+                }
+            }
+            """;
+
+    /**
+     * Java's {@code (T) x} after {@code x instanceof T}: Kotlin smart-casts x where the test holds, so no cast. Not where
+     * the test does not dominate the cast.
+     */
+    @Test
+    public void smartCastAfterIs() {
+        String kotlin = kotlin(SMART_CAST_AFTER_IS);
+        contains(kotlin, "if (o is String) { n += o.length }");
+        contains(kotlin, "if (p is String && p.isEmpty())");
+        contains(kotlin, "if (r !is String) { return n }");
+        contains(kotlin, "n += r.length");
+        contains(kotlin, "if (o is Int) o else 0");
+        contains(kotlin, "n + (o as String).length");
+    }
 }

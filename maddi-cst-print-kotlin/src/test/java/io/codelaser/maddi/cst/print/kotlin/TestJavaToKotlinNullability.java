@@ -920,6 +920,20 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     }
                     return n + u.length() + u.length();
                 }
+                static int k(String w, int i) {
+                    int n = 0;
+                    switch (i) {
+                        case 1:
+                            n = w.length();
+                            break;
+                        case 2:
+                            n = w.length() + 1;
+                            break;
+                        default:
+                            n = 2;
+                    }
+                    return n;
+                }
             }
             """;
 
@@ -929,12 +943,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void smartCastAfterAssertion() {
-        String kotlin = kotlin(SMART_CASTS, new KotlinPrintOptions(new ByName(Set.of("s", "t", "u")),
+        String kotlin = kotlin(SMART_CASTS, new KotlinPrintOptions(new ByName(Set.of("s", "t", "u", "w")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "var n = s!!.length\nn += s.length");
         contains(kotlin, "if (c && t!!.isEmpty())");
         contains(kotlin, "n += t!!.length\nreturn n + t.length");
         contains(kotlin, "n = u!!.length\nn += u.length");
         contains(kotlin, "return n + u!!.length + u.length");
+        // a switch entry's assertion does not reach the other entries
+        assertTrue(kotlin.split("w!!\\.length", -1).length == 3, kotlin);
     }
 }

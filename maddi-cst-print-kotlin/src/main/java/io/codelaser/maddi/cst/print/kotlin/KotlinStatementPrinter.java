@@ -158,7 +158,7 @@ public class KotlinStatementPrinter {
     }
 
     static OutputBuilder block(List<Statement> statements, Qualification q) {
-        KotlinSmartCasts.enterBlock();
+        KotlinSmartCasts.enterBlock(statements);
         try {
             return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
         } finally {
@@ -169,7 +169,7 @@ public class KotlinStatementPrinter {
     /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
     static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
         List<OutputBuilder> all = new ArrayList<>(prefix);
-        KotlinSmartCasts.enterBlock();
+        KotlinSmartCasts.enterBlock(statements);
         try {
             statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.add(print(st, q)));
         } finally {
@@ -856,14 +856,32 @@ public class KotlinStatementPrinter {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                .add(SpaceEnum.ONE).add(block(ife.block(), q));
+                .add(SpaceEnum.ONE)
+                .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ife.expression()), () -> block(ife.block(), q)));
+        java.util.Map<io.codelaser.maddi.cst.api.variable.Variable, ParameterizedType> whenFalse
+                = KotlinSmartCasts.whenFalse(ife.expression());
         if (ife.elseBlock() != null && !ife.elseBlock().isEmpty()) {
             b.add(SpaceEnum.ONE).add(KotlinKeyword.ELSE).add(SpaceEnum.ONE);
             IfElseStatement chained = soleIfElse(ife.elseBlock());
             // `else { if … }` -> idiomatic `else if …` (flatten the chain by recursing, not wrapping in a block)
-            b.add(chained != null ? ifElse(chained, q) : block(ife.elseBlock(), q));
+            b.add(KotlinSmartCasts.withTypes(whenFalse,
+                    () -> chained != null ? ifElse(chained, q) : block(ife.elseBlock(), q)));
+        }
+        if ((ife.elseBlock() == null || ife.elseBlock().isEmpty()) && exits(ife.block())) {
+            // if (x !is T) return: the rest of the block knows x is a T
+            KotlinSmartCasts.addTypes(whenFalse);
         }
         return b;
+    }
+
+    /** The block never completes normally: its last statement returns, throws, breaks or continues. */
+    private static boolean exits(Block block) {
+        List<Statement> own = CstQueries.own(block.statements());
+        if (own.isEmpty()) return false;
+        Statement last = own.getLast();
+        return last instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement
+               || last instanceof io.codelaser.maddi.cst.api.statement.ThrowStatement
+               || last instanceof io.codelaser.maddi.cst.api.statement.BreakOrContinueStatement;
     }
 
     /** If a block's only (non-synthetic) statement is an if/else, return it — for `else if` chain flattening. */
