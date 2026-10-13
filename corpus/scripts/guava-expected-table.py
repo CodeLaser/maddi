@@ -72,6 +72,8 @@ def load(d):
     types = {}
 
     def walk(n, outer):
+        if 'name' not in n:  # the file's format header, {"format": "maddi-analysis-results", ...}
+            return
         kind = n['name'][0]
         if kind == 'T':
             name = n['name'][1:]

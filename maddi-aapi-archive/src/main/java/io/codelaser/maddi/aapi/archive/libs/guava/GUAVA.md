@@ -124,11 +124,16 @@ The unsound direction had three members: `Iterables.removeAll`, `retainAll` and 
 modification link, fixed 2026-10-09). The three are corrected by hand in the shadow, with a comment; the next
 recomposition with a current engine should compute them, and the hand comments can then go.
 
+A recomposition on 2026-10-13 does compute them, but it was not adopted: the same run computes `delegate()`
+`@Independent` on six fieldless `Forwarding*` classes, and with it their mutators `@NotModified`
+(CodeLaser/maddi-mod#39).
+
 ## Regenerating
 
 1. Onboard and build per `corpus/catalogue/guava.yml`.
-2. Source run, `--analysis-results-dir <results>`, preloading `jdk`, with `--jdk-internals` as `TestGuava` does
-   (`-PjvmArgs=-Dmaddi.workCeiling=30000000`).
+2. Source run: `GUAVA_RESULTS_DIR=<results> TESTXMX=16G ./gradlew :maddi-run-analysis:slowTest --tests '*TestGuava'`
+   (maddi-mod) writes the results at a work ceiling of 30,000,000; about 5 minutes. The corpus config must be the
+   current 6-source-set one.
 3. `python3 corpus/scripts/guava-expected-table.py <results> <guava/src/com/google/common/collect>` (the second
    argument restricts the scope to the package's public types) and paste its rows over the table below.
 4. `./gradlew :maddi-aapi-parser:composeAnalysisHints -Dorg.gradle.offline=false`
