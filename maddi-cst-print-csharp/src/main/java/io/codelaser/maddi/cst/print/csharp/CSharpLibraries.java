@@ -39,6 +39,7 @@ import java.util.function.Supplier;
  *   <li>{@code slf4j}: {@code ms-logging} (Microsoft.Extensions.Logging's ILogger), {@code serilog};</li>
  *   <li>{@code jackson}: {@code system-text-json}, {@code newtonsoft} (Json.NET);</li>
  *   <li>{@code micrometer}: {@code system-diagnostics-metrics}, through the compatibility library's registry;</li>
+ *   <li>{@code jaxb}: {@code xml-serialization}, System.Xml.Serialization's XmlSerializer;</li>
  *   <li>{@code jdk}: {@code bcl}, the BCL with the compatibility library where Java's behaviour differs.</li>
  * </ul>
  * Option {@code none} leaves a library untranslated. {@link #choose} picks options, {@code slf4j=serilog,jackson=none}.
@@ -61,6 +62,8 @@ public final class CSharpLibraries implements LibraryMapping {
         options.put("jackson", jackson);
         options.put("micrometer", Map.of("system-diagnostics-metrics",
                 () -> List.of(CSharpMappingFile.resource("micrometer-system-diagnostics-metrics.csmap"))));
+        options.put("jaxb", Map.of("xml-serialization", () -> List.of(JaxbXmlSerialization.INSTANCE,
+                CSharpMappingFile.resource("jaxb-xml-serialization.csmap"))));
         options.put("jdk", Map.of("bcl", () -> List.of(CSharpBcl.JDK)));
         return java.util.Collections.unmodifiableMap(options);
     }
@@ -174,6 +177,36 @@ public final class CSharpLibraries implements LibraryMapping {
     public AttributeMapping annotation(io.codelaser.maddi.cst.api.expression.AnnotationExpression use, Target target,
                                        Function<io.codelaser.maddi.cst.api.expression.Expression, String> print) {
         return first(m -> m.annotation(use, target, print));
+    }
+
+    /** Every mapping's additions, together: unlike a rule, an addition does not stand in for another. */
+    @Override
+    public Additions additions(TypeInfo typeInfo, io.codelaser.maddi.cst.api.output.Qualification q) {
+        List<String> attributes = new ArrayList<>();
+        List<AddedMember> members = new ArrayList<>();
+        List<String> namespaces = new ArrayList<>();
+        for (LibraryMapping m : mappings) {
+            Additions a = m.additions(typeInfo, q);
+            if (a == null) continue;
+            attributes.addAll(a.attributes());
+            members.addAll(a.members());
+            namespaces.addAll(a.namespaces());
+        }
+        return attributes.isEmpty() && members.isEmpty() ? Additions.NONE
+                : new Additions(attributes, members, namespaces);
+    }
+
+    @Override
+    public AttributeMapping memberAttributes(FieldInfo field) {
+        List<String> attributes = new ArrayList<>();
+        List<String> namespaces = new ArrayList<>();
+        for (LibraryMapping m : mappings) {
+            AttributeMapping a = m.memberAttributes(field);
+            if (a == null) continue;
+            attributes.addAll(a.attributes());
+            namespaces.addAll(a.namespaces());
+        }
+        return attributes.isEmpty() ? null : new AttributeMapping(attributes, namespaces);
     }
 
     @Override

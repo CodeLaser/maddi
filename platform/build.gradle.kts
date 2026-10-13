@@ -37,6 +37,7 @@ dependencies {
 
         api("org.jetbrains:annotations:26.1.0")
         api("com.fasterxml.jackson.core:jackson-databind:2.19.2")
+        api("jakarta.xml.bind:jakarta.xml.bind-api:4.0.2")
         api("commons-cli:commons-cli:1.11.0")
 
         api("org.ow2.asm:asm:9.10.1")

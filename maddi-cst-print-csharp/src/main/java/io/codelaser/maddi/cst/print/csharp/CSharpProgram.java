@@ -125,6 +125,8 @@ public final class CSharpProgram {
     private final Map<TypeInfo, Boolean> inner = new java.util.concurrent.ConcurrentHashMap<>();
     private Set<MethodInfo> erasedGenerics = Set.of();
     private Set<TypeInfo> exposedBases = Set.of();
+    private Map<String, TypeInfo> packageInfos = Map.of();
+    private List<TypeInfo> types = List.of();
     private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
@@ -195,6 +197,11 @@ public final class CSharpProgram {
                 policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
         program.erasedGenerics = erasedGenerics(all);
         program.exposedBases = exposedBases(all);
+        Map<String, TypeInfo> packageInfos = new java.util.HashMap<>();
+        primaryTypes.stream().filter(t -> t.typeNature().isPackageInfo())
+                .forEach(t -> packageInfos.putIfAbsent(t.packageName(), t));
+        program.packageInfos = Map.copyOf(packageInfos);
+        program.types = List.copyOf(all);
         return program;
     }
 
@@ -330,6 +337,16 @@ public final class CSharpProgram {
     }
 
     /** The property that takes {@code field}'s place; null when it stays a field. */
+    /** The program's types, the nested and local ones too. */
+    List<TypeInfo> types() {
+        return types;
+    }
+
+    /** The {@code package-info} of {@code packageName}, whose annotations are the package's; null without one. */
+    TypeInfo packageInfo(String packageName) {
+        return packageInfos.get(packageName);
+    }
+
     CSharpProperties.Property property(FieldInfo field) {
         return properties.get(field);
     }

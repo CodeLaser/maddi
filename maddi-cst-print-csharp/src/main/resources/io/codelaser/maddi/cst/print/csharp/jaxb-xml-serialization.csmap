@@ -1,0 +1,7 @@
+# JAXB as System.Xml.Serialization: the binding of a type is what JaxbXmlSerialization adds to it, a public property
+# per bound field that carries XmlSerializer's attributes; an XmlAdapter is the compatibility library's JavaXmlAdapter,
+# which those properties call.
+mapping jaxb:xml-serialization
+compat JavaXml.cs
+pascal jakarta.xml.bind.annotation.adapters.XmlAdapter -> JavaXmlAdapter using Maddi.JavaCompat
+pascal javax.xml.bind.annotation.adapters.XmlAdapter -> JavaXmlAdapter using Maddi.JavaCompat
