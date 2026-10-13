@@ -58,12 +58,17 @@ final class CSharpAnonymous {
     /**
      * @param name           the C# name
      * @param superArguments the types of the superclass constructor's arguments
+     * @param superConstructor the superclass constructor, when it is known ({@link #superConstructor})
      * @param captures       the locals and parameters, in the order of their first use
      * @param outer          the enclosing instance is used
      * @param typeParameters the enclosing generic method's
      */
-    record Hoisted(TypeInfo type, String name, List<ParameterizedType> superArguments, List<Capture> captures,
-                   boolean outer, List<TypeParameter> typeParameters) {
+    record Hoisted(TypeInfo type, String name, List<ParameterizedType> superArguments, MethodInfo superConstructor,
+                   List<Capture> captures, boolean outer, List<TypeParameter> typeParameters) {
+        /** The constructor's i-th super-argument's type is the superclass's type argument: printed as one. */
+        boolean typeArgument(int i) {
+            return superConstructor != null && superConstructor.parameters().get(i).parameterizedType().isTypeParameter();
+        }
     }
 
     /** The anonymous classes created by the code of {@code owner} (not of its nested types) that are hoisted into it. */
@@ -96,15 +101,41 @@ final class CSharpAnonymous {
             String name = baseName + "Impl";
             for (int i = 2; !taken.add(name); i++) name = baseName + "Impl" + i;
             List<ParameterizedType> superArguments = anonymous.interfacesImplemented().isEmpty()
-                    ? cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList() : List.of();
+                    ? superParameters(cc, anonymous) : List.of();
             Map<String, Capture> captures = new LinkedHashMap<>();
             boolean outer = captures(anonymous, captures);
             MethodInfo enclosingMethod = anonymous.enclosingMethod();
             List<TypeParameter> typeParameters = enclosingMethod == null ? List.of() : enclosingMethod.typeParameters();
-            hoisted.add(new Hoisted(anonymous, name, superArguments, List.copyOf(captures.values()),
+            hoisted.add(new Hoisted(anonymous, name, superArguments,
+                    anonymous.interfacesImplemented().isEmpty() ? superConstructor(cc) : null, List.copyOf(captures.values()),
                     outer && !(enclosingMethod != null && enclosingMethod.isStatic()), typeParameters));
         }
         return hoisted;
+    }
+
+    /**
+     * The types of the superclass constructor's parameters, as the anonymous class extends it ({@code T} of
+     * {@code Holder(T value)} is {@code String} in {@code new Holder<String>(null) {…}}), so that the hoisted class's
+     * {@code base(p0)} passes what the call converted; the arguments' own types for a variable arity constructor.
+     */
+    private static List<ParameterizedType> superParameters(ConstructorCall cc, TypeInfo anonymous) {
+        MethodInfo constructor = superConstructor(cc);
+        if (constructor == null) return cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList();
+        Map<TypeParameter, ParameterizedType> arguments = CSharpTypePrinter.typeArguments(anonymous.parentClass());
+        return constructor.parameters().stream()
+                .map(p -> CSharpTypePrinter.substitute(p.parameterizedType(), arguments)).toList();
+    }
+
+    /**
+     * The superclass constructor an anonymous class's creation calls (the CST has none for it): the only one of its
+     * arity, not of variable arity; null when there is none such, or several.
+     */
+    static MethodInfo superConstructor(ConstructorCall cc) {
+        ParameterizedType parent = cc.anonymousClass() == null ? null : cc.anonymousClass().parentClass();
+        if (parent == null || parent.typeInfo() == null) return null;
+        List<MethodInfo> candidates = parent.typeInfo().constructors().stream()
+                .filter(c -> c.parameters().size() == cc.parameterExpressions().size()).toList();
+        return candidates.size() == 1 && !candidates.getFirst().isVarargs() ? candidates.getFirst() : null;
     }
 
     /** Collects the captured locals and parameters; true when the enclosing instance is used. */

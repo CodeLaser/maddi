@@ -20,14 +20,18 @@ import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -144,24 +148,26 @@ final class JaxbXmlSerialization implements LibraryMapping {
         CSharpProgram program = CSharpContext.program();
         Known k = known;
         if (k == null || k.program() != program) {
+            // filled before it is published: another thread printing the same program sees all of it or none
             k = new Known(program, new ConcurrentHashMap<>(), ConcurrentHashMap.newKeySet());
-            known = k;
             for (TypeInfo t : program.types()) {
                 if (t.typeNature().isEnum() && t.annotations().stream().anyMatch(a -> jaxb(a.typeInfo()))) k.enums().add(t);
                 if (!bound(t, k)) continue;
-                for (FieldInfo f : t.fields()) {
-                    ParameterizedType type = f.type();
-                    for (ParameterizedType pt : java.util.stream.Stream.concat(java.util.stream.Stream.of(type),
-                            type.parameters().stream()).toList()) {
-                        if (pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()) k.enums().add(pt.typeInfo());
-                    }
-                }
+                // every enum a field's type mentions, at any depth (Map<String, List<E>>): an enum that is not
+                // written as well is harmless
+                for (FieldInfo f : t.fields()) enums(f.type(), k.enums());
             }
+            known = k;
         }
         return k;
     }
 
-    /** JAXB binds the type: it, a field of it, or a superclass has a JAXB annotation. An enum is its name. */
+    private static void enums(ParameterizedType pt, Set<TypeInfo> enums) {
+        if (pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()) enums.add(pt.typeInfo());
+        pt.parameters().forEach(p -> enums(p, enums));
+    }
+
+    /** JAXB binds the type: it, a field or method of it, or a superclass has a JAXB annotation. An enum is its name. */
     boolean bound(TypeInfo t) {
         return bound(t, known());
     }
@@ -173,21 +179,79 @@ final class JaxbXmlSerialization implements LibraryMapping {
         boolean b = !t.typeNature().isEnum() && !t.isInterface() && CSharpNames.translated(t)
                     && (t.annotations().stream().anyMatch(a -> jaxb(a.typeInfo()))
                         || t.fields().stream().anyMatch(f -> f.annotations().stream().anyMatch(a -> jaxb(a.typeInfo())))
+                        || t.methods().stream().anyMatch(m -> m.annotations().stream().anyMatch(a -> jaxb(a.typeInfo())))
                         || t.parentClass() != null && t.parentClass().typeInfo() != null
                            && bound(t.parentClass().typeInfo(), k));
         bound.put(t, b);
         return b;
     }
 
-    /** {@code @XmlAccessorType(FIELD)} on the type, a superclass, or the package of one. */
-    private static boolean fieldAccess(TypeInfo t) {
+    /**
+     * JAXB's access type of {@code t}, {@code FIELD} of {@code @XmlAccessorType(FIELD)}: on the type, a superclass, or
+     * the package of one; {@code PUBLIC_MEMBER} by default.
+     */
+    private static String accessType(TypeInfo t) {
         for (TypeInfo s = t; s != null && CSharpNames.translated(s);
              s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
             AnnotationExpression a = find(s.annotations(), "XmlAccessorType");
             if (a == null) a = find(packageAnnotations(s), "XmlAccessorType");
-            if (a != null) return "FIELD".equals(constant(element(a, "value")));
+            if (a != null) {
+                String constant = constant(element(a, "value"));
+                return constant == null ? "PUBLIC_MEMBER" : constant;
+            }
         }
-        return false;
+        return "PUBLIC_MEMBER";
+    }
+
+    /** A field's JavaBean property: the getter of the field's type and name, and its setter, null without. */
+    private record Accessors(MethodInfo getter, MethodInfo setter) {
+        boolean isPublic() {
+            return getter.access().isPublic() && (setter == null || setter.access().isPublic());
+        }
+
+        List<AnnotationExpression> annotations() {
+            List<AnnotationExpression> all = new ArrayList<>(getter.annotations());
+            if (setter != null) all.addAll(setter.annotations());
+            return all;
+        }
+    }
+
+    /** The field's getter and setter; null when it has no getter. */
+    private static Accessors accessors(FieldInfo f) {
+        String capitalized = Character.toUpperCase(f.name().charAt(0)) + f.name().substring(1);
+        MethodInfo getter = null;
+        MethodInfo setter = null;
+        for (MethodInfo m : f.owner().methods()) {
+            if (m.isStatic()) continue;
+            if (m.parameters().isEmpty() && f.type().equals(m.returnType())
+                && (m.name().equals("get" + capitalized) || m.name().equals("is" + capitalized) && f.type().isBoolean())) {
+                getter = m;
+            } else if (m.parameters().size() == 1 && m.name().equals("set" + capitalized)
+                       && f.type().equals(m.parameters().getFirst().parameterizedType())) {
+                setter = m;
+            }
+        }
+        return getter == null ? null : new Accessors(getter, setter);
+    }
+
+    /**
+     * Binding the field is binding its property: the getter returns the field, and the setter, if any, only assigns
+     * it. A getter or setter that does more, JAXB calls and XmlSerializer would not.
+     */
+    private static boolean plain(Accessors accessors, FieldInfo f) {
+        if (accessors.getter().methodBody() == null) return false;
+        Expression returned = CstQueries.returnedValue(CstQueries.own(accessors.getter().methodBody().statements()));
+        if (!(returned != null && CSharpExpressionPrinter.unwrap(returned) instanceof VariableExpression ve
+              && ve.variable() instanceof FieldReference fr && fr.fieldInfo().equals(f))) {
+            return false;
+        }
+        MethodInfo setter = accessors.setter();
+        if (setter == null) return true;
+        if (setter.methodBody() == null) return false;
+        var own = CstQueries.own(setter.methodBody().statements());
+        return own.size() == 1 && own.getFirst() instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
+               && CSharpExpressionPrinter.unwrap(eas.expression()) instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+               && a.variableTarget() instanceof FieldReference target && target.fieldInfo().equals(f);
     }
 
     private static List<AnnotationExpression> packageAnnotations(TypeInfo t) {
@@ -258,15 +322,46 @@ final class JaxbXmlSerialization implements LibraryMapping {
                 if (s != null && !s.isEmpty()) order.add(s);
             }
         }
-        boolean allFields = fieldAccess(t);
+        // JAXB binds fields (FIELD), JavaBean properties (PROPERTY), the public ones of both (PUBLIC_MEMBER, the
+        // default), or the annotated ones only (NONE); a property is bound through its field
+        String access = accessType(t);
+        Set<MethodInfo> boundAccessors = new HashSet<>();
         List<AddedMember> members = new ArrayList<>();
         for (FieldInfo f : t.fields()) {
-            if (f.isStatic() || f.isSynthetic() || f.isTransient() || find(f.annotations(), "XmlTransient") != null) {
+            if (f.isStatic() || f.isSynthetic() || f.isTransient()) continue;
+            Accessors accessors = "FIELD".equals(access) ? null : accessors(f);
+            List<AnnotationExpression> annotations = new ArrayList<>(f.annotations());
+            if (accessors != null) annotations.addAll(accessors.annotations());
+            if (find(annotations, "XmlTransient") != null) continue;
+            boolean annotated = annotations.stream().anyMatch(a -> jaxb(a.typeInfo()));
+            boolean property = accessors != null
+                               && (accessors.setter() != null || isCollection(f.type().typeInfo()));
+            boolean included = switch (access) {
+                case "FIELD" -> true;
+                case "NONE" -> annotated;
+                case "PROPERTY" -> annotated || property;
+                default -> annotated || f.access().isPublic() || property && accessors.isPublic();
+            };
+            if (!included) continue;
+            boolean viaProperty = accessors != null && !f.access().isPublic()
+                                  && (property || accessors.annotations().stream().anyMatch(a -> jaxb(a.typeInfo())));
+            if (accessors != null) {
+                boundAccessors.add(accessors.getter());
+                if (accessors.setter() != null) boundAccessors.add(accessors.setter());
+            }
+            if (viaProperty && !plain(accessors, f)) {
+                members.addAll(unbound(accessors.getter(), accessors.getter().name()
+                                                           + "(): a property whose getter or setter does more than access its field"));
                 continue;
             }
-            boolean annotated = f.annotations().stream().anyMatch(a -> jaxb(a.typeInfo()));
-            if (!allFields && !annotated && !f.access().isPublic()) continue;
-            members.addAll(bind(f, order.indexOf(f.name()), print, q, namespaces));
+            members.addAll(bind(f, annotations, order.indexOf(f.name()), print, q, namespaces));
+        }
+        // a JAXB annotation on any other method: a property without a field to bind
+        for (MethodInfo m : t.methods()) {
+            if (!boundAccessors.contains(m) && m.annotations().stream().anyMatch(a -> jaxb(a.typeInfo()))
+                && find(m.annotations(), "XmlTransient") == null) {
+                unbound(m, m.name() + "(): a property without a field of its name and type");
+            }
         }
         return new Additions(attributes, members, namespaces);
     }
@@ -286,13 +381,13 @@ final class JaxbXmlSerialization implements LibraryMapping {
     private static final Conversion IDENTITY = new Conversion(null, x -> x, x -> x);
 
     /** The property of field {@code f}; nothing when XmlSerializer cannot write its type. */
-    private List<AddedMember> bind(FieldInfo f, int order, Function<Expression, String> print, Qualification q,
-                                   List<String> namespaces) {
-        if (find(f.annotations(), "XmlIDREF") != null || find(f.annotations(), "XmlAnyElement") != null
-            || find(f.annotations(), "XmlAnyAttribute") != null || find(f.annotations(), "XmlMixed") != null) {
+    private List<AddedMember> bind(FieldInfo f, List<AnnotationExpression> annotations, int order,
+                                   Function<Expression, String> print, Qualification q, List<String> namespaces) {
+        if (find(annotations, "XmlIDREF") != null || find(annotations, "XmlAnyElement") != null
+            || find(annotations, "XmlAnyAttribute") != null || find(annotations, "XmlMixed") != null) {
             return unbound(f, "an @XmlIDREF, @XmlAny… or @XmlMixed field");
         }
-        AnnotationExpression elementsAnnotation = find(f.annotations(), "XmlElements");
+        AnnotationExpression elementsAnnotation = find(annotations, "XmlElements");
         List<AnnotationExpression> alternatives = elementsAnnotation == null ? List.of()
                 : elements(elementsAnnotation, "value").stream()
                         .map(CSharpExpressionPrinter::unwrap).filter(AnnotationExpression.class::isInstance)
@@ -302,7 +397,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         ParameterizedType valueType = collection && type.parameters().size() == 1 ? type.parameters().getFirst() : type;
         if (collection && type.parameters().size() != 1) return unbound(f, "a raw collection");
 
-        AnnotationExpression adapterAnnotation = find(f.annotations(), "XmlJavaTypeAdapter");
+        AnnotationExpression adapterAnnotation = find(annotations, "XmlJavaTypeAdapter");
         if (adapterAnnotation == null && valueType.typeInfo() != null) {
             adapterAnnotation = find(valueType.typeInfo().annotations(), "XmlJavaTypeAdapter");
         }
@@ -371,13 +466,13 @@ final class JaxbXmlSerialization implements LibraryMapping {
         String name = "Xml" + CSharpNames.pascal(f.name());
         String orderPart = order < 0 ? "" : "Order = " + order;
         List<String> attributes = new ArrayList<>();
-        AnnotationExpression attribute = find(f.annotations(), "XmlAttribute");
-        AnnotationExpression wrapper = find(f.annotations(), "XmlElementWrapper");
-        AnnotationExpression single = find(f.annotations(), "XmlElement");
+        AnnotationExpression attribute = find(annotations, "XmlAttribute");
+        AnnotationExpression wrapper = find(annotations, "XmlElementWrapper");
+        AnnotationExpression single = find(annotations, "XmlElement");
         if (attribute != null) {
             if (type.isBoxedExcludingVoid()) return unbound(f, "an attribute of a boxed type");
             attributes.add("XmlAttribute(" + named(attribute, f, print, "") + ")");
-        } else if (find(f.annotations(), "XmlValue") != null) {
+        } else if (find(annotations, "XmlValue") != null) {
             attributes.add("XmlText");
         } else if (wrapper != null) {
             attributes.add("XmlArray(" + named(wrapper, f, print, orderPart) + ")");
@@ -443,7 +538,11 @@ final class JaxbXmlSerialization implements LibraryMapping {
     }
 
     private static List<AddedMember> unbound(FieldInfo f, String why) {
-        CSharpContext.message(CSharpPrintCode.XML_UNBOUND, f, f.name() + ": " + why);
+        return unbound(f, f.name() + ": " + why);
+    }
+
+    private static List<AddedMember> unbound(Element subject, String what) {
+        CSharpContext.message(CSharpPrintCode.XML_UNBOUND, subject, what);
         return List.of();
     }
 

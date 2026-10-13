@@ -125,26 +125,48 @@ public sealed class JavaMarshaller
 
     public void Marshal(object root, JavaXmlResult result)
     {
-        using (var writer = result.CreateWriter(Settings())) Write(root, writer);
+        // JAXB's declaration says standalone="yes"
+        using (var writer = result.CreateWriter(Settings(), "yes")) WriteWithSchemaLocation(root, writer);
         result.Written();
     }
 
-    public void Marshal(object root, TextWriter writer)
-    {
-        using var xml = XmlWriter.Create(writer, Settings());
-        Write(root, xml);
-    }
+    public void Marshal(object root, TextWriter writer) => Marshal(root, new JavaStreamResult(writer));
 
-    public void Marshal(object root, Stream stream)
-    {
-        using var xml = XmlWriter.Create(stream, Settings());
-        Write(root, xml);
-    }
+    public void Marshal(object root, Stream stream) => Marshal(root, new JavaStreamResult(stream));
+
+    public void Marshal(object root, JavaFile file) => Marshal(root, new JavaStreamResult(file));
 
     /// <summary>marshal(Object, Node): the XML as the last child of <paramref name="node"/>.</summary>
     public void Marshal(object root, XmlNode node)
     {
-        using (var writer = node.CreateNavigator().AppendChild()) Write(root, writer);
+        using (var writer = node.CreateNavigator().AppendChild()) WriteWithSchemaLocation(root, writer);
+    }
+
+    private const string XmlSchemaInstance = "http://www.w3.org/2001/XMLSchema-instance";
+
+    /// <summary>
+    /// The root with JAXB's xsi:schemaLocation or xsi:noNamespaceSchemaLocation, when a property gives it:
+    /// XmlSerializer has no such attribute, so the XML goes through a document that gets it.
+    /// </summary>
+    private void WriteWithSchemaLocation(object root, XmlWriter writer)
+    {
+        var location = GetProperty(JaxbSchemaLocation) as string;
+        var noNamespaceLocation = GetProperty(JaxbNoNamespaceSchemaLocation) as string;
+        if (location == null && noNamespaceLocation == null)
+        {
+            Write(root, writer);
+            return;
+        }
+        var document = new XmlDocument();
+        using (var into = document.CreateNavigator().AppendChild()) Write(root, into);
+        var element = document.DocumentElement;
+        element.SetAttribute("xmlns:xsi", XmlSchemaInstance);
+        if (location != null) element.SetAttribute("schemaLocation", XmlSchemaInstance, location);
+        if (noNamespaceLocation != null)
+        {
+            element.SetAttribute("noNamespaceSchemaLocation", XmlSchemaInstance, noNamespaceLocation);
+        }
+        element.WriteTo(writer);
     }
 
     private static void Write(object root, XmlWriter writer)
@@ -287,6 +309,8 @@ public sealed class JavaUnmarshaller
     public object Unmarshal(JavaInputSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
 
     public object Unmarshal(JavaXmlSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
+
+    public object Unmarshal(JavaFile file) => Unmarshal(new FileInfo(file.GetAbsolutePath()));
 
     public object Unmarshal(FileInfo file)
     {
@@ -497,6 +521,8 @@ public sealed class JavaDocumentBuilder
         return Load(reader);
     }
 
+    public XmlDocument Parse(JavaFile file) => Parse(new FileInfo(file.GetAbsolutePath()));
+
     public XmlDocument Parse(FileInfo file)
     {
         using var stream = file.OpenRead();
@@ -596,6 +622,8 @@ public sealed class JavaStreamSource : JavaXmlSource
 
     public JavaStreamSource(FileInfo file) => SetSystemId(file.FullName);
 
+    public JavaStreamSource(JavaFile file) => SetSystemId(file.GetAbsolutePath());
+
     public Stream GetInputStream() => stream;
 
     public TextReader GetReader() => reader;
@@ -615,7 +643,11 @@ public abstract class JavaXmlResult
 
     public void SetSystemId(string id) => systemId = id;
 
-    internal abstract XmlWriter CreateWriter(XmlWriterSettings settings);
+    /// <summary>
+    /// A writer of the XML; unless the settings omit it, the declaration first, with <paramref name="standalone"/>
+    /// ("yes", "no"; null: none).
+    /// </summary>
+    internal abstract XmlWriter CreateWriter(XmlWriterSettings settings, string standalone);
 
     /// <summary>After the writer has been closed.</summary>
     internal virtual void Written() { }
@@ -634,7 +666,7 @@ public sealed class JavaDomResult : JavaXmlResult
 
     public void SetNode(XmlNode value) => node = value;
 
-    internal override XmlWriter CreateWriter(XmlWriterSettings settings)
+    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string standalone)
     {
         node ??= new XmlDocument();
         return node.CreateNavigator().AppendChild();
@@ -655,21 +687,37 @@ public sealed class JavaStreamResult : JavaXmlResult
 
     public JavaStreamResult(FileInfo file) => SetSystemId(file.FullName);
 
+    public JavaStreamResult(JavaFile file) => SetSystemId(file.GetAbsolutePath());
+
     public TextWriter GetWriter() => writer;
 
     public Stream GetOutputStream() => stream;
 
-    internal override XmlWriter CreateWriter(XmlWriterSettings settings)
+    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string standalone)
     {
-        if (writer == null) return stream != null ? XmlWriter.Create(stream, settings) : XmlWriter.Create(GetSystemId(), settings);
-        if (settings.OmitXmlDeclaration) return XmlWriter.Create(writer, settings);
-        // a TextWriter's own encoding (a StringWriter's is UTF-16) is not the one Java declares, the output's
-        writer.Write("<?xml version=\"1.0\" encoding=\"" + (settings.Encoding ?? Encoding.UTF8).WebName.ToUpperInvariant()
-                     + "\" standalone=\"no\"?>");
-        if (settings.Indent) writer.Write(settings.NewLineChars);
+        if (settings.OmitXmlDeclaration)
+        {
+            return writer != null ? XmlWriter.Create(writer, settings)
+                : stream != null ? XmlWriter.Create(stream, settings) : XmlWriter.Create(GetSystemId(), settings);
+        }
+        // Java's declaration: XmlWriter's has the TextWriter's encoding (a StringWriter's is UTF-16), the encoding in
+        // lower case, and no standalone
+        var encoding = settings.Encoding ?? new UTF8Encoding(false);
+        if (encoding is UTF8Encoding) encoding = new UTF8Encoding(false); // Java writes no byte order mark
         var fragment = settings.Clone();
         fragment.OmitXmlDeclaration = true;
-        return XmlWriter.Create(writer, fragment);
+        var text = writer;
+        if (text == null)
+        {
+            // a writer of our own, closed with the XmlWriter; the caller's stream stays open
+            text = new StreamWriter(stream ?? new FileStream(GetSystemId(), FileMode.Create), encoding, 1024,
+                leaveOpen: stream != null);
+            fragment.CloseOutput = true;
+        }
+        text.Write("<?xml version=\"1.0\" encoding=\"" + encoding.WebName.ToUpperInvariant() + "\""
+                   + (standalone == null ? "" : " standalone=\"" + standalone + "\"") + "?>");
+        if (settings.Indent) text.Write(settings.NewLineChars);
+        return XmlWriter.Create(text, fragment);
     }
 }
 
@@ -775,7 +823,8 @@ public sealed class JavaTransformer
         try
         {
             using (var reader = source.CreateReader(JavaXmlParsing.Secure()))
-            using (var writer = result.CreateWriter(Settings()))
+            // the JDK's transformer declares standalone="no" unless told otherwise
+            using (var writer = result.CreateWriter(Settings(), GetOutputProperty(JavaOutputKeys.Standalone) ?? "no"))
             {
                 if (xslt == null) writer.WriteNode(reader, true);
                 else xslt.Transform(reader, writer);
@@ -836,6 +885,8 @@ public sealed class JavaSchemaFactory
     }
 
     public JavaSchema NewSchema(FileInfo file) => NewSchema(new JavaStreamSource(file));
+
+    public JavaSchema NewSchema(JavaFile file) => NewSchema(new JavaStreamSource(file));
 
     public JavaSchema NewSchema(params JavaXmlSource[] sources)
     {

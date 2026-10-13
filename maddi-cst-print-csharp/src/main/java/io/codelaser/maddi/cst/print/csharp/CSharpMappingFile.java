@@ -268,6 +268,10 @@ public final class CSharpMappingFile implements LibraryMapping {
             namespaces = List.of(using.group(2).split("\\s*,\\s*"));
         }
         String namespace = namespaces.isEmpty() ? null : namespaces.getFirst();
+        if (namespaces.size() > 1 && Set.of("type", "plain", "pascal", "field").contains(directive)) {
+            // a type or field mapping has one namespace; only a member's template may need several
+            throw new IllegalArgumentException(directive + " takes one namespace, not " + String.join(", ", namespaces));
+        }
         switch (directive) {
             case "type" -> addType(key, new TypeMapping(value, namespace, false, false));
             case "plain" -> addType(key, new TypeMapping(value, namespace, false, true));

@@ -43,7 +43,15 @@ import java.util.stream.Collectors;
  */
 final class CSharpInner {
 
-    private static final ThreadLocal<Set<TypeInfo>> IN_PROGRESS = ThreadLocal.withInitial(HashSet::new);
+    /**
+     * The inner classes being decided, outermost first, and those whose answer so far rests on one of them being
+     * taken as without its enclosing instance: a false answer of theirs is not final.
+     */
+    private record InProgress(List<TypeInfo> stack, Set<TypeInfo> provisional) {
+    }
+
+    private static final ThreadLocal<InProgress> IN_PROGRESS =
+            ThreadLocal.withInitial(() -> new InProgress(new ArrayList<>(), new HashSet<>()));
 
     private CSharpInner() {
     }
@@ -57,14 +65,23 @@ final class CSharpInner {
         java.util.Map<TypeInfo, Boolean> cache = CSharpContext.program().inner();
         Boolean known = cache.get(t);
         if (known != null) return known;
-        Set<TypeInfo> busy = IN_PROGRESS.get();
-        if (!busy.add(t)) return false;
+        InProgress inProgress = IN_PROGRESS.get();
+        int at = inProgress.stack().indexOf(t);
+        if (at >= 0) {
+            // a cycle of creations: t is without, for now; what was decided on top of that is provisional. The
+            // answer is the least one (true only when a class of the cycle uses its enclosing instance itself).
+            for (int i = at + 1; i < inProgress.stack().size(); i++) inProgress.provisional().add(inProgress.stack().get(i));
+            return false;
+        }
+        inProgress.stack().add(t);
         try {
             boolean computed = usesOuter(t);
-            cache.put(t, computed);
+            // true is final; false is, unless it rests on a class still being decided
+            if (computed || !inProgress.provisional().contains(t)) cache.put(t, computed);
             return computed;
         } finally {
-            busy.remove(t);
+            inProgress.stack().removeLast();
+            inProgress.provisional().remove(t);
         }
     }
 

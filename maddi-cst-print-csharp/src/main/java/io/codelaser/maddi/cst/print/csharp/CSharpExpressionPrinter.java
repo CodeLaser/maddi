@@ -622,7 +622,13 @@ public final class CSharpExpressionPrinter {
                 // new GraphImpl(superArguments…, this, captures…)
                 OutputBuilder arguments = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS);
                 List<OutputBuilder> all = new java.util.ArrayList<>();
-                if (!hoisted.superArguments().isEmpty()) cc.parameterExpressions().forEach(x -> all.add(print(x, q)));
+                // converted to the superclass constructor's parameters, which the hoisted constructor's are
+                List<Expression> superArguments = hoisted.superArguments().isEmpty() ? List.of() : cc.parameterExpressions();
+                MethodInfo superConstructor = CSharpAnonymous.superConstructor(cc);
+                for (int i = 0; i < superArguments.size(); i++) {
+                    all.add(superConstructor == null ? print(superArguments.get(i), q)
+                            : argument(superArguments.get(i), superConstructor, i, q));
+                }
                 if (hoisted.outer()) all.add(text(CSharpContext.hoistedWithOuter() != null ? "outer" : "this"));
                 hoisted.captures().forEach(c -> all.add(text(CSharpContext.local(c.name()))));
                 for (int i = 0; i < all.size(); i++) {

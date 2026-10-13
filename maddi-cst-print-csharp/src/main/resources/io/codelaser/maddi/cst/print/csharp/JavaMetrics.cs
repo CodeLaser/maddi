@@ -234,19 +234,34 @@ public static class JavaMetrics
     private static readonly ConcurrentDictionary<string, Counter<double>> Counters = new();
     private static readonly ConcurrentDictionary<string, Histogram<double>> Histograms = new();
 
-    /// <summary>gauge(name, tags, obj, f): <paramref name="obj"/>, whose gauge reads f(obj).</summary>
+    /// <summary>
+    /// gauge(name, tags, obj, f): <paramref name="obj"/>, whose gauge reads f(obj). As Micrometer's, the gauge does
+    /// not keep the object alive: once it is collected, the gauge reads NaN. A value type's copy is kept.
+    /// </summary>
     public static T Gauge<T>(string name, JavaTags tags, T obj, Func<T, double> value)
     {
-        GlobalRegistry.Gauge(name, tags, () => value(obj));
+        GlobalRegistry.Gauge(name, tags, Weakly(obj, value));
         return obj;
     }
 
-    /// <summary>gauge(name, tags, number): <paramref name="number"/>, whose gauge reads its value.</summary>
+    /// <summary>gauge(name, obj, f), without tags.</summary>
+    public static T Gauge<T>(string name, T obj, Func<T, double> value) => Gauge(name, JavaTags.Empty, obj, value);
+
+    /// <summary>gauge(name, tags, number): <paramref name="number"/>, whose gauge reads its value, weakly too.</summary>
     public static T Gauge<T>(string name, JavaTags tags, T number)
     {
-        GlobalRegistry.Gauge(name, tags, () => NumberValue(number));
+        GlobalRegistry.Gauge(name, tags, Weakly(number, n => NumberValue(n)));
         return number;
     }
+
+    private static Func<double> Weakly<T>(T obj, Func<T, double> value) =>
+        obj is null || typeof(T).IsValueType ? Strongly(obj, value) : Weakly(new WeakReference<object>(obj), value);
+
+    // separate methods: one method's lambdas share the closure, which would hold obj
+    private static Func<double> Strongly<T>(T obj, Func<T, double> value) => () => value(obj);
+
+    private static Func<double> Weakly<T>(WeakReference<object> weak, Func<T, double> value) =>
+        () => weak.TryGetTarget(out var target) ? value((T)target) : double.NaN;
 
     public static JavaCounter Counter(string name, params string[] tags) =>
         new(Counters.GetOrAdd(name, n => Meter.CreateCounter<double>(n)), PairTags(tags));

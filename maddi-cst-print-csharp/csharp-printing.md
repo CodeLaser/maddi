@@ -311,8 +311,9 @@ implements the interface.
   as the members whose signatures name it (a record's components count as its properties), capped by the visibility
   of the members' own types, and so are the types it is nested in (`CSharpAccess`).
 - **Subclasses of collections.** C#'s `List<T>` has no virtual methods. A class extending `ArrayList` extends the
-  compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `AddAll`, `Clear`,
-  `Clone`, …) are virtual. A call through a `List<E>`-typed reference reaches `List`'s method, not the override:
+  compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `Set`, `AddAll`,
+  `Clear`, `Clone`, …) are virtual. A call on a receiver of such a class goes through them, also where its value is
+  not used (`Remove(int)`, not `RemoveAt`). A call through a `List<E>`-typed reference reaches `List`'s method, not the override:
   `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but `IList<T>` is not an
   `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
