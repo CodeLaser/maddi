@@ -158,13 +158,23 @@ public class KotlinStatementPrinter {
     }
 
     static OutputBuilder block(List<Statement> statements, Qualification q) {
-        return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+        KotlinSmartCasts.enterBlock();
+        try {
+            return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+        } finally {
+            KotlinSmartCasts.exitBlock();
+        }
     }
 
     /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
     static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
         List<OutputBuilder> all = new ArrayList<>(prefix);
-        statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.add(print(st, q)));
+        KotlinSmartCasts.enterBlock();
+        try {
+            statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.add(print(st, q)));
+        } finally {
+            KotlinSmartCasts.exitBlock();
+        }
         return braces(all);
     }
 

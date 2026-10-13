@@ -299,11 +299,13 @@ final class KotlinContext {
 
     /** A method body starts: the pattern variables of the enclosing method are not in scope. Restore with the result. */
     record MethodScope(Map<String, Supplier<OutputBuilder>> patterns,
-                       Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType> localTypes) {
+                       Map<String, io.codelaser.maddi.cst.api.type.ParameterizedType> localTypes,
+                       java.util.Deque<java.util.Set<Variable>> smartCasts) {
     }
 
     static MethodScope enterMethod(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
-        MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()));
+        MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()),
+                KotlinSmartCasts.enterMethod());
         PATTERNS.get().clear();
         LOCAL_TYPES.get().clear();
         STATE.get().pushMethod(methodInfo);
@@ -314,6 +316,7 @@ final class KotlinContext {
     static void exitMethod(MethodScope saved) {
         STATE.get().popMethod();
         popScope();
+        KotlinSmartCasts.exitMethod(saved.smartCasts());
         PATTERNS.get().clear();
         PATTERNS.get().putAll(saved.patterns());
         LOCAL_TYPES.get().clear();

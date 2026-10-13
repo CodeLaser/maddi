@@ -901,4 +901,40 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "Optional.ofNullable(d).orElse(describe(c))");
         assertFalse(kotlin.contains("describe(c)!!"), kotlin);
     }
+
+    private static final String SMART_CASTS = """
+            package a;
+            class SC {
+                static int f(String s, String t, boolean c) {
+                    int n = s.length();
+                    n += s.length();
+                    if (c && t.isEmpty()) n++;
+                    n += t.length();
+                    return n + t.length();
+                }
+                static int g(String u, boolean c) {
+                    int n = 0;
+                    if (c) {
+                        n = u.length();
+                        n += u.length();
+                    }
+                    return n + u.length() + u.length();
+                }
+            }
+            """;
+
+    /**
+     * After {@code x!!} Kotlin smart-casts a val: what that assertion dominates needs none. Not after one on the right
+     * of {@code &&}, which may not run; not after a branch, whose assertions hold inside it only.
+     */
+    @Test
+    public void smartCastAfterAssertion() {
+        String kotlin = kotlin(SMART_CASTS, new KotlinPrintOptions(new ByName(Set.of("s", "t", "u")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "var n = s!!.length\nn += s.length");
+        contains(kotlin, "if (c && t!!.isEmpty())");
+        contains(kotlin, "n += t!!.length\nreturn n + t.length");
+        contains(kotlin, "n = u!!.length\nn += u.length");
+        contains(kotlin, "return n + u!!.length + u.length");
+    }
 }

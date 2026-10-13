@@ -450,7 +450,7 @@ final class KotlinNullability {
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */
     private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
-        return KotlinContext.state().knownNonNull(verdicts(), variable);
+        return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable);
     }
 
     static boolean nullableJdkResult(MethodInfo methodInfo) {
@@ -507,7 +507,9 @@ final class KotlinNullability {
         }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintCode.ASSERT_AT_UNBOXING : KotlinPrintCode.ASSERT_INTO_NON_NULL,
                 value, KotlinContext.describe(value));
-        return KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
+        OutputBuilder assertedValue = KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
+        KotlinSmartCasts.assertedAt(value);
+        return assertedValue;
     }
 
     /**
@@ -546,7 +548,9 @@ final class KotlinNullability {
     static OutputBuilder iterable(Expression e, Qualification q) {
         if (!nullableInKotlin(e) || e instanceof NullConstant) return KotlinExpressionPrinter.print(e, q);
         KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, e, KotlinContext.describe(e));
-        return KotlinExpressionPrinter.receiver(e, q).add(NOT_NULL);
+        OutputBuilder iterated = KotlinExpressionPrinter.receiver(e, q).add(NOT_NULL);
+        KotlinSmartCasts.assertedAt(e);
+        return iterated;
     }
 
     /** An array that is indexed: {@code a!![i]} when Kotlin types it nullable ({@code ?.} cannot index a target). */
@@ -559,6 +563,7 @@ final class KotlinNullability {
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(e, q);
         if (!nullableInKotlin(e) || e instanceof NullConstant) return receiver;
         KotlinContext.message(code, e, KotlinContext.describe(e));
+        KotlinSmartCasts.assertedAt(e);
         return receiver.add(NOT_NULL);
     }
 
@@ -571,6 +576,7 @@ final class KotlinNullability {
             return receiver.add(new SymbolEnum("?.", SpaceEnum.NO_SPACE_SPLIT_ALLOWED, SpaceEnum.NONE, null));
         }
         KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, object, KotlinContext.describe(object));
+        KotlinSmartCasts.assertedAt(object);
         return receiver.add(NOT_NULL).add(SymbolEnum.DOT);
     }
 }
