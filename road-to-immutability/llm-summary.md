@@ -213,6 +213,14 @@ immutability verdicts are derived.
 - Field independence counts a link to a REAL field of a parameter or return value (`this.f ← 0:p.g`) as a link
   to that variable: the field shares the caller's object. Parts reached through a virtual (`§`) field — the content
   of a copied collection — are judged by the transported-content rules instead (since 2026-09).
+- **A captured parameter is a field of the instance for independence** (2026-10-13, CodeLaser/maddi-mod#39): a method
+  of a local or anonymous class, or a lambda, whose return value or parameter links to a parameter it captured from
+  the enclosing method is judged as if that parameter were a field of its own type (`LinkToField.isCaptured`): the
+  captured variable is the object's synthetic final field. Guava's `new ForwardingDeque<T>() { delegate() { return
+  delegate; } }` is dependent, so the abstract `delegate()` it implements is, and the mutators through it modify. The
+  modification side counted captured variables already (the closure set in `copyModificationsIntoMethod`). Not yet:
+  a captured LOCAL (its link never reaches the summary) and the creation site of the anonymous class, which links
+  the new object to nothing it captured (CodeLaser/maddi-mod#43). Gate `NOCAPTURED` for an A/B.
 - A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
