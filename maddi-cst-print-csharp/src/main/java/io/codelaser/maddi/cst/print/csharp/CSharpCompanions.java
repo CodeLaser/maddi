@@ -12,17 +12,20 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -128,9 +131,9 @@ final class CSharpCompanions {
             if (i < arguments.size()) {
                 ParameterizedType a = arguments.get(i);
                 boolean unbound = a.wildcard() != null && a.wildcard().isUnbound();
-                printed.add(unbound ? CSharpTypeName.rawArgumentOf(tp, q) : CSharpTypeName.argument(a, q));
+                printed.add(unbound ? CSharpTypeName.rawArgument(tp, q) : CSharpTypeName.argument(a, q));
             } else {
-                printed.add(CSharpTypeName.rawArgumentOf(tp, q));
+                printed.add(CSharpTypeName.rawArgument(tp, q));
             }
         }
         String name = CSharpTypeName.name(t, q);
@@ -147,7 +150,7 @@ final class CSharpCompanions {
     static String ownUse(ParameterizedType pt, Qualification q) {
         TypeInfo t = pt.typeInfo();
         if (t == null || pt.arrays() != 0 || !t.equals(CSharpContext.currentType()) || !isWildcardUse(pt)) return null;
-        io.codelaser.maddi.cst.api.info.MethodInfo m = CSharpContext.currentMethod();
+        MethodInfo m = CSharpContext.currentMethod();
         if (m == null || m.isStatic() || !t.equals(m.typeInfo())) return null;
         return CSharpTypeName.name(t, q) + t.typeParameters().stream().map(CSharpNames::typeParameter)
                 .collect(Collectors.joining(", ", "<", ">"));
@@ -247,9 +250,9 @@ final class CSharpCompanions {
         Set<String> signatures = new HashSet<>();
         if (t.typeNature().isRecord()) {
             // a record's components, its properties
-            for (io.codelaser.maddi.cst.api.info.FieldInfo f : t.fields()) {
+            for (FieldInfo f : t.fields()) {
                 if (f.isStatic()) continue;
-                io.codelaser.maddi.cst.api.type.NullableState nullable = program.facts().nullable(f);
+                NullableState nullable = program.facts().nullable(f);
                 String type = mentionsAny(f.type(), removed) ? erased(f.type(), removed, q)
                         : CSharpTypeName.declared(f.type(), false, nullable, q);
                 if (type == null) continue;
@@ -262,7 +265,7 @@ final class CSharpCompanions {
             }
         }
         for (MethodInfo m : t.methods()) {
-            if (CSharpTypePrinter.isRecordAccessor(m)) continue;
+            if (CstQueries.isRecordAccessor(m)) continue;
             if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
                 || m.overrides().stream().anyMatch(o -> o != m) || CSharpWildcards.mayCapture(m)
                 || program.typeToken(m) >= 0 || CSharpTypePrinter.interfaceMethodDefaulted(t, m) != null) {
@@ -319,11 +322,11 @@ final class CSharpCompanions {
      * returns (CS8603, CS8766); a removed type parameter erased, {@code IScore?} when the member may return null.
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
-        io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(m);
+        NullableState nullable = CSharpContext.program().facts().nullable(m);
         if (!mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
         String erased = erased(m.returnType(), removed, q);
         if (erased == null) return null;
-        boolean nullableResult = nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+        boolean nullableResult = nullable == NullableState.NULLABLE
                                  && !erased.endsWith("?");
         return nullableResult ? erased + "?" : erased;
     }
@@ -354,7 +357,7 @@ final class CSharpCompanions {
         }
         List<OutputBuilder> body = members(t, q).stream()
                 .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.declaration()))).toList();
-        return new OutputBuilderImpl().add(new TextImpl(header.toString())).add(io.codelaser.maddi.cst.impl.output.SpaceEnum.ONE)
+        return new OutputBuilderImpl().add(new TextImpl(header.toString())).add(SpaceEnum.ONE)
                 .add(CSharpStatementPrinter.braces(body));
     }
 

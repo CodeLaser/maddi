@@ -14,7 +14,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -24,17 +23,24 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeModifier;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
@@ -51,6 +57,21 @@ import java.util.stream.Stream;
  *   <li>C# members are not virtual unless declared so, Java's are: a class nothing extends is {@code sealed}, and a
  *   method nothing overrides is not {@code virtual}. Code outside the program may extend a public API, which the
  *   policy can keep open.</li>
+ * </ul>
+ * And without a policy of their own:
+ * <ul>
+ *   <li>the simple names two namespaces, or the program and the BCL, declare, which are qualified
+ *   ({@link #ambiguous(String)}), and the hoisted types named with their enclosing types' names
+ *   ({@link #prefixedHoisted(TypeInfo)});</li>
+ *   <li>the getters and setters that are properties ({@link CSharpProperties}, as {@link Accessors} has it), the
+ *   collection parameters that are read-only ({@link CSharpReadOnly}), the type parameters that are a dictionary's key
+ *   ({@link CSharpNotNullKeys}), with the analysis's facts;</li>
+ *   <li>the methods whose {@code Class<T>} parameter becomes their type argument ({@link #typeToken}), those whose type
+ *   parameters are erased ({@link #erasedGeneric}), and the bases of public types that are printed public
+ *   ({@link #exposedBase});</li>
+ *   <li>the package-infos, whose annotations are their packages'; and, as they are asked for, which inner classes take
+ *   their enclosing instance ({@link CSharpInner}) and which type parameters are self-bounded
+ *   ({@link CSharpCompanions}).</li>
  * </ul>
  */
 public final class CSharpProgram {
@@ -79,8 +100,10 @@ public final class CSharpProgram {
         METHODS,
     }
 
-    /** {@code libraries}: what the libraries the program uses are in C#, see {@link CSharpLibraries}. */
-    /** {@code facts}: what the analysis knows about the program, see {@link CSharpFacts}. */
+    /**
+     * How the program is printed. {@code libraries}: what the libraries the program uses are in C#, see
+     * {@link CSharpLibraries}; {@code facts}: what the analysis knows about the program, see {@link CSharpFacts}.
+     */
     public record Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance, CSharpLibraries libraries,
                          Accessors accessors, CSharpFacts facts) {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
@@ -121,14 +144,14 @@ public final class CSharpProgram {
     private final Map<MethodInfo, String> computedProperties;
     private final CSharpFacts facts;
     private final Set<ParameterInfo> readOnly;
-    private final Map<MethodInfo, CSharpProperties.Property> accessors = new java.util.HashMap<>();
-    private final Map<TypeInfo, Boolean> inner = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<MethodInfo, CSharpProperties.Property> accessors = new HashMap<>();
+    private final Map<TypeInfo, Boolean> inner = new ConcurrentHashMap<>();
     private Set<MethodInfo> erasedGenerics = Set.of();
     private Set<TypeInfo> exposedBases = Set.of();
     private Map<String, TypeInfo> packageInfos = Map.of();
     private List<TypeInfo> types = List.of();
     private Set<TypeParameter> notNullKeys = Set.of();
-    private final Map<TypeInfo, List<TypeParameter>> companions = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<TypeInfo, List<TypeParameter>> companions = new ConcurrentHashMap<>();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
@@ -216,7 +239,7 @@ public final class CSharpProgram {
                 policy.facts(), CSharpReadOnly.analyze(all, policy.facts(), delegates));
         program.erasedGenerics = erasedGenerics(all);
         program.exposedBases = exposedBases(all);
-        Map<String, TypeInfo> packageInfos = new java.util.HashMap<>();
+        Map<String, TypeInfo> packageInfos = new HashMap<>();
         primaryTypes.stream().filter(t -> t.typeNature().isPackageInfo())
                 .forEach(t -> packageInfos.putIfAbsent(t.packageName(), t));
         program.packageInfos = Map.copyOf(packageInfos);
@@ -233,7 +256,7 @@ public final class CSharpProgram {
      */
     private static Set<TypeInfo> exposedBases(List<TypeInfo> all) {
         Set<TypeInfo> exposed = new HashSet<>();
-        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>();
         for (TypeInfo t : all) {
             if (publicThroughout(t)) todo.push(t);
         }
@@ -258,7 +281,7 @@ public final class CSharpProgram {
     private static boolean publicThroughout(TypeInfo t) {
         for (TypeInfo x = t; x != null; x = CstQueries.enclosing(x)) {
             TypeInfo enclosing = CstQueries.enclosing(x);
-            if (x.typeModifiers().stream().noneMatch(io.codelaser.maddi.cst.api.info.TypeModifier::isPublic)
+            if (x.typeModifiers().stream().noneMatch(TypeModifier::isPublic)
                 && (enclosing == null || !enclosing.isInterface())) {
                 return false;
             }
@@ -284,7 +307,7 @@ public final class CSharpProgram {
      */
     private static Set<MethodInfo> erasedGenerics(List<TypeInfo> all) {
         List<MethodInfo> methods = all.stream().flatMap(t -> t.methods().stream()).toList();
-        Map<MethodInfo, Set<MethodInfo>> family = new java.util.HashMap<>();
+        Map<MethodInfo, Set<MethodInfo>> family = new HashMap<>();
         Set<MethodInfo> erased = new HashSet<>();
         for (MethodInfo m : methods) {
             for (MethodInfo o : m.overrides()) {
@@ -297,7 +320,7 @@ public final class CSharpProgram {
         for (MethodInfo m : methods) {
             if (erased.contains(m) || !selfBoundErasable(m)) continue;
             Set<MethodInfo> component = new HashSet<>(Set.of(m));
-            java.util.Deque<MethodInfo> pending = new java.util.ArrayDeque<>(component);
+            Deque<MethodInfo> pending = new ArrayDeque<>(component);
             while (!pending.isEmpty()) {
                 for (MethodInfo f : family.getOrDefault(pending.pop(), Set.of())) {
                     if (component.add(f)) pending.push(f);
@@ -306,7 +329,7 @@ public final class CSharpProgram {
             if (component.stream().allMatch(CSharpProgram::selfBoundErasable)) erased.addAll(component);
         }
         if (erased.isEmpty()) return Set.of();
-        java.util.Deque<MethodInfo> todo = new java.util.ArrayDeque<>(erased);
+        Deque<MethodInfo> todo = new ArrayDeque<>(erased);
         while (!todo.isEmpty()) {
             for (MethodInfo f : family.getOrDefault(todo.pop(), Set.of())) {
                 if (!f.typeParameters().isEmpty() && erasable(f) && erased.add(f)) todo.push(f);
@@ -357,7 +380,6 @@ public final class CSharpProgram {
         return readOnly.contains(parameter);
     }
 
-    /** The property that takes {@code field}'s place; null when it stays a field. */
     /** {@code where T : notnull}: a type parameter that is, or is passed as, a dictionary's key (CSharpNotNullKeys). */
     boolean notNullKey(TypeParameter typeParameter) {
         return notNullKeys.contains(typeParameter);
@@ -373,6 +395,7 @@ public final class CSharpProgram {
         return packageInfos.get(packageName);
     }
 
+    /** The property that takes {@code field}'s place; null when it stays a field. */
     CSharpProperties.Property property(FieldInfo field) {
         return properties.get(field);
     }
@@ -407,7 +430,7 @@ public final class CSharpProgram {
      * {@code X}, no method reference names it, and the methods it overrides or that override it qualify too.
      */
     private static Map<MethodInfo, Integer> typeTokens(List<TypeInfo> all) {
-        Map<MethodInfo, Integer> tokens = new java.util.HashMap<>();
+        Map<MethodInfo, Integer> tokens = new HashMap<>();
         List<MethodInfo> methods = all.stream().flatMap(t -> t.methods().stream()).toList();
         for (MethodInfo m : methods) {
             int index = typeTokenIndex(m);
@@ -415,20 +438,20 @@ public final class CSharpProgram {
         }
         if (tokens.isEmpty()) return Map.of();
         Set<MethodInfo> rejected = new HashSet<>();
-        Map<MethodInfo, Set<MethodInfo>> family = new java.util.HashMap<>();
+        Map<MethodInfo, Set<MethodInfo>> family = new HashMap<>();
         for (MethodInfo m : methods) {
             for (MethodInfo o : m.overrides()) {
                 if (o == m) continue;
                 family.computeIfAbsent(m, x -> new HashSet<>()).add(o);
                 family.computeIfAbsent(o, x -> new HashSet<>()).add(m);
-                if (!java.util.Objects.equals(tokens.get(m), tokens.get(o)) || !CSharpNames.translated(o.typeInfo())) {
+                if (!Objects.equals(tokens.get(m), tokens.get(o)) || !CSharpNames.translated(o.typeInfo())) {
                     rejected.add(m);
                     rejected.add(o);
                 }
             }
         }
         for (TypeInfo t : all) {
-            for (Element element : code(t)) {
+            for (Element element : CstQueries.code(t)) {
                 element.visit((Element e) -> {
                     if (e instanceof MethodReference mr) rejected.add(mr.methodInfo());
                     if (e instanceof MethodCall mc && tokens.containsKey(mc.methodInfo())) {
@@ -440,7 +463,7 @@ public final class CSharpProgram {
                 });
             }
         }
-        java.util.Deque<MethodInfo> todo = new java.util.ArrayDeque<>(rejected);
+        Deque<MethodInfo> todo = new ArrayDeque<>(rejected);
         while (!todo.isEmpty()) {
             for (MethodInfo f : family.getOrDefault(todo.pop(), Set.of())) {
                 if (rejected.add(f)) todo.push(f);
@@ -490,16 +513,12 @@ public final class CSharpProgram {
         return inner;
     }
 
-    static List<Element> code(TypeInfo t) {
-        return CstQueries.code(t);
-    }
-
     /**
      * The hoisted types ({@link CSharpNames#hoisted}) whose simple name another type of their namespace has too:
      * {@code RequestContext.Add} and {@code ResponseContext.Add} both land in the namespace.
      */
     private static Set<TypeInfo> prefixedHoisted(List<TypeInfo> all) {
-        Map<String, List<TypeInfo>> byName = new java.util.HashMap<>();
+        Map<String, List<TypeInfo>> byName = new HashMap<>();
         for (TypeInfo t : all) {
             if (t.isAnonymous() || !CSharpNames.translated(t)) continue;
             if (CSharpNames.enclosing(t) != null && !CSharpNames.hoisted(t)) continue;
@@ -521,7 +540,7 @@ public final class CSharpProgram {
      * bring both into scope, C# finds the name ambiguous.
      */
     private static Set<String> ambiguous(Collection<TypeInfo> primaryTypes, CSharpLibraries libraries) {
-        Map<String, Set<String>> namespaces = new java.util.HashMap<>();
+        Map<String, Set<String>> namespaces = new HashMap<>();
         for (TypeInfo t : primaryTypes) {
             if (!CSharpNames.translated(t)) continue;
             String simple = t.simpleName();
@@ -548,7 +567,7 @@ public final class CSharpProgram {
                                                          CSharpLibraries libraries) {
         Set<String> typeNames = new HashSet<>(libraries.typeNames());
         all.stream().filter(t -> !t.isAnonymous()).forEach(t -> typeNames.add(CSharpNames.pascal(t.simpleName())));
-        Map<String, String> renamed = new java.util.HashMap<>();
+        Map<String, String> renamed = new HashMap<>();
         for (TypeInfo t : primaryTypes) {
             if (!CSharpNames.translated(t) || t.packageName() == null) continue;
             for (String segment : t.packageName().split("\\.")) {
@@ -641,7 +660,7 @@ public final class CSharpProgram {
     private static void collect(TypeInfo t, List<TypeInfo> all) {
         all.add(t);
         t.subTypes().forEach(st -> collect(st, all));
-        for (Element element : code(t)) {
+        for (Element element : CstQueries.code(t)) {
             element.visit((Element e) -> {
                 if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) collect(cc.anonymousClass(), all);
                 if (e instanceof LocalTypeDeclaration ltd) collect(ltd.typeInfo(), all);

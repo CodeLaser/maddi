@@ -14,17 +14,19 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
+import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
@@ -249,8 +251,8 @@ final class JaxbXmlSerialization implements LibraryMapping {
         if (setter == null) return true;
         if (setter.methodBody() == null) return false;
         var own = CstQueries.own(setter.methodBody().statements());
-        return own.size() == 1 && own.getFirst() instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
-               && CSharpExpressionPrinter.unwrap(eas.expression()) instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+        return own.size() == 1 && own.getFirst() instanceof ExpressionAsStatement eas
+               && CSharpExpressionPrinter.unwrap(eas.expression()) instanceof Assignment a
                && a.variableTarget() instanceof FieldReference target && target.fieldInfo().equals(f);
     }
 

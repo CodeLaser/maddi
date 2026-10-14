@@ -14,22 +14,19 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.Emission;
-import java.util.Map;
-import io.codelaser.maddi.cst.print.translate.Literals;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DependentVariable;
@@ -37,8 +34,21 @@ import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.Emission;
+import io.codelaser.maddi.cst.print.translate.Literals;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -185,8 +195,8 @@ public final class CSharpExpressionPrinter {
     private static String interfaceType(TypeInfo owner, Expression object, Qualification q) {
         TypeInfo start = object == null || object instanceof VariableExpression ve && ve.variable() instanceof This
                 ? CSharpContext.currentType() : object.parameterizedType().typeInfo();
-        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>(List.of(start));
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>(List.of(start));
+        Set<TypeInfo> seen = new HashSet<>();
         while (!todo.isEmpty()) {
             TypeInfo t = todo.pop();
             if (!seen.add(t)) continue;
@@ -225,7 +235,7 @@ public final class CSharpExpressionPrinter {
     private static List<Expression> withoutTypeToken(MethodCall mc) {
         int token = CSharpContext.program().typeToken(mc.methodInfo());
         if (token < 0) return mc.parameterExpressions();
-        List<Expression> args = new java.util.ArrayList<>(mc.parameterExpressions());
+        List<Expression> args = new ArrayList<>(mc.parameterExpressions());
         args.remove(token);
         return args;
     }
@@ -262,7 +272,7 @@ public final class CSharpExpressionPrinter {
         String name = CSharpNames.field(field);
         CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
         if (withOuter != null && !field.isStatic() && CstQueries.onThis(fr)
-            && CSharpAnonymous.viaOuter(field.owner(), withOuter.type())
+            && CSharpNames.foreign(field.owner(), withOuter.type())
             && !(fr.scope() instanceof VariableExpression ve && ve.variable() instanceof This t
                  && t.explicitlyWriteType() != null)) {
             return text("outer." + name);
@@ -288,7 +298,7 @@ public final class CSharpExpressionPrinter {
     }
 
     /** A call or field access is printed: the per-expression nullability facts are asked for with it. */
-    private static OutputBuilder inCall(Expression call, java.util.function.Supplier<OutputBuilder> printer) {
+    private static OutputBuilder inCall(Expression call, Supplier<OutputBuilder> printer) {
         CSharpContext.pushCall(call);
         try {
             return printer.get();
@@ -341,13 +351,13 @@ public final class CSharpExpressionPrinter {
      * The C# members whose result is nullable where Java's is not, or not known to be: reflection's lookups, which
      * return null where Java throws, JSON deserialization, a dictionary's {@code GetValueOrDefault}.
      */
-    private static final java.util.regex.Pattern NULLABLE_RESULT = java.util.regex.Pattern.compile(
+    private static final Pattern NULLABLE_RESULT = Pattern.compile(
             "JsonSerializer\\.Deserialize|JsonConvert\\.DeserializeObject|\\.GetElementType\\(|\\.GetConstructor\\("
             + "|\\.GetMethod\\(|\\.GetField\\(|\\.GetProperty\\(|\\.Invoke\\(|Type\\.GetType\\(|\\.GetCustomAttribute\\b"
             + "|Activator\\.CreateInstance\\(|\\.GetValueOrDefault\\(\\$1\\)");
 
     /** Java members whose C# template's result is nullable, though the template is shared ({@code $0[$1]}). */
-    private static final java.util.Set<String> NULLABLE_MEMBERS = java.util.Set.of(
+    private static final Set<String> NULLABLE_MEMBERS = Set.of(
             "com.fasterxml.jackson.databind.JsonNode.get", "java.lang.Object.toString");
 
     /**
@@ -404,16 +414,16 @@ public final class CSharpExpressionPrinter {
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
             Expression object = mc.object();
-            java.util.function.Supplier<OutputBuilder> receiver = () -> object == null ? text("this")
+            Supplier<OutputBuilder> receiver = () -> object == null ? text("this")
                     : object instanceof VariableExpression ve && ve.variable() instanceof This t ? text(thisOrBase(t))
                     : object instanceof TypeExpression te ? text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
                     : mc.methodInfo().isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q);
             List<Expression> parameterExpressions = mc.parameterExpressions();
-            List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
+            List<Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
+                    .mapToObj(i -> (Supplier<OutputBuilder>) () -> templateArgument(mc.methodInfo(), i,
                             parameterExpressions.get(i), q)).toList();
-            List<java.util.function.Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
-                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> templateOperand(a, q)).toList();
+            List<Supplier<OutputBuilder>> operands = mc.parameterExpressions().stream()
+                    .map(a -> (Supplier<OutputBuilder>) () -> templateOperand(a, q)).toList();
             return new CSharpTemplate(receiver, args, operands, mc, mc.concreteReturnType(),
                     object == null ? null : object.parameterizedType(), q).render(rule.template(statement));
         }
@@ -437,12 +447,12 @@ public final class CSharpExpressionPrinter {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(text(interfaceType(method.typeInfo(), object, q))).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
                     .add(self).add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
-                    .add(text(CSharpNames.method(method) + java.util.Objects.requireNonNullElse(typeTokenArgument(mc, q), "")))
+                    .add(text(CSharpNames.method(method) + Objects.requireNonNullElse(typeTokenArgument(mc, q), "")))
                     .add(argumentsWithoutTypeToken(mc, q));
         }
         CSharpAnonymous.Hoisted withOuter = CSharpContext.hoistedWithOuter();
         if (withOuter != null && !method.isStatic() && mc.objectIsImplicit()
-            && CSharpAnonymous.viaOuter(method.typeInfo(), withOuter.type())) {
+            && CSharpNames.foreign(method.typeInfo(), withOuter.type())) {
             b.add(text("outer")).add(SymbolEnum.DOT);
         } else if (!method.isStatic() && mc.objectIsImplicit() && CSharpInner.pathTo(method.typeInfo()) != null) {
             // a method of the enclosing instance, in an inner class
@@ -467,7 +477,7 @@ public final class CSharpExpressionPrinter {
             return b.add(SymbolEnum.assignment("=")).add(CSharpNullability.intoParameter(value, method, 0,
                     converted(value, method.parameters().getFirst().parameterizedType(), q)));
         }
-        if (CSharpTypePrinter.isRecordAccessor(method)) {
+        if (CstQueries.isRecordAccessor(method)) {
             // p.x() is the record's property p.X
             FieldInfo component = method.typeInfo().fields().stream()
                     .filter(f -> !f.isStatic() && f.name().equals(method.name())).findFirst().orElseThrow();
@@ -496,14 +506,14 @@ public final class CSharpExpressionPrinter {
         boolean uninferable = typeParameters.stream().anyMatch(tp -> method.parameters().stream()
                 .noneMatch(p -> mentionsInCSharp(p.parameterizedType(), tp)));
         if (!uninferable) return "";
-        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
         for (int i = 0; i < method.parameters().size() && i < mc.parameterExpressions().size(); i++) {
             ParameterInfo p = method.parameters().get(i);
             if (p.isVarArgs()) break;
             match(p.parameterizedType(), mc.parameterExpressions().get(i).parameterizedType(), typeParameters, inferred);
         }
-        List<String> printed = new java.util.ArrayList<>();
+        List<String> printed = new ArrayList<>();
         for (TypeParameter tp : typeParameters) {
             ParameterizedType t = inferred.get(tp);
             if (t != null && t.wildcard() != null) {
@@ -511,7 +521,7 @@ public final class CSharpExpressionPrinter {
                 if (t.wildcard().isExtendsNoIntersection() && t.typeInfo() != null) {
                     t = t.withWildcard(null);
                 } else if (t.wildcard().isUnbound()) {
-                    printed.add(CSharpTypeName.rawArgumentOf(tp, q));
+                    printed.add(CSharpTypeName.rawArgument(tp, q));
                     continue;
                 }
             }
@@ -523,7 +533,6 @@ public final class CSharpExpressionPrinter {
         return "<" + String.join(", ", printed) + ">";
     }
 
-
     /** As {@link CstQueries#mentions}, but not through a {@code Class<T>}, which is C#'s {@code Type}, without arguments. */
     private static boolean mentionsInCSharp(ParameterizedType t, TypeParameter tp) {
         if (t == null) return false;
@@ -534,7 +543,7 @@ public final class CSharpExpressionPrinter {
 
     /** Matches a formal type with Java's concrete one: {@code Value_} with {@code Bucket<…>}. */
     private static void match(ParameterizedType formal, ParameterizedType concrete, List<TypeParameter> typeParameters,
-                              java.util.Map<TypeParameter, ParameterizedType> inferred) {
+                              Map<TypeParameter, ParameterizedType> inferred) {
         if (formal == null || concrete == null) return;
         if (formal.isTypeParameter() && typeParameters.contains(formal.typeParameter())) {
             if (concrete.arrays() >= formal.arrays()) {
@@ -621,7 +630,7 @@ public final class CSharpExpressionPrinter {
             if (hoisted != null) {
                 // new GraphImpl(superArguments…, this, captures…)
                 OutputBuilder arguments = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS);
-                List<OutputBuilder> all = new java.util.ArrayList<>();
+                List<OutputBuilder> all = new ArrayList<>();
                 // converted to the superclass constructor's parameters, which the hoisted constructor's are
                 List<Expression> superArguments = hoisted.superArguments().isEmpty() ? List.of() : cc.parameterExpressions();
                 MethodInfo superConstructor = CSharpAnonymous.superConstructor(cc);
@@ -687,15 +696,22 @@ public final class CSharpExpressionPrinter {
         if (rule != null) {
             rule.namespaces().forEach(CSharpContext::using);
             List<Expression> parameterExpressions = cc.parameterExpressions();
-            List<java.util.function.Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
-                    .mapToObj(i -> (java.util.function.Supplier<OutputBuilder>) () -> argument(parameterExpressions.get(i),
+            List<Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
+                    .mapToObj(i -> (Supplier<OutputBuilder>) () -> argument(parameterExpressions.get(i),
                             cc.constructor(), i, q)).toList();
-            List<java.util.function.Supplier<OutputBuilder>> operands = parameterExpressions.stream()
-                    .map(a -> (java.util.function.Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
+            List<Supplier<OutputBuilder>> operands = parameterExpressions.stream()
+                    .map(a -> (Supplier<OutputBuilder>) () -> receiver(a, q)).toList();
             return new CSharpTemplate(() -> text("this"), args, operands, null, type, null, q).render(rule.template(false));
         }
         return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                 .add(text(CSharpTypeName.of(created(cc, type), q))).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+    }
+
+    /** The creation's type, its diamond resolved, remembered for its arguments' own diamonds. */
+    private static ParameterizedType created(ConstructorCall cc, ParameterizedType type) {
+        ParameterizedType resolved = diamond(cc, type);
+        CSharpContext.created(cc, resolved);
+        return resolved;
     }
 
     /**
@@ -705,13 +721,6 @@ public final class CSharpExpressionPrinter {
      * else, as an argument, from the type Java inferred for its parameter: {@code share(new Bridge<>(parent),
      * group::setBridge)}'s {@code S} is {@code Bridge<NewA>}, which the method reference binds.
      */
-    /** The creation's type, its diamond resolved, remembered for its arguments' own diamonds. */
-    private static ParameterizedType created(ConstructorCall cc, ParameterizedType type) {
-        ParameterizedType resolved = diamond(cc, type);
-        CSharpContext.created(cc, resolved);
-        return resolved;
-    }
-
     private static ParameterizedType diamond(ConstructorCall cc, ParameterizedType type) {
         TypeInfo created = type.typeInfo();
         if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
@@ -720,7 +729,7 @@ public final class CSharpExpressionPrinter {
         for (TypeInfo at = CSharpContext.currentType(); at != null; at = CSharpNames.enclosing(at)) {
             if (at.equals(created)) return type; // its own type parameters are in scope
         }
-        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         List<ParameterInfo> parameters = cc.constructor().parameters();
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
             if (parameters.get(i).isVarArgs()) break;
@@ -739,7 +748,7 @@ public final class CSharpExpressionPrinter {
                 }
             }
         }
-        List<ParameterizedType> arguments = new java.util.ArrayList<>();
+        List<ParameterizedType> arguments = new ArrayList<>();
         for (ParameterizedType a : type.parameters()) {
             if (a.isTypeParameter() && own.contains(a.typeParameter())) {
                 ParameterizedType t = inferred.get(a.typeParameter());
@@ -757,7 +766,7 @@ public final class CSharpExpressionPrinter {
         Expression enclosing = CSharpContext.enclosingCall();
         MethodInfo method;
         List<Expression> args;
-        java.util.Map<TypeParameter, ParameterizedType> bound = new java.util.HashMap<>();
+        Map<TypeParameter, ParameterizedType> bound = new HashMap<>();
         if (enclosing instanceof MethodCall mc && mc.methodInfo() != null) {
             method = mc.methodInfo();
             args = mc.parameterExpressions();
@@ -828,8 +837,8 @@ public final class CSharpExpressionPrinter {
         return print(value, q);
     }
 
-    private static final java.util.regex.Pattern BCL_DELEGATE =
-            java.util.regex.Pattern.compile("^(System\\.)?(Func|Action|Predicate|Comparison)<");
+    private static final Pattern BCL_DELEGATE =
+            Pattern.compile("^(System\\.)?(Func|Action|Predicate|Comparison)<");
 
     /**
      * {@code Func<A, Property_>} where {@code Func<A, object>} is expected: Java's wildcard takes it, C#'s variance
@@ -856,10 +865,10 @@ public final class CSharpExpressionPrinter {
         if (!CSharpContext.program().delegate(from.typeInfo()) && !BCL_DELEGATE.matcher(to).find()) return null;
         MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
         if (sam == null) return null;
-        java.util.Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> fromMap = from.initialTypeParameterMap();
-        java.util.Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> toMap = target.initialTypeParameterMap();
-        List<String> names = new java.util.ArrayList<>();
-        List<String> arguments = new java.util.ArrayList<>();
+        Map<NamedType, ParameterizedType> fromMap = from.initialTypeParameterMap();
+        Map<NamedType, ParameterizedType> toMap = target.initialTypeParameterMap();
+        List<String> names = new ArrayList<>();
+        List<String> arguments = new ArrayList<>();
         for (int i = 0; i < sam.parameters().size(); i++) {
             String name = "x" + i + "_";
             names.add(name);
@@ -926,7 +935,7 @@ public final class CSharpExpressionPrinter {
             || created.parameters().size() != created.typeInfo().typeParameters().size()) {
             return target;
         }
-        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
+        Map<TypeParameter, ParameterizedType> map = new HashMap<>();
         for (int k = 0; k < created.parameters().size(); k++) {
             map.put(created.typeInfo().typeParameters().get(k), created.parameters().get(k));
         }
@@ -1068,12 +1077,7 @@ public final class CSharpExpressionPrinter {
                 .add(lambda).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
-    /**
-     * An anonymous class of a translated functional interface that only implements its method, without fields and
-     * without using itself: a lambda in the interface's adapter class, {@code new IVisitor.Lambda((string node) => {
-     * … })}. Null for any other.
-     */
-    /** The anonymous class of {@code cc} is printed as a lambda, see {@link #anonymousAsLambda}. */
+    /** A type written as a value: the raw type and its arguments ({@link #typeLiteral}). */
     record TypeLiteral(ParameterizedType raw, List<ParameterizedType> arguments) {
     }
 
@@ -1126,6 +1130,7 @@ public final class CSharpExpressionPrinter {
                && arguments.size() == raw.typeInfo().typeParameters().size() ? new TypeLiteral(raw, arguments) : null;
     }
 
+    /** The anonymous class of {@code cc} is printed as a lambda, see {@link #anonymousAsLambda}. */
     static boolean asLambda(ConstructorCall cc) {
         TypeInfo anonymous = cc.anonymousClass();
         if (!CSharpProgram.lambdaLike(anonymous)) return false;
@@ -1134,6 +1139,11 @@ public final class CSharpExpressionPrinter {
                                                      || CSharpContext.program().delegate(functionalType.typeInfo()));
     }
 
+    /**
+     * An anonymous class of a translated functional interface that only implements its method, without fields and
+     * without using itself: a lambda in the interface's adapter class, {@code new IVisitor.Lambda((string node) => {
+     * … })}. Null for any other.
+     */
     private static OutputBuilder anonymousAsLambda(ConstructorCall cc, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
         if (!asLambda(cc)) return null;
@@ -1141,7 +1151,7 @@ public final class CSharpExpressionPrinter {
         MethodInfo method = anonymous.methods().stream().filter(m -> !m.isSynthetic()).findFirst().orElseThrow();
         OutputBuilder b = new OutputBuilderImpl();
         CSharpContext.pushMethod(method);
-        CSharpContext.enterScope(java.util.Set.of());
+        CSharpContext.enterScope(Set.of());
         try {
             b.add(text(method.parameters().stream()
                     .map(p -> CSharpTypeName.argument(p.parameterizedType(), q) + " " + CSharpContext.declare(p.name()))
@@ -1168,7 +1178,7 @@ public final class CSharpExpressionPrinter {
                         && lambda.outputVariants().stream().allMatch(Lambda.OutputVariant::isTyped);
         OutputBuilder b = new OutputBuilderImpl();
         CSharpContext.pushMethod(lambda.methodInfo());
-        CSharpContext.enterScope(java.util.Set.of()); // the parameters'
+        CSharpContext.enterScope(Set.of()); // the parameters'
         try {
             if (params.size() == 1 && !typed) {
                 b.add(text(CSharpContext.declare(params.getFirst().name())));
@@ -1246,11 +1256,11 @@ public final class CSharpExpressionPrinter {
             // a lambda around the member's translation: String::length is p0 => p0.Length
             rule.namespaces().forEach(CSharpContext::using);
             boolean unbound = scope instanceof TypeExpression && !method.isStatic();
-            java.util.function.Supplier<OutputBuilder> receiver = unbound ? () -> text(parameters.getFirst())
+            Supplier<OutputBuilder> receiver = unbound ? () -> text(parameters.getFirst())
                     : scope instanceof TypeExpression te ? () -> text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
                     : () -> receiver(scope, q);
-            List<java.util.function.Supplier<OutputBuilder>> args = parameters.subList(unbound ? 1 : 0, parameters.size())
-                    .stream().map(p -> (java.util.function.Supplier<OutputBuilder>) () -> text(p)).toList();
+            List<Supplier<OutputBuilder>> args = parameters.subList(unbound ? 1 : 0, parameters.size())
+                    .stream().map(p -> (Supplier<OutputBuilder>) () -> text(p)).toList();
             return new OutputBuilderImpl().add(text(parameterList)).add(SymbolEnum.binaryOperator("=>"))
                     .add(new CSharpTemplate(receiver, args, args, null, mr.concreteReturnType(),
                             scope.parameterizedType(), q).render(rule.template(false)));
@@ -1269,7 +1279,7 @@ public final class CSharpExpressionPrinter {
 
     /** {@code created} declares {@code supertype} with its own type parameters, in order: {@code HashSet<E> : Set<E>}. */
     private static boolean passesOwnParameters(TypeInfo created, TypeInfo supertype) {
-        List<ParameterizedType> declared = new java.util.ArrayList<>(created.interfacesImplemented());
+        List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
         if (created.parentClass() != null) declared.add(created.parentClass());
         List<TypeParameter> own = created.typeParameters();
         return declared.stream().anyMatch(s -> supertype.equals(s.typeInfo()) && s.parameters().size() == own.size()
@@ -1283,7 +1293,7 @@ public final class CSharpExpressionPrinter {
         if (type.arrays() > 0 || !CSharpInner.withOuter(created)) return parameters;
         String enclosing = CSharpInner.enclosingInstance(created);
         if (enclosing == null) return parameters;
-        List<String> arguments = new java.util.ArrayList<>(parameters);
+        List<String> arguments = new ArrayList<>(parameters);
         arguments.addFirst(enclosing);
         return arguments;
     }
@@ -1304,14 +1314,14 @@ public final class CSharpExpressionPrinter {
                 .anyMatch(p -> mentionsInCSharp(p.parameterizedType(), tp)))) {
             return "";
         }
-        java.util.Map<TypeParameter, ParameterizedType> inferred = new java.util.HashMap<>();
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         match(method.returnType(), mr.concreteReturnType(), typeParameters, inferred);
         List<ParameterizedType> concrete = mr.concreteParameterTypes();
         int offset = concrete.size() - method.parameters().size(); // an unbound receiver comes first
         for (int i = 0; i < method.parameters().size() && offset >= 0 && i + offset < concrete.size(); i++) {
             match(method.parameters().get(i).parameterizedType(), concrete.get(i + offset), typeParameters, inferred);
         }
-        List<String> printed = new java.util.ArrayList<>();
+        List<String> printed = new ArrayList<>();
         for (TypeParameter tp : typeParameters) {
             ParameterizedType t = inferred.get(tp);
             if (t == null || !writable(t, typeParameters)) return "";
@@ -1440,7 +1450,7 @@ public final class CSharpExpressionPrinter {
     }
 
     static Expression unwrap(Expression e) {
-        return io.codelaser.maddi.cst.print.translate.CstQueries.unwrap(e);
+        return CstQueries.unwrap(e);
     }
 
     /** An operand, in parentheses when its precedence is lower than its operator's. */

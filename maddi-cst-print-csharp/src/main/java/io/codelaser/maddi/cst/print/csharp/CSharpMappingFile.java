@@ -16,9 +16,9 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -302,7 +303,7 @@ public final class CSharpMappingFile implements LibraryMapping {
                     if (token.isEmpty()) continue;
                     String guard = token.substring(1);
                     if (guard.startsWith("on=")) {
-                        target = Target.valueOf(guard.substring(3).toUpperCase(java.util.Locale.ROOT));
+                        target = Target.valueOf(guard.substring(3).toUpperCase(Locale.ROOT));
                         continue;
                     }
                     if (guard.startsWith("has=")) guard = guard.substring(4);

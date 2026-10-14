@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
@@ -147,7 +148,7 @@ public interface LibraryMapping {
     }
 
     /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. */
-    default Additions additions(TypeInfo typeInfo, io.codelaser.maddi.cst.api.output.Qualification q) {
+    default Additions additions(TypeInfo typeInfo, Qualification q) {
         return null;
     }
 

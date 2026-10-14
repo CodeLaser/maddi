@@ -14,12 +14,20 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -101,7 +109,7 @@ public final class CSharpNames {
      * The name of a type parameter: its Java name, unless a member of its type has that name in C#, which C# does not
      * allow; then the C# convention's {@code T} prefix: {@code EmbeddingMatch<TEmbedded>} with method {@code Embedded()}.
      */
-    public static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    public static String typeParameter(TypeParameter tp) {
         String simple = tp.simpleName();
         if (tp.getOwner().isLeft()) {
             TypeInfo owner = tp.getOwner().getLeft();
@@ -176,7 +184,6 @@ public final class CSharpNames {
                && f.type().arrays() == 0;
     }
 
-    /** Declared in the sources being translated, not in a library. */
     /**
      * A static nested type of a generic type. C# makes a nested type generic in its enclosing types' parameters,
      * {@code Outer<E>.Inner}, which Java's static nested type is not: it is printed beside its primary type, in the
@@ -210,15 +217,15 @@ public final class CSharpNames {
                 .filter(m -> (m.isStatic() || m.isStaticInitializer()) && !m.isSynthetic()).toList();
         List<FieldInfo> staticFields = t.fields().stream().filter(f -> f.isStatic() && !f.isSynthetic()).toList();
         if (statics.isEmpty() && staticFields.isEmpty()) return false;
-        List<io.codelaser.maddi.cst.api.element.Element> code = new java.util.ArrayList<>();
+        List<Element> code = new ArrayList<>();
         statics.stream().filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
         staticFields.stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
                 .forEach(f -> code.add(f.initializer()));
         boolean[] declaresType = {false};
         for (var element : code) {
-            element.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null
-                    || e instanceof io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration) declaresType[0] = true;
+            element.visit((Element e) -> {
+                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null
+                    || e instanceof LocalTypeDeclaration) declaresType[0] = true;
                 return !declaresType[0];
             });
         }
@@ -257,8 +264,8 @@ public final class CSharpNames {
      * {@code recursiveSuperTypeStream()}, which includes the enclosing type of an inner class.
      */
     static boolean inherits(TypeInfo type, TypeInfo ancestor) {
-        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>(List.of(type));
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>(List.of(type));
+        Set<TypeInfo> seen = new HashSet<>();
         while (!todo.isEmpty()) {
             TypeInfo t = todo.pop();
             if (!seen.add(t)) continue;

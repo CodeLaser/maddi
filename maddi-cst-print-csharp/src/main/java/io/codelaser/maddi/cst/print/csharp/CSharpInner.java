@@ -12,23 +12,28 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
+import io.codelaser.maddi.cst.impl.output.SymbolEnum;
+import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,7 +67,7 @@ final class CSharpInner {
             || !CSharpNames.translated(t)) {
             return false;
         }
-        java.util.Map<TypeInfo, Boolean> cache = CSharpContext.program().inner();
+        Map<TypeInfo, Boolean> cache = CSharpContext.program().inner();
         Boolean known = cache.get(t);
         if (known != null) return known;
         InProgress inProgress = IN_PROGRESS.get();
@@ -85,14 +90,9 @@ final class CSharpInner {
         }
     }
 
-    /** The enclosing type, whose instance {@code outer} is. */
-    static TypeInfo outerType(TypeInfo t) {
-        return CSharpNames.enclosing(t);
-    }
-
     /** {@code Outer<T>}, the type of the {@code outer} field and parameter. */
     static String outerTypeName(TypeInfo t) {
-        TypeInfo outer = outerType(t);
+        TypeInfo outer = CSharpNames.enclosing(t);
         return CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? "" : outer.typeParameters().stream()
                 .map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">")));
     }
@@ -107,7 +107,7 @@ final class CSharpInner {
                 switch (e) {
                     case VariableExpression ve when ve.variable() instanceof FieldReference fr -> {
                         if (!fr.fieldInfo().isStatic() && CstQueries.onThis(fr)
-                            && CSharpAnonymous.viaOuter(fr.fieldInfo().owner(), t)) {
+                            && CSharpNames.foreign(fr.fieldInfo().owner(), t)) {
                             uses[0] = true;
                         }
                     }
@@ -119,7 +119,7 @@ final class CSharpInner {
                     }
                     case MethodCall mc -> {
                         if (!mc.methodInfo().isStatic() && mc.objectIsImplicit()
-                            && CSharpAnonymous.viaOuter(mc.methodInfo().typeInfo(), t)) {
+                            && CSharpNames.foreign(mc.methodInfo().typeInfo(), t)) {
                             uses[0] = true;
                         }
                     }
@@ -127,7 +127,7 @@ final class CSharpInner {
                         // a sibling inner class, created with this one's enclosing instance
                         if (cc.object() == null && cc.anonymousClass() == null && cc.constructor() != null) {
                             TypeInfo created = cc.constructor().typeInfo();
-                            TypeInfo needed = outerType(created);
+                            TypeInfo needed = CSharpNames.enclosing(created);
                             if (withOuter(created) && needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed)) {
                                 uses[0] = true;
                             }
@@ -186,16 +186,16 @@ final class CSharpInner {
      * The instance fields' initializers, as assignments in the constructor after {@code this.outer = outer;}: Java runs
      * them there, and they may use the enclosing instance, which a C# field initializer cannot (CS0236).
      */
-    static List<io.codelaser.maddi.cst.api.output.OutputBuilder> fieldInitializers(TypeInfo t,
-                                                                                   io.codelaser.maddi.cst.api.output.Qualification q) {
-        List<io.codelaser.maddi.cst.api.output.OutputBuilder> assignments = new ArrayList<>();
+    static List<OutputBuilder> fieldInitializers(TypeInfo t,
+                                                                                   Qualification q) {
+        List<OutputBuilder> assignments = new ArrayList<>();
         for (FieldInfo f : t.fields()) {
             if (f.isSynthetic() || f.isStatic() || f.initializer() == null || f.initializer().isEmpty()) continue;
-            assignments.add(new io.codelaser.maddi.cst.impl.output.OutputBuilderImpl()
-                    .add(new io.codelaser.maddi.cst.impl.output.TextImpl("this." + CSharpNames.field(f)))
-                    .add(io.codelaser.maddi.cst.impl.output.SymbolEnum.assignment("="))
+            assignments.add(new OutputBuilderImpl()
+                    .add(new TextImpl("this." + CSharpNames.field(f)))
+                    .add(SymbolEnum.assignment("="))
                     .add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
-                    .add(io.codelaser.maddi.cst.impl.output.SymbolEnum.SEMICOLON));
+                    .add(SymbolEnum.SEMICOLON));
         }
         return assignments;
     }
@@ -214,7 +214,7 @@ final class CSharpInner {
     static String pathTo(TypeInfo owner) {
         TypeInfo at = CSharpContext.currentType();
         String path = null;
-        while (at != null && CSharpAnonymous.viaOuter(owner, at)) {
+        while (at != null && CSharpNames.foreign(owner, at)) {
             if (!hasOuter(at)) return null;
             path = path == null ? "outer" : path + ".outer";
             at = CSharpNames.enclosing(at);
@@ -227,7 +227,7 @@ final class CSharpInner {
      * {@code this}, {@code outer}, {@code outer.outer}; null when none leads there.
      */
     static String enclosingInstance(TypeInfo created) {
-        TypeInfo needed = outerType(created);
+        TypeInfo needed = CSharpNames.enclosing(created);
         TypeInfo at = CSharpContext.currentType();
         String path = "this";
         while (at != null) {

@@ -14,13 +14,15 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
+
+import java.util.Set;
 
 /**
  * Access and inheritance modifiers. C# code writes its access modifiers out, so every declaration gets one, except
@@ -104,7 +106,7 @@ final class CSharpModifiers {
         };
     }
 
-    private static final java.util.Set<String> OBJECT_OVERRIDABLE = java.util.Set.of("toString", "equals", "hashCode");
+    private static final Set<String> OBJECT_OVERRIDABLE = Set.of("toString", "equals", "hashCode");
 
     /** {@code virtual}, {@code override}, {@code sealed override}, {@code abstract}; null when none applies. */
     static String inheritance(MethodInfo m, TypeInfo owner) {
@@ -117,10 +119,10 @@ final class CSharpModifiers {
         CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";
-            return m.isFinal() && extensible(owner) && program.open(owner) ? "sealed override" : "override";
+            return m.isFinal() && CstQueries.isExtensible(owner) && program.open(owner) ? "sealed override" : "override";
         }
         if (m.isAbstract()) return "abstract";
-        if (m.isFinal() || m.access() != null && m.access().isPrivate() || !extensible(owner)) return null;
+        if (m.isFinal() || m.access() != null && m.access().isPrivate() || !CstQueries.isExtensible(owner)) return null;
         // C#'s methods are not virtual unless declared so: only those a subclass overrides, see CSharpProgram
         return program.open(owner) && program.overridable(m) ? "virtual" : null;
     }
@@ -139,10 +141,5 @@ final class CSharpModifiers {
             if (CSharpTypePrinter.leftAbstract(s).stream().anyMatch(l -> m.overrides().contains(l.method()))) return true;
         }
         return false;
-    }
-
-    /** A class that can be extended: not final, not an enum or record. */
-    static boolean extensible(TypeInfo typeInfo) {
-        return CstQueries.isExtensible(typeInfo);
     }
 }

@@ -12,7 +12,6 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
@@ -180,13 +179,4 @@ final class CSharpAnonymous {
         }
         return outer[0];
     }
-
-    /** An instance member of the enclosing object, used from {@code hoisted}'s code: through its {@code outer}. */
-    static boolean viaOuter(TypeInfo owner, TypeInfo hoisted) {
-        return CSharpNames.foreign(owner, hoisted);
-    }
-
-
-
-
 }

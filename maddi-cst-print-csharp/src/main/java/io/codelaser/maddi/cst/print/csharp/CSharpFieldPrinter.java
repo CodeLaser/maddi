@@ -14,7 +14,7 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.List;
 
@@ -87,7 +88,7 @@ public record CSharpFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 : widest(CSharpModifiers.access(property.setter(), f.owner()), fieldAccess);
         String access = property.settable() ? widest(getAccess, setAccess) : getAccess;
         // the getter's annotations are the property's, or its get accessor's when only a method may have them
-        List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> getterAnnotations = property.getter().annotations();
+        List<AnnotationExpression> getterAnnotations = property.getter().annotations();
         OutputBuilder b = new OutputBuilderImpl()
                 .add(CSharpAttributes.uses(f.annotations(), LibraryMapping.Target.FIELD, q, true))
                 .add("public".equals(access) ? libraryAttributes(f, SpaceEnum.NEWLINE) : new OutputBuilderImpl())

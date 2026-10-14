@@ -21,18 +21,12 @@ import io.codelaser.maddi.cst.impl.output.KeywordImpl;
 public final class CSharpKeyword {
     public static final Keyword NAMESPACE = new KeywordImpl("namespace");
     public static final Keyword USING = new KeywordImpl("using");
-    public static final Keyword READONLY = new KeywordImpl("readonly");
-    public static final Keyword CONST = new KeywordImpl("const");
-    public static final Keyword VIRTUAL = new KeywordImpl("virtual");
-    public static final Keyword OVERRIDE = new KeywordImpl("override");
     public static final Keyword FOREACH = new KeywordImpl("foreach");
     public static final Keyword IN = new KeywordImpl("in");
     public static final Keyword IS = new KeywordImpl("is");
     public static final Keyword NOT = new KeywordImpl("not");
     public static final Keyword LOCK = new KeywordImpl("lock");
     public static final Keyword BASE = new KeywordImpl("base");
-    public static final Keyword PARAMS = new KeywordImpl("params");
-    public static final Keyword WHERE = new KeywordImpl("where");
     public static final Keyword WHEN = new KeywordImpl("when");
 
     private CSharpKeyword() {

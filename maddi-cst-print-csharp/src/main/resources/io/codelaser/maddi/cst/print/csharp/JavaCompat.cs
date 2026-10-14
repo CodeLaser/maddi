@@ -158,7 +158,6 @@ public static class JavaCollections
         return removed.Count > 0;
     }
 
-    /// <summary>List.remove(int): the element removed.</summary>
     public static void AddRange<T>(this IList<T> l, IEnumerable<T> items)
     {
         foreach (var x in items.ToList()) l.Add(x);
@@ -185,7 +184,6 @@ public static class JavaCollections
 
     public static void Sort<T>(this IList<T> l) => l.Sort(null);
 
-    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
     /// <summary>Collections.rotate: the element at i moves to (i + distance) mod size.</summary>
     public static void Rotate<T>(IList<T> l, int distance)
     {
@@ -205,11 +203,13 @@ public static class JavaCollections
 
     public static void Swap<T>(IList<T> l, int i, int j) => (l[i], l[j]) = (l[j], l[i]);
 
+    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
     public static void ReverseInPlace<T>(IList<T> l)
     {
         for (int i = 0, j = l.Count - 1; i < j; i++, j--) (l[i], l[j]) = (l[j], l[i]);
     }
 
+    /// <summary>List.remove(int): the element removed.</summary>
     public static T RemoveAtAndGet<T>(this IList<T> l, int index)
     {
         var x = l[index];
@@ -304,7 +304,6 @@ public static class JavaCollections
     }
 }
 
-/// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
 /// <summary>
 /// Java's NavigableMap and NavigableSet on SortedDictionary and SortedSet. A SortedSet searches by order in log time
 /// (GetViewBetween); a SortedDictionary keeps its keys in order but searches by order only in a walk over them. A
@@ -416,6 +415,7 @@ public static class JavaNavigable
     }
 }
 
+/// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -445,7 +445,6 @@ public static class JavaComparator
         (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
 }
 
-/// <summary>Java's String methods that differ from the BCL's.</summary>
 /// <summary>
 /// What a mapping leaves out of the translation (<c>exclude</c>), where the translated code still reaches it: a call
 /// that fails as the Java code would without the excluded library, with the type the call has.
@@ -457,6 +456,7 @@ public static class JavaUnsupported
     public static void Call(string what) => throw new NotSupportedException(what + " is not supported in .NET");
 }
 
+/// <summary>Java's String methods that differ from the BCL's.</summary>
 public static class JavaString
 {
     /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>

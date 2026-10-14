@@ -14,21 +14,27 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
+import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * The library mappings of a translation, in order: the first that answers wins. A client puts its own overrides in
@@ -65,7 +71,7 @@ public final class CSharpLibraries implements LibraryMapping {
         options.put("jaxb", Map.of("xml-serialization", () -> List.of(JaxbXmlSerialization.INSTANCE,
                 CSharpMappingFile.resource("jaxb-xml-serialization.csmap"))));
         options.put("jdk", Map.of("bcl", () -> List.of(CSharpBcl.JDK)));
-        return java.util.Collections.unmodifiableMap(options);
+        return Collections.unmodifiableMap(options);
     }
 
     /** The default option of every library. */
@@ -117,13 +123,9 @@ public final class CSharpLibraries implements LibraryMapping {
         this.typeNames = Set.copyOf(names);
     }
 
-    public static CSharpLibraries of(LibraryMapping... mappings) {
-        return new CSharpLibraries(List.of(mappings));
-    }
-
     /** These mappings, with {@code first} in front of them: its answers win. */
     public CSharpLibraries withFirst(LibraryMapping first) {
-        return new CSharpLibraries(java.util.stream.Stream.concat(java.util.stream.Stream.of(first), mappings.stream())
+        return new CSharpLibraries(Stream.concat(Stream.of(first), mappings.stream())
                 .toList());
     }
 
@@ -133,10 +135,6 @@ public final class CSharpLibraries implements LibraryMapping {
             if (m.excludes(primaryType)) return true;
         }
         return false;
-    }
-
-    public List<LibraryMapping> mappings() {
-        return mappings;
     }
 
     @Override
@@ -173,7 +171,7 @@ public final class CSharpLibraries implements LibraryMapping {
                 if (rule.value() != null) return rule;
                 statementOnly = rule;
             } else if (rule.value() != null) {
-                Set<String> namespaces = new java.util.LinkedHashSet<>(statementOnly.namespaces());
+                Set<String> namespaces = new LinkedHashSet<>(statementOnly.namespaces());
                 namespaces.addAll(rule.namespaces());
                 return new Rule(rule.value(), statementOnly.statement(), List.copyOf(namespaces));
             }
@@ -192,14 +190,14 @@ public final class CSharpLibraries implements LibraryMapping {
     }
 
     @Override
-    public AttributeMapping annotation(io.codelaser.maddi.cst.api.expression.AnnotationExpression use, Target target,
-                                       Function<io.codelaser.maddi.cst.api.expression.Expression, String> print) {
+    public AttributeMapping annotation(AnnotationExpression use, Target target,
+                                       Function<Expression, String> print) {
         return first(m -> m.annotation(use, target, print));
     }
 
     /** Every mapping's additions, together: unlike a rule, an addition does not stand in for another. */
     @Override
-    public Additions additions(TypeInfo typeInfo, io.codelaser.maddi.cst.api.output.Qualification q) {
+    public Additions additions(TypeInfo typeInfo, Qualification q) {
         List<String> attributes = new ArrayList<>();
         List<AddedMember> members = new ArrayList<>();
         List<String> namespaces = new ArrayList<>();
@@ -235,8 +233,8 @@ public final class CSharpLibraries implements LibraryMapping {
     /** The union of the mappings' requirements: each package and each source once, the first mapping's first. */
     @Override
     public Requirements requirements() {
-        java.util.Map<String, NuGetPackage> packages = new java.util.LinkedHashMap<>();
-        java.util.Map<String, Source> sources = new java.util.LinkedHashMap<>();
+        Map<String, NuGetPackage> packages = new LinkedHashMap<>();
+        Map<String, Source> sources = new LinkedHashMap<>();
         for (LibraryMapping m : mappings) {
             m.requirements().packages().forEach(p -> packages.putIfAbsent(p.id(), p));
             m.requirements().sources().forEach(src -> sources.putIfAbsent(src.fileName(), src));
@@ -246,13 +244,9 @@ public final class CSharpLibraries implements LibraryMapping {
 
     /**
      * A project file for the translated code: an SDK library on {@code targetFramework} that references the packages
-     * of the mappings; its sources are the files beside it.
+     * of the mappings; its sources are the files beside it. With {@code nullable}, C#'s nullable reference types are
+     * enabled ({@link CSharpFacts#nullabilityAnalysed}).
      */
-    public String projectFile(String targetFramework) {
-        return projectFile(targetFramework, false);
-    }
-
-    /** The project file; with {@code nullable}, C#'s nullable reference types enabled ({@link CSharpFacts#nullabilityAnalysed}). */
     public String projectFile(String targetFramework, boolean nullable) {
         StringBuilder sb = new StringBuilder("<Project Sdk=\"Microsoft.NET.Sdk\">\n")
                 .append("  <!-- generated by maddi's Java -> C# translation; libraries: ").append(id()).append(" -->\n")

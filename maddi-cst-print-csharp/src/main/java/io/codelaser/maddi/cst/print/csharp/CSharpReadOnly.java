@@ -27,6 +27,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -107,7 +108,7 @@ final class CSharpReadOnly {
         Set<MethodInfo> referenced = new HashSet<>();
         Map<ParameterInfo, List<Expression>> passed = new HashMap<>();
         for (TypeInfo t : all) {
-            for (Element element : CSharpProgram.code(t)) {
+            for (Element element : CstQueries.code(t)) {
                 element.visit((Element e) -> {
                     switch (e) {
                         case MethodReference mr -> referenced.add(mr.methodInfo());

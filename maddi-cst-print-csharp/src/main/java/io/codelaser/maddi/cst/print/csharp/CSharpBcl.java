@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -24,6 +25,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,10 +35,13 @@ import java.util.stream.Stream;
  * The JDK → BCL mapping: what a JDK type, a call of a JDK method and a JDK field are in C#.
  *
  * <h2>Types</h2>
- * Java's collection interfaces are C#'s concrete collections: {@code List}, {@code ArrayList}, {@code LinkedList} and
- * the deques are {@code List<T>}; {@code Map} and its hash maps are {@code Dictionary<K, V>}; {@code Set} and its hash
- * sets are {@code HashSet<T>}. That is how C# code declares them; where the modification analysis proves a collection
- * unmodified, a read-only interface ({@code IReadOnlyList<T>}) is the analysis' refinement. {@code Collection} is
+ * Java's lists are C#'s concrete {@code List<T>}: {@code List}, {@code ArrayList}, {@code LinkedList} and the deques
+ * (C#'s {@code IList<T>} is no {@code IReadOnlyList<T>}, which the covariant {@code List<? extends T>} is). Java's
+ * {@code Map} and {@code Set}, which hash and tree collections implement alike, are C#'s interfaces,
+ * {@code IDictionary<K, V>} and {@code ISet<T>}; their implementations are C#'s counterparts ({@code HashMap} is
+ * {@code Dictionary<K, V>}, {@code LinkedHashMap} {@code OrderedDictionary<K, V>}, {@code TreeSet}
+ * {@code SortedSet<T>}). Where the modification analysis proves a collection parameter unmodified, a read-only
+ * interface ({@code IReadOnlyList<T>}) is the analysis' refinement ({@link CSharpReadOnly}). {@code Collection} is
  * {@code ICollection<T>}, {@code Iterable} and {@code Stream} are {@code IEnumerable<T>}, and the stream operations are
  * LINQ's. The functional interfaces are delegates ({@code Function<T, R>} is {@code Func<T, R>}, {@code Predicate<T>}
  * is {@code Func<T, bool>}, {@code Comparator<T>} is {@code Comparison<T>}), and a call of their method is an
@@ -368,7 +373,7 @@ final class CSharpBcl implements LibraryMapping {
     }
 
     private static Set<String> computeTypeNames() {
-        Set<String> names = new java.util.HashSet<>(Set.of("Exception", "Object", "String", "Math", "Console", "Type",
+        Set<String> names = new HashSet<>(Set.of("Exception", "Object", "String", "Math", "Console", "Type",
                 "Attribute", "Enum", "Array", "Action", "Func", "Task", "Path", "File", "Directory", "Stream", "Encoding",
                 "Regex", "Thread", "Monitor", "Debug", "Enumerable", "Comparer", "Random", "Guid", "Uri", "TimeSpan",
                 "DateTime", "DateTimeOffset", "Convert", "Environment", "Buffer", "Delegate", "Version", "Index", "Range"));
@@ -1502,7 +1507,6 @@ final class CSharpBcl implements LibraryMapping {
                && "java.lang.Void".equals(args.getFirst().typeInfo().fullyQualifiedName());
     }
 
-    /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
     /** The receiver's type is a class of the program that extends ArrayList, which C# has as a JavaArrayList. */
     private static boolean arrayListSubclass(MethodCall call) {
         if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
@@ -1514,10 +1518,11 @@ final class CSharpBcl implements LibraryMapping {
         return false;
     }
 
+    /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */
     private static boolean readOnlyReceiver(MethodCall call) {
         return call != null && call.object() != null
                && CSharpExpressionPrinter.unwrap(call.object()) instanceof Expression e
-               && e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+               && e instanceof VariableExpression ve
                && ve.variable() instanceof ParameterInfo p && CSharpContext.program().readOnly(p);
     }
 

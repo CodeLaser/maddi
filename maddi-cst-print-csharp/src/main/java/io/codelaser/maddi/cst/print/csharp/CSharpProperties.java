@@ -14,7 +14,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -29,6 +28,7 @@ import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Java's getters and setters as C#'s properties, decided for the whole program. A class's getter whose body is
@@ -78,7 +79,7 @@ final class CSharpProperties {
         // a delegate has no property; an interface's lambda adapter implements its property as one
         Set<TypeInfo> functionalTargets = new HashSet<>(delegates);
         for (TypeInfo t : all) {
-            for (Element element : CSharpProgram.code(t)) {
+            for (Element element : CstQueries.code(t)) {
                 element.visit((Element e) -> {
                     if (e instanceof MethodReference mr) referenced.add(mr.methodInfo());
                     return true;
@@ -117,7 +118,7 @@ final class CSharpProperties {
     /** The methods of the program that override one another, connected: the families of two or more. */
     static List<List<MethodInfo>> families(List<TypeInfo> all) {
         Map<MethodInfo, MethodInfo> parent = new HashMap<>();
-        java.util.function.UnaryOperator<MethodInfo>[] find = new java.util.function.UnaryOperator[1];
+        UnaryOperator<MethodInfo>[] find = new UnaryOperator[1];
         find[0] = m -> {
             MethodInfo p = parent.getOrDefault(m, m);
             if (p == m) return m;

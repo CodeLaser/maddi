@@ -18,13 +18,18 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.output.TypeNameRequired;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
+import io.codelaser.maddi.cst.impl.type.WildcardEnum;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Renders a {@link ParameterizedType} as a C# type reference.
@@ -55,11 +60,11 @@ public final class CSharpTypeName {
     }
 
     /** The raw types whose arguments are being printed: an F-bounded type parameter refers back to its type. */
-    private static final ThreadLocal<java.util.Set<TypeInfo>> RAW_IN_PROGRESS =
-            ThreadLocal.withInitial(java.util.HashSet::new);
+    private static final ThreadLocal<Set<TypeInfo>> RAW_IN_PROGRESS =
+            ThreadLocal.withInitial(HashSet::new);
 
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
-    private static final java.util.Map<String, String> NON_GENERIC = java.util.Map.of(
+    private static final Map<String, String> NON_GENERIC = Map.of(
             "java.util.List", "IList",
             "java.util.Collection", "ICollection",
             "java.util.Set", "ICollection",
@@ -68,7 +73,7 @@ public final class CSharpTypeName {
             "java.lang.Comparable", "IComparable");
 
     /** Collections of {@code ? extends T}: C#'s covariant interfaces of {@code T}. */
-    private static final java.util.Map<String, String> COVARIANT = java.util.Map.of(
+    private static final Map<String, String> COVARIANT = Map.of(
             "java.util.List", "IReadOnlyList",
             "java.util.Collection", "IReadOnlyCollection",
             "java.util.Set", "IReadOnlyCollection",
@@ -80,14 +85,10 @@ public final class CSharpTypeName {
     }
 
     /**
-     * A type in a pattern, {@code x is int i}: a nullable value type is not allowed there, and a boxed Java type tested
-     * with instanceof is its value type (null is not an instance of anything, in either language).
-     */
-    /**
      * The type of a declaration, with what the analysis knows: a collection parameter the method does not modify is
      * read-only ({@code IReadOnlyList<T>}), a reference type that may be null is {@code T?}.
      */
-    static String declared(ParameterizedType pt, boolean readOnly, io.codelaser.maddi.cst.api.type.NullableState nullable,
+    static String declared(ParameterizedType pt, boolean readOnly, NullableState nullable,
                            Qualification q) {
         String type;
         String readOnlyName = readOnly ? CSharpReadOnly.readOnlyName(pt) : null;
@@ -100,14 +101,10 @@ public final class CSharpTypeName {
         // a method's own type parameter only where its method's signature allows (CSharpMethodPrinter)
         boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !type.endsWith("?") && !pt.isVoid()
                                                && !(pt.isTypeParameter() && pt.typeParameter().isMethodTypeParameter());
-        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && reference && valueTypeFree(pt, type)
+        return nullable == NullableState.NULLABLE && reference && valueTypeFree(pt, type)
                && !unmapped(pt) ? type + "?" : type;
     }
 
-    /**
-     * Not a C# value type, for which {@code ?} would be {@code Nullable<T>}, another type: a simple enum (a C# enum), and those the BCL
-     * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
-     */
     /**
      * A library type without a C# mapping (UNMAPPED_JDK), or a mapping that is one: C# reads its {@code X?} as {@code Nullable<X>}, so that every
      * use of the variable is one more error, where the undeclared {@code X} alone is reported once.
@@ -118,12 +115,16 @@ public final class CSharpTypeName {
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         if (bcl == null) return !CSharpNames.translated(typeInfo);
         // Optional<ByteBuffer> is its argument, {0?}
-        java.util.regex.Matcher argument = java.util.regex.Pattern.compile("\\{(\\d+)\\??}").matcher(bcl.template());
+        Matcher argument = Pattern.compile("\\{(\\d+)\\??}").matcher(bcl.template());
         if (!argument.matches()) return false;
         int index = Integer.parseInt(argument.group(1));
         return index < pt.parameters().size() && unmapped(pt.parameters().get(index));
     }
 
+    /**
+     * Not a C# value type, for which {@code ?} would be {@code Nullable<T>}, another type: a simple enum (a C# enum), and those the BCL
+     * mapping makes of Java's types (Guid, DateOnly, decimal, KeyValuePair for an entry) stay as they are.
+     */
     private static boolean valueTypeFree(ParameterizedType pt, String type) {
         if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
             && CSharpTypePrinter.simpleEnum(pt.typeInfo())) {
@@ -131,11 +132,15 @@ public final class CSharpTypeName {
         }
         int generic = type.indexOf('<');
         String raw = generic < 0 ? type : type.substring(0, generic);
-        return !java.util.Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
+        return !Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
                 "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan", "KeyValuePair", "ValueTuple")
                 .contains(raw);
     }
 
+    /**
+     * A type in a pattern, {@code x is int i}: a nullable value type is not allowed there, and a boxed Java type tested
+     * with instanceof is its value type (null is not an instance of anything, in either language).
+     */
     public static String pattern(ParameterizedType pt, Qualification q) {
         LibraryMapping.PatternMapping pattern = CSharpContext.libraries().pattern(pt, null);
         if (pattern != null) {
@@ -340,7 +345,7 @@ public final class CSharpTypeName {
         List<ParameterizedType> arguments = new ArrayList<>();
         for (ParameterizedType a : pt.parameters()) {
             ParameterizedType e = a.isTypeParameter() && erased.contains(a.typeParameter()) && a.arrays() == 0
-                    ? a.withWildcard(io.codelaser.maddi.cst.impl.type.WildcardEnum.UNBOUND)
+                    ? a.withWildcard(WildcardEnum.UNBOUND)
                     : erasedToWildcards(a, erased);
             changed |= e != a;
             arguments.add(e);
@@ -348,13 +353,8 @@ public final class CSharpTypeName {
         return changed ? pt.withParameters(arguments) : pt;
     }
 
-    /** A raw type's argument: the erasure of the type parameter's bound, which satisfies its constraint. */
     /** A raw type's argument for {@code tp}: its bound's erasure, which satisfies the constraint. */
-    static String rawArgumentOf(TypeParameter tp, Qualification q) {
-        return rawArgument(tp, q);
-    }
-
-    private static String rawArgument(TypeParameter tp, Qualification q) {
+    static String rawArgument(TypeParameter tp, Qualification q) {
         ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst().orElse(null);
         if (bound == null || bound.typeInfo() == null || bound.isTypeParameter()) return "object";
         return of(bound.erased(), q, true);
