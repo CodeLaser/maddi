@@ -17,7 +17,6 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
 import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
@@ -71,8 +70,7 @@ public abstract class CommonJavaToCSharp {
 
     protected Translation translation(String java) {
         CSharpCompilationUnitPrinter.Result result = translate(java);
-        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
-        return new Translation(formatter.write(result.output()), result.messages());
+        return new Translation(format(result), result.messages());
     }
 
     /** The printer's messages about {@code java}'s translation. */
@@ -81,18 +79,41 @@ public abstract class CommonJavaToCSharp {
     }
 
     private CSharpCompilationUnitPrinter.Result translate(String java) {
-        // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along
-        String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
-        String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
-        List<TypeInfo> primaryTypes = List.copyOf(javaInspector.parse(Map.of(pkg + "." + first, java),
-                        new JavaInspector.ParseOptions.Builder().build()).parseResult().primaryTypes());
-        TypeInfo typeInfo = primaryTypes.stream()
-                .min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
-                .orElseThrow();
-        Runtime runtime = javaInspector.runtime();
+        List<TypeInfo> primaryTypes = parse(java);
         // the file is the whole program
-        return new CSharpCompilationUnitPrinter(typeInfo.compilationUnit(), true, CSharpProgram.analyze(primaryTypes, policy))
-                .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
+        return print(new CSharpCompilationUnitPrinter(first(primaryTypes).compilationUnit(), true,
+                CSharpProgram.analyze(primaryTypes, policy)));
+    }
+
+    /** {@code java} printed without knowledge of a program ({@link CSharpProgram#NONE}), as one file alone. */
+    protected String csharpWithoutProgram(String java) {
+        return format(print(new CSharpCompilationUnitPrinter(first(parse(java)).compilationUnit(), true)));
+    }
+
+    private CSharpCompilationUnitPrinter.Result print(CSharpCompilationUnitPrinter printer) {
+        return printer.printWithMessages(new ImportComputerImpl(),
+                javaInspector.runtime().qualificationQualifyFromPrimaryType());
+    }
+
+    private String format(CSharpCompilationUnitPrinter.Result result) {
+        return new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build())
+                .write(result.output());
+    }
+
+    /** The primary types of {@code java}, one compilation unit. */
+    protected List<TypeInfo> parse(String java) {
+        // keyed by the first type's name, as parse(fqn, input) does; the other primary types of the file come along.
+        // The key is needed before the parse: read from the text without its comments, an @interface is no type key
+        String code = java.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("//[^\\n]*", "");
+        String pkg = code.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+        String first = code.replaceAll("(?s)^.*?(?<![@\\w])(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+        return List.copyOf(javaInspector.parse(Map.of(pkg + "." + first, java),
+                new JavaInspector.ParseOptions.Builder().build()).parseResult().primaryTypes());
+    }
+
+    private static TypeInfo first(List<TypeInfo> primaryTypes) {
+        return primaryTypes.stream().min(Comparator.comparing(t -> t.source() == null ? 0 : t.source().beginLine()))
+                .orElseThrow();
     }
 
     /** Line by line, indentation ignored: the depth of a fragment is not what these tests are about. */
