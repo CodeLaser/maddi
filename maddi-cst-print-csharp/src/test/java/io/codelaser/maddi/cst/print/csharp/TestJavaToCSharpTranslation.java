@@ -1612,6 +1612,40 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String MARKS = """
+            package org.example.marks;
+            import com.fasterxml.jackson.annotation.JsonProperty;
+            public class Marks {
+                @JsonProperty(required = true) public String id;
+                @JsonProperty(value = "n", required = true) public String name;
+                public String strip(String s) { return s.trim(); }
+            }
+            """;
+
+    /**
+     * A mapping file's {@code #} inside a string is no comment; an annotation's rule applies when all its guards hold
+     * and the use has the elements it writes; a type mapped twice is an error.
+     */
+    @Test
+    public void mappingFileParsing() {
+        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(CSharpMappingFile.parse("""
+                mapping client:marks
+                member java.lang.String.trim/0 -> $0.Replace(" #", "")   # a comment, not the string's #
+                annotation com.fasterxml.jackson.annotation.JsonProperty ?value ?required=true -> JsonPropertyName($value) ][ JsonRequired
+                annotation com.fasterxml.jackson.annotation.JsonProperty -> JsonPropertyName($value)
+                annotation com.fasterxml.jackson.annotation.JsonProperty -> Marked
+                """, "marks.csmap")));
+        String cs = translate("Marks", MARKS);
+        contains(cs, "s.Replace(\" #\", \"\")");
+        contains(cs, "[JsonPropertyName(\"n\")] [JsonRequired]");
+        contains(cs, "[Marked]\n    public string id;");
+        assertFalse(cs.contains("$value"), cs);
+        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CSharpMappingFile.parse("mapping x\ntype a.B -> B\ntype a.B -> C", "twice.csmap"));
+        assertEquals("twice.csmap:3: a second type line for a.B", e.getMessage());
+    }
+
+    @Language("java")
     private static final String HISTORY = """
             package org.example.history;
             import java.util.ArrayList;
