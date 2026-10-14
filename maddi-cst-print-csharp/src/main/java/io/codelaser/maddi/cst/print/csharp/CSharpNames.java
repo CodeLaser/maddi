@@ -100,10 +100,16 @@ public final class CSharpNames {
         }
         if (CSharpContext.program().prefixedHoisted(typeInfo)) {
             StringBuilder sb = new StringBuilder(simple);
-            for (TypeInfo e = enclosing(typeInfo); e != null; e = enclosing(e)) sb.insert(0, e.simpleName());
+            for (TypeInfo e = CstQueries.enclosing(typeInfo); e != null; e = CstQueries.enclosing(e)) sb.insert(0, e.simpleName());
             return name(sb.toString());
         }
         return name(simple);
+    }
+
+    /** {@code <K, V>}: the type parameters' names, as declared after a generic type's or method's name; empty without. */
+    static String typeParameters(List<TypeParameter> typeParameters) {
+        return typeParameters.isEmpty() ? ""
+                : typeParameters.stream().map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
     }
 
     /**
@@ -229,7 +235,7 @@ public final class CSharpNames {
      * namespace, and named without its enclosing types.
      */
     static boolean hoisted(TypeInfo typeInfo) {
-        TypeInfo enclosing = enclosing(typeInfo);
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         return enclosing != null && typeInfo.enclosingMethod() == null && translated(typeInfo)
                && (typeInfo.isStatic() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
                    || typeInfo.typeNature().isRecord())
@@ -290,7 +296,7 @@ public final class CSharpNames {
     /** Type parameters C# would give a type nested in this one: its own, and those of its non-hoisted enclosing types. */
     private static boolean genericScope(TypeInfo typeInfo) {
         if (!typeInfo.typeParameters().isEmpty()) return true;
-        TypeInfo enclosing = enclosing(typeInfo);
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         return enclosing != null && !hoisted(typeInfo) && genericScope(enclosing);
     }
 
@@ -298,7 +304,7 @@ public final class CSharpNames {
     static TypeInfo topLevel(TypeInfo typeInfo) {
         TypeInfo t = typeInfo;
         while (true) {
-            TypeInfo enclosing = enclosing(t);
+            TypeInfo enclosing = CstQueries.enclosing(t);
             if (enclosing == null || hoisted(t)) return t;
             t = enclosing;
         }
@@ -319,10 +325,6 @@ public final class CSharpNames {
             t.interfacesImplemented().stream().filter(i -> i.typeInfo() != null).forEach(i -> todo.push(i.typeInfo()));
         }
         return false;
-    }
-
-    static TypeInfo enclosing(TypeInfo typeInfo) {
-        return CstQueries.enclosing(typeInfo);
     }
 
     /**

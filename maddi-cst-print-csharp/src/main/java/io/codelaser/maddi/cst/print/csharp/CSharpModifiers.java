@@ -22,8 +22,6 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeModifier;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
-import java.util.Set;
-
 /**
  * Access and inheritance modifiers. C# code writes its access modifiers out, so every declaration gets one, except
  * where C# forbids it (the public members of an interface).
@@ -106,14 +104,12 @@ final class CSharpModifiers {
         };
     }
 
-    private static final Set<String> OBJECT_OVERRIDABLE = Set.of("toString", "equals", "hashCode");
-
     /** {@code virtual}, {@code override}, {@code sealed override}, {@code abstract}; null when none applies. */
     static String inheritance(MethodInfo m, TypeInfo owner) {
         if (m.isStatic() || m.isConstructor() || owner.isInterface()) return null;
         // C#'s object has ToString, Equals and GetHashCode to override, not Java's clone or finalize
         boolean overridesClassMethod = m.overrides().stream().anyMatch(o -> o != m && !o.typeInfo().isInterface()
-                && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !OBJECT_OVERRIDABLE.contains(o.name())));
+                && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !CSharpBcl.objectOverridable(o)));
         // or an interface's method that an abstract superclass redeclares abstract
         if (!overridesClassMethod) overridesClassMethod = redeclaredAbove(m, owner);
         CSharpProgram program = CSharpContext.program();
@@ -131,15 +127,9 @@ final class CSharpModifiers {
         if (m.overrides().stream().noneMatch(o -> o != m && o.typeInfo().isInterface())) return false;
         // iterator(), which an abstract superclass declares for its interface's GetEnumerator
         if ("iterator".equals(m.name()) && m.parameters().isEmpty() && !m.isStatic()) {
-            for (TypeInfo s = owner.parentClass() == null ? null : owner.parentClass().typeInfo(); s != null;
-                 s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
-                if (CSharpTypePrinter.needsAbstractIterator(s)) return true;
-            }
+            if (CstQueries.superclasses(owner).stream().anyMatch(CSharpHierarchy::needsAbstractIterator)) return true;
         }
-        for (TypeInfo s = owner.parentClass() == null ? null : owner.parentClass().typeInfo(); s != null;
-             s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
-            if (CSharpTypePrinter.leftAbstract(s).stream().anyMatch(l -> m.overrides().contains(l.method()))) return true;
-        }
-        return false;
+        return CstQueries.superclasses(owner).stream().anyMatch(s -> CSharpHierarchy.leftAbstract(s).stream()
+                .anyMatch(l -> m.overrides().contains(l.method())));
     }
 }

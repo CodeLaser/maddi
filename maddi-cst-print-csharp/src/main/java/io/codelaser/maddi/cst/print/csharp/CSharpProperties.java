@@ -24,7 +24,6 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
@@ -216,9 +215,9 @@ final class CSharpProperties {
     /** {@code return f;}: the field {@code f} of {@code t}, non-static, of the method's return type; null otherwise. */
     private static FieldInfo gettersField(MethodInfo m, TypeInfo t) {
         if (!m.parameters().isEmpty() || m.isVoid() || m.isConstructor() || m.methodBody() == null) return null;
-        List<Statement> statements = statements(m);
-        if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs) || rs.hasNoValue()) return null;
-        FieldInfo f = ownField(rs.expression(), t);
+        Expression returned = CstQueries.returnedValue(statements(m));
+        if (returned == null) return null;
+        FieldInfo f = ownField(returned, t);
         return f != null && f.type().equals(m.returnType()) ? f : null;
     }
 
@@ -275,8 +274,7 @@ final class CSharpProperties {
     private static boolean clashes(String name, TypeInfo t, FieldInfo field, Set<MethodInfo> getters,
                                    List<TypeInfo> all) {
         if (name.equals(CSharpNames.type(t))) return true;
-        List<TypeInfo> related = new ArrayList<>();
-        for (TypeInfo s = t; s != null; s = s.parentClass() == null ? null : s.parentClass().typeInfo()) related.add(s);
+        List<TypeInfo> related = CstQueries.classChain(t);
         for (TypeInfo other : all) {
             if (other != t && other.superTypesExcludingJavaLangObject().contains(t)) related.add(other);
         }

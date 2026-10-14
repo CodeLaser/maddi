@@ -515,8 +515,8 @@ public final class CSharpProgram {
         final Map<TypeInfo, Boolean> hasCompanion = new ConcurrentHashMap<>();
         /** Whether an enum is a C# enum ({@link CSharpNames#simpleEnum}). */
         final Map<TypeInfo, Boolean> simpleEnum = new ConcurrentHashMap<>();
-        /** The interface methods an abstract class redeclares ({@link CSharpTypePrinter#leftAbstract}). */
-        final Map<TypeInfo, List<CSharpTypePrinter.LeftAbstract>> leftAbstract = new ConcurrentHashMap<>();
+        /** The interface methods an abstract class redeclares ({@link CSharpHierarchy#leftAbstract}). */
+        final Map<TypeInfo, List<CSharpHierarchy.LeftAbstract>> leftAbstract = new ConcurrentHashMap<>();
         /** C#'s names of the methods of named types ({@link CSharpNames#method}). */
         final Map<MethodInfo, String> methodNames = new ConcurrentHashMap<>();
     }
@@ -533,7 +533,7 @@ public final class CSharpProgram {
         Map<String, List<TypeInfo>> byName = new HashMap<>();
         for (TypeInfo t : all) {
             if (t.isAnonymous() || !CSharpNames.translated(t)) continue;
-            if (CSharpNames.enclosing(t) != null && !CSharpNames.hoisted(t)) continue;
+            if (CstQueries.enclosing(t) != null && !CSharpNames.hoisted(t)) continue;
             byName.computeIfAbsent(t.packageName() + "." + t.simpleName(), n -> new ArrayList<>()).add(t);
         }
         Set<TypeInfo> prefixed = new HashSet<>();

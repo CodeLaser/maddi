@@ -249,9 +249,6 @@ public final class CSharpStatementPrinter {
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 
-    private static final Set<String> NAVIGATION_ENTRIES = Set.of("firstEntry", "lastEntry", "pollFirstEntry",
-            "pollLastEntry", "floorEntry", "lowerEntry", "ceilingEntry", "higherEntry");
-
     private static boolean implicitlyTyped(LocalVariableCreation lvc) {
         if (!lvc.otherLocalVariables().isEmpty()) return false;
         LocalVariable lv = lvc.localVariable();
@@ -259,8 +256,7 @@ public final class CSharpStatementPrinter {
         if (init == null || init.isEmpty() || init instanceof EmptyExpression) return false;
         if (lvc.isVar()) return true;
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
-        if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && NAVIGATION_ENTRIES.contains(mc.methodInfo().name())
-            && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")) {
+        if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
             return true;
         }
         return CSharpExpressionPrinter.unwrap(init) instanceof ConstructorCall cc && cc.anonymousClass() == null

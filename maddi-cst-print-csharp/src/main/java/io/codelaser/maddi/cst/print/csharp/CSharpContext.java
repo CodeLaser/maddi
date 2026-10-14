@@ -24,6 +24,7 @@ import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.translate.TranslationState;
 
@@ -205,7 +206,7 @@ final class CSharpContext {
             return state.base.methods().stream().anyMatch(m::equals) && !m.isConstructor() && !state.program.erasedGeneric(m);
         }
         TypeInfo t = owner.getLeft();
-        for (TypeInfo at = currentType(); at != null; at = CSharpNames.hoisted(at) ? null : CSharpNames.enclosing(at)) {
+        for (TypeInfo at = currentType(); at != null; at = CSharpNames.hoisted(at) ? null : CstQueries.enclosing(at)) {
             if (at.equals(state.companion)) return false; // the companion class is not generic
             // a supertype's, as an inherited field's type has it: the subclass passes its own, of the same name, on
             if (at.equals(t) || CSharpNames.inherits(at, t)) return true;

@@ -120,9 +120,9 @@ final class CSharpAnonymous {
     private static List<ParameterizedType> superParameters(ConstructorCall cc, TypeInfo anonymous) {
         MethodInfo constructor = superConstructor(cc);
         if (constructor == null) return cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList();
-        Map<TypeParameter, ParameterizedType> arguments = CSharpTypePrinter.typeArguments(anonymous.parentClass());
+        Map<TypeParameter, ParameterizedType> arguments = CSharpHierarchy.typeArguments(anonymous.parentClass());
         return constructor.parameters().stream()
-                .map(p -> CSharpTypePrinter.substitute(p.parameterizedType(), arguments)).toList();
+                .map(p -> CSharpHierarchy.substitute(p.parameterizedType(), arguments)).toList();
     }
 
     /**

@@ -69,7 +69,7 @@ final class CSharpCompanions {
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
         List<TypeParameter> removed = new ArrayList<>();
         for (TypeParameter tp : t.typeParameters()) {
-            if (tp.typeBounds().stream().anyMatch(b -> mentionsAny(b, t.typeParameters()))) removed.add(tp);
+            if (tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, t.typeParameters()))) removed.add(tp);
         }
         return List.copyOf(removed);
     }
@@ -93,8 +93,7 @@ final class CSharpCompanions {
     /** The companion as the type itself names it: {@code IInnerScoreDirector<Solution_>}. */
     static String selfReference(TypeInfo t) {
         List<TypeParameter> remaining = remaining(t);
-        return name(t) + (remaining.isEmpty() ? "" : remaining.stream().map(CSharpNames::typeParameter)
-                .collect(Collectors.joining(", ", "<", ">")));
+        return name(t) + CSharpNames.typeParameters(remaining);
     }
 
     /**
@@ -152,8 +151,7 @@ final class CSharpCompanions {
         if (t == null || pt.arrays() != 0 || !t.equals(CSharpContext.currentType()) || !isWildcardUse(pt)) return null;
         MethodInfo m = CSharpContext.currentMethod();
         if (m == null || m.isStatic() || !t.equals(m.typeInfo())) return null;
-        return CSharpTypeName.name(t, q) + t.typeParameters().stream().map(CSharpNames::typeParameter)
-                .collect(Collectors.joining(", ", "<", ">"));
+        return CSharpTypeName.name(t, q) + CSharpNames.typeParameters(t.typeParameters());
     }
 
     /** {@code Ns.Outer.Config} is {@code Ns.Outer.IConfig}. */
@@ -168,7 +166,7 @@ final class CSharpCompanions {
      * parameter otherwise ({@code List<Score_>}), which no conversion makes the companion's.
      */
     static String erased(ParameterizedType pt, List<TypeParameter> removed, Qualification q) {
-        if (!mentionsAny(pt, removed)) return CSharpTypeName.of(pt, q);
+        if (!CstQueries.mentionsAny(pt, removed)) return CSharpTypeName.of(pt, q);
         if (pt.arrays() > 0) return null;
         if (pt.isTypeParameter()) return erasedBound(pt.typeParameter(), removed, new HashSet<>(), q);
         TypeInfo t = pt.typeInfo();
@@ -179,7 +177,7 @@ final class CSharpCompanions {
             if (own.contains(t.typeParameters().get(i))) continue;
             if (i >= pt.parameters().size()) return null;
             ParameterizedType a = pt.parameters().get(i);
-            if (mentionsAny(a, removed)) return null;
+            if (CstQueries.mentionsAny(a, removed)) return null;
             printed.add(CSharpTypeName.argument(a, q));
         }
         String name = CSharpTypeName.name(t, q);
@@ -207,7 +205,7 @@ final class CSharpCompanions {
         for (ParameterizedType s : all) {
             TypeInfo st = s.typeInfo();
             if (st == null) continue;
-            if (!mentionsAny(s, removed)) {
+            if (!CstQueries.mentionsAny(s, removed)) {
                 // a closed supertype: an interface is itself, and its own companion with it; a class only its companion
                 if (st.isInterface()) supers.add(CSharpTypeName.of(s, q));
                 else if (has(st)) supers.add(companionOfClosed(s, q));
@@ -253,12 +251,12 @@ final class CSharpCompanions {
             for (FieldInfo f : t.fields()) {
                 if (f.isStatic()) continue;
                 NullableState nullable = program.facts().nullable(f);
-                String type = mentionsAny(f.type(), removed) ? erased(f.type(), removed, q)
+                String type = CstQueries.mentionsAny(f.type(), removed) ? erased(f.type(), removed, q)
                         : CSharpTypeName.declared(f.type(), false, nullable, q);
                 if (type == null) continue;
                 String property = CSharpNames.field(f);
                 signatures.add(property);
-                boolean assertNotNull = program.facts().nullabilityAnalysed() && mentionsAny(f.type(), removed)
+                boolean assertNotNull = program.facts().nullabilityAnalysed() && CstQueries.mentionsAny(f.type(), removed)
                                         && !type.endsWith("?");
                 members.add(new Member(type + " " + property + " { get; }",
                         type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
@@ -268,16 +266,16 @@ final class CSharpCompanions {
             if (CstQueries.isRecordAccessor(m)) continue;
             if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
                 || m.overrides().stream().anyMatch(o -> o != m) || CSharpWildcards.mayCapture(m)
-                || program.typeToken(m) >= 0 || CSharpTypePrinter.interfaceMethodDefaulted(t, m) != null) {
+                || program.typeToken(m) >= 0 || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
                 continue;
             }
             if (!t.isInterface() && !"public".equals(CSharpModifiers.access(m, t))) continue;
             CSharpProperties.Property accessor = program.accessorOf(m);
             if (accessor != null && accessor.getter() != m) continue;
-            if (m.parameters().stream().anyMatch(p -> mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
+            if (m.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
                 continue;
             }
-            if (m.typeParameters().stream().anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> mentionsAny(b, removed)))) {
+            if (m.typeParameters().stream().anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)))) {
                 continue;
             }
             String returnType = m.isVoid() ? "void" : result(m, removed, q);
@@ -291,8 +289,7 @@ final class CSharpCompanions {
                 continue;
             }
             String name = CSharpNames.method(m);
-            String typeParameters = m.typeParameters().isEmpty() ? "" : m.typeParameters().stream()
-                    .map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
+            String typeParameters = CSharpNames.typeParameters(m.typeParameters());
             List<String> parameters = new ArrayList<>();
             List<String> arguments = new ArrayList<>();
             for (var p : m.parameters()) {
@@ -323,7 +320,7 @@ final class CSharpCompanions {
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
         NullableState nullable = CSharpContext.program().facts().nullable(m);
-        if (!mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
+        if (!CstQueries.mentionsAny(m.returnType(), removed)) return CSharpTypeName.declared(m.returnType(), false, nullable, q);
         String erased = erased(m.returnType(), removed, q);
         if (erased == null) return null;
         boolean nullableResult = nullable == NullableState.NULLABLE
@@ -336,7 +333,7 @@ final class CSharpCompanions {
      * parameter converted to the companion as possibly null (CS8603), the bridge returns what the member does.
      */
     private static String asserted(MethodInfo m, List<TypeParameter> removed, String returnType) {
-        return CSharpContext.program().facts().nullabilityAnalysed() && mentionsAny(m.returnType(), removed)
+        return CSharpContext.program().facts().nullabilityAnalysed() && CstQueries.mentionsAny(m.returnType(), removed)
                && !returnType.endsWith("?") ? "!" : "";
     }
 
@@ -344,15 +341,14 @@ final class CSharpCompanions {
     static OutputBuilder declaration(TypeInfo t, String access, Qualification q) {
         List<TypeParameter> remaining = remaining(t);
         List<TypeParameter> removed = removed(t);
-        String typeParameters = remaining.isEmpty() ? "" : remaining.stream().map(CSharpNames::typeParameter)
-                .collect(Collectors.joining(", ", "<", ">"));
+        String typeParameters = CSharpNames.typeParameters(remaining);
         StringBuilder header = new StringBuilder();
         if (access != null) header.append(access).append(' ');
         header.append("interface ").append(name(t)).append(typeParameters);
         List<String> supers = supertypes(t, q);
         if (!supers.isEmpty()) header.append(" : ").append(String.join(", ", supers));
         for (String constraint : CSharpTypeName.constraints(remaining.stream()
-                .filter(tp -> tp.typeBounds().stream().noneMatch(b -> mentionsAny(b, removed))).toList(), q)) {
+                .filter(tp -> tp.typeBounds().stream().noneMatch(b -> CstQueries.mentionsAny(b, removed))).toList(), q)) {
             header.append(' ').append(constraint);
         }
         List<OutputBuilder> body = members(t, q).stream()
@@ -375,15 +371,6 @@ final class CSharpCompanions {
         return bridges;
     }
 
-    static boolean mentionsAny(ParameterizedType t, List<TypeParameter> tps) {
-        return mentionsAny(t, tps, new HashSet<>());
-    }
-
-    private static boolean mentionsAny(ParameterizedType t, List<TypeParameter> tps, Set<ParameterizedType> seen) {
-        if (t == null || !seen.add(t)) return false;
-        if (t.isTypeParameter()) return tps.contains(t.typeParameter());
-        return t.parameters().stream().anyMatch(a -> mentionsAny(a, tps, seen));
-    }
 
     private static boolean containsWildcard(ParameterizedType t) {
         if (t == null) return false;

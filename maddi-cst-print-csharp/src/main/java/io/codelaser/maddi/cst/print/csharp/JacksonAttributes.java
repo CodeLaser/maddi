@@ -15,7 +15,6 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -48,22 +47,14 @@ final class JacksonAttributes implements LibraryMapping {
     public AttributeMapping annotation(AnnotationExpression use, Target target, Function<Expression, String> print) {
         if (!SUB_TYPES.equals(use.typeInfo().fullyQualifiedName())) return null;
         List<String> attributes = new ArrayList<>();
-        for (AnnotationExpression.KV kv : use.keyValuePairs()) {
-            if (!kv.keyIsDefault() && !"value".equals(kv.key())) continue;
-            List<Expression> types = kv.value() instanceof ArrayInitializer ai ? ai.expressions() : List.of(kv.value());
-            for (Expression t : types) {
-                if (!(CSharpExpressionPrinter.unwrap(t) instanceof AnnotationExpression type)) continue;
-                Expression subtype = null;
-                Expression name = null;
-                for (AnnotationExpression.KV e : type.keyValuePairs()) {
-                    if (e.keyIsDefault() || "value".equals(e.key())) subtype = e.value();
-                    else if ("name".equals(e.key())) name = e.value();
-                }
-                if (subtype == null) continue;
-                String discriminator = name != null ? print.apply(name) : typeName(subtype);
-                attributes.add("JsonDerivedType(" + print.apply(subtype)
-                               + (discriminator == null ? "" : ", " + discriminator) + ")");
-            }
+        for (Expression t : CSharpAttributes.elements(use, "value")) {
+            if (!(CSharpExpressionPrinter.unwrap(t) instanceof AnnotationExpression type)) continue;
+            Expression subtype = CSharpAttributes.element(type, "value");
+            Expression name = CSharpAttributes.element(type, "name");
+            if (subtype == null) continue;
+            String discriminator = name != null ? print.apply(name) : typeName(subtype);
+            attributes.add("JsonDerivedType(" + print.apply(subtype)
+                           + (discriminator == null ? "" : ", " + discriminator) + ")");
         }
         return new AttributeMapping(attributes, List.of("System.Text.Json.Serialization"));
     }

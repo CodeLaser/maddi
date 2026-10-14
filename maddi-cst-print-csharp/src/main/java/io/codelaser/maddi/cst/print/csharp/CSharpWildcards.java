@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,7 +53,7 @@ final class CSharpWildcards {
             if (m.typeInfo().isInterface() && CSharpNames.singleAbstractMethod(m.typeInfo()) == m) return Captured.NONE;
         }
         Set<String> taken = new HashSet<>();
-        for (TypeInfo t = method.typeInfo(); t != null; t = CSharpNames.enclosing(t)) {
+        for (TypeInfo t = method.typeInfo(); t != null; t = CstQueries.enclosing(t)) {
             t.typeParameters().forEach(tp -> taken.add(CSharpNames.typeParameter(tp)));
         }
         method.typeParameters().forEach(tp -> taken.add(CSharpNames.typeParameter(tp)));
@@ -81,7 +82,7 @@ final class CSharpWildcards {
                         ? List.of(a.withWildcard(null))
                         : declared.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
                 // a bound in the generic type's own type parameters (R extends Result<R>) is not expressible here
-                if (bounds.stream().anyMatch(CSharpWildcards::mentionsTypeParameter)) ok = false;
+                if (bounds.stream().anyMatch(CstQueries::mentionsTypeParameter)) ok = false;
                 // a constraint is an interface or a class C# can extend, not string, a delegate or a sealed class
                 if (bounds.stream().anyMatch(b -> b.typeInfo() == null || !CSharpNames.translated(b.typeInfo())
                         || CSharpContext.program().delegate(b.typeInfo())
@@ -123,9 +124,6 @@ final class CSharpWildcards {
         return CSharpTypeName.name(pt.typeInfo(), q) + "<" + String.join(", ", printed) + ">";
     }
 
-    private static boolean mentionsTypeParameter(ParameterizedType pt) {
-        return pt.isTypeParameter() || pt.parameters().stream().anyMatch(CSharpWildcards::mentionsTypeParameter);
-    }
 
     private static List<MethodInfo> overriddenAndSelf(MethodInfo method) {
         List<MethodInfo> list = new ArrayList<>(method.overrides());

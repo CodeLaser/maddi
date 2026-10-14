@@ -34,7 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A Java inner class, a non-static member class, has an enclosing instance; a C# nested class has none. One that uses
@@ -82,9 +81,8 @@ final class CSharpInner {
 
     /** {@code Outer<T>}, the type of the {@code outer} field and parameter. */
     static String outerTypeName(TypeInfo t) {
-        TypeInfo outer = CSharpNames.enclosing(t);
-        return CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? "" : outer.typeParameters().stream()
-                .map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">")));
+        TypeInfo outer = CstQueries.enclosing(t);
+        return CSharpNames.type(outer) + CSharpNames.typeParameters(outer.typeParameters());
     }
 
     private static boolean usesOuter(TypeInfo t) {
@@ -102,8 +100,7 @@ final class CSharpInner {
                         }
                     }
                     case VariableExpression ve when ve.variable() instanceof This th -> {
-                        if (th.explicitlyWriteType() != null && !within(t, th.explicitlyWriteType())
-                            && !th.explicitlyWriteType().equals(t)) {
+                        if (th.explicitlyWriteType() != null && !CstQueries.within(t, th.explicitlyWriteType())) {
                             uses[0] = true;
                         }
                     }
@@ -117,7 +114,7 @@ final class CSharpInner {
                         // a sibling inner class, created with this one's enclosing instance
                         if (cc.object() == null && cc.anonymousClass() == null && cc.constructor() != null) {
                             TypeInfo created = cc.constructor().typeInfo();
-                            TypeInfo needed = CSharpNames.enclosing(created);
+                            TypeInfo needed = CstQueries.enclosing(created);
                             if (withOuter(created) && needed != null && !needed.equals(t) && !CSharpNames.inherits(t, needed)) {
                                 uses[0] = true;
                             }
@@ -133,12 +130,6 @@ final class CSharpInner {
         return false;
     }
 
-    private static boolean within(TypeInfo inner, TypeInfo outer) {
-        for (TypeInfo at = CstQueries.enclosing(inner); at != null; at = CstQueries.enclosing(at)) {
-            if (at.equals(outer)) return true;
-        }
-        return false;
-    }
 
     /**
      * A class whose instance fields are initialized in its constructors, as Java does after {@code super(…)}: an inner
@@ -173,11 +164,25 @@ final class CSharpInner {
     }
 
     /**
+     * What a constructor of {@code t} starts with, before its own statements: {@code this.outer = outer;} when it takes
+     * the enclosing instance, then the {@link #fieldInitializers}.
+     */
+    static List<OutputBuilder> prologue(TypeInfo t, boolean outer, Qualification q) {
+        List<OutputBuilder> prologue = new ArrayList<>();
+        if (outer) prologue.add(outerAssignment());
+        prologue.addAll(fieldInitializers(t, q));
+        return prologue;
+    }
+
+    static OutputBuilder outerAssignment() {
+        return new OutputBuilderImpl().add(new TextImpl("this.outer = outer;"));
+    }
+
+    /**
      * The instance fields' initializers, as assignments in the constructor after {@code this.outer = outer;}: Java runs
      * them there, and they may use the enclosing instance, which a C# field initializer cannot (CS0236).
      */
-    static List<OutputBuilder> fieldInitializers(TypeInfo t,
-                                                                                   Qualification q) {
+    static List<OutputBuilder> fieldInitializers(TypeInfo t, Qualification q) {
         List<OutputBuilder> assignments = new ArrayList<>();
         for (FieldInfo f : t.fields()) {
             if (f.isSynthetic() || f.isStatic() || f.initializer() == null || f.initializer().isEmpty()) continue;
@@ -207,7 +212,7 @@ final class CSharpInner {
         while (at != null && CSharpNames.foreign(owner, at)) {
             if (!hasOuter(at)) return null;
             path = path == null ? "outer" : path + ".outer";
-            at = CSharpNames.enclosing(at);
+            at = CstQueries.enclosing(at);
         }
         return at == null ? null : path;
     }
@@ -217,14 +222,14 @@ final class CSharpInner {
      * {@code this}, {@code outer}, {@code outer.outer}; null when none leads there.
      */
     static String enclosingInstance(TypeInfo created) {
-        TypeInfo needed = CSharpNames.enclosing(created);
+        TypeInfo needed = CstQueries.enclosing(created);
         TypeInfo at = CSharpContext.currentType();
         String path = "this";
         while (at != null) {
             if (at.equals(needed) || CSharpNames.inherits(at, needed)) return path;
             if (!hasOuter(at)) return null;
             path = "this".equals(path) ? "outer" : path + ".outer";
-            at = CSharpNames.enclosing(at);
+            at = CstQueries.enclosing(at);
         }
         return null;
     }

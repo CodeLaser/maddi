@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.cst.impl.type.WildcardEnum;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -318,9 +319,9 @@ public final class CSharpTypeName {
     private static boolean shadowedByMember(TypeInfo typeInfo) {
         if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
         String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
-        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CSharpNames.enclosing(t)) {
-            for (TypeInfo c = t; c != null && CSharpNames.translated(c);
-                 c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
+        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CstQueries.enclosing(t)) {
+            for (TypeInfo c : CstQueries.classChain(t)) {
+                if (!CSharpNames.translated(c)) break;
                 if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
                     || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
                     return true;
@@ -333,7 +334,7 @@ public final class CSharpTypeName {
     /** {@code Outer.Inner}, each segment by its C# name. */
     static String fromPrimaryType(TypeInfo typeInfo) {
         List<String> segments = new ArrayList<>();
-        for (TypeInfo t = typeInfo; t != null; t = CSharpNames.hoisted(t) ? null : CSharpNames.enclosing(t)) {
+        for (TypeInfo t = typeInfo; t != null; t = CSharpNames.hoisted(t) ? null : CstQueries.enclosing(t)) {
             segments.addFirst(CSharpNames.type(t));
         }
         return String.join(".", segments);

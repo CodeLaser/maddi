@@ -16,7 +16,6 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
-import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -107,19 +106,6 @@ final class JaxbXmlSerialization implements LibraryMapping {
         return null;
     }
 
-    private static Expression element(AnnotationExpression ae, String key) {
-        for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
-            if (key.equals(kv.key()) || "value".equals(key) && kv.keyIsDefault()) return kv.value();
-        }
-        return null;
-    }
-
-    private static List<Expression> elements(AnnotationExpression ae, String key) {
-        Expression e = element(ae, key);
-        if (e == null) return List.of();
-        return e instanceof ArrayInitializer ai ? ai.expressions() : List.of(e);
-    }
-
     /** A string element's value when it is a literal; null otherwise (a constant is printed instead). */
     private static String literal(Expression e) {
         return e != null && CSharpExpressionPrinter.unwrap(e) instanceof StringConstant sc ? sc.constant() : null;
@@ -193,12 +179,12 @@ final class JaxbXmlSerialization implements LibraryMapping {
      * the package of one; {@code PUBLIC_MEMBER} by default.
      */
     private static String accessType(TypeInfo t) {
-        for (TypeInfo s = t; s != null && CSharpNames.translated(s);
-             s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
+        for (TypeInfo s : CstQueries.classChain(t)) {
+            if (!CSharpNames.translated(s)) break;
             AnnotationExpression a = find(s.annotations(), "XmlAccessorType");
             if (a == null) a = find(packageAnnotations(s), "XmlAccessorType");
             if (a != null) {
-                String constant = constant(element(a, "value"));
+                String constant = constant(CSharpAttributes.element(a, "value"));
                 return constant == null ? "PUBLIC_MEMBER" : constant;
             }
         }
@@ -264,13 +250,13 @@ final class JaxbXmlSerialization implements LibraryMapping {
     /** The type's namespace, as a C# expression: its {@code @XmlType}'s, or its package's qualified one. */
     private static String typeNamespace(TypeInfo t, Function<Expression, String> print) {
         AnnotationExpression type = find(t.annotations(), "XmlType");
-        if (type != null && given(element(type, "namespace"))) return print.apply(element(type, "namespace"));
+        if (type != null && given(CSharpAttributes.element(type, "namespace"))) return print.apply(CSharpAttributes.element(type, "namespace"));
         AnnotationExpression schema = find(packageAnnotations(t), "XmlSchema");
-        if (schema == null || !given(element(schema, "namespace"))
-            || !"QUALIFIED".equals(constant(element(schema, "elementFormDefault")))) {
+        if (schema == null || !given(CSharpAttributes.element(schema, "namespace"))
+            || !"QUALIFIED".equals(constant(CSharpAttributes.element(schema, "elementFormDefault")))) {
             return null;
         }
-        return print.apply(element(schema, "namespace"));
+        return print.apply(CSharpAttributes.element(schema, "namespace"));
     }
 
     @Override
@@ -297,29 +283,29 @@ final class JaxbXmlSerialization implements LibraryMapping {
         String namespace = typeNamespace(t, print);
         AnnotationExpression root = find(t.annotations(), "XmlRootElement");
         if (root != null) {
-            Expression name = element(root, "name");
-            Expression ns = element(root, "namespace");
+            Expression name = CSharpAttributes.element(root, "name");
+            Expression ns = CSharpAttributes.element(root, "namespace");
             AnnotationExpression schema = find(packageAnnotations(t), "XmlSchema");
             String rootNamespace = given(ns) ? print.apply(ns)
-                    : schema != null && given(element(schema, "namespace")) ? print.apply(element(schema, "namespace"))
+                    : schema != null && given(CSharpAttributes.element(schema, "namespace")) ? print.apply(CSharpAttributes.element(schema, "namespace"))
                     : null;
             attributes.add("XmlRoot(" + (given(name) ? print.apply(name)
                     : CSharpExpressionPrinter.stringLiteral(decapitalize(t.simpleName())))
                            + (rootNamespace == null ? "" : ", Namespace = " + rootNamespace) + ")");
         }
         AnnotationExpression type = find(t.annotations(), "XmlType");
-        Expression typeName = type == null ? null : element(type, "name");
+        Expression typeName = type == null ? null : CSharpAttributes.element(type, "name");
         boolean named = given(typeName) && !"".equals(literal(typeName));
         if (named || namespace != null) {
             attributes.add("XmlType(" + (named ? print.apply(typeName) : "")
                            + (namespace == null ? "" : (named ? ", " : "") + "Namespace = " + namespace) + ")");
         }
         AnnotationExpression seeAlso = find(t.annotations(), "XmlSeeAlso");
-        if (seeAlso != null) elements(seeAlso, "value").forEach(e -> attributes.add("XmlInclude(" + print.apply(e) + ")"));
+        if (seeAlso != null) CSharpAttributes.elements(seeAlso, "value").forEach(e -> attributes.add("XmlInclude(" + print.apply(e) + ")"));
 
         List<String> order = new ArrayList<>();
         if (type != null) {
-            for (Expression e : elements(type, "propOrder")) {
+            for (Expression e : CSharpAttributes.elements(type, "propOrder")) {
                 String s = literal(e);
                 if (s != null && !s.isEmpty()) order.add(s);
             }
@@ -391,7 +377,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         }
         AnnotationExpression elementsAnnotation = find(annotations, "XmlElements");
         List<AnnotationExpression> alternatives = elementsAnnotation == null ? List.of()
-                : elements(elementsAnnotation, "value").stream()
+                : CSharpAttributes.elements(elementsAnnotation, "value").stream()
                         .map(CSharpExpressionPrinter::unwrap).filter(AnnotationExpression.class::isInstance)
                         .map(AnnotationExpression.class::cast).toList();
         ParameterizedType type = f.type();
@@ -405,7 +391,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         }
         Conversion conversion;
         if (adapterAnnotation != null) {
-            TypeInfo adapter = classOf(element(adapterAnnotation, "value"));
+            TypeInfo adapter = classOf(CSharpAttributes.element(adapterAnnotation, "value"));
             ParameterizedType adapted = adapter == null ? null : adaptedValueType(adapter);
             if (adapted == null) return unbound(f, "an adapter without its value type");
             String a = CSharpTypeName.name(adapter, q);
@@ -507,8 +493,8 @@ final class JaxbXmlSerialization implements LibraryMapping {
 
     /** {@code "name", Namespace = …, rest}: the annotation's name (the field's by default) and namespace. */
     private static String named(AnnotationExpression ae, FieldInfo f, Function<Expression, String> print, String rest) {
-        Expression name = element(ae, "name");
-        Expression ns = element(ae, "namespace");
+        Expression name = CSharpAttributes.element(ae, "name");
+        Expression ns = CSharpAttributes.element(ae, "namespace");
         String n = given(name) ? print.apply(name) : f == null ? null : CSharpExpressionPrinter.stringLiteral(f.name());
         String args = n == null ? "" : n;
         if (rest.startsWith("typeof(")) {
@@ -522,7 +508,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
     }
 
     private static String typeOf(AnnotationExpression ae, Function<Expression, String> print) {
-        Expression type = element(ae, "type");
+        Expression type = CSharpAttributes.element(ae, "type");
         TypeInfo t = classOf(type);
         // XmlElement.DEFAULT.class: none
         return t == null || "DEFAULT".equals(t.simpleName()) ? "" : print.apply(type);

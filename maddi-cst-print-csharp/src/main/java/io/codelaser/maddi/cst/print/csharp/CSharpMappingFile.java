@@ -121,16 +121,9 @@ public final class CSharpMappingFile implements LibraryMapping {
         boolean applies(AnnotationExpression use, Target on) {
             if (target != null && target != on) return false;
             if (element == null) return true;
-            Expression v = elementValue(use, element);
+            Expression v = CSharpAttributes.element(use, element);
             return v != null && (value == null || value.equals(simpleText(v)));
         }
-    }
-
-    private static Expression elementValue(AnnotationExpression use, String element) {
-        for (AnnotationExpression.KV kv : use.keyValuePairs()) {
-            if (kv.key().equals(element) || "value".equals(element) && kv.keyIsDefault()) return kv.value();
-        }
-        return null;
     }
 
     /** An element's value as a guard compares it: a constant's name ({@code NON_NULL}), a string's text. */
@@ -413,7 +406,7 @@ public final class CSharpMappingFile implements LibraryMapping {
         for (AnnotationEntry entry : entries) {
             if (!entry.applies(use, target)) continue;
             List<String> attributes = entry.attributes().stream().map(a -> ELEMENT.matcher(a).replaceAll(r -> {
-                Expression v = elementValue(use, r.group(1));
+                Expression v = CSharpAttributes.element(use, r.group(1));
                 return Matcher.quoteReplacement(v == null ? r.group() : print.apply(v));
             })).toList();
             return new AttributeMapping(attributes, entry.namespaces());

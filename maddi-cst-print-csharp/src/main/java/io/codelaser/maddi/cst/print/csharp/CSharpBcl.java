@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -98,6 +99,30 @@ final class CSharpBcl implements LibraryMapping {
     @Override
     public Requirements requirements() {
         return REQUIREMENTS;
+    }
+
+    // ---------------------------------------------------------------- what the printers ask of the JDK
+
+    /** Java's list classes, which a class of the program extends as the compatibility library's JavaArrayList. */
+    static final Set<String> LIST_BASES = Set.of("java.util.ArrayList", "java.util.AbstractList", "java.util.LinkedList");
+
+    /** Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in. */
+    static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess");
+
+    private static final Set<String> OBJECT_OVERRIDABLE = Set.of("equals/1", "hashCode/0", "toString/0");
+
+    /** One of Object's methods that C#'s object has too, to override: {@code Equals}, {@code GetHashCode}, {@code ToString}. */
+    static boolean objectOverridable(MethodInfo m) {
+        return OBJECT_OVERRIDABLE.contains(m.name() + "/" + m.parameters().size());
+    }
+
+    /** NavigableMap's methods that return an entry, the compatibility library's JavaEntry, null when there is none. */
+    private static final List<String> NAVIGATION_ENTRIES = List.of("firstEntry", "lastEntry", "pollFirstEntry",
+            "pollLastEntry", "floorEntry", "lowerEntry", "ceilingEntry", "higherEntry");
+
+    /** A JDK method that returns a navigable map's entry, which may be null: no KeyValuePair, which cannot. */
+    static boolean navigationEntry(MethodInfo m) {
+        return NAVIGATION_ENTRIES.contains(m.name()) && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
     }
 
     // ---------------------------------------------------------------- types
@@ -586,12 +611,11 @@ final class CSharpBcl implements LibraryMapping {
         m("java.util.Arrays.fill/2", "Array.Fill($1, $2)", SYSTEM);
         m("java.util.Arrays.sort/1", "Array.Sort($1)", SYSTEM);
         // navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
-        for (String nav : List.of("firstEntry/0", "lastEntry/0", "pollFirstEntry/0", "pollLastEntry/0")) {
-            String name = nav.substring(0, nav.indexOf('/'));
-            m("java.util.NavigableMap." + nav, "$0." + Character.toUpperCase(name.charAt(0)) + name.substring(1) + "()", COMPAT);
+        for (String nav : NAVIGATION_ENTRIES.subList(0, 4)) {
+            m("java.util.NavigableMap." + nav + "/0", "$0." + Character.toUpperCase(nav.charAt(0)) + nav.substring(1) + "()", COMPAT);
         }
-        for (String nav : List.of("floorEntry", "lowerEntry", "ceilingEntry", "higherEntry", "floorKey", "lowerKey",
-                "ceilingKey", "higherKey")) {
+        for (String nav : Stream.concat(NAVIGATION_ENTRIES.subList(4, 8).stream(),
+                Stream.of("floorKey", "lowerKey", "ceilingKey", "higherKey")).toList()) {
             m("java.util.NavigableMap." + nav + "/1", "$0." + Character.toUpperCase(nav.charAt(0)) + nav.substring(1) + "($1)",
                     COMPAT);
         }
@@ -1512,10 +1536,7 @@ final class CSharpBcl implements LibraryMapping {
         if (call == null || call.object() == null || call.object().parameterizedType() == null) return false;
         TypeInfo t = call.object().parameterizedType().typeInfo();
         if (t == null || !CSharpNames.translated(t)) return false;
-        for (TypeInfo s = t; s != null; s = s.parentClass() == null ? null : s.parentClass().typeInfo()) {
-            if ("java.util.ArrayList".equals(s.fullyQualifiedName())) return true;
-        }
-        return false;
+        return CstQueries.classChain(t).stream().anyMatch(s -> "java.util.ArrayList".equals(s.fullyQualifiedName()));
     }
 
     /** The receiver is a collection parameter that is read-only in C# ({@link CSharpReadOnly}). */

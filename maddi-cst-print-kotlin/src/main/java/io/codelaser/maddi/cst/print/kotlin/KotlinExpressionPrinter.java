@@ -403,7 +403,7 @@ public class KotlinExpressionPrinter {
         List<String> printed = new ArrayList<>();
         for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
             ParameterizedType t = concrete.get(tp);
-            if (t == null || t.wildcard() != null || mentionsAny(t, typeParameters)) {
+            if (t == null || t.wildcard() != null || CstQueries.mentionsAny(t, typeParameters)) {
                 if (!resultOnly.contains(tp)) return null;
                 t = bound(tp);
                 if (t == null) {
@@ -442,10 +442,6 @@ public class KotlinExpressionPrinter {
         return false;
     }
 
-
-    private static boolean mentionsAny(ParameterizedType type, List<io.codelaser.maddi.cst.api.info.TypeParameter> tps) {
-        return tps.stream().anyMatch(tp -> CstQueries.mentions(type, tp));
-    }
 
     private static OutputBuilder arguments(List<Expression> args, Qualification q) {
         return arguments(args, null, q);

@@ -100,12 +100,12 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 .map(CSharpNames::typeParameter).toList());
         allTypeParameters.addAll(captured.typeParameters());
         String typeParameters = allTypeParameters.isEmpty() ? "" : "<" + String.join(", ", allTypeParameters) + ">";
-        MethodInfo overridden = CSharpTypePrinter.interfaceMethodDefaulted(typeInfo, methodInfo);
+        MethodInfo overridden = CSharpHierarchy.interfaceMethodDefaulted(typeInfo, methodInfo);
         if (overridden != null) {
             // a default method for an inherited interface's method implements it explicitly
-            ParameterizedType owner = CSharpTypePrinter.implementedAs(typeInfo, overridden.typeInfo());
-            Map<TypeParameter, ParameterizedType> map = CSharpTypePrinter.typeArguments(owner);
-            b.add(new TextImpl(CSharpTypeName.of(CSharpTypePrinter.substitute(overridden.returnType(), map), q)))
+            ParameterizedType owner = CSharpHierarchy.implementedAs(typeInfo, overridden.typeInfo());
+            Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(owner);
+            b.add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
         } else {
@@ -206,10 +206,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     new OutputBuilderImpl().add(new TextImpl("outer")), List.of(), null, q));
         }
         if (!chained && (outer || CSharpInner.initializedInConstructor(typeInfo))) {
-            List<OutputBuilder> first = new ArrayList<>();
-            if (outer) first.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
-            first.addAll(CSharpInner.fieldInitializers(typeInfo, q));
-            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, first, q));
+            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, CSharpInner.prologue(typeInfo, outer, q), q));
         } else {
             b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
         }

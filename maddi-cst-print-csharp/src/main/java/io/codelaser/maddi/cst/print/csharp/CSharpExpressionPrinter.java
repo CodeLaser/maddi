@@ -164,16 +164,13 @@ public final class CSharpExpressionPrinter {
         ParameterizedType from = cast.expression().parameterizedType();
         ParameterizedType to = cast.parameterizedType();
         if (from != null && (to.isTypeParameter() && to.arrays() == 0 && !from.isTypeParameter()
-                             || mentionsTypeParameter(to) && !mentionsTypeParameter(from))
+                             || CstQueries.mentionsTypeParameter(to) && !CstQueries.mentionsTypeParameter(from))
             && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface())) {
             b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
         return b.add(operand(cast.precedence(), cast.expression(), q));
     }
 
-    private static boolean mentionsTypeParameter(ParameterizedType t) {
-        return t.isTypeParameter() || t.parameters().stream().anyMatch(CSharpExpressionPrinter::mentionsTypeParameter);
-    }
 
     /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */
     private static boolean defaultThroughClass(MethodInfo method, Expression object, boolean implicit) {
@@ -316,11 +313,9 @@ public final class CSharpExpressionPrinter {
         // a companion's members are in scope in the companion only; the companion is a sibling of its type
         if (inCompanion) return owner.equals(companion);
         TypeInfo start = CSharpContext.currentType();
-        if (companion != null) start = CSharpNames.hoisted(start) ? null : CSharpNames.enclosing(start);
-        for (TypeInfo t = start; t != null; t = CSharpNames.hoisted(t) ? null : CSharpNames.enclosing(t)) {
-            for (TypeInfo c = t; c != null; c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
-                if (c.equals(owner)) return true;
-            }
+        if (companion != null) start = CSharpNames.hoisted(start) ? null : CstQueries.enclosing(start);
+        for (TypeInfo t = start; t != null; t = CSharpNames.hoisted(t) ? null : CstQueries.enclosing(t)) {
+            if (CstQueries.classChain(t).contains(owner)) return true;
         }
         return false;
     }
@@ -645,8 +640,7 @@ public final class CSharpExpressionPrinter {
                     arguments.add(all.get(i));
                 }
                 arguments.add(SymbolEnum.RIGHT_PARENTHESIS);
-                String typeArguments = hoisted.typeParameters().isEmpty() ? "" : hoisted.typeParameters().stream()
-                        .map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
+                String typeArguments = CSharpNames.typeParameters(hoisted.typeParameters());
                 return new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
                         .add(text(hoisted.name() + typeArguments)).add(arguments);
             }
@@ -726,7 +720,7 @@ public final class CSharpExpressionPrinter {
         if (created == null || type.arrays() != 0 || cc.constructor() == null || type.parameters().isEmpty()) return type;
         List<TypeParameter> own = created.typeParameters();
         if (type.parameters().stream().noneMatch(a -> a.isTypeParameter() && own.contains(a.typeParameter()))) return type;
-        for (TypeInfo at = CSharpContext.currentType(); at != null; at = CSharpNames.enclosing(at)) {
+        for (TypeInfo at = CSharpContext.currentType(); at != null; at = CstQueries.enclosing(at)) {
             if (at.equals(created)) return type; // its own type parameters are in scope
         }
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
@@ -795,7 +789,7 @@ public final class CSharpExpressionPrinter {
         ParameterizedType formal = method.parameters().get(index).parameterizedType();
         if (formal.arrays() != 0) return null;
         if (formal.isTypeParameter()) return bound.get(formal.typeParameter());
-        ParameterizedType target = CSharpTypePrinter.substitute(formal, bound);
+        ParameterizedType target = CSharpHierarchy.substitute(formal, bound);
         return target.parameters().stream().allMatch(a -> a.wildcard() == null) ? target : null;
     }
 
@@ -939,7 +933,7 @@ public final class CSharpExpressionPrinter {
         for (int k = 0; k < created.parameters().size(); k++) {
             map.put(created.typeInfo().typeParameters().get(k), created.parameters().get(k));
         }
-        return CSharpTypePrinter.substitute(target, map);
+        return CSharpHierarchy.substitute(target, map);
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
