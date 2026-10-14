@@ -54,7 +54,9 @@ public abstract class CommonJavaToCSharp {
                 .addClassPath("jar-on-classpath:com/fasterxml/jackson/databind")
                 .addClassPath("jar-on-classpath:com/fasterxml/jackson/annotation")
                 .addClassPath("jar-on-classpath:com/fasterxml/jackson/core")
-                .addClassPath("jar-on-classpath:jakarta/xml/bind").build());
+                .addClassPath("jar-on-classpath:jakarta/xml/bind")
+                .addClassPath("jar-on-classpath:io/micrometer/core")
+                .addClassPath("jar-on-classpath:io/micrometer/common").build());
         javaInspector.onlyPreload();
     }
 
