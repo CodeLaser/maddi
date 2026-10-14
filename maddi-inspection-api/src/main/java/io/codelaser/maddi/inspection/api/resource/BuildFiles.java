@@ -27,7 +27,10 @@ import java.util.Map;
  * @param declaredBy  {@link #GRADLE_PLUGIN}, {@link #MAVEN_PLUGIN}, {@link #COMPILE_LOG} or {@link #NONE}
  * @param root        the absolute directory the globs and the paths are relative to, normally the working directory
  * @param globs       {@code '**'}/{@code '*'} patterns relative to root; {@code **}{@code /x} also matches {@code x}
- *                    at the root. Always contains {@link #MODULE_INFO}; build output directories are not searched
+ *                    at the root; build output directories are not searched. Each module-info.java at the top of
+ *                    one of the configuration's source directories, where javac reads it, is a literal glob of its
+ *                    own: never a root-wide {@code **}{@code /module-info.java}, which under a root holding more than
+ *                    the analysed code (an audit's ~/git) would watch every other checkout
  * @param sha256      every file the globs matched, and every file the producer named, by path relative to root
  *                    ({@code ../} for an included build outside it), to its hex SHA-256 at capture time
  * @param capturedAt  ISO-8601 time the hashes were taken
@@ -40,9 +43,6 @@ public record BuildFiles(String declaredBy, String root, List<String> globs, Map
     public static final String COMPILE_LOG = "compile-log";
     public static final String NONE = "none";
 
-    /** Shapes module resolution whatever the build system: always watched. */
-    public static final String MODULE_INFO = "**/module-info.java";
-
     /** Directories never searched: build output and tool state. */
     public static final List<String> EXCLUDED_DIRECTORIES = List.of("build", "target", ".gradle", ".git", ".idea",
             "node_modules", "out");
@@ -50,10 +50,10 @@ public record BuildFiles(String declaredBy, String root, List<String> globs, Map
     /** The files Gradle reads to configure a build, besides those of included builds outside the root. */
     public static final List<String> GRADLE_GLOBS = List.of("settings.gradle", "settings.gradle.kts",
             "**/build.gradle", "**/build.gradle.kts", "gradle/*.versions.toml", "**/gradle.properties",
-            "buildSrc/**", "gradle/wrapper/gradle-wrapper.properties", MODULE_INFO);
+            "buildSrc/**", "gradle/wrapper/gradle-wrapper.properties");
 
     /** The files Maven reads to configure a build. */
-    public static final List<String> MAVEN_GLOBS = List.of("**/pom.xml", ".mvn/**", MODULE_INFO);
+    public static final List<String> MAVEN_GLOBS = List.of("**/pom.xml", ".mvn/**");
 
     public BuildFiles {
         globs = List.copyOf(globs);

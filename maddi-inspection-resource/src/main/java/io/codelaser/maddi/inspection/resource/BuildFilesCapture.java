@@ -14,7 +14,9 @@
 
 package io.codelaser.maddi.inspection.resource;
 
+import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,64 +43,115 @@ import java.util.TreeMap;
 /**
  * Takes the {@link BuildFiles} of an input configuration: the hashes are the files' contents NOW, at capture time,
  * so a configuration captured before an edit and registered after it still reads as stale.
+ * <p>
+ * Each glob is searched from its literal prefix ({@code maddi/} for {@code maddi/**}{@code /build.gradle.kts}), not
+ * from the root: a root such as {@code ~/git}, the common parent of the captured repositories, holds far more than
+ * the analysed code. For the same reason module-info is not a root-wide glob: only the {@code module-info.java} at
+ * the top of one of the configuration's source directories counts, which is where javac reads it, each as a literal
+ * glob.
  */
 public final class BuildFilesCapture {
 
     private BuildFilesCapture() {
     }
 
-    /** Nothing declared: the server reports that staleness cannot be checked. Module-info is watched all the same. */
-    public static BuildFiles none(Path root) {
-        return capture(BuildFiles.NONE, root, List.of(), List.of());
+    /** Nothing declared: the server reports that staleness cannot be checked. The module-infos are watched all the same. */
+    public static BuildFiles none(Path root, InputConfiguration configuration) {
+        return capture(BuildFiles.NONE, root, List.of(), List.of(), configuration);
+    }
+
+    /** As {@link #capture(String, Path, List, Collection, InputConfiguration)}, without module-infos. */
+    public static BuildFiles capture(String declaredBy, Path root, List<String> globs, Collection<Path> namedFiles) {
+        return capture(declaredBy, root, globs, namedFiles, null);
     }
 
     /**
-     * @param declaredBy one of {@link BuildFiles}' producers
-     * @param root       the directory the globs are relative to; made absolute
-     * @param globs      patterns relative to root; {@link BuildFiles#MODULE_INFO} is added when missing
-     * @param namedFiles files the producer knows it read, hashed whether or not a glob matches them (an included
-     *                   build outside root, by a {@code ../} path)
+     * @param declaredBy    one of {@link BuildFiles}' producers
+     * @param root          the directory the globs are relative to; made absolute
+     * @param globs         patterns relative to root
+     * @param namedFiles    files the producer knows it read, hashed whether or not a glob matches them (an included
+     *                      build outside root, by a {@code ../} path)
+     * @param configuration the configuration the build files shaped: the module-info at the top of each of its source
+     *                      directories is added, as a literal glob; null for none
      */
-    public static BuildFiles capture(String declaredBy, Path root, List<String> globs, Collection<Path> namedFiles) {
+    public static BuildFiles capture(String declaredBy, Path root, List<String> globs, Collection<Path> namedFiles,
+                                     InputConfiguration configuration) {
         Path absoluteRoot = root.toAbsolutePath().normalize();
         Set<String> allGlobs = new LinkedHashSet<>(globs);
-        allGlobs.add(BuildFiles.MODULE_INFO);
-        List<PathMatcher> matchers = new ArrayList<>();
+        List<Path> named = new ArrayList<>(namedFiles);
+        for (Path moduleInfo : moduleInfos(configuration)) {
+            named.add(moduleInfo);
+            if (moduleInfo.startsWith(absoluteRoot)) allGlobs.add(key(absoluteRoot.relativize(moduleInfo)));
+        }
+        Map<String, String> sha256 = new TreeMap<>();
         for (String glob : allGlobs) {
+            List<PathMatcher> matchers = new ArrayList<>();
             matchers.add(FileSystems.getDefault().getPathMatcher("glob:" + glob));
             // '**/x' matches x at the root too, as in .gitignore; Java's glob wants a separator
             if (glob.startsWith("**/")) matchers.add(FileSystems.getDefault().getPathMatcher("glob:" + glob.substring(3)));
-        }
-        Map<String, String> sha256 = new TreeMap<>();
-        if (Files.isDirectory(absoluteRoot)) {
-            try {
-                Files.walkFileTree(absoluteRoot, new SimpleFileVisitor<>() {
-                    @Override
-                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
-                        return !dir.equals(absoluteRoot)
-                               && BuildFiles.EXCLUDED_DIRECTORIES.contains(dir.getFileName().toString())
-                                ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                        Path relative = absoluteRoot.relativize(file);
-                        if (matchers.stream().anyMatch(m -> m.matches(relative))) {
-                            sha256.put(key(relative), sha256(file));
-                        }
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-            } catch (IOException e) {
-                throw new UncheckedIOException("Cannot list the build files under " + absoluteRoot, e);
+            Path base = absoluteRoot.resolve(literalPrefix(glob)).normalize();
+            if (Files.isRegularFile(base)) {
+                Path relative = absoluteRoot.relativize(base);
+                if (matchers.stream().anyMatch(m -> m.matches(relative))) sha256.put(key(relative), sha256(base));
+            } else if (Files.isDirectory(base)) {
+                walk(absoluteRoot, base, matchers, sha256);
             }
         }
-        for (Path named : namedFiles) {
-            Path file = absoluteRoot.resolve(named).normalize();
-            if (Files.isRegularFile(file)) sha256.put(key(absoluteRoot.relativize(file)), sha256(file));
+        for (Path file : named) {
+            Path absolute = absoluteRoot.resolve(file).normalize();
+            if (Files.isRegularFile(absolute)) sha256.put(key(absoluteRoot.relativize(absolute)), sha256(absolute));
         }
         return new BuildFiles(declaredBy, absoluteRoot.toString(), List.copyOf(allGlobs), sha256,
                 Instant.now().toString());
+    }
+
+    // the module-info.java at the top of each source directory of the configuration's own sources
+    private static List<Path> moduleInfos(InputConfiguration configuration) {
+        if (configuration == null) return List.of();
+        Path workingDirectory = configuration.workingDirectory() == null ? Path.of(".")
+                : configuration.workingDirectory();
+        Set<Path> found = new LinkedHashSet<>();
+        for (SourceSet sourceSet : configuration.sourceSets()) {
+            if (sourceSet.externalLibrary()) continue;
+            for (Path directory : sourceSet.sourceDirectories()) {
+                Path moduleInfo = workingDirectory.resolve(directory).resolve("module-info.java")
+                        .toAbsolutePath().normalize();
+                if (Files.isRegularFile(moduleInfo)) found.add(moduleInfo);
+            }
+        }
+        return List.copyOf(found);
+    }
+
+    // the leading segments without a wildcard: where the glob's files can be
+    public static String literalPrefix(String glob) {
+        StringBuilder prefix = new StringBuilder();
+        for (String segment : glob.split("/")) {
+            if (segment.chars().anyMatch(c -> c == '*' || c == '?' || c == '[' || c == '{')) break;
+            if (!prefix.isEmpty()) prefix.append('/');
+            prefix.append(segment);
+        }
+        return prefix.toString();
+    }
+
+    private static void walk(Path root, Path base, List<PathMatcher> matchers, Map<String, String> sha256) {
+        try {
+            Files.walkFileTree(base, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    return !dir.equals(base) && BuildFiles.EXCLUDED_DIRECTORIES.contains(dir.getFileName().toString())
+                            ? FileVisitResult.SKIP_SUBTREE : FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    Path relative = root.relativize(file);
+                    if (matchers.stream().anyMatch(m -> m.matches(relative))) sha256.put(key(relative), sha256(file));
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot list the build files under " + base, e);
+        }
     }
 
     // '/' whatever the platform: the server matches the same globs

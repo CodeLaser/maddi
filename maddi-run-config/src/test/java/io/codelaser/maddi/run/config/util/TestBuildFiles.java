@@ -48,14 +48,21 @@ public class TestBuildFiles {
         return root;
     }
 
+    // the configuration the tree's build files shaped: one source set, a/src/main/java
+    private static InputConfiguration configuration(Path root) {
+        return new InputConfigurationImpl.Builder().setWorkingDirectory(root.toString())
+                .addSource("a/main", "a/src/main/java").build();
+    }
+
     @Test
     public void stableUntilABuildFileChanges(@TempDir Path tmp) throws IOException {
         Path root = gradleTree(tmp);
-        BuildFiles first = BuildFilesCapture.capture(BuildFiles.GRADLE_PLUGIN, root, BuildFiles.GRADLE_GLOBS, List.of());
+        BuildFiles first = BuildFilesCapture.capture(BuildFiles.GRADLE_PLUGIN, root, BuildFiles.GRADLE_GLOBS, List.of(),
+                configuration(root));
         assertEquals(List.of("a/build.gradle.kts", "a/src/main/java/module-info.java", "settings.gradle.kts"),
                 List.copyOf(first.sha256().keySet()), "build output and tool state are not searched");
         BuildFiles second = BuildFilesCapture.capture(BuildFiles.GRADLE_PLUGIN, root, BuildFiles.GRADLE_GLOBS,
-                List.of());
+                List.of(), configuration(root));
         assertEquals(first.sha256(), second.sha256(), "an unchanged tree hashes the same");
 
         write(root, "a/build.gradle.kts", "plugins { java }\ndependencies { implementation(\"x:y:1\") }");
@@ -68,17 +75,37 @@ public class TestBuildFiles {
     }
 
     @Test
-    public void moduleInfoIsAlwaysWatched(@TempDir Path tmp) throws IOException {
+    public void moduleInfoOfTheSourceDirectoriesIsAlwaysWatched(@TempDir Path tmp) throws IOException {
         Path root = gradleTree(tmp);
-        for (BuildFiles buildFiles : List.of(BuildFilesCapture.none(root),
-                BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, root, List.of(), List.of()),
-                BuildFilesCapture.capture(BuildFiles.MAVEN_PLUGIN, root, BuildFiles.MAVEN_GLOBS, List.of()))) {
-            assertTrue(buildFiles.globs().contains(BuildFiles.MODULE_INFO), buildFiles.toString());
+        for (BuildFiles buildFiles : List.of(BuildFilesCapture.none(root, configuration(root)),
+                BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, root, List.of(), List.of(), configuration(root)),
+                BuildFilesCapture.capture(BuildFiles.MAVEN_PLUGIN, root, BuildFiles.MAVEN_GLOBS, List.of(),
+                        configuration(root)))) {
+            assertTrue(buildFiles.globs().contains("a/src/main/java/module-info.java"), buildFiles.toString());
             assertTrue(buildFiles.sha256().containsKey("a/src/main/java/module-info.java"), buildFiles.toString());
         }
-        BuildFiles none = BuildFilesCapture.none(root);
+        BuildFiles none = BuildFilesCapture.none(root, configuration(root));
         assertEquals(BuildFiles.NONE, none.declaredBy());
-        assertEquals(List.of(BuildFiles.MODULE_INFO), none.globs());
+        assertEquals(List.of("a/src/main/java/module-info.java"), none.globs());
+    }
+
+    /**
+     * An audit's root is the common parent of the repositories it captures (~/git): a module-info, or a build file,
+     * of another checkout under it is none of this configuration's business, and is not even searched.
+     */
+    @Test
+    public void notTheWholeRoot(@TempDir Path tmp) throws IOException {
+        gradleTree(tmp.resolve("maddi"));
+        write(tmp, "test-oss/guava/build.gradle.kts", "another checkout");
+        write(tmp, "test-oss/guava/src/main/java/module-info.java", "module com.google.common { }");
+        InputConfiguration maddi = new InputConfigurationImpl.Builder().setWorkingDirectory(tmp.toString())
+                .addSource("a/main", "maddi/a/src/main/java").build();
+        BuildFiles buildFiles = BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, tmp,
+                List.of("maddi/settings.gradle.kts", "maddi/**/build.gradle.kts"), List.of(), maddi);
+        assertEquals(List.of("maddi/a/build.gradle.kts", "maddi/a/src/main/java/module-info.java",
+                "maddi/settings.gradle.kts"), List.copyOf(buildFiles.sha256().keySet()));
+        assertEquals("maddi", BuildFilesCapture.literalPrefix("maddi/**/build.gradle.kts"));
+        assertEquals("", BuildFilesCapture.literalPrefix("**/pom.xml"));
     }
 
     @Test
