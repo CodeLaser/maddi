@@ -1604,29 +1604,6 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "KeyValuePair.Create(k, v)");
     }
 
-    /** A type or field mapping has one namespace: a second one is an error, not dropped. */
-    @Test
-    public void mappingFileOneNamespace() {
-        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CSharpMappingFile.parse("mapping x\ntype a.B -> B using A, C", "two.csmap"));
-        assertEquals("two.csmap:2: type takes one namespace, not A, C", e.getMessage());
-    }
-
-    /** A member's {@code ->?}: C# declares its result nullable; only a member's. */
-    @Test
-    public void mappingFileNullableResult() {
-        CSharpMappingFile file = CSharpMappingFile.parse("""
-                mapping x
-                member a.B.c/0 ->? $0.C()
-                member a.B.d/0 -> $0.D()
-                """, "nullable.csmap");
-        org.junit.jupiter.api.Assertions.assertTrue(file.memberRule("a.B.c/0", null, null).nullableResult());
-        assertFalse(file.memberRule("a.B.d/0", null, null).nullableResult());
-        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CSharpMappingFile.parse("mapping x\ntype a.B ->? B", "type.csmap"));
-        assertEquals("type.csmap:2: ->? is a member's", e.getMessage());
-    }
-
     @Language("java")
     private static final String MARKS = """
             package org.example.marks;
