@@ -23,6 +23,7 @@ field jakarta.xml.bind.Marshaller.JAXB_NO_NAMESPACE_SCHEMA_LOCATION -> JavaMarsh
 field jakarta.xml.bind.ValidationEvent.WARNING -> JavaValidationEvent.Warning using Maddi.JavaCompat
 field jakarta.xml.bind.ValidationEvent.ERROR -> JavaValidationEvent.Error using Maddi.JavaCompat
 field jakarta.xml.bind.ValidationEvent.FATAL_ERROR -> JavaValidationEvent.FatalError using Maddi.JavaCompat
+member jakarta.xml.bind.ValidationEventLocator.getNode/0 ->? $0.GetNode()
 pascal javax.xml.bind.annotation.adapters.XmlAdapter -> JavaXmlAdapter using Maddi.JavaCompat
 pascal javax.xml.bind.JAXBContext -> JavaJaxbContext using Maddi.JavaCompat
 pascal javax.xml.bind.Marshaller -> JavaMarshaller using Maddi.JavaCompat
@@ -43,6 +44,7 @@ field javax.xml.bind.Marshaller.JAXB_NO_NAMESPACE_SCHEMA_LOCATION -> JavaMarshal
 field javax.xml.bind.ValidationEvent.WARNING -> JavaValidationEvent.Warning using Maddi.JavaCompat
 field javax.xml.bind.ValidationEvent.ERROR -> JavaValidationEvent.Error using Maddi.JavaCompat
 field javax.xml.bind.ValidationEvent.FATAL_ERROR -> JavaValidationEvent.FatalError using Maddi.JavaCompat
+member javax.xml.bind.ValidationEventLocator.getNode/0 ->? $0.GetNode()
 
 # JAXP as far as it goes with JAXB: DOM is System.Xml's XmlDocument; parsers, sources, results, transformers and
 # schemas keep Java's shape in the compatibility library (JavaXml.cs), over XmlReader, XslCompiledTransform and

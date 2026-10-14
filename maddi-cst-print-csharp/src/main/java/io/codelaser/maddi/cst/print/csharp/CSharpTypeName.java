@@ -104,6 +104,11 @@ public final class CSharpTypeName {
         } else {
             type = of(pt, q);
         }
+        return withNullable(pt, type, nullable);
+    }
+
+    /** {@code type}, printed for {@code pt}, as {@code type?} when it is a reference type that may be null. */
+    static String withNullable(ParameterizedType pt, String type, NullableState nullable) {
         // a method's own type parameter only where its method's signature allows (CSharpMethodPrinter)
         boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !type.endsWith("?") && !pt.isVoid()
                                                && !(pt.isTypeParameter() && pt.typeParameter().isMethodTypeParameter());
@@ -374,6 +379,17 @@ public final class CSharpTypeName {
     /** A type argument: a boxed type is its value type, {@code List<int>}. */
     public static String argument(ParameterizedType pt, Qualification q) {
         return of(pt, q, true);
+    }
+
+    /**
+     * A type parameter C# leaves unconstrained ({@link #constraints}): its argument may be {@code string?}, so that C#
+     * takes its values to be ones that may be null where they go into {@code object} (CS8604).
+     */
+    static boolean unconstrained(ParameterizedType pt) {
+        if (pt == null || pt.arrays() > 0 || !pt.isTypeParameter()) return false;
+        TypeParameter tp = pt.typeParameter();
+        return tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+               && !CSharpContext.program().notNullKey(tp);
     }
 
     /** The constraints of type parameters: {@code where T : IComparable<T>}; empty when they have no bounds. */
