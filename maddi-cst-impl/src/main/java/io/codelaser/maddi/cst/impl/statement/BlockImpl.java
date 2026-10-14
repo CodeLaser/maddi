@@ -18,6 +18,7 @@ import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SingleLineComment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -123,6 +124,24 @@ public class BlockImpl extends StatementImpl implements Block {
                && source.detailedSources().detail(DetailedSources.BRACELESS) != null
                && statements.size() == 1 && !statements.getFirst().isSynthetic()
                && trailingComments.isEmpty() && comments().isEmpty() && annotations().isEmpty() && label() == null;
+    }
+
+    /**
+     * The block as the body of a statement whose header ends on {@code headerEndLine}: a '//' comment of the block
+     * written on that line, after the header ({@code if (c) // why}, the brace on the next line), is printed there,
+     * in front of the brace it preceded, rather than on a line of its own between the two (CodeLaser/maddi#49).
+     */
+    public OutputBuilder printAsBody(Qualification qualification, Source header, boolean withBraces) {
+        List<Comment> onHeaderLine = header == null || header.endLine() <= 0 ? List.of() : comments().stream()
+                .takeWhile(c -> c instanceof SingleLineComment && c.source() != null
+                                && c.source().beginLine() == header.endLine())
+                .toList();
+        if (onHeaderLine.isEmpty()) return withBraces ? printWithBraces(qualification) : print(qualification);
+        BlockImpl rest = new BlockImpl(comments().subList(onHeaderLine.size(), comments().size()), source(),
+                annotations(), label(), statements, trailingComments);
+        OutputBuilder ob = new OutputBuilderImpl();
+        onHeaderLine.forEach(c -> ob.add(SpaceEnum.ONE).add(c.print(qualification)));
+        return ob.add(withBraces ? rest.printWithBraces(qualification) : rest.print(qualification));
     }
 
     public OutputBuilder printWithBraces(Qualification qualification) {

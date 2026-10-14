@@ -151,7 +151,8 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
                 .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(expression.print(qualification))
                 .add(SymbolEnum.RIGHT_PARENTHESIS)
-                .add(thenNeedsBraces ? ((BlockImpl) block).printWithBraces(qualification) : block.print(qualification));
+                .add(block instanceof BlockImpl b ? b.printAsBody(qualification, expression.source(), thenNeedsBraces)
+                        : block.print(qualification));
         if (!elseBlock.isEmpty()) {
             outputBuilder.add(KeywordImpl.ELSE);
             if (elseBlock instanceof BlockImpl eb && eb.printsWithoutBraces()
