@@ -319,3 +319,7 @@ fix('JavaIo.java', r'FilterOutputStream\$\(@NotNull OutputStream out\)', 'Filter
 fix('JavaUtilFunction.java', r'@NotNull Object targetRef\)', '@Nullable Object targetRef)', 1)   # Predicate.isEqual(null)
 fix('JavaUtilStream.java', r'ofNullable\((/\*[^*]*\*/ )?@NotNull T t\)', r'ofNullable(\1@Nullable T t)', 1)
 fix('JavaUtil.java', r'class EnumMap\$<K, V> \{', 'class EnumMap$<K extends Enum<K>, V> {', 1)
+# Matcher.group() is group(0), the whole match: never null after a successful match, and it throws without one. Only
+# group(int)/group(String) answer null, for an optional group that did not participate. JSpecify's @Nullable on the
+# override made every 'if (m.find()) ... m.group()' a seed (diagnose, timefold 2026-10-13); MatchResult.group() is not
+fix('JavaUtilRegex.java', r'@Nullable @NotModified String group\(\) \{', '@NotModified String group() {', 1)

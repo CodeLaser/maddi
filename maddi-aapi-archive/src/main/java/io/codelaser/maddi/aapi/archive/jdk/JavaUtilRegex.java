@@ -77,7 +77,7 @@ public class JavaUtilRegex {
         @NotModified int end(@NotNull String name) { return 0; }
 
         //override from java.util.regex.MatchResult
-        @Nullable @NotModified String group() { return null; }
+        @NotModified String group() { return null; }
 
         //override from java.util.regex.MatchResult
         @Nullable String group(int group) { return null; }

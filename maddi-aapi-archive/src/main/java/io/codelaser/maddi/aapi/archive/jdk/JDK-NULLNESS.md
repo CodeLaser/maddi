@@ -67,6 +67,11 @@ the call". `OutputStreamWriter.append(CharSequence)`: JSpecify's non-null is its
 `Stream.ofNullable`, and `FilterOutputStream(OutputStream)`; they follow JSpecify now. `EnumMap`'s shadow gained the
 bound `K extends Enum<K>`.
 
+**JSpecify corrected.** `Matcher.group()` is `group(0)`, the whole match: never null after a successful match, and
+it throws `IllegalStateException` without one. JSpecify's `@Nullable` on it (not on `MatchResult.group()`) made every
+`if (m.find()) ... m.group()` a null seed: the diagnose session's sample on timefold, 2026-10-13. Only `group(int)` and
+`group(String)` answer null, for an optional group that did not participate; they stay `@Nullable`.
+
 ## One level down: elements and type arguments
 
 JSpecify annotates 170 members of java.base and java.logging below the top level, always one level deep: an array's
