@@ -36,10 +36,6 @@ import java.util.Set;
 public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2,
                                            KotlinPrintOptions options) {
 
-    public KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
-        this(compilationUnit, formatter2, KotlinPrintOptions.DEFAULT);
-    }
-
     /** The Kotlin text, and the messages about what it does differently from the Java, or could not translate. */
     public record Result(OutputBuilder output, List<PrintMessage<KotlinPrintCode>> messages) {
     }

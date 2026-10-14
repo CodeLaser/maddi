@@ -46,11 +46,13 @@ public record KotlinPrintOptions(NullabilityFacts verdicts, NullCheck nullCheck,
     }
 
     /** These options with other modification facts: {@link ModificationFacts#NONE} for the printer without them. */
+    @SuppressWarnings("unused") // the ablation's switch (maddi-mod's TestJavaToKotlinAblation, KotlinConf): no production caller by design
     public KotlinPrintOptions withModification(ModificationFacts modification) {
         return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
     }
 
     /** These options with other nullability facts: {@link NullabilityFacts#NONE} for the printer without them. */
+    @SuppressWarnings("unused") // the ablation's switch (maddi-mod's TestJavaToKotlinAblation, KotlinConf): no production caller by design
     public KotlinPrintOptions withVerdicts(NullabilityFacts verdicts) {
         return new KotlinPrintOptions(verdicts, nullCheck, modification, world);
     }
