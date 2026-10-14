@@ -76,7 +76,8 @@ final class CSharpNullability {
      */
     static OutputBuilder initializer(Element declaration, LocalVariable variable, Expression init, OutputBuilder printed) {
         MethodInfo method = CSharpContext.currentMethod();
-        if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init)
+        // a primitive local unboxes its initializer, which asserts it there (unboxed)
+        if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init) || valueType(variable.parameterizedType())
             || !facts().assertedAtDeclaration(method, declaration, variable)
                && facts().nullable(method, declaration, variable) != NullableState.NONNULL) {
             return printed;
