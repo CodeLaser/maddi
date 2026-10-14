@@ -37,7 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
@@ -479,8 +478,6 @@ public record GenericsHelperImpl(Runtime runtime) implements GenericsHelper {
             this.sourceForStatement = source;
             return this;
         }
-
-        private static final Pattern ANON = Pattern.compile("\\$(\\d+)");
 
         @Override
         public Lambda build() {

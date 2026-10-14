@@ -19,8 +19,6 @@ import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +34,6 @@ the same element's map. External compound check-then-act sequences (TolerantWrit
 object as well — same monitor.
  */
 public class PropertyValueMapImpl implements PropertyValueMap {
-    private static final Logger LOGGER = LoggerFactory.getLogger(PropertyValueMapImpl.class);
     private final Map<Property, Value> map = new HashMap<>();
 
     /**

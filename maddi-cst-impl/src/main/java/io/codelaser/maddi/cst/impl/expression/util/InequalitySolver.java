@@ -32,7 +32,6 @@ as object. Rat
  */
 public class InequalitySolver {
     private final Map<OneVariable, List<Expression>> perComponent;
-    private final Runtime runtime;
 
     /*
     expression is the "given": we extract components that have only one variable (i>0, j<0, k!=3).
@@ -41,7 +40,6 @@ public class InequalitySolver {
     and not redundant (i>0, i>1).
      */
     public InequalitySolver(Runtime runtime, Expression expression) {
-        this.runtime = runtime;
         Map<OneVariable, List<Expression>> builder = new HashMap<>();
         And and;
         if ((and = expression.asInstanceOf(And.class)) != null) {
@@ -53,7 +51,6 @@ public class InequalitySolver {
     }
 
     public InequalitySolver(Runtime runtime, List<Expression> expressions) {
-        this.runtime = runtime;
         Map<OneVariable, List<Expression>> builder = new HashMap<>();
         expressions.forEach(e -> tryToAddSingleNumericVariableComparison(builder, e));
         perComponent = Map.copyOf(builder);

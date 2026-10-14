@@ -39,14 +39,14 @@ public record Javac(int sourceRelease,
         List<String> classpath;
         List<String> modulePath; // dirs or jars in the build/libs/ of the project
         List<String> sourcePath; // sources
-        List<String> sourceFiles = new LinkedList<>();
+        final List<String> sourceFiles = new LinkedList<>();
         List<String> processorPath;
         String annotationProcessing;
 
         String encoding;
         List<String> addModules = List.of();
-        List<String> addExports = new ArrayList<>();
-        Set<String> warningFlags = new LinkedHashSet<>();
+        final List<String> addExports = new ArrayList<>();
+        final Set<String> warningFlags = new LinkedHashSet<>();
 
         public Javac build() {
             return new Javac(sourceRelease, targetRelease, release,

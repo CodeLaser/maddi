@@ -39,10 +39,6 @@ final class CSharpWildcards {
     /** The captured type parameters, by parameter index the names of its wildcard arguments, and the constraints. */
     record Captured(List<String> typeParameters, Map<Integer, List<String>> names, List<String> constraints) {
         static final Captured NONE = new Captured(List.of(), Map.of(), List.of());
-
-        boolean isEmpty() {
-            return typeParameters.isEmpty();
-        }
     }
 
     private CSharpWildcards() {

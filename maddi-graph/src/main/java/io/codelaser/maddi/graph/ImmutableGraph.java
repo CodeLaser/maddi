@@ -76,7 +76,7 @@ public class ImmutableGraph<T> extends GraphImpl<T> implements G<T> {
             this.sum = sum;
         }
 
-        Map<T, Map<T, Long>> map = new LinkedHashMap<>();
+        final Map<T, Map<T, Long>> map = new LinkedHashMap<>();
 
         @Override
         public int size() {

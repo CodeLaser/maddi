@@ -54,10 +54,6 @@ public class Linearize {
             Stream<S> s3 = attachedToCycles.sortedStream(comparator, addGroupAttached);
             return Stream.concat(s1, Stream.concat(s2, s3)).toList();
         }
-
-        private static <T> Stream<T> sortedStream(List<Set<V<T>>> linearized, Comparator<T> comparator) {
-            return linearized.stream().flatMap(set -> set.stream().map(V::t).sorted(comparator));
-        }
     }
 
     public static <T> int qualityBasedOnTotalCluster(G<T> g) {

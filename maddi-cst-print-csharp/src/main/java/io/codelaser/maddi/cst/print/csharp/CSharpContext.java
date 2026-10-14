@@ -270,11 +270,6 @@ final class CSharpContext {
         STATE.get().base.popStatement();
     }
 
-    /** The innermost statement being printed; null outside a body. */
-    static io.codelaser.maddi.cst.api.statement.Statement currentStatement() {
-        return STATE.get().base.currentStatement();
-    }
-
     static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
         STATE.get().base.pushCall(call);
     }

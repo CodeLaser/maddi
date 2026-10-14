@@ -44,7 +44,6 @@ import io.codelaser.maddi.java.openjdk.UnresolvedSymbolException;
 import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.graph.ImmutableGraph;
 import io.codelaser.maddi.graph.op.Linearize;
-import io.codelaser.maddi.graph.util.TimedLogger;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +72,6 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.Invali
 
 public class JavaInspectorImpl implements JavaInspector {
     private static final Logger LOGGER = LoggerFactory.getLogger(JavaInspectorImpl.class);
-    private static final TimedLogger TIMED_LOGGER = new TimedLogger(LOGGER, 1000L);
 
     private Runtime runtime;
     // which primary types came out of which source file, keyed by (uri, source set) -- SourceFile's equality ignores
@@ -83,7 +81,6 @@ public class JavaInspectorImpl implements JavaInspector {
     private InputConfiguration inputConfiguration; // kept for tests
     private io.codelaser.maddi.cst.api.info.InfoMapView lastRewireInfoMap; // the last re-parse's rewire, read-only
     private final boolean computeFingerPrints;
-    private final boolean allowCreationOfStubTypes;
     private final JavaCompiler javaCompiler;
     private final InfoByFqn infoByFqn = new InfoByFqn();
     private final List<String> preload = new ArrayList<>();
@@ -167,7 +164,6 @@ public class JavaInspectorImpl implements JavaInspector {
 
     public JavaInspectorImpl(boolean computeFingerPrints, boolean allowCreationOfStubTypes) {
         this.computeFingerPrints = computeFingerPrints;
-        this.allowCreationOfStubTypes = allowCreationOfStubTypes;
         javaCompiler = ToolProvider.getSystemJavaCompiler();
     }
 
