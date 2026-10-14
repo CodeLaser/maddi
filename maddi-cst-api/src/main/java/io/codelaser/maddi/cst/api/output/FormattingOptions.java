@@ -63,4 +63,15 @@ public interface FormattingOptions {
     default boolean bracesOnOwnLine() {
         return false;
     }
+
+    /**
+     * Blank lines. When true, a blank line is written where the source has one, between statements, between
+     * members, after the package declaration and after the imports, and nowhere else; the formatter's own blank
+     * lines, around statements and members that span several lines, are not written. Code that a tool moves then
+     * keeps the vertical layout its authors gave it. An element without a source has no blank line in front of it.
+     * Default false: the formatter's own blank lines (CodeLaser/maddi#49).
+     */
+    default boolean blankLinesFromSource() {
+        return false;
+    }
 }

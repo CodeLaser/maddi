@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.impl.info;
 
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -28,6 +29,7 @@ import io.codelaser.maddi.cst.impl.variable.ThisImpl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements TypePrinter {
@@ -161,25 +163,30 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         we allow for a different type when translating types, see TypeInfoImpl.translate()... where
         method ownership is not changed correctly.
          */
-        Stream<OutputBuilder> fieldStream = typeInfo.fields().stream()
+        Stream<Member> fieldStream = typeInfo.fields().stream()
                 .filter(f -> !f.isSynthetic() && (!isRecord || f.isStatic()))
-                .map(f -> fieldPrinterFactory.create(f, formatter2)
-                        .print(insideType, false));
-        Stream<OutputBuilder> subTypeStream = typeInfo.subTypes().stream()
+                .map(f -> new Member(f, fieldPrinterFactory.create(f, formatter2)
+                        .print(insideType, false)));
+        Stream<Member> subTypeStream = typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
-                .map(ti -> enclosedTypePrinterFactory.create(ti, formatter2)
-                        .print(importData, true));
-        Stream<OutputBuilder> constructorStream = typeInfo.constructors().stream()
+                .map(ti -> new Member(ti, enclosedTypePrinterFactory.create(ti, formatter2)
+                        .print(importData, true)));
+        Stream<Member> constructorStream = typeInfo.constructors().stream()
                 .filter(c -> !c.isSynthetic())
-                .map(c -> methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType));
-        Stream<OutputBuilder> methodStream = typeInfo.methods().stream()
+                .map(c -> new Member(c, methodPrinterFactory.create(typeInfo, c, formatter2).print(insideType)));
+        Stream<Member> methodStream = typeInfo.methods().stream()
                 .filter(m -> !m.isSynthetic())
-                .map(m -> methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType));
-        Stream<OutputBuilder> trailingCommentStream = typeInfo.trailingComments().stream()
-                .map(c -> c.print(qualification));
-        OutputBuilder main = Stream.concat(Stream.concat(Stream.concat(Stream.concat(Stream.concat(
-                                enumConstantStream(typeInfo, insideType), fieldStream), subTypeStream),
-                        constructorStream), methodStream), trailingCommentStream)
+                .map(m -> new Member(m, methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
+        Stream<Member> trailingCommentStream = typeInfo.trailingComments().stream()
+                .map(c -> new Member(null, c.print(qualification)));
+        List<Member> members = Stream.concat(Stream.concat(Stream.concat(Stream.concat(Stream.concat(
+                                enumConstantStream(typeInfo, insideType).map(ob -> new Member(null, ob)), fieldStream),
+                        subTypeStream), constructorStream), methodStream), trailingCommentStream).toList();
+        // a blank line in the source between two members, for FormattingOptions.blankLinesFromSource (#49)
+        OutputBuilder main = IntStream.range(0, members.size())
+                .mapToObj(i -> i > 0 && BlankLineImpl.between(members.get(i - 1).element, members.get(i).element)
+                        ? new OutputBuilderImpl().add(BlankLineImpl.INSTANCE).add(members.get(i).output)
+                        : members.get(i).output)
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE,
                         GuideImpl.generatorForBlock()));
         afterAnnotations.add(main);
@@ -198,6 +205,10 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         return outputBuilder.add(Stream.concat(annotationStream, Stream.of(afterAnnotations))
                 .collect(OutputBuilderImpl.joining(SpaceEnum.ONE_REQUIRED_EASY_SPLIT,
                         GuideImpl.generatorForAnnotationList())));
+    }
+
+    // a member of the type body and its output; no element for the enum constants and the trailing comments
+    private record Member(Element element, OutputBuilder output) {
     }
 
     @Override

@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.formatter2;
 
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.Guide;
 import io.codelaser.maddi.cst.api.output.element.Keyword;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
@@ -149,13 +150,18 @@ public class BlockPrinter {
         // annotation/comment groups). It must NOT appear inside the inline decomposition of a single
         // construct — a method chain, argument list or parameter list (prioritySplit=false, tabs>=1) —
         // where a blank line in the middle of the expression is wrong. See baseSplitLevel.
-        boolean guideWantsBreathingSpace = block.guide().prioritySplit() || block.guide().tabs() == 0;
+        // with blank lines from the source, the formatter writes none of its own (#49)
+        boolean guideWantsBreathingSpace = !options.blankLinesFromSource()
+                                           && (block.guide().prioritySplit() || block.guide().tabs() == 0);
         for (OutputElement element : block.elements()) {
             if (!(element instanceof Formatter2Impl.Block sub)) throw new UnsupportedOperationException();
             Output output = write(sub, options);
             boolean currentHasNestedGuide = containsNestedGuideBlock(sub);
             SplitLevel splitLevel = baseSplitLevel(prevOutput, output, guideWantsBreathingSpace);
             splitLevel = isolateNestedGuide(splitLevel, prevHasNestedGuide, currentHasNestedGuide);
+            if (options.blankLinesFromSource() && prevOutput != null && sub.elements().getFirst() instanceof BlankLine) {
+                splitLevel = SplitLevel.DOUBLE_NEWLINE;
+            }
             if (splitLevel == SplitLevel.SINGLE_NEWLINE && output.spaceLevel().isNewLine()) {
                 // TODO is this a hack? to ensure that the NEWLINE of '//' passes
                 hasBeenSplit = true;
@@ -195,7 +201,8 @@ public class BlockPrinter {
      */
     private static SplitLevel baseSplitLevel(Output prevOutput, Output output, boolean guideWantsBreathingSpace) {
         if (guideWantsBreathingSpace
-                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
+                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit
+                && !endsInComment(prevOutput.string)) {
             return SplitLevel.DOUBLE_NEWLINE;
         }
         if (output.spaceLevel().isNoSpace()) {
@@ -210,6 +217,16 @@ public class BlockPrinter {
             return prevWantsSpace ? SplitLevel.SINGLE_NEWLINE : SplitLevel.NONE_IF_COMPACT;
         }
         return SplitLevel.SINGLE_NEWLINE;
+    }
+
+    /*
+    A comment belongs to what follows it: no blank line after it (#49: a method's javadoc was printed a blank line
+    above the method, both being split over several lines)
+     */
+    private static boolean endsInComment(String output) {
+        String stripped = output.stripTrailing();
+        int lastLine = stripped.lastIndexOf('\n');
+        return stripped.endsWith("*/") || stripped.substring(lastLine + 1).stripLeading().startsWith("//");
     }
 
     /*

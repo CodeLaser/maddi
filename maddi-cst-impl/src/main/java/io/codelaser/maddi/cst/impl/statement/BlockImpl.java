@@ -30,6 +30,7 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.BlankLineImpl;
 import io.codelaser.maddi.cst.impl.output.GuideImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class BlockImpl extends StatementImpl implements Block {
@@ -127,9 +129,13 @@ public class BlockImpl extends StatementImpl implements Block {
         OutputBuilder outputBuilder = outputBuilder(qualification);
         outputBuilder.add(SymbolEnum.LEFT_BRACE);
         if (!statements.isEmpty() || !trailingComments.isEmpty()) {
-            Stream<OutputBuilder> stream1 = statements.stream()
-                    .filter(s -> !s.isSynthetic())
-                    .map(s -> s.print(qualification));
+            List<Statement> printed = statements.stream().filter(s -> !s.isSynthetic()).toList();
+            // a blank line in the source between two statements, for FormattingOptions.blankLinesFromSource (#49)
+            Stream<OutputBuilder> stream1 = IntStream.range(0, printed.size()).mapToObj(i -> {
+                OutputBuilder ob = printed.get(i).print(qualification);
+                return i > 0 && BlankLineImpl.between(printed.get(i - 1), printed.get(i))
+                        ? new OutputBuilderImpl().add(BlankLineImpl.INSTANCE).add(ob) : ob;
+            });
             Stream<OutputBuilder> stream2 = trailingComments.stream()
                     .map(c -> c.print(qualification));
             outputBuilder.add(Stream.concat(stream1, stream2)

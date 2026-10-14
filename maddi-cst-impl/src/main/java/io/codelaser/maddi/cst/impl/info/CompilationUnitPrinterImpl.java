@@ -16,6 +16,8 @@ package io.codelaser.maddi.cst.impl.info;
 
 import io.codelaser.maddi.cst.api.element.ModuleInfo;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.ImportStatement;
+import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.CompilationUnitPrinter;
 import io.codelaser.maddi.cst.api.info.ImportComputer;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -101,6 +103,17 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
                     .add(SymbolEnum.SEMICOLON)
                     .add(SpaceEnum.NEWLINE);
         }
+        // blank lines in the source after the package declaration and after the imports, for
+        // FormattingOptions.blankLinesFromSource (#49); the imports are recomputed, their lines are the original ones
+        int packageLine = packageLine();
+        List<ImportStatement> originalImports = compilationUnit.importStatements();
+        if (!importData.imports().isEmpty() && !originalImports.isEmpty()
+            && BlankLineImpl.between(packageLine, originalImports.getFirst())) {
+            outputBuilder.add(BlankLineImpl.INSTANCE);
+        }
+        int lineBeforeTypes = originalImports.isEmpty() || originalImports.getLast().source() == null
+                ? packageLine : originalImports.getLast().source().endLine();
+        boolean firstType = true;
         importData.imports().forEach(i -> {
             i.comments().forEach(c -> outputBuilder.add(c.print(qualification)));
             outputBuilder.add(KeywordImpl.IMPORT)
@@ -131,10 +144,22 @@ public record CompilationUnitPrinterImpl(CompilationUnit compilationUnit, boolea
                         forEach(is -> outputBuilder.add(is.print(qualification)));
             }
             // and the printed matter
+            if (firstType && BlankLineImpl.between(lineBeforeTypes, typeInfo)) {
+                outputBuilder.add(BlankLineImpl.INSTANCE);
+            }
+            firstType = false;
             outputBuilder.add(ob);
         }
         compilationUnit.trailingComments().forEach(c -> outputBuilder.add(c.print(qualification)));
         return outputBuilder;
+    }
+
+    // the line of the package declaration, 0 when there is none or it is not known
+    private int packageLine() {
+        Source source = compilationUnit.source();
+        if (source == null || source.detailedSources() == null || compilationUnit.packageName().isEmpty()) return 0;
+        Source packageName = source.detailedSources().detail(compilationUnit.packageName());
+        return packageName == null ? 0 : packageName.endLine();
     }
 
     public record ImportDataImpl(List<ImportComputer.ImportDetails> imports,

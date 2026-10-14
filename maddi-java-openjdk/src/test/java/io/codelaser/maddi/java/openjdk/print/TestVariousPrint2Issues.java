@@ -49,7 +49,6 @@ public class TestVariousPrint2Issues extends CommonTest {
                  *
                  * @return a new char set
                  */
-
                 private static Charset getCharset() {
                     /* one */
                     System.out.println("*");

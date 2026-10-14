@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.formatter2;
 
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.Space;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
 import io.codelaser.maddi.cst.api.output.element.Text;
@@ -40,6 +41,14 @@ public class ElementPrinter {
                                  boolean lastElement,
                                  boolean protectSpaces) {
 
+        if (element instanceof BlankLine) {
+            // at the start of a guide's element, the guide writes it (BlockPrinter.handleGuideBlock); elsewhere, here
+            if (options.blankLinesFromSource() && !line.stringBuilder.isEmpty()) {
+                line.setSpace(Line.SpaceLevel.NEWLINE);
+                line.setBlankLine();
+            }
+            return false;
+        }
         if (element instanceof Space space) {
             return handleSpace(line, splitInfo, options, space, lastElement);
         }

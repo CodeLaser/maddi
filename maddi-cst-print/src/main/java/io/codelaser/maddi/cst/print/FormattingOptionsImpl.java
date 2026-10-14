@@ -26,7 +26,8 @@ public record FormattingOptionsImpl(int lengthOfLine,
                                 boolean skipComments,
                                 WrapStyle wrapStyle,
                                 boolean alwaysBreakPriorityBlocks,
-                                boolean bracesOnOwnLine) implements FormattingOptions {
+                                boolean bracesOnOwnLine,
+                                boolean blankLinesFromSource) implements FormattingOptions {
 
     public static final FormattingOptions DEFAULT = new Builder().build();
 
@@ -42,6 +43,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
         private FormattingOptions.WrapStyle wrapStyle;
         private boolean alwaysBreakPriorityBlocks;
         private boolean bracesOnOwnLine;
+        private boolean blankLinesFromSource;
 
         public Builder() {
             this.lengthOfLine = 120;
@@ -59,6 +61,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
             this.wrapStyle = options.wrapStyle();
             this.alwaysBreakPriorityBlocks = options.alwaysBreakPriorityBlocks();
             this.bracesOnOwnLine = options.bracesOnOwnLine();
+            this.blankLinesFromSource = options.blankLinesFromSource();
         }
 
         public Builder setLengthOfLine(int lengthOfLine) {
@@ -109,10 +112,16 @@ public record FormattingOptionsImpl(int lengthOfLine,
             return this;
         }
 
+        public Builder setBlankLinesFromSource(boolean blankLinesFromSource) {
+            this.blankLinesFromSource = blankLinesFromSource;
+            return this;
+        }
+
         @NotModified
         public FormattingOptions build() {
             return new FormattingOptionsImpl(lengthOfLine, spacesInTab, compact, allFieldsRequireThis,
-                    allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks, bracesOnOwnLine);
+                    allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks, bracesOnOwnLine,
+                    blankLinesFromSource);
         }
     }
 }

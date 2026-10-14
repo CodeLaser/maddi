@@ -110,9 +110,17 @@ class Line {
         return false;
     }
 
+    // the next newline is a blank line (FormattingOptions.blankLinesFromSource)
+    private boolean blankLine;
+
+    public void setBlankLine() {
+        this.blankLine = true;
+    }
+
     public void appendNewLine(int indent) {
         assert indent >= this.indent; // but could be more
-        stringBuilder.append("\n").append(" ".repeat(indent));
+        stringBuilder.append(blankLine ? "\n\n" : "\n").append(" ".repeat(indent));
+        blankLine = false;
         available = maxAvailable - (indent - this.indent);
         spaceLevel = SpaceLevel.EMPTY;
     }
