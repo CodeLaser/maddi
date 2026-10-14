@@ -1181,16 +1181,16 @@ field java.nio.charset.StandardCharsets.ISO_8859_1 -> Encoding.Latin1 using Syst
 field java.io.File.separator -> Path.DirectorySeparatorChar.ToString() using System.IO
 field java.io.File.separatorChar -> Path.DirectorySeparatorChar using System.IO
 field java.io.File.pathSeparator -> Path.PathSeparator.ToString() using System.IO
-field java.util.jar.JarFile.MANIFEST_NAME -> JavaJarFile.MANIFEST_NAME using Maddi.JavaCompat
+field java.util.jar.JarFile.MANIFEST_NAME -> JavaJarFile.ManifestName using Maddi.JavaCompat
 field java.io.File.pathSeparatorChar -> Path.PathSeparator using System.IO
-field java.lang.Character.UNASSIGNED -> JavaCharacter.UNASSIGNED using Maddi.JavaCompat
-field java.lang.Character.CONTROL -> JavaCharacter.CONTROL using Maddi.JavaCompat
-field java.lang.Character.FORMAT -> JavaCharacter.FORMAT using Maddi.JavaCompat
-field java.lang.Character.PRIVATE_USE -> JavaCharacter.PRIVATE_USE using Maddi.JavaCompat
-field java.lang.Character.SURROGATE -> JavaCharacter.SURROGATE using Maddi.JavaCompat
-field java.lang.Character.LINE_SEPARATOR -> JavaCharacter.LINE_SEPARATOR using Maddi.JavaCompat
-field java.lang.Character.PARAGRAPH_SEPARATOR -> JavaCharacter.PARAGRAPH_SEPARATOR using Maddi.JavaCompat
-field java.lang.Character.SPACE_SEPARATOR -> JavaCharacter.SPACE_SEPARATOR using Maddi.JavaCompat
+field java.lang.Character.UNASSIGNED -> JavaCharacter.Unassigned using Maddi.JavaCompat
+field java.lang.Character.CONTROL -> JavaCharacter.Control using Maddi.JavaCompat
+field java.lang.Character.FORMAT -> JavaCharacter.Format using Maddi.JavaCompat
+field java.lang.Character.PRIVATE_USE -> JavaCharacter.PrivateUse using Maddi.JavaCompat
+field java.lang.Character.SURROGATE -> JavaCharacter.Surrogate using Maddi.JavaCompat
+field java.lang.Character.LINE_SEPARATOR -> JavaCharacter.LineSeparator using Maddi.JavaCompat
+field java.lang.Character.PARAGRAPH_SEPARATOR -> JavaCharacter.ParagraphSeparator using Maddi.JavaCompat
+field java.lang.Character.SPACE_SEPARATOR -> JavaCharacter.SpaceSeparator using Maddi.JavaCompat
 
 # ---------------------------------------------------------------- overrides
 # a translated method that overrides close() of an AutoCloseable is Dispose()

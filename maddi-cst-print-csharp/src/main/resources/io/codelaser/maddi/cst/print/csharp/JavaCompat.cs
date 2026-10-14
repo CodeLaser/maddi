@@ -158,22 +158,8 @@ public static class JavaCollections
         return removed.Count > 0;
     }
 
-    public static void AddRange<T>(this IList<T> l, IEnumerable<T> items)
-    {
-        foreach (var x in items.ToList()) l.Add(x);
-    }
-
     /// <summary>List.subList, as a copy.</summary>
     public static List<T> SubList<T>(this IList<T> l, int from, int to) => l.Skip(from).Take(to - from).ToList();
-
-    public static int LastIndexOf<T>(this IList<T> l, T item)
-    {
-        for (var i = l.Count - 1; i >= 0; i--)
-        {
-            if (EqualityComparer<T>.Default.Equals(l[i], item)) return i;
-        }
-        return -1;
-    }
 
     /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
     public static void Sort<T>(this IList<T> l, Comparison<T> comparison)
@@ -494,7 +480,7 @@ public static class JavaString
         return parts.ToArray();
     }
 
-    public static sbyte[] GetBytes(string s, Encoding encoding) => (sbyte[])(object)encoding.GetBytes(s);
+    public static sbyte[] GetBytes(string s, Encoding encoding) => encoding.GetBytes(s).AsSigned();
 
     public static string ValueOf(object o) => o switch
     {
@@ -624,14 +610,14 @@ public static class JavaString
 public static class JavaCharacter
 {
     // Character.getType's categories, by Java's numbers
-    public const int UNASSIGNED = 0;
-    public const int SPACE_SEPARATOR = 12;
-    public const int LINE_SEPARATOR = 13;
-    public const int PARAGRAPH_SEPARATOR = 14;
-    public const int CONTROL = 15;
-    public const int FORMAT = 16;
-    public const int PRIVATE_USE = 18;
-    public const int SURROGATE = 19;
+    public const int Unassigned = 0;
+    public const int SpaceSeparator = 12;
+    public const int LineSeparator = 13;
+    public const int ParagraphSeparator = 14;
+    public const int Control = 15;
+    public const int Format = 16;
+    public const int PrivateUse = 18;
+    public const int Surrogate = 19;
 
     private static readonly int[] Types =
     {
@@ -837,14 +823,22 @@ public static class JavaSystem
         : System.Runtime.InteropServices.RuntimeInformation.OSDescription;
 }
 
+/// <summary>Java's byte[] as the BCL's byte[] and back: the same array, reinterpreted.</summary>
+internal static class JavaBytes
+{
+    internal static byte[] AsUnsigned(this sbyte[] bytes) => (byte[])(object)bytes;
+
+    internal static sbyte[] AsSigned(this byte[] bytes) => (sbyte[])(object)bytes;
+}
+
 /// <summary>java.io.ByteArrayInputStream: a MemoryStream over a Java byte[].</summary>
 public class ByteArrayInputStream : MemoryStream
 {
-    public ByteArrayInputStream(sbyte[] bytes) : base((byte[])(object)bytes, false)
+    public ByteArrayInputStream(sbyte[] bytes) : base(bytes.AsUnsigned(), false)
     {
     }
 
-    public ByteArrayInputStream(sbyte[] bytes, int offset, int length) : base((byte[])(object)bytes, offset, length, false)
+    public ByteArrayInputStream(sbyte[] bytes, int offset, int length) : base(bytes.AsUnsigned(), offset, length, false)
     {
     }
 }
@@ -860,11 +854,11 @@ public class ByteArrayOutputStream : MemoryStream
     {
     }
 
-    public sbyte[] ToByteArray() => (sbyte[])(object)ToArray();
+    public sbyte[] ToByteArray() => ToArray().AsSigned();
 
     public void Write(int b) => WriteByte((byte)b);
 
-    public void Write(sbyte[] b, int offset, int length) => Write((byte[])(object)b, offset, length);
+    public void Write(sbyte[] b, int offset, int length) => Write(b.AsUnsigned(), offset, length);
 
     public int Size() => (int)Length;
 }
@@ -885,13 +879,13 @@ public class DataInputStream : IDisposable
 
     public int Read(sbyte[] b, int offset, int length)
     {
-        var n = input.Read((byte[])(object)b, offset, length);
+        var n = input.Read(b.AsUnsigned(), offset, length);
         return n == 0 && length > 0 ? -1 : n;
     }
 
     public void ReadFully(sbyte[] b) => ReadFully(b, 0, b.Length);
 
-    public void ReadFully(sbyte[] b, int offset, int length) => input.ReadExactly((byte[])(object)b, offset, length);
+    public void ReadFully(sbyte[] b, int offset, int length) => input.ReadExactly(b.AsUnsigned(), offset, length);
 
     public int SkipBytes(int n)
     {
@@ -1264,10 +1258,6 @@ public class JavaFile
 
     public bool IsAbsolute() => Path.IsPathRooted(path);
 
-    public static readonly char SeparatorChar = Path.DirectorySeparatorChar;
-
-    public static readonly string Separator = Path.DirectorySeparatorChar.ToString();
-
     public override string ToString() => path;
 
     public override bool Equals(object o) => o is JavaFile f && f.path == path;
@@ -1282,7 +1272,7 @@ public static class JavaStreams
     {
         using var memory = new MemoryStream();
         s.CopyTo(memory);
-        return (sbyte[])(object)memory.ToArray();
+        return memory.ToArray().AsSigned();
     }
 
     public static long Skip(Stream s, long n)
@@ -1391,7 +1381,7 @@ public static class JavaUuid
 {
     public static Guid NameUuidFromBytes(sbyte[] name)
     {
-        byte[] hash = MD5.HashData((byte[]) (object) name);
+        byte[] hash = MD5.HashData(name.AsUnsigned());
         hash[6] = (byte) ((hash[6] & 0x0f) | 0x30);
         hash[8] = (byte) ((hash[8] & 0x3f) | 0x80);
         return new Guid(hash, bigEndian: true);
@@ -1496,7 +1486,7 @@ public class JavaZipFile : IDisposable
 /// <summary>java.util.jar.JarFile: a zip archive with a manifest.</summary>
 public class JavaJarFile : JavaZipFile
 {
-    public const string MANIFEST_NAME = "META-INF/MANIFEST.MF";
+    public const string ManifestName = "META-INF/MANIFEST.MF";
 
     public JavaJarFile(string path) : base(path)
     {
@@ -1508,7 +1498,7 @@ public class JavaJarFile : JavaZipFile
 
     public JavaManifest GetManifest()
     {
-        var entry = Archive.GetEntry(MANIFEST_NAME);
+        var entry = Archive.GetEntry(ManifestName);
         if (entry == null) return null;
         using var stream = entry.Open();
         return new JavaManifest(stream);
@@ -1554,7 +1544,7 @@ public class JavaZipOutputStream : Stream
         current = null;
     }
 
-    public void Write(sbyte[] buffer, int offset, int count) => Write((byte[])(object)buffer, offset, count);
+    public void Write(sbyte[] buffer, int offset, int count) => Write(buffer.AsUnsigned(), offset, count);
 
     public override void Write(byte[] buffer, int offset, int count) => current.Write(buffer, offset, count);
 
@@ -1916,25 +1906,25 @@ public interface IJavaWildcardType
 /// <summary>Class.getModifiers and its kin: java.lang.reflect.Modifier's bits of a type or a member.</summary>
 public static class JavaModifier
 {
-    public const int PUBLIC = 0x0001, PRIVATE = 0x0002, PROTECTED = 0x0004, STATIC = 0x0008, FINAL = 0x0010,
-        INTERFACE = 0x0200, ABSTRACT = 0x0400;
+    public const int Public = 0x0001, Private = 0x0002, Protected = 0x0004, Static = 0x0008, Final = 0x0010,
+        Interface = 0x0200, Abstract = 0x0400;
 
     public static int Of(Type t) =>
-        (t.IsPublic || t.IsNestedPublic ? PUBLIC : 0)
-        | (t.IsNestedPrivate ? PRIVATE : 0)
-        | (t.IsNestedFamily ? PROTECTED : 0)
-        | (t.IsAbstract && t.IsSealed ? STATIC : 0)
-        | (t.IsSealed && !t.IsAbstract ? FINAL : 0)
-        | (t.IsInterface ? INTERFACE | ABSTRACT : 0)
-        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? ABSTRACT : 0);
+        (t.IsPublic || t.IsNestedPublic ? Public : 0)
+        | (t.IsNestedPrivate ? Private : 0)
+        | (t.IsNestedFamily ? Protected : 0)
+        | (t.IsAbstract && t.IsSealed ? Static : 0)
+        | (t.IsSealed && !t.IsAbstract ? Final : 0)
+        | (t.IsInterface ? Interface | Abstract : 0)
+        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? Abstract : 0);
 
     public static int Of(MethodBase m) =>
-        (m.IsPublic ? PUBLIC : 0) | (m.IsPrivate ? PRIVATE : 0) | (m.IsFamily ? PROTECTED : 0)
-        | (m.IsStatic ? STATIC : 0) | (m.IsFinal ? FINAL : 0) | (m.IsAbstract ? ABSTRACT : 0);
+        (m.IsPublic ? Public : 0) | (m.IsPrivate ? Private : 0) | (m.IsFamily ? Protected : 0)
+        | (m.IsStatic ? Static : 0) | (m.IsFinal ? Final : 0) | (m.IsAbstract ? Abstract : 0);
 
     public static int Of(FieldInfo f) =>
-        (f.IsPublic ? PUBLIC : 0) | (f.IsPrivate ? PRIVATE : 0) | (f.IsFamily ? PROTECTED : 0)
-        | (f.IsStatic ? STATIC : 0) | (f.IsInitOnly || f.IsLiteral ? FINAL : 0);
+        (f.IsPublic ? Public : 0) | (f.IsPrivate ? Private : 0) | (f.IsFamily ? Protected : 0)
+        | (f.IsStatic ? Static : 0) | (f.IsInitOnly || f.IsLiteral ? Final : 0);
 }
 
 /// <summary>

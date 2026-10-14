@@ -37,7 +37,7 @@ public class JavaJaxbException : Exception
 
     public JavaJaxbException(string message, Exception cause) : base(message, cause) { }
 
-    public JavaJaxbException(Exception cause) : base(cause?.Message, cause) { }
+    public JavaJaxbException(Exception cause) : base(cause?.ToString(), cause) { }
 
     public Exception GetLinkedException() => InnerException;
 }
@@ -372,7 +372,7 @@ public class JavaSaxException : Exception
 
     public JavaSaxException(string message) : base(message) { }
 
-    public JavaSaxException(Exception cause) : base(cause?.Message, cause) { }
+    public JavaSaxException(Exception cause) : base(cause?.ToString(), cause) { }
 
     public JavaSaxException(string message, Exception cause) : base(message, cause) { }
 
@@ -729,11 +729,6 @@ public static class JavaOutputKeys
     public const string Method = "method";
     public const string OmitXmlDeclaration = "omit-xml-declaration";
     public const string Standalone = "standalone";
-    public const string Version = "version";
-    public const string MediaType = "media-type";
-    public const string DoctypePublic = "doctype-public";
-    public const string DoctypeSystem = "doctype-system";
-    public const string CdataSectionElements = "cdata-section-elements";
 
     /// <summary>Xalan's, which the JDK's transformer reads: the spaces of one level.</summary>
     public const string IndentAmount = "{http://xml.apache.org/xslt}indent-amount";
@@ -744,7 +739,7 @@ public class JavaTransformerException : Exception
 {
     public JavaTransformerException(string message) : base(message) { }
 
-    public JavaTransformerException(Exception cause) : base(cause?.Message, cause) { }
+    public JavaTransformerException(Exception cause) : base(cause?.ToString(), cause) { }
 
     public JavaTransformerException(string message, Exception cause) : base(message, cause) { }
 }
@@ -842,11 +837,8 @@ public sealed class JavaTransformer
 public static class JavaXmlConstants
 {
     public const string NullNsUri = "";
-    public const string DefaultNsPrefix = "";
     public const string XmlNsUri = "http://www.w3.org/XML/1998/namespace";
-    public const string XmlNsPrefix = "xml";
     public const string XmlnsAttributeNsUri = "http://www.w3.org/2000/xmlns/";
-    public const string XmlnsAttribute = "xmlns";
     public const string W3cXmlSchemaNsUri = "http://www.w3.org/2001/XMLSchema";
     public const string W3cXmlSchemaInstanceNsUri = "http://www.w3.org/2001/XMLSchema-instance";
     public const string FeatureSecureProcessing = "http://javax.xml.XMLConstants/feature/secure-processing";
