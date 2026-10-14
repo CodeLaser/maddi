@@ -17,9 +17,12 @@ package io.codelaser.maddi.cst.print.formatter2;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.element.Guide;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -256,8 +259,14 @@ public class BlockPrinter {
         int i = 0;
         int n = block.elements().size();
         boolean protectSpaces = false;
-        for (OutputElement element : block.elements()) {
+        List<OutputElement> elements = block.elements();
+        for (OutputElement element : elements) {
             assert !(element instanceof Guide) : "Should have been filtered out";
+            if (options.bracesOnOwnLine() && isSymbol(element, "LEFT_BRACE") && i + 1 < n
+                && isPriorityBlock(elements.get(i + 1))) {
+                // Allman: the body's '{' on a line of its own, at the indentation of what it belongs to
+                line.mergeSpace(Line.SpaceLevel.NEWLINE);
+            }
             if (element instanceof Formatter2Impl.Block sub) {
                 boolean blockHasBeenSplit = handleBlock(line, options, sub);
                 hasBeenSplit |= blockHasBeenSplit;
@@ -272,11 +281,31 @@ public class BlockPrinter {
                         element, lastElement, protectSpaces);
                 if (element.isLeftBlockComment()) protectSpaces = true;
                 if (element.isRightBlockComment()) protectSpaces = false;
+                if (options.bracesOnOwnLine() && isSymbol(element, "RIGHT_BRACE") && i > 0 && i + 1 < n
+                    && isPriorityBlock(elements.get(i - 1)) && continuesStatement(elements.get(i + 1))) {
+                    // Allman: '}' and 'else' (catch, finally, the while of a do) on lines of their own
+                    line.setSpace(Line.SpaceLevel.NEWLINE);
+                }
             }
             ++i;
         }
         String string = line.toString();
         return new Output(string, hasBeenSplit, splitInfo, line.spaceLevel());
+    }
+
+    private static boolean isSymbol(OutputElement element, String constant) {
+        return element instanceof Symbol symbol && constant.equals(symbol.constant());
+    }
+
+    private static boolean isPriorityBlock(OutputElement element) {
+        return element instanceof Formatter2Impl.Block b && b.guide() != null && b.guide().prioritySplit();
+    }
+
+    private static boolean continuesStatement(OutputElement element) {
+        return element instanceof Keyword keyword && switch (keyword.minimal()) {
+            case "else", "catch", "finally", "while" -> true;
+            default -> false;
+        };
     }
 
     /*
@@ -295,7 +324,7 @@ public class BlockPrinter {
         // When requested, a priority guide block (class/method body, other generatorForBlock
         // structures) is always broken onto its own lines, even if it would fit — conventional
         // "brace on its own line" layout rather than the compact single-line-if-it-fits default.
-        boolean forcePriorityBreak = options.alwaysBreakPriorityBlocks()
+        boolean forcePriorityBreak = (options.alwaysBreakPriorityBlocks() || options.bracesOnOwnLine())
                 && sub.guide() != null && sub.guide().prioritySplit();
         // A block whose last element is a '//' comment ends in a NEWLINE space level (see
         // SingleLineCommentImpl.print). Inlining drops that -- the space level of an inlined output is never

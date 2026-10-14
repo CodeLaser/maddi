@@ -25,7 +25,8 @@ public record FormattingOptionsImpl(int lengthOfLine,
                                 boolean allStaticFieldsRequireType,
                                 boolean skipComments,
                                 WrapStyle wrapStyle,
-                                boolean alwaysBreakPriorityBlocks) implements FormattingOptions {
+                                boolean alwaysBreakPriorityBlocks,
+                                boolean bracesOnOwnLine) implements FormattingOptions {
 
     public static final FormattingOptions DEFAULT = new Builder().build();
 
@@ -40,6 +41,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
         private boolean skipComments;
         private FormattingOptions.WrapStyle wrapStyle;
         private boolean alwaysBreakPriorityBlocks;
+        private boolean bracesOnOwnLine;
 
         public Builder() {
             this.lengthOfLine = 120;
@@ -56,6 +58,7 @@ public record FormattingOptionsImpl(int lengthOfLine,
             this.skipComments = options.skipComments();
             this.wrapStyle = options.wrapStyle();
             this.alwaysBreakPriorityBlocks = options.alwaysBreakPriorityBlocks();
+            this.bracesOnOwnLine = options.bracesOnOwnLine();
         }
 
         public Builder setLengthOfLine(int lengthOfLine) {
@@ -101,10 +104,15 @@ public record FormattingOptionsImpl(int lengthOfLine,
             return this;
         }
 
+        public Builder setBracesOnOwnLine(boolean bracesOnOwnLine) {
+            this.bracesOnOwnLine = bracesOnOwnLine;
+            return this;
+        }
+
         @NotModified
         public FormattingOptions build() {
-            return new FormattingOptionsImpl(lengthOfLine, spacesInTab, compact,
-                    allFieldsRequireThis, allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks);
+            return new FormattingOptionsImpl(lengthOfLine, spacesInTab, compact, allFieldsRequireThis,
+                    allStaticFieldsRequireType, skipComments, wrapStyle, alwaysBreakPriorityBlocks, bracesOnOwnLine);
         }
     }
 }
