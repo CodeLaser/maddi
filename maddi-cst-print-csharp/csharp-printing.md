@@ -564,7 +564,9 @@ from a map, a stream's collector.
   of the type's self-bounded supertypes, and its plain interfaces. (The *companion* is another thing: the static class
   beside a generic type, for its static members.)
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
-  `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
+  `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`. In a
+  nullable context its declarations are `T?`, whatever the analysis says of the Optional itself, and `get()` is
+  asserted where its value is dereferenced: `Find(l)!.Length`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`.

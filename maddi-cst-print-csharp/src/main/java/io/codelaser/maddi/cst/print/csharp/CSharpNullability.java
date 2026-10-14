@@ -105,7 +105,7 @@ final class CSharpNullability {
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
         boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
                           && type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isTypeParameter());
-        if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0
+        if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0 || CSharpTypeName.optional(type)
             || !elementOrKey && facts().nullable(parameter) == NullableState.NULLABLE) {
             return printed;
         }
@@ -128,7 +128,10 @@ final class CSharpNullability {
             return printed;
         }
         boolean lambda = method.typeInfo().isAnonymous();
-        if (!lambda && facts().nullable(method) == NullableState.NULLABLE) return printed;
+        if (!lambda && (facts().nullable(method) == NullableState.NULLABLE
+                        || CSharpTypeName.optional(method.returnType()))) {
+            return printed;
+        }
         return asserted(value, printed);
     }
 
@@ -144,7 +147,8 @@ final class CSharpNullability {
         }
         boolean nonNull = switch (target) {
             case DependentVariable dv -> true;
-            case FieldReference fr -> facts().nullable(fr.fieldInfo()) != NullableState.NULLABLE;
+            case FieldReference fr -> facts().nullable(fr.fieldInfo()) != NullableState.NULLABLE
+                                      && !CSharpTypeName.optional(fr.fieldInfo().type());
             default -> false;
         };
         return nonNull ? asserted(value, printed) : printed;
