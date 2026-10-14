@@ -720,7 +720,7 @@ member java.util.stream.IntStream.toArray/0 -> $0.ToArray() using System.Linq
 # Optional is the value itself, or null
 member java.util.Optional.isPresent/0 -> $0 != null
 member java.util.Optional.isEmpty/0 -> $0 == null
-member java.util.Optional.get/0 -> $0
+member java.util.Optional.get/0 ->? $0
 member java.util.Optional.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
 member java.util.Optional.orElseThrow/1 -> $0 ?? throw $1()
 member java.util.Optional.orElse/1 -> $0 ?? $1

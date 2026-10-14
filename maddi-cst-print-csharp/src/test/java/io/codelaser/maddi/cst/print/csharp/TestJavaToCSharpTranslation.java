@@ -2693,6 +2693,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             import java.util.Deque;
             import java.util.List;
             import java.util.Map;
+            import java.util.Optional;
             class Lib {
                 static int length(Map<String, String> m, String k) {
                     if (m.containsKey(k)) {
@@ -2714,6 +2715,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     }
                     return -1;
                 }
+                static Optional<String> find(List<String> l) { return l.stream().findFirst(); }
+                static int found(List<String> l) { return find(l).get().length(); }
             }
             """;
 
@@ -2721,7 +2724,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
      * A library member whose C# result is {@code T?} where Java's is not known to be nullable: the compatibility
      * library's {@code Map.Get} and {@code PollFirst} (a mapping file's {@code ->?}). Its value is asserted where it
      * goes into what is not nullable: a local the analysis finds not null after {@code containsKey}, a lambda's
-     * result, a dereference, the operand of a cast to a method's type parameter, {@code (T) x!}.
+     * result, a dereference, the operand of a cast to a method's type parameter, {@code (T) x!}. An Optional is
+     * {@code T?}, whatever the analysis says of the Optional itself.
      */
     @Test
     public void nullableLibraryResults() {
@@ -2748,5 +2752,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // a primitive local: the unboxing asserts, once
         contains(cs, "int i = (int) m.GetValueOrNull(k)!;");
         assertFalse(cs.contains("!!"), cs);
+        // an empty Optional is null: Optional<T> is T?, and get() is asserted where it is dereferenced
+        contains(cs, "internal static string? Find(List<string> l) => l.FirstOrDefault();");
+        contains(cs, "Find(l)!.Length");
     }
 }

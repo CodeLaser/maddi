@@ -94,6 +94,8 @@ public final class CSharpTypeName {
      */
     static String declared(ParameterizedType pt, boolean readOnly, NullableState nullable,
                            Qualification q) {
+        // an empty Optional is null: Optional<T> is T? whatever the analysis says of the Optional itself
+        if (optional(pt)) nullable = NullableState.NULLABLE;
         String type;
         String readOnlyName = readOnly ? CSharpReadOnly.readOnlyName(pt) : null;
         if (readOnlyName != null) {
@@ -107,6 +109,13 @@ public final class CSharpTypeName {
                                                && !(pt.isTypeParameter() && pt.typeParameter().isMethodTypeParameter());
         return nullable == NullableState.NULLABLE && reference && valueTypeFree(pt, type)
                && !unmapped(pt) ? type + "?" : type;
+    }
+
+    /** A type whose mapping is its type argument, {@code {0?}}: Optional's, whose empty value is null. */
+    static boolean optional(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.typeInfo() == null) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(pt.typeInfo());
+        return bcl != null && bcl.ofArgument();
     }
 
     /**
