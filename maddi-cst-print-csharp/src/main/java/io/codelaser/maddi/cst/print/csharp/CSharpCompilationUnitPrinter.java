@@ -46,6 +46,7 @@ import java.util.TreeSet;
 public record CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2, CSharpProgram program) {
 
     /** Without knowledge of the other files of the program: see {@link CSharpProgram#NONE}. */
+    @SuppressWarnings("unused") // kept: one compilation unit printed without a whole-program analysis
     public CSharpCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2) {
         this(compilationUnit, formatter2, CSharpProgram.NONE);
     }

@@ -227,6 +227,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     }
 
     /** The mapping in the file {@code path}. */
+    @SuppressWarnings("unused") // kept: a project's own mapping file; --translate does not expose it yet
     public static CSharpMappingFile load(Path path) {
         try {
             return parse(Files.readString(path), path.toString(), path.toAbsolutePath().getParent());
