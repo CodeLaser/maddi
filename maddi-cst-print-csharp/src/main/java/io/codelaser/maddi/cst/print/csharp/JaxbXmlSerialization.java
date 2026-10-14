@@ -382,9 +382,39 @@ final class JaxbXmlSerialization implements LibraryMapping {
                         .map(AnnotationExpression.class::cast).toList();
         ParameterizedType type = f.type();
         boolean collection = type.arrays() == 0 && isCollection(type.typeInfo());
-        ParameterizedType valueType = collection && type.parameters().size() == 1 ? type.parameters().getFirst() : type;
         if (collection && type.parameters().size() != 1) return unbound(f, "a raw collection");
+        Converted converted = conversion(type, collection, annotations, alternatives, q);
+        if (converted.why() != null) return unbound(f, converted.why());
+        Conversion conversion = converted.conversion();
+        PropertyCode code = propertyCode(f, conversion, collection, q, namespaces);
+        AnnotationExpression attribute = find(annotations, "XmlAttribute");
+        if (attribute != null && type.isBoxedExcludingVoid()) return unbound(f, "an attribute of a boxed type");
+        String name = "Xml" + CSharpNames.pascal(f.name());
+        List<AddedMember> members = new ArrayList<>();
+        members.add(new AddedMember(attributes(f, annotations, alternatives, order, print), "public "
+                + code.type() + " " + name + " { get => " + code.get() + ";"
+                + (code.set() != null ? " set => " + code.set() + ";" : "") + " }"));
+        if (attribute == null && (type.isBoxedExcludingVoid() || conversion.identity() && code.type().endsWith("?")
+                                                                 && type.typeInfo() != null
+                                                                 && type.typeInfo().typeNature().isEnum())) {
+            // XmlSerializer writes a null int? as xsi:nil; JAXB leaves the element out
+            members.add(new AddedMember(List.of(), "public bool ShouldSerialize" + name + "() => " + code.field()
+                                                   + " != null;"));
+        }
+        return members;
+    }
 
+    /** A field's conversion, or why XmlSerializer cannot write the field. */
+    private record Converted(Conversion conversion, String why) {
+        static Converted unbound(String why) {
+            return new Converted(null, why);
+        }
+    }
+
+    /** How XmlSerializer writes the value of a field of {@code type}: as itself, through an adapter, as a string… */
+    private Converted conversion(ParameterizedType type, boolean collection, List<AnnotationExpression> annotations,
+                                        List<AnnotationExpression> alternatives, Qualification q) {
+        ParameterizedType valueType = collection ? type.parameters().getFirst() : type;
         AnnotationExpression adapterAnnotation = find(annotations, "XmlJavaTypeAdapter");
         if (adapterAnnotation == null && valueType.typeInfo() != null) {
             adapterAnnotation = find(valueType.typeInfo().annotations(), "XmlJavaTypeAdapter");
@@ -393,7 +423,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         if (adapterAnnotation != null) {
             TypeInfo adapter = classOf(CSharpAttributes.element(adapterAnnotation, "value"));
             ParameterizedType adapted = adapter == null ? null : adaptedValueType(adapter);
-            if (adapted == null) return unbound(f, "an adapter without its value type");
+            if (adapted == null) return Converted.unbound("an adapter without its value type");
             String a = CSharpTypeName.name(adapter, q);
             conversion = new Conversion(CSharpTypeName.of(adapted, q), x -> "new " + a + "().Marshal(" + x + ")",
                     x -> "new " + a + "().Unmarshal(" + x + ")");
@@ -415,14 +445,24 @@ final class JaxbXmlSerialization implements LibraryMapping {
         } else if (writable(valueType)) {
             conversion = IDENTITY;
         } else {
-            return unbound(f, "of type " + CSharpTypeName.of(type, q));
+            return Converted.unbound("of type " + CSharpTypeName.of(type, q));
         }
-        if (!conversion.identity() && type.arrays() > 0) return unbound(f, "an array of a converted type");
+        if (!conversion.identity() && type.arrays() > 0) return Converted.unbound("an array of a converted type");
         if (conversion.identity() && collection && genericInterface(type)) {
             // XmlSerializer cannot write a member of an interface type, ISet<T>: its elements as an array
             conversion = new Conversion(CSharpTypeName.of(valueType, q), x -> x, x -> x);
         }
+        return new Converted(conversion, null);
+    }
 
+    /** The property's type, its getter's and setter's bodies (null: no setter), over {@code field}. */
+    private record PropertyCode(String type, String get, String set, String field) {
+    }
+
+    /** The property's code: the field's value as XmlSerializer writes it, and back. */
+    private static PropertyCode propertyCode(FieldInfo f, Conversion conversion, boolean collection, Qualification q,
+                                       List<String> namespaces) {
+        ParameterizedType type = f.type();
         CSharpProperties.Property property = CSharpContext.program().property(f);
         String field = "this." + (property != null ? property.name() : CSharpNames.field(f));
         boolean settable = property != null ? property.settable() : !CSharpFieldPrinter.isFinal(f);
@@ -450,15 +490,19 @@ final class JaxbXmlSerialization implements LibraryMapping {
             String value = conversion.set().apply("value");
             set = field + " = " + (nullableContext && nullable != NullableState.NULLABLE ? "(" + value + ")!" : value);
         }
+        return new PropertyCode(propertyType, get, settable ? set : null, field);
+    }
 
-        String name = "Xml" + CSharpNames.pascal(f.name());
+    /** The property's XmlSerializer attributes: an attribute, the text, an array and its items, or its elements. */
+    private static List<String> attributes(FieldInfo f, List<AnnotationExpression> annotations,
+                                           List<AnnotationExpression> alternatives, int order,
+                                           Function<Expression, String> print) {
         String orderPart = order < 0 ? "" : "Order = " + order;
         List<String> attributes = new ArrayList<>();
         AnnotationExpression attribute = find(annotations, "XmlAttribute");
         AnnotationExpression wrapper = find(annotations, "XmlElementWrapper");
         AnnotationExpression single = find(annotations, "XmlElement");
         if (attribute != null) {
-            if (type.isBoxedExcludingVoid()) return unbound(f, "an attribute of a boxed type");
             attributes.add("XmlAttribute(" + named(attribute, f, print, "") + ")");
         } else if (find(annotations, "XmlValue") != null) {
             attributes.add("XmlText");
@@ -479,16 +523,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
                     ? join(CSharpExpressionPrinter.stringLiteral(f.name()), orderPart)
                     : named(single, f, print, join(typed, orderPart))) + ")");
         }
-        List<AddedMember> members = new ArrayList<>();
-        members.add(new AddedMember(attributes, "public " + propertyType + " " + name + " { get => " + get + ";"
-                                                + (settable ? " set => " + set + ";" : "") + " }"));
-        if (attribute == null && (type.isBoxedExcludingVoid() || conversion.identity() && propertyType.endsWith("?")
-                                                                 && type.typeInfo() != null
-                                                                 && type.typeInfo().typeNature().isEnum())) {
-            // XmlSerializer writes a null int? as xsi:nil; JAXB leaves the element out
-            members.add(new AddedMember(List.of(), "public bool ShouldSerialize" + name + "() => " + field + " != null;"));
-        }
-        return members;
+        return attributes;
     }
 
     /** {@code "name", Namespace = …, rest}: the annotation's name (the field's by default) and namespace. */
