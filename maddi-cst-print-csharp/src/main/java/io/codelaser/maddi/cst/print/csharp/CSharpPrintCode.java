@@ -44,6 +44,11 @@ public enum CSharpPrintCode implements PrintMessage.Code {
      * {@code @XmlIDREF}): left out of the XML ({@link JaxbXmlSerialization}).
      */
     XML_UNBOUND(Severity.LOSS),
+    /**
+     * A parameter declared non-nullable as its method's precondition (NullabilityFacts.preconditionNonNull): a caller
+     * that may pass null says {@code !}, which does not throw; the method throws on the null as in Java.
+     */
+    PRECONDITION_NON_NULL(Severity.INFO),
     /** An enum with fields, methods or constructors, printed as a class with static readonly instances. */
     ENUM_AS_CLASS(Severity.INFO),
     /** A record's canonical or compact constructor: a positional C# record has none (yet). */

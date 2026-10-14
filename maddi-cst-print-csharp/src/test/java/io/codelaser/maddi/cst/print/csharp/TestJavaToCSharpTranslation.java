@@ -2522,6 +2522,60 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where V : notnull"), cs);
     }
 
+    @Language("java")
+    private static final String PRECONDITION = """
+            package org.example.pre;
+            class P {
+                interface Visitor { void visit(String n); }
+                static class Printer implements Visitor {
+                    public void visit(String n) { System.out.println(n.length()); }
+                }
+                static String find(String k) { return k.isEmpty() ? null : k; }
+                static void go(Visitor v, String k) {
+                    v.visit(find(k));
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#125: a parameter the analysis declares non-null as a precondition of its override family is
+     * non-nullable on the interface and the override alike; a caller that may pass null says {@code !}, which does
+     * not throw, so the method throws on the null as Java's does. An INFO message at each declaration; no
+     * {@code ArgumentNullException.ThrowIfNull}.
+     */
+    @Test
+    public void preconditionNonNull() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
+                return "find".equals(method.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                        : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+            }
+
+            @Override
+            public boolean preconditionNonNull(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+                return "n".equals(parameter.name());
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        Translation translation = translation(PRECONDITION);
+        String cs = translation.csharp();
+        contains(cs, "void Visit(string n);");
+        contains(cs, "public void Visit(string n)");
+        contains(cs, "v.Visit(Find(k)!);");
+        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("ThrowIfNull"), cs);
+        List<PrintMessage<CSharpPrintCode>> preconditions = translation.messages().stream()
+                .filter(m -> m.code() == CSharpPrintCode.PRECONDITION_NON_NULL).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(3, 5),
+                preconditions.stream().map(PrintMessage::line).distinct().sorted().toList(), translation.messages().toString());
+        org.junit.jupiter.api.Assertions.assertTrue(preconditions.stream()
+                .allMatch(m -> m.severity() == PrintMessage.Severity.INFO), preconditions.toString());
+    }
+
     /**
      * With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is, and a
      * dereference of a value that may be null has a {@code !}.

@@ -42,6 +42,11 @@ public enum KotlinPrintCode implements PrintMessage.Code {
      * dereference refers to the local: the NullPointerException moves up, nothing observable changes with it.
      */
     ASSERT_AT_DECLARATION_UNOBSERVED(Severity.INFO),
+    /**
+     * A parameter declared non-null as its method's precondition (NullabilityFacts.preconditionNonNull): a caller
+     * that may pass null asserts the argument, so the NullPointerException moves from the method's body to the call.
+     */
+    PRECONDITION_NON_NULL(Severity.BEHAVIOUR_CHANGE),
     /** {@code x?.m()} (NullCheck.SAFE_CALL): where Java throws a NullPointerException, Kotlin goes on with null. */
     SAFE_CALL(Severity.BEHAVIOUR_CHANGE),
     /** {@code x!!.m()}, {@code a!![i]}, {@code for (e in xs!!)}: Java dereferences, and throws, at the same point. */

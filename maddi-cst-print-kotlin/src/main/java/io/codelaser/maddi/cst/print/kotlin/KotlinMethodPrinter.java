@@ -261,6 +261,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         OutputBuilder ob = new OutputBuilderImpl().add(KotlinAnnotations.print(pi.annotations(), q));
         if (pi.isVarArgs()) ob.add(new TextImpl("vararg")).add(SpaceEnum.ONE);
         ParameterizedType declared = KotlinNullability.parameterType(pi);
+        if (KotlinNullability.verdicts().preconditionNonNull(pi) && !KotlinNullability.isNullable(declared)) {
+            KotlinContext.message(KotlinPrintCode.PRECONDITION_NON_NULL, pi, "the NPE moves from "
+                    + pi.methodInfo().name() + "'s body to the call");
+        }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
