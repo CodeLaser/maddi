@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -170,7 +169,6 @@ public final class CSharpExpressionPrinter {
         }
         return b.add(operand(cast.precedence(), cast.expression(), q));
     }
-
 
     /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */
     private static boolean defaultThroughClass(MethodInfo method, Expression object, boolean implicit) {
@@ -342,34 +340,26 @@ public final class CSharpExpressionPrinter {
         return CSharpContext.rule(mc);
     }
 
-    /**
-     * The C# members whose result is nullable where Java's is not, or not known to be: reflection's lookups, which
-     * return null where Java throws, JSON deserialization, a dictionary's {@code GetValueOrDefault}.
-     */
-    private static final Pattern NULLABLE_RESULT = Pattern.compile(
-            "JsonSerializer\\.Deserialize|JsonConvert\\.DeserializeObject|\\.GetElementType\\(|\\.GetConstructor\\("
-            + "|\\.GetMethod\\(|\\.GetField\\(|\\.GetProperty\\(|\\.Invoke\\(|Type\\.GetType\\(|\\.GetCustomAttribute\\b"
-            + "|Activator\\.CreateInstance\\(|\\.GetValueOrDefault\\(\\$1\\)");
-
     /** Java members whose C# template's result is nullable, though the template is shared ({@code $0[$1]}). */
     private static final Set<String> NULLABLE_MEMBERS = Set.of(
             "com.fasterxml.jackson.databind.JsonNode.get", "java.lang.Object.toString");
 
     /**
      * Whether C# declares the result of the call {@code mc} nullable, a library's member that the analysis's facts
-     * do not know: {@code object.ToString()}'s {@code string?}, {@code node["k"]}'s {@code JsonNode?}, {@link #NULLABLE_RESULT}.
+     * do not know: {@code object.ToString()}'s {@code string?}, {@code node["k"]}'s {@code JsonNode?}, a rule's
+     * ({@link LibraryMapping.Rule#nullableResult}).
      */
     static boolean nullableResult(MethodCall mc) {
         MethodInfo method = mc.methodInfo();
         if (method.isVoid() || method.returnType().isPrimitiveExcludingVoid()) return false;
         if (NULLABLE_MEMBERS.contains(method.typeInfo().fullyQualifiedName() + "." + method.name())) return true;
         LibraryMapping.Rule rule = rule(mc);
-        return rule != null && rule.value() != null && NULLABLE_RESULT.matcher(rule.value()).find();
+        return rule != null && rule.value() != null && rule.nullableResult();
     }
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
     private static boolean nonAtomicCall(Expression e) {
-        return e instanceof MethodCall mc && (rule(mc) instanceof LibraryMapping.Rule r && !CSharpTemplate.atomic(r.template(false))
+        return e instanceof MethodCall mc && (rule(mc) instanceof LibraryMapping.Rule r && !r.atomic()
                                                || erasedResultCast(mc));
     }
 
@@ -831,9 +821,6 @@ public final class CSharpExpressionPrinter {
         return print(value, q);
     }
 
-    private static final Pattern BCL_DELEGATE =
-            Pattern.compile("^(System\\.)?(Func|Action|Predicate|Comparison)<");
-
     /**
      * {@code Func<A, Property_>} where {@code Func<A, object>} is expected: Java's wildcard takes it, C#'s variance
      * only for reference types, which a type parameter is not known to be (CS1503). A variable is wrapped in a lambda,
@@ -856,7 +843,8 @@ public final class CSharpExpressionPrinter {
             String t = CSharpTypeName.argument(target.parameters().get(i), q);
             if (!t.equals(CSharpTypeName.argument(from.parameters().get(i), q)) && !"object".equals(t)) return null;
         }
-        if (!CSharpContext.program().delegate(from.typeInfo()) && !BCL_DELEGATE.matcher(to).find()) return null;
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(from.typeInfo());
+        if (!CSharpContext.program().delegate(from.typeInfo()) && (mapping == null || !mapping.delegate())) return null;
         MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
         if (sam == null) return null;
         Map<NamedType, ParameterizedType> fromMap = from.initialTypeParameterMap();
@@ -1460,11 +1448,18 @@ public final class CSharpExpressionPrinter {
 
     /** {@code @1} in a template: a receiver, or a literal ({@code (decimal) 3L}), which is an atom as an operand. */
     private static OutputBuilder templateOperand(Expression e, Qualification q) {
-        if (e instanceof ConstantExpression<?> && !(e instanceof NullConstant)) {
-            OutputBuilder inner = print(e, q);
-            if (!inner.toString().startsWith("-")) return inner;
-        }
+        if (e instanceof ConstantExpression<?> c && !(e instanceof NullConstant) && !negative(c)) return print(e, q);
         return receiver(e, q);
+    }
+
+    /** A constant C# writes with a leading minus: a negative number, or a negative zero. */
+    private static boolean negative(ConstantExpression<?> c) {
+        return switch (c.constant()) {
+            case Double d -> Double.isFinite(d) && (d < 0 || d == 0 && 1 / d < 0);
+            case Float f -> Float.isFinite(f) && (f < 0 || f == 0 && 1 / f < 0);
+            case Number n -> n.longValue() < 0;
+            default -> false;
+        };
     }
 
     /** The receiver of {@code .member}: anything but an atom is enclosed. */

@@ -1513,7 +1513,7 @@ final class CSharpBcl implements LibraryMapping {
         ParameterizedType receiver = call.object().parameterizedType();
         if (receiver == null || receiver.typeInfo() == null) return true;
         TypeMapping mapping = TYPES.get(receiver.typeInfo().fullyQualifiedName());
-        return mapping == null || mapping.template().startsWith("I");
+        return mapping == null || mapping.isInterface();
     }
 
     /** The receiver is an enum C# declares as an enum (only constants), not as a class. */

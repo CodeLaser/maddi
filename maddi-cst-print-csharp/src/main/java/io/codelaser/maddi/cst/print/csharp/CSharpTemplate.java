@@ -187,9 +187,11 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                 return CSharpExpressionPrinter.receiver(returnedValue, q);
             }
             // a block body: the delegate it is, called, ((Func<T>) (() => { … }))()
-            String type = lambda.concreteFunctionalType() == null ? null
-                    : CSharpTypeName.of(lambda.concreteFunctionalType(), q);
-            if (type == null || !type.startsWith("Func<")) return null;
+            ParameterizedType functional = lambda.concreteFunctionalType();
+            LibraryMapping.TypeMapping mapping = functional == null || functional.typeInfo() == null ? null
+                    : CSharpContext.libraries().type(functional.typeInfo());
+            if (mapping == null || !mapping.function()) return null;
+            String type = CSharpTypeName.of(functional, q);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(CSharpExpressionPrinter.print(lambda, q)).add(SymbolEnum.RIGHT_PARENTHESIS)

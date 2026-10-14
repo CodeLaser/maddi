@@ -173,7 +173,7 @@ public final class CSharpLibraries implements LibraryMapping {
             } else if (rule.value() != null) {
                 Set<String> namespaces = new LinkedHashSet<>(statementOnly.namespaces());
                 namespaces.addAll(rule.namespaces());
-                return new Rule(rule.value(), statementOnly.statement(), List.copyOf(namespaces));
+                return new Rule(rule.value(), statementOnly.statement(), List.copyOf(namespaces), rule.nullableResult());
             }
         }
         return statementOnly;

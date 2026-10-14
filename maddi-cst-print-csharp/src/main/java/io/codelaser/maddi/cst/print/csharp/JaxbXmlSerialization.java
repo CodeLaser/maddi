@@ -418,7 +418,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
             return unbound(f, "of type " + CSharpTypeName.of(type, q));
         }
         if (!conversion.identity() && type.arrays() > 0) return unbound(f, "an array of a converted type");
-        if (conversion.identity() && collection && CSharpTypeName.of(type, q).matches("I[A-Z][A-Za-z]*<.*")) {
+        if (conversion.identity() && collection && genericInterface(type)) {
             // XmlSerializer cannot write a member of an interface type, ISet<T>: its elements as an array
             conversion = new Conversion(CSharpTypeName.of(valueType, q), x -> x, x -> x);
         }
@@ -443,7 +443,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
             get = field + "?" + ("e_".equals(getElement) ? "" : ".Select(e_ => " + getElement + ")") + ".ToArray()";
             String elements = "e_".equals(setElement) ? "value" : "value.Select(e_ => " + setElement + ")";
             set = field + " = value == null ? null" + (nullableContext && nullable != NullableState.NULLABLE ? "!" : "")
-                  + " : " + rebuilt(CSharpTypeName.of(type, q), elements);
+                  + " : " + rebuilt(type, CSharpTypeName.of(type, q), elements);
         } else {
             propertyType = conversion.type() + (nullableContext ? "?" : "");
             get = conversion.get().apply(field);
@@ -519,10 +519,16 @@ final class JaxbXmlSerialization implements LibraryMapping {
     }
 
     /** {@code new List<T>(elements)}, or for an interface, the collection LINQ makes. */
-    private static String rebuilt(String collectionType, String elements) {
-        if (collectionType.matches("I(Set|ReadOnlySet)<.*")) return elements + ".ToHashSet()";
-        if (collectionType.matches("I[A-Z][A-Za-z]*<.*")) return elements + ".ToList()";
-        return "new " + collectionType + "(" + elements + ")";
+    private static String rebuilt(ParameterizedType type, String collectionType, String elements) {
+        if (!genericInterface(type)) return "new " + collectionType + "(" + elements + ")";
+        return collectionType.matches("I(Set|ReadOnlySet)<.*") ? elements + ".ToHashSet()" : elements + ".ToList()";
+    }
+
+    /** A collection type that is an interface in C#: {@code ISet<T>}, as its mapping has it. */
+    private static boolean genericInterface(ParameterizedType type) {
+        if (type.arrays() > 0 || type.typeInfo() == null) return false;
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(type.typeInfo());
+        return mapping != null ? mapping.isInterface() : type.typeInfo().isInterface();
     }
 
     private static List<AddedMember> unbound(FieldInfo f, String why) {

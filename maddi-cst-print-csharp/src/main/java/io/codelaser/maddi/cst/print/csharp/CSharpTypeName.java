@@ -272,7 +272,7 @@ public final class CSharpTypeName {
             if (bcl.namespace() != null) CSharpContext.using(bcl.namespace());
             String template = bcl.template();
             int angle = template.indexOf('<');
-            return template.startsWith("{") ? "object" : angle < 0 ? template : template.substring(0, angle);
+            return bcl.ofArgument() ? "object" : angle < 0 ? template : template.substring(0, angle);
         }
         if (!CSharpNames.translated(typeInfo)) {
             CSharpContext.message(CSharpPrintCode.UNMAPPED_JDK, null, typeInfo.fullyQualifiedName());

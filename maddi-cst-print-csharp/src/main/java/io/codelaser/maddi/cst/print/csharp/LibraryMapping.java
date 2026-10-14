@@ -48,6 +48,35 @@ public interface LibraryMapping {
      * Java type whose C# counterpart is not generic ({@code Class<?>} is {@code Type}).
      */
     record TypeMapping(String template, String namespace, boolean compat, boolean dropArguments) {
+        private static final Set<String> DELEGATES = Set.of("Func", "Action", "Predicate", "Comparison");
+        private static final Pattern INTERFACE = Pattern.compile("I[A-Z][A-Za-z]*");
+
+        /** A pattern of the type's arguments, {@code {0?}}: Optional's, which is its argument. */
+        public boolean ofArgument() {
+            return template.startsWith("{");
+        }
+
+        /** One of the BCL's delegates, {@code Func<…>}, {@code Action<…>}, {@code Predicate<…>}, {@code Comparison<…>}. */
+        public boolean delegate() {
+            return DELEGATES.contains(name());
+        }
+
+        /** A {@code Func<…>}: a delegate with a result. */
+        public boolean function() {
+            return "Func".equals(name());
+        }
+
+        /** The template's type name, without its arguments and the {@code System} namespace. */
+        private String name() {
+            int angle = template.indexOf('<');
+            String name = angle < 0 ? template : template.substring(0, angle);
+            return name.startsWith("System.") ? name.substring("System.".length()) : name;
+        }
+
+        /** A C# interface: {@code ISet<T>}, {@code IDictionary<K, V>}, by .NET's naming. */
+        public boolean isInterface() {
+            return INTERFACE.matcher(name()).matches();
+        }
     }
 
     /**
@@ -56,15 +85,30 @@ public interface LibraryMapping {
      * one ({@link CSharpLibraries#call}), and when none does, from the statement template. In a template, {@code $0} is the receiver, {@code $1}, {@code $2}, … the arguments,
      * {@code $*} all of them, {@code $+} all but the first, {@code @1} an argument as an operand, {@code $1.2} the
      * second argument of the first, a call, {@code {R}} the call's return type and {@code {R0}} its type arguments,
-     * {@code {T0}} the receiver's.
+     * {@code {T0}} the receiver's. {@code nullableResult}: C# declares the value nullable where Java's is not, or not
+     * known to be, which a template that reflection's lookups or JSON deserialization write has by default.
      */
-    record Rule(String value, String statement, List<String> namespaces) {
+    record Rule(String value, String statement, List<String> namespaces, boolean nullableResult) {
         /** A template that writes a generic collection, {@code new List<{R0}> { $* }}, uses its namespace. */
         private static final Pattern COLLECTION = Pattern.compile(
                 "\\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|LinkedList|Queue|Stack|KeyValuePair"
                 + "|IList|IDictionary|ISet|ICollection|IEnumerable|IReadOnlyList|IReadOnlyCollection|Comparer"
                 + "|EqualityComparer)<");
         private static final String GENERIC = "System.Collections.Generic";
+
+        /**
+         * The C# members whose result is nullable where Java's is not, or not known to be: reflection's lookups, which
+         * return null where Java throws, JSON deserialization, a dictionary's {@code GetValueOrDefault}.
+         */
+        private static final Pattern NULLABLE_RESULT = Pattern.compile(
+                "JsonSerializer\\.Deserialize|JsonConvert\\.DeserializeObject|\\.GetElementType\\(|\\.GetConstructor\\("
+                + "|\\.GetMethod\\(|\\.GetField\\(|\\.GetProperty\\(|\\.Invoke\\(|Type\\.GetType\\(|\\.GetCustomAttribute\\b"
+                + "|Activator\\.CreateInstance\\(|\\.GetValueOrDefault\\(\\$1\\)");
+
+        /** A rule whose value is nullable as its template has it ({@link #NULLABLE_RESULT}). */
+        public Rule(String value, String statement, List<String> namespaces) {
+            this(value, statement, namespaces, value != null && NULLABLE_RESULT.matcher(value).find());
+        }
 
         public Rule {
             if (!namespaces.contains(GENERIC) && (value != null && COLLECTION.matcher(value).find()
@@ -75,6 +119,11 @@ public interface LibraryMapping {
 
         public String template(boolean asStatement) {
             return asStatement && statement != null || value == null ? statement : value;
+        }
+
+        /** The value is an atom, which needs no parentheses as an operand or a receiver ({@link CSharpTemplate#atomic}). */
+        public boolean atomic() {
+            return CSharpTemplate.atomic(template(false));
         }
     }
 
