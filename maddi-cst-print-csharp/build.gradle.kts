@@ -42,6 +42,8 @@ dependencies {
 }
 
 tasks.test {
+    // ./gradlew :maddi-cst-print-csharp:test -PupdateGolden rewrites the golden files (CommonJavaToCSharp.golden)
+    systemProperty("csharp.golden.update", project.hasProperty("updateGolden"))
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",

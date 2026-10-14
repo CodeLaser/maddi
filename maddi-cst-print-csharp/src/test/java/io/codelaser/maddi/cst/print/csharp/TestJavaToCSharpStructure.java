@@ -27,6 +27,11 @@ import java.util.Set;
  */
 public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
 
+    @Override
+    protected boolean golden() {
+        return true;
+    }
+
     @Language("java")
     private static final String CLASS = """
             package org.example.shapes;

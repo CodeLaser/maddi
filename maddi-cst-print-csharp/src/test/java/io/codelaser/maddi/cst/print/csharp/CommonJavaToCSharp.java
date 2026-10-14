@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Parses a Java compilation unit with the openjdk front end and prints it as C#. */
@@ -75,15 +77,41 @@ public abstract class CommonJavaToCSharp {
         test = info.getTestMethod().map(Method::getName).orElseThrow();
     }
 
+    /** Where the golden files are: the whole expected translation of a structural sample. */
+    private static final Path GOLDEN = Path.of("src/test/resources/io/codelaser/maddi/cst/print/csharp/golden");
+
+    /**
+     * Whether this class's samples are compared whole with their golden file, {@code golden/<test>-<name>.cs}: a
+     * structural sample, whose every line is the point. A missing golden file is written and the test fails, so that
+     * a new sample's translation is looked at once; {@code -PupdateGolden} rewrites them all.
+     */
+    protected boolean golden() {
+        return false;
+    }
+
     /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
     protected String translate(String name, String java) {
         Translation translation = translation(java);
         messages = translation.messages();
         String csharp = translation.csharp();
+        String fileName = test + "-" + name + ".cs";
         try {
             Path dir = Path.of("build/csharp-samples");
             Files.createDirectories(dir);
-            Files.writeString(dir.resolve(test + "-" + name + ".cs"), csharp);
+            Files.writeString(dir.resolve(fileName), csharp);
+            if (golden()) {
+                Path file = GOLDEN.resolve(fileName);
+                if (Boolean.getBoolean("csharp.golden.update") || !Files.exists(file)) {
+                    boolean created = !Files.exists(file);
+                    Files.createDirectories(GOLDEN);
+                    Files.writeString(file, csharp);
+                    assertFalse(created && !Boolean.getBoolean("csharp.golden.update"),
+                            "new golden file " + file + ": look at it, and run again");
+                } else {
+                    assertEquals(Files.readString(file), csharp, "the golden file " + file
+                                                                 + " (-PupdateGolden after an intended change)");
+                }
+            }
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
