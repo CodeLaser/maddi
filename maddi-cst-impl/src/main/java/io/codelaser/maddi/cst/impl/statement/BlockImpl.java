@@ -108,7 +108,9 @@ public class BlockImpl extends StatementImpl implements Block {
         if (printsWithoutBraces()) {
             // the one statement, laid out as a braced block's statements are: on its own indented line when the
             // block does not fit, or when priority blocks always break
-            return new OutputBuilderImpl().add(Stream.of(statements.getFirst().print(qualification))
+            // the space a brace would have had in front of it: `if (c) x = 1;`, not `if (c)x = 1;`
+            return new OutputBuilderImpl().add(SpaceEnum.ONE_IS_NICE_EASY_SPLIT)
+                    .add(Stream.of(statements.getFirst().print(qualification))
                     .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock())));
         }
         return printWithBraces(qualification);

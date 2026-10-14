@@ -97,6 +97,23 @@ public class TestBracelessBodies extends CommonTest {
                 """, print(typeInfo.findUniqueMethod("forms", 2)));
     }
 
+    @DisplayName("a body that fits on the line keeps the space in front of it")
+    @Test
+    public void onOneLine() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT);
+        FormattingOptions options = new FormattingOptionsImpl.Builder().setLengthOfLine(120).setSpacesInTab(4).build();
+        String printed = new Formatter2Impl(runtime, options).write(typeInfo.findUniqueMethod("forms", 2)
+                .print(runtime.qualificationQualifyFromPrimaryType()));
+        assertEquals("""
+                int forms(int n, String s) {
+                    if (s.isEmpty()) throw new IllegalArgumentException(s);
+                    for (int i = 0; i < n; i++) n--;
+                    while (n > 10) n /= 2;
+                    if (n == 1) return 1; else if (n == 2) return 2; else return 3;
+                }
+                """, printed);
+    }
+
     @DisplayName("⛔ a then-part rewritten into an 'if' without 'else' gets braces: the 'else' must keep its 'if'")
     @Test
     public void danglingElse() {
