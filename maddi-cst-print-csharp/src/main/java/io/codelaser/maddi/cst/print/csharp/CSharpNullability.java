@@ -208,7 +208,9 @@ final class CSharpNullability {
         Expression x = CSharpExpressionPrinter.unwrap(e);
         return switch (x) {
             case NullConstant nc -> false; // null.m() is no code worth helping
-            case MethodCall mc -> !mc.methodInfo().isVoid() && !facts().callResultNonNull(mc)
+            // not facts().callResultNonNull(mc): C# types the call by the method's declared T?, whatever this call
+            // passes, and warns without the ! (fernflower's lstEdgeClosures[i] = GetMaxBreakLift(...), CS8601)
+            case MethodCall mc -> !mc.methodInfo().isVoid()
                                   && (facts().nullable(mc.methodInfo()) == NullableState.NULLABLE
                                       || CSharpExpressionPrinter.nullableResult(mc));
             case VariableExpression ve -> switch (ve.variable()) {
