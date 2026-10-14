@@ -363,9 +363,9 @@ public class TestTypeParameter extends CommonTest {
             import java.util.SortedMap;
             import java.util.TreeMap;
             public class Function2414123_file1778122 {
-                public static double [][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
-                    double [][] returnValue = new double[pairMap.size()][2];
-                    SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number> (pairMap);
+                public static double[][] toDoubleArray(Map<? extends Number, ? extends Number> pairMap) {
+                    double[][] returnValue = new double[pairMap.size()][2];
+                    SortedMap<Number, Number> sortedMap = new TreeMap<Number, Number>(pairMap);
                     int i = 0;
                     for (Map.Entry<? extends Number, ? extends Number> entry : sortedMap.entrySet()) {
                         returnValue[i] = new double[] { entry.getKey().doubleValue(), entry.getValue().doubleValue() };

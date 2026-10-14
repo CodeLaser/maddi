@@ -44,7 +44,7 @@ public class TestTypesReferenced extends CommonTest {
         String expect = """
                 package a.b;
                 import java.lang.annotation.Annotation;
-                class X { interface Y<A extends Annotation> {A supply(); } }
+                class X { interface Y<A extends Annotation> { A supply(); } }
                 """;
         assertEquals(expect, javaInspector.print2(typeInfo.compilationUnit()));
     }

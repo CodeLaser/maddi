@@ -40,7 +40,6 @@ public class TestJavaDoc extends CommonTest {
                  * @return 
                  * @throws IndexOutOfBoundsException
                  */
-            
                 public String method(String in, int len) {
                     if (len < 0 || len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
@@ -76,7 +75,6 @@ public class TestJavaDoc extends CommonTest {
                  * @return 
                  * @throws IndexOutOfBoundsException
                  */
-                
                 public String method(String in, int len) {
                     if (len < 0 || len >= in.length()) { throw new IndexOutOfBoundsException(); }
                     return in.substring(len);
@@ -176,7 +174,6 @@ public class TestJavaDoc extends CommonTest {
                 /**
                  * {@link java.util.LinkedList}
                  */
-                
                 public void method() {
                     // empty
                 }

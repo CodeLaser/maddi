@@ -42,7 +42,7 @@ public class TestTypeQualification extends CommonTest {
     public static final String OUTPUT1 = """
             package a.b;
             import java.util.Date;
-            class X {public java.sql.Date method(Date date) { return new java.sql.Date(date.getTime()); } }
+            class X { public java.sql.Date method(Date date) { return new java.sql.Date(date.getTime()); } }
             """;
 
     @Test

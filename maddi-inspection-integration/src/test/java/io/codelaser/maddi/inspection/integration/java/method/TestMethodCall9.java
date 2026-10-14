@@ -181,7 +181,7 @@ public class TestMethodCall9 extends CommonTest {
         ParameterizedType ta1 = mc2.typeArguments().getFirst();
         assertEquals("Type a.b.X.PR", ta1.toString());
         assertEquals("14-19:14-20", mc2.source().detailedSources().detail(ta1).compact2());
-        assertEquals("X.<PR> filter(pr,b->b.r==1)",
+        assertEquals("X.<PR>filter(pr,b->b.r==1)",
                 mc2.print(javaInspector.runtime().qualificationSimpleNames()).toString());
     }
 

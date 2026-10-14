@@ -45,7 +45,7 @@ public sealed class Scores {
 
     public sealed record SimpleScore(int Value) : IScore<SimpleScore> {
         public SimpleScore Add(SimpleScore other) => new SimpleScore(Value + other.Value);
-        public SimpleScore Negate() => new SimpleScore( -Value);
+        public SimpleScore Negate() => new SimpleScore(-Value);
         public bool IsZero() => Value == 0;
         public string ToShortString() => "" + Value;
         public int CompareTo(SimpleScore other) => Value.CompareTo(other.Value);
