@@ -17,7 +17,6 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -35,7 +34,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.UnaryOperator;
 
 /**
  * Java's getters and setters as C#'s properties, decided for the whole program. A class's getter whose body is
@@ -73,18 +71,11 @@ final class CSharpProperties {
     private CSharpProperties() {
     }
 
-    static Analysis analyze(List<TypeInfo> all, Set<MethodInfo> overridden, Set<TypeInfo> delegates) {
-        Set<MethodInfo> referenced = new HashSet<>();
+    static Analysis analyze(CSharpProgramIndex index, Set<MethodInfo> overridden, Set<TypeInfo> delegates) {
+        List<TypeInfo> all = index.types();
+        Set<MethodInfo> referenced = index.referenced();
         // a delegate has no property; an interface's lambda adapter implements its property as one
         Set<TypeInfo> functionalTargets = new HashSet<>(delegates);
-        for (TypeInfo t : all) {
-            for (Element element : CstQueries.code(t)) {
-                element.visit((Element e) -> {
-                    if (e instanceof MethodReference mr) referenced.add(mr.methodInfo());
-                    return true;
-                });
-            }
-        }
         Set<FieldInfo> written = writtenOutsideConstructors(all);
         Map<FieldInfo, Property> properties = new HashMap<>();
         for (TypeInfo t : all) {
@@ -108,37 +99,10 @@ final class CSharpProperties {
             });
         }
         Map<MethodInfo, String> computed = new HashMap<>();
-        for (List<MethodInfo> family : families(all)) {
+        for (List<MethodInfo> family : index.families()) {
             family(family, all, referenced, functionalTargets, written, properties, computed);
         }
         return new Analysis(Map.copyOf(properties), Map.copyOf(computed));
-    }
-
-    /** The methods of the program that override one another, connected: the families of two or more. */
-    static List<List<MethodInfo>> families(List<TypeInfo> all) {
-        Map<MethodInfo, MethodInfo> parent = new HashMap<>();
-        UnaryOperator<MethodInfo>[] find = new UnaryOperator[1];
-        find[0] = m -> {
-            MethodInfo p = parent.getOrDefault(m, m);
-            if (p == m) return m;
-            MethodInfo root = find[0].apply(p);
-            parent.put(m, root);
-            return root;
-        };
-        Set<MethodInfo> members = new HashSet<>();
-        for (TypeInfo t : all) {
-            for (MethodInfo m : t.methods()) {
-                for (MethodInfo o : m.overrides()) {
-                    if (o == m) continue;
-                    members.add(m);
-                    members.add(o);
-                    parent.put(find[0].apply(m), find[0].apply(o));
-                }
-            }
-        }
-        Map<MethodInfo, List<MethodInfo>> byRoot = new HashMap<>();
-        for (MethodInfo m : members) byRoot.computeIfAbsent(find[0].apply(m), k -> new ArrayList<>()).add(m);
-        return List.copyOf(byRoot.values());
     }
 
     /**
