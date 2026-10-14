@@ -683,7 +683,7 @@ as the mapping lets the compiler bind more, it gets to report errors it could no
 
 ## Status (first slice)
 
-`TestJavaToCSharpTranslation` writes each sample's translation to `build/csharp-samples/<test>-<sample>.cs`. Nothing
+The `TestJavaToCSharp*` tests write each sample's translation to `build/csharp-samples/<test>-<sample>.cs`. Nothing
 compiles them automatically: the unit tests do not need a .NET SDK. The ratchets, which do, are what Roslyn judges. A smoke run over fernflower's 199 main
 files gives:
 

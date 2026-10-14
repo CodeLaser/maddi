@@ -25,9 +25,14 @@ import io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.lang.reflect.Method;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +64,32 @@ public abstract class CommonJavaToCSharp {
         javaInspector.onlyPreload();
     }
 
+    /** The current test's method name: the samples' file names start with it. */
+    private String test;
+
+    /** The messages of the last {@link #translate(String, String)}. */
+    protected List<PrintMessage<CSharpPrintCode>> messages = List.of();
+
+    @BeforeEach
+    public void testName(TestInfo info) {
+        test = info.getTestMethod().map(Method::getName).orElseThrow();
+    }
+
+    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
+    protected String translate(String name, String java) {
+        Translation translation = translation(java);
+        messages = translation.messages();
+        String csharp = translation.csharp();
+        try {
+            Path dir = Path.of("build/csharp-samples");
+            Files.createDirectories(dir);
+            Files.writeString(dir.resolve(test + "-" + name + ".cs"), csharp);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return csharp;
+    }
+
     /** The C# printing of the compilation unit {@code java}: usings, namespace, and every type in it. */
     protected String csharp(String java) {
         return translation(java).csharp();
@@ -69,16 +100,16 @@ public abstract class CommonJavaToCSharp {
     }
 
     protected Translation translation(String java) {
-        CSharpCompilationUnitPrinter.Result result = translate(java);
+        CSharpCompilationUnitPrinter.Result result = printed(java);
         return new Translation(format(result), result.messages());
     }
 
     /** The printer's messages about {@code java}'s translation. */
     protected List<PrintMessage<CSharpPrintCode>> messages(String java) {
-        return translate(java).messages();
+        return printed(java).messages();
     }
 
-    private CSharpCompilationUnitPrinter.Result translate(String java) {
+    private CSharpCompilationUnitPrinter.Result printed(String java) {
         List<TypeInfo> primaryTypes = parse(java);
         // the file is the whole program
         return print(new CSharpCompilationUnitPrinter(first(primaryTypes).compilationUnit(), true,
