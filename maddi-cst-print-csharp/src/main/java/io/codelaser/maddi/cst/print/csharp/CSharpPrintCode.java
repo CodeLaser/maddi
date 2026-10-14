@@ -28,11 +28,17 @@ public enum CSharpPrintCode implements PrintMessage.Code {
     RAW_TYPE(Severity.LOSS),
     /** A Java instance initializer {@code { … }}: C# has none (yet: to be moved into the constructors). */
     INSTANCE_INITIALIZER(Severity.ERROR),
-    /** An enum constant's body, an anonymous subclass of its enum: not translated (yet). */
+    /**
+     * An anonymous class C# cannot say: an enum constant's body, a subclass of its enum, or a class creation that is
+     * neither a lambda through an adapter nor hoisted into a named class ({@link CSharpAnonymous}).
+     */
     ANONYMOUS_CLASS(Severity.ERROR),
     /** A class declared in a method body that captures its locals or its instance: not lifted (yet). */
     LOCAL_CLASS(Severity.ERROR),
-    /** {@code Outer.this}: a C# nested class has no enclosing instance (yet: to be passed explicitly). */
+    /**
+     * {@code Outer.this}, or the creation of an inner class, where no chain of {@code outer} references leads from the
+     * code to the enclosing instance ({@link CSharpInner}): printed as {@code this}, or without the instance.
+     */
     OUTER_THIS(Severity.ERROR),
     /**
      * A class extending ArrayList, printed extending the compatibility library's JavaArrayList, whose Java methods
@@ -51,14 +57,20 @@ public enum CSharpPrintCode implements PrintMessage.Code {
     PRECONDITION_NON_NULL(Severity.INFO),
     /** An enum with fields, methods or constructors, printed as a class with static readonly instances. */
     ENUM_AS_CLASS(Severity.INFO),
-    /** A record's canonical or compact constructor: a positional C# record has none (yet). */
+    /**
+     * A record's constructor, other than the canonical one, with as many parameters as the record has components: it
+     * would clash with the positional C# record's primary constructor, and is left out.
+     */
     RECORD_CONSTRUCTOR(Severity.LOSS),
     /**
      * An inner (non-static) class of a generic type: C# names it with the enclosing type's arguments,
      * {@code Outer<E>.Inner} (yet).
      */
     NESTED_IN_GENERIC(Severity.ERROR),
-    /** A Java annotation type: not translated (yet: to become an attribute class). */
+    /**
+     * An annotation type that is not translated ({@link CSharpNames#translated}): left out. The program's own are
+     * attribute classes ({@link CSharpAttributes}).
+     */
     ANNOTATION_TYPE(Severity.ERROR),
     /** {@code new int[a][b]}: a jagged array of more than one sized dimension has no C# creation expression. */
     MULTI_DIMENSIONAL_ARRAY(Severity.ERROR),
