@@ -154,7 +154,7 @@ public final class CSharpExpressionPrinter {
         boolean nullConstant = unwrap(cast.expression()) instanceof NullConstant
                                && CSharpContext.program().facts().nullabilityAnalysed();
         boolean nullable = nullConstant || CSharpNullability.mayBeNull(cast.expression());
-        String own = CSharpCompanions.ownUse(cast.parameterizedType(), q);
+        String own = CSharpWildcardInterfaces.ownUse(cast.parameterizedType(), q);
         String type = own != null ? (nullable ? own + "?" : own)
                 : nullable ? CSharpTypeName.declared(cast.parameterizedType(), false, NullableState.NULLABLE, q)
                 : CSharpTypeName.of(cast.parameterizedType(), q);

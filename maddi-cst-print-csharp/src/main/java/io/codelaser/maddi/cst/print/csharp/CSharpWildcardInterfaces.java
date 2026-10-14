@@ -37,33 +37,37 @@ import java.util.stream.Collectors;
 /**
  * Java's wildcard of a self-bounded type, {@code Score<?>} where {@code Score<Score_ extends Score<Score_>>}, has no
  * C# type argument: none satisfies {@code where Score_ : IScore<Score_>}. As C#'s own {@code IComparable} beside
- * {@code IComparable<T>}, such a type has a companion without its self-bounded type parameters, which the wildcard is:
- * {@code IScore} beside {@code IScore<Score_>}, {@code IInnerScoreDirector<Solution_>} beside
- * {@code IInnerScoreDirector<Solution_, Score_>}; a class's or a record's is the interface {@code I} + its name, which it
- * implements, a record's with its components as properties.
+ * {@code IComparable<T>}, such a type has a wildcard interface without its self-bounded type parameters, which the
+ * wildcard is: {@code IScore} beside {@code IScore<Score_>}, {@code IInnerScoreDirector<Solution_>} beside
+ * {@code IInnerScoreDirector<Solution_, Score_>}; a class's or a record's is the interface {@code I} + its name, which
+ * it implements, a record's with its components as properties.
  * <p>
- * The companion declares the type's own members that a wildcard's user can call: those whose parameters do not
- * mention a removed type parameter, with the removed parameter in the result erased to its bound's companion
- * ({@code Score_ Negate()} is {@code IScore Negate()}). The type implements each explicitly by calling its own,
- * {@code IScore IScore.Negate() => Negate();}, a default implementation in an interface, so that every implementation
- * of the type is one of the companion. The companion extends the companions of the type's supertypes.
+ * The wildcard interface declares the type's own members that a wildcard's user can call: those whose parameters do
+ * not mention a removed type parameter, with the removed parameter in the result erased to its bound's wildcard
+ * interface ({@code Score_ Negate()} is {@code IScore Negate()}). The type implements each explicitly by calling its
+ * own, {@code IScore IScore.Negate() => Negate();}, a default implementation in an interface, so that every
+ * implementation of the type is one of the wildcard interface. It extends the wildcard interfaces of the type's
+ * supertypes.
  */
-final class CSharpCompanions {
+final class CSharpWildcardInterfaces {
 
-    private CSharpCompanions() {
+    private CSharpWildcardInterfaces() {
     }
 
-    /** A member of the companion: its C# declaration and its bridge, the type's explicit implementation. */
+    /** A member of the wildcard interface: its C# declaration and its bridge, the type's explicit implementation. */
     record Member(String declaration, String bridge) {
     }
 
-    /** The self-bounded type parameters of a program type, which its companion does not have; empty when it has none. */
+    /**
+     * The self-bounded type parameters of a program type, which its wildcard interface does not have; empty when it has
+     * none.
+     */
     static List<TypeParameter> removed(TypeInfo t) {
         if (t == null || !CSharpNames.translated(t) || t.typeParameters().isEmpty() || t.typeNature().isEnum()
             || t.isAnonymous() || t.enclosingMethod() != null) {
             return List.of();
         }
-        return CSharpContext.memo().companions.computeIfAbsent(t, CSharpCompanions::computeRemoved);
+        return CSharpContext.memo().wildcardInterfaces.computeIfAbsent(t, CSharpWildcardInterfaces::computeRemoved);
     }
 
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
@@ -78,27 +82,27 @@ final class CSharpCompanions {
         return !removed(t).isEmpty();
     }
 
-    /** The companion's name: an interface's own, a class's {@code I} + its own. */
+    /** The wildcard interface's name: an interface's own, a class's {@code I} + its own. */
     static String name(TypeInfo t) {
         String own = CSharpNames.type(t);
         return t.isInterface() ? own : "I" + own;
     }
 
-    /** The companion's type parameters, the type's that remain. */
+    /** The wildcard interface's type parameters, the type's that remain. */
     static List<TypeParameter> remaining(TypeInfo t) {
         List<TypeParameter> removed = removed(t);
         return t.typeParameters().stream().filter(tp -> !removed.contains(tp)).toList();
     }
 
-    /** The companion as the type itself names it: {@code IInnerScoreDirector<Solution_>}. */
+    /** The wildcard interface as the type itself names it: {@code IInnerScoreDirector<Solution_>}. */
     static String selfReference(TypeInfo t) {
         List<TypeParameter> remaining = remaining(t);
         return name(t) + CSharpNames.typeParameters(remaining);
     }
 
     /**
-     * Whether {@code pt} is a wildcard or raw use of a type with a companion, where no C# type argument satisfies the
-     * self-bound: {@code Score<?>}, {@code Score<? extends Score<?>>}, a raw {@code Score}.
+     * Whether {@code pt} is a wildcard or raw use of a type with a wildcard interface, where no C# type argument
+     * satisfies the self-bound: {@code Score<?>}, {@code Score<? extends Score<?>>}, a raw {@code Score}.
      */
     static boolean isWildcardUse(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
@@ -118,7 +122,7 @@ final class CSharpCompanions {
         return false;
     }
 
-    /** {@code pt}, a wildcard use, as its companion: the remaining arguments printed as they are. */
+    /** {@code pt}, a wildcard use, as its wildcard interface: the remaining arguments printed as they are. */
     static String wildcardUse(ParameterizedType pt, Qualification q) {
         TypeInfo t = pt.typeInfo();
         List<TypeParameter> removed = removed(t);
@@ -136,13 +140,13 @@ final class CSharpCompanions {
             }
         }
         String name = CSharpTypeName.name(t, q);
-        String companion = t.isInterface() ? name : qualifiedCompanion(name);
-        return companion + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
+        String wildcardInterface = t.isInterface() ? name : qualifiedInterface(name);
+        return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
     /**
-     * In an instance member of {@code t} itself, a cast to or a local of its wildcard use is {@code t} with its own type
-     * parameters, which have the private members the companion has not: Java's {@code equals},
+     * In an instance member of {@code t} itself, a cast to or a local of its wildcard use is {@code t} with its own
+     * type parameters, which have the private members the wildcard interface has not: Java's {@code equals},
      * {@code MinPropertyUniCollector<?, ?, ?> that = (MinPropertyUniCollector<?, ?, ?>) o; … that.propertyMapper},
      * after a {@code GetType()} comparison that C# makes with the type arguments. Null otherwise.
      */
@@ -155,15 +159,16 @@ final class CSharpCompanions {
     }
 
     /** {@code Ns.Outer.Config} is {@code Ns.Outer.IConfig}. */
-    private static String qualifiedCompanion(String name) {
+    private static String qualifiedInterface(String name) {
         int dot = name.lastIndexOf('.');
         return dot < 0 ? "I" + name : name.substring(0, dot + 1) + "I" + name.substring(dot + 1);
     }
 
     /**
-     * A type as the companion of {@code t} has it: a removed type parameter is its bound's companion, a type with a
-     * companion whose removed positions mention one is that companion. Null when the type mentions a removed
-     * parameter otherwise ({@code List<Score_>}), which no conversion makes the companion's.
+     * A type as the wildcard interface of {@code t} has it: a removed type parameter is its bound's wildcard
+     * interface, a type with a wildcard interface whose removed positions mention one is that wildcard interface. Null
+     * when the type mentions a removed parameter otherwise ({@code List<Score_>}), which no conversion makes the
+     * wildcard interface's.
      */
     static String erased(ParameterizedType pt, List<TypeParameter> removed, Qualification q) {
         if (!CstQueries.mentionsAny(pt, removed)) return CSharpTypeName.of(pt, q);
@@ -181,8 +186,8 @@ final class CSharpCompanions {
             printed.add(CSharpTypeName.argument(a, q));
         }
         String name = CSharpTypeName.name(t, q);
-        String companion = t.isInterface() ? name : qualifiedCompanion(name);
-        return companion + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
+        String wildcardInterface = t.isInterface() ? name : qualifiedInterface(name);
+        return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
     private static String erasedBound(TypeParameter tp, List<TypeParameter> removed, Set<TypeParameter> seen,
@@ -196,7 +201,10 @@ final class CSharpCompanions {
         return erased == null ? "object" : erased;
     }
 
-    /** The companion's supertypes: the companions of the type's self-bounded supertypes, and its plain interfaces. */
+    /**
+     * The wildcard interface's supertypes: the wildcard interfaces of the type's self-bounded supertypes, and its plain
+     * interfaces.
+     */
     static List<String> supertypes(TypeInfo t, Qualification q) {
         List<TypeParameter> removed = removed(t);
         Set<String> supers = new LinkedHashSet<>();
@@ -206,9 +214,10 @@ final class CSharpCompanions {
             TypeInfo st = s.typeInfo();
             if (st == null) continue;
             if (!CstQueries.mentionsAny(s, removed)) {
-                // a closed supertype: an interface is itself, and its own companion with it; a class only its companion
+                // a closed supertype: an interface is itself, with its own wildcard interface; a class only its wildcard
+                // interface
                 if (st.isInterface()) supers.add(CSharpTypeName.of(s, q));
-                else if (has(st)) supers.add(companionOfClosed(s, q));
+                else if (has(st)) supers.add(interfaceOfClosed(s, q));
             } else if (has(st)) {
                 String erased = erased(s, removed, q);
                 if (erased != null) supers.add(erased);
@@ -227,7 +236,7 @@ final class CSharpCompanions {
                && removed.contains(s.parameters().getFirst().typeParameter());
     }
 
-    private static String companionOfClosed(ParameterizedType s, Qualification q) {
+    private static String interfaceOfClosed(ParameterizedType s, Qualification q) {
         TypeInfo t = s.typeInfo();
         List<TypeParameter> own = removed(t);
         List<String> printed = new ArrayList<>();
@@ -235,11 +244,11 @@ final class CSharpCompanions {
             if (!own.contains(t.typeParameters().get(i))) printed.add(CSharpTypeName.argument(s.parameters().get(i), q));
         }
         String name = CSharpTypeName.name(t, q);
-        String companion = t.isInterface() ? name : qualifiedCompanion(name);
-        return companion + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
+        String wildcardInterface = t.isInterface() ? name : qualifiedInterface(name);
+        return wildcardInterface + (printed.isEmpty() ? "" : "<" + String.join(", ", printed) + ">");
     }
 
-    /** The companion's members, with their bridges. */
+    /** The wildcard interface's members, with their bridges. */
     static List<Member> members(TypeInfo t, Qualification q) {
         List<TypeParameter> removed = removed(t);
         String self = selfReference(t);
@@ -315,8 +324,9 @@ final class CSharpCompanions {
     }
 
     /**
-     * A member's result in the companion: the type's own, with its nullability ({@code string?}), which the bridge
-     * returns (CS8603, CS8766); a removed type parameter erased, {@code IScore?} when the member may return null.
+     * A member's result in the wildcard interface: the type's own, with its nullability ({@code string?}), which the
+     * bridge returns (CS8603, CS8766); a removed type parameter erased, {@code IScore?} when the member may return
+     * null.
      */
     private static String result(MethodInfo m, List<TypeParameter> removed, Qualification q) {
         NullableState nullable = CSharpContext.program().facts().nullable(m);
@@ -330,7 +340,7 @@ final class CSharpCompanions {
 
     /**
      * {@code !} on a bridge's call whose result, a removed type parameter, the analysis finds not null: C# sees a type
-     * parameter converted to the companion as possibly null (CS8603), the bridge returns what the member does.
+     * parameter converted to the wildcard interface as possibly null (CS8603), the bridge returns what the member does.
      */
     private static String asserted(MethodInfo m, List<TypeParameter> removed, String returnType) {
         return CSharpContext.program().facts().nullabilityAnalysed() && CstQueries.mentionsAny(m.returnType(), removed)
@@ -357,7 +367,7 @@ final class CSharpCompanions {
                 .add(CSharpStatementPrinter.braces(body));
     }
 
-    /** The type's explicit implementations of its companion's members. */
+    /** The type's explicit implementations of its wildcard interface's members. */
     static List<OutputBuilder> bridges(TypeInfo t, Qualification q) {
         List<OutputBuilder> bridges = new ArrayList<>(members(t, q).stream()
                 .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.bridge()))).toList());
@@ -375,6 +385,6 @@ final class CSharpCompanions {
     private static boolean containsWildcard(ParameterizedType t) {
         if (t == null) return false;
         if (t.wildcard() != null) return true;
-        return t.parameters().stream().anyMatch(CSharpCompanions::containsWildcard);
+        return t.parameters().stream().anyMatch(CSharpWildcardInterfaces::containsWildcard);
     }
 }

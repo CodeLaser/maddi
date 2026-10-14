@@ -70,7 +70,7 @@ import java.util.stream.Stream;
  *   ({@link #exposedBase});</li>
  *   <li>the package-infos, whose annotations are their packages'; and, as they are asked for, which inner classes take
  *   their enclosing instance ({@link CSharpInner}) and which type parameters are self-bounded
- *   ({@link CSharpCompanions}).</li>
+ *   ({@link CSharpWildcardInterfaces}).</li>
  * </ul>
  */
 public final class CSharpProgram {
@@ -378,7 +378,7 @@ public final class CSharpProgram {
     }
 
     /**
-     * Every type parameter of {@code m} self-bounded by a program type, which has a companion
+     * Every type parameter of {@code m} self-bounded by a program type, which has a wildcard interface
      * ({@code Score_ extends Score<Score_>}, not {@code Comparable<? super R>}), none mentioned by a parameter, one by
      * the result.
      */
@@ -523,8 +523,8 @@ public final class CSharpProgram {
      * files. {@link CSharpContext#memo} has a file's own for {@link #NONE}, which knows no program.
      */
     static final class Memo {
-        /** The self-bounded type parameters of a program type ({@link CSharpCompanions#removed}). */
-        final Map<TypeInfo, List<TypeParameter>> companions = new ConcurrentHashMap<>();
+        /** The self-bounded type parameters of a program type ({@link CSharpWildcardInterfaces#removed}). */
+        final Map<TypeInfo, List<TypeParameter>> wildcardInterfaces = new ConcurrentHashMap<>();
         /** Whether an inner class takes its enclosing instance ({@link CSharpInner#withOuter}). */
         final Map<TypeInfo, Boolean> inner = new ConcurrentHashMap<>();
         /** Whether a generic type has a companion class for its static members ({@link CSharpNames#hasCompanion}). */

@@ -60,7 +60,7 @@ import java.util.function.UnaryOperator;
  * <ul>
  *   <li>an enum of the program that is a C# enum is itself, its members {@code [XmlEnum("NAME")]}; one that is a
  *       class in C# is its name, {@code string};</li>
- *   <li>an interface, a self-bounded class's companion, or one of several {@code @XmlElements}, is {@code object},
+ *   <li>an interface, a self-bounded class's wildcard interface, or one of several {@code @XmlElements}, is {@code object},
  *       with an {@code [XmlElement(name, typeof(T))]} per type;</li>
  *   <li>{@code @XmlJavaTypeAdapter(A.class)} is the adapter's value type, through {@code new A().Marshal(…)} and
  *       {@code Unmarshal(…)} (the compatibility library's JavaXmlAdapter);</li>
@@ -547,11 +547,11 @@ final class JaxbXmlSerialization implements LibraryMapping {
                 .anyMatch(s -> "java.util.Collection".equals(s.fullyQualifiedName()));
     }
 
-    /** An interface, or a self-bounded class's wildcard use, its companion interface: XmlSerializer needs a class. */
+    /** An interface, or a self-bounded class's wildcard use, its wildcard interface: XmlSerializer needs a class. */
     private static boolean objectTyped(ParameterizedType pt) {
         TypeInfo t = pt.typeInfo();
         return pt.arrays() == 0 && t != null && CSharpNames.translated(t)
-               && (t.isInterface() || CSharpCompanions.isWildcardUse(pt));
+               && (t.isInterface() || CSharpWildcardInterfaces.isWildcardUse(pt));
     }
 
     private static final Set<String> VALUES = Set.of("java.lang.String", "java.math.BigDecimal");

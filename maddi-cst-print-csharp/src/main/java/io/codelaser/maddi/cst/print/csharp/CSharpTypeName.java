@@ -199,8 +199,8 @@ public final class CSharpTypeName {
             ParameterizedType bound = arguments.getFirst().withWildcard(null);
             return covariant + "<" + of(bound, q, true) + ">";
         }
-        // Score<?> of Score<Score_ extends Score<Score_>>: no C# argument satisfies the self-bound, the companion does
-        if (CSharpCompanions.isWildcardUse(pt)) return CSharpCompanions.wildcardUse(pt, q);
+        // Score<?> of Score<Score_ extends Score<Score_>>: no C# argument satisfies the self-bound, the wildcard interface does
+        if (CSharpWildcardInterfaces.isWildcardUse(pt)) return CSharpWildcardInterfaces.wildcardUse(pt, q);
         List<String> printed = new ArrayList<>();
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintCode.RAW_TYPE, null, fqn);

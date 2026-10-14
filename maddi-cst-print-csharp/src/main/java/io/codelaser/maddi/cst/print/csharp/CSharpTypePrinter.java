@@ -146,8 +146,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             }
             List<String> supers = new ArrayList<>(superTypes(q));
-            // the companion of a self-bounded type, which its wildcard is (CSharpCompanions)
-            if (CSharpCompanions.has(typeInfo)) supers.add(CSharpCompanions.selfReference(typeInfo));
+            // the wildcard interface of a self-bounded type (CSharpWildcardInterfaces)
+            if (CSharpWildcardInterfaces.has(typeInfo)) supers.add(CSharpWildcardInterfaces.selfReference(typeInfo));
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
@@ -221,14 +221,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record) members.addAll(accessorImplementations(components, q));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
-        if (CSharpCompanions.has(typeInfo)) members.addAll(CSharpCompanions.bridges(typeInfo, q));
+        if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
         out.add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(nonEmpty));
-        if (doTypeDeclaration && CSharpCompanions.has(typeInfo)) {
-            out.add(SpaceEnum.NEWLINE).add(CSharpCompanions.declaration(typeInfo, typeAccess(), q));
+        if (doTypeDeclaration && CSharpWildcardInterfaces.has(typeInfo)) {
+            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q));
         }
         return out;
     }
