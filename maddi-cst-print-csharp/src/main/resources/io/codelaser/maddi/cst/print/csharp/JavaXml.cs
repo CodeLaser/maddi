@@ -5,7 +5,7 @@
 // part of JAXP that goes with it is System.Xml's: DOM is XmlDocument (mapped directly), a parser is XmlReader, a schema
 // is an XmlSchemaSet, a transformation an XslCompiledTransform. Java's API is kept, in PascalCase, where System.Xml has
 // another shape: factories, sources and results, validation events.
-#nullable disable
+#nullable enable
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -20,7 +20,6 @@ using System.Xml.Xsl;
 namespace Maddi.JavaCompat;
 
 // JAXB passes null through an adapter both ways; an override may say that its values are not null
-#nullable enable
 /// <summary>JAXB's XmlAdapter: <typeparamref name="V"/>, what XmlSerializer writes, for <typeparamref name="B"/>.</summary>
 public abstract class JavaXmlAdapter<V, B>
 {
@@ -28,18 +27,17 @@ public abstract class JavaXmlAdapter<V, B>
 
     public abstract V? Marshal(B? b);
 }
-#nullable disable
 
 /// <summary>JAXB's JAXBException.</summary>
 public class JavaJaxbException : Exception
 {
     public JavaJaxbException(string message) : base(message) { }
 
-    public JavaJaxbException(string message, Exception cause) : base(message, cause) { }
+    public JavaJaxbException(string message, Exception? cause) : base(message, cause) { }
 
-    public JavaJaxbException(Exception cause) : base(cause?.ToString(), cause) { }
+    public JavaJaxbException(Exception? cause) : base(cause?.ToString(), cause) { }
 
-    public Exception GetLinkedException() => InnerException;
+    public Exception? GetLinkedException() => InnerException;
 }
 
 /// <summary>JAXB's JAXBContext: the types it binds, each by an XmlSerializer.</summary>
@@ -105,13 +103,13 @@ public sealed class JavaMarshaller
     // no xmlns:xsi and xmlns:xsd on the root, as JAXB's
     private static readonly XmlSerializerNamespaces NoNamespaces = new(new[] { XmlQualifiedName.Empty });
 
-    private readonly Dictionary<string, object> properties = new();
+    private readonly Dictionary<string, object?> properties = new();
 
     internal JavaMarshaller() { }
 
-    public void SetProperty(string name, object value) => properties[name] = value;
+    public void SetProperty(string name, object? value) => properties[name] = value;
 
-    public object GetProperty(string name) => properties.TryGetValue(name, out var value) ? value : null;
+    public object? GetProperty(string name) => properties.TryGetValue(name, out var value) ? value : null;
 
     private bool Flag(string name) => GetProperty(name) is bool b ? b : GetProperty(name) is string s && bool.Parse(s);
 
@@ -139,7 +137,7 @@ public sealed class JavaMarshaller
     /// <summary>marshal(Object, Node): the XML as the last child of <paramref name="node"/>.</summary>
     public void Marshal(object root, XmlNode node)
     {
-        using (var writer = node.CreateNavigator().AppendChild()) WriteWithSchemaLocation(root, writer);
+        using (var writer = node.CreateNavigator()!.AppendChild()) WriteWithSchemaLocation(root, writer);
     }
 
     private const string XmlSchemaInstance = "http://www.w3.org/2001/XMLSchema-instance";
@@ -158,8 +156,8 @@ public sealed class JavaMarshaller
             return;
         }
         var document = new XmlDocument();
-        using (var into = document.CreateNavigator().AppendChild()) Write(root, into);
-        var element = document.DocumentElement;
+        using (var into = document.CreateNavigator()!.AppendChild()) Write(root, into);
+        var element = document.DocumentElement!;
         element.SetAttribute("xmlns:xsi", XmlSchemaInstance);
         if (location != null) element.SetAttribute("schemaLocation", XmlSchemaInstance, location);
         if (noNamespaceLocation != null)
@@ -194,10 +192,10 @@ public sealed class JavaValidationEvent
 
     private readonly int severity;
     private readonly string message;
-    private readonly Exception linked;
+    private readonly Exception? linked;
     private readonly JavaValidationEventLocator locator;
 
-    public JavaValidationEvent(int severity, string message, JavaValidationEventLocator locator, Exception linked = null)
+    public JavaValidationEvent(int severity, string message, JavaValidationEventLocator locator, Exception? linked = null)
     {
         this.severity = severity;
         this.message = message;
@@ -209,7 +207,7 @@ public sealed class JavaValidationEvent
 
     public string GetMessage() => message;
 
-    public Exception GetLinkedException() => linked;
+    public Exception? GetLinkedException() => linked;
 
     public JavaValidationEventLocator GetLocator() => locator;
 
@@ -219,18 +217,18 @@ public sealed class JavaValidationEvent
 /// <summary>JAXB's ValidationEventLocator: where the event is, the node when a document was validated.</summary>
 public sealed class JavaValidationEventLocator
 {
-    private readonly XmlNode node;
+    private readonly XmlNode? node;
     private readonly int line;
     private readonly int column;
 
-    public JavaValidationEventLocator(XmlNode node, int line, int column)
+    public JavaValidationEventLocator(XmlNode? node, int line, int column)
     {
         this.node = node;
         this.line = line;
         this.column = column;
     }
 
-    public XmlNode GetNode() => node;
+    public XmlNode? GetNode() => node;
 
     public int GetLineNumber() => line;
 
@@ -238,9 +236,9 @@ public sealed class JavaValidationEventLocator
 
     public int GetOffset() => -1;
 
-    public object GetObject() => null;
+    public object? GetObject() => null;
 
-    public Uri GetURL() => null;
+    public Uri? GetURL() => null;
 
     public override string ToString() => node != null ? "[node=" + node.Name + "]" : "[line=" + line + ",column=" + column + "]";
 }
@@ -273,25 +271,25 @@ public sealed class JavaValidationEventCollector
 public sealed class JavaUnmarshaller
 {
     private readonly JavaJaxbContext context;
-    private JavaSchema schema;
-    private JavaValidationEventHandler handler;
+    private JavaSchema? schema;
+    private JavaValidationEventHandler? handler;
 
     internal JavaUnmarshaller(JavaJaxbContext context) => this.context = context;
 
-    public void SetSchema(JavaSchema schema) => this.schema = schema;
+    public void SetSchema(JavaSchema? schema) => this.schema = schema;
 
-    public JavaSchema GetSchema() => schema;
+    public JavaSchema? GetSchema() => schema;
 
-    public void SetEventHandler(JavaValidationEventHandler handler) => this.handler = handler;
+    public void SetEventHandler(JavaValidationEventHandler? handler) => this.handler = handler;
 
-    public JavaValidationEventHandler GetEventHandler() => handler;
+    public JavaValidationEventHandler? GetEventHandler() => handler;
 
     /// <summary>unmarshal(Node): a document is validated as a tree, its events have their node.</summary>
-    public object Unmarshal(XmlNode node)
+    public object? Unmarshal(XmlNode node)
     {
         if (schema != null)
         {
-            var document = node as XmlDocument ?? node.OwnerDocument;
+            var document = node as XmlDocument ?? node.OwnerDocument!;
             document.Schemas = schema.Set;
             // the node of an event is the exception's source
             ValidationEventHandler onEvent = (sender, e) =>
@@ -302,23 +300,23 @@ public sealed class JavaUnmarshaller
         return Read(new XmlNodeReader(node), false);
     }
 
-    public object Unmarshal(TextReader reader) => Read(XmlReader.Create(reader, JavaXmlParsing.Secure()), true);
+    public object? Unmarshal(TextReader reader) => Read(XmlReader.Create(reader, JavaXmlParsing.Secure()), true);
 
-    public object Unmarshal(Stream stream) => Read(XmlReader.Create(stream, JavaXmlParsing.Secure()), true);
+    public object? Unmarshal(Stream stream) => Read(XmlReader.Create(stream, JavaXmlParsing.Secure()), true);
 
-    public object Unmarshal(JavaInputSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
+    public object? Unmarshal(JavaInputSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
 
-    public object Unmarshal(JavaXmlSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
+    public object? Unmarshal(JavaXmlSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
 
-    public object Unmarshal(JavaFile file) => Unmarshal(new FileInfo(file.GetAbsolutePath()));
+    public object? Unmarshal(JavaFile file) => Unmarshal(new FileInfo(file.GetAbsolutePath()));
 
-    public object Unmarshal(FileInfo file)
+    public object? Unmarshal(FileInfo file)
     {
         using var stream = file.OpenRead();
         return Unmarshal(stream);
     }
 
-    private object Read(XmlReader input, bool validate)
+    private object? Read(XmlReader input, bool validate)
     {
         var reader = input;
         if (validate && schema != null)
@@ -347,7 +345,7 @@ public sealed class JavaUnmarshaller
         }
     }
 
-    private void Handle(ValidationEventArgs e, XmlNode node)
+    private void Handle(ValidationEventArgs e, XmlNode? node)
     {
         var severity = e.Severity == XmlSeverityType.Warning ? JavaValidationEvent.Warning : JavaValidationEvent.Error;
         var locator = new JavaValidationEventLocator(node, e.Exception?.LineNumber ?? -1, e.Exception?.LinePosition ?? -1);
@@ -372,11 +370,11 @@ public class JavaSaxException : Exception
 
     public JavaSaxException(string message) : base(message) { }
 
-    public JavaSaxException(Exception cause) : base(cause?.ToString(), cause) { }
+    public JavaSaxException(Exception? cause) : base(cause?.ToString(), cause) { }
 
-    public JavaSaxException(string message, Exception cause) : base(message, cause) { }
+    public JavaSaxException(string message, Exception? cause) : base(message, cause) { }
 
-    public Exception GetException() => InnerException;
+    public Exception? GetException() => InnerException;
 }
 
 public class JavaSaxParseException : JavaSaxException
@@ -384,7 +382,7 @@ public class JavaSaxParseException : JavaSaxException
     private readonly int line;
     private readonly int column;
 
-    public JavaSaxParseException(string message, int line = -1, int column = -1, Exception cause = null)
+    public JavaSaxParseException(string message, int line = -1, int column = -1, Exception? cause = null)
         : base(message, cause)
     {
         this.line = line;
@@ -421,9 +419,9 @@ public class JavaParserConfigurationException : Exception
 /// <summary>SAX's InputSource: a reader, a stream, or a system id (a file or a URI).</summary>
 public sealed class JavaInputSource
 {
-    private TextReader characterStream;
-    private Stream byteStream;
-    private string systemId;
+    private TextReader? characterStream;
+    private Stream? byteStream;
+    private string? systemId;
 
     public JavaInputSource() { }
 
@@ -433,22 +431,22 @@ public sealed class JavaInputSource
 
     public JavaInputSource(string systemId) => this.systemId = systemId;
 
-    public TextReader GetCharacterStream() => characterStream;
+    public TextReader? GetCharacterStream() => characterStream;
 
-    public void SetCharacterStream(TextReader reader) => characterStream = reader;
+    public void SetCharacterStream(TextReader? reader) => characterStream = reader;
 
-    public Stream GetByteStream() => byteStream;
+    public Stream? GetByteStream() => byteStream;
 
-    public void SetByteStream(Stream stream) => byteStream = stream;
+    public void SetByteStream(Stream? stream) => byteStream = stream;
 
-    public string GetSystemId() => systemId;
+    public string? GetSystemId() => systemId;
 
-    public void SetSystemId(string id) => systemId = id;
+    public void SetSystemId(string? id) => systemId = id;
 
     internal XmlReader CreateReader(XmlReaderSettings settings) =>
         characterStream != null ? XmlReader.Create(characterStream, settings)
         : byteStream != null ? XmlReader.Create(byteStream, settings)
-        : XmlReader.Create(systemId, settings);
+        : XmlReader.Create(systemId!, settings);
 }
 
 /// <summary>JAXP's DocumentBuilderFactory; its features are the parser's, a disallowed DOCTYPE the one that matters.</summary>
@@ -485,7 +483,7 @@ public sealed class JavaDocumentBuilderFactory
 
     public void SetExpandEntityReferences(bool value) { }
 
-    public void SetAttribute(string name, object value) { }
+    public void SetAttribute(string name, object? value) { }
 
     public JavaDocumentBuilder NewDocumentBuilder() => new(GetFeature(DisallowDoctypeDecl), ignoringComments);
 }
@@ -556,7 +554,7 @@ public sealed class JavaDocumentBuilder
 public static class JavaDom
 {
     /// <summary>Node.getNamespaceURI: null for no namespace, where XmlNode has the empty string.</summary>
-    public static string NamespaceUri(XmlNode node) => string.IsNullOrEmpty(node.NamespaceURI) ? null : node.NamespaceURI;
+    public static string? NamespaceUri(XmlNode node) => string.IsNullOrEmpty(node.NamespaceURI) ? null : node.NamespaceURI;
 
     /// <summary>
     /// Document.renameNode for an element: XmlDocument's names are fixed, so a new element with the name takes the
@@ -583,11 +581,11 @@ public static class JavaDom
 /// <summary>JAXP's Source: XML to read.</summary>
 public abstract class JavaXmlSource
 {
-    private string systemId;
+    private string? systemId;
 
-    public string GetSystemId() => systemId;
+    public string? GetSystemId() => systemId;
 
-    public void SetSystemId(string id) => systemId = id;
+    public void SetSystemId(string? id) => systemId = id;
 
     internal abstract XmlReader CreateReader(XmlReaderSettings settings);
 }
@@ -595,24 +593,24 @@ public abstract class JavaXmlSource
 /// <summary>JAXP's DOMSource.</summary>
 public sealed class JavaDomSource : JavaXmlSource
 {
-    private XmlNode node;
+    private XmlNode? node;
 
     public JavaDomSource() { }
 
-    public JavaDomSource(XmlNode node) => this.node = node;
+    public JavaDomSource(XmlNode? node) => this.node = node;
 
-    public XmlNode GetNode() => node;
+    public XmlNode? GetNode() => node;
 
-    public void SetNode(XmlNode value) => node = value;
+    public void SetNode(XmlNode? value) => node = value;
 
-    internal override XmlReader CreateReader(XmlReaderSettings settings) => new XmlNodeReader(node);
+    internal override XmlReader CreateReader(XmlReaderSettings settings) => new XmlNodeReader(node!);
 }
 
 /// <summary>JAXP's StreamSource.</summary>
 public sealed class JavaStreamSource : JavaXmlSource
 {
-    private readonly Stream stream;
-    private readonly TextReader reader;
+    private readonly Stream? stream;
+    private readonly TextReader? reader;
 
     public JavaStreamSource(Stream stream) => this.stream = stream;
 
@@ -624,30 +622,30 @@ public sealed class JavaStreamSource : JavaXmlSource
 
     public JavaStreamSource(JavaFile file) => SetSystemId(file.GetAbsolutePath());
 
-    public Stream GetInputStream() => stream;
+    public Stream? GetInputStream() => stream;
 
-    public TextReader GetReader() => reader;
+    public TextReader? GetReader() => reader;
 
     internal override XmlReader CreateReader(XmlReaderSettings settings) =>
         stream != null ? XmlReader.Create(stream, settings)
         : reader != null ? XmlReader.Create(reader, settings)
-        : XmlReader.Create(GetSystemId(), settings);
+        : XmlReader.Create(GetSystemId()!, settings);
 }
 
 /// <summary>JAXP's Result: where XML goes.</summary>
 public abstract class JavaXmlResult
 {
-    private string systemId;
+    private string? systemId;
 
-    public string GetSystemId() => systemId;
+    public string? GetSystemId() => systemId;
 
-    public void SetSystemId(string id) => systemId = id;
+    public void SetSystemId(string? id) => systemId = id;
 
     /// <summary>
     /// A writer of the XML; unless the settings omit it, the declaration first, with <paramref name="standalone"/>
     /// ("yes", "no"; null: none).
     /// </summary>
-    internal abstract XmlWriter CreateWriter(XmlWriterSettings settings, string standalone);
+    internal abstract XmlWriter CreateWriter(XmlWriterSettings settings, string? standalone);
 
     /// <summary>After the writer has been closed.</summary>
     internal virtual void Written() { }
@@ -656,28 +654,28 @@ public abstract class JavaXmlResult
 /// <summary>JAXP's DOMResult: a new XmlDocument, or the node given, gets the XML.</summary>
 public sealed class JavaDomResult : JavaXmlResult
 {
-    private XmlNode node;
+    private XmlNode? node;
 
     public JavaDomResult() { }
 
-    public JavaDomResult(XmlNode node) => this.node = node;
+    public JavaDomResult(XmlNode? node) => this.node = node;
 
-    public XmlNode GetNode() => node;
+    public XmlNode? GetNode() => node;
 
-    public void SetNode(XmlNode value) => node = value;
+    public void SetNode(XmlNode? value) => node = value;
 
-    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string standalone)
+    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string? standalone)
     {
         node ??= new XmlDocument();
-        return node.CreateNavigator().AppendChild();
+        return node.CreateNavigator()!.AppendChild();
     }
 }
 
 /// <summary>JAXP's StreamResult.</summary>
 public sealed class JavaStreamResult : JavaXmlResult
 {
-    private readonly TextWriter writer;
-    private readonly Stream stream;
+    private readonly TextWriter? writer;
+    private readonly Stream? stream;
 
     public JavaStreamResult(TextWriter writer) => this.writer = writer;
 
@@ -689,16 +687,16 @@ public sealed class JavaStreamResult : JavaXmlResult
 
     public JavaStreamResult(JavaFile file) => SetSystemId(file.GetAbsolutePath());
 
-    public TextWriter GetWriter() => writer;
+    public TextWriter? GetWriter() => writer;
 
-    public Stream GetOutputStream() => stream;
+    public Stream? GetOutputStream() => stream;
 
-    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string standalone)
+    internal override XmlWriter CreateWriter(XmlWriterSettings settings, string? standalone)
     {
         if (settings.OmitXmlDeclaration)
         {
             return writer != null ? XmlWriter.Create(writer, settings)
-                : stream != null ? XmlWriter.Create(stream, settings) : XmlWriter.Create(GetSystemId(), settings);
+                : stream != null ? XmlWriter.Create(stream, settings) : XmlWriter.Create(GetSystemId()!, settings);
         }
         // Java's declaration: XmlWriter's has the TextWriter's encoding (a StringWriter's is UTF-16), the encoding in
         // lower case, and no standalone
@@ -710,7 +708,7 @@ public sealed class JavaStreamResult : JavaXmlResult
         if (text == null)
         {
             // a writer of our own, closed with the XmlWriter; the caller's stream stays open
-            text = new StreamWriter(stream ?? new FileStream(GetSystemId(), FileMode.Create), encoding, 1024,
+            text = new StreamWriter(stream ?? new FileStream(GetSystemId()!, FileMode.Create), encoding, 1024,
                 leaveOpen: stream != null);
             fragment.CloseOutput = true;
         }
@@ -739,7 +737,7 @@ public class JavaTransformerException : Exception
 {
     public JavaTransformerException(string message) : base(message) { }
 
-    public JavaTransformerException(Exception cause) : base(cause?.ToString(), cause) { }
+    public JavaTransformerException(Exception? cause) : base(cause?.ToString(), cause) { }
 
     public JavaTransformerException(string message, Exception cause) : base(message, cause) { }
 }
@@ -754,16 +752,16 @@ public class JavaTransformerConfigurationException : JavaTransformerException
 /// <summary>JAXP's TransformerFactory: an XSLT stylesheet compiled, or the identity.</summary>
 public sealed class JavaTransformerFactory
 {
-    private readonly Dictionary<string, object> attributes = new();
+    private readonly Dictionary<string, object?> attributes = new();
 
     public static JavaTransformerFactory NewInstance() => new();
 
     public static JavaTransformerFactory NewDefaultInstance() => new();
 
     /// <summary>The access properties of XMLConstants: System.Xml resolves nothing external here anyway.</summary>
-    public void SetAttribute(string name, object value) => attributes[name] = value;
+    public void SetAttribute(string name, object? value) => attributes[name] = value;
 
-    public object GetAttribute(string name) => attributes.TryGetValue(name, out var value) ? value : null;
+    public object? GetAttribute(string name) => attributes.TryGetValue(name, out var value) ? value : null;
 
     public void SetFeature(string name, bool value) { }
 
@@ -788,16 +786,16 @@ public sealed class JavaTransformerFactory
 /// <summary>JAXP's Transformer, with the output properties indent, its amount, encoding and the XML declaration.</summary>
 public sealed class JavaTransformer
 {
-    private readonly XslCompiledTransform xslt;
+    private readonly XslCompiledTransform? xslt;
     private readonly Dictionary<string, string> output = new();
 
-    internal JavaTransformer(XslCompiledTransform xslt) => this.xslt = xslt;
+    internal JavaTransformer(XslCompiledTransform? xslt) => this.xslt = xslt;
 
     public void SetOutputProperty(string name, string value) => output[name] = value;
 
-    public string GetOutputProperty(string name) => output.TryGetValue(name, out var value) ? value : null;
+    public string? GetOutputProperty(string name) => output.TryGetValue(name, out var value) ? value : null;
 
-    public void SetParameter(string name, object value) => throw new NotSupportedException("XSLT parameters");
+    public void SetParameter(string name, object? value) => throw new NotSupportedException("XSLT parameters");
 
     private XmlWriterSettings Settings()
     {
@@ -866,7 +864,7 @@ public sealed class JavaSchemaFactory
     public static JavaSchemaFactory NewDefaultInstance() => new();
 
     /// <summary>The access properties of XMLConstants: schemas are read without resolving external ones.</summary>
-    public void SetProperty(string name, object value) { }
+    public void SetProperty(string name, object? value) { }
 
     public void SetFeature(string name, bool value) { }
 
@@ -917,7 +915,7 @@ public sealed class JavaValidator
 
     internal JavaValidator(XmlSchemaSet set) => this.set = set;
 
-    public void SetProperty(string name, object value) { }
+    public void SetProperty(string name, object? value) { }
 
     public void SetFeature(string name, bool value) { }
 
@@ -925,7 +923,7 @@ public sealed class JavaValidator
     {
         if (source is JavaDomSource dom && dom.GetNode() is XmlNode node)
         {
-            var document = node as XmlDocument ?? node.OwnerDocument;
+            var document = node as XmlDocument ?? node.OwnerDocument!;
             document.Schemas = set;
             if (node is XmlDocument) document.Validate(OnEvent);
             else document.Validate(OnEvent, node);
@@ -946,7 +944,7 @@ public sealed class JavaValidator
         }
     }
 
-    private static void OnEvent(object sender, ValidationEventArgs e)
+    private static void OnEvent(object? sender, ValidationEventArgs e)
     {
         if (e.Severity == XmlSeverityType.Warning) return;
         throw new JavaSaxParseException(e.Message, e.Exception?.LineNumber ?? -1, e.Exception?.LinePosition ?? -1,
