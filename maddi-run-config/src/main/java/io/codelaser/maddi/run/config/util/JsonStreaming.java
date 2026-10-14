@@ -280,6 +280,9 @@ public class JsonStreaming {
             // omitted when unknown, so an older configuration reads back identically (Jackson defaults the
             // record component to 0, which is exactly "not known")
             if (value.sourceRelease() > 0) gen.writeNumberField("sourceRelease", value.sourceRelease());
+            // omitted when nothing was declared, so an older configuration reads back identically; the reader
+            // treats a missing key as BuildFiles.NONE
+            if (value.buildFiles() != null) gen.writeObjectField("buildFiles", value.buildFiles());
             gen.writeEndObject();
         }
     }

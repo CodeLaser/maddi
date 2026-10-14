@@ -65,6 +65,33 @@ public class TestCompileLogCli {
     }
 
     /**
+     * A configuration derived from a compile log declares the build files that shaped it ({@code --build-files},
+     * hashed at capture time; TestBuildFiles covers the hashing), or nothing: "none", never silently fine. Module-info
+     * is watched either way.
+     */
+    @Test
+    public void buildFiles(@TempDir Path tempDir) throws Exception {
+        File none = tempDir.resolve("none.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.WRITE_INPUT_CONFIGURATION, none.getAbsolutePath()}));
+        io.codelaser.maddi.inspection.api.resource.BuildFiles nothing = read(none).buildFiles();
+        assertEquals(io.codelaser.maddi.inspection.api.resource.BuildFiles.NONE, nothing.declaredBy());
+        assertEquals(List.of("**/module-info.java"), nothing.globs());
+
+        File declared = tempDir.resolve("declared.json").toFile();
+        assertEquals(Main.EXIT_OK, Main.execute(new String[]{
+                "--" + Main.COMPILE_LOG, COMPILE_LOG,
+                "--" + Main.BUILD_FILES, "**/pom.xml",
+                "--" + Main.BUILD_FILES, ".mvn/**",
+                "--" + Main.WRITE_INPUT_CONFIGURATION, declared.getAbsolutePath()}));
+        io.codelaser.maddi.inspection.api.resource.BuildFiles buildFiles = read(declared).buildFiles();
+        assertEquals(io.codelaser.maddi.inspection.api.resource.BuildFiles.COMPILE_LOG, buildFiles.declaredBy());
+        assertEquals(List.of("**/pom.xml", ".mvn/**", "**/module-info.java"), buildFiles.globs());
+        assertTrue(Path.of(buildFiles.root()).isAbsolute(), buildFiles.root());
+    }
+
+    /**
      * Every source set derived from a compile log must record its build unit, so that a multi-module reactor is
      * recognisable as one. This is the only importer that sees a whole reactor at once; the Maven and Gradle
      * plugins are invoked per module and see siblings as jars.

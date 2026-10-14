@@ -23,6 +23,8 @@ import io.codelaser.maddi.run.config.AnalysisHintsConfigurationImpl;
 import io.codelaser.maddi.run.config.Configuration;
 import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.GeneralConfiguration;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
 import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
@@ -82,6 +84,8 @@ public class Main {
     public static final String COMPILE_LOG = "compile-log";
     public static final String EXTRA_JMOD = "extra-jmod";
     public static final String WRITE_INPUT_CONFIGURATION = "write-input-configuration";
+    // the build files that shaped a configuration derived from a compile log: a server tells a stale one by them
+    public static final String BUILD_FILES = "build-files";
 
     public static final String SOURCE = "source";
     public static final String TEST_SOURCE = "test-source";
@@ -160,7 +164,7 @@ public class Main {
             File file = new File(writeInputConfiguration);
             LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
             JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
-                    .writeValue(file, configuration.inputConfiguration());
+                    .writeValue(file, withBuildFiles(cmd, configuration.inputConfiguration()));
             return EXIT_OK;
         }
 
@@ -338,6 +342,12 @@ public class Main {
                 .desc("Write the (derived) input configuration to FILE as JSON and exit, without running the " +
                       "analysis. Combine with --" + COMPILE_LOG + " to capture a project's configuration for later " +
                       "runs via --" + INPUT_CONFIGURATION + ".").get());
+        options.addOption(Option.builder().longOpt(BUILD_FILES).hasArg().argName("GLOB")
+                .desc("With --" + COMPILE_LOG + " and --" + WRITE_INPUT_CONFIGURATION + ": a glob, relative to the " +
+                      "working directory, of the build files that shaped the log (e.g. '**/build.gradle.kts'). " +
+                      "Repeatable. Their SHA-256 at capture time go into the configuration's \"buildFiles\", so " +
+                      "that a server can tell when it has gone stale; without the option nothing is declared " +
+                      "(\"none\"). **/module-info.java is always watched.").get());
 
         options.addOption(Option.builder().longOpt(JRE).hasArg().argName("DIR")
                 .desc("Provide an alternative location for the Java Runtime Environment (JRE). " +
@@ -483,13 +493,26 @@ public class Main {
      * instruction, and it also wins over {@code sourceRelease} at parse time (see
      * {@link InputConfiguration#sourceRelease()}).
      */
+    /*
+     A configuration derived from a compile log declares its build files, hashed now: the globs of --build-files,
+     else nothing ("none"). Any other configuration is written as it was read.
+     */
+    static InputConfiguration withBuildFiles(CommandLine cmd, InputConfiguration ic) {
+        if (cmd.getOptionValue(COMPILE_LOG) == null) return ic;
+        String[] globs = cmd.getOptionValues(BUILD_FILES);
+        Path root = ic.workingDirectory() == null ? Path.of(".") : ic.workingDirectory();
+        return ic.withBuildFiles(globs == null || globs.length == 0
+                ? BuildFilesCapture.none(root)
+                : BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, root, List.of(globs), List.of()));
+    }
+
     private static InputConfiguration withStatedJre(CommandLine cmd, InputConfiguration ic) {
         String jre = cmd.getOptionValue(JRE);
         if (jre == null || jre.isBlank()) return ic;
         LOGGER.info("Parsing against the JRE stated by --{}: {} (was {})", JRE, jre,
                 ic.alternativeJREDirectory() == null ? "the analyzer's own JDK" : ic.alternativeJREDirectory());
         return new InputConfigurationImpl(ic.workingDirectory(), ic.sourceSets(), ic.classPathParts(),
-                Path.of(jre), ic.sourceRelease());
+                Path.of(jre), ic.sourceRelease(), ic.buildFiles());
     }
 
     /* ******* AnalysisHints configuration ******** */

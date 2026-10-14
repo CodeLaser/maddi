@@ -17,6 +17,7 @@ package io.codelaser.maddi.inspection.resource;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 
 import java.net.URI;
@@ -32,7 +33,20 @@ public record InputConfigurationImpl(Path workingDirectory,
                                      List<SourceSet> sourceSets,
                                      List<SourceSet> classPathParts,
                                      Path alternativeJREDirectory,
-                                     int sourceRelease) implements InputConfiguration {
+                                     int sourceRelease,
+                                     BuildFiles buildFiles) implements InputConfiguration {
+
+    /** Without build files: nothing declared ({@link BuildFiles}). */
+    public InputConfigurationImpl(Path workingDirectory, List<SourceSet> sourceSets, List<SourceSet> classPathParts,
+                                  Path alternativeJREDirectory, int sourceRelease) {
+        this(workingDirectory, sourceSets, classPathParts, alternativeJREDirectory, sourceRelease, null);
+    }
+
+    @Override
+    public InputConfiguration withBuildFiles(BuildFiles buildFiles) {
+        return new InputConfigurationImpl(workingDirectory, sourceSets, classPathParts, alternativeJREDirectory,
+                sourceRelease, buildFiles);
+    }
 
     public static final String MAVEN_MAIN = "src/main/java";
     public static final String MAVEN_TEST = "src/test/java";
@@ -64,7 +78,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                 new SourceSetImpl.Builder().setName(mod).setUri(URI.create(mod))
                         .setExternalLibrary(true).setPartOfJdk(true).setModule(true).build());
         return new InputConfigurationImpl(workingDirectory, sourceSets, Stream.concat(classPathParts.stream(),
-                defaultModuleStream).toList(), alternativeJREDirectory, sourceRelease);
+                defaultModuleStream).toList(), alternativeJREDirectory, sourceRelease, buildFiles);
     }
 
     @Override
@@ -87,7 +101,7 @@ public record InputConfigurationImpl(Path workingDirectory,
                 .toList();
         return new InputConfigurationImpl(workingDirectory, modifiedSourceSets,
                 Stream.concat(classPathParts.stream(), support.stream()).toList(),
-                alternativeJREDirectory, sourceRelease);
+                alternativeJREDirectory, sourceRelease, buildFiles);
     }
 
     @Override

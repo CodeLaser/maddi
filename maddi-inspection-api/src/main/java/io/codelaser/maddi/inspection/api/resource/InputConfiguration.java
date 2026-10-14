@@ -121,6 +121,18 @@ public interface InputConfiguration {
      */
     int sourceRelease();
 
+    /**
+     * The build files that shaped this configuration, hashed at capture time ({@link BuildFiles}); null when the
+     * producer declared nothing, as in every configuration written before 2026-10-14, which a server then treats as
+     * {@link BuildFiles#NONE}.
+     */
+    default BuildFiles buildFiles() {
+        return null;
+    }
+
+    /** This configuration, with the build files that shaped it. */
+    InputConfiguration withBuildFiles(BuildFiles buildFiles);
+
     interface Builder {
 
         @Fluent
