@@ -130,8 +130,15 @@ public interface InputConfiguration {
         return null;
     }
 
-    /** This configuration, with the build files that shaped it. */
-    InputConfiguration withBuildFiles(BuildFiles buildFiles);
+    /**
+     * This configuration, with the build files that shaped it. A default, so that an implementation written before
+     * the method existed (a test double, a client's) still compiles: it carries no build files, so null leaves it as
+     * it is, and anything else is refused rather than silently dropped, which would hide a stale configuration.
+     */
+    default InputConfiguration withBuildFiles(BuildFiles buildFiles) {
+        if (buildFiles == null) return this;
+        throw new UnsupportedOperationException(getClass().getName() + " does not carry build files");
+    }
 
     interface Builder {
 
