@@ -531,6 +531,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static T None<T>() => default;");
         contains(cs, "string name = names.Get((int) boxed);");
         contains(cs, "int i = (int) map.GetValueOrNull(key);");
+        // known-ugly: Java's own (Boolean) (Object) cast chain, kept as it is
         contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
         contains(cs, "case '\\b': return");
         contains(cs, "internal static int OrZero(int? i, int? count) => i == null ? 0 : (int) i + (int) count;");
@@ -1240,6 +1241,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "foreach (MethodInfo m in c.GetMethods(BindingFlags.DeclaredOnly");
         contains(cs, "m.Name + m.GetCustomAttribute<ToolAttribute>().Value");
         contains(cs, "!((JavaModifier.Of(f) & 0x0008) != 0)");
+        // known-ugly: C# has no bridge methods, isBridge() is the constant false, and the printer does not fold it
         contains(cs, "if (false || !m.IsDefined(typeof(ToolAttribute), false))");
         contains(cs, "internal static readonly Type MAP_TYPE = typeof(IDictionary<string, object>);");
     }
@@ -1273,6 +1275,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Services", SERVICES);
         contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
         contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
+        // known-ugly: getFileName() is a Path, a FileInfo of the name, whose ToString() is the name again
         contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
         contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
     }
@@ -1302,13 +1305,15 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 return switch (method.name()) {
                     case "randomUUID" -> new Rule("Guid.NewGuid().ToString()", null, java.util.List.of("System"));
                     case "fromString" -> new Rule("$1", null, java.util.List.of());
+                    // a string already
+                    case "toString" -> new Rule("$0", null, java.util.List.of());
                     default -> null;
                 };
             }
         };
         policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(uuidAsString));
         String cs = translate("ValuesOverridden", VALUES);
-        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
         contains(cs, "internal static string Parse(string s) => s;");
         contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
     }
@@ -1355,6 +1360,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             type java.util.UUID -> string
             member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
             member java.util.UUID.fromString/1 -> $1
+            member java.util.UUID.toString/0 -> $0                 # a string already
             member java.util.Random.nextInt/1 ?receiver=java.util.Random -> $0.Next(0, $1)   # a guard
             """;
 
@@ -1364,7 +1370,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
                 .withFirst(CSharpMappingFile.parse(UUID_AS_STRING, "uuid.csmap")));
         String cs = translate("ValuesOverriddenByFile", VALUES);
-        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
+        contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
         contains(cs, "internal static string Parse(string s) => s;");
         contains(cs, "internal static int Roll(Random random) => random.Next(0, 6);");
         IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
