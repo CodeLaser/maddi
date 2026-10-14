@@ -239,7 +239,7 @@ final class CSharpBcl implements LibraryMapping {
         // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
         chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
-                : valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
+                : valueType(call, 1) ? nullable("$0.GetValueOrNull($1)", COMPAT)
                 : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));

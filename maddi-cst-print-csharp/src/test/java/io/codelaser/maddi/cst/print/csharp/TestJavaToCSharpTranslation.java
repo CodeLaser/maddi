@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
@@ -2706,6 +2707,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     return keys.stream().map(k -> m.get(k)).toList();
                 }
                 static int first(Deque<String> d) { return d.poll().length(); }
+                static int index(Map<String, Integer> m, String k) {
+                    if (m.containsKey(k)) {
+                        int i = m.get(k);
+                        return i;
+                    }
+                    return -1;
+                }
             }
             """;
 
@@ -2722,7 +2730,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method,
                     io.codelaser.maddi.cst.api.element.Element declaration,
                     io.codelaser.maddi.cst.api.variable.LocalVariable variable) {
-                return "v".equals(variable.simpleName()) ? io.codelaser.maddi.cst.api.type.NullableState.NONNULL
+                return Set.of("v", "i").contains(variable.simpleName()) ? io.codelaser.maddi.cst.api.type.NullableState.NONNULL
                         : io.codelaser.maddi.cst.api.type.NullableState.NULLABLE;
             }
 
@@ -2737,5 +2745,8 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "(T) m.Get(k)!;");
         contains(cs, "keys.Select(k => m.Get(k)!)");
         contains(cs, "d.PollFirst()!.Length");
+        // a primitive local: the unboxing asserts, once
+        contains(cs, "int i = (int) m.GetValueOrNull(k)!;");
+        assertFalse(cs.contains("!!"), cs);
     }
 }
