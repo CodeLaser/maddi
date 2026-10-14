@@ -2886,6 +2886,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return null;
     }
 
+    // the literal as written; null when its position or the unit's text is not available
+    private String sourceText(JCTree.JCLiteral literal) {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, literal);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, literal);
+        if (startPos == Diagnostic.NOPOS || endPos == Diagnostic.NOPOS || endPos <= startPos) return null;
+        String text = scanJavaDoc.sourceText().get();
+        return text == null || endPos > text.length() ? null : text.substring((int) startPos, (int) endPos);
+    }
+
     private String getRawTextBlock(JCTree.JCLiteral literal) throws IOException {
         long startPos = sourcePositions.getStartPosition(compilationUnitTree, literal);
         long endPos = sourcePositions.getEndPosition(compilationUnitTree, literal);
@@ -2929,7 +2938,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case BOT -> runtime.newNullConstant(comments, source);
             default -> throw new UnsupportedOperationException();
         };
-
+        if (currentExpression instanceof ConstantExpression<?> constant && !(constant instanceof StringConstant)) {
+            String spelling = LiteralSpelling.spelling(constant, sourceText(literal));
+            if (spelling != null) currentExpression = constant.withSourceSpelling(spelling);
+        }
         return super.visitLiteral(node, unused);
     }
 

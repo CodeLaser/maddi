@@ -33,20 +33,28 @@ public class IntConstantImpl extends ConstantExpressionImpl<Integer> implements 
 
     private final int value;
     private final ParameterizedType parameterizedType;
+    // how the literal was written, when that is not how its value prints (#49); null otherwise
+    private final String sourceSpelling;
 
     public IntConstantImpl(Predefined predefined, int value) {
         this(List.of(), null, predefined.intParameterizedType(), value);
     }
 
     public IntConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, int value) {
+        this(comments, source, parameterizedType, value, null);
+    }
+
+    public IntConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, int value,
+                           String sourceSpelling) {
         super(comments, source, value < -1 || value > 1 ? 2 : 1);
         this.parameterizedType = parameterizedType;
         this.value = value;
+        this.sourceSpelling = sourceSpelling;
     }
 
     @Override
     public Expression withSource(Source source) {
-        return new IntConstantImpl(comments(), source, parameterizedType, value);
+        return new IntConstantImpl(comments(), source, parameterizedType, value, sourceSpelling);
     }
 
     @Override
@@ -64,7 +72,18 @@ public class IntConstantImpl extends ConstantExpressionImpl<Integer> implements 
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return new OutputBuilderImpl().add(new TextImpl(Integer.toString(value)));
+        String text = sourceSpelling != null ? sourceSpelling : Integer.toString(value);
+        return new OutputBuilderImpl().add(new TextImpl(text));
+    }
+
+    @Override
+    public String sourceSpelling() {
+        return sourceSpelling;
+    }
+
+    @Override
+    public IntConstantImpl withSourceSpelling(String sourceSpelling) {
+        return new IntConstantImpl(comments(), source(), parameterizedType, value, sourceSpelling);
     }
 
     @Override

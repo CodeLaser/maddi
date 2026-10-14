@@ -125,6 +125,9 @@ public class KotlinExpressionPrinter {
             case CharConstant cc -> new OutputBuilderImpl().add(new TextImpl(charLiteral(cc.constant())));
             case IntConstant ic when ic.constant() == Integer.MIN_VALUE -> text("Int.MIN_VALUE");
             case LongConstant lc when lc.constant() == Long.MIN_VALUE -> text("Long.MIN_VALUE");
+            // from the value, never the Java spelling (#49): Kotlin has no octal '017' and no lowercase 'l' suffix
+            case IntConstant ic -> text(Integer.toString(ic.constant()));
+            case LongConstant lc -> text(lc.constant() + "L");
             case DoubleConstant dc -> text(doubleLiteral(dc.constant()));
             case FloatConstant fc -> text(floatLiteral(fc.constant()));
             case ByteConstant bc -> text(Byte.toString(bc.constant()));
