@@ -51,6 +51,7 @@ public class Main {
     // the run was handed Kotlin sources, which this analyzer reads as nothing at all; refusing beats reporting
     // success over a tree it only partly read (DetectKotlinSources). Kept in step with run.main.Main's copy.
     public static final int EXIT_KOTLIN_SOURCES = ExitCode.KOTLIN_SOURCES;
+    public static final int EXIT_UNSUPPORTED_OPTION = ExitCode.UNSUPPORTED_OPTION;
 
     public static final String HELP = "help";
 
@@ -70,6 +71,10 @@ public class Main {
     public static final String AS_REWIRE_TESTS = "rewire-tests";
 
     public static final String ANALYSIS_RESULTS_DIR = "analysis-results-dir";
+    public static final String TRANSLATE = "translate";
+    public static final String TRANSLATE_OUTPUT = "translate-output";
+    public static final String TRANSLATE_KOTLIN = "kotlin";
+    public static final String TRANSLATE_CSHARP = "csharp";
     public static final String DEBUG = "debug";
 
     public static final String INPUT_CONFIGURATION = "input-configuration";
@@ -249,6 +254,16 @@ public class Main {
                 .desc("""
                         Directory to write results of analyzer.
                         """).get());
+        options.addOption(Option.builder().longOpt(TRANSLATE).hasArg().argName("LANGUAGE")
+                .desc("Translate the main sources to '" + TRANSLATE_KOTLIN + "' or '" + TRANSLATE_CSHARP
+                      + "', into --" + TRANSLATE_OUTPUT + ". Runs the modification analysis with nullability unless "
+                      + "--" + ANALYSIS_STEPS + " says otherwise; with --" + ANALYSIS_STEPS + " " + AS_NONE
+                      + " the translation has no facts.").get());
+        options.addOption(Option.builder().longOpt(TRANSLATE_OUTPUT).hasArg().argName("DIR")
+                .desc("""
+                        Directory to write the translation to: a source tree by package, and for C# a \
+                        Translated.csproj that builds it.
+                        """).get());
         options.addOption(Option.builder("d").longOpt(DEBUG).hasArg().argName("TARGETS")
                 .desc("""
                         Debug targets. Choose from: X Y Z
@@ -277,6 +292,8 @@ public class Main {
         setSplitStringProperty(kvMap, COMMA, DEBUG, builder::addDebugTargets);
         setSplitStringProperty(kvMap, COMMA, ANALYSIS_STEPS, builder::addAnalysisSteps);
         setStringProperty(kvMap, ANALYSIS_RESULTS_DIR, builder::setAnalysisResultsDir);
+        setStringProperty(kvMap, TRANSLATE, builder::setTranslate);
+        setStringProperty(kvMap, TRANSLATE_OUTPUT, builder::setTranslateOutput);
         return builder.build();
     }
 
@@ -297,6 +314,8 @@ public class Main {
         splitAndAdd(debugTargets, COMMA, builder::addDebugTargets);
 
         builder.setAnalysisResultsDir(cmd.getOptionValue(ANALYSIS_RESULTS_DIR));
+        builder.setTranslate(cmd.getOptionValue(TRANSLATE));
+        builder.setTranslateOutput(cmd.getOptionValue(TRANSLATE_OUTPUT));
 
         return builder.build();
     }

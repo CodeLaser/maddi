@@ -43,6 +43,9 @@ dependencies {
 
     implementation(project(":maddi-run-config"))
     implementation(project(":maddi-run-rewire"))
+    // --translate kotlin|csharp: the Java-to-X printers
+    implementation(project(":maddi-cst-print-kotlin"))
+    implementation(project(":maddi-cst-print-csharp"))
 
     implementation("commons-cli:commons-cli")
     implementation("ch.qos.logback:logback-classic")

@@ -90,6 +90,15 @@ public class TestOneEntryPoint {
         assertTrue(ExitCode.message(ExitCode.UNSUPPORTED_OPTION).contains("not supported"));
     }
 
+    /** The translators print Java: on a project with Kotlin sources, --translate is refused by name too. */
+    @Test
+    public void translateIsRefusedOnAKotlinProject(@TempDir Path tmp) throws Exception {
+        String[] args = concat(kotlinProject(tmp), "--translate", "kotlin", "--translate-output",
+                tmp.resolve("out").toString());
+        assertEquals(ExitCode.UNSUPPORTED_OPTION, Main.execute(args));
+        assertFalse(Files.exists(tmp.resolve("out")));
+    }
+
     /** The explicit {@code --source}/{@code --jmod} route, which the Kotlin CLI did not have at all. */
     private static String[] javaOnlyProject(Path tmp, String name, String source) throws Exception {
         Path src = tmp.resolve("src");

@@ -29,6 +29,8 @@ package io.codelaser.maddi.analysis.api;
  *                          process-wide default (on when the environment variable {@code SSE} is set)
  * @param eventualCluster   the eventual-immutability cluster on or off for this run; null keeps the analyzer's
  *                          process-wide default (on unless {@code EVENTUALCLUSTER=0})
+ * @param nullability       the analyzer computes the facts the nullability pass reads (argument links at every call
+ *                          site), so that {@link AnalysisEngine#nullabilityFacts} can run after it; null: off
  */
 public record ModificationOptions(Integer maxIterations,
                                   Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -39,7 +41,8 @@ public record ModificationOptions(Integer maxIterations,
                                   boolean environmentGates,
                                   boolean storeFingerprints,
                                   Boolean staticSideEffects,
-                                  Boolean eventualCluster) {
+                                  Boolean eventualCluster,
+                                  Boolean nullability) {
 
     /** Both feature switches at the analyzer's process-wide default. */
     public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -48,6 +51,22 @@ public record ModificationOptions(Integer maxIterations,
                                boolean storeFingerprints) {
         this(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
                 modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
-                null, null);
+                null, null, null);
+    }
+
+    /** Without the nullability pass's facts. */
+    public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
+                               Boolean trackObjectCreations, Boolean modificationViaReachability,
+                               Boolean faultTolerant, Boolean warnNearMisses, boolean environmentGates,
+                               boolean storeFingerprints, Boolean staticSideEffects, Boolean eventualCluster) {
+        this(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, null);
+    }
+
+    public ModificationOptions withNullability(boolean nullability) {
+        return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, nullability);
     }
 }

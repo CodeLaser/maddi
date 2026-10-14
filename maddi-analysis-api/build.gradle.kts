@@ -32,5 +32,6 @@ dependencies {
     api(project(":maddi-graph"))
     api(project(":maddi-callgraph"))
     api(project(":maddi-util"))
+    api(project(":maddi-cst-analysis"))  // NullabilityFacts, of nullabilityFacts
     implementation(project(":maddi-support"))  // Either, in AnalysisHintsShadows
 }

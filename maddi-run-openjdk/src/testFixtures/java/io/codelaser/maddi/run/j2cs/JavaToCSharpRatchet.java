@@ -15,17 +15,13 @@
 package io.codelaser.maddi.run.j2cs;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
 import io.codelaser.maddi.cst.print.csharp.CSharpCompat;
-import io.codelaser.maddi.cst.print.csharp.CSharpCompilationUnitPrinter;
+import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
 import io.codelaser.maddi.cst.print.csharp.CSharpLibraries;
 import io.codelaser.maddi.cst.print.csharp.LibraryMapping;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
 import io.codelaser.maddi.cst.print.csharp.CSharpPrintCode;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
 import io.codelaser.maddi.run.j2k.JavaToKotlinRatchet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,13 +108,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         // the sources the libraries' mappings need, the compatibility library first, go with the translation; they
         // are compiled with it, and not counted. A project file beside them references the mappings' packages.
         CSharpLibraries libraries = policy.libraries();
-        List<Path> sources = new ArrayList<>();
-        for (LibraryMapping.Source source : libraries.requirements().sources()) {
-            Path file = out.resolve("src").resolve(source.fileName()).toAbsolutePath().normalize();
-            Files.writeString(file, source.content().get());
-            sources.add(file);
-        }
-        Files.writeString(out.resolve("src").resolve("Translated.csproj"), libraries.projectFile(TARGET_FRAMEWORK, nullable()));
+        List<Path> sources = CSharpTranslator.writeProject(policy, out.resolve("src"));
         List<Path> all = new ArrayList<>(printed.files);
         all.addAll(sources);
         Judged judged = judge(all, libraries.requirements().packages(), nullable(), out);
@@ -150,36 +140,11 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
     private record Printed(List<Path> files, List<String> crashes, List<PrintMessage<CSharpPrintCode>> messages) {
     }
 
-    /** Each compilation unit of {@code types} as a C# file under {@code src}. */
+    /** Each compilation unit of {@code types} as a C# file under {@code src}: what the CLI's translation writes. */
     private static Printed print(JavaToKotlinRatchet.Corpus corpus, List<TypeInfo> types, Path src,
                                  CSharpProgram.Policy policy) throws IOException {
-        List<Path> files = new ArrayList<>();
-        List<String> crashes = new ArrayList<>();
-        List<PrintMessage<CSharpPrintCode>> messages = new ArrayList<>();
-        Runtime runtime = corpus.javaInspector().runtime();
-        Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        Set<Object> done = new HashSet<>();
-        // the corpus is the whole program: what one file's printing may assume of the others
-        CSharpProgram program = CSharpProgram.analyze(types, policy);
-        for (TypeInfo type : types) {
-            if (policy.libraries().excludes(type)) continue; // left out by a mapping, used through its rules
-            if (!done.add(type.compilationUnit())) continue; // a file with two primary types prints once
-            try {
-                CSharpCompilationUnitPrinter.Result result = new CSharpCompilationUnitPrinter(type.compilationUnit(),
-                        true, program).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
-                messages.addAll(result.messages());
-                Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".cs");
-                Files.createDirectories(file.getParent());
-                Files.writeString(file, formatter.write(result.output()) + "\n");
-                files.add(file.toAbsolutePath().normalize());
-            } catch (RuntimeException | StackOverflowError e) {
-                // the frames where it happened: a StackOverflowError's top frames are its cycle
-                StackTraceElement[] trace = e.getStackTrace();
-                crashes.add(type.fullyQualifiedName() + ": " + e + java.util.Arrays.stream(trace).limit(12)
-                        .map(f -> "\n      at " + f).collect(java.util.stream.Collectors.joining()));
-            }
-        }
-        return new Printed(files, crashes, messages);
+        CSharpTranslator.Result result = CSharpTranslator.translate(corpus.javaInspector().runtime(), types, policy, src);
+        return new Printed(result.files(), result.crashes(), result.messages());
     }
 
     // ---------------------------------------------------------------- the judge
@@ -195,7 +160,7 @@ public record JavaToCSharpRatchet(String name, Path ratchetFile, CSharpProgram.P
         return policy.facts().nullabilityAnalysed();
     }
 
-    private static final String TARGET_FRAMEWORK = "net10.0";
+    private static final String TARGET_FRAMEWORK = CSharpTranslator.TARGET_FRAMEWORK;
 
     private static Judged judge(List<Path> files, List<LibraryMapping.NuGetPackage> packages, boolean nullable,
                                 Path out)

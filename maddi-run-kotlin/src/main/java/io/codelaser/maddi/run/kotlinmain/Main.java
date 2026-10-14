@@ -161,8 +161,8 @@ public class Main {
         if (!unsupported.isEmpty()) {
             LOGGER.error("""
                     These options are not (yet) honoured for a project that contains Kotlin: {}.
-                    They all depend on persisting an analysis result, which needs a Kotlin codec round trip \
-                    (see docs/status/kotlin-gap-analysis-2026-09-21.md §8.6). Refusing rather than running them as \
+                    Most depend on persisting an analysis result, which needs a Kotlin codec round trip \
+                    (see docs/status/kotlin-gap-analysis-2026-09-21.md §8.6); --translate translates Java only. Refusing rather than running them as \
                     no-ops: a run that wrote an empty result directory would look like one that worked. \
                     Drop the option, or analyze the Java half with `bin/maddi`.""", unsupported);
             return ExitCode.UNSUPPORTED_OPTION;
@@ -208,6 +208,9 @@ public class Main {
         // verdicts. ⚠ --incremental-analysis still is NOT: consuming results to SKIP work needs the rewire
         // and fingerprint machinery, which is a separate question from being able to write and read them.
         if (general.incrementalAnalysis()) unsupported.add("--" + INCREMENTAL_ANALYSIS);
+        // the translators print Java: a Kotlin source has nothing to translate, and a project of both is not one
+        // Java program to translate (a Java-only project goes through the Java runner, which translates)
+        if (general.translate() != null) unsupported.add("--" + TRANSLATE);
         if (general.analysisSteps().contains(AS_REWIRE_TESTS)) {
             unsupported.add("--" + ANALYSIS_STEPS + " " + AS_REWIRE_TESTS);
         }

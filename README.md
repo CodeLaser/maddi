@@ -103,7 +103,8 @@ one with Kotlin it runs both front ends over a shared core. Take the small zip f
 build (85 MB of K2 compiler jars is the price of the Kotlin one); take the Kotlin zip for
 anything mixed, and use one tool. An option the mixed pipeline cannot honour yet — writing
 analysis results, incremental analysis, the hints compiler, all of which need a Kotlin codec
-round trip — is **refused by name**, never run as a no-op.
+round trip — is **refused by name**, never run as a no-op. So is `--translate`, which translates
+Java: on a project with Kotlin sources there is no single Java program to translate.
 
 Unpack and run: every jar rides along in `lib/`, and the required JVM flags are baked into the
 launcher. Kotlin support ships only this way — it depends on JetBrains K2 artifacts that are not
@@ -116,6 +117,17 @@ no build-tool integration needed:
 ./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
 maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
 ```
+
+The same command line translates the project's main sources to Kotlin or C#, with the nullability
+analysis's verdicts deciding what may be null (`String?`, `string?`) and where a `!!` is needed:
+
+```bash
+maddi --compile-log build.log --translate kotlin --translate-output kotlin-src
+maddi --compile-log build.log --translate csharp --translate-output csharp-src   # with a Translated.csproj
+```
+
+`--analysis-steps none` translates without the analysis. `translation-report.txt` in the output
+lists the printer's crashes and messages; a crash leaves that one file out and exits non-zero.
 
 More worked examples, including two bundled Maven build logs you can run without checking the
 projects out: [`maddi-run-openjdk/running-examples.md`](maddi-run-openjdk/running-examples.md).

@@ -18,6 +18,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * @param translate       the language to translate the main sources to ({@code kotlin}, {@code csharp}); null: none
+ * @param translateOutput the directory the translation is written to
+ */
 public record GeneralConfiguration(boolean incrementalAnalysis,
                                    String analysisResultsDir,
                                    List<String> analysisSteps,
@@ -26,7 +30,9 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
                                    boolean parallel,
                                    boolean jdkInternals,
                                    boolean warnNearMisses,
-                                   boolean skipKotlinSources) {
+                                   boolean skipKotlinSources,
+                                   String translate,
+                                   String translateOutput) {
 
     public static class Builder {
         private boolean incrementalAnalysis;
@@ -38,6 +44,8 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
         private boolean warnNearMisses;
         private boolean skipKotlinSources;
         private String analysisResultsDir;
+        private String translate;
+        private String translateOutput;
 
         public Builder setIncrementalAnalysis(boolean incrementalAnalysis) {
             this.incrementalAnalysis = incrementalAnalysis;
@@ -89,9 +97,20 @@ public record GeneralConfiguration(boolean incrementalAnalysis,
             return this;
         }
 
+        public Builder setTranslate(String translate) {
+            this.translate = translate;
+            return this;
+        }
+
+        public Builder setTranslateOutput(String translateOutput) {
+            this.translateOutput = translateOutput;
+            return this;
+        }
+
         public GeneralConfiguration build() {
             return new GeneralConfiguration(incrementalAnalysis, analysisResultsDir, List.copyOf(analysisSteps),
-                    List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses, skipKotlinSources);
+                    List.copyOf(debugTargets), quiet, parallel, jdkInternals, warnNearMisses, skipKotlinSources,
+                    translate, translateOutput);
         }
     }
 }
