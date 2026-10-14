@@ -71,6 +71,17 @@ class Line {
         assert !string.endsWith("\n");
     }
 
+    // the last thing written is the '>' that closes type arguments (see ElementPrinter.glueAfterTypeArguments)
+    private boolean afterTypeArguments;
+
+    public boolean afterTypeArguments() {
+        return afterTypeArguments;
+    }
+
+    public void setAfterTypeArguments(boolean afterTypeArguments) {
+        this.afterTypeArguments = afterTypeArguments;
+    }
+
     public void setSpace(SpaceLevel spaceLevel) {
         this.spaceLevel = spaceLevel;
     }

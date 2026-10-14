@@ -54,7 +54,7 @@ public class TestStringConstant extends CommonTest {
     }
 
 
-    public static final String INPUT2 = "package a.b;\npublic class X { String [] s = { \"test1\", \"\\\\'test2\\\\'\", \"\\\\'test3\", \"\\\\\\\"test4\" }; }\n";
+    public static final String INPUT2 = "package a.b;\npublic class X { String[] s = { \"test1\", \"\\\\'test2\\\\'\", \"\\\\'test3\", \"\\\\\\\"test4\" }; }\n";
 
     @Test
     public void test2() {
@@ -70,7 +70,7 @@ public class TestStringConstant extends CommonTest {
         assertEquals(INPUT2, out);
     }
 
-    public static final String INPUT3 = "package a.b;\npublic class X {public void parse() { String s = \"a \\\" and \\\" b\"; } }\n";
+    public static final String INPUT3 = "package a.b;\npublic class X { public void parse() { String s = \"a \\\" and \\\" b\"; } }\n";
 
     @Test
     public void test3() {

@@ -152,8 +152,7 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
                     public @Nullable String @Nullable [] both() { return null; }
                 }
                 """;
-        // the printer's own layout puts a space before an unannotated '[]' and before '...'
-        String expected = subject.replace("String[]", "String []").replace("String...", "String ...");
-        assertEquals(expected.stripTrailing(), parseAndPrint("a.b.Y", subject).stripTrailing());
+        // an unannotated '[]' and '...' are written against the type, as in the source (#49)
+        assertEquals(subject.stripTrailing(), parseAndPrint("a.b.Y", subject).stripTrailing());
     }
 }

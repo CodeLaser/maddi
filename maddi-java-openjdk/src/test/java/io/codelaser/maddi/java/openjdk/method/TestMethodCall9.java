@@ -186,7 +186,7 @@ public class TestMethodCall9 extends CommonTest {
         assertEquals("14-19:14-20", mc2.source().detailedSources().detail(ta1).compact2());
         // Original: javaInspector.runtime().qualificationSimpleNames() — replaced with the runtime
         // field directly, which is the same RuntimeImpl instance exposed by CommonTest.
-        assertEquals("X.<PR> filter(pr,b->b.r==1)",
+        assertEquals("X.<PR>filter(pr,b->b.r==1)",
                 mc2.print(runtime.qualificationSimpleNames()).toString());
     }
 

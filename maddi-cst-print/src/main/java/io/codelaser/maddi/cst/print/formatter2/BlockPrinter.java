@@ -307,6 +307,7 @@ public class BlockPrinter {
             splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
+        ElementPrinter.glueAfterTypeArguments(line, output.string);
         Line.SpaceLevel spaceLevel = line.spaceLevel();
 
         // TODO is this a hack? see ElementPrinter.handleNonSpaceNonSymbol TODO
@@ -314,6 +315,11 @@ public class BlockPrinter {
         else if(spaceLevel == Line.SpaceLevel.NEWLINE) line.appendNewLine(line.indent);
         boolean doFirst = !spaceLevel.isNoSpace();
         appendAndInsertSpaceSplits(line, output, splits, doFirst);
+        // the pending space was IN FRONT of the block, and has been written: left pending, it was merged into the
+        // first symbol after the block, where a plain space outranks that symbol's own "no space" (#49:
+        // `int a = 1, b = 2 ;`, after the joined declarators)
+        line.setSpace(Line.SpaceLevel.EMPTY);
+        line.setAfterTypeArguments(false);
         return false;
     }
 
