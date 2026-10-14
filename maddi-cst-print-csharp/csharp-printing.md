@@ -510,7 +510,10 @@ qualified, as one whose name two namespaces declare is.
 ## The JDK → BCL mapping (`CSharpBcl`)
 
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
-ratchet's report (see below) lists what is left.
+ratchet's report (see below) lists what is left. Its rows are a mapping file, `jdk-bcl.csmap` beside the printer's
+classes, in the format a client's `.csmap` has; `CSharpBcl` reads it, and asks its own choosers first, the rules
+that depend on the call: a receiver that is a read-only parameter or a subclass of `ArrayList`, a value type's absence
+from a map, a stream's collector.
 
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections

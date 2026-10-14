@@ -393,6 +393,16 @@ public final class CSharpMappingFile implements LibraryMapping {
                 base + "/" + constructor.parameters().size(), base), constructor, null);
     }
 
+    /** The rule of the one key {@code key}: the first of its value and statement templates whose guards hold. */
+    Rule memberRule(String key, MethodInfo method, MethodCall call) {
+        return rule(List.of(key), method, call);
+    }
+
+    /** The file has a member or statement line for {@code key}. */
+    boolean hasMember(String key) {
+        return values.containsKey(key) || statements.containsKey(key);
+    }
+
     /**
      * The rule of the first key with a value template whose guard holds, and that key's statement template, or a more
      * specific key's; a statement template without any value template is a rule of its own, whose value the next
