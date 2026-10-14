@@ -226,6 +226,47 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String INFERRED_LAMBDA_PARAMETERS = """
+            package a;
+            import java.io.IOException;
+            import java.io.InputStream;
+            import java.util.Map;
+            class L {
+                static InputStream open(String name) { return null; }
+                static void consume(InputStream stream) throws IOException { stream.read(); }
+                static void check(String key, Object value) { System.out.println(key.length()); }
+                static void read(String name) throws IOException {
+                    try (InputStream stream = open(name)) {
+                        consume(stream);
+                    }
+                }
+                static void all(Map<String, Object> map) {
+                    map.forEach((key, value) -> check(key, value));
+                }
+            }
+            """;
+
+    /**
+     * A lambda parameter Kotlin types by inference, not by its verdict: {@code use}'s is its receiver's type
+     * (fernflower's {@code loader.getClassStream(name).use { in -> StructClass.create(in, ...) }}), forEach's
+     * {@code key} the receiver's key type (langchain4j's {@code metadata.forEach { key, value -> validate(key, value) }}
+     * on a {@code Map<String?, *>}). Into a non-null parameter both need their {@code !!}.
+     */
+    @Test
+    public void inferredLambdaParameters() {
+        String kotlin = kotlin(INFERRED_LAMBDA_PARAMETERS, new KotlinPrintOptions(new ByName(Set.of("open()", "map<>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "open(name).use { stream ->");
+        contains(kotlin, "consume(stream!!)");
+        contains(kotlin, "check(key!!, value)");
+        // without the nullable receivers: no assertion
+        String plain = kotlin(INFERRED_LAMBDA_PARAMETERS.replace("class L {", "class L2 {"),
+                new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(plain, "consume(stream)");
+        contains(plain, "check(key, value)");
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a;
             import java.util.*;

@@ -347,7 +347,7 @@ public class Main {
                       "working directory, of the build files that shaped the log (e.g. '**/build.gradle.kts'). " +
                       "Repeatable. Their SHA-256 at capture time go into the configuration's \"buildFiles\", so " +
                       "that a server can tell when it has gone stale; without the option nothing is declared " +
-                      "(\"none\"). **/module-info.java is always watched.").get());
+                      "(\"none\"). The module-info.java of each source directory is always watched.").get());
 
         options.addOption(Option.builder().longOpt(JRE).hasArg().argName("DIR")
                 .desc("Provide an alternative location for the Java Runtime Environment (JRE). " +
@@ -502,8 +502,8 @@ public class Main {
         String[] globs = cmd.getOptionValues(BUILD_FILES);
         Path root = ic.workingDirectory() == null ? Path.of(".") : ic.workingDirectory();
         return ic.withBuildFiles(globs == null || globs.length == 0
-                ? BuildFilesCapture.none(root)
-                : BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, root, List.of(globs), List.of()));
+                ? BuildFilesCapture.none(root, ic)
+                : BuildFilesCapture.capture(BuildFiles.COMPILE_LOG, root, List.of(globs), List.of(), ic));
     }
 
     private static InputConfiguration withStatedJre(CommandLine cmd, InputConfiguration ic) {

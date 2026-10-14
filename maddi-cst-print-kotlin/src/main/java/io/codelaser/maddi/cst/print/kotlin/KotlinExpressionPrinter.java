@@ -499,6 +499,9 @@ public class KotlinExpressionPrinter {
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
+            if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
+                KotlinNullability.inferLambdaParameters(lambda, method, i, call);
+            }
             if (spread(args, method, i)) {
                 printed.add(new OutputBuilderImpl().add(SPREAD)
                         .add(KotlinNullability.asserted(args.get(i), KotlinPrintCode.ASSERT_INTO_NON_NULL, q)));

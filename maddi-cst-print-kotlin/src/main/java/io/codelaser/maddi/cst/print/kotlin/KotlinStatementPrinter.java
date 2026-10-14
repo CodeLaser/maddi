@@ -737,8 +737,15 @@ public class KotlinStatementPrinter {
         OutputBuilder receiver;
         String parameter;
         if (resource instanceof LocalVariableCreation lvc) {
-            receiver = KotlinExpressionPrinter.receiver(lvc.localVariable().assignmentExpression(), q);
+            Expression init = lvc.localVariable().assignmentExpression();
+            receiver = KotlinExpressionPrinter.receiver(init, q);
             parameter = KotlinNames.name(lvc.localVariable().simpleName());
+            // `use`'s parameter is typed by its receiver, not by the local's verdict: getClassStream(name).use { in ->
+            // StructClass.create(in, ...) } has an `in` as nullable as getClassStream's result
+            ParameterizedType declared = KotlinNullability.localType(lvc, lvc.localVariable());
+            KotlinContext.localType(lvc.localVariable().simpleName(), declared.withNullable(
+                    KotlinNullability.nullableInKotlin(init) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL));
         } else if (resource instanceof ExpressionAsStatement eas) {
             receiver = KotlinExpressionPrinter.receiver(eas.expression(), q);
             parameter = null; // an existing variable: still in scope inside the lambda

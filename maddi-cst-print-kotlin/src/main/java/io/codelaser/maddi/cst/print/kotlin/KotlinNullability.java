@@ -92,7 +92,8 @@ final class KotlinNullability {
             return declared.withNullable(NullableState.NULLABLE);
         }
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
-        return verdict != null ? verdict : declared;
+        ParameterizedType type = verdict != null ? verdict : declared;
+        return INFERRED_NULLABLE.get().containsKey(parameterInfo) ? type.withNullable(NullableState.NULLABLE) : type;
     }
 
     /**
@@ -222,6 +223,42 @@ final class KotlinNullability {
             if (found != null) return found;
         }
         return null;
+    }
+
+    // lambda parameters Kotlin types nullable by inference, whatever their verdict (inferLambdaParameters)
+    private static final ThreadLocal<java.util.Map<ParameterInfo, Boolean>> INFERRED_NULLABLE =
+            ThreadLocal.withInitial(java.util.WeakHashMap::new);
+
+    /**
+     * A lambda printed without parameter types takes them from the parameter it is passed to, instantiated by the
+     * call's receiver: {@code metadata.forEach { key, value -> validate(key, value) }} on a {@code Map<String?, *>}
+     * has a {@code key: String?}, through forEach's {@code BiConsumer<? super K, ? super V>}, whatever the verdict of
+     * the lambda's own {@code key}. Only the nullable direction: a {@code !!} on a value Kotlin knows non-null is a
+     * warning, a missing one an error.
+     */
+    static void inferLambdaParameters(Lambda lambda, MethodInfo method, int index, MethodCall call) {
+        if (method == null || index >= method.parameters().size() || call.object() == null) return;
+        ParameterizedType formal = method.parameters().get(index).parameterizedType();
+        ParameterizedType receiver = kotlinType(call.object());
+        if (formal.typeInfo() == null || receiver == null || receiver.typeInfo() != method.typeInfo()) return;
+        MethodInfo sam = lambda.methodInfo().overrides().stream()
+                .filter(o -> o.typeInfo() == formal.typeInfo()).findFirst().orElse(null);
+        if (sam == null) return;
+        List<ParameterInfo> parameters = lambda.parameters();
+        for (int j = 0; j < parameters.size() && j < sam.parameters().size(); j++) {
+            io.codelaser.maddi.cst.api.info.TypeParameter samVariable = sam.parameters().get(j).parameterizedType()
+                    .typeParameter();
+            if (samVariable == null || samVariable.isMethodTypeParameter()
+                || samVariable.getIndex() >= formal.parameters().size()) continue;
+            io.codelaser.maddi.cst.api.info.TypeParameter receiverVariable = formal.parameters()
+                    .get(samVariable.getIndex()).typeParameter();
+            if (receiverVariable == null || receiverVariable.isMethodTypeParameter()
+                || !method.typeInfo().typeParameters().contains(receiverVariable)
+                || receiverVariable.getIndex() >= receiver.parameters().size()) continue;
+            if (isNullable(receiver.parameters().get(receiverVariable.getIndex()))) {
+                INFERRED_NULLABLE.get().put(parameters.get(j), true);
+            }
+        }
     }
 
     /** The type of a local variable declared by {@code declaration}; remembered for the uses that follow. */
