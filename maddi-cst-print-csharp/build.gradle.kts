@@ -35,12 +35,15 @@ dependencies {
     testImplementation(project(":maddi-inspection-api"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-inspection-resource"))
-    // the library mappings' samples use slf4j, Jackson and JAXB (slf4j-api comes from java-library-conventions)
+    // the library mappings' samples use slf4j, Jackson, JAXB and Micrometer (slf4j-api comes from java-library-conventions)
     testImplementation("com.fasterxml.jackson.core:jackson-databind")
     testImplementation("jakarta.xml.bind:jakarta.xml.bind-api")
+    testImplementation("io.micrometer:micrometer-core")
 }
 
 tasks.test {
+    // ./gradlew :maddi-cst-print-csharp:test -PupdateGolden rewrites the golden files (CommonJavaToCSharp.golden)
+    systemProperty("csharp.golden.update", project.hasProperty("updateGolden"))
     jvmArgs(
         "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
