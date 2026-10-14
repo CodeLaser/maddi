@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -313,7 +314,7 @@ public final class CSharpMappingFile implements LibraryMapping {
                     if (token.isEmpty()) continue;
                     String guard = token.substring(1);
                     if (guard.startsWith("on=")) {
-                        target = Target.valueOf(guard.substring(3).toUpperCase(Locale.ROOT));
+                        target = target(guard.substring(3));
                         continue;
                     }
                     if (guard.startsWith("has=")) guard = guard.substring(4);
@@ -328,6 +329,14 @@ public final class CSharpMappingFile implements LibraryMapping {
             case "override" -> unique(overrides.put(key, value), directive, key);
             default -> throw new IllegalArgumentException("unknown directive " + directive);
         }
+    }
+
+    private static Target target(String name) {
+        for (Target t : Target.values()) {
+            if (t.name().equalsIgnoreCase(name)) return t;
+        }
+        throw new IllegalArgumentException("no target " + name + "; there are "
+                                           + Arrays.stream(Target.values()).map(t -> t.name().toLowerCase(Locale.ROOT)).toList());
     }
 
     /** A type, field or override is mapped once: a second line would silently replace the first. */
