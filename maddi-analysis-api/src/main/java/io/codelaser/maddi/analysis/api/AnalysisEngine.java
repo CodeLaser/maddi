@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
 import io.codelaser.maddi.util.Trie;
@@ -71,6 +72,15 @@ public interface AnalysisEngine {
      * wants to survive it catches); isolated failures come back as error messages when fault-tolerant.
      */
     ModificationOutcome modification(ModificationRequest request) throws IOException;
+
+    /**
+     * The nullability pass over {@code order}, after a {@link #modification} run with
+     * {@link ModificationOptions#nullability()} on: its verdicts on fields, parameters and returns, and what it knows
+     * at use sites, for a translation to {@code target}. For {@link NullabilityTarget#CSHARP} a declaration it has
+     * no verdict of (a library's) falls back to what the analyzer stored from the hints
+     * ({@link NullabilityFacts#STORED}).
+     */
+    NullabilityFacts nullabilityFacts(List<Info> order, NullabilityTarget target);
 
     /**
      * The properties the analysis writes for its own bookkeeping during a run. They are not results: a client

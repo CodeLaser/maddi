@@ -22,6 +22,7 @@ import io.codelaser.maddi.analysis.api.HintsSpec;
 import io.codelaser.maddi.analysis.api.ModificationOptions;
 import io.codelaser.maddi.analysis.api.ModificationOutcome;
 import io.codelaser.maddi.analysis.api.ModificationRequest;
+import io.codelaser.maddi.analysis.api.NullabilityTarget;
 import io.codelaser.maddi.analysis.api.PrepOutcome;
 import io.codelaser.maddi.analysis.api.PrepRequest;
 import io.codelaser.maddi.run.config.AnalysisHintsConfiguration;
@@ -33,6 +34,14 @@ import io.codelaser.maddi.run.config.report.ErrorReport;
 import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+import io.codelaser.maddi.cst.print.csharp.CSharpFacts;
+import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
+import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
+import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
+import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
+import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
@@ -50,9 +59,11 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -131,6 +142,10 @@ public class RunAnalyzer implements Runnable {
 
     private void runAnalyzer() throws IOException {
         setLogbackRootLevelToInfoIfPresent();
+        if (!translationConfigured()) {
+            exitValue = Main.EXIT_UNSUPPORTED_OPTION;
+            return;
+        }
 
         JavaInspector javaInspector = new JavaInspectorImpl(true, false);
         javaInspector.setJdkInternals(configuration.generalConfiguration().jdkInternals());
@@ -147,7 +162,7 @@ public class RunAnalyzer implements Runnable {
         javaInspector.preload("java.base::java.util");
         AnalysisHintsConfiguration ac = configuration.analysisHintsConfiguration();
 
-        List<String> analysisSteps = configuration.generalConfiguration().analysisSteps();
+        List<String> analysisSteps = analysisSteps();
         boolean modification = analysisSteps.contains(Main.AS_MODIFICATION);
         if (!modification) {
             LOGGER.info("Skip loading analyzed package files, modification analysis disabled.");
@@ -204,6 +219,7 @@ public class RunAnalyzer implements Runnable {
             printMemUse();
         }
         if (analysisSteps.size() == 1 && Main.AS_NONE.equalsIgnoreCase(analysisSteps.getFirst())) {
+            translate(javaInspector, null);
             return;
         }
         ComputeCallGraph ccg;
@@ -272,7 +288,9 @@ public class RunAnalyzer implements Runnable {
                     true, // isolate a crash on one element; report it, don't abort the whole run
                     configuration.generalConfiguration().warnNearMisses(),
                     true, // environment gates
-                    true); // store the analysis fingerprints
+                    true) // store the analysis fingerprints
+                    // the facts the nullability pass reads, for a translation
+                    .withNullability(configuration.generalConfiguration().translate() != null);
             ModificationOutcome modificationOutcome;
             try {
                 modificationOutcome = engine().modification(new ModificationRequest(javaInspector, order,
@@ -297,7 +315,88 @@ public class RunAnalyzer implements Runnable {
             } else {
                 LOGGER.warn("Not writing out results, " + Main.ANALYSIS_RESULTS_DIR + " is empty");
             }
+            translate(javaInspector, order);
+        } else {
+            translate(javaInspector, null);
         }
+    }
+
+    // ---- --translate kotlin|csharp
+
+    /**
+     * The steps asked for; a translation without them runs the modification analysis, for the nullability facts.
+     */
+    private List<String> analysisSteps() {
+        List<String> steps = configuration.generalConfiguration().analysisSteps();
+        if (steps.isEmpty() && configuration.generalConfiguration().translate() != null) {
+            return List.of(Main.AS_MODIFICATION);
+        }
+        return steps;
+    }
+
+    private boolean translationConfigured() {
+        String translate = configuration.generalConfiguration().translate();
+        if (translate == null) return true;
+        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_CSHARP.equals(translate)) {
+            LOGGER.error("--{} {}: choose '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
+                    Main.TRANSLATE_CSHARP);
+            return false;
+        }
+        if (configuration.generalConfiguration().translateOutput() == null) {
+            LOGGER.error("--{} needs --{}", Main.TRANSLATE, Main.TRANSLATE_OUTPUT);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * The main sources, translated into {@code --translate-output}, with the nullability pass's facts when the
+     * modification analysis ran ({@code order} not null). A printer crash on one compilation unit is reported, and
+     * the others are written. {@code translation-report.txt} beside the sources lists the crashes and the printer's
+     * messages.
+     */
+    private void translate(JavaInspector javaInspector, List<Info> order) throws IOException {
+        String translate = configuration.generalConfiguration().translate();
+        if (translate == null) return;
+        Path out = Path.of(configuration.generalConfiguration().translateOutput());
+        List<TypeInfo> all = summary.parseResult().primaryTypes().stream()
+                .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
+        List<TypeInfo> main = all.stream().filter(t -> !t.compilationUnit().sourceSet().test()).toList();
+        boolean kotlin = Main.TRANSLATE_KOTLIN.equals(translate);
+        NullabilityFacts facts = order == null ? null
+                : engine().nullabilityFacts(order, kotlin ? NullabilityTarget.KOTLIN : NullabilityTarget.CSHARP);
+        LOGGER.info("Translating {} types to {} in {}, {}", main.size(), translate, out,
+                facts == null ? "without nullability facts" : "with the nullability pass's facts");
+        List<String> crashes;
+        List<String> messages;
+        int files;
+        if (kotlin) {
+            // main and test sources are one Kotlin code base: what a file may assume of the others
+            KotlinPrintOptions options = (facts == null ? KotlinPrintOptions.DEFAULT
+                    : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all));
+            KotlinTranslator.Result result = KotlinTranslator.translate(javaInspector.runtime(), main, options, out);
+            crashes = result.crashes();
+            messages = result.messages().stream().map(Object::toString).toList();
+            files = result.files().size();
+        } else {
+            CSharpProgram.Policy policy = facts == null ? CSharpProgram.Policy.DEFAULT
+                    : CSharpProgram.Policy.DEFAULT.withFacts(CSharpFacts.of(facts, ParameterInfo::isUnmodified));
+            CSharpTranslator.Result result = CSharpTranslator.translate(javaInspector.runtime(), main, policy, out);
+            CSharpTranslator.writeProject(policy, out);
+            crashes = result.crashes();
+            messages = result.messages().stream().map(Object::toString).toList();
+            files = result.files().size();
+        }
+        Files.createDirectories(out);
+        List<String> report = new ArrayList<>();
+        report.add(translate + ": " + main.size() + " types, " + files + " files, " + crashes.size()
+                   + " printer crashes, " + messages.size() + " messages");
+        crashes.forEach(c -> report.add("crash: " + c));
+        report.addAll(messages);
+        Files.write(out.resolve("translation-report.txt"), report);
+        crashes.forEach(c -> LOGGER.error("Printer crash, file not written: {}", c));
+        LOGGER.info("{}; see {}", report.getFirst(), out.resolve("translation-report.txt"));
+        if (!crashes.isEmpty()) exitValue = Main.EXIT_INTERNAL_EXCEPTION;
     }
 
     private static final int MB = 1024 * 1024;

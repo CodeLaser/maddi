@@ -28,9 +28,10 @@ dependencies {
     api(project(":maddi-cst-analysis"))
     // what the Java-to-X printers share: print messages, the per-thread state, CST queries
     api(project(":maddi-cst-print-translate"))
+    // the language-neutral formatter: CSharpTranslator writes files
+    implementation(project(":maddi-cst-print"))
 
     // the tests print Java parsed by the openjdk front end (Java -> C# translation)
-    testImplementation(project(":maddi-cst-print"))
     testImplementation(project(":maddi-inspection-api"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-inspection-resource"))

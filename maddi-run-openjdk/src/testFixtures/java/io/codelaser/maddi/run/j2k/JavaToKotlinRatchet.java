@@ -16,11 +16,7 @@ package io.codelaser.maddi.run.j2k;
 
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.runtime.Runtime;
-import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
-import io.codelaser.maddi.cst.print.FormattingOptionsImpl;
-import io.codelaser.maddi.cst.print.formatter2.Formatter2Impl;
-import io.codelaser.maddi.cst.print.kotlin.KotlinCompilationUnitPrinter;
+import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintCode;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
@@ -335,31 +331,11 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     private record Printed(List<Path> files, List<String> crashes, List<PrintMessage<KotlinPrintCode>> messages) {
     }
 
-    /** Each compilation unit of {@code types} as a Kotlin file under {@code src}. */
+    /** Each compilation unit of {@code types} as a Kotlin file under {@code src}: what the CLI's translation writes. */
     private static Printed print(Corpus corpus, List<TypeInfo> types, KotlinPrintOptions options, Path src)
             throws IOException {
-        List<Path> files = new ArrayList<>();
-        List<String> crashes = new ArrayList<>();
-        List<PrintMessage<KotlinPrintCode>> messages = new ArrayList<>();
-        Runtime runtime = corpus.javaInspector().runtime();
-        Formatter2Impl formatter = new Formatter2Impl(runtime, new FormattingOptionsImpl.Builder().build());
-        Set<Object> printed = new HashSet<>();
-        for (TypeInfo type : types) {
-            if (!printed.add(type.compilationUnit())) continue; // a file with two primary types prints once
-            try {
-                KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(type.compilationUnit(),
-                        true, options).printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
-                messages.addAll(result.messages());
-                String kotlin = formatter.write(result.output()) + "\n";
-                Path file = src.resolve(type.packageName().replace('.', '/')).resolve(type.simpleName() + ".kt");
-                Files.createDirectories(file.getParent());
-                Files.writeString(file, kotlin);
-                files.add(file.toAbsolutePath().normalize());
-            } catch (RuntimeException | StackOverflowError e) {
-                crashes.add(type.fullyQualifiedName() + ": " + e);
-            }
-        }
-        return new Printed(files, crashes, messages);
+        KotlinTranslator.Result result = KotlinTranslator.translate(corpus.javaInspector().runtime(), types, options, src);
+        return new Printed(result.files(), result.crashes(), result.messages());
     }
 
     /** Every jar the configuration names; the JDK comes from the compiler's own JVM. */

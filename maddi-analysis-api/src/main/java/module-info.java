@@ -4,6 +4,7 @@ module io.codelaser.maddi.analysis.api {
     requires transitive io.codelaser.maddi.graph;
     requires transitive io.codelaser.maddi.callgraph;
     requires transitive io.codelaser.maddi.util;
+    requires transitive io.codelaser.maddi.cst.analysis;
     requires io.codelaser.maddi.support;
 
     exports io.codelaser.maddi.analysis.api;
