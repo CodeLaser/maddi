@@ -30,12 +30,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Predicate;
 
 /**
  * The state of one file's printing, shared by the printers: they are created through the cst-api factories, whose
@@ -48,7 +48,15 @@ final class CSharpContext {
     private static final class State {
         final TranslationState<CSharpPrintCode> base = new TranslationState<>();
         TypeInfo companion;
-        final Map<TypeInfo, Boolean> hasCompanion = new HashMap<>();
+        final CSharpProgram.Memo memo = new CSharpProgram.Memo();
+        /** The inner classes {@link CSharpInner#withOuter} is deciding, outermost first. */
+        final List<TypeInfo> innerInProgress = new ArrayList<>();
+        /** Those of them whose answer so far rests on a class deeper in the stack being taken as without its outer. */
+        final Set<TypeInfo> innerProvisional = new HashSet<>();
+        /** The raw types whose arguments {@link CSharpTypeName} is printing: an F-bounded parameter refers back. */
+        final Set<TypeInfo> rawInProgress = new HashSet<>();
+        /** The selectors of the switches being printed, innermost first: a char selector's int labels are chars. */
+        final Deque<Expression> selectors = new ArrayDeque<>();
         final Set<String> usings = new TreeSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
@@ -92,6 +100,28 @@ final class CSharpContext {
         return h != null && h.outer() ? h : null;
     }
 
+    /** The per-type answers of the program ({@link CSharpProgram.Memo}); the file's own without one. */
+    static CSharpProgram.Memo memo() {
+        State state = STATE.get();
+        return state.program == CSharpProgram.NONE ? state.memo : state.program.memo();
+    }
+
+    static List<TypeInfo> innerInProgress() {
+        return STATE.get().innerInProgress;
+    }
+
+    static Set<TypeInfo> innerProvisional() {
+        return STATE.get().innerProvisional;
+    }
+
+    static Set<TypeInfo> rawInProgress() {
+        return STATE.get().rawInProgress;
+    }
+
+    static Deque<Expression> selectors() {
+        return STATE.get().selectors;
+    }
+
     static void program(CSharpProgram program) {
         STATE.get().program = program;
     }
@@ -117,16 +147,6 @@ final class CSharpContext {
     /** The type whose companion class is being printed ({@link CSharpNames#hasCompanion}); null when none. */
     static TypeInfo companion() {
         return STATE.get().companion;
-    }
-
-    static boolean hasCompanion(TypeInfo typeInfo, Predicate<TypeInfo> compute) {
-        Map<TypeInfo, Boolean> cache = STATE.get().hasCompanion;
-        Boolean known = cache.get(typeInfo);
-        if (known == null) {
-            known = compute.test(typeInfo);
-            cache.put(typeInfo, known);
-        }
-        return known;
     }
 
     static void companion(TypeInfo typeInfo) {

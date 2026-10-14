@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -74,7 +73,7 @@ import java.util.regex.Pattern;
  * most specific type first. Templates are those of {@link LibraryMapping.Rule}, and {@code $#1} writes argument 1, an
  * slf4j message, as a .NET message template whose holes are named after their arguments. A rule with guards,
  * {@code ?name ?other}, applies only when they all hold; the rules of one key are tried in their order. The guards are
- * named predicates of a call ({@link #guard(String, Guard)} registers more): {@code arguments=N},
+ * named predicates of a call: {@code arguments=N},
  * {@code lastArgumentThrowable}, {@code receiver=fqn}, {@code methodReference}.
  */
 public final class CSharpMappingFile implements LibraryMapping {
@@ -83,18 +82,11 @@ public final class CSharpMappingFile implements LibraryMapping {
     public interface Guard extends BiPredicate<MethodInfo, MethodCall> {
     }
 
-    private static final Map<String, Guard> GUARDS = new ConcurrentHashMap<>();
-
-    static {
-        guard("lastArgumentThrowable", (method, call) -> call != null && !call.parameterExpressions().isEmpty()
-                                                         && throwable(call.parameterExpressions().getLast()));
-        guard("methodReference", (method, call) -> call == null);
-    }
-
-    /** Registers a named guard, for the files' {@code ?name}. */
-    public static void guard(String name, Guard guard) {
-        GUARDS.put(name, guard);
-    }
+    /** The named guards; {@code arguments=N} and {@code receiver=fqn} take their value (see {@link #resolveGuard}). */
+    private static final Map<String, Guard> GUARDS = Map.of(
+            "lastArgumentThrowable", (method, call) -> call != null && !call.parameterExpressions().isEmpty()
+                                                       && throwable(call.parameterExpressions().getLast()),
+            "methodReference", (method, call) -> call == null);
 
     private static Guard resolveGuard(String name) {
         if (name.startsWith("arguments=")) {

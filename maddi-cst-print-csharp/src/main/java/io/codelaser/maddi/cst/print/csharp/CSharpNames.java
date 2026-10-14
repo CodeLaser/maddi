@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -206,7 +207,13 @@ public final class CSharpNames {
      */
     static boolean hasCompanion(TypeInfo t) {
         if (t.typeParameters().isEmpty()) return false;
-        return CSharpContext.hasCompanion(t, CSharpNames::computeHasCompanion);
+        Map<TypeInfo, Boolean> cache = CSharpContext.memo().hasCompanion;
+        Boolean known = cache.get(t);
+        if (known == null) {
+            known = computeHasCompanion(t);
+            cache.put(t, known);
+        }
+        return known;
     }
 
     private static boolean computeHasCompanion(TypeInfo t) {

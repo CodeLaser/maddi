@@ -31,7 +31,6 @@ import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,16 +47,6 @@ import java.util.stream.Collectors;
  */
 final class CSharpInner {
 
-    /**
-     * The inner classes being decided, outermost first, and those whose answer so far rests on one of them being
-     * taken as without its enclosing instance: a false answer of theirs is not final.
-     */
-    private record InProgress(List<TypeInfo> stack, Set<TypeInfo> provisional) {
-    }
-
-    private static final ThreadLocal<InProgress> IN_PROGRESS =
-            ThreadLocal.withInitial(() -> new InProgress(new ArrayList<>(), new HashSet<>()));
-
     private CSharpInner() {
     }
 
@@ -67,26 +56,27 @@ final class CSharpInner {
             || !CSharpNames.translated(t)) {
             return false;
         }
-        Map<TypeInfo, Boolean> cache = CSharpContext.program().inner();
+        Map<TypeInfo, Boolean> cache = CSharpContext.memo().inner;
         Boolean known = cache.get(t);
         if (known != null) return known;
-        InProgress inProgress = IN_PROGRESS.get();
-        int at = inProgress.stack().indexOf(t);
+        List<TypeInfo> stack = CSharpContext.innerInProgress();
+        Set<TypeInfo> provisional = CSharpContext.innerProvisional();
+        int at = stack.indexOf(t);
         if (at >= 0) {
             // a cycle of creations: t is without, for now; what was decided on top of that is provisional. The
             // answer is the least one (true only when a class of the cycle uses its enclosing instance itself).
-            for (int i = at + 1; i < inProgress.stack().size(); i++) inProgress.provisional().add(inProgress.stack().get(i));
+            for (int i = at + 1; i < stack.size(); i++) provisional.add(stack.get(i));
             return false;
         }
-        inProgress.stack().add(t);
+        stack.add(t);
         try {
             boolean computed = usesOuter(t);
             // true is final; false is, unless it rests on a class still being decided
-            if (computed || !inProgress.provisional().contains(t)) cache.put(t, computed);
+            if (computed || !provisional.contains(t)) cache.put(t, computed);
             return computed;
         } finally {
-            inProgress.stack().removeLast();
-            inProgress.provisional().remove(t);
+            stack.removeLast();
+            provisional.remove(t);
         }
     }
 

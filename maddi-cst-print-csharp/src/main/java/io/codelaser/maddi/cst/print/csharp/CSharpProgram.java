@@ -145,13 +145,12 @@ public final class CSharpProgram {
     private final CSharpFacts facts;
     private final Set<ParameterInfo> readOnly;
     private final Map<MethodInfo, CSharpProperties.Property> accessors = new HashMap<>();
-    private final Map<TypeInfo, Boolean> inner = new ConcurrentHashMap<>();
     private Set<MethodInfo> erasedGenerics = Set.of();
     private Set<TypeInfo> exposedBases = Set.of();
     private Map<String, TypeInfo> packageInfos = Map.of();
     private List<TypeInfo> types = List.of();
     private Set<TypeParameter> notNullKeys = Set.of();
-    private final Map<TypeInfo, List<TypeParameter>> companions = new ConcurrentHashMap<>();
+    private final Memo memo = new Memo();
 
     private CSharpProgram(Set<TypeInfo> delegates, Set<TypeInfo> extended, Set<MethodInfo> overridden,
                           Inheritance inheritance, Map<String, String> namespaceSegments, Set<String> ambiguous,
@@ -503,14 +502,21 @@ public final class CSharpProgram {
         return typeTokens.getOrDefault(method, -1);
     }
 
-    /** The self-bounded type parameters of the program's types ({@link CSharpCompanions#removed}), as they are asked for. */
-    Map<TypeInfo, List<TypeParameter>> companions() {
-        return companions;
+    /**
+     * What the printing works out per type as it is asked for, pure functions of the program: kept with it, for all its
+     * files. {@link CSharpContext#memo} has a file's own for {@link #NONE}, which knows no program.
+     */
+    static final class Memo {
+        /** The self-bounded type parameters of a program type ({@link CSharpCompanions#removed}). */
+        final Map<TypeInfo, List<TypeParameter>> companions = new ConcurrentHashMap<>();
+        /** Whether an inner class takes its enclosing instance ({@link CSharpInner#withOuter}). */
+        final Map<TypeInfo, Boolean> inner = new ConcurrentHashMap<>();
+        /** Whether a generic type has a companion class for its static members ({@link CSharpNames#hasCompanion}). */
+        final Map<TypeInfo, Boolean> hasCompanion = new ConcurrentHashMap<>();
     }
 
-    /** Which inner classes take an enclosing instance ({@link CSharpInner#withOuter}), as they are asked for. */
-    Map<TypeInfo, Boolean> inner() {
-        return inner;
+    Memo memo() {
+        return memo;
     }
 
     /**

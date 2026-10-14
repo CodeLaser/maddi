@@ -24,7 +24,6 @@ import io.codelaser.maddi.cst.impl.output.TypeNameImpl;
 import io.codelaser.maddi.cst.impl.type.WildcardEnum;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,10 +57,6 @@ public final class CSharpTypeName {
 
     private CSharpTypeName() {
     }
-
-    /** The raw types whose arguments are being printed: an F-bounded type parameter refers back to its type. */
-    private static final ThreadLocal<Set<TypeInfo>> RAW_IN_PROGRESS =
-            ThreadLocal.withInitial(HashSet::new);
 
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
@@ -203,13 +198,13 @@ public final class CSharpTypeName {
         if (arguments.isEmpty() && !typeInfo.typeParameters().isEmpty()) {
             CSharpContext.message(CSharpPrintCode.RAW_TYPE, null, fqn);
             // R extends Result<R>: the raw Result's argument is Result's own erasure, which is where it stops
-            if (!RAW_IN_PROGRESS.get().add(typeInfo)) {
+            if (!CSharpContext.rawInProgress().add(typeInfo)) {
                 typeInfo.typeParameters().forEach(tp -> printed.add("object"));
             } else {
                 try {
                     typeInfo.typeParameters().forEach(tp -> printed.add(rawArgument(tp, q)));
                 } finally {
-                    RAW_IN_PROGRESS.get().remove(typeInfo);
+                    CSharpContext.rawInProgress().remove(typeInfo);
                 }
             }
         }

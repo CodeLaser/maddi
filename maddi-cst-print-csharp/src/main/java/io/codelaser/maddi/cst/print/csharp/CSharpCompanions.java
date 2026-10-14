@@ -63,7 +63,7 @@ final class CSharpCompanions {
             || t.isAnonymous() || t.enclosingMethod() != null) {
             return List.of();
         }
-        return CSharpContext.program().companions().computeIfAbsent(t, CSharpCompanions::computeRemoved);
+        return CSharpContext.memo().companions.computeIfAbsent(t, CSharpCompanions::computeRemoved);
     }
 
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
