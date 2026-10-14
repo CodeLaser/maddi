@@ -74,6 +74,14 @@ public interface DetailedSources {
      */
     Object FIELD_DECLARATION = new Object();
     /**
+     * Source range of a javadoc comment as written, from its opening {@code /**} through its closing
+     * {@code *&#47;}, set on the {@link JavaDoc}'s own source. That source spans the comment's TEXT only, and
+     * consumers placing a word inside the comment count from it. This range is for a consumer that removes or moves
+     * the comment itself and needs its first character -- which it cannot infer when the line also holds code, as
+     * in {@code /** the second *&#47; B,}.
+     */
+    Object WHOLE_COMMENT = new Object();
+    /**
      * Position of the comma that <em>precedes</em> an element in a comma-separated list.
      * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
      * local-variable declaration lists. For a local variable it is nested in each variable's name source.
