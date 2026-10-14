@@ -1536,8 +1536,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             default -> throw new UnsupportedOperationException(unexpected("block node", node));
         }
+        // a braceless body ('if (c) return x; // why') is wrapped in a block with the statement's own source: the
+        // comments found there are the statement's, and the block taking them too would print them twice
+        List<Comment> comments = node instanceof JCTree.JCBlock ? commentsForNode(source) : List.of();
         return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
-                statementLabels.get(node), source, commentsForNode(source), variablesToAdd);
+                statementLabels.get(node), source, comments, variablesToAdd);
     }
 
     /**
