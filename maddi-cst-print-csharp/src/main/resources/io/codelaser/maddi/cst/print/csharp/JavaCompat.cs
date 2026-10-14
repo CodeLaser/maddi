@@ -75,7 +75,7 @@ public static class JavaCollections
         foreach (var x in e) action(x);
     }
 
-    public static bool Contains(this System.Collections.IEnumerable e, object item) =>
+    public static bool Contains(this System.Collections.IEnumerable e, object? item) =>
         e.Cast<object>().Contains(item);
 
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
@@ -100,7 +100,7 @@ public static class JavaCollections
         return default;
     }
 
-    public static V? ComputeIfAbsent<K, V>(this IDictionary<K, V> d, K key, Func<K, V?> f)
+    public static V ComputeIfAbsent<K, V>(this IDictionary<K, V> d, K key, Func<K, V> f)
     {
         if (d.TryGetValue(key, out var v) && v != null) return v;
         v = f(key);
@@ -108,7 +108,7 @@ public static class JavaCollections
         return v;
     }
 
-    public static V? Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V?, V?> f)
+    public static V Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V?, V> f)
     {
         d.TryGetValue(key, out var old);
         var v = f(key, old);
@@ -117,7 +117,7 @@ public static class JavaCollections
         return v;
     }
 
-    public static V? Merge<K, V>(this IDictionary<K, V> d, K key, V value, Func<V, V, V?> f)
+    public static V Merge<K, V>(this IDictionary<K, V> d, K key, V value, Func<V, V, V> f)
     {
         var v = d.TryGetValue(key, out var old) && old != null ? f(old, value) : value;
         if (v == null) d.Remove(key);
@@ -526,7 +526,7 @@ public static class JavaString
         : ValueOf(double.Parse(f.ToString("R", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture));
 
     /// <summary>%x: a negative number in its own width's two's complement, as Java's (ffffffff for an int's -1).</summary>
-    private static string Hex(object arg) => arg switch
+    private static string Hex(object? arg) => arg switch
     {
         int i => ((uint)i).ToString("x", CultureInfo.InvariantCulture),
         long l => ((ulong)l).ToString("x", CultureInfo.InvariantCulture),
@@ -538,7 +538,7 @@ public static class JavaString
     };
 
     /// <summary>String.format: Java's %-conversions (s, d, x, X, c, b, f, n, %), with flags, width and precision.</summary>
-    public static string Format(string format, params object[] args)
+    public static string Format(string format, params object?[] args)
     {
         var sb = new StringBuilder();
         var next = 0;
@@ -1654,7 +1654,7 @@ public class JavaArrayList<E> : List<E>
         return items.Count > 0;
     }
 
-    public virtual bool Remove(object item) => item is E e && base.Remove(e);
+    public virtual bool Remove(object? item) => item is E e && base.Remove(e);
 
     public virtual E Remove(int index)
     {

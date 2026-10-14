@@ -483,7 +483,7 @@ public sealed class JavaDocumentBuilderFactory
 
     public void SetExpandEntityReferences(bool value) { }
 
-    public void SetAttribute(string name, object value) { }
+    public void SetAttribute(string name, object? value) { }
 
     public JavaDocumentBuilder NewDocumentBuilder() => new(GetFeature(DisallowDoctypeDecl), ignoringComments);
 }
@@ -795,7 +795,7 @@ public sealed class JavaTransformer
 
     public string? GetOutputProperty(string name) => output.TryGetValue(name, out var value) ? value : null;
 
-    public void SetParameter(string name, object value) => throw new NotSupportedException("XSLT parameters");
+    public void SetParameter(string name, object? value) => throw new NotSupportedException("XSLT parameters");
 
     private XmlWriterSettings Settings()
     {
@@ -864,7 +864,7 @@ public sealed class JavaSchemaFactory
     public static JavaSchemaFactory NewDefaultInstance() => new();
 
     /// <summary>The access properties of XMLConstants: schemas are read without resolving external ones.</summary>
-    public void SetProperty(string name, object value) { }
+    public void SetProperty(string name, object? value) { }
 
     public void SetFeature(string name, bool value) { }
 
@@ -915,7 +915,7 @@ public sealed class JavaValidator
 
     internal JavaValidator(XmlSchemaSet set) => this.set = set;
 
-    public void SetProperty(string name, object value) { }
+    public void SetProperty(string name, object? value) { }
 
     public void SetFeature(string name, bool value) { }
 

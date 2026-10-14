@@ -102,6 +102,7 @@ public final class CSharpLibraries implements LibraryMapping {
     }
 
     /** {@link #choose} from {@code slf4j=serilog,jackson=none}; blank for the defaults. */
+    @SuppressWarnings("unused") // kept: the libraries option as text; --translate does not expose it yet
     public static CSharpLibraries choose(String choices) {
         Map<String, String> map = new LinkedHashMap<>();
         for (String choice : choices.split(",")) {
@@ -124,6 +125,7 @@ public final class CSharpLibraries implements LibraryMapping {
     }
 
     /** These mappings, with {@code first} in front of them: its answers win. */
+    @SuppressWarnings("unused") // kept: a project's own mapping in front of the defaults; --translate does not expose it yet
     public CSharpLibraries withFirst(LibraryMapping first) {
         return new CSharpLibraries(Stream.concat(Stream.of(first), mappings.stream())
                 .toList());

@@ -96,6 +96,7 @@ public final class CSharpProgram {
     /** Getters and setters: C#'s properties where they can be (see {@link CSharpProperties}), or Java's methods. */
     public enum Accessors {
         PROPERTIES,
+        @SuppressWarnings("unused") // kept: the alternative to PROPERTIES; --translate does not expose it yet
         METHODS,
     }
 
@@ -108,14 +109,17 @@ public final class CSharpProgram {
         public static final Policy DEFAULT = new Policy(FunctionalInterfaces.DELEGATE_WHERE_POSSIBLE,
                 Inheritance.CLOSED_WORLD, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
 
+        @SuppressWarnings("unused") // kept: the printer's configuration API; --translate does not expose it yet
         public Policy(FunctionalInterfaces functionalInterfaces, Inheritance inheritance) {
             this(functionalInterfaces, inheritance, CSharpLibraries.DEFAULT, Accessors.PROPERTIES, CSharpFacts.STORED);
         }
 
+        @SuppressWarnings("unused") // kept: the printer's configuration API; --translate does not expose it yet
         public Policy withLibraries(CSharpLibraries libraries) {
             return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
         }
 
+        @SuppressWarnings("unused") // kept: the printer's configuration API; --translate does not expose it yet
         public Policy withAccessors(Accessors accessors) {
             return new Policy(functionalInterfaces, inheritance, libraries, accessors, facts);
         }
@@ -201,6 +205,7 @@ public final class CSharpProgram {
         notNullKeys = b.notNullKeys;
     }
 
+    @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
     public static CSharpProgram analyze(Collection<TypeInfo> primaryTypes) {
         return analyze(primaryTypes, Policy.DEFAULT);
     }
