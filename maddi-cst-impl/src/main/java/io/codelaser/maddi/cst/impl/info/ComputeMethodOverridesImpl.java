@@ -92,7 +92,7 @@ public class ComputeMethodOverridesImpl implements ComputeMethodOverrides {
 
     @Override
     public Set<MethodInfo> overrides(MethodInfo methodInfo) {
-        return Set.copyOf(recursiveOverridesCall(methodInfo.typeInfo(), methodInfo, Map.of(),
+        return MethodInspectionImpl.inNameOrder(recursiveOverridesCall(methodInfo.typeInfo(), methodInfo, Map.of(),
                 methodInfo.typeInfo().compilationUnit().externalLibrary()));
     }
 
