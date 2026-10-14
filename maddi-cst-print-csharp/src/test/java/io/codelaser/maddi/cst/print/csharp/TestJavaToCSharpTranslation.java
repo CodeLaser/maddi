@@ -1611,6 +1611,21 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         assertEquals("two.csmap:2: type takes one namespace, not A, C", e.getMessage());
     }
 
+    /** A member's {@code ->?}: C# declares its result nullable; only a member's. */
+    @Test
+    public void mappingFileNullableResult() {
+        CSharpMappingFile file = CSharpMappingFile.parse("""
+                mapping x
+                member a.B.c/0 ->? $0.C()
+                member a.B.d/0 -> $0.D()
+                """, "nullable.csmap");
+        org.junit.jupiter.api.Assertions.assertTrue(file.memberRule("a.B.c/0", null, null).nullableResult());
+        assertFalse(file.memberRule("a.B.d/0", null, null).nullableResult());
+        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> CSharpMappingFile.parse("mapping x\ntype a.B ->? B", "type.csmap"));
+        assertEquals("type.csmap:2: ->? is a member's", e.getMessage());
+    }
+
     @Language("java")
     private static final String MARKS = """
             package org.example.marks;
@@ -2669,5 +2684,58 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "o.ToString()!.Length");
         // a class's type parameter takes the ? of a nullable declaration
         contains(cs, "internal T? Held { get; }");
+    }
+
+    @Language("java")
+    private static final String LIBRARY_NULLS = """
+            package org.example.lib;
+            import java.util.Deque;
+            import java.util.List;
+            import java.util.Map;
+            class Lib {
+                static int length(Map<String, String> m, String k) {
+                    if (m.containsKey(k)) {
+                        String v = m.get(k);
+                        return v.length();
+                    }
+                    return 0;
+                }
+                @SuppressWarnings("unchecked")
+                static <T> T attribute(Map<String, Object> m, String k) { return (T) m.get(k); }
+                static List<String> values(List<String> keys, Map<String, String> m) {
+                    return keys.stream().map(k -> m.get(k)).toList();
+                }
+                static int first(Deque<String> d) { return d.poll().length(); }
+            }
+            """;
+
+    /**
+     * A library member whose C# result is {@code T?} where Java's is not known to be nullable: the compatibility
+     * library's {@code Map.Get} and {@code PollFirst} (a mapping file's {@code ->?}). Its value is asserted where it
+     * goes into what is not nullable: a local the analysis finds not null after {@code containsKey}, a lambda's
+     * result, a dereference, the operand of a cast to a method's type parameter, {@code (T) x!}.
+     */
+    @Test
+    public void nullableLibraryResults() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method,
+                    io.codelaser.maddi.cst.api.element.Element declaration,
+                    io.codelaser.maddi.cst.api.variable.LocalVariable variable) {
+                return "v".equals(variable.simpleName()) ? io.codelaser.maddi.cst.api.type.NullableState.NONNULL
+                        : io.codelaser.maddi.cst.api.type.NullableState.NULLABLE;
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Lib", LIBRARY_NULLS);
+        contains(cs, "string? v = m.Get(k)!;");
+        contains(cs, "return v.Length;");
+        contains(cs, "(T) m.Get(k)!;");
+        contains(cs, "keys.Select(k => m.Get(k)!)");
+        contains(cs, "d.PollFirst()!.Length");
     }
 }

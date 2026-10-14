@@ -122,6 +122,11 @@ public interface LibraryMapping {
             }
         }
 
+        /** This rule, its value nullable: a mapping file's {@code ->?}, a member the compatibility library declares {@code T?}. */
+        public Rule withNullableResult() {
+            return new Rule(value, statement, namespaces, true);
+        }
+
         public String template(boolean asStatement) {
             return asStatement && statement != null || value == null ? statement : value;
         }

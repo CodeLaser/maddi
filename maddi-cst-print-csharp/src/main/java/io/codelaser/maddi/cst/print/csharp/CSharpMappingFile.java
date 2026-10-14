@@ -54,6 +54,7 @@ import java.util.regex.Pattern;
  * member org.slf4j.Logger.info/1 -> $0.LogInformation($1)
  * member org.slf4j.Logger.warn/2 ?lastArgumentThrowable -> $0.LogWarning($2, $1)
  * member org.slf4j.Logger.warn/2 -> $0.LogWarning($1, $2)
+ * member java.util.Deque.poll/0 ->? $0.PollFirst()         a result C# declares nullable, T?, where Java's is not
  * statement java.util.Map.put/2 -> $0.Add($1, $2)          the template for a call whose value is not used; alone,
  *                                                          the next mapping supplies the value template
  * member java.util.UUID.new/2 -> new Guid(...)              a constructor: owner.new
@@ -149,7 +150,7 @@ public final class CSharpMappingFile implements LibraryMapping {
 
     private static final Pattern ELEMENT = Pattern.compile("\\$([A-Za-z]\\w*)");
 
-    private record Entry(Guard guard, String template, List<String> namespaces) {
+    private record Entry(Guard guard, String template, List<String> namespaces, boolean nullable) {
         boolean applies(MethodInfo method, MethodCall call) {
             return guard == null || guard.test(method, call);
         }
@@ -267,9 +268,11 @@ public final class CSharpMappingFile implements LibraryMapping {
             return;
         }
         int arrow = rest.indexOf(" -> ");
+        boolean nullable = arrow < 0 && (arrow = rest.indexOf(" ->? ")) >= 0;
         if (arrow < 0) throw new IllegalArgumentException("expected: " + directive + " <key> -> <value>");
+        if (nullable && !"member".equals(directive)) throw new IllegalArgumentException("->? is a member's");
         String key = rest.substring(0, arrow).strip();
-        String value = rest.substring(arrow + 4).strip();
+        String value = rest.substring(arrow + (nullable ? 5 : 4)).strip();
         List<String> namespaces = List.of();
         Matcher using = USING.matcher(value);
         if (using.matches()) {
@@ -296,7 +299,7 @@ public final class CSharpMappingFile implements LibraryMapping {
                     guard = previous == null ? g : (method, call) -> previous.test(method, call) && g.test(method, call);
                 }
                 ("member".equals(directive) ? values : statements).computeIfAbsent(m.group(1), k -> new ArrayList<>())
-                        .add(new Entry(guard, value, namespaces));
+                        .add(new Entry(guard, value, namespaces, nullable));
             }
             case "field" -> unique(fields.put(key, new CodeMapping(value, namespace)), directive, key);
             case "annotation" -> {
@@ -421,7 +424,8 @@ public final class CSharpMappingFile implements LibraryMapping {
             }
             Set<String> namespaces = new LinkedHashSet<>(value.namespaces());
             if (statement != null) namespaces.addAll(statement.namespaces());
-            return new Rule(value.template(), statement == null ? null : statement.template(), List.copyOf(namespaces));
+            Rule rule = new Rule(value.template(), statement == null ? null : statement.template(), List.copyOf(namespaces));
+            return value.nullable() ? rule.withNullableResult() : rule;
         }
         return pending == null ? null : new Rule(null, pending.template(), pending.namespaces());
     }

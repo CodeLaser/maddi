@@ -70,13 +70,15 @@ final class CSharpNullability {
     }
 
     /**
-     * A local's initializer, {@code printed}: with {@code !} when the analysis asserts the local at its declaration
-     * ({@link CSharpFacts#assertedAtDeclaration}) and the value may be null.
+     * A local's initializer, {@code printed}: with {@code !} when the value may be null and the analysis asserts the
+     * local at its declaration ({@link CSharpFacts#assertedAtDeclaration}), or finds it not null there: Java's
+     * {@code if (map.containsKey(k)) { V v = map.get(k); v.m(); }}, where C# has only the declared {@code V?}.
      */
     static OutputBuilder initializer(Element declaration, LocalVariable variable, Expression init, OutputBuilder printed) {
         MethodInfo method = CSharpContext.currentMethod();
         if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init)
-            || !facts().assertedAtDeclaration(method, declaration, variable)) {
+            || !facts().assertedAtDeclaration(method, declaration, variable)
+               && facts().nullable(method, declaration, variable) != NullableState.NONNULL) {
             return printed;
         }
         return asserted(init, printed);
@@ -186,7 +188,7 @@ final class CSharpNullability {
     }
 
     /** {@code printed!}, in parentheses unless it is a call, a variable or null. */
-    private static OutputBuilder asserted(Expression value, OutputBuilder printed) {
+    static OutputBuilder asserted(Expression value, OutputBuilder printed) {
         Expression x = CSharpExpressionPrinter.unwrap(value);
         if (x instanceof MethodCall || x instanceof VariableExpression || x instanceof NullConstant) {
             return printed.add(NULL_FORGIVING);
@@ -223,9 +225,16 @@ final class CSharpNullability {
                 default -> false;
             };
             case InlineConditional ic -> branchMayBeNull(ic.ifTrue()) || branchMayBeNull(ic.ifFalse());
-            case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && mayBeNull(c.expression());
+            case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && !toMethodTypeParameter(c)
+                           && mayBeNull(c.expression());
             default -> false;
         };
+    }
+
+    /** A cast to a method's own type parameter, which C# cannot write {@code T?}: its operand is asserted, {@code (T) x!}. */
+    static boolean toMethodTypeParameter(Cast cast) {
+        ParameterizedType to = cast.parameterizedType();
+        return to.arrays() == 0 && to.isTypeParameter() && to.typeParameter().isMethodTypeParameter();
     }
 
     /** A branch of a conditional: its null makes the conditional's value one that may be null. */

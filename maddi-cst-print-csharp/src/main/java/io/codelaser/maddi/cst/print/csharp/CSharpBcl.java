@@ -203,6 +203,11 @@ final class CSharpBcl implements LibraryMapping {
         return new Rule(value, null, List.of(namespaces));
     }
 
+    /** A rule whose C# member declares its result nullable, as the compatibility library's {@code Map.Get}. */
+    private static Rule nullable(String value, String... namespaces) {
+        return rule(value, namespaces).withNullableResult();
+    }
+
     static {
         // collections
         // a read-only collection (CSharpReadOnly) has LINQ's Contains
@@ -235,7 +240,7 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
                 : valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
-                : interfaceTyped(call) ? rule("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
+                : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));

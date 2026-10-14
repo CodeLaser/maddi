@@ -112,7 +112,9 @@ implements the interface.
   analysis finds nullable, unless its use-site facts know it is not null where the statement or the call starts (after
   `if (v == null) return;`, inside `if (v != null)`), which C#'s flow analysis knows too. The facts for locals and use
   sites come from the analysis's report, through `CSharpFacts`; a local the analysis asserts at its declaration
-  (`assertedAtDeclaration`) has its initializer asserted instead: `var block = blocks.GetWithKey(j)!;`.
+  (`assertedAtDeclaration`) has its initializer asserted instead: `var block = blocks.GetWithKey(j)!;`. So does a local
+  the analysis finds not null there although C# declares its initializer nullable: `string? v = m.Get(k)!;` after
+  `m.ContainsKey(k)`.
 - An argument that may be null, for a parameter that is not nullable, has a `!` too (CS8604): `list.Add(x!)`. Java
   passes the null on, and so does C#. A program's parameter is nullable when the analysis says so, a library's when
   its hints do. C# prints no `?` in a type argument (`List<Exprent>`), so that a collection's element or key is not
@@ -123,11 +125,15 @@ implements the interface.
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
   holds the null, as Java's does); an assignment to a field the analysis finds non-null.
 - A reference cast of a value that may be null is to `T?`, `(Exprent?) o`: the cast lets the null through, in C# as
-  in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`.
+  in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
+  parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
 - The result of a library call may be null where C# declares it so, whatever the analysis says of the Java method:
   `object.ToString()` is `string?`, Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
   (`GetConstructor`, `GetMethod`, `GetElementType`, `Invoke`) return null where Java throws. The printer knows these
-  from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`).
+  from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`), or from the rule itself: a mapping
+  file's `->?` (`member java.util.Deque.poll/0 ->? $0.PollFirst()`), for the compatibility library's members that
+  return `T?` (`Put`, `PollFirst`, the navigable lookups, `GetProperty`) and the BCL's nullable properties
+  (`DeclaringType`, `DocumentElement`); `CSharpBcl`'s `nullable(...)` for a chooser's (`Map.get`'s `$0.Get($1)`).
 - An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
   Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
   `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it
@@ -445,6 +451,8 @@ statement java.util.Map.put/2 -> $0.Add($1, $2)
   method. A `statement` without a `member` for its key overrides only the statement form: the next mapping still
   translates the call whose value is used.
 - **Keys and templates** are the JDK table's.
+- **Nullable results.** `->?` instead of `->` says that C# declares the member's result nullable where Java's is not
+  known to be: its value is asserted where it goes into what is not nullable.
 - **Guards.** A rule with a guard, `?name`, applies only when the guard holds, and the rules of one key are tried in
   order. The guards are named predicates of the call: `arguments=N`, `receiver=fqn`, `lastArgumentThrowable`,
   `methodReference`. `CSharpMappingFile.guard` registers more.

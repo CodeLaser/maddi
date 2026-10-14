@@ -167,7 +167,10 @@ public final class CSharpExpressionPrinter {
             && !from.isJavaLangObject() && !(from.typeInfo() != null && from.typeInfo().isInterface())) {
             b.add(SymbolEnum.LEFT_PARENTHESIS).add(text("object")).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST);
         }
-        return b.add(operand(cast.precedence(), cast.expression(), q));
+        OutputBuilder operand = operand(cast.precedence(), cast.expression(), q);
+        // a method's own type parameter has no T?: the null goes through (T) x! as it does through Java's cast
+        boolean asserted = nullable && CSharpNullability.toMethodTypeParameter(cast);
+        return b.add(asserted ? CSharpNullability.asserted(cast.expression(), operand) : operand);
     }
 
     /** A default method of a translated interface, called on a class (this, or a class-typed receiver). */

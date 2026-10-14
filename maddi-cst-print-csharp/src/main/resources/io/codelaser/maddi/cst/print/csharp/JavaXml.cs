@@ -285,7 +285,7 @@ public sealed class JavaUnmarshaller
     public JavaValidationEventHandler? GetEventHandler() => handler;
 
     /// <summary>unmarshal(Node): a document is validated as a tree, its events have their node.</summary>
-    public object? Unmarshal(XmlNode node)
+    public object Unmarshal(XmlNode node)
     {
         if (schema != null)
         {
@@ -300,23 +300,23 @@ public sealed class JavaUnmarshaller
         return Read(new XmlNodeReader(node), false);
     }
 
-    public object? Unmarshal(TextReader reader) => Read(XmlReader.Create(reader, JavaXmlParsing.Secure()), true);
+    public object Unmarshal(TextReader reader) => Read(XmlReader.Create(reader, JavaXmlParsing.Secure()), true);
 
-    public object? Unmarshal(Stream stream) => Read(XmlReader.Create(stream, JavaXmlParsing.Secure()), true);
+    public object Unmarshal(Stream stream) => Read(XmlReader.Create(stream, JavaXmlParsing.Secure()), true);
 
-    public object? Unmarshal(JavaInputSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
+    public object Unmarshal(JavaInputSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
 
-    public object? Unmarshal(JavaXmlSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
+    public object Unmarshal(JavaXmlSource source) => Read(source.CreateReader(JavaXmlParsing.Secure()), true);
 
-    public object? Unmarshal(JavaFile file) => Unmarshal(new FileInfo(file.GetAbsolutePath()));
+    public object Unmarshal(JavaFile file) => Unmarshal(new FileInfo(file.GetAbsolutePath()));
 
-    public object? Unmarshal(FileInfo file)
+    public object Unmarshal(FileInfo file)
     {
         using var stream = file.OpenRead();
         return Unmarshal(stream);
     }
 
-    private object? Read(XmlReader input, bool validate)
+    private object Read(XmlReader input, bool validate)
     {
         var reader = input;
         if (validate && schema != null)
@@ -331,7 +331,7 @@ public sealed class JavaUnmarshaller
         {
             try
             {
-                return JavaJaxbContext.Serializer(context.Root(reader)).Deserialize(reader);
+                return JavaJaxbContext.Serializer(context.Root(reader)).Deserialize(reader)!; // JAXB's root object, never null
             }
             catch (InvalidOperationException e)
             {
