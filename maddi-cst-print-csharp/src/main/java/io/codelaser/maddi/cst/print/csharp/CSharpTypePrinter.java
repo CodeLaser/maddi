@@ -14,7 +14,6 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.*;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -22,11 +21,16 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 /**
  * Prints a {@link TypeInfo} as a C# type declaration, with the same pluggable-printer seam as the Java
@@ -74,7 +78,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 CSharpContext.message(CSharpPrintCode.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
                 return new OutputBuilderImpl();
             }
-            if (typeInfo.typeNature().isEnum() && simpleEnum()) return simpleEnum(importData.insideType());
+            if (typeInfo.typeNature().isEnum() && CSharpNames.simpleEnum(typeInfo)) return simpleEnum(importData.insideType());
             if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
             OutputBuilder type = printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
@@ -132,9 +136,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             String keyword = typeInfo.isInterface() ? "interface" : record ? "record" : "class";
             List<TypeParameter> declaredTypeParameters = self != null ? self.typeParameters() : typeInfo.typeParameters();
-            String typeParameters = declaredTypeParameters.isEmpty() ? ""
-                    : declaredTypeParameters.stream().map(CSharpNames::typeParameter)
-                            .collect(Collectors.joining(", ", "<", ">"));
+            String typeParameters = CSharpNames.typeParameters(declaredTypeParameters);
             out.add(new TextImpl(modifiers + keyword)).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
             if (record && canonical == null) {
@@ -144,8 +146,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             }
             List<String> supers = new ArrayList<>(superTypes(q));
-            // the companion of a self-bounded type, which its wildcard is (CSharpCompanions)
-            if (CSharpCompanions.has(typeInfo)) supers.add(CSharpCompanions.selfReference(typeInfo));
+            // the wildcard interface of a self-bounded type (CSharpWildcardInterfaces)
+            if (CSharpWildcardInterfaces.has(typeInfo)) supers.add(CSharpWildcardInterfaces.selfReference(typeInfo));
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
@@ -200,16 +202,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             // Java's default constructor, which takes the enclosing instance, and initializes the fields
             ParameterizedType parent = typeInfo.parentClass();
             String base = outer && parent != null && CSharpInner.withOuter(parent.typeInfo()) ? " : base(outer)" : "";
-            List<OutputBuilder> body = new ArrayList<>();
-            if (outer) body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
-            body.addAll(CSharpInner.fieldInitializers(typeInfo, q));
+            List<OutputBuilder> body = CSharpInner.prologue(typeInfo, outer, q);
             String access = outer ? "internal " : typeInfo.isAbstract() ? "protected " : "public ";
             members.add(new OutputBuilderImpl().add(new TextImpl(access + CSharpNames.type(typeInfo) + "("
                     + (outer ? CSharpInner.outerTypeName(typeInfo) + " outer" : "") + ")" + base)).add(SpaceEnum.ONE)
                     .add(CSharpStatementPrinter.braces(body)));
         }
         typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && !(record && isRecordAccessor(m)) && !CSharpNames.inCompanion(m)
+                .filter(m -> !m.isSynthetic() && !(record && CstQueries.isRecordAccessor(m)) && !CSharpNames.inCompanion(m)
                              && CSharpContext.program().accessorOf(m) == null)
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
         typeInfo.subTypes().stream().filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
@@ -221,14 +221,14 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record) members.addAll(accessorImplementations(components, q));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
-        if (CSharpCompanions.has(typeInfo)) members.addAll(CSharpCompanions.bridges(typeInfo, q));
+        if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
         out.add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(nonEmpty));
-        if (doTypeDeclaration && CSharpCompanions.has(typeInfo)) {
-            out.add(SpaceEnum.NEWLINE).add(CSharpCompanions.declaration(typeInfo, typeAccess(), q));
+        if (doTypeDeclaration && CSharpWildcardInterfaces.has(typeInfo)) {
+            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q));
         }
         return out;
     }
@@ -248,13 +248,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     : CSharpTypeName.of(superArgument, q)) + " p" + i);
         }
         if (h.outer()) {
-            TypeInfo outer = CstQueries.enclosing(typeInfo);
-            String outerType = CSharpNames.type(outer) + (outer.typeParameters().isEmpty() ? ""
-                    : outer.typeParameters().stream().map(CSharpNames::typeParameter)
-                            .collect(Collectors.joining(", ", "<", ">")));
+            String outerType = CSharpInner.outerTypeName(typeInfo);
             members.add(new OutputBuilderImpl().add(new TextImpl("private readonly " + outerType + " outer;")));
             parameters.add(outerType + " outer");
-            body.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
+            body.add(CSharpInner.outerAssignment());
         }
         for (CSharpAnonymous.Capture c : h.captures()) {
             String type = CSharpTypeName.of(c.type(), q);
@@ -263,14 +260,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             parameters.add(type + " " + name);
             body.add(new OutputBuilderImpl().add(new TextImpl("this." + name + " = " + name + ";")));
         }
-        for (FieldInfo f : typeInfo.fields()) {
-            if (f.isSynthetic() || f.isStatic() || f.initializer() == null || f.initializer().isEmpty()) continue;
-            body.add(new OutputBuilderImpl().add(new TextImpl("this." + CSharpNames.field(f)))
-                    .add(SymbolEnum.assignment("=")).add(CSharpExpressionPrinter.initializer(f.initializer(), f.type(), q))
-                    .add(SymbolEnum.SEMICOLON));
-        }
+        body.addAll(CSharpInner.fieldInitializers(typeInfo, q));
         if (parameters.isEmpty() && body.isEmpty()) return members;
-        String baseCall = h.superArguments().isEmpty() ? "" : " : base(" + java.util.stream.IntStream
+        String baseCall = h.superArguments().isEmpty() ? "" : " : base(" + IntStream
                 .range(0, h.superArguments().size()).mapToObj(i -> "p" + i).collect(Collectors.joining(", ")) + ")";
         members.add(new OutputBuilderImpl().add(new TextImpl("internal " + h.name() + "(" + String.join(", ", parameters)
                 + ")" + baseCall)).add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(body)));
@@ -293,12 +285,6 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return CSharpModifiers.access(typeInfo, CstQueries.enclosing(typeInfo));
     }
 
-    private static final java.util.Set<String> LIST_BASES = java.util.Set.of("java.util.ArrayList",
-            "java.util.AbstractList", "java.util.LinkedList");
-
-    private static final java.util.Set<String> MARKERS = java.util.Set.of("java.lang.Cloneable", "java.io.Serializable",
-            "java.util.RandomAccess");
-
     /** The superclass, unless implicit (Object, Enum, Record), and the interfaces. */
     private List<String> superTypes(Qualification q) {
         List<String> supers = new ArrayList<>();
@@ -306,11 +292,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (parent != null && !parent.isJavaLangObject() && parent.typeInfo() != null
             && !"java.lang.Enum".equals(parent.typeInfo().fullyQualifiedName())
             && !"java.lang.Record".equals(parent.typeInfo().fullyQualifiedName())) {
-            if (LIST_BASES.contains(parent.typeInfo().fullyQualifiedName())) {
+            if (CSharpBcl.LIST_BASES.contains(parent.typeInfo().fullyQualifiedName())) {
                 // C#'s List has no virtual methods: the compatibility library's JavaArrayList, whose Java methods are
                 CSharpContext.using(CSharpCompat.NAMESPACE);
                 if (typeInfo.methods().stream().anyMatch(m -> m.overrides().stream()
-                        .anyMatch(o -> LIST_BASES.contains(o.typeInfo().fullyQualifiedName())))) {
+                        .anyMatch(o -> CSharpBcl.LIST_BASES.contains(o.typeInfo().fullyQualifiedName())))) {
                     CSharpContext.message(CSharpPrintCode.LIST_SUBCLASS, typeInfo, typeInfo.simpleName());
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
@@ -321,7 +307,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
         // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
         typeInfo.interfacesImplemented().stream()
-                .filter(i -> i.typeInfo() == null || !MARKERS.contains(i.typeInfo().fullyQualifiedName()))
+                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName()))
                 .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
         return supers;
     }
@@ -354,23 +340,6 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     // ---------------------------------------------------------------- enums
-
-    /** Only constants, without arguments or bodies, and nothing else: a C# enum. */
-    private boolean simpleEnum() {
-        return simpleEnum(typeInfo);
-    }
-
-    static boolean simpleEnum(TypeInfo typeInfo) {
-        if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
-        if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
-        if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c))) {
-            return false;
-        }
-        if (!typeInfo.interfacesImplemented().isEmpty()) return false;
-        return typeInfo.fields().stream().filter(f -> !f.isSynthetic()).allMatch(f -> CSharpNames.isEnumConstant(f)
-                && (!(f.initializer() instanceof ConstructorCall cc)
-                    || cc.parameterExpressions().isEmpty() && cc.anonymousClass() == null));
-    }
 
     private OutputBuilder simpleEnum(Qualification q) {
         String access = typeAccess();
@@ -437,9 +406,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> out = new ArrayList<>();
         // an abstract class that leaves iterator() to its subclasses declares it, for the GetEnumerator of its own or
         // its interface's
-        boolean abstractIterator = needsAbstractIterator(typeInfo);
+        boolean abstractIterator = CSharpHierarchy.needsAbstractIterator(typeInfo);
         if (abstractIterator) {
-            ParameterizedType seen = iterableAsSeen(typeInfo);
+            ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
             String element = seen == null || seen.parameters().isEmpty() ? "object"
                     : CSharpTypeName.argument(seen.parameters().getFirst(), q);
             CSharpContext.using(CSharpCompat.NAMESPACE);
@@ -474,46 +443,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return out;
     }
 
-    /** {@code Iterable<E>} as {@code t} implements it, directly or through its supertypes; null when it does not. */
-    private static ParameterizedType iterableAsSeen(TypeInfo t) {
-        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
-        if (t.parentClass() != null) todo.add(t.parentClass());
-        todo.addAll(t.interfacesImplemented());
-        while (!todo.isEmpty()) {
-            ParameterizedType pt = todo.poll();
-            TypeInfo at = pt.typeInfo();
-            if (at == null || !seen.add(at)) continue;
-            if ("java.lang.Iterable".equals(at.fullyQualifiedName())) return pt;
-            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(pt);
-            if (at.parentClass() != null) todo.add(substitute(at.parentClass(), map));
-            at.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
-        }
-        return null;
-    }
-
-    /**
-     * An abstract class of the program that is iterable, and that neither it nor a superclass gives an iterator(): it
-     * declares {@code Iterator()} abstract, which its interface's GetEnumerator calls. Once, by the first such class.
-     */
-    static boolean needsAbstractIterator(TypeInfo t) {
-        if (t.isInterface() || !t.isAbstract() || !CSharpNames.translated(t) || iterableAsSeen(t) == null) return false;
-        for (TypeInfo at = t; at != null; at = at.parentClass() == null ? null : at.parentClass().typeInfo()) {
-            if (at.methods().stream().anyMatch(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty())) {
-                return false;
-            }
-        }
-        TypeInfo parent = t.parentClass() == null ? null : t.parentClass().typeInfo();
-        return parent == null || !needsAbstractIterator(parent);
-    }
-
     /** {@code public delegate int ExprentIterator(Exprent exprent);}: see {@link CSharpProgram}. */
     private OutputBuilder delegate(Qualification q) {
         MethodInfo sam = CSharpProgram.invoked(typeInfo);
         String access = typeAccess();
-        String typeParameters = typeInfo.typeParameters().isEmpty() ? ""
-                : typeInfo.typeParameters().stream().map(CSharpNames::typeParameter)
-                        .collect(Collectors.joining(", ", "<", ">"));
+        String typeParameters = CSharpNames.typeParameters(typeInfo.typeParameters());
         String parameters = sam.parameters().stream()
                 .map(p -> CSharpTypeName.of(p.parameterizedType(), q) + " " + CSharpNames.name(p.name()))
                 .collect(Collectors.joining(", "));
@@ -532,22 +466,19 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private OutputBuilder lambdaAdapter(Qualification q) {
         MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
         // a method of a generic super-interface, Listener<T>.onEvent(T), is the interface's with its arguments
-        java.util.Map<TypeParameter, ParameterizedType> arguments = sam.typeInfo().equals(typeInfo) ? java.util.Map.of()
-                : superArguments(typeInfo, sam.typeInfo(), java.util.Map.of());
-        if (arguments == null) arguments = java.util.Map.of();
-        java.util.Map<TypeParameter, ParameterizedType> map = arguments;
-        List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> substitute(p.parameterizedType(), map))
+        ParameterizedType asSeen = sam.typeInfo().equals(typeInfo) ? null
+                : CSharpHierarchy.implementedAs(typeInfo, sam.typeInfo());
+        Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : CSharpHierarchy.typeArguments(asSeen);
+        List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> CSharpHierarchy.substitute(p.parameterizedType(), map))
                 .toList();
-        ParameterizedType samReturn = substitute(sam.returnType(), map);
+        ParameterizedType samReturn = CSharpHierarchy.substitute(sam.returnType(), map);
         List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
         boolean isVoid = samReturn.isVoid();
         List<String> delegateArguments = new ArrayList<>(parameterTypes);
         if (!isVoid) delegateArguments.add(CSharpTypeName.argument(samReturn, q));
         String delegate = (isVoid ? "Action" : "Func")
                           + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
-        String self = CSharpNames.type(typeInfo) + (typeInfo.typeParameters().isEmpty() ? ""
-                : typeInfo.typeParameters().stream().map(CSharpNames::typeParameter)
-                        .collect(Collectors.joining(", ", "<", ">")));
+        String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String f = names.contains("f") ? "function" : "f";
         String parameters = IntStream.range(0, names.size())
@@ -562,79 +493,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 + String.join(", ", names) + "); }"));
     }
 
-    /** The type arguments {@code from} gives the type parameters of its super-interface {@code target}. */
-    private static java.util.Map<TypeParameter, ParameterizedType> superArguments(
-            TypeInfo from, TypeInfo target, java.util.Map<TypeParameter, ParameterizedType> map) {
-        for (ParameterizedType i : from.interfacesImplemented()) {
-            TypeInfo t = i.typeInfo();
-            if (t == null) continue;
-            java.util.Map<TypeParameter, ParameterizedType> next = new java.util.HashMap<>();
-            for (int k = 0; k < Math.min(t.typeParameters().size(), i.parameters().size()); k++) {
-                next.put(t.typeParameters().get(k), substitute(i.parameters().get(k), map));
-            }
-            if (t.equals(target)) return next;
-            java.util.Map<TypeParameter, ParameterizedType> found = superArguments(t, target, next);
-            if (found != null) return found;
-        }
-        return null;
-    }
-
-    /**
-     * The method of an inherited interface that this default method of interface {@code iface} implements, when C#
-     * needs it implemented explicitly: a C# interface's member never implements another's implicitly.
-     */
-    static MethodInfo interfaceMethodDefaulted(TypeInfo iface, MethodInfo m) {
-        if (!iface.isInterface() || m.isStatic() || m.isAbstract() || m.methodBody() == null
-            || !m.typeParameters().isEmpty() || m.isConstructor() || CSharpWildcards.mayCapture(m)) return null;
-        return m.overrides().stream()
-                .filter(o -> o != m && o.typeInfo() != iface && o.typeInfo().isInterface()
-                             && CSharpNames.translated(o.typeInfo()) && o.isAbstract() && o.typeParameters().isEmpty())
-                .filter(o -> implementedAs(iface, o.typeInfo()) != null)
-                .findFirst().orElse(null);
-    }
-
-    /** {@code ancestor} as {@code type} extends or implements it, in {@code type}'s type parameters. */
-    static ParameterizedType implementedAs(TypeInfo type, TypeInfo ancestor) {
-        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
-        if (type.parentClass() != null) todo.add(type.parentClass());
-        todo.addAll(type.interfacesImplemented());
-        while (!todo.isEmpty()) {
-            ParameterizedType pt = todo.poll();
-            TypeInfo t = pt.typeInfo();
-            if (t == null || !seen.add(t)) continue;
-            if (t.equals(ancestor)) return pt;
-            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(pt);
-            if (t.parentClass() != null) todo.add(substitute(t.parentClass(), map));
-            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
-        }
-        return null;
-    }
-
-    /** The type parameters of {@code pt}'s type, mapped to its arguments. */
-    static java.util.Map<TypeParameter, ParameterizedType> typeArguments(ParameterizedType pt) {
-        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
-        TypeInfo t = pt.typeInfo();
-        for (int k = 0; k < Math.min(t.typeParameters().size(), pt.parameters().size()); k++) {
-            map.put(t.typeParameters().get(k), pt.parameters().get(k));
-        }
-        return map;
-    }
-
-    static ParameterizedType substitute(ParameterizedType pt, java.util.Map<TypeParameter, ParameterizedType> map) {
-        if (map.isEmpty()) return pt;
-        if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
-            ParameterizedType mapped = map.get(pt.typeParameter());
-            return pt.arrays() == 0 ? mapped : mapped.copyWithArrays(mapped.arrays() + pt.arrays());
-        }
-        if (pt.parameters().isEmpty()) return pt;
-        return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map)).toList());
-    }
-
     /** The record's canonical constructor, compact or not, when written; null when C#'s positional one serves. */
     private MethodInfo canonicalConstructor(List<FieldInfo> components) {
         return typeInfo.constructors().stream().filter(c -> !c.isSynthetic() && c.parameters().size() == components.size())
-                .filter(c -> java.util.stream.IntStream.range(0, components.size()).allMatch(i ->
+                .filter(c -> IntStream.range(0, components.size()).allMatch(i ->
                         c.parameters().get(i).parameterizedType().equals(components.get(i).type())))
                 .filter(c -> c.methodBody() != null && c.methodBody().statements().stream().anyMatch(s -> !s.isSynthetic())
                              || c.methodType().isCompactConstructor())
@@ -650,14 +512,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         for (ParameterizedType i : typeInfo.interfacesImplemented()) {
             TypeInfo iface = i.typeInfo();
             if (iface == null || !CSharpNames.translated(iface)) continue;
-            java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
-            for (int k = 0; k < Math.min(iface.typeParameters().size(), i.parameters().size()); k++) {
-                map.put(iface.typeParameters().get(k), i.parameters().get(k));
-            }
+            Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(i);
             for (MethodInfo m : iface.methods()) {
                 if (m.isStatic() || !m.isAbstract() || !m.parameters().isEmpty()) continue;
                 components.stream().filter(f -> f.name().equals(m.name())).findFirst().ifPresent(f ->
-                        out.add(new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(substitute(m.returnType(), map), q)
+                        out.add(new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), map), q)
                                 + " " + CSharpTypeName.of(i, q) + "." + CSharpNames.method(m) + "() => "
                                 + CSharpNames.field(f) + ";"))));
             }
@@ -678,7 +537,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             List<OutputBuilder> members = new ArrayList<>();
             typeInfo.fields().stream().filter(CSharpNames::inCompanion)
                     .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
-            java.util.stream.Stream.concat(typeInfo.constructors().stream(), typeInfo.methods().stream())
+            Stream.concat(typeInfo.constructors().stream(), typeInfo.methods().stream())
                     .filter(CSharpNames::inCompanion)
                     .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
             String access = typeAccess();
@@ -698,36 +557,33 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private List<OutputBuilder> covariantImplementations(Qualification q) {
         List<OutputBuilder> out = new ArrayList<>();
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        Set<TypeInfo> seen = new HashSet<>();
         for (ParameterizedType i : typeInfo.interfacesImplemented()) {
-            covariantImplementations(i, java.util.Map.of(), seen, out, q);
+            covariantImplementations(i, Map.of(), seen, out, q);
         }
         return out;
     }
 
-    private void covariantImplementations(ParameterizedType i, java.util.Map<TypeParameter, ParameterizedType> outer,
-                                          java.util.Set<TypeInfo> seen, List<OutputBuilder> out, Qualification q) {
+    private void covariantImplementations(ParameterizedType i, Map<TypeParameter, ParameterizedType> outer,
+                                          Set<TypeInfo> seen, List<OutputBuilder> out, Qualification q) {
         TypeInfo iface = i.typeInfo();
         if (iface == null || !CSharpNames.translated(iface) || !seen.add(iface)) return;
-        ParameterizedType implemented = substitute(i, outer);
-        java.util.Map<TypeParameter, ParameterizedType> map = new java.util.HashMap<>();
-        for (int k = 0; k < Math.min(iface.typeParameters().size(), implemented.parameters().size()); k++) {
-            map.put(iface.typeParameters().get(k), implemented.parameters().get(k));
-        }
+        ParameterizedType implemented = CSharpHierarchy.substitute(i, outer);
+        Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(implemented);
         for (MethodInfo m : iface.methods()) {
             if (m.isStatic() || !m.typeParameters().isEmpty() || m.isSynthetic() || CSharpWildcards.mayCapture(m)) continue;
             MethodInfo own = typeInfo.methods().stream()
                     .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
                     .findFirst().orElse(null);
-            if (own == null || own.typeInfo().typeNature().isRecord() && isRecordAccessor(own)) continue;
-            String returnType = CSharpTypeName.of(substitute(m.returnType(), map), q);
+            if (own == null || own.typeInfo().typeNature().isRecord() && CstQueries.isRecordAccessor(own)) continue;
+            String returnType = CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), map), q);
             if (returnType.equals(CSharpTypeName.of(own.returnType(), q))) continue;
             List<String> names = own.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
             StringBuilder sb = new StringBuilder(returnType).append(' ').append(CSharpTypeName.of(implemented, q))
                     .append('.').append(CSharpNames.method(m)).append('(');
             for (int k = 0; k < names.size(); k++) {
                 if (k > 0) sb.append(", ");
-                sb.append(CSharpTypeName.of(substitute(m.parameters().get(k).parameterizedType(), map), q))
+                sb.append(CSharpTypeName.of(CSharpHierarchy.substitute(m.parameters().get(k).parameterizedType(), map), q))
                         .append(' ').append(names.get(k));
             }
             sb.append(") => ").append(CSharpNames.method(own)).append('(').append(String.join(", ", names))
@@ -745,27 +601,27 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private List<OutputBuilder> abstractRedeclarations(Qualification q) {
         List<OutputBuilder> out = new ArrayList<>();
-        java.util.Set<String> declared = new java.util.HashSet<>();
-        for (LeftAbstract left : leftAbstract(typeInfo)) {
+        Set<String> declared = new HashSet<>();
+        for (CSharpHierarchy.LeftAbstract left : CSharpHierarchy.leftAbstract(typeInfo)) {
             MethodInfo m = left.method();
             String property = CSharpContext.program().computedProperty(m);
             if (property != null) {
                 // the interface's property, left to the subclasses
                 if (declared.add(property)) {
                     out.add(new OutputBuilderImpl().add(new TextImpl("public abstract "
-                            + CSharpTypeName.of(substitute(m.returnType(), left.typeArguments()), q) + " " + property
+                            + CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q) + " " + property
                             + " { get; }")));
                 }
                 continue;
             }
             String name = CSharpNames.method(m);
             StringBuilder sb = new StringBuilder("public abstract ")
-                    .append(CSharpTypeName.of(substitute(m.returnType(), left.typeArguments()), q)).append(' ')
+                    .append(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q)).append(' ')
                     .append(name).append('(');
             StringBuilder signature = new StringBuilder(name);
             for (int k = 0; k < m.parameters().size(); k++) {
                 if (k > 0) sb.append(", ");
-                String type = CSharpTypeName.of(substitute(m.parameters().get(k).parameterizedType(),
+                String type = CSharpTypeName.of(CSharpHierarchy.substitute(m.parameters().get(k).parameterizedType(),
                         left.typeArguments()), q);
                 sb.append(type).append(' ').append(CSharpNames.name(m.parameters().get(k).name()));
                 signature.append(',').append(type);
@@ -775,70 +631,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return out;
     }
 
-    /** An interface's method an abstract class leaves to its subclasses, and the interface's type arguments. */
-    record LeftAbstract(MethodInfo method, java.util.Map<TypeParameter, ParameterizedType> typeArguments) {}
-
-    /** The interface methods abstract class {@code cls} redeclares abstract: no class or default implements them. */
-    static List<LeftAbstract> leftAbstract(TypeInfo cls) {
-        if (cls.isInterface() || !cls.isAbstract() || !CSharpNames.translated(cls)) return List.of();
-        List<MethodInfo> implementations = new ArrayList<>();
-        for (TypeInfo t = cls; t != null; t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
-            implementations.addAll(t.methods());
-        }
-        java.util.Map<TypeInfo, ParameterizedType> interfaces = new java.util.LinkedHashMap<>();
-        java.util.Deque<ParameterizedType> todo = new java.util.ArrayDeque<>();
-        for (TypeInfo t = cls; t != null; t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
-            ParameterizedType asSeen = t == cls ? null : implementedAs(cls, t);
-            java.util.Map<TypeParameter, ParameterizedType> map = asSeen == null ? java.util.Map.of() : typeArguments(asSeen);
-            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
-        }
-        while (!todo.isEmpty()) {
-            ParameterizedType i = todo.poll();
-            TypeInfo iface = i.typeInfo();
-            if (iface == null || interfaces.containsKey(iface)) continue;
-            interfaces.put(iface, i);
-            java.util.Map<TypeParameter, ParameterizedType> map = typeArguments(i);
-            iface.interfacesImplemented().forEach(sup -> todo.add(substitute(sup, map)));
-        }
-        interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
-                .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
-        // an abstract superclass of the program declares what it leaves abstract itself: a second declaration would hide
-        // it (CS0533), and the subclasses' overrides would not implement it (CS0534)
-        // (any of them: one in between that declares nothing does not make a third one's declaration go away)
-        java.util.Set<MethodInfo> declaredAbove = new java.util.HashSet<>();
-        for (TypeInfo t = cls.parentClass() == null ? null : cls.parentClass().typeInfo(); t != null;
-             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
-            leftAbstract(t).forEach(l -> declaredAbove.add(l.method()));
-        }
-        List<LeftAbstract> left = new ArrayList<>();
-        interfaces.forEach((iface, i) -> {
-            if (!CSharpNames.translated(iface)) return;
-            for (MethodInfo m : iface.methods()) {
-                if (declaredAbove.contains(m)) continue;
-                if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
-                    || CSharpWildcards.mayCapture(m)) continue;
-                if (OBJECT_METHODS.contains(m.name() + "/" + m.parameters().size())) continue;
-                if (implementations.stream().anyMatch(x -> x != m && x.overrides().contains(m))) continue;
-                left.add(new LeftAbstract(m, typeArguments(i)));
-            }
-        });
-        return left;
-    }
-
-    private static final java.util.Set<String> OBJECT_METHODS = java.util.Set.of("equals/1", "hashCode/0", "toString/0");
-
     // ---------------------------------------------------------------- helpers
-
-    /** {@code x()} of a record with component {@code x}: the record's property {@code X} takes its place. */
-    static boolean isRecordAccessor(MethodInfo m) {
-        return CstQueries.isRecordAccessor(m);
-    }
 
     /**
      * The no-arg, empty-body constructor, the only one of its type, that C# gives the class by default (an enum's
      * constructor is private, and a C# enum has none).
      */
-    private static boolean isImplicitDefaultConstructor(MethodInfo c) {
+    static boolean isImplicitDefaultConstructor(MethodInfo c) {
         TypeInfo owner = c.typeInfo();
         return c.parameters().isEmpty() && emptyBody(c)
                && owner.constructors().stream().filter(x -> !x.isSynthetic()).count() == 1
@@ -850,8 +649,6 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private static boolean emptyBody(MethodInfo m) {
         return m.methodBody() == null || m.methodBody().statements().stream().allMatch(s -> s.isSynthetic());
     }
-
-
 
     /** A class declared in a method body. */
     private static boolean isLocal(TypeInfo typeInfo) {

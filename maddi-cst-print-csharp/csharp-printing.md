@@ -174,7 +174,7 @@ implements the interface.
   getScore()`, bounded by a program type (not `Comparable<? super R>`, whose type argument C# infers from a method
   group's target): where Java infers a raw or captured `Score_`, no C# type argument satisfies the constraint (CS0411).
   Such a method, with all its overrides, is printed with the type parameter erased, a wildcard in its signature and
-  body: `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the companion). A call
+  body: `InnerScore<IScore> GetScore()`, `IInnerScoreDirector<Solution_> GetScoreDirector()` (the wildcard interface). A call
   where Java's type is writable casts to it through `object`, `(InnerScore<SimpleScore>) (object) scope.GetScore()`,
   since C# relates no two instantiations of a class.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
@@ -492,7 +492,7 @@ public TerminationConfig XmlTerminationConfig { get => this.terminationConfig; s
 - **The property's type** is the field's, or what `XmlSerializer` can write:
   - An enum that is a C# enum keeps its type, and its members get `[XmlEnum("NAME")]`.
   - An enum that is a class in C# becomes its name, through `Name` and `ValueOf`.
-  - An interface, a self-bounded class's companion, or a field with `@XmlElements` becomes `object`.
+  - An interface, a self-bounded class's wildcard interface, or a field with `@XmlElements` becomes `object`.
   - With `@XmlJavaTypeAdapter(A.class)`, the property has the adapter's value type and goes through
     `new A().Marshal`/`Unmarshal`.
   - A collection whose elements are converted becomes an array. `XmlSerializer` assigns an array once it has read
@@ -510,7 +510,10 @@ qualified, as one whose name two namespaces declare is.
 ## The JDK → BCL mapping (`CSharpBcl`)
 
 The translated code uses the BCL, not a port of the JDK. The table follows fernflower's JDK use: the census in the
-ratchet's report (see below) lists what is left.
+ratchet's report (see below) lists what is left. Its rows are a mapping file, `jdk-bcl.csmap` beside the printer's
+classes, in the format a client's `.csmap` has; `CSharpBcl` reads it, and asks its own choosers first, the rules
+that depend on the call: a receiver that is a read-only parameter or a subclass of `ArrayList`, a value type's absence
+from a map, a stream's collector.
 
 - **Collections.** `List`, `ArrayList`, `LinkedList` and the deques become `List<T>`. `Map` becomes
   `IDictionary<K, V>` and `Set` becomes `ISet<T>`, because Java implements them with hash and tree collections
@@ -536,19 +539,22 @@ ratchet's report (see below) lists what is left.
   delegate, a sealed class, a type parameter). Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
 - **Self-bounded types.** A wildcard of a type whose parameter is bounded by itself, `Score<?>` of
   `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
-  C#'s `IComparable` beside `IComparable<T>`, such a type has a companion without its self-bounded parameters
-  (`CSharpCompanions`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside `IDirector<Solution_, Score_>`;
-  a class's or a record's companion is the interface `I` + its name, a record's with its components as properties
-  (`IScore Raw { get; }`). The wildcard, and the raw type, is the companion. The companion
-  declares the type's own members that do not take the removed parameter, with a result of it erased to its bound's
-  companion (`IScore Negate();`); the type implements them explicitly, calling its own
+  C#'s `IComparable` beside `IComparable<T>`, such a type has a wildcard interface without its self-bounded parameters
+  (`CSharpWildcardInterfaces`): `IScore` beside `IScore<Score_>`, `IDirector<Solution_>` beside
+  `IDirector<Solution_, Score_>`; a class's or a record's wildcard interface is the interface `I` + its name, a
+  record's with its components as properties (`IScore Raw { get; }`). The wildcard, and the raw type, is the wildcard
+  interface. It declares the type's own members that do not take the removed parameter, with a result of it erased to
+  its bound's wildcard interface (`IScore Negate();`); the type implements them explicitly, calling its own
   (`IScore IScore.Negate() => Negate();`, a default implementation in an interface), so that every `IScore<S>` is an
   `IScore`. In an instance member of the type itself, a cast to or a local of its wildcard is the type with its own
-  type parameters, which has the private members the companion has not: Java's `equals`,
+  type parameters, which has the private members the wildcard interface has not: Java's `equals`,
   `MinCollector<?, ?> that = (MinCollector<?, ?>) o`, is `MinCollector<A, P> that = (MinCollector<A, P>) o`, after the
-  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s non-generic `IComparable` in its companion, which it
-  implements by a cast (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed parameter inside another type (`List<Score_>`) is not the
-  companion's. The companion extends the companions of the type's self-bounded supertypes, and its plain interfaces.
+  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s
+  non-generic `IComparable` in its wildcard interface, which it implements by a cast
+  (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed
+  parameter inside another type (`List<Score_>`) is not the wildcard interface's. The wildcard interface extends those
+  of the type's self-bounded supertypes, and its plain interfaces. (The *companion* is another thing: the static class
+  beside a generic type, for its static members.)
 - **Streams and Optional.** Streams become LINQ over `IEnumerable<T>`: `filter`/`map`/`collect(toList())` become
   `Where`/`Select`/`ToList()`. `Optional<T>` becomes the value itself or null: `orElse(x)` becomes `?? x`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →

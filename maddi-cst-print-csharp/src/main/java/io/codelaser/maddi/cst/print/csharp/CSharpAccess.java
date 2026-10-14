@@ -159,6 +159,4 @@ final class CSharpAccess {
         }
         return false;
     }
-
-
 }

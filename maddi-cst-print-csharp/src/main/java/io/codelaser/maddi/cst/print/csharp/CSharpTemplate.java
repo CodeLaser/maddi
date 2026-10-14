@@ -14,26 +14,28 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * Renders a {@link CSharpBcl} template. The pieces are printed when the template names them, and only then: printing
@@ -103,7 +105,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
             if (c == '{' && i + 2 < template.length() && (template.charAt(i + 1) == 'R' || template.charAt(i + 1) == 'T')) {
                 int close = template.indexOf('}', i);
                 String token = template.substring(i + 1, close);
-                if (token.matches("[RT](\\d+(\\.\\d+)*)?")) {
+                if (TYPE_TOKEN.matcher(token).matches()) {
                     literal.append(type(token));
                     i = close + 1;
                     continue;
@@ -126,7 +128,7 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         if (!(arg instanceof StringConstant sc)) return arguments.get(index - 1).get();
         String text = sc.constant();
         StringBuilder sb = new StringBuilder();
-        java.util.Set<String> used = new java.util.HashSet<>();
+        Set<String> used = new HashSet<>();
         int hole = 0;
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
@@ -152,12 +154,12 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
         Expression x = CSharpExpressionPrinter.unwrap(e);
         String name = switch (x) {
             case VariableExpression ve -> ve.variable().simpleName();
-            case MethodCall mc -> mc.methodInfo().name().replaceFirst("^(get|is)(?=[A-Z])", "");
+            case MethodCall mc -> ACCESSOR_PREFIX.matcher(mc.methodInfo().name()).replaceFirst("");
             default -> "Value";
         };
         int dot = name.lastIndexOf('.');
         if (dot >= 0) name = name.substring(dot + 1);
-        name = name.replaceAll("[^A-Za-z0-9_]", "");
+        name = NOT_IN_NAME.matcher(name).replaceAll("");
         return name.isEmpty() ? "Value" : CSharpNames.pascal(name);
     }
 
@@ -185,9 +187,11 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
                 return CSharpExpressionPrinter.receiver(returnedValue, q);
             }
             // a block body: the delegate it is, called, ((Func<T>) (() => { … }))()
-            String type = lambda.concreteFunctionalType() == null ? null
-                    : CSharpTypeName.of(lambda.concreteFunctionalType(), q);
-            if (type == null || !type.startsWith("Func<")) return null;
+            ParameterizedType functional = lambda.concreteFunctionalType();
+            LibraryMapping.TypeMapping mapping = functional == null || functional.typeInfo() == null ? null
+                    : CSharpContext.libraries().type(functional.typeInfo());
+            if (mapping == null || !mapping.function()) return null;
+            String type = CSharpTypeName.of(functional, q);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(new TextImpl(type)).add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(CSharpExpressionPrinter.print(lambda, q)).add(SymbolEnum.RIGHT_PARENTHESIS)
@@ -239,6 +243,11 @@ record CSharpTemplate(Supplier<OutputBuilder> receiver, List<Supplier<OutputBuil
     private static final Symbol RANGE = new SymbolEnum("..", SpaceEnum.NONE, SpaceEnum.NONE, null);
     /** An initializer's closing brace: a space before it, also after a call's parenthesis, {@code { F(x) }}. */
     private static final Symbol CLOSE_BRACE = new SymbolEnum("}", SpaceEnum.ONE, SpaceEnum.NONE, null);
+    /** {@code {R}}, {@code {T1}}, {@code {R0.1}}: the call's return or receiver type, or one of its arguments. */
+    private static final Pattern TYPE_TOKEN = Pattern.compile("[RT](\\d+(\\.\\d+)*)?");
+    private static final Pattern NOT_IN_NAME = Pattern.compile("[^A-Za-z0-9_]");
+    private static final Pattern ACCESSOR_PREFIX = Pattern.compile("^(get|is)(?=[A-Z])");
+
     private static final Set<String> OPERATORS = Set.of("=>", "==", "!=", "??", "+", "-", "*", "/", "<", ">", "<=",
             ">=", "||", "&&", "=", "or", "is", "&", "|", "%");
 

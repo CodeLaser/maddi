@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.List;
@@ -34,6 +35,11 @@ import java.util.stream.Stream;
  * slf4j's, Jackson's. The translation asks an ordered list of mappings ({@link CSharpLibraries}), and the first that
  * answers wins: a client chooses one mapping per library, and may put one of its own in front to override a single
  * rule. Every method answers null for what the mapping does not know.
+ * <p>
+ * Each answer has the namespaces its C# needs: a type, a field and a type test one ({@code namespace}, null for none),
+ * a rule, attributes and additions any number ({@code namespaces}). Of the list's answers, the first wins, except where
+ * a method says they are combined: the {@link #additions}, the {@link #memberAttributes}, the {@link #requirements},
+ * the {@link #typeNames}, and {@link #excludes}, which any mapping may answer.
  */
 public interface LibraryMapping {
 
@@ -47,6 +53,35 @@ public interface LibraryMapping {
      * Java type whose C# counterpart is not generic ({@code Class<?>} is {@code Type}).
      */
     record TypeMapping(String template, String namespace, boolean compat, boolean dropArguments) {
+        private static final Set<String> DELEGATES = Set.of("Func", "Action", "Predicate", "Comparison");
+        private static final Pattern INTERFACE = Pattern.compile("I[A-Z][A-Za-z]*");
+
+        /** A pattern of the type's arguments, {@code {0?}}: Optional's, which is its argument. */
+        public boolean ofArgument() {
+            return template.startsWith("{");
+        }
+
+        /** One of the BCL's delegates, {@code Func<…>}, {@code Action<…>}, {@code Predicate<…>}, {@code Comparison<…>}. */
+        public boolean delegate() {
+            return DELEGATES.contains(name());
+        }
+
+        /** A {@code Func<…>}: a delegate with a result. */
+        public boolean function() {
+            return "Func".equals(name());
+        }
+
+        /** The template's type name, without its arguments and the {@code System} namespace. */
+        private String name() {
+            int angle = template.indexOf('<');
+            String name = angle < 0 ? template : template.substring(0, angle);
+            return name.startsWith("System.") ? name.substring("System.".length()) : name;
+        }
+
+        /** A C# interface: {@code ISet<T>}, {@code IDictionary<K, V>}, by .NET's naming. */
+        public boolean isInterface() {
+            return INTERFACE.matcher(name()).matches();
+        }
     }
 
     /**
@@ -55,15 +90,30 @@ public interface LibraryMapping {
      * one ({@link CSharpLibraries#call}), and when none does, from the statement template. In a template, {@code $0} is the receiver, {@code $1}, {@code $2}, … the arguments,
      * {@code $*} all of them, {@code $+} all but the first, {@code @1} an argument as an operand, {@code $1.2} the
      * second argument of the first, a call, {@code {R}} the call's return type and {@code {R0}} its type arguments,
-     * {@code {T0}} the receiver's.
+     * {@code {T0}} the receiver's. {@code nullableResult}: C# declares the value nullable where Java's is not, or not
+     * known to be, which a template that reflection's lookups or JSON deserialization write has by default.
      */
-    record Rule(String value, String statement, List<String> namespaces) {
+    record Rule(String value, String statement, List<String> namespaces, boolean nullableResult) {
         /** A template that writes a generic collection, {@code new List<{R0}> { $* }}, uses its namespace. */
         private static final Pattern COLLECTION = Pattern.compile(
                 "\\b(List|Dictionary|HashSet|SortedSet|SortedDictionary|LinkedList|Queue|Stack|KeyValuePair"
                 + "|IList|IDictionary|ISet|ICollection|IEnumerable|IReadOnlyList|IReadOnlyCollection|Comparer"
                 + "|EqualityComparer)<");
         private static final String GENERIC = "System.Collections.Generic";
+
+        /**
+         * The C# members whose result is nullable where Java's is not, or not known to be: reflection's lookups, which
+         * return null where Java throws, JSON deserialization, a dictionary's {@code GetValueOrDefault}.
+         */
+        private static final Pattern NULLABLE_RESULT = Pattern.compile(
+                "JsonSerializer\\.Deserialize|JsonConvert\\.DeserializeObject|\\.GetElementType\\(|\\.GetConstructor\\("
+                + "|\\.GetMethod\\(|\\.GetField\\(|\\.GetProperty\\(|\\.Invoke\\(|Type\\.GetType\\(|\\.GetCustomAttribute\\b"
+                + "|Activator\\.CreateInstance\\(|\\.GetValueOrDefault\\(\\$1\\)");
+
+        /** A rule whose value is nullable as its template has it ({@link #NULLABLE_RESULT}). */
+        public Rule(String value, String statement, List<String> namespaces) {
+            this(value, statement, namespaces, value != null && NULLABLE_RESULT.matcher(value).find());
+        }
 
         public Rule {
             if (!namespaces.contains(GENERIC) && (value != null && COLLECTION.matcher(value).find()
@@ -75,14 +125,18 @@ public interface LibraryMapping {
         public String template(boolean asStatement) {
             return asStatement && statement != null || value == null ? statement : value;
         }
+
+        /** The value is an atom, which needs no parentheses as an operand or a receiver ({@link CSharpTemplate#atomic}). */
+        public boolean atomic() {
+            return CSharpTemplate.atomic(template(false));
+        }
     }
 
-    /** A field in C#, {@code Console.Out}, and the namespace it needs (null: none). */
-    record FieldMapping(String value, String namespace) {
-    }
-
-    /** A type test in C#, {@code Type { IsConstructedGenericType: true }}, and the namespace it needs. */
-    record PatternMapping(String value, String namespace) {
+    /**
+     * A piece of C# and the namespace it needs (null: none): a field, {@code Console.Out}, or a type test,
+     * {@code Type { IsConstructedGenericType: true }}.
+     */
+    record CodeMapping(String value, String namespace) {
     }
 
     /** A NuGet package the translated code references: {@code Microsoft.Extensions.Logging.Abstractions 10.0.0}. */
@@ -98,7 +152,7 @@ public interface LibraryMapping {
         public static final Requirements NONE = new Requirements(List.of(), List.of());
     }
 
-    /** What the translated code needs: the packages it references, the sources that go with it. */
+    /** What the translated code needs: the packages it references, the sources that go with it. Combined. */
     default Requirements requirements() {
         return Requirements.NONE;
     }
@@ -122,7 +176,7 @@ public interface LibraryMapping {
 
     /**
      * Whether the program's own {@code primaryType} is left out of the translation: not printed, and used as a library
-     * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file).
+     * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file). Any mapping's.
      */
     default boolean excludes(TypeInfo primaryType) {
         return false;
@@ -146,31 +200,35 @@ public interface LibraryMapping {
         public static final Additions NONE = new Additions(List.of(), List.of(), List.of());
     }
 
-    /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. */
-    default Additions additions(TypeInfo typeInfo, io.codelaser.maddi.cst.api.output.Qualification q) {
+    /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. Combined. */
+    default Additions additions(TypeInfo typeInfo, Qualification q) {
         return null;
     }
 
     /**
      * The attributes of the C# member that {@code field} is, a public field or property, or an enum's constant: an
      * XML-bound type's members are {@code XmlIgnore}, as its additions take their place; the constants of an enum it
-     * writes are {@code XmlEnum("NAME")}. Null: none.
+     * writes are {@code XmlEnum("NAME")}. Null: none. Combined.
      */
     default AttributeMapping memberAttributes(FieldInfo field) {
         return null;
     }
 
-    /** The rule of a call of {@code method}; {@code call} is null for a method reference. */
+    /**
+     * The rule of a call of {@code method}; {@code call} is null for a method reference. The first wins; one with only
+     * a statement template takes its value template from the next ({@link CSharpLibraries#call}).
+     */
     default Rule call(MethodInfo method, MethodCall call) {
         return null;
     }
 
-    /** The rule of a call of the constructor {@code constructor}. */
+    /** The rule of a call of the constructor {@code constructor}. As {@link #call}. */
     default Rule constructor(MethodInfo constructor) {
         return null;
     }
 
-    default FieldMapping field(FieldInfo fieldInfo) {
+    /** A field of the library in C#. */
+    default CodeMapping field(FieldInfo fieldInfo) {
         return null;
     }
 
@@ -178,7 +236,7 @@ public interface LibraryMapping {
      * The type test {@code x instanceof tested}, when it is not the test against the type's name;
      * {@code expression}, the type of {@code x}, is null where there is none (a switch's pattern).
      */
-    default PatternMapping pattern(ParameterizedType tested, ParameterizedType expression) {
+    default CodeMapping pattern(ParameterizedType tested, ParameterizedType expression) {
         return null;
     }
 
@@ -190,7 +248,7 @@ public interface LibraryMapping {
         return null;
     }
 
-    /** The simple names of the C# types the mapping writes, which a type of the program must not hide. */
+    /** The simple names of the C# types the mapping writes, which a type of the program must not hide. Combined. */
     default Set<String> typeNames() {
         return Set.of();
     }

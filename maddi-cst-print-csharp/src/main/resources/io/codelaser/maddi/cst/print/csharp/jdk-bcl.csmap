@@ -1,0 +1,1237 @@
+# The JDK as .NET's base class library: the C# counterparts of the JDK's types, members and fields, read by
+# CSharpBcl. The rules it chooses per call, by an argument's or the receiver's type, are its Java choosers, which it
+# asks before this file's rules, key by key. A template's syntax is LibraryMapping.Rule's; the compatibility
+# library, Maddi.JavaCompat, is JavaCompat.cs.
+mapping jdk
+
+# ---------------------------------------------------------------- types
+# C#'s List, the concrete type: its IList does not implement IReadOnlyList, which the covariant List<? extends T>
+# is (see CSharpTypeName)
+type java.util.List -> List using System.Collections.Generic
+type java.util.ArrayList -> List using System.Collections.Generic
+type java.util.LinkedList -> List using System.Collections.Generic
+type java.util.AbstractList -> List using System.Collections.Generic
+type java.util.Deque -> List using System.Collections.Generic
+type java.util.ArrayDeque -> List using System.Collections.Generic
+type java.util.Queue -> List using System.Collections.Generic
+type java.util.SequencedCollection -> List using System.Collections.Generic
+# Java's Map and Set are implemented by hash and tree collections alike: C#'s interfaces. A HashMap is C#'s
+# Dictionary; a LinkedHashMap keeps its insertion order, as OrderedDictionary does; an EnumMap iterates in
+# the order of its keys, as SortedDictionary does.
+type java.util.Map -> IDictionary using System.Collections.Generic
+type java.util.AbstractMap -> IDictionary using System.Collections.Generic
+type java.util.HashMap -> Dictionary using System.Collections.Generic
+type java.util.IdentityHashMap -> Dictionary using System.Collections.Generic
+type java.util.concurrent.ConcurrentHashMap -> Dictionary using System.Collections.Generic
+type java.util.LinkedHashMap -> OrderedDictionary using System.Collections.Generic
+type java.util.EnumMap -> SortedDictionary using System.Collections.Generic
+type java.util.TreeMap -> SortedDictionary using System.Collections.Generic
+type java.util.SortedMap -> SortedDictionary using System.Collections.Generic
+type java.util.Set -> ISet using System.Collections.Generic
+type java.util.AbstractSet -> ISet using System.Collections.Generic
+# .NET's HashSet enumerates in insertion order as long as nothing is removed
+type java.util.HashSet -> HashSet using System.Collections.Generic
+type java.util.LinkedHashSet -> HashSet using System.Collections.Generic
+type java.util.TreeSet -> SortedSet using System.Collections.Generic
+type java.util.SortedSet -> SortedSet using System.Collections.Generic
+# the navigable and sequenced interfaces are their one implementation's: TreeMap, TreeSet, LinkedHashMap and
+# LinkedHashSet; an EnumSet is a set (C#'s enums printed as classes are not comparable)
+type java.util.NavigableMap -> SortedDictionary using System.Collections.Generic
+type java.util.NavigableSet -> SortedSet using System.Collections.Generic
+type java.util.SequencedMap -> OrderedDictionary using System.Collections.Generic
+type java.util.SequencedSet -> HashSet using System.Collections.Generic
+type java.util.EnumSet -> HashSet using System.Collections.Generic
+type java.util.Collection -> ICollection using System.Collections.Generic
+type java.util.AbstractCollection -> ICollection using System.Collections.Generic
+type java.lang.Iterable -> IEnumerable using System.Collections.Generic
+type java.util.Map.Entry -> KeyValuePair using System.Collections.Generic
+# a class of the program may extend these, which it cannot do with KeyValuePair, a struct
+pascal java.util.AbstractMap.SimpleEntry -> JavaEntry using Maddi.JavaCompat
+pascal java.util.AbstractMap.SimpleImmutableEntry -> JavaEntry using Maddi.JavaCompat
+type java.util.stream.Stream -> IEnumerable using System.Collections.Generic
+type java.util.stream.IntStream -> IEnumerable<int> using System.Collections.Generic
+type java.util.Optional -> {0?}
+type java.util.OptionalInt -> int?
+type java.util.OptionalLong -> long?
+type java.util.OptionalDouble -> double?
+type java.util.stream.LongStream -> IEnumerable<long> using System.Collections.Generic
+type java.util.stream.DoubleStream -> IEnumerable<double> using System.Collections.Generic
+type java.time.Instant -> DateTimeOffset using System
+# the values of java.time, java.net and java.math: BCL structs, as Instant is
+type java.time.LocalDate -> DateOnly using System
+type java.time.LocalTime -> TimeOnly using System
+type java.time.LocalDateTime -> DateTime using System
+type java.time.Duration -> TimeSpan using System
+type java.time.Clock -> TimeProvider using System
+# a formatter is a custom format string: the ISO ones are constants (FIELDS)
+type java.time.format.DateTimeFormatter -> string
+type java.net.URI -> Uri using System
+type java.net.URL -> Uri using System
+type java.util.UUID -> Guid using System
+type java.math.BigDecimal -> decimal
+type java.math.BigInteger -> BigInteger using System.Numerics
+# C#'s numbers have no common base class; IConvertible is what they share (with string and DateTime, which
+# a Java Number is not)
+type java.lang.Number -> IConvertible using System
+type java.util.Random -> Random using System
+type java.util.random.RandomGenerator -> Random using System
+type java.math.RoundingMode -> MidpointRounding using System
+type java.lang.StringBuffer -> StringBuilder using System.Text
+type java.security.MessageDigest -> HashAlgorithm using System.Security.Cryptography
+type java.security.NoSuchAlgorithmException -> CryptographicException using System.Security.Cryptography
+type java.lang.ThreadLocal -> ThreadLocal using System.Threading
+type java.util.regex.Pattern -> Regex using System.Text.RegularExpressions
+pascal java.util.regex.Matcher -> JavaMatcher using Maddi.JavaCompat
+type java.io.FileInputStream -> FileStream using System.IO
+type java.io.FileOutputStream -> FileStream using System.IO
+type java.io.BufferedInputStream -> BufferedStream using System.IO
+type java.io.BufferedOutputStream -> BufferedStream using System.IO
+type java.io.OutputStreamWriter -> StreamWriter using System.IO
+type java.io.InputStreamReader -> StreamReader using System.IO
+type java.io.BufferedReader -> TextReader using System.IO
+type java.io.Reader -> TextReader using System.IO
+type java.util.function.Function -> Func using System
+type java.util.function.BiFunction -> Func using System
+type java.util.function.Supplier -> Func using System
+type java.util.function.Consumer -> Action using System
+type java.util.function.BiConsumer -> Action using System
+type java.util.function.Predicate -> Func<{0}, bool> using System
+type java.util.function.BiPredicate -> Func<{0}, {1}, bool> using System
+type java.util.function.UnaryOperator -> Func<{0}, {0}> using System
+type java.util.function.BinaryOperator -> Func<{0}, {0}, {0}> using System
+type java.util.function.IntFunction -> Func<int, {0}> using System
+type java.util.function.ToIntFunction -> Func<{0}, int> using System
+type java.util.function.ToLongFunction -> Func<{0}, long> using System
+type java.util.function.ToDoubleFunction -> Func<{0}, double> using System
+type java.util.function.ToIntBiFunction -> Func<{0}, {1}, int> using System
+type java.util.function.ToLongBiFunction -> Func<{0}, {1}, long> using System
+type java.util.function.ToDoubleBiFunction -> Func<{0}, {1}, double> using System
+type java.util.function.IntPredicate -> Func<int, bool> using System
+type java.lang.Runnable -> Action using System
+type java.util.concurrent.Callable -> Func using System
+type java.util.Comparator -> Comparison using System
+type java.lang.StringBuilder -> StringBuilder using System.Text
+type java.lang.AbstractStringBuilder -> StringBuilder using System.Text
+type java.lang.CharSequence -> string
+plain java.lang.Class -> Type using System
+type java.lang.Comparable -> IComparable using System
+type java.lang.AutoCloseable -> IDisposable using System
+type java.io.Closeable -> IDisposable using System
+type java.lang.Thread -> Thread using System.Threading
+type java.util.Locale -> CultureInfo using System.Globalization
+# Void is a type argument only: a CompletableFuture<Void> has no value
+type java.lang.Void -> object
+# reflection: java.lang.reflect.Type and its kinds are System.Type (patterns tell the kinds apart, PATTERNS)
+plain java.lang.reflect.Type -> Type using System
+plain java.lang.reflect.ParameterizedType -> Type using System
+plain java.lang.reflect.TypeVariable -> Type using System
+plain java.lang.reflect.GenericArrayType -> Type using System
+pascal java.lang.reflect.WildcardType -> IJavaWildcardType using Maddi.JavaCompat
+type java.lang.reflect.Method -> MethodInfo using System.Reflection
+type java.lang.reflect.Field -> FieldInfo using System.Reflection
+type java.lang.reflect.Parameter -> ParameterInfo using System.Reflection
+plain java.lang.reflect.Constructor -> ConstructorInfo using System.Reflection
+type java.lang.reflect.Executable -> MethodBase using System.Reflection
+type java.lang.reflect.AccessibleObject -> MemberInfo using System.Reflection
+type java.lang.reflect.Member -> MemberInfo using System.Reflection
+type java.lang.reflect.AnnotatedElement -> ICustomAttributeProvider using System.Reflection
+type java.lang.annotation.Annotation -> Attribute using System
+# a package is its name, a namespace
+type java.lang.Package -> string
+plain java.lang.Enum -> Enum using System
+type java.lang.NoSuchMethodException -> MissingMethodException using System
+type java.lang.ClassNotFoundException -> TypeLoadException using System
+type java.lang.NoSuchFieldException -> MissingFieldException using System
+type java.lang.InstantiationException -> MemberAccessException using System
+type java.lang.IllegalAccessException -> MemberAccessException using System
+type java.lang.ReflectiveOperationException -> Exception using System
+type java.lang.reflect.InvocationTargetException -> TargetInvocationException using System.Reflection
+# a class loader is the assembly that holds the types; a service loader the implementations they hold
+type java.lang.ClassLoader -> Assembly using System.Reflection
+type java.util.ServiceLoader -> IEnumerable using System.Collections.Generic
+# a path is a FileInfo, not a string: Java overloads on Path and String
+type java.nio.file.Path -> FileInfo using System.IO
+# a future is a task, an executor the scheduler of its tasks
+type java.util.concurrent.CompletableFuture -> Task using System.Threading.Tasks
+type java.util.concurrent.Future -> Task using System.Threading.Tasks
+type java.util.concurrent.Executor -> TaskScheduler using System.Threading.Tasks
+type java.util.concurrent.ExecutorService -> TaskScheduler using System.Threading.Tasks
+type java.util.concurrent.ThreadPoolExecutor -> TaskScheduler using System.Threading.Tasks
+type java.util.concurrent.CountDownLatch -> CountdownEvent using System.Threading
+type java.util.concurrent.Semaphore -> SemaphoreSlim using System.Threading
+# Java's read-write lock is reentrant; its read and write locks are the compatibility library's IJavaLock
+type java.util.concurrent.locks.ReadWriteLock -> ReaderWriterLockSlim using System.Threading
+type java.util.concurrent.locks.ReentrantReadWriteLock -> ReaderWriterLockSlim using System.Threading
+pascal java.util.concurrent.locks.Lock -> IJavaLock using Maddi.JavaCompat
+pascal java.util.concurrent.locks.ReentrantLock -> JavaReentrantLock using Maddi.JavaCompat
+pascal java.util.concurrent.atomic.AtomicBoolean -> AtomicBoolean using Maddi.JavaCompat
+pascal java.util.concurrent.atomic.AtomicInteger -> AtomicInteger using Maddi.JavaCompat
+pascal java.util.concurrent.atomic.AtomicLong -> AtomicLong using Maddi.JavaCompat
+pascal java.util.concurrent.atomic.AtomicReference -> AtomicReference using Maddi.JavaCompat
+type java.nio.charset.Charset -> Encoding using System.Text
+type java.lang.Throwable -> Exception using System
+type java.lang.Exception -> Exception using System
+type java.lang.RuntimeException -> Exception using System
+type java.lang.Error -> Exception using System
+type java.lang.AssertionError -> Exception using System
+type java.lang.IllegalArgumentException -> ArgumentException using System
+type java.lang.IllegalStateException -> InvalidOperationException using System
+type java.lang.UnsupportedOperationException -> NotSupportedException using System
+type java.lang.NullPointerException -> NullReferenceException using System
+type java.lang.IndexOutOfBoundsException -> ArgumentOutOfRangeException using System
+type java.lang.StringIndexOutOfBoundsException -> ArgumentOutOfRangeException using System
+type java.lang.ArrayIndexOutOfBoundsException -> IndexOutOfRangeException using System
+type java.lang.ClassCastException -> InvalidCastException using System
+type java.lang.NumberFormatException -> FormatException using System
+type java.lang.ArithmeticException -> ArithmeticException using System
+type java.lang.CloneNotSupportedException -> NotSupportedException using System
+type java.lang.InterruptedException -> ThreadInterruptedException using System.Threading
+type java.util.NoSuchElementException -> InvalidOperationException using System
+type java.io.IOException -> IOException using System.IO
+type java.io.UncheckedIOException -> IOException using System.IO
+type java.io.FileNotFoundException -> FileNotFoundException using System.IO
+type java.io.InputStream -> Stream using System.IO
+type java.io.OutputStream -> Stream using System.IO
+type java.io.PrintStream -> TextWriter using System.IO
+type java.io.PrintWriter -> TextWriter using System.IO
+type java.io.Writer -> TextWriter using System.IO
+type java.io.StringWriter -> StringWriter using System.IO
+pascal java.io.DataInputStream -> DataInputStream using Maddi.JavaCompat
+pascal java.io.ByteArrayInputStream -> ByteArrayInputStream using Maddi.JavaCompat
+pascal java.io.ByteArrayOutputStream -> ByteArrayOutputStream using Maddi.JavaCompat
+pascal java.util.BitSet -> BitSet using Maddi.JavaCompat
+# an interface, which the program's iterators implement
+pascal java.util.Iterator -> IJavaIterator using Maddi.JavaCompat
+pascal java.util.ListIterator -> IJavaIterator using Maddi.JavaCompat
+pascal java.io.File -> JavaFile using Maddi.JavaCompat
+pascal java.util.Enumeration -> JavaEnumeration using Maddi.JavaCompat
+pascal java.util.zip.ZipFile -> JavaZipFile using Maddi.JavaCompat
+pascal java.util.zip.ZipEntry -> JavaZipEntry using Maddi.JavaCompat
+pascal java.util.zip.ZipOutputStream -> JavaZipOutputStream using Maddi.JavaCompat
+pascal java.util.jar.JarFile -> JavaJarFile using Maddi.JavaCompat
+pascal java.util.jar.JarEntry -> JavaZipEntry using Maddi.JavaCompat
+pascal java.util.jar.Manifest -> JavaManifest using Maddi.JavaCompat
+
+# ---------------------------------------------------------------- collections
+# List, and the deques, which are C#'s List<T> too
+member java.util.List.get/1 -> $0[$1]
+member java.util.Collection.size/0 -> $0.Count
+member java.util.Map.size/0 -> $0.Count
+member java.util.Collection.isEmpty/0 -> $0.Count == 0
+member java.util.Map.isEmpty/0 -> $0.Count == 0
+member java.util.Collection.add/1 -> $0.Add($1)
+member java.util.Collection.remove/1 -> $0.Remove($1)
+member java.util.Collection.clear/0 -> $0.Clear()
+member java.util.Map.clear/0 -> $0.Clear()
+member java.util.Collection.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
+statement java.util.Collection.addAll/1 -> $0.AddAll($1)
+member java.util.Collection.containsAll/1 -> @1.All($0.Contains) using System.Linq
+member java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1) using Maddi.JavaCompat
+statement java.util.Collection.removeAll/1 -> $0.RemoveAllOf($1)
+member java.util.Collection.retainAll/1 -> $0.RetainAll($1) using Maddi.JavaCompat
+statement java.util.Collection.retainAll/1 -> $0.RetainAll($1)
+member java.lang.Iterable.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
+member java.util.Map.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
+member java.lang.Iterable.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.List.add/2 -> $0.Insert($1, $2)
+member java.util.List.remove(Object) -> $0.Remove($1)
+member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
+statement java.util.List.addAll/1 -> $0.AddRange($1)
+member java.util.List.addAll/2 -> $0.InsertAll($1, $2) using Maddi.JavaCompat
+member java.util.List.lastIndexOf/1 -> $0.LastIndexOf($1) using Maddi.JavaCompat
+# Java's sorts are stable, List.Sort is not
+member java.util.List.sort/1 -> JavaCollections.Sort($0, $1) using Maddi.JavaCompat
+member java.util.List.getFirst/0 -> $0[0]
+member java.util.List.getLast/0 -> $0[^1]
+member java.util.SequencedCollection.getFirst/0 -> $0[0]
+member java.util.SequencedCollection.getLast/0 -> $0[^1]
+member java.util.List.of/1 -> new List<{R0}> { $* }
+member java.util.List.copyOf/1 -> new List<{R0}>($1)
+# the array argument only gives Java the element type
+member java.util.Collection.toArray/1 -> $0.ToArray() using System.Linq
+member java.util.Deque.getFirst/0 -> $0[0]
+member java.util.LinkedList.getFirst/0 -> $0[0]
+member java.util.ArrayDeque.getFirst/0 -> $0[0]
+member java.util.Queue.getFirst/0 -> $0[0]
+member java.util.Deque.getLast/0 -> $0[^1]
+member java.util.LinkedList.getLast/0 -> $0[^1]
+member java.util.ArrayDeque.getLast/0 -> $0[^1]
+member java.util.Queue.getLast/0 -> $0[^1]
+member java.util.Deque.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.LinkedList.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Queue.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Deque.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
+member java.util.LinkedList.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
+member java.util.ArrayDeque.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
+member java.util.Queue.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
+member java.util.Deque.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.LinkedList.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Queue.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Deque.addFirst/1 -> $0.Insert(0, $1)
+member java.util.LinkedList.addFirst/1 -> $0.Insert(0, $1)
+member java.util.ArrayDeque.addFirst/1 -> $0.Insert(0, $1)
+member java.util.Queue.addFirst/1 -> $0.Insert(0, $1)
+member java.util.Deque.push/1 -> $0.Insert(0, $1)
+member java.util.LinkedList.push/1 -> $0.Insert(0, $1)
+member java.util.ArrayDeque.push/1 -> $0.Insert(0, $1)
+member java.util.Queue.push/1 -> $0.Insert(0, $1)
+member java.util.Deque.addLast/1 -> $0.Add($1)
+member java.util.LinkedList.addLast/1 -> $0.Add($1)
+member java.util.ArrayDeque.addLast/1 -> $0.Add($1)
+member java.util.Queue.addLast/1 -> $0.Add($1)
+member java.util.Deque.offer/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.Deque.offer/1 -> $0.Add($1)
+member java.util.LinkedList.offer/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.LinkedList.offer/1 -> $0.Add($1)
+member java.util.ArrayDeque.offer/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.ArrayDeque.offer/1 -> $0.Add($1)
+member java.util.Queue.offer/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.Queue.offer/1 -> $0.Add($1)
+member java.util.Deque.offerLast/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.Deque.offerLast/1 -> $0.Add($1)
+member java.util.LinkedList.offerLast/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.LinkedList.offerLast/1 -> $0.Add($1)
+member java.util.ArrayDeque.offerLast/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.ArrayDeque.offerLast/1 -> $0.Add($1)
+member java.util.Queue.offerLast/1 -> $0.Offer($1) using Maddi.JavaCompat
+statement java.util.Queue.offerLast/1 -> $0.Add($1)
+member java.util.Deque.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Deque.removeFirst/0 -> $0.RemoveAt(0)
+member java.util.LinkedList.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.LinkedList.removeFirst/0 -> $0.RemoveAt(0)
+member java.util.ArrayDeque.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.ArrayDeque.removeFirst/0 -> $0.RemoveAt(0)
+member java.util.Queue.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Queue.removeFirst/0 -> $0.RemoveAt(0)
+member java.util.Deque.pop/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Deque.pop/0 -> $0.RemoveAt(0)
+member java.util.LinkedList.pop/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.LinkedList.pop/0 -> $0.RemoveAt(0)
+member java.util.ArrayDeque.pop/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.ArrayDeque.pop/0 -> $0.RemoveAt(0)
+member java.util.Queue.pop/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Queue.pop/0 -> $0.RemoveAt(0)
+member java.util.Deque.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+statement java.util.Deque.removeLast/0 -> $0.RemoveAt($0.Count - 1)
+member java.util.LinkedList.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+statement java.util.LinkedList.removeLast/0 -> $0.RemoveAt($0.Count - 1)
+member java.util.ArrayDeque.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+statement java.util.ArrayDeque.removeLast/0 -> $0.RemoveAt($0.Count - 1)
+member java.util.Queue.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+statement java.util.Queue.removeLast/0 -> $0.RemoveAt($0.Count - 1)
+member java.util.Deque.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.LinkedList.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.Queue.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.Deque.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.LinkedList.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.Queue.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
+member java.util.Deque.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
+member java.util.LinkedList.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
+member java.util.ArrayDeque.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
+member java.util.Queue.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
+member java.util.Deque.element/0 -> $0[0]
+member java.util.LinkedList.element/0 -> $0[0]
+member java.util.ArrayDeque.element/0 -> $0[0]
+member java.util.Queue.element/0 -> $0[0]
+member java.util.Deque.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Deque.remove/0 -> $0.RemoveAt(0)
+member java.util.LinkedList.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.LinkedList.remove/0 -> $0.RemoveAt(0)
+member java.util.ArrayDeque.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.ArrayDeque.remove/0 -> $0.RemoveAt(0)
+member java.util.Queue.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.Queue.remove/0 -> $0.RemoveAt(0)
+# Map
+member java.util.Map.put/2 -> $0.Put($1, $2) using Maddi.JavaCompat
+statement java.util.Map.put/2 -> $0[$1] = $2
+member java.util.Map.containsKey/1 -> $0.ContainsKey($1)
+member java.util.Map.containsValue/1 -> $0.Values.Contains($1) using System.Linq
+member java.util.Map.entrySet/0 -> $0
+member java.util.Map.keySet/0 -> $0.Keys
+member java.util.Map.values/0 -> $0.Values
+member java.util.Map.remove/1 -> $0.RemoveAndGet($1) using Maddi.JavaCompat
+statement java.util.Map.remove/1 -> $0.Remove($1)
+member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
+member java.util.Map.putIfAbsent/2 -> $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
+statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
+member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
+member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
+member java.util.Map.merge/3 -> $0.Merge($1, $2, $3) using Maddi.JavaCompat
+member java.util.Map.entry/2 -> KeyValuePair.Create($1, $2) using System.Collections.Generic
+member java.util.Map.ofEntries/1 -> new Dictionary<{R0}, {R1}>(new[] { $* })
+member java.util.Map.Entry.getKey/0 -> $0.Key
+member java.util.Map.Entry.getValue/0 -> $0.Value
+# Set
+member java.util.Set.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
+statement java.util.Set.addAll/1 -> $0.UnionWith($1)
+member java.util.Set.removeAll/1 -> $0.RemoveAllOf($1) using Maddi.JavaCompat
+statement java.util.Set.removeAll/1 -> $0.ExceptWith($1)
+member java.util.Set.retainAll/1 -> $0.RetainAll($1) using Maddi.JavaCompat
+statement java.util.Set.retainAll/1 -> $0.IntersectWith($1)
+member java.util.Set.of/1 -> new HashSet<{R0}> { $* }
+# Collections, Arrays, Objects
+member java.util.Collections.emptyList/0 -> new List<{R0}>()
+member java.util.Collections.emptySet/0 -> new HashSet<{R0}>()
+member java.util.Collections.emptyIterator/0 -> new JavaIterator<{R0}>(new List<{R0}>()) using Maddi.JavaCompat
+# Java 19's factories of a capacity
+member java.util.HashMap.newHashMap/1 -> new {R}($1)
+member java.util.LinkedHashMap.newLinkedHashMap/1 -> new {R}($1)
+member java.util.HashSet.newHashSet/1 -> new {R}($1)
+member java.util.LinkedHashSet.newLinkedHashSet/1 -> new {R}($1)
+member java.util.Collections.emptyMap/0 -> new Dictionary<{R0}, {R1}>()
+member java.util.Collections.singletonList/1 -> new List<{R0}> { $1 }
+member java.util.Collections.singleton/1 -> new HashSet<{R0}> { $1 }
+member java.util.Collections.singletonMap/2 -> new Dictionary<{R0}, {R1}> { [$1] = $2 }
+member java.util.Collections.nCopies/2 -> Enumerable.Repeat<{R0}>($2, $1).ToList() using System.Linq
+member java.util.Map.Entry.comparingByKey/0 -> JavaComparator.ComparingByKey<{R0.0}, {R0.1}>() using Maddi.JavaCompat
+member java.util.Map.Entry.comparingByValue/0 -> JavaComparator.ComparingByValue<{R0.0}, {R0.1}>() using Maddi.JavaCompat
+member java.util.Collections.sort/1 -> JavaCollections.Sort($1) using Maddi.JavaCompat
+member java.util.Collections.sort/2 -> JavaCollections.Sort($1, $2) using Maddi.JavaCompat
+# LINQ's Reverse would be a new sequence: in place
+member java.util.Collections.reverse/1 -> JavaCollections.ReverseInPlace($1) using Maddi.JavaCompat
+member java.util.Collections.unmodifiableList/1 -> $1
+member java.util.Collections.unmodifiableSet/1 -> $1
+member java.util.Collections.unmodifiableMap/1 -> $1
+member java.util.Collections.unmodifiableCollection/1 -> $1
+member java.util.Collections.synchronizedMap/1 -> $1
+member java.util.Collections.addAll/2 -> $1.AddAll($+) using Maddi.JavaCompat
+member java.util.Arrays.copyOf/2 -> JavaArrays.CopyOf($1, $2) using Maddi.JavaCompat
+member java.util.Arrays.copyOfRange/3 -> $1[@2..@3]
+member java.util.Arrays.stream/1 -> $1
+member java.util.Arrays.equals/2 -> JavaArrays.Equals($1, $2) using Maddi.JavaCompat
+member java.util.Arrays.hashCode/1 -> JavaArrays.HashCode($1) using Maddi.JavaCompat
+member java.util.Arrays.toString/1 -> JavaArrays.ToString($1) using Maddi.JavaCompat
+member java.util.Arrays.fill/2 -> Array.Fill($1, $2) using System
+member java.util.Arrays.sort/1 -> Array.Sort($1) using System
+# navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
+member java.util.NavigableMap.firstEntry/0 -> $0.FirstEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.lastEntry/0 -> $0.LastEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.pollFirstEntry/0 -> $0.PollFirstEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.pollLastEntry/0 -> $0.PollLastEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.floorEntry/1 -> $0.FloorEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.lowerEntry/1 -> $0.LowerEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.ceilingEntry/1 -> $0.CeilingEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.higherEntry/1 -> $0.HigherEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.floorKey/1 -> $0.FloorKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.lowerKey/1 -> $0.LowerKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.ceilingKey/1 -> $0.CeilingKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.higherKey/1 -> $0.HigherKey($1) using Maddi.JavaCompat
+member java.util.SortedMap.firstKey/0 -> $0.Keys.First() using System.Linq
+member java.util.SortedMap.lastKey/0 -> $0.Keys.Last() using System.Linq
+member java.util.SortedMap.headMap/1 -> $0.HeadMap($1, false) using Maddi.JavaCompat
+member java.util.SortedMap.tailMap/1 -> $0.TailMap($1, true) using Maddi.JavaCompat
+member java.util.NavigableMap.headMap/2 -> $0.HeadMap($1, $2) using Maddi.JavaCompat
+member java.util.NavigableMap.tailMap/2 -> $0.TailMap($1, $2) using Maddi.JavaCompat
+member java.util.NavigableMap.subMap/4 -> $0.SubMap($1, $2, $3, $4) using Maddi.JavaCompat
+member java.util.SortedSet.first/0 -> $0.Min
+member java.util.SortedSet.last/0 -> $0.Max
+member java.util.SortedSet.comparator/0 -> $0.Comparer
+member java.util.NavigableSet.floor/1 -> $0.Floor($1) using Maddi.JavaCompat
+member java.util.NavigableSet.lower/1 -> $0.Lower($1) using Maddi.JavaCompat
+member java.util.NavigableSet.ceiling/1 -> $0.Ceiling($1) using Maddi.JavaCompat
+member java.util.NavigableSet.higher/1 -> $0.Higher($1) using Maddi.JavaCompat
+member java.util.SequencedMap.sequencedValues/0 -> $0.Values
+member java.util.SequencedMap.sequencedKeySet/0 -> $0.Keys
+member java.util.EnumSet.noneOf/1 -> new HashSet<{R0}>()
+member java.util.EnumSet.copyOf/1 -> new HashSet<{R0}>($1)
+member java.util.Collections.rotate/2 -> JavaCollections.Rotate($1, $2) using Maddi.JavaCompat
+member java.util.Collections.shuffle/1 -> JavaCollections.Shuffle($1, Random.Shared) using Maddi.JavaCompat, System
+member java.util.Collections.shuffle/2 -> JavaCollections.Shuffle($1, $2) using Maddi.JavaCompat
+member java.util.Collections.swap/3 -> JavaCollections.Swap($1, $2, $3) using Maddi.JavaCompat
+# a set backed by a map, an empty one: identity is lost with IdentityHashMap's mapping already
+member java.util.Collections.newSetFromMap/1 -> new HashSet<{R0}>()
+member java.util.Collections.unmodifiableSortedSet/1 -> $1
+member java.util.Collections.unmodifiableSortedMap/1 -> $1
+member java.util.Collections.reverseOrder/1 -> $1.Reversed() using Maddi.JavaCompat
+member java.util.Arrays.fill/4 -> Array.Fill($1, $4, @2, @3 - @2) using System
+member java.util.Arrays.deepEquals/2 -> JavaArrays.DeepEquals($1, $2) using Maddi.JavaCompat
+member java.util.Arrays.deepHashCode/1 -> JavaArrays.DeepHashCode($1) using Maddi.JavaCompat
+member java.util.Objects.deepEquals/2 -> JavaArrays.DeepEquals($1, $2) using Maddi.JavaCompat
+member java.util.Objects.equals/2 -> object.Equals($1, $2)
+member java.util.Objects.hash/1 -> HashCode.Combine($*) using System
+member java.util.Objects.hashCode/1 -> ($1?.GetHashCode() ?? 0)
+member java.util.Objects.isNull/1 -> $1 == null
+member java.util.Objects.nonNull/1 -> $1 != null
+member java.util.Objects.requireNonNull/1 -> $1 ?? throw new NullReferenceException() using System
+statement java.util.Objects.requireNonNull/1 -> _ = $1 ?? throw new NullReferenceException()
+member java.util.Objects.requireNonNull/2 -> $1 ?? throw new NullReferenceException($2) using System
+statement java.util.Objects.requireNonNull/2 -> _ = $1 ?? throw new NullReferenceException($2)
+member java.util.Objects.requireNonNullElse/2 -> $1 ?? $2
+member java.util.Objects.requireNonNullElseGet/2 -> $1 ?? $2()
+member java.util.Objects.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
+member java.util.Objects.toString/2 -> @1?.ToString() ?? $2
+
+# ---------------------------------------------------------------- strings
+member java.lang.String.length/0 -> $0.Length
+member java.lang.String.charAt/1 -> $0[$1]
+member java.lang.String.isEmpty/0 -> $0.Length == 0
+member java.lang.String.isBlank/0 -> string.IsNullOrWhiteSpace($0)
+member java.lang.String.substring/1 -> $0.Substring($1)
+member java.lang.String.substring/2 -> $0[@1..@2]
+member java.lang.String.replace/2 -> $0.Replace($1, $2)
+member java.lang.String.contains/1 -> $0.Contains($1)
+member java.lang.String.indexOf(int) -> $0.IndexOf((char) $1)
+member java.lang.String.indexOf(String) -> $0.IndexOf($1, StringComparison.Ordinal) using System
+member java.lang.String.indexOf(int,int) -> $0.IndexOf((char) $1, $2)
+member java.lang.String.indexOf(String,int) -> $0.IndexOf($1, $2, StringComparison.Ordinal) using System
+member java.lang.String.lastIndexOf(int) -> $0.LastIndexOf((char) $1)
+member java.lang.String.lastIndexOf(String) -> $0.LastIndexOf($1, StringComparison.Ordinal) using System
+member java.lang.String.lastIndexOf(int,int) -> $0.LastIndexOf((char) $1, $2)
+member java.lang.String.lastIndexOf(String,int) -> $0.LastIndexOf($1, $2, StringComparison.Ordinal) using System
+member java.lang.String.startsWith/1 -> $0.StartsWith($1, StringComparison.Ordinal) using System
+member java.lang.String.startsWith/2 -> $0.Substring($2).StartsWith($1, StringComparison.Ordinal) using System
+member java.lang.String.endsWith/1 -> $0.EndsWith($1, StringComparison.Ordinal) using System
+member java.lang.String.split/1 -> $0.SplitRegex($1) using Maddi.JavaCompat
+member java.lang.String.split/2 -> $0.SplitRegex($1, $2) using Maddi.JavaCompat
+member java.lang.String.toLowerCase/0 -> $0.ToLowerInvariant()
+member java.lang.String.toLowerCase/1 -> $0.ToLowerInvariant()
+member java.lang.String.toUpperCase/0 -> $0.ToUpperInvariant()
+member java.lang.String.toUpperCase/1 -> $0.ToUpperInvariant()
+member java.lang.String.trim/0 -> $0.Trim()
+member java.lang.String.strip/0 -> $0.Trim()
+# the replacement in Java's syntax: \$ and \\ are literal, as .NET's are not
+member java.lang.String.replaceAll/2 -> JavaString.ReplaceAll($0, $1, $2) using Maddi.JavaCompat
+member java.lang.String.replaceFirst/2 -> JavaString.ReplaceFirst($0, $1, $2) using Maddi.JavaCompat
+member java.lang.String.matches/1 -> Regex.IsMatch($0, "^(?:" + $1 + ")\\z") using System.Text.RegularExpressions
+# Java's byte[] is C#'s sbyte[]: the compatibility library converts
+member java.lang.String.getBytes/1 -> JavaString.GetBytes($0, $1) using Maddi.JavaCompat
+member java.lang.String.getBytes/0 -> JavaString.GetBytes($0, Encoding.UTF8) using Maddi.JavaCompat, System.Text
+member java.lang.String.repeat/1 -> string.Concat(Enumerable.Repeat($0, $1)) using System.Linq
+member java.lang.String.equalsIgnoreCase/1 -> string.Equals($0, $1, StringComparison.OrdinalIgnoreCase) using System
+member java.lang.String.compareTo/1 -> string.CompareOrdinal($0, $1)
+member java.lang.String.toCharArray/0 -> $0.ToCharArray()
+member java.lang.String.concat/1 -> $0 + $1
+member java.lang.String.intern/0 -> string.Intern($0)
+member java.lang.String.join/2 -> string.Join($*)
+member java.lang.String.format/2 -> JavaString.Format($*) using Maddi.JavaCompat
+member java.lang.String.formatted/1 -> JavaString.Format($0, $*) using Maddi.JavaCompat
+member java.lang.String.valueOf/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
+member java.lang.String.valueOf/3 -> new string($1, $2, $3)
+member java.lang.String.chars/0 -> $0.Select(c => (int) c) using System.Linq
+member java.lang.String.codePointAt/1 -> char.ConvertToUtf32($0, $1)
+member java.lang.StringBuilder.append/1 -> $0.Append($1)
+member java.lang.AbstractStringBuilder.append/1 -> $0.Append($1)
+member java.lang.StringBuilder.append(CharSequence,int,int) -> $0.Append($1, @2, @3 - @2)
+member java.lang.AbstractStringBuilder.append(CharSequence,int,int) -> $0.Append($1, @2, @3 - @2)
+member java.lang.StringBuilder.append(char[],int,int) -> $0.Append($1, $2, $3)
+member java.lang.AbstractStringBuilder.append(char[],int,int) -> $0.Append($1, $2, $3)
+member java.lang.StringBuilder.length/0 -> $0.Length
+member java.lang.AbstractStringBuilder.length/0 -> $0.Length
+member java.lang.StringBuilder.charAt/1 -> $0[$1]
+member java.lang.AbstractStringBuilder.charAt/1 -> $0[$1]
+member java.lang.StringBuilder.setLength/1 -> $0.Length = $1
+member java.lang.AbstractStringBuilder.setLength/1 -> $0.Length = $1
+member java.lang.StringBuilder.setCharAt/2 -> $0[$1] = $2
+member java.lang.AbstractStringBuilder.setCharAt/2 -> $0[$1] = $2
+member java.lang.StringBuilder.insert/2 -> $0.Insert($1, $2)
+member java.lang.AbstractStringBuilder.insert/2 -> $0.Insert($1, $2)
+member java.lang.StringBuilder.delete/2 -> $0.Remove(@1, @2 - @1)
+member java.lang.AbstractStringBuilder.delete/2 -> $0.Remove(@1, @2 - @1)
+member java.lang.StringBuilder.deleteCharAt/1 -> $0.Remove($1, 1)
+member java.lang.AbstractStringBuilder.deleteCharAt/1 -> $0.Remove($1, 1)
+member java.lang.StringBuilder.indexOf/1 -> $0.ToString().IndexOf($1, StringComparison.Ordinal) using System
+member java.lang.AbstractStringBuilder.indexOf/1 -> $0.ToString().IndexOf($1, StringComparison.Ordinal) using System
+member java.lang.StringBuilder.indexOf/2 -> $0.ToString().IndexOf($1, $2, StringComparison.Ordinal) using System
+member java.lang.AbstractStringBuilder.indexOf/2 -> $0.ToString().IndexOf($1, $2, StringComparison.Ordinal) using System
+member java.lang.StringBuilder.lastIndexOf/1 -> $0.ToString().LastIndexOf($1, StringComparison.Ordinal) using System
+member java.lang.AbstractStringBuilder.lastIndexOf/1 -> $0.ToString().LastIndexOf($1, StringComparison.Ordinal) using System
+member java.lang.StringBuilder.reverse/0 -> $0.Reverse() using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.reverse/0 -> $0.Reverse() using Maddi.JavaCompat
+member java.lang.StringBuilder.isEmpty/0 -> $0.Length == 0
+member java.lang.AbstractStringBuilder.substring/1 -> $0.ToString(@1, $0.Length - @1)
+member java.lang.AbstractStringBuilder.substring/2 -> $0.ToString(@1, @2 - @1)
+member java.lang.AbstractStringBuilder.isEmpty/0 -> $0.Length == 0
+member java.lang.Comparable.compareTo/1 -> $0.CompareTo($1)
+member java.lang.CharSequence.length/0 -> $0.Length
+member java.lang.CharSequence.charAt/1 -> $0[$1]
+member java.lang.CharSequence.isEmpty/0 -> $0.Length == 0
+member java.lang.CharSequence.subSequence/2 -> $0[@1..@2]
+member java.nio.charset.Charset.defaultCharset/0 -> Encoding.UTF8 using System.Text
+member java.lang.Enum.compareTo/1 -> $0.CompareTo($1)
+member java.lang.Character.isDigit/1 -> char.IsDigit((char) $1)
+member java.lang.Character.isLetter/1 -> char.IsLetter((char) $1)
+member java.lang.Character.isLetterOrDigit/1 -> char.IsLetterOrDigit((char) $1)
+member java.lang.Character.isWhitespace/1 -> char.IsWhiteSpace((char) $1)
+member java.lang.Character.isUpperCase/1 -> char.IsUpper((char) $1)
+member java.lang.Character.isLowerCase/1 -> char.IsLower((char) $1)
+member java.lang.Character.toUpperCase/1 -> char.ToUpperInvariant($1)
+member java.lang.Character.toLowerCase/1 -> char.ToLowerInvariant($1)
+member java.lang.Character.isJavaIdentifierStart/1 -> JavaCharacter.IsJavaIdentifierStart($1) using Maddi.JavaCompat
+member java.lang.Character.isJavaIdentifierPart/1 -> JavaCharacter.IsJavaIdentifierPart($1) using Maddi.JavaCompat
+member java.lang.Character.isIdentifierIgnorable/1 -> JavaCharacter.IsIdentifierIgnorable($1) using Maddi.JavaCompat
+member java.lang.Character.charValue/0 -> (char) @0
+member java.lang.Character.valueOf/1 -> $1
+member java.lang.Character.getType/1 -> JavaCharacter.GetType($1) using Maddi.JavaCompat
+member java.lang.Character.charCount/1 -> (@1 >= 0x10000 ? 2 : 1)
+member java.lang.Character.toChars/1 -> char.ConvertFromUtf32($1).ToCharArray()
+
+# ---------------------------------------------------------------- numbers
+member java.lang.Integer.toString/1 -> $1.ToString()
+member java.lang.Long.toString/1 -> $1.ToString()
+member java.lang.Short.toString/1 -> $1.ToString()
+member java.lang.Byte.toString/1 -> $1.ToString()
+member java.lang.Double.toString/1 -> $1.ToString()
+member java.lang.Float.toString/1 -> $1.ToString()
+member java.lang.Integer.compare/2 -> $1.CompareTo($2)
+member java.lang.Long.compare/2 -> $1.CompareTo($2)
+member java.lang.Short.compare/2 -> $1.CompareTo($2)
+member java.lang.Byte.compare/2 -> $1.CompareTo($2)
+member java.lang.Double.compare/2 -> $1.CompareTo($2)
+member java.lang.Float.compare/2 -> $1.CompareTo($2)
+member java.lang.Integer.hashCode/1 -> $1.GetHashCode()
+member java.lang.Long.hashCode/1 -> $1.GetHashCode()
+member java.lang.Short.hashCode/1 -> $1.GetHashCode()
+member java.lang.Byte.hashCode/1 -> $1.GetHashCode()
+member java.lang.Byte.toUnsignedInt/1 -> (@1 & 0xFF)
+member java.lang.Double.hashCode/1 -> $1.GetHashCode()
+member java.lang.Float.hashCode/1 -> $1.GetHashCode()
+member java.lang.Boolean.booleanValue/0 -> (bool) @0
+member java.lang.Integer.parseInt/1 -> int.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.lang.Integer.parseInt/2 -> Convert.ToInt32($1, $2) using System
+member java.lang.Long.parseLong/1 -> long.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.lang.Double.parseDouble/1 -> double.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.lang.Float.parseFloat/1 -> float.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.lang.Boolean.parseBoolean/1 -> string.Equals($1, "true", StringComparison.OrdinalIgnoreCase) using System
+member java.lang.Integer.valueOf(int) -> $1
+member java.lang.Integer.valueOf(String) -> int.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.lang.Long.valueOf(long) -> $1
+member java.lang.Boolean.valueOf(boolean) -> $1
+member java.lang.Boolean.toString/1 -> JavaString.ValueOf($1) using Maddi.JavaCompat
+member java.lang.Double.valueOf(double) -> $1
+member java.lang.Float.valueOf(float) -> $1
+member java.lang.Integer.toHexString/1 -> Convert.ToString($1, 16) using System
+member java.lang.Integer.toBinaryString/1 -> Convert.ToString($1, 2) using System
+member java.lang.Long.toHexString/1 -> Convert.ToString($1, 16) using System
+member java.lang.Integer.bitCount/1 -> BitOperations.PopCount((uint) $1) using System.Numerics
+member java.lang.Double.isNaN/1 -> double.IsNaN($1)
+member java.lang.Float.isNaN/1 -> float.IsNaN($1)
+member java.lang.Double.isInfinite/1 -> double.IsInfinity($1)
+member java.lang.Float.isInfinite/1 -> float.IsInfinity($1)
+member java.lang.Float.floatToIntBits/1 -> BitConverter.SingleToInt32Bits($1) using System
+member java.lang.Float.floatToRawIntBits/1 -> BitConverter.SingleToInt32Bits($1) using System
+member java.lang.Float.intBitsToFloat/1 -> BitConverter.Int32BitsToSingle($1) using System
+member java.lang.Double.doubleToLongBits/1 -> BitConverter.DoubleToInt64Bits($1) using System
+member java.lang.Double.doubleToRawLongBits/1 -> BitConverter.DoubleToInt64Bits($1) using System
+member java.lang.Double.longBitsToDouble/1 -> BitConverter.Int64BitsToDouble($1) using System
+member java.lang.Math.round/1 -> JavaMath.Round($1) using Maddi.JavaCompat
+# the methods .NET's Math has under the same name and with the same meaning; the others are unmapped
+member java.lang.Math.abs -> Math.Abs($*) using System
+member java.lang.Math.max -> Math.Max($*) using System
+member java.lang.Math.min -> Math.Min($*) using System
+member java.lang.Math.sqrt -> Math.Sqrt($*) using System
+member java.lang.Math.cbrt -> Math.Cbrt($*) using System
+member java.lang.Math.pow -> Math.Pow($*) using System
+member java.lang.Math.floor -> Math.Floor($*) using System
+member java.lang.Math.sin -> Math.Sin($*) using System
+member java.lang.Math.cos -> Math.Cos($*) using System
+member java.lang.Math.tan -> Math.Tan($*) using System
+member java.lang.Math.asin -> Math.Asin($*) using System
+member java.lang.Math.acos -> Math.Acos($*) using System
+member java.lang.Math.atan -> Math.Atan($*) using System
+member java.lang.Math.atan2 -> Math.Atan2($*) using System
+member java.lang.Math.sinh -> Math.Sinh($*) using System
+member java.lang.Math.cosh -> Math.Cosh($*) using System
+member java.lang.Math.tanh -> Math.Tanh($*) using System
+member java.lang.Math.exp -> Math.Exp($*) using System
+member java.lang.Math.log -> Math.Log($*) using System
+member java.lang.Math.log10 -> Math.Log10($*) using System
+member java.lang.Math.ceil/1 -> Math.Ceiling($1) using System
+member java.lang.Math.IEEEremainder/2 -> Math.IEEERemainder($1, $2) using System
+member java.lang.Math.rint/1 -> Math.Round($1) using System
+member java.lang.Math.fma/3 -> Math.FusedMultiplyAdd($1, $2, $3) using System
+member java.lang.Math.nextUp/1 -> Math.BitIncrement($1) using System
+member java.lang.Math.nextDown/1 -> Math.BitDecrement($1) using System
+# Java's own formulas: angdeg * DEGREES_TO_RADIANS, which is PI / 180.0
+member java.lang.Math.toRadians/1 -> @1 * (Math.PI / 180.0) using System
+member java.lang.Math.toDegrees/1 -> @1 * (180.0 / Math.PI) using System
+member java.lang.Math.floorMod/2 -> JavaMath.FloorMod($1, $2) using Maddi.JavaCompat
+member java.lang.Math.floorDiv/2 -> JavaMath.FloorDiv($1, $2) using Maddi.JavaCompat
+# the exact arithmetic: C#'s checked context throws OverflowException where Java throws ArithmeticException
+member java.lang.Math.addExact/2 -> checked(@1 + @2)
+member java.lang.Math.subtractExact/2 -> checked(@1 - @2)
+member java.lang.Math.multiplyExact/2 -> checked(@1 * @2)
+member java.lang.Math.negateExact/1 -> checked(-@1)
+member java.lang.Math.incrementExact/1 -> checked(@1 + 1)
+member java.lang.Math.decrementExact/1 -> checked(@1 - 1)
+member java.lang.Math.toIntExact/1 -> checked((int) @1)
+member java.lang.Integer.sum/2 -> @1 + @2
+member java.lang.Long.sum/2 -> @1 + @2
+member java.lang.Double.sum/2 -> @1 + @2
+member java.lang.Float.sum/2 -> @1 + @2
+member java.lang.Integer.signum/1 -> Math.Sign($1) using System
+member java.lang.Long.signum/1 -> Math.Sign($1) using System
+member java.lang.Integer.numberOfTrailingZeros/1 -> BitOperations.TrailingZeroCount($1) using System.Numerics
+member java.lang.Long.numberOfTrailingZeros/1 -> BitOperations.TrailingZeroCount($1) using System.Numerics
+member java.lang.Integer.numberOfLeadingZeros/1 -> BitOperations.LeadingZeroCount((uint) $1) using System.Numerics
+member java.lang.Long.numberOfLeadingZeros/1 -> BitOperations.LeadingZeroCount((ulong) $1) using System.Numerics
+
+# ---------------------------------------------------------------- streams
+member java.util.stream.Stream.filter/1 -> $0.Where($1) using System.Linq
+member java.util.stream.Stream.map/1 -> $0.Select($1) using System.Linq
+member java.util.stream.Stream.mapToInt/1 -> $0.Select($1) using System.Linq
+member java.util.stream.Stream.mapToObj/1 -> $0.Select($1) using System.Linq
+member java.util.stream.Stream.flatMap/1 -> $0.SelectMany($1) using System.Linq
+member java.util.stream.Stream.anyMatch/1 -> $0.Any($1) using System.Linq
+member java.util.stream.Stream.allMatch/1 -> $0.All($1) using System.Linq
+member java.util.stream.Stream.noneMatch/1 -> !$0.Any($1) using System.Linq
+member java.util.stream.Stream.count/0 -> $0.LongCount() using System.Linq
+member java.util.stream.Stream.distinct/0 -> $0.Distinct() using System.Linq
+member java.util.stream.Stream.sorted/0 -> $0.Order() using System.Linq
+member java.util.stream.Stream.sorted/1 -> $0.Sorted($1) using Maddi.JavaCompat
+member java.util.stream.Stream.toList/0 -> $0.ToList() using System.Linq
+member java.util.stream.Stream.findFirst/0 -> $0.FirstOrDefault() using System.Linq
+member java.util.stream.Stream.findAny/0 -> $0.FirstOrDefault() using System.Linq
+member java.util.stream.Stream.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
+member java.util.stream.Stream.limit/1 -> $0.Take((int) $1) using System.Linq
+member java.util.stream.Stream.skip/1 -> $0.Skip((int) $1) using System.Linq
+member java.util.stream.Stream.empty/0 -> Enumerable.Empty<{R0}>() using System.Linq
+member java.util.stream.Stream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.Stream.peek/1 -> $0.Peek($1) using Maddi.JavaCompat
+member java.util.function.Function.identity/0 -> x_ => x_
+member java.util.function.Function.andThen/1 -> $0.AndThen($1) using Maddi.JavaCompat
+member java.util.function.Function.compose/1 -> $0.Compose($1) using Maddi.JavaCompat
+member java.util.function.Consumer.andThen/1 -> $0.AndThen($1) using Maddi.JavaCompat
+member java.util.Collection.toArray/0 -> $0.Cast<object>().ToArray() using System.Linq
+member java.util.Map.copyOf/1 -> new Dictionary<{R0}, {R1}>($1) using System.Collections.Generic
+member java.util.stream.Stream.toArray/0 -> $0.ToArray() using System.Linq
+# the generator, String[]::new, is the array's type, which C#'s ToArray knows
+member java.util.stream.Stream.toArray/1 -> $0.ToArray() using System.Linq
+member java.util.stream.Stream.max/1 -> $0.Max(Comparer<{R}>.Create($1)) using System.Linq
+member java.util.stream.Stream.reduce/1 -> $0.Reduce($1) using Maddi.JavaCompat
+member java.util.stream.Stream.reduce/2 -> $0.Aggregate($1, $2) using System.Linq
+member java.util.stream.Stream.min/1 -> $0.Min(Comparer<{R}>.Create($1)) using System.Linq
+member java.util.stream.IntStream.range/2 -> Enumerable.Range(@1, @2 - @1) using System.Linq
+member java.util.stream.IntStream.rangeClosed/2 -> Enumerable.Range(@1, @2 - @1 + 1) using System.Linq
+member java.util.stream.IntStream.sum/0 -> $0.Sum() using System.Linq
+member java.util.stream.IntStream.max/0 -> $0.Max() using System.Linq
+member java.util.stream.IntStream.boxed/0 -> $0
+member java.util.stream.LongStream.boxed/0 -> $0
+member java.util.stream.DoubleStream.boxed/0 -> $0
+member java.util.stream.IntStream.mapToObj/1 -> $0.Select($1) using System.Linq
+member java.util.stream.IntStream.filter/1 -> $0.Where($1) using System.Linq
+member java.util.stream.IntStream.anyMatch/1 -> $0.Any($1) using System.Linq
+member java.util.stream.IntStream.toArray/0 -> $0.ToArray() using System.Linq
+# Optional is the value itself, or null
+member java.util.Optional.isPresent/0 -> $0 != null
+member java.util.Optional.isEmpty/0 -> $0 == null
+member java.util.Optional.get/0 -> $0
+member java.util.Optional.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
+member java.util.Optional.orElseThrow/1 -> $0 ?? throw $1()
+member java.util.Optional.orElse/1 -> $0 ?? $1
+member java.util.Optional.orElseGet/1 -> $0 ?? $1()
+member java.util.Optional.of/1 -> $1
+member java.util.Optional.ofNullable/1 -> $1
+member java.util.Optional.empty/0 -> null
+member java.util.Optional.ifPresent/1 -> $0.IfPresent($1) using Maddi.JavaCompat
+member java.util.Optional.map/1 -> $0.Map($1) using Maddi.JavaCompat
+member java.util.Optional.filter/1 -> $0.Filter($1) using Maddi.JavaCompat
+member java.util.function.Function.apply -> $0($*)
+member java.util.function.BiFunction.apply -> $0($*)
+member java.util.function.Supplier.get -> $0($*)
+member java.util.function.Consumer.accept -> $0($*)
+member java.util.function.BiConsumer.accept -> $0($*)
+member java.util.function.Predicate.test -> $0($*)
+member java.util.function.BiPredicate.test -> $0($*)
+member java.util.function.IntFunction.apply -> $0($*)
+member java.util.function.ToIntFunction.applyAsInt -> $0($*)
+member java.util.function.IntPredicate.test -> $0($*)
+member java.util.function.ToLongFunction.applyAsLong -> $0($*)
+member java.util.function.ToDoubleFunction.applyAsDouble -> $0($*)
+member java.util.function.ToIntBiFunction.applyAsInt -> $0($*)
+member java.util.function.ToLongBiFunction.applyAsLong -> $0($*)
+member java.util.function.ToDoubleBiFunction.applyAsDouble -> $0($*)
+member java.lang.Runnable.run -> $0($*)
+member java.util.concurrent.Callable.call -> $0($*)
+member java.util.Comparator.compare -> $0($*)
+member java.util.Comparator.comparing/1 -> JavaComparator.Comparing<{R0}>($1) using Maddi.JavaCompat
+member java.util.Comparator.comparingInt/1 -> JavaComparator.Comparing<{R0}>($1) using Maddi.JavaCompat
+member java.util.Comparator.comparingLong/1 -> JavaComparator.Comparing<{R0}>($1) using Maddi.JavaCompat
+member java.util.Comparator.comparingDouble/1 -> JavaComparator.Comparing<{R0}>($1) using Maddi.JavaCompat
+member java.util.Comparator.thenComparing/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
+member java.util.Comparator.thenComparingInt/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
+member java.util.Comparator.thenComparingLong/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
+member java.util.Comparator.reversed/0 -> $0.Reversed() using Maddi.JavaCompat
+member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
+
+# ---------------------------------------------------------------- system
+member java.lang.System.arraycopy/5 -> Array.Copy($1, $2, $3, $4, $5) using System
+member java.lang.System.currentTimeMillis/0 -> DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() using System
+member java.lang.System.nanoTime/0 -> Stopwatch.GetTimestamp() * 1_000_000_000L / Stopwatch.Frequency using System.Diagnostics
+member java.lang.System.lineSeparator/0 -> Environment.NewLine using System
+member java.lang.System.getProperty/1 -> JavaSystem.GetProperty($1) using Maddi.JavaCompat
+member java.lang.System.getProperty/2 -> JavaSystem.GetProperty($1, $2) using Maddi.JavaCompat
+member java.lang.System.exit/1 -> Environment.Exit($1) using System
+member java.lang.System.identityHashCode/1 -> RuntimeHelpers.GetHashCode($1) using System.Runtime.CompilerServices
+member java.io.PrintStream.println/1 -> $0.WriteLine($1)
+member java.io.PrintStream.println/0 -> $0.WriteLine()
+member java.io.PrintStream.print/1 -> $0.Write($1)
+member java.io.PrintStream.flush/0 -> $0.Flush()
+member java.io.PrintWriter.println/1 -> $0.WriteLine($1)
+member java.io.PrintWriter.print/1 -> $0.Write($1)
+member java.lang.Throwable.getMessage/0 -> $0.Message
+member java.lang.Throwable.getCause/0 -> $0.InnerException
+member java.lang.Throwable.printStackTrace/0 -> Console.Error.WriteLine($0) using System
+member java.lang.Throwable.printStackTrace/1 -> $1.WriteLine($0)
+member java.lang.Object.getClass/0 -> $0.GetType()
+member java.lang.Object.notifyAll/0 -> Monitor.PulseAll($0) using System.Threading
+member java.lang.Object.notify/0 -> Monitor.Pulse($0) using System.Threading
+member java.lang.Object.wait/0 -> Monitor.Wait($0) using System.Threading
+member java.lang.Class.getName/0 -> $0.FullName
+member java.lang.Class.getSimpleName/0 -> $0.Name
+member java.lang.Class.getCanonicalName/0 -> JavaClass.CanonicalName($0) using Maddi.JavaCompat
+member java.lang.Thread.currentThread/0 -> Thread.CurrentThread using System.Threading
+member java.lang.Runtime.availableProcessors/0 -> Environment.ProcessorCount using System
+member java.lang.Thread.sleep(long) -> Thread.Sleep(TimeSpan.FromMilliseconds($1)) using System.Threading, System
+member java.lang.Thread.interrupt/0 -> $0.Interrupt()
+member java.lang.AutoCloseable.close/0 -> $0.Dispose()
+member java.io.Closeable.close/0 -> $0.Dispose()
+member java.io.InputStream.close/0 -> $0.Dispose()
+member java.io.OutputStream.close/0 -> $0.Dispose()
+member java.io.OutputStream.write(int) -> $0.WriteByte((byte) $1)
+member java.io.OutputStream.write(byte[]) -> $0.Write((byte[]) (object) $1)
+member java.io.OutputStream.write/3 -> $0.Write((byte[]) (object) $1, $2, $3)
+member java.io.OutputStream.flush/0 -> $0.Flush()
+member java.io.InputStream.read/0 -> $0.ReadByte()
+member java.io.InputStream.read/1 -> $0.Read((byte[]) (object) $1)
+member java.io.InputStream.read/3 -> $0.Read((byte[]) (object) $1, $2, $3)
+member java.io.InputStream.readAllBytes/0 -> JavaStreams.ReadAllBytes($0) using Maddi.JavaCompat
+member java.io.InputStream.skip/1 -> JavaStreams.Skip($0, $1) using Maddi.JavaCompat
+member java.io.Writer.write/1 -> $0.Write($1)
+member java.io.Writer.flush/0 -> $0.Flush()
+member java.io.Writer.close/0 -> $0.Dispose()
+member java.io.Reader.close/0 -> $0.Dispose()
+member java.io.BufferedReader.readLine/0 -> $0.ReadLine()
+# file streams: a java.io.File or a path
+# an EnumMap orders by its keys, as a SortedDictionary does; its Class argument is the key type's
+member java.util.EnumMap.new(Class) -> new {R}() using System.Collections.Generic
+member java.io.FileOutputStream.new/1 -> new FileStream($1.ToString(), FileMode.Create) using System.IO
+member java.io.FileOutputStream.new/2 -> new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create) using System.IO
+member java.io.FileInputStream.new/1 -> File.OpenRead($1.ToString()) using System.IO
+member java.io.BufferedOutputStream.new/1 -> new BufferedStream($1) using System.IO
+member java.io.BufferedOutputStream.new/2 -> new BufferedStream($1, $2) using System.IO
+member java.io.BufferedInputStream.new/1 -> new BufferedStream($1) using System.IO
+member java.io.OutputStreamWriter.new/1 -> new StreamWriter($1) using System.IO
+member java.io.OutputStreamWriter.new/2 -> new StreamWriter($1, $2) using System.IO
+member java.io.InputStreamReader.new/1 -> new StreamReader($1) using System.IO
+member java.io.InputStreamReader.new/2 -> new StreamReader($1, $2) using System.IO
+member java.io.BufferedReader.new/1 -> $1
+# java.time, threads, regular expressions
+member java.time.Instant.now/0 -> DateTimeOffset.UtcNow using System
+member java.time.Instant.toEpochMilli/0 -> $0.ToUnixTimeMilliseconds()
+member java.lang.ThreadLocal.get/0 -> $0.Value
+member java.lang.ThreadLocal.set/1 -> $0.Value = $1
+member java.lang.ThreadLocal.remove/0 -> $0.Value = default
+member java.lang.ThreadLocal.withInitial/1 -> new ThreadLocal<{R0}>($1) using System.Threading
+member java.util.regex.Pattern.compile/1 -> new Regex($1) using System.Text.RegularExpressions
+member java.util.regex.Pattern.matcher/1 -> new JavaMatcher($0, $1) using Maddi.JavaCompat
+member java.util.regex.Pattern.matches/2 -> Regex.IsMatch($2, "^(?:" + $1 + ")\\z") using System.Text.RegularExpressions
+member java.util.regex.Pattern.quote/1 -> Regex.Escape($1) using System.Text.RegularExpressions
+member java.util.regex.Pattern.pattern/0 -> $0.ToString()
+# OptionalInt and its kin: a nullable value
+member java.util.OptionalInt.isPresent/0 -> $0.HasValue
+member java.util.OptionalLong.isPresent/0 -> $0.HasValue
+member java.util.OptionalDouble.isPresent/0 -> $0.HasValue
+member java.util.OptionalInt.isEmpty/0 -> !$0.HasValue
+member java.util.OptionalLong.isEmpty/0 -> !$0.HasValue
+member java.util.OptionalDouble.isEmpty/0 -> !$0.HasValue
+member java.util.OptionalInt.orElse/1 -> $0 ?? $1
+member java.util.OptionalLong.orElse/1 -> $0 ?? $1
+member java.util.OptionalDouble.orElse/1 -> $0 ?? $1
+member java.util.OptionalInt.orElseGet/1 -> $0 ?? $1()
+member java.util.OptionalLong.orElseGet/1 -> $0 ?? $1()
+member java.util.OptionalDouble.orElseGet/1 -> $0 ?? $1()
+member java.util.OptionalInt.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
+member java.util.OptionalLong.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
+member java.util.OptionalDouble.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
+member java.util.OptionalInt.of/1 -> ({R}) $1
+member java.util.OptionalLong.of/1 -> ({R}) $1
+member java.util.OptionalDouble.of/1 -> ({R}) $1
+member java.util.OptionalInt.empty/0 -> ({R}) null
+member java.util.OptionalLong.empty/0 -> ({R}) null
+member java.util.OptionalDouble.empty/0 -> ({R}) null
+member java.util.OptionalInt.getAsInt/0 -> $0.Value
+member java.util.OptionalLong.getAsInt/0 -> $0.Value
+member java.util.OptionalDouble.getAsInt/0 -> $0.Value
+member java.util.OptionalInt.getAsLong/0 -> $0.Value
+member java.util.OptionalLong.getAsLong/0 -> $0.Value
+member java.util.OptionalDouble.getAsLong/0 -> $0.Value
+member java.util.OptionalInt.getAsDouble/0 -> $0.Value
+member java.util.OptionalLong.getAsDouble/0 -> $0.Value
+member java.util.OptionalDouble.getAsDouble/0 -> $0.Value
+
+# ---------------------------------------------------------------- values
+# java.time, java.net.URI, UUID, BigDecimal, Random, Base64, digests: the BCL's structs and helpers.
+member java.time.LocalDate.now/0 -> DateOnly.FromDateTime(DateTime.Now) using System
+member java.time.LocalDate.now/1 -> DateOnly.FromDateTime(@1.GetLocalNow().DateTime) using System
+member java.time.LocalTime.now/0 -> TimeOnly.FromDateTime(DateTime.Now) using System
+member java.time.LocalTime.now/1 -> TimeOnly.FromDateTime(@1.GetLocalNow().DateTime) using System
+member java.time.LocalDateTime.now/0 -> DateTime.Now using System
+member java.time.LocalDateTime.now/1 -> @1.GetLocalNow().DateTime using System
+member java.time.LocalDate.of/3 -> new DateOnly($1, $2, $3) using System
+# a tick is 100 ns
+member java.time.LocalTime.of/2 -> new TimeOnly($1, $2) using System
+member java.time.LocalTime.of/3 -> new TimeOnly($1, $2, $3) using System
+member java.time.LocalTime.of/4 -> new TimeOnly(new TimeSpan($1, $2, $3).Ticks + @4 / 100) using System
+member java.time.LocalDateTime.of/5 -> new DateTime($1, $2, $3, $4, $5, 0) using System
+member java.time.LocalDateTime.of/6 -> new DateTime($1, $2, $3, $4, $5, $6) using System
+member java.time.LocalDateTime.of/7 -> new DateTime($1, $2, $3, $4, $5, $6).AddTicks(@7 / 100) using System
+member java.time.LocalDate.parse/1 -> DateOnly.Parse($1, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalTime.parse/1 -> TimeOnly.Parse($1, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalDateTime.parse/1 -> DateTime.Parse($1, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalDate.parse/2 -> DateOnly.ParseExact($1, $2, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalTime.parse/2 -> TimeOnly.ParseExact($1, $2, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalDateTime.parse/2 -> DateTime.ParseExact($1, $2, CultureInfo.InvariantCulture) using System, System.Globalization
+member java.time.LocalDate.format/1 -> $0.ToString($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.time.LocalTime.format/1 -> $0.ToString($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.time.LocalDateTime.format/1 -> $0.ToString($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.time.LocalDate.getYear/0 -> $0.Year
+member java.time.LocalDate.getMonthValue/0 -> $0.Month
+member java.time.LocalDate.getDayOfMonth/0 -> $0.Day
+member java.time.Duration.ofNanos/1 -> TimeSpan.FromTicks(@1 / 100) using System
+member java.time.Duration.ofMillis/1 -> TimeSpan.FromMilliseconds($1) using System
+member java.time.Duration.ofSeconds/1 -> TimeSpan.FromSeconds($1) using System
+member java.time.Duration.ofMinutes/1 -> TimeSpan.FromMinutes($1) using System
+member java.time.Duration.toMillis/0 -> (long) @0.TotalMilliseconds
+member java.time.Duration.toNanos/0 -> @0.Ticks * 100
+member java.time.Duration.getSeconds/0 -> (long) @0.TotalSeconds
+member java.time.Duration.between/2 -> @2 - @1
+# ISO-8601, PT1H30M, as XML Schema's duration is
+member java.time.Duration.parse/1 -> XmlConvert.ToTimeSpan($1) using System.Xml
+member java.time.Duration.plus/1 -> @0 + @1
+member java.time.Duration.minus/1 -> @0 - @1
+member java.time.Duration.getNano/0 -> JavaMath.Nano($0) using Maddi.JavaCompat
+member java.time.Duration.toString/0 -> XmlConvert.ToString($0) using System.Xml
+member java.util.Locale.forLanguageTag/1 -> CultureInfo.GetCultureInfo($1) using System.Globalization
+member java.util.Locale.toLanguageTag/0 -> $0.Name
+member java.time.Clock.systemDefaultZone/0 -> TimeProvider.System using System
+member java.time.Clock.systemUTC/0 -> TimeProvider.System using System
+member java.time.Clock.instant/0 -> $0.GetUtcNow()
+member java.time.Clock.millis/0 -> $0.GetUtcNow().ToUnixTimeMilliseconds()
+# Java's URI is relative or absolute
+member java.net.URI.create/1 -> new Uri($1, UriKind.RelativeOrAbsolute) using System
+member java.net.URI.new(String) -> new Uri($1, UriKind.RelativeOrAbsolute) using System
+member java.net.URI.getPath/0 -> $0.AbsolutePath
+member java.net.URI.getScheme/0 -> $0.Scheme
+member java.net.URI.getHost/0 -> $0.Host
+member java.net.URI.getPort/0 -> $0.Port
+member java.net.URI.getQuery/0 -> $0.Query
+member java.net.URI.isAbsolute/0 -> $0.IsAbsoluteUri
+member java.util.UUID.randomUUID/0 -> Guid.NewGuid() using System
+member java.util.UUID.fromString/1 -> Guid.Parse($1) using System
+member java.util.UUID.nameUUIDFromBytes/1 -> JavaUuid.NameUuidFromBytes($1) using Maddi.JavaCompat
+# BigDecimal is decimal: its arithmetic, operators
+member java.math.BigDecimal.valueOf/1 -> (decimal) @1
+member java.math.BigDecimal.new(String) -> decimal.Parse($1, CultureInfo.InvariantCulture) using System.Globalization
+member java.math.BigDecimal.new(int) -> (decimal) @1
+member java.math.BigDecimal.new(long) -> (decimal) @1
+member java.math.BigDecimal.new(double) -> (decimal) @1
+member java.math.BigDecimal.add/1 -> @0 + @1
+member java.math.BigDecimal.subtract/1 -> @0 - @1
+member java.math.BigDecimal.multiply/1 -> @0 * @1
+member java.math.BigDecimal.negate/0 -> -@0
+member java.math.BigDecimal.doubleValue/0 -> (double) @0
+member java.math.BigDecimal.intValue/0 -> (int) @0
+member java.math.BigDecimal.longValue/0 -> (long) @0
+member java.math.BigDecimal.signum/0 -> Math.Sign(@0) using System
+member java.math.BigDecimal.abs/0 -> Math.Abs(@0) using System
+member java.math.BigDecimal.scale/0 -> @0.Scale
+member java.math.BigDecimal.stripTrailingZeros/0 -> JavaMath.StripTrailingZeros($0) using Maddi.JavaCompat
+member java.math.BigDecimal.setScale/2 -> Math.Round(@0, $1, $2) using System
+member java.math.BigDecimal.divide/3 -> Math.Round(@0 / @1, $2, $3) using System
+member java.math.BigDecimal.pow/1 -> JavaMath.Pow($0, $1) using Maddi.JavaCompat
+member java.math.BigDecimal.unscaledValue/0 -> JavaMath.UnscaledValue($0) using Maddi.JavaCompat
+member java.math.BigInteger.add/1 -> @0 + @1
+member java.math.BigInteger.subtract/1 -> @0 - @1
+member java.math.BigInteger.multiply/1 -> @0 * @1
+member java.math.BigInteger.negate/0 -> -@0
+member java.math.BigInteger.valueOf/1 -> new BigInteger($1) using System.Numerics
+member java.math.BigInteger.remainder/1 -> BigInteger.Remainder($0, $1) using System.Numerics
+# Random and the interface it implements since Java 17, RandomGenerator
+member java.util.Random.nextInt/0 -> $0.Next()
+member java.util.random.RandomGenerator.nextInt/0 -> $0.Next()
+member java.util.Random.nextInt/1 -> $0.Next($1)
+member java.util.random.RandomGenerator.nextInt/1 -> $0.Next($1)
+member java.util.Random.nextInt/2 -> $0.Next($1, $2)
+member java.util.random.RandomGenerator.nextInt/2 -> $0.Next($1, $2)
+member java.util.Random.nextLong/0 -> $0.NextInt64()
+member java.util.random.RandomGenerator.nextLong/0 -> $0.NextInt64()
+member java.util.Random.nextLong/1 -> $0.NextInt64($1)
+member java.util.random.RandomGenerator.nextLong/1 -> $0.NextInt64($1)
+member java.util.Random.nextLong/2 -> $0.NextInt64($1, $2)
+member java.util.random.RandomGenerator.nextLong/2 -> $0.NextInt64($1, $2)
+member java.util.Random.nextDouble/0 -> $0.NextDouble()
+member java.util.random.RandomGenerator.nextDouble/0 -> $0.NextDouble()
+member java.util.Random.nextDouble/1 -> ($0.NextDouble() * @1)
+member java.util.random.RandomGenerator.nextDouble/1 -> ($0.NextDouble() * @1)
+member java.util.Random.nextFloat/0 -> $0.NextSingle()
+member java.util.random.RandomGenerator.nextFloat/0 -> $0.NextSingle()
+member java.util.Random.nextBoolean/0 -> $0.Next(2) == 1
+member java.util.random.RandomGenerator.nextBoolean/0 -> $0.Next(2) == 1
+# the encoder and decoder are Convert's methods; Java's byte[] is C#'s sbyte[]
+member java.util.Base64.Encoder.encodeToString/1 -> Convert.ToBase64String((byte[]) (object) $1) using System
+member java.util.Base64.Decoder.decode(String) -> (sbyte[]) (object) Convert.FromBase64String($1) using System
+member java.util.HexFormat.formatHex(byte[]) -> Convert.ToHexStringLower((byte[]) (object) $1) using System
+member java.security.MessageDigest.getInstance/1 -> JavaDigest.GetInstance($1) using Maddi.JavaCompat
+member java.security.MessageDigest.digest(byte[]) -> (sbyte[]) (object) $0.ComputeHash((byte[]) (object) $1)
+
+# ---------------------------------------------------------------- services
+# Service loaders, class loaders, paths and files.
+member java.util.ServiceLoader.load/1 -> JavaServiceLoader.Load<{R0}>() using Maddi.JavaCompat
+member java.util.ServiceLoader.load/2 -> JavaServiceLoader.Load<{R0}>($2) using Maddi.JavaCompat
+member java.util.ServiceLoader.findFirst/0 -> $0.FirstOrDefault() using System.Linq
+member java.util.ServiceLoader.stream/0 -> $0
+member java.lang.Class.getClassLoader/0 -> $0.Assembly
+# resources are the assembly's embedded ones, found by their Java path (JavaResources)
+member java.lang.Class.getResource/1 -> JavaResources.GetResource($0, $1) using Maddi.JavaCompat
+member java.lang.Class.getResourceAsStream/1 -> JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getResource/1 -> JavaResources.GetResource($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getResourceAsStream/1 -> JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getSystemResource/1 -> JavaResources.GetResource(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
+member java.lang.ClassLoader.getSystemResourceAsStream/1 -> JavaResources.GetResourceAsStream(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
+member java.net.URL.openStream/0 -> JavaResources.OpenStream($0) using Maddi.JavaCompat
+member java.net.URL.toExternalForm/0 -> $0.ToString()
+member java.net.URL.toURI/0 -> $0
+member java.net.URL.getPath/0 -> $0.AbsolutePath
+member java.net.URL.getProtocol/0 -> $0.Scheme
+member java.net.URI.toURL/0 -> $0
+member java.net.URL.new(String) -> new Uri($1) using System
+member java.lang.ClassLoader.loadClass/1 -> $0.GetType($1, true)
+member java.lang.Class.asSubclass/1 -> $0
+member java.util.Optional.stream/0 -> $0.AsStream() using Maddi.JavaCompat
+member java.nio.file.Path.of(URI) -> new FileInfo($1.LocalPath) using System.IO
+member java.nio.file.Path.getFileName/0 -> new FileInfo($0.Name) using System.IO
+member java.nio.file.Path.toFile/0 -> new JavaFile($0.ToString()) using Maddi.JavaCompat
+member java.nio.file.Path.toAbsolutePath/0 -> new FileInfo($0.FullName) using System.IO
+member java.nio.file.Path.getParent/0 -> $0.Directory is { } d ? new FileInfo(d.FullName) : null using System.IO
+member java.nio.file.Path.resolve(String) -> new FileInfo(System.IO.Path.Combine($0.ToString(), $1)) using System.IO
+member java.nio.file.Paths.get/2 -> new FileInfo(System.IO.Path.Combine($*)) using System.IO
+member java.nio.file.Files.readAllBytes/1 -> (sbyte[]) (object) File.ReadAllBytes($1.FullName) using System.IO
+member java.nio.file.Files.readString/1 -> File.ReadAllText($1.FullName) using System.IO
+member java.nio.file.Files.writeString/2 -> File.WriteAllText($1.FullName, $2) using System.IO
+member java.nio.file.Files.exists/2 -> $1.Exists
+member java.nio.file.Files.isDirectory/2 -> Directory.Exists($1.FullName) using System.IO
+member java.nio.file.Files.isRegularFile/2 -> $1.Exists
+member java.nio.file.Files.newInputStream/2 -> $1.OpenRead()
+member java.nio.file.Files.newOutputStream/2 -> $1.Create()
+
+# ---------------------------------------------------------------- concurrency
+# Futures as tasks, executors as task schedulers, latches and locks.
+member java.util.concurrent.CompletableFuture.supplyAsync/1 -> Task.Run($1) using System.Threading.Tasks
+member java.util.concurrent.CompletableFuture.supplyAsync/2 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $2) using System.Threading.Tasks, System.Threading
+member java.util.concurrent.CompletableFuture.runAsync/1 -> Task.Run($1) using System.Threading.Tasks
+member java.util.concurrent.CompletableFuture.runAsync/2 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $2) using System.Threading.Tasks, System.Threading
+member java.util.concurrent.CompletableFuture.completedFuture/1 -> Task.FromResult($1) using System.Threading.Tasks
+member java.util.concurrent.CompletableFuture.allOf/1 -> Task.WhenAll($*) using System.Threading.Tasks
+member java.util.concurrent.CompletableFuture.thenAccept/1 -> $0.ThenAccept($1) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.join/0 -> $0.Result
+member java.util.concurrent.CompletableFuture.get/0 -> $0.Result
+member java.util.concurrent.CompletableFuture.isDone/0 -> $0.IsCompleted
+member java.util.concurrent.Future.get/0 -> $0.Result
+member java.util.concurrent.Future.isDone/0 -> $0.IsCompleted
+member java.util.concurrent.Executor.execute/1 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0) using System.Threading.Tasks, System.Threading
+member java.util.concurrent.ExecutorService.submit/1 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0) using System.Threading.Tasks, System.Threading
+# the pool's sizes and keep-alive are the .NET thread pool's
+member java.util.concurrent.ThreadPoolExecutor.new/5 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.ThreadPoolExecutor.new/6 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.ThreadPoolExecutor.new/7 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.Executors.newCachedThreadPool/0 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.Executors.newFixedThreadPool/1 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.Executors.newWorkStealingPool/0 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor/0 -> TaskScheduler.Default using System.Threading.Tasks
+member java.util.concurrent.CountDownLatch.countDown/0 -> $0.Signal()
+member java.util.concurrent.CountDownLatch.await/0 -> $0.Wait()
+member java.util.concurrent.CountDownLatch.getCount/0 -> (long) @0.CurrentCount
+member java.util.concurrent.locks.ReentrantReadWriteLock.new/0 -> new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion) using System.Threading
+member java.util.concurrent.locks.ReentrantReadWriteLock.new/1 -> new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion) using System.Threading
+member java.util.concurrent.locks.ReadWriteLock.readLock/0 -> $0.ReadLock() using Maddi.JavaCompat
+member java.util.concurrent.locks.ReadWriteLock.writeLock/0 -> $0.WriteLock() using Maddi.JavaCompat
+# Java's second argument is fairness, SemaphoreSlim's a maximum count
+member java.util.concurrent.Semaphore.new/2 -> new SemaphoreSlim($1) using System.Threading
+member java.util.concurrent.Semaphore.acquire/0 -> $0.Wait()
+member java.util.concurrent.Semaphore.acquireUninterruptibly/0 -> $0.Wait()
+member java.util.concurrent.Semaphore.release/0 -> $0.Release()
+member java.util.concurrent.Semaphore.release/1 -> $0.Release($1)
+member java.util.concurrent.Semaphore.tryAcquire/0 -> $0.Wait(0)
+member java.util.concurrent.Semaphore.availablePermits/0 -> $0.CurrentCount
+
+# ---------------------------------------------------------------- reflection
+# java.lang.Class and java.lang.reflect: System.Type and System.Reflection.
+member java.lang.Class.isAssignableFrom/1 -> $0.IsAssignableFrom($1)
+member java.lang.Class.isInstance/1 -> $0.IsInstanceOfType($1)
+member java.lang.Class.cast/1 -> ({R}) @1
+member java.lang.Class.isArray/0 -> $0.IsArray
+member java.lang.Class.isEnum/0 -> $0.IsEnum
+member java.lang.Class.isInterface/0 -> $0.IsInterface
+member java.lang.Class.isPrimitive/0 -> $0.IsPrimitive
+member java.lang.Class.getSuperclass/0 -> $0.BaseType
+member java.lang.Class.getInterfaces/0 -> $0.GetInterfaces()
+member java.lang.Class.getComponentType/0 -> $0.GetElementType()
+member java.lang.Class.arrayType/0 -> $0.MakeArrayType()
+member java.lang.Class.getPackage/0 -> $0.Namespace
+member java.lang.Package.getName/0 -> $0
+member java.lang.Class.getEnumConstants/0 -> $0.GetEnumValues().Cast<object>().ToArray() using System.Linq
+member java.lang.Class.getDeclaredMethods/0 -> $0.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static) using System.Reflection
+member java.lang.Class.getDeclaredFields/0 -> $0.GetFields(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static) using System.Reflection
+member java.lang.Class.getMethods/0 -> $0.GetMethods()
+member java.lang.Class.getFields/0 -> $0.GetFields()
+member java.lang.Class.getModifiers/0 -> JavaModifier.Of($0) using Maddi.JavaCompat
+# annotations are attributes
+member java.lang.reflect.AnnotatedElement.getAnnotation/1 -> $0.GetCustomAttribute<{R}>() using System.Reflection
+member java.lang.reflect.AnnotatedElement.isAnnotationPresent/1 -> $0.IsDefined($1, false)
+member java.lang.annotation.Annotation.annotationType/0 -> $0.GetType()
+member java.lang.reflect.Method.getName/0 -> $0.Name
+member java.lang.reflect.Field.getName/0 -> $0.Name
+member java.lang.reflect.Parameter.getName/0 -> $0.Name
+member java.lang.reflect.Executable.getName/0 -> $0.Name
+member java.lang.reflect.Member.getName/0 -> $0.Name
+member java.lang.reflect.Method.getDeclaringClass/0 -> $0.DeclaringType
+member java.lang.reflect.Member.getDeclaringClass/0 -> $0.DeclaringType
+member java.lang.reflect.Method.getReturnType/0 -> $0.ReturnType
+member java.lang.reflect.Method.getGenericReturnType/0 -> $0.ReturnType
+member java.lang.reflect.Executable.getParameters/0 -> $0.GetParameters()
+member java.lang.reflect.Executable.getParameterCount/0 -> $0.GetParameters().Length
+member java.lang.reflect.Method.getParameterTypes/0 -> $0.GetParameters().Select(p => p.ParameterType).ToArray() using System.Linq
+member java.lang.reflect.Executable.getParameterTypes/0 -> $0.GetParameters().Select(p => p.ParameterType).ToArray() using System.Linq
+# Java's compiler-made bridges have no counterpart in C#; its synthetic members are compiler-generated
+member java.lang.reflect.Method.isBridge/0 -> false
+member java.lang.reflect.Executable.isVarArgs/0 -> ($0.GetParameters().LastOrDefault()?.IsDefined(typeof(ParamArrayAttribute), false) ?? false) using System.Linq, System
+member java.lang.Class.forName/1 -> Type.GetType($1, true) using System
+member java.lang.reflect.Executable.isSynthetic/0 -> $0.IsDefined(typeof(CompilerGeneratedAttribute), false) using System.Runtime.CompilerServices
+member java.lang.reflect.Method.getModifiers/0 -> JavaModifier.Of($0) using Maddi.JavaCompat
+member java.lang.reflect.Field.getModifiers/0 -> JavaModifier.Of($0) using Maddi.JavaCompat
+member java.lang.reflect.Field.getType/0 -> $0.FieldType
+member java.lang.reflect.Field.getGenericType/0 -> $0.FieldType
+member java.lang.reflect.Field.get/1 -> $0.GetValue($1)
+member java.lang.reflect.Field.set/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Parameter.getType/0 -> $0.ParameterType
+member java.lang.reflect.Parameter.getParameterizedType/0 -> $0.ParameterType
+member java.lang.reflect.ParameterizedType.getRawType/0 -> $0.GetGenericTypeDefinition()
+member java.lang.reflect.ParameterizedType.getActualTypeArguments/0 -> $0.GetGenericArguments()
+member java.lang.reflect.TypeVariable.getBounds/0 -> $0.GetGenericParameterConstraints()
+member java.lang.reflect.GenericArrayType.getGenericComponentType/0 -> $0.GetElementType()
+member java.lang.reflect.Proxy.isProxyClass/1 -> typeof(DispatchProxy).IsAssignableFrom($1) using System.Reflection
+member java.lang.reflect.Modifier.isPublic/1 -> (@1 & 0x0001) != 0
+member java.lang.reflect.Modifier.isPrivate/1 -> (@1 & 0x0002) != 0
+member java.lang.reflect.Modifier.isProtected/1 -> (@1 & 0x0004) != 0
+member java.lang.reflect.Modifier.isStatic/1 -> (@1 & 0x0008) != 0
+member java.lang.reflect.Modifier.isFinal/1 -> (@1 & 0x0010) != 0
+member java.lang.reflect.Modifier.isAbstract/1 -> (@1 & 0x0400) != 0
+member java.lang.reflect.Modifier.isInterface/1 -> (@1 & 0x0200) != 0
+
+# ---------------------------------------------------------------- fields
+field java.lang.System.out -> Console.Out using System
+field java.lang.System.err -> Console.Error using System
+field java.lang.Integer.MAX_VALUE -> int.MaxValue
+field java.math.BigDecimal.ZERO -> 0m
+field java.math.BigDecimal.ONE -> 1m
+field java.math.BigDecimal.TWO -> 2m
+field java.math.BigDecimal.TEN -> 10m
+field java.math.BigInteger.ZERO -> BigInteger.Zero using System.Numerics
+field java.math.BigInteger.ONE -> BigInteger.One using System.Numerics
+field java.math.BigInteger.TWO -> new BigInteger(2) using System.Numerics
+field java.math.BigInteger.TEN -> new BigInteger(10) using System.Numerics
+# a directed rounding: FLOOR, CEILING and DOWN round every value, as Java's do; HALF_UP and HALF_EVEN
+# a midpoint; UP and HALF_DOWN have no MidpointRounding, and stay unmapped
+field java.math.RoundingMode.FLOOR -> MidpointRounding.ToNegativeInfinity using System
+field java.math.RoundingMode.CEILING -> MidpointRounding.ToPositiveInfinity using System
+field java.math.RoundingMode.DOWN -> MidpointRounding.ToZero using System
+field java.math.RoundingMode.HALF_UP -> MidpointRounding.AwayFromZero using System
+field java.math.RoundingMode.HALF_EVEN -> MidpointRounding.ToEven using System
+field java.lang.Integer.MIN_VALUE -> int.MinValue
+field java.lang.Long.MAX_VALUE -> long.MaxValue
+field java.lang.Long.MIN_VALUE -> long.MinValue
+field java.lang.Short.MAX_VALUE -> short.MaxValue
+field java.lang.Short.MIN_VALUE -> short.MinValue
+field java.lang.Byte.MAX_VALUE -> sbyte.MaxValue
+field java.lang.Byte.MIN_VALUE -> sbyte.MinValue
+field java.lang.Character.MAX_VALUE -> char.MaxValue
+field java.lang.Float.MAX_VALUE -> float.MaxValue
+field java.lang.Float.MIN_VALUE -> float.Epsilon
+field java.lang.Float.MIN_NORMAL -> 1.17549435E-38f
+field java.lang.Float.NaN -> float.NaN
+field java.lang.Float.POSITIVE_INFINITY -> float.PositiveInfinity
+field java.lang.Float.NEGATIVE_INFINITY -> float.NegativeInfinity
+field java.lang.Double.MAX_VALUE -> double.MaxValue
+field java.lang.Double.MIN_VALUE -> double.Epsilon
+field java.lang.Double.MIN_NORMAL -> 2.2250738585072014E-308
+field java.lang.Double.NaN -> double.NaN
+field java.lang.Double.POSITIVE_INFINITY -> double.PositiveInfinity
+field java.lang.Double.NEGATIVE_INFINITY -> double.NegativeInfinity
+field java.lang.Boolean.TRUE -> true
+# .NET's F is a digit that is not written when it is a trailing zero, its separator not when all are
+field java.time.format.DateTimeFormatter.ISO_LOCAL_DATE -> "yyyy-MM-dd"
+field java.time.format.DateTimeFormatter.ISO_LOCAL_TIME -> "HH:mm:ss.FFFFFFF"
+field java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME -> "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF"
+field java.lang.Boolean.FALSE -> false
+field java.lang.Math.PI -> Math.PI using System
+field java.time.Duration.ZERO -> TimeSpan.Zero using System
+field java.lang.Math.E -> Math.E using System
+field java.util.Locale.ENGLISH -> CultureInfo.InvariantCulture using System.Globalization
+field java.util.Locale.ROOT -> CultureInfo.InvariantCulture using System.Globalization
+field java.util.Locale.US -> CultureInfo.InvariantCulture using System.Globalization
+field java.nio.charset.StandardCharsets.UTF_8 -> Encoding.UTF8 using System.Text
+field java.nio.charset.StandardCharsets.US_ASCII -> Encoding.ASCII using System.Text
+field java.nio.charset.StandardCharsets.ISO_8859_1 -> Encoding.Latin1 using System.Text
+field java.io.File.separator -> Path.DirectorySeparatorChar.ToString() using System.IO
+field java.io.File.separatorChar -> Path.DirectorySeparatorChar using System.IO
+field java.io.File.pathSeparator -> Path.PathSeparator.ToString() using System.IO
+field java.util.jar.JarFile.MANIFEST_NAME -> JavaJarFile.ManifestName using Maddi.JavaCompat
+field java.io.File.pathSeparatorChar -> Path.PathSeparator using System.IO
+field java.lang.Character.UNASSIGNED -> JavaCharacter.Unassigned using Maddi.JavaCompat
+field java.lang.Character.CONTROL -> JavaCharacter.Control using Maddi.JavaCompat
+field java.lang.Character.FORMAT -> JavaCharacter.Format using Maddi.JavaCompat
+field java.lang.Character.PRIVATE_USE -> JavaCharacter.PrivateUse using Maddi.JavaCompat
+field java.lang.Character.SURROGATE -> JavaCharacter.Surrogate using Maddi.JavaCompat
+field java.lang.Character.LINE_SEPARATOR -> JavaCharacter.LineSeparator using Maddi.JavaCompat
+field java.lang.Character.PARAGRAPH_SEPARATOR -> JavaCharacter.ParagraphSeparator using Maddi.JavaCompat
+field java.lang.Character.SPACE_SEPARATOR -> JavaCharacter.SpaceSeparator using Maddi.JavaCompat
+
+# ---------------------------------------------------------------- overrides
+# a translated method that overrides close() of an AutoCloseable is Dispose()
+override java.lang.AutoCloseable.close/0 -> Dispose
+override java.io.Closeable.close/0 -> Dispose
+
+# ---------------------------------------------------------------- names
+# the System types any C# code may name, which a type of the program must not hide
+name Exception
+name Object
+name String
+name Math
+name Console
+name Type
+name Attribute
+name Enum
+name Array
+name Action
+name Func
+name Task
+name Path
+name File
+name Directory
+name Stream
+name Encoding
+name Regex
+name Thread
+name Monitor
+name Debug
+name Enumerable
+name Comparer
+name Random
+name Guid
+name Uri
+name TimeSpan
+name DateTime
+name DateTimeOffset
+name Convert
+name Environment
+name Buffer
+name Delegate
+name Version
+name Index
+name Range

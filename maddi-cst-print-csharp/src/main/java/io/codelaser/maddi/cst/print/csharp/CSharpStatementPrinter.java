@@ -14,14 +14,14 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
-import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
+import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EmptyExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -29,15 +29,18 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Prints a {@link Statement} as C#. Most of Java's statements are C#'s; where they differ:
@@ -158,7 +161,7 @@ public final class CSharpStatementPrinter {
         List<Statement> own = CstQueries.own(statements);
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
         try {
-            List<OutputBuilder> all = new java.util.ArrayList<>(first);
+            List<OutputBuilder> all = new ArrayList<>(first);
             own.forEach(st -> all.add(print(st, q)));
             return braces(all);
         } finally {
@@ -180,7 +183,7 @@ public final class CSharpStatementPrinter {
 
     /** {@code prefix}: a first statement, printed in the body's scope. */
     private static OutputBuilder loopBody(Block body, String continueLabel, Qualification q,
-                                          java.util.function.Supplier<OutputBuilder> prefix) {
+                                          Supplier<OutputBuilder> prefix) {
         if (continueLabel == null && prefix == null) return block(body, q);
         List<Statement> own = CstQueries.own(body.statements());
         CSharpContext.enterScope(CSharpLocals.declaredIn(own));
@@ -241,13 +244,10 @@ public final class CSharpStatementPrinter {
      */
     private static String local(ParameterizedType pt, Qualification q) {
         boolean nullable = CSharpContext.program().facts().nullabilityAnalysed();
-        String own = CSharpCompanions.ownUse(pt, q);
+        String own = CSharpWildcardInterfaces.ownUse(pt, q);
         if (own != null) return nullable ? own + "?" : own;
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
-
-    private static final Set<String> NAVIGATION_ENTRIES = Set.of("firstEntry", "lastEntry", "pollFirstEntry",
-            "pollLastEntry", "floorEntry", "lowerEntry", "ceilingEntry", "higherEntry");
 
     private static boolean implicitlyTyped(LocalVariableCreation lvc) {
         if (!lvc.otherLocalVariables().isEmpty()) return false;
@@ -256,8 +256,7 @@ public final class CSharpStatementPrinter {
         if (init == null || init.isEmpty() || init instanceof EmptyExpression) return false;
         if (lvc.isVar()) return true;
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
-        if (CSharpExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && NAVIGATION_ENTRIES.contains(mc.methodInfo().name())
-            && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")) {
+        if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
             return true;
         }
         return CSharpExpressionPrinter.unwrap(init) instanceof ConstructorCall cc && cc.anonymousClass() == null
@@ -298,7 +297,7 @@ public final class CSharpStatementPrinter {
     private static boolean assigns(Block block, String name) {
         boolean[] found = {false};
         block.visit((Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+            if (e instanceof Assignment a
                 && a.variableTarget() instanceof LocalVariable target && target.simpleName().equals(name)) {
                 found[0] = true;
             }
@@ -373,11 +372,11 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder switchOldStyle(SwitchStatementOldStyle sw, Qualification q) {
         // one C# scope, the switch block, as in Java
         CSharpContext.enterScope(CSharpLocals.declaredIn(sw.block().statements()));
-        SELECTORS.get().push(sw.expression());
+        CSharpContext.selectors().push(sw.expression());
         try {
             return switchOldStyleInScope(sw, q);
         } finally {
-            SELECTORS.get().pop();
+            CSharpContext.selectors().pop();
             CSharpContext.exitScope();
         }
     }
@@ -429,11 +428,11 @@ public final class CSharpStatementPrinter {
             else all.add(entry.statement());
         }
         CSharpContext.enterScope(CSharpLocals.declaredIn(all));
-        SELECTORS.get().push(sw.expression());
+        CSharpContext.selectors().push(sw.expression());
         try {
             return switchNewStyleInScope(sw, q);
         } finally {
-            SELECTORS.get().pop();
+            CSharpContext.selectors().pop();
             CSharpContext.exitScope();
         }
     }
@@ -497,11 +496,8 @@ public final class CSharpStatementPrinter {
     }
 
     /** A case constant; Java's unqualified enum constant {@code RED} is C#'s {@code Color.Red}. */
-    /** The selectors of the switches being printed, innermost first: a char selector's int labels are chars. */
-    private static final ThreadLocal<java.util.Deque<Expression>> SELECTORS = ThreadLocal.withInitial(java.util.ArrayDeque::new);
-
     private static OutputBuilder caseConstant(Expression literal, Qualification q) {
-        Expression selector = SELECTORS.get().peek();
+        Expression selector = CSharpContext.selectors().peek();
         if (literal instanceof IntConstant ic && selector != null && selector.parameterizedType() != null
             && selector.parameterizedType().typeInfo() != null && selector.parameterizedType().arrays() == 0
             && "char".equals(selector.parameterizedType().typeInfo().simpleName())) {
@@ -528,7 +524,7 @@ public final class CSharpStatementPrinter {
     private static FieldInfo enumClassConstant(Expression literal) {
         if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
             && CSharpNames.isEnumConstant(fr.fieldInfo()) && CSharpNames.translated(fr.fieldInfo().owner())
-            && !CSharpTypePrinter.simpleEnum(fr.fieldInfo().owner())) {
+            && !CSharpNames.simpleEnum(fr.fieldInfo().owner())) {
             return fr.fieldInfo();
         }
         return null;
@@ -552,7 +548,7 @@ public final class CSharpStatementPrinter {
     /** {@code selector switch { A or B => x, _ => y }}. */
     static OutputBuilder switchExpression(SwitchExpression se, Qualification q) {
         List<OutputBuilder> arms = new ArrayList<>();
-        SELECTORS.get().push(se.selector());
+        CSharpContext.selectors().push(se.selector());
         try {
             for (SwitchEntry entry : se.entries()) {
                 CSharpContext.enterScope(Set.of()); // an arm's pattern variable is the arm's
@@ -563,7 +559,7 @@ public final class CSharpStatementPrinter {
                 }
             }
         } finally {
-            SELECTORS.get().pop();
+            CSharpContext.selectors().pop();
         }
         return new OutputBuilderImpl().add(CSharpExpressionPrinter.receiver(se.selector(), q)).add(SpaceEnum.ONE)
                 .add(KeywordImpl.SWITCH).add(SpaceEnum.ONE).add(arms.stream().collect(OutputBuilderImpl.joining(

@@ -12,10 +12,8 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -31,8 +29,10 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +126,6 @@ final class CSharpAttributes {
         return CstQueries.returnedValue(CstQueries.own(element.methodBody().statements()));
     }
 
-    /** {@code @Target({METHOD, FIELD})}: the attribute's targets; null without a @Target. */
     /**
      * A use of {@code ae} may be on a property: a library's annotation (its mapping has it on a field), and a program
      * attribute whose usage has properties ({@code @Target} FIELD or none). Another goes on the property's accessor.
@@ -138,17 +137,30 @@ final class CSharpAttributes {
         return usage == null || usage.contains("AttributeTargets.Property") || usage.contains("AttributeTargets.All");
     }
 
+    /** The value of the element {@code key} of an annotation use, {@code value} also when unnamed; null without. */
+    static Expression element(AnnotationExpression ae, String key) {
+        for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
+            if (key.equals(kv.key()) || "value".equals(key) && kv.keyIsDefault()) return kv.value();
+        }
+        return null;
+    }
+
+    /** An array element's values, {@code {A.class, B.class}}, or the one value Java lets stand for the array. */
+    static List<Expression> elements(AnnotationExpression ae, String key) {
+        Expression e = element(ae, key);
+        if (e == null) return List.of();
+        return e instanceof ArrayInitializer ai ? ai.expressions() : List.of(e);
+    }
+
+    /** {@code @Target({METHOD, FIELD})}: the attribute's targets; null without a @Target. */
     private static String usage(TypeInfo annotation) {
         for (AnnotationExpression ae : annotation.annotations()) {
             if (!"java.lang.annotation.Target".equals(ae.typeInfo().fullyQualifiedName())) continue;
             Set<String> targets = new LinkedHashSet<>();
-            for (AnnotationExpression.KV kv : ae.keyValuePairs()) {
-                List<Expression> values = kv.value() instanceof ArrayInitializer ai ? ai.expressions() : List.of(kv.value());
-                for (Expression v : values) {
-                    if (v instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
-                        String target = TARGETS.get(fr.fieldInfo().name());
-                        if (target != null) targets.add(target);
-                    }
+            for (Expression v : elements(ae, "value")) {
+                if (v instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+                    String target = TARGETS.get(fr.fieldInfo().name());
+                    if (target != null) targets.add(target);
                 }
             }
             return targets.isEmpty() ? null : String.join(" | ", targets);
@@ -209,7 +221,7 @@ final class CSharpAttributes {
             boolean first = true;
             // positional arguments come before named ones
             List<AnnotationExpression.KV> ordered = new ArrayList<>(ae.keyValuePairs());
-            ordered.sort(java.util.Comparator.comparing(kv -> !(kv.keyIsDefault() || "value".equals(kv.key()))));
+            ordered.sort(Comparator.comparing(kv -> !(kv.keyIsDefault() || "value".equals(kv.key()))));
             for (AnnotationExpression.KV kv : ordered) {
                 if (!first) b.add(SymbolEnum.COMMA);
                 first = false;

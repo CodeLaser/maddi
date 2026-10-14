@@ -14,13 +14,22 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -91,17 +100,23 @@ public final class CSharpNames {
         }
         if (CSharpContext.program().prefixedHoisted(typeInfo)) {
             StringBuilder sb = new StringBuilder(simple);
-            for (TypeInfo e = enclosing(typeInfo); e != null; e = enclosing(e)) sb.insert(0, e.simpleName());
+            for (TypeInfo e = CstQueries.enclosing(typeInfo); e != null; e = CstQueries.enclosing(e)) sb.insert(0, e.simpleName());
             return name(sb.toString());
         }
         return name(simple);
+    }
+
+    /** {@code <K, V>}: the type parameters' names, as declared after a generic type's or method's name; empty without. */
+    static String typeParameters(List<TypeParameter> typeParameters) {
+        return typeParameters.isEmpty() ? ""
+                : typeParameters.stream().map(CSharpNames::typeParameter).collect(Collectors.joining(", ", "<", ">"));
     }
 
     /**
      * The name of a type parameter: its Java name, unless a member of its type has that name in C#, which C# does not
      * allow; then the C# convention's {@code T} prefix: {@code EmbeddingMatch<TEmbedded>} with method {@code Embedded()}.
      */
-    public static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    public static String typeParameter(TypeParameter tp) {
         String simple = tp.simpleName();
         if (tp.getOwner().isLeft()) {
             TypeInfo owner = tp.getOwner().getLeft();
@@ -124,6 +139,20 @@ public final class CSharpNames {
             if (n == 1 && "equals".equals(javaName)) return "Equals";
         }
         if (!translated(methodInfo.typeInfo())) return name(javaName);
+        // an anonymous class's name is the file's, as hoisted (CSharpAnonymous)
+        if (methodInfo.typeInfo().isAnonymous()) return translatedMethod(methodInfo);
+        Map<MethodInfo, String> cache = CSharpContext.memo().methodNames;
+        String known = cache.get(methodInfo);
+        if (known == null) {
+            known = translatedMethod(methodInfo);
+            cache.put(methodInfo, known);
+        }
+        return known;
+    }
+
+    /** The name of a method of the program, which is not one of Object's. */
+    private static String translatedMethod(MethodInfo methodInfo) {
+        String javaName = methodInfo.name();
         String bcl = CSharpContext.libraries().overrideName(methodInfo);
         if (bcl != null) return bcl;
         // an override is named as what it overrides, which may have kept its Java name
@@ -169,6 +198,30 @@ public final class CSharpNames {
         return clash ? name(fieldInfo.name()) : r;
     }
 
+    /** An enum of constants only, without arguments or bodies, and nothing else: a C# enum. */
+    static boolean simpleEnum(TypeInfo typeInfo) {
+        Map<TypeInfo, Boolean> cache = CSharpContext.memo().simpleEnum;
+        Boolean known = cache.get(typeInfo);
+        if (known == null) {
+            known = computeSimpleEnum(typeInfo);
+            cache.put(typeInfo, known);
+        }
+        return known;
+    }
+
+    private static boolean computeSimpleEnum(TypeInfo typeInfo) {
+        if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
+        if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
+        if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic()
+                                                           && !CSharpTypePrinter.isImplicitDefaultConstructor(c))) {
+            return false;
+        }
+        if (!typeInfo.interfacesImplemented().isEmpty()) return false;
+        return typeInfo.fields().stream().filter(f -> !f.isSynthetic()).allMatch(f -> isEnumConstant(f)
+                && (!(f.initializer() instanceof ConstructorCall cc)
+                    || cc.parameterExpressions().isEmpty() && cc.anonymousClass() == null));
+    }
+
     /** An enum constant: a static final field of the enum's own type. */
     static boolean isEnumConstant(FieldInfo f) {
         TypeInfo owner = f.owner();
@@ -176,14 +229,13 @@ public final class CSharpNames {
                && f.type().arrays() == 0;
     }
 
-    /** Declared in the sources being translated, not in a library. */
     /**
      * A static nested type of a generic type. C# makes a nested type generic in its enclosing types' parameters,
      * {@code Outer<E>.Inner}, which Java's static nested type is not: it is printed beside its primary type, in the
      * namespace, and named without its enclosing types.
      */
     static boolean hoisted(TypeInfo typeInfo) {
-        TypeInfo enclosing = enclosing(typeInfo);
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         return enclosing != null && typeInfo.enclosingMethod() == null && translated(typeInfo)
                && (typeInfo.isStatic() || typeInfo.isInterface() || typeInfo.typeNature().isEnum()
                    || typeInfo.typeNature().isRecord())
@@ -199,7 +251,13 @@ public final class CSharpNames {
      */
     static boolean hasCompanion(TypeInfo t) {
         if (t.typeParameters().isEmpty()) return false;
-        return CSharpContext.hasCompanion(t, CSharpNames::computeHasCompanion);
+        Map<TypeInfo, Boolean> cache = CSharpContext.memo().hasCompanion;
+        Boolean known = cache.get(t);
+        if (known == null) {
+            known = computeHasCompanion(t);
+            cache.put(t, known);
+        }
+        return known;
     }
 
     private static boolean computeHasCompanion(TypeInfo t) {
@@ -210,15 +268,15 @@ public final class CSharpNames {
                 .filter(m -> (m.isStatic() || m.isStaticInitializer()) && !m.isSynthetic()).toList();
         List<FieldInfo> staticFields = t.fields().stream().filter(f -> f.isStatic() && !f.isSynthetic()).toList();
         if (statics.isEmpty() && staticFields.isEmpty()) return false;
-        List<io.codelaser.maddi.cst.api.element.Element> code = new java.util.ArrayList<>();
+        List<Element> code = new ArrayList<>();
         statics.stream().filter(m -> m.methodBody() != null).forEach(m -> code.add(m.methodBody()));
         staticFields.stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
                 .forEach(f -> code.add(f.initializer()));
         boolean[] declaresType = {false};
         for (var element : code) {
-            element.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
-                if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null
-                    || e instanceof io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration) declaresType[0] = true;
+            element.visit((Element e) -> {
+                if (e instanceof ConstructorCall cc && cc.anonymousClass() != null
+                    || e instanceof LocalTypeDeclaration) declaresType[0] = true;
                 return !declaresType[0];
             });
         }
@@ -238,7 +296,7 @@ public final class CSharpNames {
     /** Type parameters C# would give a type nested in this one: its own, and those of its non-hoisted enclosing types. */
     private static boolean genericScope(TypeInfo typeInfo) {
         if (!typeInfo.typeParameters().isEmpty()) return true;
-        TypeInfo enclosing = enclosing(typeInfo);
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         return enclosing != null && !hoisted(typeInfo) && genericScope(enclosing);
     }
 
@@ -246,7 +304,7 @@ public final class CSharpNames {
     static TypeInfo topLevel(TypeInfo typeInfo) {
         TypeInfo t = typeInfo;
         while (true) {
-            TypeInfo enclosing = enclosing(t);
+            TypeInfo enclosing = CstQueries.enclosing(t);
             if (enclosing == null || hoisted(t)) return t;
             t = enclosing;
         }
@@ -257,8 +315,8 @@ public final class CSharpNames {
      * {@code recursiveSuperTypeStream()}, which includes the enclosing type of an inner class.
      */
     static boolean inherits(TypeInfo type, TypeInfo ancestor) {
-        java.util.Deque<TypeInfo> todo = new java.util.ArrayDeque<>(List.of(type));
-        java.util.Set<TypeInfo> seen = new java.util.HashSet<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>(List.of(type));
+        Set<TypeInfo> seen = new HashSet<>();
         while (!todo.isEmpty()) {
             TypeInfo t = todo.pop();
             if (!seen.add(t)) continue;
@@ -267,10 +325,6 @@ public final class CSharpNames {
             t.interfacesImplemented().stream().filter(i -> i.typeInfo() != null).forEach(i -> todo.push(i.typeInfo()));
         }
         return false;
-    }
-
-    static TypeInfo enclosing(TypeInfo typeInfo) {
-        return CstQueries.enclosing(typeInfo);
     }
 
     /**

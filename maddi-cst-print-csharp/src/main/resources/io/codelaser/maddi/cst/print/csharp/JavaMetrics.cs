@@ -161,8 +161,6 @@ public sealed class JavaCounter
     }
 
     public void Increment() => counter.Add(1, tags);
-
-    public void Increment(double amount) => counter.Add(amount, tags);
 }
 
 /// <summary>Micrometer's LongTaskTimer: each sample's duration is recorded when it stops.</summary>

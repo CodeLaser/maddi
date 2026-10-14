@@ -16,9 +16,9 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.StringConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -35,9 +35,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -73,8 +73,13 @@ import java.util.regex.Pattern;
  * most specific type first. Templates are those of {@link LibraryMapping.Rule}, and {@code $#1} writes argument 1, an
  * slf4j message, as a .NET message template whose holes are named after their arguments. A rule with guards,
  * {@code ?name ?other}, applies only when they all hold; the rules of one key are tried in their order. The guards are
- * named predicates of a call ({@link #guard(String, Guard)} registers more): {@code arguments=N},
- * {@code lastArgumentThrowable}, {@code receiver=fqn}, {@code methodReference}.
+ * named predicates of a call: {@code arguments=N}, {@code lastArgumentThrowable}, {@code receiver=fqn},
+ * {@code methodReference}. An annotation's rule applies when its guards all hold, {@code ?on=target},
+ * {@code ?element} (the use has it) and {@code ?element=value}, and the use has every element its attributes write
+ * ({@code $value}); the rules of one annotation are tried in their order.
+ * <p>
+ * A type, field or override is mapped by one line: a second one is an error. A {@code #} starts a comment at the
+ * start of a line, or after a space outside a string literal.
  */
 public final class CSharpMappingFile implements LibraryMapping {
 
@@ -82,18 +87,11 @@ public final class CSharpMappingFile implements LibraryMapping {
     public interface Guard extends BiPredicate<MethodInfo, MethodCall> {
     }
 
-    private static final Map<String, Guard> GUARDS = new ConcurrentHashMap<>();
-
-    static {
-        guard("lastArgumentThrowable", (method, call) -> call != null && !call.parameterExpressions().isEmpty()
-                                                         && throwable(call.parameterExpressions().getLast()));
-        guard("methodReference", (method, call) -> call == null);
-    }
-
-    /** Registers a named guard, for the files' {@code ?name}. */
-    public static void guard(String name, Guard guard) {
-        GUARDS.put(name, guard);
-    }
+    /** The named guards; {@code arguments=N} and {@code receiver=fqn} take their value (see {@link #resolveGuard}). */
+    private static final Map<String, Guard> GUARDS = Map.of(
+            "lastArgumentThrowable", (method, call) -> call != null && !call.parameterExpressions().isEmpty()
+                                                       && throwable(call.parameterExpressions().getLast()),
+            "methodReference", (method, call) -> call == null);
 
     private static Guard resolveGuard(String name) {
         if (name.startsWith("arguments=")) {
@@ -119,25 +117,26 @@ public final class CSharpMappingFile implements LibraryMapping {
                 .anyMatch(s -> "java.lang.Throwable".equals(s.fullyQualifiedName()));
     }
 
-    /**
-     * {@code target}, when not null: the annotation is on it; {@code element}, when not null: the use has it
-     * ({@code value} null), or it is {@code value}.
-     */
-    private record AnnotationEntry(Target target, String element, String value, List<String> attributes,
-                                   List<String> namespaces) {
-        boolean applies(AnnotationExpression use, Target on) {
-            if (target != null && target != on) return false;
-            if (element == null) return true;
-            Expression v = elementValue(use, element);
+    /** {@code ?element}: the use has the element; {@code ?element=value}: it is {@code value} ({@code value} not null). */
+    private record ElementGuard(String element, String value) {
+        boolean holds(AnnotationExpression use) {
+            Expression v = CSharpAttributes.element(use, element);
             return v != null && (value == null || value.equals(simpleText(v)));
         }
     }
 
-    private static Expression elementValue(AnnotationExpression use, String element) {
-        for (AnnotationExpression.KV kv : use.keyValuePairs()) {
-            if (kv.key().equals(element) || "value".equals(element) && kv.keyIsDefault()) return kv.value();
+    /**
+     * {@code target}, when not null: the annotation is on it; each of {@code elements} holds; and the use has the
+     * elements the attributes write ({@code $name}).
+     */
+    private record AnnotationEntry(Target target, List<ElementGuard> elements, List<String> attributes,
+                                   List<String> namespaces) {
+        boolean applies(AnnotationExpression use, Target on) {
+            if (target != null && target != on) return false;
+            if (!elements.stream().allMatch(e -> e.holds(use))) return false;
+            return attributes.stream().allMatch(a -> ELEMENT.matcher(a).results()
+                    .allMatch(r -> CSharpAttributes.element(use, r.group(1)) != null));
         }
-        return null;
     }
 
     /** An element's value as a guard compares it: a constant's name ({@code NON_NULL}), a string's text. */
@@ -160,7 +159,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     private final Map<String, TypeMapping> types = new HashMap<>();
     private final Map<String, List<Entry>> values = new HashMap<>();
     private final Map<String, List<Entry>> statements = new HashMap<>();
-    private final Map<String, FieldMapping> fields = new HashMap<>();
+    private final Map<String, CodeMapping> fields = new HashMap<>();
     private final Map<String, List<AnnotationEntry>> annotations = new HashMap<>();
     private final Map<String, String> overrides = new HashMap<>();
     private final Set<String> typeNames = new HashSet<>();
@@ -188,9 +187,7 @@ public final class CSharpMappingFile implements LibraryMapping {
         int lineNumber = 0;
         for (String raw : text.split("\n", -1)) {
             lineNumber++;
-            String line = raw.strip();
-            int hash = line.indexOf(" #");
-            if (hash >= 0) line = line.substring(0, hash).strip();
+            String line = withoutComment(raw.strip());
             if (line.isEmpty() || line.startsWith("#")) continue;
             int space = line.indexOf(' ');
             String directive = space < 0 ? line : line.substring(0, space);
@@ -209,6 +206,17 @@ public final class CSharpMappingFile implements LibraryMapping {
         }
         if (file == null) throw new IllegalArgumentException(source + ": no mapping directive");
         return file;
+    }
+
+    /** The line up to its comment: a {@code #} that starts it, or follows a space outside a string literal. */
+    private static String withoutComment(String line) {
+        boolean inString = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"' && (i == 0 || line.charAt(i - 1) != '\\')) inString = !inString;
+            else if (c == '#' && !inString && (i == 0 || line.charAt(i - 1) == ' ')) return line.substring(0, i).strip();
+        }
+        return line;
     }
 
     @Override
@@ -289,38 +297,42 @@ public final class CSharpMappingFile implements LibraryMapping {
                 ("member".equals(directive) ? values : statements).computeIfAbsent(m.group(1), k -> new ArrayList<>())
                         .add(new Entry(guard, value, namespaces));
             }
-            case "field" -> fields.put(key, new FieldMapping(value, namespace));
+            case "field" -> unique(fields.put(key, new CodeMapping(value, namespace)), directive, key);
             case "annotation" -> {
                 Matcher m = MEMBER_KEY.matcher(key);
                 if (!m.matches()) {
                     throw new IllegalArgumentException("expected: <annotation type> [?on=target] [?element[=value]]");
                 }
                 Target target = null;
-                String element = null;
-                String elementValue = null;
+                List<ElementGuard> elements = new ArrayList<>();
                 for (String token : m.group(2).strip().split("\\s+")) {
                     if (token.isEmpty()) continue;
                     String guard = token.substring(1);
                     if (guard.startsWith("on=")) {
-                        target = Target.valueOf(guard.substring(3).toUpperCase(java.util.Locale.ROOT));
+                        target = Target.valueOf(guard.substring(3).toUpperCase(Locale.ROOT));
                         continue;
                     }
                     if (guard.startsWith("has=")) guard = guard.substring(4);
                     int eq = guard.indexOf('=');
-                    element = eq < 0 ? guard : guard.substring(0, eq);
-                    elementValue = eq < 0 ? null : guard.substring(eq + 1);
+                    elements.add(eq < 0 ? new ElementGuard(guard, null)
+                            : new ElementGuard(guard.substring(0, eq), guard.substring(eq + 1)));
                 }
                 List<String> attributes = "-".equals(value) ? List.of() : List.of(value.split("\\s*\\]\\[\\s*"));
                 annotations.computeIfAbsent(m.group(1), k -> new ArrayList<>())
-                        .add(new AnnotationEntry(target, element, elementValue, attributes, namespaces));
+                        .add(new AnnotationEntry(target, List.copyOf(elements), attributes, namespaces));
             }
-            case "override" -> overrides.put(key, value);
+            case "override" -> unique(overrides.put(key, value), directive, key);
             default -> throw new IllegalArgumentException("unknown directive " + directive);
         }
     }
 
+    /** A type, field or override is mapped once: a second line would silently replace the first. */
+    private static void unique(Object previous, String directive, String key) {
+        if (previous != null) throw new IllegalArgumentException("a second " + directive + " line for " + key);
+    }
+
     private void addType(String fqn, TypeMapping mapping) {
-        types.put(fqn, mapping);
+        unique(types.put(fqn, mapping), "type", fqn);
         String t = mapping.template();
         int cut = t.indexOf('<');
         if (cut >= 0) t = t.substring(0, cut);
@@ -381,6 +393,16 @@ public final class CSharpMappingFile implements LibraryMapping {
                 base + "/" + constructor.parameters().size(), base), constructor, null);
     }
 
+    /** The rule of the one key {@code key}: the first of its value and statement templates whose guards hold. */
+    Rule memberRule(String key, MethodInfo method, MethodCall call) {
+        return rule(List.of(key), method, call);
+    }
+
+    /** The file has a member or statement line for {@code key}. */
+    boolean hasMember(String key) {
+        return values.containsKey(key) || statements.containsKey(key);
+    }
+
     /**
      * The rule of the first key with a value template whose guard holds, and that key's statement template, or a more
      * specific key's; a statement template without any value template is a rule of its own, whose value the next
@@ -409,7 +431,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     }
 
     @Override
-    public FieldMapping field(FieldInfo fieldInfo) {
+    public CodeMapping field(FieldInfo fieldInfo) {
         return fields.get(fieldInfo.owner().fullyQualifiedName() + "." + fieldInfo.name());
     }
 
@@ -419,10 +441,8 @@ public final class CSharpMappingFile implements LibraryMapping {
         if (entries == null) return null;
         for (AnnotationEntry entry : entries) {
             if (!entry.applies(use, target)) continue;
-            List<String> attributes = entry.attributes().stream().map(a -> ELEMENT.matcher(a).replaceAll(r -> {
-                Expression v = elementValue(use, r.group(1));
-                return Matcher.quoteReplacement(v == null ? r.group() : print.apply(v));
-            })).toList();
+            List<String> attributes = entry.attributes().stream().map(a -> ELEMENT.matcher(a).replaceAll(r ->
+                    Matcher.quoteReplacement(print.apply(CSharpAttributes.element(use, r.group(1)))))).toList();
             return new AttributeMapping(attributes, entry.namespaces());
         }
         return null;

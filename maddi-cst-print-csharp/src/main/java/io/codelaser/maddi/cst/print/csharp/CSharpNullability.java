@@ -16,17 +16,17 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Cast;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InlineConditional;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
-import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -95,10 +95,10 @@ final class CSharpNullability {
         if (method == null || method.parameters().isEmpty() || !facts().nullabilityAnalysed()) return printed;
         boolean nullConstant = CSharpExpressionPrinter.unwrap(value) instanceof NullConstant;
         if (nullConstant ? !elementOrKey : !mayBeNull(value)) return printed;
-        io.codelaser.maddi.cst.api.info.ParameterInfo parameter =
+        ParameterInfo parameter =
                 method.parameters().get(Math.min(i, method.parameters().size() - 1));
-        io.codelaser.maddi.cst.api.type.ParameterizedType type = parameter.parameterizedType();
-        io.codelaser.maddi.cst.api.type.ParameterizedType valueType = value.parameterizedType();
+        ParameterizedType type = parameter.parameterizedType();
+        ParameterizedType valueType = value.parameterizedType();
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
         boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
                           && type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isTypeParameter());
@@ -148,7 +148,7 @@ final class CSharpNullability {
     }
 
     /** An element of an array initializer, {@code printed}: as an assignment to an element ({@link #intoVariable}). */
-    static OutputBuilder intoElement(Expression value, io.codelaser.maddi.cst.api.type.ParameterizedType element,
+    static OutputBuilder intoElement(Expression value, ParameterizedType element,
                                      OutputBuilder printed) {
         if (!facts().nullabilityAnalysed() || !nullOrMayBeNull(value) || valueType(element)) return printed;
         return asserted(value, printed);
@@ -162,14 +162,14 @@ final class CSharpNullability {
     static OutputBuilder unboxed(Expression operand, OutputBuilder printed) {
         if (!facts().nullabilityAnalysed()) return printed;
         Expression x = CSharpExpressionPrinter.unwrap(operand);
-        io.codelaser.maddi.cst.api.type.ParameterizedType type = x.parameterizedType();
+        ParameterizedType type = x.parameterizedType();
         boolean boxed = type != null && type.arrays() == 0 && type.isBoxedExcludingVoid();
         boolean mayBe = !boxed ? mayBeNull(x) : switch (x) {
             // a method of Integer is C#'s int?; one of a type parameter its argument, List<int>'s int, unless nullable
             case MethodCall mc -> mc.methodInfo().returnType().isBoxedExcludingVoid() || mayBeNull(mc);
             case VariableExpression ve -> !knownNonNull(ve.variable());
             case Cast c -> !(CSharpExpressionPrinter.unwrap(c.expression()).parameterizedType() instanceof
-                    io.codelaser.maddi.cst.api.type.ParameterizedType t && t.isPrimitiveExcludingVoid());
+                    ParameterizedType t && t.isPrimitiveExcludingVoid());
             default -> false;
         };
         return mayBe ? printed.add(NULL_FORGIVING) : printed;
@@ -180,7 +180,7 @@ final class CSharpNullability {
     }
 
     /** A primitive or a boxed type, C#'s value type or its {@code T?}: no {@code !} there. */
-    private static boolean valueType(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    private static boolean valueType(ParameterizedType type) {
         return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid()
                                                       || type.isBoxedExcludingVoid());
     }
@@ -214,7 +214,7 @@ final class CSharpNullability {
             case VariableExpression ve -> switch (ve.variable()) {
                 case FieldReference fr -> facts().nullable(fr.fieldInfo()) == NullableState.NULLABLE
                                           && !knownNonNull(fr);
-                case io.codelaser.maddi.cst.api.info.ParameterInfo pi ->
+                case ParameterInfo pi ->
                         facts().nullable(pi) == NullableState.NULLABLE && !knownNonNull(pi);
                 case LocalVariable lv -> CSharpContext.localState(lv.simpleName()) == NullableState.NULLABLE
                                          && !knownNonNull(lv);
@@ -232,7 +232,7 @@ final class CSharpNullability {
     }
 
     /** A use-site fact: known non-null where the current statement starts, or at the current call. */
-    private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable) {
+    private static boolean knownNonNull(Variable variable) {
         return CSharpContext.state().knownNonNull(facts(), variable);
     }
 }

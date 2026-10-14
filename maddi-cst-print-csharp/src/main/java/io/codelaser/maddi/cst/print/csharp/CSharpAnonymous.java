@@ -12,7 +12,6 @@
  * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
@@ -121,9 +120,9 @@ final class CSharpAnonymous {
     private static List<ParameterizedType> superParameters(ConstructorCall cc, TypeInfo anonymous) {
         MethodInfo constructor = superConstructor(cc);
         if (constructor == null) return cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList();
-        Map<TypeParameter, ParameterizedType> arguments = CSharpTypePrinter.typeArguments(anonymous.parentClass());
+        Map<TypeParameter, ParameterizedType> arguments = CSharpHierarchy.typeArguments(anonymous.parentClass());
         return constructor.parameters().stream()
-                .map(p -> CSharpTypePrinter.substitute(p.parameterizedType(), arguments)).toList();
+                .map(p -> CSharpHierarchy.substitute(p.parameterizedType(), arguments)).toList();
     }
 
     /**
@@ -180,13 +179,4 @@ final class CSharpAnonymous {
         }
         return outer[0];
     }
-
-    /** An instance member of the enclosing object, used from {@code hoisted}'s code: through its {@code outer}. */
-    static boolean viaOuter(TypeInfo owner, TypeInfo hoisted) {
-        return CSharpNames.foreign(owner, hoisted);
-    }
-
-
-
-
 }

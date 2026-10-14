@@ -9,7 +9,7 @@
 // Java's byte is signed, so Java's byte[] is sbyte[]: the stream classes here take and give sbyte[], and reinterpret
 // them as byte[] for the BCL, which the runtime allows for arrays of one element size.
 
-#nullable disable
+#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -30,7 +30,7 @@ namespace Maddi.JavaCompat;
 public static class JavaCollections
 {
     /// <summary>Map.put: the previous value, or the default when there was none.</summary>
-    public static V Put<K, V>(this IDictionary<K, V> d, K key, V value)
+    public static V? Put<K, V>(this IDictionary<K, V> d, K key, V value)
     {
         d.TryGetValue(key, out var old);
         d[key] = value;
@@ -42,7 +42,7 @@ public static class JavaCollections
         d.TryGetValue(key, out var v) ? v : null;
 
     /// <summary>Map.get on the IDictionary interface: the default when the key is absent.</summary>
-    public static V Get<K, V>(this IDictionary<K, V> d, K key) => d.TryGetValue(key, out var v) ? v : default;
+    public static V? Get<K, V>(this IDictionary<K, V> d, K key) => d.TryGetValue(key, out var v) ? v : default;
 
     public static V GetOrDefault<K, V>(this IDictionary<K, V> d, K key, V def) =>
         d.TryGetValue(key, out var v) ? v : def;
@@ -81,7 +81,7 @@ public static class JavaCollections
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
 
-    public static V RemoveAndGet<K, V>(this IDictionary<K, V> d, K key)
+    public static V? RemoveAndGet<K, V>(this IDictionary<K, V> d, K key)
     {
         if (!d.TryGetValue(key, out var old)) return default;
         d.Remove(key);
@@ -93,14 +93,14 @@ public static class JavaCollections
         foreach (var (k, v) in other.ToList()) d[k] = v;
     }
 
-    public static V PutIfAbsent<K, V>(this IDictionary<K, V> d, K key, V value)
+    public static V? PutIfAbsent<K, V>(this IDictionary<K, V> d, K key, V value)
     {
         if (d.TryGetValue(key, out var old) && old != null) return old;
         d[key] = value;
         return default;
     }
 
-    public static V ComputeIfAbsent<K, V>(this IDictionary<K, V> d, K key, Func<K, V> f)
+    public static V? ComputeIfAbsent<K, V>(this IDictionary<K, V> d, K key, Func<K, V?> f)
     {
         if (d.TryGetValue(key, out var v) && v != null) return v;
         v = f(key);
@@ -108,7 +108,7 @@ public static class JavaCollections
         return v;
     }
 
-    public static V Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V, V> f)
+    public static V? Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V?, V?> f)
     {
         d.TryGetValue(key, out var old);
         var v = f(key, old);
@@ -117,7 +117,7 @@ public static class JavaCollections
         return v;
     }
 
-    public static V Merge<K, V>(this IDictionary<K, V> d, K key, V value, Func<V, V, V> f)
+    public static V? Merge<K, V>(this IDictionary<K, V> d, K key, V value, Func<V, V, V?> f)
     {
         var v = d.TryGetValue(key, out var old) && old != null ? f(old, value) : value;
         if (v == null) d.Remove(key);
@@ -158,26 +158,11 @@ public static class JavaCollections
         return removed.Count > 0;
     }
 
-    /// <summary>List.remove(int): the element removed.</summary>
-    public static void AddRange<T>(this IList<T> l, IEnumerable<T> items)
-    {
-        foreach (var x in items.ToList()) l.Add(x);
-    }
-
     /// <summary>List.subList, as a copy.</summary>
     public static List<T> SubList<T>(this IList<T> l, int from, int to) => l.Skip(from).Take(to - from).ToList();
 
-    public static int LastIndexOf<T>(this IList<T> l, T item)
-    {
-        for (var i = l.Count - 1; i >= 0; i--)
-        {
-            if (EqualityComparer<T>.Default.Equals(l[i], item)) return i;
-        }
-        return -1;
-    }
-
     /// <summary>List.sort and Collections.sort: stable, as Java's.</summary>
-    public static void Sort<T>(this IList<T> l, Comparison<T> comparison)
+    public static void Sort<T>(this IList<T> l, Comparison<T>? comparison)
     {
         var sorted = l.Order(Comparer<T>.Create(comparison ?? Comparer<T>.Default.Compare)).ToList();
         for (var i = 0; i < sorted.Count; i++) l[i] = sorted[i];
@@ -185,7 +170,6 @@ public static class JavaCollections
 
     public static void Sort<T>(this IList<T> l) => l.Sort(null);
 
-    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
     /// <summary>Collections.rotate: the element at i moves to (i + distance) mod size.</summary>
     public static void Rotate<T>(IList<T> l, int distance)
     {
@@ -205,11 +189,13 @@ public static class JavaCollections
 
     public static void Swap<T>(IList<T> l, int i, int j) => (l[i], l[j]) = (l[j], l[i]);
 
+    /// <summary>Collections.reverse, in place (LINQ's Reverse is a new sequence).</summary>
     public static void ReverseInPlace<T>(IList<T> l)
     {
         for (int i = 0, j = l.Count - 1; i < j; i++, j--) (l[i], l[j]) = (l[j], l[i]);
     }
 
+    /// <summary>List.remove(int): the element removed.</summary>
     public static T RemoveAtAndGet<T>(this IList<T> l, int index)
     {
         var x = l[index];
@@ -237,13 +223,13 @@ public static class JavaCollections
         return l.RemoveAtAndGet(l.Count - 1);
     }
 
-    public static T PeekFirst<T>(this IList<T> l) => l.Count == 0 ? default : l[0];
+    public static T? PeekFirst<T>(this IList<T> l) => l.Count == 0 ? default : l[0];
 
-    public static T PeekLast<T>(this IList<T> l) => l.Count == 0 ? default : l[^1];
+    public static T? PeekLast<T>(this IList<T> l) => l.Count == 0 ? default : l[^1];
 
-    public static T PollFirst<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
+    public static T? PollFirst<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(0);
 
-    public static T PollLast<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
+    public static T? PollLast<T>(this IList<T> l) => l.Count == 0 ? default : l.RemoveAtAndGet(l.Count - 1);
 
     public static bool Offer<T>(this IList<T> l, T x)
     {
@@ -275,7 +261,7 @@ public static class JavaCollections
     }
 
     /// <summary>Stream.reduce without an identity: the default (Optional's empty) for an empty sequence.</summary>
-    public static T Reduce<T>(this IEnumerable<T> e, Func<T, T, T> f)
+    public static T? Reduce<T>(this IEnumerable<T> e, Func<T, T, T> f)
     {
         using var it = e.GetEnumerator();
         if (!it.MoveNext()) return default;
@@ -288,23 +274,22 @@ public static class JavaCollections
         e.Order(Comparer<T>.Create(comparison));
 
     // Optional<T> is the value itself, or null
-    public static void IfPresent<T>(this T value, Action<T> action)
+    public static void IfPresent<T>(this T? value, Action<T> action)
     {
         if (value != null) action(value);
     }
 
-    public static R Map<T, R>(this T value, Func<T, R> f) => value == null ? default : f(value);
+    public static R? Map<T, R>(this T? value, Func<T, R> f) => value == null ? default : f(value);
 
-    public static T Filter<T>(this T value, Func<T, bool> p) => value != null && p(value) ? value : default;
+    public static T? Filter<T>(this T? value, Func<T, bool> p) => value != null && p(value) ? value : default;
 
     /// <summary>Optional.stream: the value, or nothing.</summary>
-    public static IEnumerable<T> AsStream<T>(this T value)
+    public static IEnumerable<T> AsStream<T>(this T? value)
     {
         if (value != null) yield return value;
     }
 }
 
-/// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
 /// <summary>
 /// Java's NavigableMap and NavigableSet on SortedDictionary and SortedSet. A SortedSet searches by order in log time
 /// (GetViewBetween); a SortedDictionary keeps its keys in order but searches by order only in a walk over them. A
@@ -312,20 +297,20 @@ public static class JavaCollections
 /// </summary>
 public static class JavaNavigable
 {
-    public static JavaEntry<K, V> FirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+    public static JavaEntry<K, V>? FirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
         m.Count == 0 ? null : new JavaEntry<K, V>(m.First());
 
-    public static JavaEntry<K, V> LastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+    public static JavaEntry<K, V>? LastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
         m.Count == 0 ? null : new JavaEntry<K, V>(m.Last());
 
-    public static JavaEntry<K, V> PollFirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
+    public static JavaEntry<K, V>? PollFirstEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
     {
         var first = m.FirstEntry();
         if (first != null) m.Remove(first.Key);
         return first;
     }
 
-    public static JavaEntry<K, V> PollLastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
+    public static JavaEntry<K, V>? PollLastEntry<K, V>(this SortedDictionary<K, V> m) where K : notnull
     {
         var last = m.LastEntry();
         if (last != null) m.Remove(last.Key);
@@ -333,9 +318,9 @@ public static class JavaNavigable
     }
 
     /// <summary>The greatest entry below <paramref name="key"/>, or at it when <paramref name="inclusive"/>.</summary>
-    private static JavaEntry<K, V> Below<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
+    private static JavaEntry<K, V>? Below<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
     {
-        JavaEntry<K, V> found = null;
+        JavaEntry<K, V>? found = null;
         foreach (var e in m)
         {
             var c = m.Comparer.Compare(e.Key, key);
@@ -346,7 +331,7 @@ public static class JavaNavigable
     }
 
     /// <summary>The least entry above <paramref name="key"/>, or at it when <paramref name="inclusive"/>.</summary>
-    private static JavaEntry<K, V> Above<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
+    private static JavaEntry<K, V>? Above<K, V>(SortedDictionary<K, V> m, K key, bool inclusive) where K : notnull
     {
         foreach (var e in m)
         {
@@ -356,21 +341,21 @@ public static class JavaNavigable
         return null;
     }
 
-    public static JavaEntry<K, V> FloorEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true);
+    public static JavaEntry<K, V>? FloorEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true);
 
-    public static JavaEntry<K, V> LowerEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false);
+    public static JavaEntry<K, V>? LowerEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false);
 
-    public static JavaEntry<K, V> CeilingEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true);
+    public static JavaEntry<K, V>? CeilingEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true);
 
-    public static JavaEntry<K, V> HigherEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false);
+    public static JavaEntry<K, V>? HigherEntry<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false);
 
-    public static K FloorKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true) is { } e ? e.Key : default;
+    public static K? FloorKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, true) is { } e ? e.Key : default;
 
-    public static K LowerKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false) is { } e ? e.Key : default;
+    public static K? LowerKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Below(m, key, false) is { } e ? e.Key : default;
 
-    public static K CeilingKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true) is { } e ? e.Key : default;
+    public static K? CeilingKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, true) is { } e ? e.Key : default;
 
-    public static K HigherKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false) is { } e ? e.Key : default;
+    public static K? HigherKey<K, V>(this SortedDictionary<K, V> m, K key) where K : notnull => Above(m, key, false) is { } e ? e.Key : default;
 
     public static SortedDictionary<K, V> HeadMap<K, V>(this SortedDictionary<K, V> m, K to, bool inclusive) where K : notnull =>
         Copy(m, e => { var c = m.Comparer.Compare(e.Key, to); return c < 0 || inclusive && c == 0; });
@@ -389,13 +374,13 @@ public static class JavaNavigable
         return copy;
     }
 
-    public static T Floor<T>(this SortedSet<T> s, T x) =>
+    public static T? Floor<T>(this SortedSet<T> s, T x) =>
         s.Count == 0 || s.Comparer.Compare(s.Min, x) > 0 ? default : s.GetViewBetween(s.Min, x).Max;
 
-    public static T Ceiling<T>(this SortedSet<T> s, T x) =>
+    public static T? Ceiling<T>(this SortedSet<T> s, T x) =>
         s.Count == 0 || s.Comparer.Compare(s.Max, x) < 0 ? default : s.GetViewBetween(x, s.Max).Min;
 
-    public static T Lower<T>(this SortedSet<T> s, T x)
+    public static T? Lower<T>(this SortedSet<T> s, T x)
     {
         if (s.Count == 0 || s.Comparer.Compare(s.Min, x) >= 0) return default;
         foreach (var e in s.GetViewBetween(s.Min, x).Reverse())
@@ -405,7 +390,7 @@ public static class JavaNavigable
         return default;
     }
 
-    public static T Higher<T>(this SortedSet<T> s, T x)
+    public static T? Higher<T>(this SortedSet<T> s, T x)
     {
         if (s.Count == 0 || s.Comparer.Compare(s.Max, x) <= 0) return default;
         foreach (var e in s.GetViewBetween(x, s.Max))
@@ -416,6 +401,7 @@ public static class JavaNavigable
     }
 }
 
+/// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -445,7 +431,6 @@ public static class JavaComparator
         (a, b) => Comparer<V>.Default.Compare(a.Value, b.Value);
 }
 
-/// <summary>Java's String methods that differ from the BCL's.</summary>
 /// <summary>
 /// What a mapping leaves out of the translation (<c>exclude</c>), where the translated code still reaches it: a call
 /// that fails as the Java code would without the excluded library, with the type the call has.
@@ -457,6 +442,7 @@ public static class JavaUnsupported
     public static void Call(string what) => throw new NotSupportedException(what + " is not supported in .NET");
 }
 
+/// <summary>Java's String methods that differ from the BCL's.</summary>
 public static class JavaString
 {
     /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>
@@ -494,16 +480,16 @@ public static class JavaString
         return parts.ToArray();
     }
 
-    public static sbyte[] GetBytes(string s, Encoding encoding) => (sbyte[])(object)encoding.GetBytes(s);
+    public static sbyte[] GetBytes(string s, Encoding encoding) => encoding.GetBytes(s).AsSigned();
 
-    public static string ValueOf(object o) => o switch
+    public static string ValueOf(object? o) => o switch
     {
         null => "null",
         bool b => ValueOf(b),
         double d => ValueOf(d),
         float f => ValueOf(f),
         char[] a => new string(a),
-        _ => o.ToString()
+        _ => o.ToString()!
     };
 
     public static string ValueOf(bool b) => b ? "true" : "false";
@@ -624,14 +610,14 @@ public static class JavaString
 public static class JavaCharacter
 {
     // Character.getType's categories, by Java's numbers
-    public const int UNASSIGNED = 0;
-    public const int SPACE_SEPARATOR = 12;
-    public const int LINE_SEPARATOR = 13;
-    public const int PARAGRAPH_SEPARATOR = 14;
-    public const int CONTROL = 15;
-    public const int FORMAT = 16;
-    public const int PRIVATE_USE = 18;
-    public const int SURROGATE = 19;
+    public const int Unassigned = 0;
+    public const int SpaceSeparator = 12;
+    public const int LineSeparator = 13;
+    public const int ParagraphSeparator = 14;
+    public const int Control = 15;
+    public const int Format = 16;
+    public const int PrivateUse = 18;
+    public const int Surrogate = 19;
 
     private static readonly int[] Types =
     {
@@ -760,13 +746,13 @@ public static class JavaFunctions
 public static class JavaClass
 {
     /// <summary>getCanonicalName: a nested type's FullName has a '+' where Java's has a '.'.</summary>
-    public static string CanonicalName(Type t) => t.FullName?.Replace('+', '.');
+    public static string? CanonicalName(Type t) => t.FullName?.Replace('+', '.');
 }
 
 public static class JavaArrays
 {
     /// <summary>Arrays.deepEquals, Objects.deepEquals: arrays element by element, nested ones too.</summary>
-    public static bool DeepEquals(object a, object b)
+    public static bool DeepEquals(object? a, object? b)
     {
         if (ReferenceEquals(a, b)) return true;
         if (a is Array x && b is Array y)
@@ -782,7 +768,7 @@ public static class JavaArrays
     }
 
     /// <summary>Arrays.deepHashCode: 31 * h + the element's, nested arrays' deep ones.</summary>
-    public static int DeepHashCode(object a)
+    public static int DeepHashCode(object? a)
     {
         if (a is not Array array) return a?.GetHashCode() ?? 0;
         var h = 1;
@@ -797,11 +783,11 @@ public static class JavaArrays
         return copy;
     }
 
-    public static bool Equals<T>(T[] a, T[] b) =>
+    public static bool Equals<T>(T[]? a, T[]? b) =>
         ReferenceEquals(a, b) || a != null && b != null && a.Length == b.Length
         && a.Zip(b).All(p => object.Equals(p.First, p.Second));
 
-    public static int HashCode<T>(T[] a)
+    public static int HashCode<T>(T[]? a)
     {
         if (a == null) return 0;
         var h = 1;
@@ -809,13 +795,13 @@ public static class JavaArrays
         return h;
     }
 
-    public static string ToString<T>(T[] a) =>
+    public static string ToString<T>(T[]? a) =>
         a == null ? "null" : "[" + string.Join(", ", a.Select(x => JavaString.ValueOf(x))) + "]";
 }
 
 public static class JavaSystem
 {
-    public static string GetProperty(string key, string def = null) => key switch
+    public static string? GetProperty(string key, string? def = null) => key switch
     {
         "line.separator" => Environment.NewLine,
         "file.separator" => Path.DirectorySeparatorChar.ToString(),
@@ -837,14 +823,22 @@ public static class JavaSystem
         : System.Runtime.InteropServices.RuntimeInformation.OSDescription;
 }
 
+/// <summary>Java's byte[] as the BCL's byte[] and back: the same array, reinterpreted.</summary>
+internal static class JavaBytes
+{
+    internal static byte[] AsUnsigned(this sbyte[] bytes) => (byte[])(object)bytes;
+
+    internal static sbyte[] AsSigned(this byte[] bytes) => (sbyte[])(object)bytes;
+}
+
 /// <summary>java.io.ByteArrayInputStream: a MemoryStream over a Java byte[].</summary>
 public class ByteArrayInputStream : MemoryStream
 {
-    public ByteArrayInputStream(sbyte[] bytes) : base((byte[])(object)bytes, false)
+    public ByteArrayInputStream(sbyte[] bytes) : base(bytes.AsUnsigned(), false)
     {
     }
 
-    public ByteArrayInputStream(sbyte[] bytes, int offset, int length) : base((byte[])(object)bytes, offset, length, false)
+    public ByteArrayInputStream(sbyte[] bytes, int offset, int length) : base(bytes.AsUnsigned(), offset, length, false)
     {
     }
 }
@@ -860,11 +854,11 @@ public class ByteArrayOutputStream : MemoryStream
     {
     }
 
-    public sbyte[] ToByteArray() => (sbyte[])(object)ToArray();
+    public sbyte[] ToByteArray() => ToArray().AsSigned();
 
     public void Write(int b) => WriteByte((byte)b);
 
-    public void Write(sbyte[] b, int offset, int length) => Write((byte[])(object)b, offset, length);
+    public void Write(sbyte[] b, int offset, int length) => Write(b.AsUnsigned(), offset, length);
 
     public int Size() => (int)Length;
 }
@@ -885,13 +879,13 @@ public class DataInputStream : IDisposable
 
     public int Read(sbyte[] b, int offset, int length)
     {
-        var n = input.Read((byte[])(object)b, offset, length);
+        var n = input.Read(b.AsUnsigned(), offset, length);
         return n == 0 && length > 0 ? -1 : n;
     }
 
     public void ReadFully(sbyte[] b) => ReadFully(b, 0, b.Length);
 
-    public void ReadFully(sbyte[] b, int offset, int length) => input.ReadExactly((byte[])(object)b, offset, length);
+    public void ReadFully(sbyte[] b, int offset, int length) => input.ReadExactly(b.AsUnsigned(), offset, length);
 
     public int SkipBytes(int n)
     {
@@ -1070,7 +1064,7 @@ public class BitSet : ICloneable
         return copy;
     }
 
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         if (obj is not BitSet other) return false;
         var n = Math.Max(words.Length, other.words.Length);
@@ -1129,13 +1123,13 @@ public static class JavaIterators
 
 public class JavaIterator<T> : IJavaIterator<T>
 {
-    private readonly IList<T> list;
-    private readonly ICollection<T> collection;
-    private readonly IEnumerator<T> enumerator;
+    private readonly IList<T>? list;
+    private readonly ICollection<T>? collection;
+    private readonly IEnumerator<T>? enumerator;
     private int index;
     private bool hasPeeked;
     private bool peeked;
-    private T last;
+    private T? last;
 
     public JavaIterator(IEnumerable<T> source)
     {
@@ -1152,7 +1146,7 @@ public class JavaIterator<T> : IJavaIterator<T>
         if (list != null) return index < list.Count;
         if (!hasPeeked)
         {
-            peeked = enumerator.MoveNext();
+            peeked = enumerator!.MoveNext();
             hasPeeked = true;
         }
         return peeked;
@@ -1163,13 +1157,13 @@ public class JavaIterator<T> : IJavaIterator<T>
         if (!HasNext()) throw new InvalidOperationException("no next element");
         if (list != null) return last = list[index++];
         hasPeeked = false;
-        return last = enumerator.Current;
+        return last = enumerator!.Current;
     }
 
     public void Remove()
     {
         if (list != null) list.RemoveAt(--index);
-        else if (collection != null) collection.Remove(last);
+        else if (collection != null) collection.Remove(last!);
         else throw new NotSupportedException("remove");
     }
 
@@ -1186,9 +1180,9 @@ public class JavaFile
 
     public JavaFile(string path) => this.path = path;
 
-    public JavaFile(string parent, string child) => path = parent == null ? child : Path.Combine(parent, child);
+    public JavaFile(string? parent, string child) => path = parent == null ? child : Path.Combine(parent, child);
 
-    public JavaFile(JavaFile parent, string child) : this(parent?.path, child)
+    public JavaFile(JavaFile? parent, string child) : this(parent?.path, child)
     {
     }
 
@@ -1205,9 +1199,9 @@ public class JavaFile
     public JavaFile GetCanonicalFile() => new JavaFile(GetCanonicalPath());
 
     // null for a bare name, as Java's; GetDirectoryName gives ""
-    public string GetParent() => Path.GetDirectoryName(path) is { Length: > 0 } parent ? parent : null;
+    public string? GetParent() => Path.GetDirectoryName(path) is { Length: > 0 } parent ? parent : null;
 
-    public JavaFile GetParentFile() => GetParent() is { } p ? new JavaFile(p) : null;
+    public JavaFile? GetParentFile() => GetParent() is { } p ? new JavaFile(p) : null;
 
     public bool Exists() => File.Exists(path) || Directory.Exists(path);
 
@@ -1244,15 +1238,15 @@ public class JavaFile
         return true;
     }
 
-    public string[] List() => Directory.Exists(path)
-        ? Directory.EnumerateFileSystemEntries(path).Select(Path.GetFileName).ToArray()
+    public string[]? List() => Directory.Exists(path)
+        ? Directory.EnumerateFileSystemEntries(path).Select(p => Path.GetFileName(p)).ToArray()
         : null;
 
-    public JavaFile[] ListFiles() => Directory.Exists(path)
+    public JavaFile[]? ListFiles() => Directory.Exists(path)
         ? Directory.EnumerateFileSystemEntries(path).Select(p => new JavaFile(p)).ToArray()
         : null;
 
-    public JavaFile[] ListFiles(Func<JavaFile, bool> filter) => ListFiles()?.Where(filter).ToArray();
+    public JavaFile[]? ListFiles(Func<JavaFile, bool> filter) => ListFiles()?.Where(filter).ToArray();
 
     public bool RenameTo(JavaFile dest)
     {
@@ -1264,13 +1258,9 @@ public class JavaFile
 
     public bool IsAbsolute() => Path.IsPathRooted(path);
 
-    public static readonly char SeparatorChar = Path.DirectorySeparatorChar;
-
-    public static readonly string Separator = Path.DirectorySeparatorChar.ToString();
-
     public override string ToString() => path;
 
-    public override bool Equals(object o) => o is JavaFile f && f.path == path;
+    public override bool Equals(object? o) => o is JavaFile f && f.path == path;
 
     public override int GetHashCode() => path.GetHashCode();
 }
@@ -1282,7 +1272,7 @@ public static class JavaStreams
     {
         using var memory = new MemoryStream();
         s.CopyTo(memory);
-        return (sbyte[])(object)memory.ToArray();
+        return memory.ToArray().AsSigned();
     }
 
     public static long Skip(Stream s, long n)
@@ -1298,7 +1288,9 @@ public class JavaMatcher
 {
     private readonly Regex regex;
     private readonly string input;
-    private Match match;
+    private Match? match;
+
+    private Match Current => match ?? throw new InvalidOperationException("no match");
 
     public JavaMatcher(Regex regex, string input)
     {
@@ -1325,17 +1317,17 @@ public class JavaMatcher
         return match.Success;
     }
 
-    public string Group() => match.Value;
+    public string Group() => Current.Value;
 
-    public string Group(int group) => match.Groups[group].Success ? match.Groups[group].Value : null;
+    public string? Group(int group) => Current.Groups[group].Success ? Current.Groups[group].Value : null;
 
-    public string Group(string name) => match.Groups[name].Success ? match.Groups[name].Value : null;
+    public string? Group(string name) => Current.Groups[name].Success ? Current.Groups[name].Value : null;
 
     public int GroupCount() => regex.GetGroupNumbers().Length - 1;
 
-    public int Start() => match.Index;
+    public int Start() => Current.Index;
 
-    public int End() => match.Index + match.Length;
+    public int End() => Current.Index + Current.Length;
 
     public string ReplaceAll(string replacement) => regex.Replace(input, m => Expand(m, replacement));
 
@@ -1346,8 +1338,8 @@ public class JavaMatcher
     /// <summary>Appends the input up to the match and the replacement, in Java's syntax: $n, ${name}, \c.</summary>
     public JavaMatcher AppendReplacement(StringBuilder sb, string replacement)
     {
-        sb.Append(input, appendPosition, match.Index - appendPosition).Append(Expand(match, replacement));
-        appendPosition = match.Index + match.Length;
+        sb.Append(input, appendPosition, Current.Index - appendPosition).Append(Expand(Current, replacement));
+        appendPosition = Current.Index + Current.Length;
         return this;
     }
 
@@ -1391,7 +1383,7 @@ public static class JavaUuid
 {
     public static Guid NameUuidFromBytes(sbyte[] name)
     {
-        byte[] hash = MD5.HashData((byte[]) (object) name);
+        byte[] hash = MD5.HashData(name.AsUnsigned());
         hash[6] = (byte) ((hash[6] & 0x0f) | 0x30);
         hash[8] = (byte) ((hash[8] & 0x3f) | 0x80);
         return new Guid(hash, bigEndian: true);
@@ -1442,7 +1434,7 @@ public class JavaEnumeration<T>
 /// <summary>java.util.zip.ZipEntry: an entry of an archive being read, or one to write.</summary>
 public class JavaZipEntry
 {
-    internal readonly ZipArchiveEntry Entry;
+    internal readonly ZipArchiveEntry? Entry;
     private readonly string name;
     internal DateTimeOffset? Time;
 
@@ -1481,9 +1473,9 @@ public class JavaZipFile : IDisposable
     public JavaEnumeration<JavaZipEntry> Entries() =>
         new JavaEnumeration<JavaZipEntry>(Archive.Entries.Select(e => new JavaZipEntry(e)).ToList());
 
-    public JavaZipEntry GetEntry(string name) => Archive.GetEntry(name) is { } e ? new JavaZipEntry(e) : null;
+    public JavaZipEntry? GetEntry(string name) => Archive.GetEntry(name) is { } e ? new JavaZipEntry(e) : null;
 
-    public Stream GetInputStream(JavaZipEntry entry) =>
+    public Stream? GetInputStream(JavaZipEntry entry) =>
         (entry.Entry ?? Archive.GetEntry(entry.GetName()))?.Open();
 
     public int Size() => Archive.Entries.Count;
@@ -1496,7 +1488,7 @@ public class JavaZipFile : IDisposable
 /// <summary>java.util.jar.JarFile: a zip archive with a manifest.</summary>
 public class JavaJarFile : JavaZipFile
 {
-    public const string MANIFEST_NAME = "META-INF/MANIFEST.MF";
+    public const string ManifestName = "META-INF/MANIFEST.MF";
 
     public JavaJarFile(string path) : base(path)
     {
@@ -1506,9 +1498,9 @@ public class JavaJarFile : JavaZipFile
     {
     }
 
-    public JavaManifest GetManifest()
+    public JavaManifest? GetManifest()
     {
-        var entry = Archive.GetEntry(MANIFEST_NAME);
+        var entry = Archive.GetEntry(ManifestName);
         if (entry == null) return null;
         using var stream = entry.Open();
         return new JavaManifest(stream);
@@ -1536,7 +1528,7 @@ public class JavaManifest
 public class JavaZipOutputStream : Stream
 {
     private readonly ZipArchive archive;
-    private Stream current;
+    private Stream? current;
 
     public JavaZipOutputStream(Stream output) => archive = new ZipArchive(output, ZipArchiveMode.Create);
 
@@ -1554,11 +1546,13 @@ public class JavaZipOutputStream : Stream
         current = null;
     }
 
-    public void Write(sbyte[] buffer, int offset, int count) => Write((byte[])(object)buffer, offset, count);
+    public void Write(sbyte[] buffer, int offset, int count) => Write(buffer.AsUnsigned(), offset, count);
 
-    public override void Write(byte[] buffer, int offset, int count) => current.Write(buffer, offset, count);
+    public override void Write(byte[] buffer, int offset, int count) => Current.Write(buffer, offset, count);
 
-    public override void WriteByte(byte value) => current.WriteByte(value);
+    public override void WriteByte(byte value) => Current.WriteByte(value);
+
+    private Stream Current => current ?? throw new InvalidOperationException("no current entry");
 
     public override void Flush() => current?.Flush();
 
@@ -1619,7 +1613,7 @@ public class JavaEntry<K, V>
 
     public static implicit operator KeyValuePair<K, V>(JavaEntry<K, V> e) => new KeyValuePair<K, V>(e.Key, e.Value);
 
-    public override bool Equals(object o) =>
+    public override bool Equals(object? o) =>
         o is JavaEntry<K, V> e && Equals(Key, e.Key) && Equals(Value, e.Value);
 
     public override int GetHashCode() => (Key?.GetHashCode() ?? 0) ^ (Value?.GetHashCode() ?? 0);
@@ -1700,7 +1694,7 @@ public static class JavaTasks
 {
     public static Task<R> ThenApply<T, R>(this Task<T> t, Func<T, R> f) => t.ContinueWith(x => f(x.GetAwaiter().GetResult()));
 
-    public static Task<R> ThenApply<R>(this Task t, Func<object, R> f) => t.ContinueWith(x =>
+    public static Task<R> ThenApply<R>(this Task t, Func<object?, R> f) => t.ContinueWith(x =>
     {
         x.GetAwaiter().GetResult();
         return f(null);
@@ -1709,7 +1703,7 @@ public static class JavaTasks
     public static Task<R> ThenCompose<T, R>(this Task<T> t, Func<T, Task<R>> f) =>
         t.ContinueWith(x => f(x.GetAwaiter().GetResult())).Unwrap();
 
-    public static Task<R> ThenCompose<R>(this Task t, Func<object, Task<R>> f) => t.ContinueWith(x =>
+    public static Task<R> ThenCompose<R>(this Task t, Func<object?, Task<R>> f) => t.ContinueWith(x =>
     {
         x.GetAwaiter().GetResult();
         return f(null);
@@ -1866,7 +1860,8 @@ public class AtomicReference<T>
     private readonly object monitor = new();
     private T value;
 
-    public AtomicReference() { }
+    // null, as Java's; T is nullable when the program's reference may be
+    public AtomicReference() => value = default!;
 
     public AtomicReference(T initial) => value = initial;
 
@@ -1916,25 +1911,25 @@ public interface IJavaWildcardType
 /// <summary>Class.getModifiers and its kin: java.lang.reflect.Modifier's bits of a type or a member.</summary>
 public static class JavaModifier
 {
-    public const int PUBLIC = 0x0001, PRIVATE = 0x0002, PROTECTED = 0x0004, STATIC = 0x0008, FINAL = 0x0010,
-        INTERFACE = 0x0200, ABSTRACT = 0x0400;
+    public const int Public = 0x0001, Private = 0x0002, Protected = 0x0004, Static = 0x0008, Final = 0x0010,
+        Interface = 0x0200, Abstract = 0x0400;
 
     public static int Of(Type t) =>
-        (t.IsPublic || t.IsNestedPublic ? PUBLIC : 0)
-        | (t.IsNestedPrivate ? PRIVATE : 0)
-        | (t.IsNestedFamily ? PROTECTED : 0)
-        | (t.IsAbstract && t.IsSealed ? STATIC : 0)
-        | (t.IsSealed && !t.IsAbstract ? FINAL : 0)
-        | (t.IsInterface ? INTERFACE | ABSTRACT : 0)
-        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? ABSTRACT : 0);
+        (t.IsPublic || t.IsNestedPublic ? Public : 0)
+        | (t.IsNestedPrivate ? Private : 0)
+        | (t.IsNestedFamily ? Protected : 0)
+        | (t.IsAbstract && t.IsSealed ? Static : 0)
+        | (t.IsSealed && !t.IsAbstract ? Final : 0)
+        | (t.IsInterface ? Interface | Abstract : 0)
+        | (t.IsAbstract && !t.IsSealed && !t.IsInterface ? Abstract : 0);
 
     public static int Of(MethodBase m) =>
-        (m.IsPublic ? PUBLIC : 0) | (m.IsPrivate ? PRIVATE : 0) | (m.IsFamily ? PROTECTED : 0)
-        | (m.IsStatic ? STATIC : 0) | (m.IsFinal ? FINAL : 0) | (m.IsAbstract ? ABSTRACT : 0);
+        (m.IsPublic ? Public : 0) | (m.IsPrivate ? Private : 0) | (m.IsFamily ? Protected : 0)
+        | (m.IsStatic ? Static : 0) | (m.IsFinal ? Final : 0) | (m.IsAbstract ? Abstract : 0);
 
     public static int Of(FieldInfo f) =>
-        (f.IsPublic ? PUBLIC : 0) | (f.IsPrivate ? PRIVATE : 0) | (f.IsFamily ? PROTECTED : 0)
-        | (f.IsStatic ? STATIC : 0) | (f.IsInitOnly || f.IsLiteral ? FINAL : 0);
+        (f.IsPublic ? Public : 0) | (f.IsPrivate ? Private : 0) | (f.IsFamily ? Protected : 0)
+        | (f.IsStatic ? Static : 0) | (f.IsInitOnly || f.IsLiteral ? Final : 0);
 }
 
 /// <summary>
@@ -1943,7 +1938,7 @@ public static class JavaModifier
 /// </summary>
 public static class JavaServiceLoader
 {
-    public static IEnumerable<T> Load<T>(Assembly assembly = null)
+    public static IEnumerable<T> Load<T>(Assembly? assembly = null)
     {
         var assemblies = assembly != null ? new[] { assembly } : AppDomain.CurrentDomain.GetAssemblies();
         foreach (var a in assemblies)
@@ -1955,7 +1950,7 @@ public static class JavaServiceLoader
             }
             catch (ReflectionTypeLoadException e)
             {
-                types = e.Types.Where(t => t != null).ToArray();
+                types = e.Types.OfType<Type>().ToArray();
             }
             foreach (var t in types)
             {
@@ -1964,7 +1959,7 @@ public static class JavaServiceLoader
                 {
                     continue;
                 }
-                yield return (T) Activator.CreateInstance(t);
+                yield return (T) Activator.CreateInstance(t)!;
             }
         }
     }
@@ -1981,15 +1976,15 @@ public static class JavaResources
 {
     public const string Scheme = "resource";
 
-    public static Uri GetResource(Type type, string name) => Uri(type.Assembly, Find(type.Assembly, name, type.Namespace));
+    public static Uri? GetResource(Type type, string name) => Uri(type.Assembly, Find(type.Assembly, name, type.Namespace));
 
-    public static Stream GetResourceAsStream(Type type, string name) =>
+    public static Stream? GetResourceAsStream(Type type, string name) =>
         Open(type.Assembly, Find(type.Assembly, name, type.Namespace));
 
     /// <summary>A class loader's name is absolute, without its leading slash.</summary>
-    public static Uri GetResource(Assembly assembly, string name) => Uri(assembly, Find(assembly, "/" + name, null));
+    public static Uri? GetResource(Assembly assembly, string name) => Uri(assembly, Find(assembly, "/" + name, null));
 
-    public static Stream GetResourceAsStream(Assembly assembly, string name) => Open(assembly, Find(assembly, "/" + name, null));
+    public static Stream? GetResourceAsStream(Assembly assembly, string name) => Open(assembly, Find(assembly, "/" + name, null));
 
     public static Stream OpenStream(Uri uri)
     {
@@ -2005,14 +2000,14 @@ public static class JavaResources
         throw new NotSupportedException("reading " + uri);
     }
 
-    private static Uri Uri(Assembly assembly, string manifestName) => manifestName == null ? null
-        : new Uri(Scheme + "://" + System.Uri.EscapeDataString(assembly.GetName().Name) + "/"
+    private static Uri? Uri(Assembly assembly, string? manifestName) => manifestName == null ? null
+        : new Uri(Scheme + "://" + System.Uri.EscapeDataString(assembly.GetName().Name!) + "/"
                   + System.Uri.EscapeDataString(manifestName));
 
-    private static Stream Open(Assembly assembly, string manifestName) =>
+    private static Stream? Open(Assembly assembly, string? manifestName) =>
         manifestName == null ? null : assembly.GetManifestResourceStream(manifestName);
 
-    private static string Find(Assembly assembly, string name, string near)
+    private static string? Find(Assembly assembly, string name, string? near)
     {
         var path = name.TrimStart('/');
         var dotted = path.Replace('/', '.');

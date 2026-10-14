@@ -15,14 +15,27 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
+import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 import io.codelaser.maddi.cst.print.translate.TranslationState;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -37,13 +50,23 @@ final class CSharpContext {
     private static final class State {
         final TranslationState<CSharpPrintCode> base = new TranslationState<>();
         TypeInfo companion;
-        final java.util.Map<TypeInfo, Boolean> hasCompanion = new java.util.HashMap<>();
+        final CSharpProgram.Memo memo = new CSharpProgram.Memo();
+        /** The inner classes {@link CSharpInner#withOuter} is deciding, outermost first. */
+        final List<TypeInfo> innerInProgress = new ArrayList<>();
+        /** Those of them whose answer so far rests on a class deeper in the stack being taken as without its outer. */
+        final Set<TypeInfo> innerProvisional = new HashSet<>();
+        /** The raw types whose arguments {@link CSharpTypeName} is printing: an F-bounded parameter refers back. */
+        final Set<TypeInfo> rawInProgress = new HashSet<>();
+        /** The selectors of the switches being printed, innermost first: a char selector's int labels are chars. */
+        final Deque<Expression> selectors = new ArrayDeque<>();
+        /** The library rules of the calls printed, null included: a call's is asked for more than once. */
+        final Map<MethodCall, LibraryMapping.Rule> rules = new IdentityHashMap<>();
         final Set<String> usings = new TreeSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
-        final java.util.Map<io.codelaser.maddi.cst.api.expression.ConstructorCall, io.codelaser.maddi.cst.api.type.ParameterizedType>
-                created = new java.util.IdentityHashMap<>();
-        final java.util.Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new java.util.HashMap<>();
+        final Map<ConstructorCall, ParameterizedType>
+                created = new IdentityHashMap<>();
+        final Map<TypeInfo, CSharpAnonymous.Hoisted> hoisted = new HashMap<>();
         final Deque<Scope> scopes = new ArrayDeque<>();
     }
 
@@ -51,8 +74,8 @@ final class CSharpContext {
      * A block's locals: the Java name to the C# name, and the names it declares at its own level, later ones too;
      * the Java name to the local's nullability, as the analysis has it ({@link CSharpNullability}).
      */
-    private record Scope(java.util.Map<String, String> names, Set<String> pending,
-                         java.util.Map<String, io.codelaser.maddi.cst.api.type.NullableState> states) {
+    private record Scope(Map<String, String> names, Set<String> pending,
+                         Map<String, NullableState> states) {
     }
 
     private static final ThreadLocal<State> STATE = ThreadLocal.withInitial(State::new);
@@ -79,6 +102,37 @@ final class CSharpContext {
         TypeInfo current = currentType();
         CSharpAnonymous.Hoisted h = current == null ? null : STATE.get().hoisted.get(current);
         return h != null && h.outer() ? h : null;
+    }
+
+    /** The per-type answers of the program ({@link CSharpProgram.Memo}); the file's own without one. */
+    static CSharpProgram.Memo memo() {
+        State state = STATE.get();
+        return state.program == CSharpProgram.NONE ? state.memo : state.program.memo();
+    }
+
+    /** The library mappings' rule for {@code call}, of a library's method; null when they have none. */
+    static LibraryMapping.Rule rule(MethodCall call) {
+        Map<MethodCall, LibraryMapping.Rule> rules = STATE.get().rules;
+        if (rules.containsKey(call)) return rules.get(call);
+        LibraryMapping.Rule rule = libraries().call(call.methodInfo(), call);
+        rules.put(call, rule);
+        return rule;
+    }
+
+    static List<TypeInfo> innerInProgress() {
+        return STATE.get().innerInProgress;
+    }
+
+    static Set<TypeInfo> innerProvisional() {
+        return STATE.get().innerProvisional;
+    }
+
+    static Set<TypeInfo> rawInProgress() {
+        return STATE.get().rawInProgress;
+    }
+
+    static Deque<Expression> selectors() {
+        return STATE.get().selectors;
     }
 
     static void program(CSharpProgram program) {
@@ -108,16 +162,6 @@ final class CSharpContext {
         return STATE.get().companion;
     }
 
-    static boolean hasCompanion(TypeInfo typeInfo, java.util.function.Predicate<TypeInfo> compute) {
-        java.util.Map<TypeInfo, Boolean> cache = STATE.get().hasCompanion;
-        Boolean known = cache.get(typeInfo);
-        if (known == null) {
-            known = compute.test(typeInfo);
-            cache.put(typeInfo, known);
-        }
-        return known;
-    }
-
     static void companion(TypeInfo typeInfo) {
         STATE.get().companion = typeInfo;
     }
@@ -139,12 +183,12 @@ final class CSharpContext {
     }
 
     /** The type a creation is printed with, its diamond resolved: what its arguments' diamonds are inferred from. */
-    static void created(io.codelaser.maddi.cst.api.expression.ConstructorCall cc,
-                        io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+    static void created(ConstructorCall cc,
+                        ParameterizedType type) {
         STATE.get().created.put(cc, type);
     }
 
-    static io.codelaser.maddi.cst.api.type.ParameterizedType created(io.codelaser.maddi.cst.api.expression.ConstructorCall cc) {
+    static ParameterizedType created(ConstructorCall cc) {
         return STATE.get().created.get(cc);
     }
 
@@ -153,7 +197,7 @@ final class CSharpContext {
      * of the current type or one it is nested in, or of one of their supertypes, short of a hoisted type and of a
      * companion class's static members.
      */
-    static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+    static boolean inScope(TypeParameter tp) {
         State state = STATE.get();
         var owner = tp.getOwner();
         if (owner == null) return false;
@@ -162,7 +206,7 @@ final class CSharpContext {
             return state.base.methods().stream().anyMatch(m::equals) && !m.isConstructor() && !state.program.erasedGeneric(m);
         }
         TypeInfo t = owner.getLeft();
-        for (TypeInfo at = currentType(); at != null; at = CSharpNames.hoisted(at) ? null : CSharpNames.enclosing(at)) {
+        for (TypeInfo at = currentType(); at != null; at = CSharpNames.hoisted(at) ? null : CstQueries.enclosing(at)) {
             if (at.equals(state.companion)) return false; // the companion class is not generic
             // a supertype's, as an inherited field's type has it: the subclass passes its own, of the same name, on
             if (at.equals(t) || CSharpNames.inherits(at, t)) return true;
@@ -174,12 +218,12 @@ final class CSharpContext {
      * The type parameters of the enclosing methods that C# prints erased ({@link CSharpProgram#erasedGeneric}), and
      * of a generic constructor: C# has none.
      */
-    static List<io.codelaser.maddi.cst.api.info.TypeParameter> erasedTypeParameters() {
+    static List<TypeParameter> erasedTypeParameters() {
         State state = STATE.get();
-        List<io.codelaser.maddi.cst.api.info.TypeParameter> erased = List.of();
+        List<TypeParameter> erased = List.of();
         for (MethodInfo m : state.base.methods()) {
             if (!m.typeParameters().isEmpty() && (m.isConstructor() || state.program.erasedGeneric(m))) {
-                if (erased.isEmpty()) erased = new java.util.ArrayList<>();
+                if (erased.isEmpty()) erased = new ArrayList<>();
                 erased.addAll(m.typeParameters());
             }
         }
@@ -206,7 +250,7 @@ final class CSharpContext {
 
     /** A new scope, which declares {@code pending} at its own level (see {@link CSharpLocals}). */
     static void enterScope(Set<String> pending) {
-        STATE.get().scopes.push(new Scope(new java.util.HashMap<>(), pending, new java.util.HashMap<>()));
+        STATE.get().scopes.push(new Scope(new HashMap<>(), pending, new HashMap<>()));
     }
 
     static void exitScope() {
@@ -246,23 +290,23 @@ final class CSharpContext {
     }
 
     /** The nullability of the local {@code javaName} just declared, for its uses. */
-    static void localState(String javaName, io.codelaser.maddi.cst.api.type.NullableState state) {
+    static void localState(String javaName, NullableState state) {
         Deque<Scope> scopes = STATE.get().scopes;
         if (scopes.isEmpty()) enterScope(Set.of());
         scopes.peek().states.put(javaName, state);
     }
 
     /** The nullability of the innermost declaration of the local {@code javaName}; UNSPECIFIED when not known. */
-    static io.codelaser.maddi.cst.api.type.NullableState localState(String javaName) {
+    static NullableState localState(String javaName) {
         for (Scope scope : STATE.get().scopes) {
             if (scope.names.containsKey(javaName)) {
-                return scope.states.getOrDefault(javaName, io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED);
+                return scope.states.getOrDefault(javaName, NullableState.UNSPECIFIED);
             }
         }
-        return io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
+        return NullableState.UNSPECIFIED;
     }
 
-    static void pushStatement(io.codelaser.maddi.cst.api.statement.Statement statement) {
+    static void pushStatement(Statement statement) {
         STATE.get().base.pushStatement(statement);
     }
 
@@ -270,7 +314,7 @@ final class CSharpContext {
         STATE.get().base.popStatement();
     }
 
-    static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {
+    static void pushCall(Expression call) {
         STATE.get().base.pushCall(call);
     }
 
@@ -279,12 +323,12 @@ final class CSharpContext {
     }
 
     /** The innermost call or field access being printed; null when none. */
-    static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
+    static Expression currentCall() {
         return STATE.get().base.currentCall();
     }
 
     /** The call around the innermost one: {@code share(…)} while printing its argument {@code new Bridge<>(…)}. */
-    static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
+    static Expression enclosingCall() {
         return STATE.get().base.enclosingCall();
     }
 

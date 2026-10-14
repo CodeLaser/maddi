@@ -69,6 +69,25 @@ public final class CstQueries {
         return cuOrEnclosing.isRight() ? cuOrEnclosing.getRight() : null;
     }
 
+    /** The superclass of {@code typeInfo}; null for {@code Object}, an interface without one, or an unknown type. */
+    public static TypeInfo superclass(TypeInfo typeInfo) {
+        return typeInfo.parentClass() == null ? null : typeInfo.parentClass().typeInfo();
+    }
+
+    /** The superclasses of {@code typeInfo}, nearest first, up to {@code Object}; not {@code typeInfo} itself. */
+    public static List<TypeInfo> superclasses(TypeInfo typeInfo) {
+        List<TypeInfo> superclasses = new ArrayList<>();
+        for (TypeInfo t = superclass(typeInfo); t != null; t = superclass(t)) superclasses.add(t);
+        return superclasses;
+    }
+
+    /** {@code typeInfo}, then its {@link #superclasses}. */
+    public static List<TypeInfo> classChain(TypeInfo typeInfo) {
+        List<TypeInfo> chain = new ArrayList<>();
+        for (TypeInfo t = typeInfo; t != null; t = superclass(t)) chain.add(t);
+        return chain;
+    }
+
     /** {@code t} is {@code owner} or a member type of it, at any depth. */
     public static boolean within(TypeInfo t, TypeInfo owner) {
         for (TypeInfo x = t; x != null; x = enclosing(x)) {
@@ -117,6 +136,16 @@ public final class CstQueries {
         if (type == null) return false;
         if (tp.equals(type.typeParameter())) return true;
         return type.parameters().stream().anyMatch(p -> mentions(p, tp));
+    }
+
+    /** {@code type} is, or has among its type arguments at any depth, one of {@code typeParameters}. */
+    public static boolean mentionsAny(ParameterizedType type, List<TypeParameter> typeParameters) {
+        return typeParameters.stream().anyMatch(tp -> mentions(type, tp));
+    }
+
+    /** {@code type} is, or has among its type arguments at any depth, a type parameter. */
+    public static boolean mentionsTypeParameter(ParameterizedType type) {
+        return type.isTypeParameter() || type.parameters().stream().anyMatch(CstQueries::mentionsTypeParameter);
     }
 
     /** A record's accessor of one of its components: an instance method without parameters named as a field. */

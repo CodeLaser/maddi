@@ -89,11 +89,6 @@ final class CSharpLocalTypes {
         return true;
     }
 
-
-    /** An instance member of {@code owner} is not one of the local type's own, or inherited by it. */
-
-    /** The code of {@code type} and its nested types: bodies and initializers. */
-
     private static void declared(Element element, Set<String> names) {
         element.visit((Element e) -> {
             if (e instanceof LocalVariableCreation lvc) {
@@ -104,5 +99,4 @@ final class CSharpLocalTypes {
             return true;
         });
     }
-
 }

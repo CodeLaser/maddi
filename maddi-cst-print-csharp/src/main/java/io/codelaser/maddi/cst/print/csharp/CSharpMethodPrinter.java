@@ -15,21 +15,27 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.MethodPrinter;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.api.statement.Statement;
+import io.codelaser.maddi.cst.api.type.NullableState;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.*;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 /**
  * Prints a {@link MethodInfo} as a C# method or constructor:
@@ -47,7 +53,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     @Override
     public OutputBuilder print(Qualification q) {
         CSharpContext.pushMethod(methodInfo);
-        CSharpContext.enterScope(java.util.Set.of()); // the parameters'
+        CSharpContext.enterScope(Set.of()); // the parameters'
         try {
             return printMethod(q);
         } finally {
@@ -90,16 +96,16 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         CSharpWildcards.Captured captured = CSharpWildcards.captured(methodInfo, q);
         // <J> J mapping(), which a method that is not generic overrides: J erased to its bound (CSharpProgram)
         boolean erased = CSharpContext.program().erasedGeneric(methodInfo);
-        List<String> allTypeParameters = new java.util.ArrayList<>(erased ? List.of() : methodInfo.typeParameters().stream()
+        List<String> allTypeParameters = new ArrayList<>(erased ? List.of() : methodInfo.typeParameters().stream()
                 .map(CSharpNames::typeParameter).toList());
         allTypeParameters.addAll(captured.typeParameters());
         String typeParameters = allTypeParameters.isEmpty() ? "" : "<" + String.join(", ", allTypeParameters) + ">";
-        MethodInfo overridden = CSharpTypePrinter.interfaceMethodDefaulted(typeInfo, methodInfo);
+        MethodInfo overridden = CSharpHierarchy.interfaceMethodDefaulted(typeInfo, methodInfo);
         if (overridden != null) {
             // a default method for an inherited interface's method implements it explicitly
-            ParameterizedType owner = CSharpTypePrinter.implementedAs(typeInfo, overridden.typeInfo());
-            java.util.Map<TypeParameter, ParameterizedType> map = CSharpTypePrinter.typeArguments(owner);
-            b.add(new TextImpl(CSharpTypeName.of(CSharpTypePrinter.substitute(overridden.returnType(), map), q)))
+            ParameterizedType owner = CSharpHierarchy.implementedAs(typeInfo, overridden.typeInfo());
+            Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(owner);
+            b.add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
         } else {
@@ -111,7 +117,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         b.add(parameters(methodInfo, captured, q));
         // an override and an explicit implementation inherit the constraints, and may not repeat them (CS0460)
         boolean inherited = overridden != null || inheritance != null && inheritance.contains("override");
-        List<String> constraints = new java.util.ArrayList<>(erased || inherited ? List.of()
+        List<String> constraints = new ArrayList<>(erased || inherited ? List.of()
                 : CSharpTypeName.constraints(methodInfo.typeParameters(), q));
         if (!inherited) constraints.addAll(captured.constraints());
         for (String constraint : constraints) {
@@ -149,12 +155,12 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     /** The return type, {@code T?} when the method may return null. */
     private String returnType(Qualification q) {
         if (CSharpContext.program().erasedGeneric(methodInfo) && methodInfo.returnType().isTypeParameter()) {
-            return CSharpTypeName.rawArgumentOf(methodInfo.returnType().typeParameter(), q);
+            return CSharpTypeName.rawArgument(methodInfo.returnType().typeParameter(), q);
         }
         if (boxedTypeArgument(methodInfo.returnType(), methodInfo, MethodInfo::returnType)) {
             return CSharpTypeName.argument(methodInfo.returnType(), q);
         }
-        io.codelaser.maddi.cst.api.type.NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
+        NullableState nullable = CSharpContext.program().facts().nullable(methodInfo);
         String type = CSharpTypeName.declared(methodInfo.returnType(), false, nullable, q);
         return nullableTypeParameter(methodInfo.returnType(), methodInfo, nullable) ? type + "?" : type;
     }
@@ -165,7 +171,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * {@code int Describe()}, not {@code int?} (CS0508), and a parameter likewise (CS0115).
      */
     private static boolean boxedTypeArgument(ParameterizedType pt, MethodInfo method,
-                                             java.util.function.Function<MethodInfo, ParameterizedType> inOverridden) {
+                                             Function<MethodInfo, ParameterizedType> inOverridden) {
         if (pt.arrays() != 0 || !pt.isBoxedExcludingVoid()) return false;
         // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>)
         return method.overrides().stream().filter(o -> o != method && CSharpNames.translated(o.typeInfo()))
@@ -200,10 +206,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     new OutputBuilderImpl().add(new TextImpl("outer")), List.of(), null, q));
         }
         if (!chained && (outer || CSharpInner.initializedInConstructor(typeInfo))) {
-            List<OutputBuilder> first = new java.util.ArrayList<>();
-            if (outer) first.add(new OutputBuilderImpl().add(new TextImpl("this.outer = outer;")));
-            first.addAll(CSharpInner.fieldInitializers(typeInfo, q));
-            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, first, q));
+            b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, CSharpInner.prologue(typeInfo, outer, q), q));
         } else {
             b.add(SpaceEnum.ONE).add(CSharpStatementPrinter.block(statements, q));
         }
@@ -213,7 +216,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static OutputBuilder outerParameters(MethodInfo methodInfo, Qualification q) {
         OutputBuilder first = new OutputBuilderImpl().add(new TextImpl(CSharpInner.outerTypeName(methodInfo.typeInfo())
                                                                       + " outer"));
-        return java.util.stream.Stream.concat(java.util.stream.Stream.of(first), methodInfo.parameters().stream()
+        return Stream.concat(Stream.of(first), methodInfo.parameters().stream()
                         .map(p -> parameter(p, null, q)))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
@@ -244,14 +247,14 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * method that may override or be overridden, C# reads that {@code T?} as {@code Nullable<T>} unless the override
      * says {@code where T : default}.
      */
-    private static boolean nullableTypeParameter(ParameterInfo p, io.codelaser.maddi.cst.api.type.NullableState nullable) {
+    private static boolean nullableTypeParameter(ParameterInfo p, NullableState nullable) {
         return !p.isVarArgs() && nullableTypeParameter(p.parameterizedType(), p.methodInfo(), nullable);
     }
 
     /** A nullable parameter or result of {@code method} whose type is a type parameter: as above, {@code T?}. */
     private static boolean nullableTypeParameter(ParameterizedType type, MethodInfo method,
-                                                 io.codelaser.maddi.cst.api.type.NullableState nullable) {
-        return nullable == io.codelaser.maddi.cst.api.type.NullableState.NULLABLE && type.isTypeParameter()
+                                                 NullableState nullable) {
+        return nullable == NullableState.NULLABLE && type.isTypeParameter()
                && type.arrays() == 0 && type.typeParameter().isMethodTypeParameter()
                && (method.isStatic() || method.isConstructor());
     }
@@ -266,7 +269,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             type = CSharpTypeName.argument(p.parameterizedType(), q);
         } else {
             type = CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
-            if (program.facts().preconditionNonNull(p) && program.facts().nullable(p) != io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) {
+            if (program.facts().preconditionNonNull(p) && program.facts().nullable(p) != NullableState.NULLABLE) {
                 CSharpContext.message(CSharpPrintCode.PRECONDITION_NON_NULL, p, p.methodInfo().name() + "(" + p.name()
                         + "): non-nullable, the method's precondition");
             }

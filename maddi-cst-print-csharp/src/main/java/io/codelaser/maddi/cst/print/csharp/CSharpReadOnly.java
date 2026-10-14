@@ -18,13 +18,11 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
@@ -101,31 +99,13 @@ final class CSharpReadOnly {
         return name;
     }
 
-    static Set<ParameterInfo> analyze(List<TypeInfo> all, CSharpFacts facts, Set<TypeInfo> delegates) {
+    static Set<ParameterInfo> analyze(CSharpProgramIndex index, CSharpFacts facts, Set<TypeInfo> delegates) {
         if (facts == CSharpFacts.NONE) return Set.of();
         Set<ParameterInfo> candidates = new HashSet<>();
-        Set<MethodInfo> referenced = new HashSet<>();
-        Map<ParameterInfo, List<Expression>> passed = new HashMap<>();
-        for (TypeInfo t : all) {
-            for (Element element : CSharpProgram.code(t)) {
-                element.visit((Element e) -> {
-                    switch (e) {
-                        case MethodReference mr -> referenced.add(mr.methodInfo());
-                        case MethodCall mc -> passed(mc.methodInfo(), mc.parameterExpressions(), passed);
-                        case ConstructorCall cc when cc.constructor() != null ->
-                                passed(cc.constructor(), cc.parameterExpressions(), passed);
-                        case ExplicitConstructorInvocation eci ->
-                                passed(eci.methodInfo(), eci.parameterExpressions(), passed);
-                        default -> {
-                        }
-                    }
-                    return true;
-                });
-            }
-        }
+        Set<MethodInfo> referenced = index.referenced();
         Map<MethodInfo, List<MethodInfo>> familyOf = new HashMap<>();
-        for (List<MethodInfo> family : CSharpProperties.families(all)) family.forEach(m -> familyOf.put(m, family));
-        for (TypeInfo t : all) {
+        for (List<MethodInfo> family : index.families()) family.forEach(m -> familyOf.put(m, family));
+        for (TypeInfo t : index.types()) {
             if (!CSharpNames.translated(t) || t.typeNature().isRecord() || delegates.contains(t)
                 || t.isAnonymous() && CSharpProgram.lambdaLike(t)) {
                 continue;
@@ -142,13 +122,16 @@ final class CSharpReadOnly {
                 }
             }
         }
+        // what each candidate's method does with it: one walk of its body
+        Map<ParameterInfo, List<Use>> uses = new HashMap<>();
+        for (ParameterInfo p : candidates) uses.put(p, uses(p));
         // the uses, then the families, until nothing changes
         boolean changed = true;
         while (changed) {
             changed = false;
             for (ParameterInfo p : List.copyOf(candidates)) {
-                if (!usesReadOnly(p, candidates) || !familyAgrees(p, candidates, familyOf)
-                    || !callersPass(p, passed.getOrDefault(p, List.of()), candidates)) {
+                if (!uses.get(p).stream().allMatch(u -> u.readOnly(candidates)) || !familyAgrees(p, candidates, familyOf)
+                    || !callersPass(p, passed(index, p), candidates)) {
                     candidates.remove(p);
                     changed = true;
                 }
@@ -157,12 +140,15 @@ final class CSharpReadOnly {
         return Set.copyOf(candidates);
     }
 
-    private static void passed(MethodInfo callee, List<Expression> arguments,
-                               Map<ParameterInfo, List<Expression>> passed) {
-        if (callee == null || !CSharpNames.translated(callee.typeInfo())) return;
-        for (int i = 0; i < arguments.size() && i < callee.parameters().size(); i++) {
-            passed.computeIfAbsent(callee.parameters().get(i), k -> new ArrayList<>()).add(arguments.get(i));
+    /** The arguments the program passes for {@code p}. */
+    private static List<Expression> passed(CSharpProgramIndex index, ParameterInfo p) {
+        MethodInfo callee = p.methodInfo();
+        if (!CSharpNames.translated(callee.typeInfo())) return List.of();
+        List<Expression> passed = new ArrayList<>();
+        for (List<Expression> arguments : index.calls(callee)) {
+            if (p.index() < arguments.size()) passed.add(arguments.get(p.index()));
         }
+        return passed;
     }
 
     /** Each argument the program passes for {@code p} converts to its read-only interface. */
@@ -212,44 +198,59 @@ final class CSharpReadOnly {
         return true;
     }
 
-    /** Every use of {@code p} in its method reads it: see the class's description. */
-    private static boolean usesReadOnly(ParameterInfo p, Set<ParameterInfo> candidates) {
+    /**
+     * A use of a candidate in its method, read-only as the class's description has it: {@code always}, as the receiver
+     * of a library's method or a foreach's collection, or an argument a library takes as an enumerable; or as long as
+     * one of {@code whenCandidate} is a candidate, the parameters of the program's methods it is passed for.
+     */
+    private record Use(boolean always, List<ParameterInfo> whenCandidate) {
+        boolean readOnly(Set<ParameterInfo> candidates) {
+            return always || whenCandidate.stream().anyMatch(candidates::contains);
+        }
+    }
+
+    /** The uses of {@code p} in its method. */
+    private static List<Use> uses(ParameterInfo p) {
         MethodInfo m = p.methodInfo();
-        if (m.methodBody() == null) return true;
-        Set<Expression> allowed = Collections.newSetFromMap(new IdentityHashMap<>());
+        if (m.methodBody() == null) return List.of();
         List<Expression> uses = new ArrayList<>();
+        Set<Expression> always = Collections.newSetFromMap(new IdentityHashMap<>());
+        Map<Expression, List<ParameterInfo>> whenCandidate = new IdentityHashMap<>();
         m.methodBody().visit((Element e) -> {
             if (e instanceof VariableExpression ve && p.equals(ve.variable())) uses.add(ve);
             if (e instanceof MethodCall mc) {
                 if (mc.object() != null && isUse(mc.object(), p) && !CSharpNames.translated(mc.methodInfo().typeInfo())) {
-                    allowed.add(CSharpExpressionPrinter.unwrap(mc.object()));
+                    always.add(CSharpExpressionPrinter.unwrap(mc.object()));
                 }
-                arguments(mc.methodInfo(), mc.parameterExpressions(), p, candidates, allowed);
+                arguments(mc.methodInfo(), mc.parameterExpressions(), p, always, whenCandidate);
             }
             if (e instanceof ConstructorCall cc && cc.constructor() != null) {
-                arguments(cc.constructor(), cc.parameterExpressions(), p, candidates, allowed);
+                arguments(cc.constructor(), cc.parameterExpressions(), p, always, whenCandidate);
             }
             if (e instanceof ForEachStatement fe && fe.expression() != null && isUse(fe.expression(), p)) {
-                allowed.add(CSharpExpressionPrinter.unwrap(fe.expression()));
+                always.add(CSharpExpressionPrinter.unwrap(fe.expression()));
             }
             return true;
         });
-        return uses.stream().allMatch(allowed::contains);
+        return uses.stream().map(u -> new Use(always.contains(u), whenCandidate.getOrDefault(u, List.of()))).toList();
     }
 
-    private static void arguments(MethodInfo callee, List<Expression> arguments, ParameterInfo p,
-                                  Set<ParameterInfo> candidates, Set<Expression> allowed) {
+    private static void arguments(MethodInfo callee, List<Expression> arguments, ParameterInfo p, Set<Expression> always,
+                                  Map<Expression, List<ParameterInfo>> whenCandidate) {
         for (int i = 0; i < arguments.size(); i++) {
             if (!isUse(arguments.get(i), p)) continue;
-            boolean ok;
+            Expression use = CSharpExpressionPrinter.unwrap(arguments.get(i));
             if (CSharpNames.translated(callee.typeInfo())) {
-                ok = i < callee.parameters().size() && candidates.contains(callee.parameters().get(i));
+                if (i < callee.parameters().size()) {
+                    whenCandidate.computeIfAbsent(use, k -> new ArrayList<>()).add(callee.parameters().get(i));
+                }
             } else {
                 String key = callee.typeInfo().fullyQualifiedName() + "." + (callee.isConstructor() ? "new" : callee.name());
-                ok = ENUMERABLE_ARGUMENTS.contains(key) || callee.overrides().stream().anyMatch(o ->
-                        ENUMERABLE_ARGUMENTS.contains(o.typeInfo().fullyQualifiedName() + "." + o.name()));
+                if (ENUMERABLE_ARGUMENTS.contains(key) || callee.overrides().stream().anyMatch(o ->
+                        ENUMERABLE_ARGUMENTS.contains(o.typeInfo().fullyQualifiedName() + "." + o.name()))) {
+                    always.add(use);
+                }
             }
-            if (ok) allowed.add(CSharpExpressionPrinter.unwrap(arguments.get(i)));
         }
     }
 

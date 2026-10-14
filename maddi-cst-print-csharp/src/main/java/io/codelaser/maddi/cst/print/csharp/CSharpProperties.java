@@ -14,21 +14,19 @@
 
 package io.codelaser.maddi.cst.print.csharp;
 
-import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Expression;
-import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
-import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.This;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,18 +71,11 @@ final class CSharpProperties {
     private CSharpProperties() {
     }
 
-    static Analysis analyze(List<TypeInfo> all, Set<MethodInfo> overridden, Set<TypeInfo> delegates) {
-        Set<MethodInfo> referenced = new HashSet<>();
+    static Analysis analyze(CSharpProgramIndex index, Set<MethodInfo> overridden, Set<TypeInfo> delegates) {
+        List<TypeInfo> all = index.types();
+        Set<MethodInfo> referenced = index.referenced();
         // a delegate has no property; an interface's lambda adapter implements its property as one
         Set<TypeInfo> functionalTargets = new HashSet<>(delegates);
-        for (TypeInfo t : all) {
-            for (Element element : CSharpProgram.code(t)) {
-                element.visit((Element e) -> {
-                    if (e instanceof MethodReference mr) referenced.add(mr.methodInfo());
-                    return true;
-                });
-            }
-        }
         Set<FieldInfo> written = writtenOutsideConstructors(all);
         Map<FieldInfo, Property> properties = new HashMap<>();
         for (TypeInfo t : all) {
@@ -108,37 +99,10 @@ final class CSharpProperties {
             });
         }
         Map<MethodInfo, String> computed = new HashMap<>();
-        for (List<MethodInfo> family : families(all)) {
+        for (List<MethodInfo> family : index.families()) {
             family(family, all, referenced, functionalTargets, written, properties, computed);
         }
         return new Analysis(Map.copyOf(properties), Map.copyOf(computed));
-    }
-
-    /** The methods of the program that override one another, connected: the families of two or more. */
-    static List<List<MethodInfo>> families(List<TypeInfo> all) {
-        Map<MethodInfo, MethodInfo> parent = new HashMap<>();
-        java.util.function.UnaryOperator<MethodInfo>[] find = new java.util.function.UnaryOperator[1];
-        find[0] = m -> {
-            MethodInfo p = parent.getOrDefault(m, m);
-            if (p == m) return m;
-            MethodInfo root = find[0].apply(p);
-            parent.put(m, root);
-            return root;
-        };
-        Set<MethodInfo> members = new HashSet<>();
-        for (TypeInfo t : all) {
-            for (MethodInfo m : t.methods()) {
-                for (MethodInfo o : m.overrides()) {
-                    if (o == m) continue;
-                    members.add(m);
-                    members.add(o);
-                    parent.put(find[0].apply(m), find[0].apply(o));
-                }
-            }
-        }
-        Map<MethodInfo, List<MethodInfo>> byRoot = new HashMap<>();
-        for (MethodInfo m : members) byRoot.computeIfAbsent(find[0].apply(m), k -> new ArrayList<>()).add(m);
-        return List.copyOf(byRoot.values());
     }
 
     /**
@@ -215,9 +179,9 @@ final class CSharpProperties {
     /** {@code return f;}: the field {@code f} of {@code t}, non-static, of the method's return type; null otherwise. */
     private static FieldInfo gettersField(MethodInfo m, TypeInfo t) {
         if (!m.parameters().isEmpty() || m.isVoid() || m.isConstructor() || m.methodBody() == null) return null;
-        List<Statement> statements = statements(m);
-        if (statements.size() != 1 || !(statements.getFirst() instanceof ReturnStatement rs) || rs.hasNoValue()) return null;
-        FieldInfo f = ownField(rs.expression(), t);
+        Expression returned = CstQueries.returnedValue(statements(m));
+        if (returned == null) return null;
+        FieldInfo f = ownField(returned, t);
         return f != null && f.type().equals(m.returnType()) ? f : null;
     }
 
@@ -274,8 +238,7 @@ final class CSharpProperties {
     private static boolean clashes(String name, TypeInfo t, FieldInfo field, Set<MethodInfo> getters,
                                    List<TypeInfo> all) {
         if (name.equals(CSharpNames.type(t))) return true;
-        List<TypeInfo> related = new ArrayList<>();
-        for (TypeInfo s = t; s != null; s = s.parentClass() == null ? null : s.parentClass().typeInfo()) related.add(s);
+        List<TypeInfo> related = CstQueries.classChain(t);
         for (TypeInfo other : all) {
             if (other != t && other.superTypesExcludingJavaLangObject().contains(t)) related.add(other);
         }
