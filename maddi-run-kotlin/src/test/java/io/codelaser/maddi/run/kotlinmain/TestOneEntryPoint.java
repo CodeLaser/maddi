@@ -18,6 +18,8 @@ import io.codelaser.maddi.run.config.report.ExitCode;
 import io.codelaser.maddi.run.config.util.JavaModules;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.api.element.SourceSet;
+import io.codelaser.maddi.inspection.api.resource.BuildFiles;
+import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
 import org.apache.commons.cli.Option;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -97,6 +100,45 @@ public class TestOneEntryPoint {
                 tmp.resolve("out").toString());
         assertEquals(ExitCode.UNSUPPORTED_OPTION, Main.execute(args));
         assertFalse(Files.exists(tmp.resolve("out")));
+    }
+
+    /**
+     * A configuration written from a compile log declares its build files on this CLI too: the globs of
+     * {@code --build-files}, hashed, else "none". This driver once wrote {@code inputConfiguration()} directly,
+     * so it parsed {@code --build-files} and wrote no {@code buildFiles} key at all.
+     */
+    @Test
+    public void aCompileLogConfigurationDeclaresItsBuildFiles(@TempDir Path tmp) throws Exception {
+        Path bar = tmp.resolve("proj/src/main/java/x/Bar.java");
+        Files.createDirectories(bar.getParent());
+        Files.writeString(bar, "package x;\npublic class Bar {}\n");
+        Files.writeString(tmp.resolve("proj/build.gradle.kts"), "plugins { java }\n");
+        Path log = tmp.resolve("compile.txt");
+        Files.writeString(log, "10:01 [DEBUG] :proj:compileJava Compiler arguments: -d "
+                               + tmp.resolve("proj/build/classes/java/main") + " -source 17 -target 17 " + bar + "\n");
+
+        File none = tmp.resolve("none.json").toFile();
+        assertEquals(ExitCode.OK, Main.execute(new String[]{"--compile-log", log.toString(),
+                "--write-input-configuration", none.getAbsolutePath()}));
+        BuildFiles nothing = read(none).buildFiles();
+        assertNotNull(nothing, "a compile-log configuration must declare its build files, if only as none");
+        assertEquals(BuildFiles.NONE, nothing.declaredBy());
+
+        // relative to the build root the log implies, which holds proj/
+        File declared = tmp.resolve("declared.json").toFile();
+        assertEquals(ExitCode.OK, Main.execute(new String[]{"--compile-log", log.toString(),
+                "--build-files", "**/build.gradle.kts", "--build-files", "settings.gradle.kts",
+                "--write-input-configuration", declared.getAbsolutePath()}));
+        BuildFiles buildFiles = read(declared).buildFiles();
+        assertNotNull(buildFiles, "--build-files must not be dropped");
+        assertEquals(BuildFiles.COMPILE_LOG, buildFiles.declaredBy());
+        assertEquals(List.of("**/build.gradle.kts", "settings.gradle.kts"), buildFiles.globs().subList(0, 2));
+        assertTrue(buildFiles.sha256().keySet().stream().anyMatch(k -> k.endsWith("build.gradle.kts")),
+                buildFiles.root() + ": " + buildFiles.sha256().keySet());
+    }
+
+    private static InputConfiguration read(File file) throws Exception {
+        return JsonStreaming.objectMapper().readerFor(InputConfigurationImpl.class).readValue(file);
     }
 
     /** The explicit {@code --source}/{@code --jmod} route, which the Kotlin CLI did not have at all. */
