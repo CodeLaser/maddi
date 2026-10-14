@@ -367,11 +367,11 @@ final class CSharpBcl implements LibraryMapping {
 
     /** The pattern of a type test against a JDK type; null for the type's name. */
     @Override
-    public PatternMapping pattern(ParameterizedType tested, ParameterizedType expression) {
+    public CodeMapping pattern(ParameterizedType tested, ParameterizedType expression) {
         if (tested == null || tested.arrays() > 0 || tested.typeInfo() == null) return null;
         String pattern = PATTERNS.get(tested.typeInfo().fullyQualifiedName());
         if (pattern == null) pattern = classPattern(tested, expression);
-        return pattern == null ? null : new PatternMapping(pattern, SYSTEM);
+        return pattern == null ? null : new CodeMapping(pattern, SYSTEM);
     }
 
     /**
@@ -1391,77 +1391,77 @@ final class CSharpBcl implements LibraryMapping {
         return sb.toString();
     }
 
-    private static final Map<String, FieldMapping> FIELDS = Map.ofEntries(
-            Map.entry("java.lang.System.out", new FieldMapping("Console.Out", SYSTEM)),
-            Map.entry("java.lang.System.err", new FieldMapping("Console.Error", SYSTEM)),
-            Map.entry("java.lang.Integer.MAX_VALUE", new FieldMapping("int.MaxValue", null)),
-            Map.entry("java.math.BigDecimal.ZERO", new FieldMapping("0m", null)),
-            Map.entry("java.math.BigDecimal.ONE", new FieldMapping("1m", null)),
-            Map.entry("java.math.BigDecimal.TWO", new FieldMapping("2m", null)),
-            Map.entry("java.math.BigDecimal.TEN", new FieldMapping("10m", null)),
-            Map.entry("java.math.BigInteger.ZERO", new FieldMapping("BigInteger.Zero", NUMERICS)),
-            Map.entry("java.math.BigInteger.ONE", new FieldMapping("BigInteger.One", NUMERICS)),
-            Map.entry("java.math.BigInteger.TWO", new FieldMapping("new BigInteger(2)", NUMERICS)),
-            Map.entry("java.math.BigInteger.TEN", new FieldMapping("new BigInteger(10)", NUMERICS)),
+    private static final Map<String, CodeMapping> FIELDS = Map.ofEntries(
+            Map.entry("java.lang.System.out", new CodeMapping("Console.Out", SYSTEM)),
+            Map.entry("java.lang.System.err", new CodeMapping("Console.Error", SYSTEM)),
+            Map.entry("java.lang.Integer.MAX_VALUE", new CodeMapping("int.MaxValue", null)),
+            Map.entry("java.math.BigDecimal.ZERO", new CodeMapping("0m", null)),
+            Map.entry("java.math.BigDecimal.ONE", new CodeMapping("1m", null)),
+            Map.entry("java.math.BigDecimal.TWO", new CodeMapping("2m", null)),
+            Map.entry("java.math.BigDecimal.TEN", new CodeMapping("10m", null)),
+            Map.entry("java.math.BigInteger.ZERO", new CodeMapping("BigInteger.Zero", NUMERICS)),
+            Map.entry("java.math.BigInteger.ONE", new CodeMapping("BigInteger.One", NUMERICS)),
+            Map.entry("java.math.BigInteger.TWO", new CodeMapping("new BigInteger(2)", NUMERICS)),
+            Map.entry("java.math.BigInteger.TEN", new CodeMapping("new BigInteger(10)", NUMERICS)),
             // a directed rounding: FLOOR, CEILING and DOWN round every value, as Java's do; HALF_UP and HALF_EVEN
             // a midpoint; UP and HALF_DOWN have no MidpointRounding, and stay unmapped
-            Map.entry("java.math.RoundingMode.FLOOR", new FieldMapping("MidpointRounding.ToNegativeInfinity", SYSTEM)),
-            Map.entry("java.math.RoundingMode.CEILING", new FieldMapping("MidpointRounding.ToPositiveInfinity", SYSTEM)),
-            Map.entry("java.math.RoundingMode.DOWN", new FieldMapping("MidpointRounding.ToZero", SYSTEM)),
-            Map.entry("java.math.RoundingMode.HALF_UP", new FieldMapping("MidpointRounding.AwayFromZero", SYSTEM)),
-            Map.entry("java.math.RoundingMode.HALF_EVEN", new FieldMapping("MidpointRounding.ToEven", SYSTEM)),
-            Map.entry("java.lang.Integer.MIN_VALUE", new FieldMapping("int.MinValue", null)),
-            Map.entry("java.lang.Long.MAX_VALUE", new FieldMapping("long.MaxValue", null)),
-            Map.entry("java.lang.Long.MIN_VALUE", new FieldMapping("long.MinValue", null)),
-            Map.entry("java.lang.Short.MAX_VALUE", new FieldMapping("short.MaxValue", null)),
-            Map.entry("java.lang.Short.MIN_VALUE", new FieldMapping("short.MinValue", null)),
-            Map.entry("java.lang.Byte.MAX_VALUE", new FieldMapping("sbyte.MaxValue", null)),
-            Map.entry("java.lang.Byte.MIN_VALUE", new FieldMapping("sbyte.MinValue", null)),
-            Map.entry("java.lang.Character.MAX_VALUE", new FieldMapping("char.MaxValue", null)),
-            Map.entry("java.lang.Float.MAX_VALUE", new FieldMapping("float.MaxValue", null)),
-            Map.entry("java.lang.Float.MIN_VALUE", new FieldMapping("float.Epsilon", null)),
-            Map.entry("java.lang.Float.MIN_NORMAL", new FieldMapping("1.17549435E-38f", null)),
-            Map.entry("java.lang.Float.NaN", new FieldMapping("float.NaN", null)),
-            Map.entry("java.lang.Float.POSITIVE_INFINITY", new FieldMapping("float.PositiveInfinity", null)),
-            Map.entry("java.lang.Float.NEGATIVE_INFINITY", new FieldMapping("float.NegativeInfinity", null)),
-            Map.entry("java.lang.Double.MAX_VALUE", new FieldMapping("double.MaxValue", null)),
-            Map.entry("java.lang.Double.MIN_VALUE", new FieldMapping("double.Epsilon", null)),
-            Map.entry("java.lang.Double.MIN_NORMAL", new FieldMapping("2.2250738585072014E-308", null)),
-            Map.entry("java.lang.Double.NaN", new FieldMapping("double.NaN", null)),
-            Map.entry("java.lang.Double.POSITIVE_INFINITY", new FieldMapping("double.PositiveInfinity", null)),
-            Map.entry("java.lang.Double.NEGATIVE_INFINITY", new FieldMapping("double.NegativeInfinity", null)),
-            Map.entry("java.lang.Boolean.TRUE", new FieldMapping("true", null)),
+            Map.entry("java.math.RoundingMode.FLOOR", new CodeMapping("MidpointRounding.ToNegativeInfinity", SYSTEM)),
+            Map.entry("java.math.RoundingMode.CEILING", new CodeMapping("MidpointRounding.ToPositiveInfinity", SYSTEM)),
+            Map.entry("java.math.RoundingMode.DOWN", new CodeMapping("MidpointRounding.ToZero", SYSTEM)),
+            Map.entry("java.math.RoundingMode.HALF_UP", new CodeMapping("MidpointRounding.AwayFromZero", SYSTEM)),
+            Map.entry("java.math.RoundingMode.HALF_EVEN", new CodeMapping("MidpointRounding.ToEven", SYSTEM)),
+            Map.entry("java.lang.Integer.MIN_VALUE", new CodeMapping("int.MinValue", null)),
+            Map.entry("java.lang.Long.MAX_VALUE", new CodeMapping("long.MaxValue", null)),
+            Map.entry("java.lang.Long.MIN_VALUE", new CodeMapping("long.MinValue", null)),
+            Map.entry("java.lang.Short.MAX_VALUE", new CodeMapping("short.MaxValue", null)),
+            Map.entry("java.lang.Short.MIN_VALUE", new CodeMapping("short.MinValue", null)),
+            Map.entry("java.lang.Byte.MAX_VALUE", new CodeMapping("sbyte.MaxValue", null)),
+            Map.entry("java.lang.Byte.MIN_VALUE", new CodeMapping("sbyte.MinValue", null)),
+            Map.entry("java.lang.Character.MAX_VALUE", new CodeMapping("char.MaxValue", null)),
+            Map.entry("java.lang.Float.MAX_VALUE", new CodeMapping("float.MaxValue", null)),
+            Map.entry("java.lang.Float.MIN_VALUE", new CodeMapping("float.Epsilon", null)),
+            Map.entry("java.lang.Float.MIN_NORMAL", new CodeMapping("1.17549435E-38f", null)),
+            Map.entry("java.lang.Float.NaN", new CodeMapping("float.NaN", null)),
+            Map.entry("java.lang.Float.POSITIVE_INFINITY", new CodeMapping("float.PositiveInfinity", null)),
+            Map.entry("java.lang.Float.NEGATIVE_INFINITY", new CodeMapping("float.NegativeInfinity", null)),
+            Map.entry("java.lang.Double.MAX_VALUE", new CodeMapping("double.MaxValue", null)),
+            Map.entry("java.lang.Double.MIN_VALUE", new CodeMapping("double.Epsilon", null)),
+            Map.entry("java.lang.Double.MIN_NORMAL", new CodeMapping("2.2250738585072014E-308", null)),
+            Map.entry("java.lang.Double.NaN", new CodeMapping("double.NaN", null)),
+            Map.entry("java.lang.Double.POSITIVE_INFINITY", new CodeMapping("double.PositiveInfinity", null)),
+            Map.entry("java.lang.Double.NEGATIVE_INFINITY", new CodeMapping("double.NegativeInfinity", null)),
+            Map.entry("java.lang.Boolean.TRUE", new CodeMapping("true", null)),
             // .NET's F is a digit that is not written when it is a trailing zero, its separator not when all are
-            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE", new FieldMapping("\"yyyy-MM-dd\"", null)),
-            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_TIME", new FieldMapping("\"HH:mm:ss.FFFFFFF\"", null)),
-            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME", new FieldMapping("\"yyyy-MM-dd'T'HH:mm:ss.FFFFFFF\"", null)),
-            Map.entry("java.lang.Boolean.FALSE", new FieldMapping("false", null)),
-            Map.entry("java.lang.Math.PI", new FieldMapping("Math.PI", SYSTEM)),
-            Map.entry("java.time.Duration.ZERO", new FieldMapping("TimeSpan.Zero", SYSTEM)),
-            Map.entry("java.lang.Math.E", new FieldMapping("Math.E", SYSTEM)),
-            Map.entry("java.util.Locale.ENGLISH", new FieldMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
-            Map.entry("java.util.Locale.ROOT", new FieldMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
-            Map.entry("java.util.Locale.US", new FieldMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
-            Map.entry("java.nio.charset.StandardCharsets.UTF_8", new FieldMapping("Encoding.UTF8", TEXT)),
-            Map.entry("java.nio.charset.StandardCharsets.US_ASCII", new FieldMapping("Encoding.ASCII", TEXT)),
-            Map.entry("java.nio.charset.StandardCharsets.ISO_8859_1", new FieldMapping("Encoding.Latin1", TEXT)),
-            Map.entry("java.io.File.separator", new FieldMapping("Path.DirectorySeparatorChar.ToString()", IO)),
-            Map.entry("java.io.File.separatorChar", new FieldMapping("Path.DirectorySeparatorChar", IO)),
-            Map.entry("java.io.File.pathSeparator", new FieldMapping("Path.PathSeparator.ToString()", IO)),
-            Map.entry("java.util.jar.JarFile.MANIFEST_NAME", new FieldMapping("JavaJarFile.MANIFEST_NAME", COMPAT)),
-            Map.entry("java.io.File.pathSeparatorChar", new FieldMapping("Path.PathSeparator", IO)),
-            Map.entry("java.lang.Character.UNASSIGNED", new FieldMapping("JavaCharacter.UNASSIGNED", COMPAT)),
-            Map.entry("java.lang.Character.CONTROL", new FieldMapping("JavaCharacter.CONTROL", COMPAT)),
-            Map.entry("java.lang.Character.FORMAT", new FieldMapping("JavaCharacter.FORMAT", COMPAT)),
-            Map.entry("java.lang.Character.PRIVATE_USE", new FieldMapping("JavaCharacter.PRIVATE_USE", COMPAT)),
-            Map.entry("java.lang.Character.SURROGATE", new FieldMapping("JavaCharacter.SURROGATE", COMPAT)),
-            Map.entry("java.lang.Character.LINE_SEPARATOR", new FieldMapping("JavaCharacter.LINE_SEPARATOR", COMPAT)),
-            Map.entry("java.lang.Character.PARAGRAPH_SEPARATOR", new FieldMapping("JavaCharacter.PARAGRAPH_SEPARATOR", COMPAT)),
-            Map.entry("java.lang.Character.SPACE_SEPARATOR", new FieldMapping("JavaCharacter.SPACE_SEPARATOR", COMPAT)));
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE", new CodeMapping("\"yyyy-MM-dd\"", null)),
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_TIME", new CodeMapping("\"HH:mm:ss.FFFFFFF\"", null)),
+            Map.entry("java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME", new CodeMapping("\"yyyy-MM-dd'T'HH:mm:ss.FFFFFFF\"", null)),
+            Map.entry("java.lang.Boolean.FALSE", new CodeMapping("false", null)),
+            Map.entry("java.lang.Math.PI", new CodeMapping("Math.PI", SYSTEM)),
+            Map.entry("java.time.Duration.ZERO", new CodeMapping("TimeSpan.Zero", SYSTEM)),
+            Map.entry("java.lang.Math.E", new CodeMapping("Math.E", SYSTEM)),
+            Map.entry("java.util.Locale.ENGLISH", new CodeMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
+            Map.entry("java.util.Locale.ROOT", new CodeMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
+            Map.entry("java.util.Locale.US", new CodeMapping("CultureInfo.InvariantCulture", GLOBALIZATION)),
+            Map.entry("java.nio.charset.StandardCharsets.UTF_8", new CodeMapping("Encoding.UTF8", TEXT)),
+            Map.entry("java.nio.charset.StandardCharsets.US_ASCII", new CodeMapping("Encoding.ASCII", TEXT)),
+            Map.entry("java.nio.charset.StandardCharsets.ISO_8859_1", new CodeMapping("Encoding.Latin1", TEXT)),
+            Map.entry("java.io.File.separator", new CodeMapping("Path.DirectorySeparatorChar.ToString()", IO)),
+            Map.entry("java.io.File.separatorChar", new CodeMapping("Path.DirectorySeparatorChar", IO)),
+            Map.entry("java.io.File.pathSeparator", new CodeMapping("Path.PathSeparator.ToString()", IO)),
+            Map.entry("java.util.jar.JarFile.MANIFEST_NAME", new CodeMapping("JavaJarFile.MANIFEST_NAME", COMPAT)),
+            Map.entry("java.io.File.pathSeparatorChar", new CodeMapping("Path.PathSeparator", IO)),
+            Map.entry("java.lang.Character.UNASSIGNED", new CodeMapping("JavaCharacter.UNASSIGNED", COMPAT)),
+            Map.entry("java.lang.Character.CONTROL", new CodeMapping("JavaCharacter.CONTROL", COMPAT)),
+            Map.entry("java.lang.Character.FORMAT", new CodeMapping("JavaCharacter.FORMAT", COMPAT)),
+            Map.entry("java.lang.Character.PRIVATE_USE", new CodeMapping("JavaCharacter.PRIVATE_USE", COMPAT)),
+            Map.entry("java.lang.Character.SURROGATE", new CodeMapping("JavaCharacter.SURROGATE", COMPAT)),
+            Map.entry("java.lang.Character.LINE_SEPARATOR", new CodeMapping("JavaCharacter.LINE_SEPARATOR", COMPAT)),
+            Map.entry("java.lang.Character.PARAGRAPH_SEPARATOR", new CodeMapping("JavaCharacter.PARAGRAPH_SEPARATOR", COMPAT)),
+            Map.entry("java.lang.Character.SPACE_SEPARATOR", new CodeMapping("JavaCharacter.SPACE_SEPARATOR", COMPAT)));
 
     /** A JDK field in C#, and the namespace it needs; null when there is none. */
     @Override
-    public FieldMapping field(FieldInfo fieldInfo) {
+    public CodeMapping field(FieldInfo fieldInfo) {
         return FIELDS.get(fieldInfo.owner().fullyQualifiedName() + "." + fieldInfo.name());
     }
 

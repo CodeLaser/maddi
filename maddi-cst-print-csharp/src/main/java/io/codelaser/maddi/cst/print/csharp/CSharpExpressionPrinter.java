@@ -256,7 +256,7 @@ public final class CSharpExpressionPrinter {
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
         FieldInfo field = fr.fieldInfo();
         if (!CSharpNames.translated(field.owner())) {
-            LibraryMapping.FieldMapping mapped = CSharpContext.libraries().field(field);
+            LibraryMapping.CodeMapping mapped = CSharpContext.libraries().field(field);
             if (mapped != null) {
                 if (mapped.namespace() != null) CSharpContext.using(mapped.namespace());
                 return text(mapped.value());
@@ -1392,7 +1392,7 @@ public final class CSharpExpressionPrinter {
         RecordPattern pattern = io.patternVariable();
         // a type test a library maps to a pattern: a java.lang.reflect.Type that is a Class is a System.Type that is
         // neither a type parameter nor constructed
-        LibraryMapping.PatternMapping mapped = CSharpContext.libraries().pattern(io.testType(),
+        LibraryMapping.CodeMapping mapped = CSharpContext.libraries().pattern(io.testType(),
                 io.expression().parameterizedType());
         if (mapped != null && mapped.namespace() != null) CSharpContext.using(mapped.namespace());
         String classPattern = mapped == null ? null : mapped.value();

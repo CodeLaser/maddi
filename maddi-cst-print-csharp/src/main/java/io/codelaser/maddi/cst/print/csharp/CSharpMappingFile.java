@@ -159,7 +159,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     private final Map<String, TypeMapping> types = new HashMap<>();
     private final Map<String, List<Entry>> values = new HashMap<>();
     private final Map<String, List<Entry>> statements = new HashMap<>();
-    private final Map<String, FieldMapping> fields = new HashMap<>();
+    private final Map<String, CodeMapping> fields = new HashMap<>();
     private final Map<String, List<AnnotationEntry>> annotations = new HashMap<>();
     private final Map<String, String> overrides = new HashMap<>();
     private final Set<String> typeNames = new HashSet<>();
@@ -297,7 +297,7 @@ public final class CSharpMappingFile implements LibraryMapping {
                 ("member".equals(directive) ? values : statements).computeIfAbsent(m.group(1), k -> new ArrayList<>())
                         .add(new Entry(guard, value, namespaces));
             }
-            case "field" -> unique(fields.put(key, new FieldMapping(value, namespace)), directive, key);
+            case "field" -> unique(fields.put(key, new CodeMapping(value, namespace)), directive, key);
             case "annotation" -> {
                 Matcher m = MEMBER_KEY.matcher(key);
                 if (!m.matches()) {
@@ -421,7 +421,7 @@ public final class CSharpMappingFile implements LibraryMapping {
     }
 
     @Override
-    public FieldMapping field(FieldInfo fieldInfo) {
+    public CodeMapping field(FieldInfo fieldInfo) {
         return fields.get(fieldInfo.owner().fullyQualifiedName() + "." + fieldInfo.name());
     }
 

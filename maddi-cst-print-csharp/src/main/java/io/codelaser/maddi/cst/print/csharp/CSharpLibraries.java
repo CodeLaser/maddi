@@ -180,12 +180,12 @@ public final class CSharpLibraries implements LibraryMapping {
     }
 
     @Override
-    public FieldMapping field(FieldInfo fieldInfo) {
+    public CodeMapping field(FieldInfo fieldInfo) {
         return first(m -> m.field(fieldInfo));
     }
 
     @Override
-    public PatternMapping pattern(ParameterizedType tested, ParameterizedType expression) {
+    public CodeMapping pattern(ParameterizedType tested, ParameterizedType expression) {
         return first(m -> m.pattern(tested, expression));
     }
 

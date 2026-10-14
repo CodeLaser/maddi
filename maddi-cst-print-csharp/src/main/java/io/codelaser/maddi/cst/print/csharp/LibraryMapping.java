@@ -35,6 +35,11 @@ import java.util.stream.Stream;
  * slf4j's, Jackson's. The translation asks an ordered list of mappings ({@link CSharpLibraries}), and the first that
  * answers wins: a client chooses one mapping per library, and may put one of its own in front to override a single
  * rule. Every method answers null for what the mapping does not know.
+ * <p>
+ * Each answer has the namespaces its C# needs: a type, a field and a type test one ({@code namespace}, null for none),
+ * a rule, attributes and additions any number ({@code namespaces}). Of the list's answers, the first wins, except where
+ * a method says they are combined: the {@link #additions}, the {@link #memberAttributes}, the {@link #requirements},
+ * the {@link #typeNames}, and {@link #excludes}, which any mapping may answer.
  */
 public interface LibraryMapping {
 
@@ -127,12 +132,11 @@ public interface LibraryMapping {
         }
     }
 
-    /** A field in C#, {@code Console.Out}, and the namespace it needs (null: none). */
-    record FieldMapping(String value, String namespace) {
-    }
-
-    /** A type test in C#, {@code Type { IsConstructedGenericType: true }}, and the namespace it needs. */
-    record PatternMapping(String value, String namespace) {
+    /**
+     * A piece of C# and the namespace it needs (null: none): a field, {@code Console.Out}, or a type test,
+     * {@code Type { IsConstructedGenericType: true }}.
+     */
+    record CodeMapping(String value, String namespace) {
     }
 
     /** A NuGet package the translated code references: {@code Microsoft.Extensions.Logging.Abstractions 10.0.0}. */
@@ -148,7 +152,7 @@ public interface LibraryMapping {
         public static final Requirements NONE = new Requirements(List.of(), List.of());
     }
 
-    /** What the translated code needs: the packages it references, the sources that go with it. */
+    /** What the translated code needs: the packages it references, the sources that go with it. Combined. */
     default Requirements requirements() {
         return Requirements.NONE;
     }
@@ -172,7 +176,7 @@ public interface LibraryMapping {
 
     /**
      * Whether the program's own {@code primaryType} is left out of the translation: not printed, and used as a library
-     * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file).
+     * type, through this mapping's rules ({@code exclude} in a {@code .csmap} file). Any mapping's.
      */
     default boolean excludes(TypeInfo primaryType) {
         return false;
@@ -196,7 +200,7 @@ public interface LibraryMapping {
         public static final Additions NONE = new Additions(List.of(), List.of(), List.of());
     }
 
-    /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. */
+    /** What the mapping adds to {@code typeInfo}, a type of the program; null or NONE: nothing. Combined. */
     default Additions additions(TypeInfo typeInfo, Qualification q) {
         return null;
     }
@@ -204,23 +208,27 @@ public interface LibraryMapping {
     /**
      * The attributes of the C# member that {@code field} is, a public field or property, or an enum's constant: an
      * XML-bound type's members are {@code XmlIgnore}, as its additions take their place; the constants of an enum it
-     * writes are {@code XmlEnum("NAME")}. Null: none.
+     * writes are {@code XmlEnum("NAME")}. Null: none. Combined.
      */
     default AttributeMapping memberAttributes(FieldInfo field) {
         return null;
     }
 
-    /** The rule of a call of {@code method}; {@code call} is null for a method reference. */
+    /**
+     * The rule of a call of {@code method}; {@code call} is null for a method reference. The first wins; one with only
+     * a statement template takes its value template from the next ({@link CSharpLibraries#call}).
+     */
     default Rule call(MethodInfo method, MethodCall call) {
         return null;
     }
 
-    /** The rule of a call of the constructor {@code constructor}. */
+    /** The rule of a call of the constructor {@code constructor}. As {@link #call}. */
     default Rule constructor(MethodInfo constructor) {
         return null;
     }
 
-    default FieldMapping field(FieldInfo fieldInfo) {
+    /** A field of the library in C#. */
+    default CodeMapping field(FieldInfo fieldInfo) {
         return null;
     }
 
@@ -228,7 +236,7 @@ public interface LibraryMapping {
      * The type test {@code x instanceof tested}, when it is not the test against the type's name;
      * {@code expression}, the type of {@code x}, is null where there is none (a switch's pattern).
      */
-    default PatternMapping pattern(ParameterizedType tested, ParameterizedType expression) {
+    default CodeMapping pattern(ParameterizedType tested, ParameterizedType expression) {
         return null;
     }
 
@@ -240,7 +248,7 @@ public interface LibraryMapping {
         return null;
     }
 
-    /** The simple names of the C# types the mapping writes, which a type of the program must not hide. */
+    /** The simple names of the C# types the mapping writes, which a type of the program must not hide. Combined. */
     default Set<String> typeNames() {
         return Set.of();
     }

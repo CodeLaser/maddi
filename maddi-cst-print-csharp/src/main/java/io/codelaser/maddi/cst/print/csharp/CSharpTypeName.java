@@ -144,7 +144,7 @@ public final class CSharpTypeName {
      * with instanceof is its value type (null is not an instance of anything, in either language).
      */
     public static String pattern(ParameterizedType pt, Qualification q) {
-        LibraryMapping.PatternMapping pattern = CSharpContext.libraries().pattern(pt, null);
+        LibraryMapping.CodeMapping pattern = CSharpContext.libraries().pattern(pt, null);
         if (pattern != null) {
             if (pattern.namespace() != null) CSharpContext.using(pattern.namespace());
             return pattern.value();
