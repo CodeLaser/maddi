@@ -52,8 +52,8 @@ public record ScanJavaDoc(Runtime runtime,
     class MyScanner extends DocTreeScanner<Void, Void> {
         final DocCommentTree docCommentTree;
 
-        StringBuilder comment = new StringBuilder();
-        List<JavaDoc.Tag> tags = new ArrayList<>();
+        final StringBuilder comment = new StringBuilder();
+        final List<JavaDoc.Tag> tags = new ArrayList<>();
         /*
          ⛔ THE COMMENT KEEPS THE SOURCE'S LINES: line k of it is source line firstLine + k. A node is padded down to
          its own line before it is written (padTo). Nodes that write nothing -- an HTML element such as <p> -- used

@@ -90,8 +90,8 @@ public class DijkstraShortestPath {
     }
 
     public static class DCPEntry implements Map.Entry<Integer, DijkstraShortestPath.DCP> {
-        int variable;
-        DCP dcp;
+        final int variable;
+        final DCP dcp;
 
         public DCPEntry(Map.Entry<Integer, Long> e) {
             variable = e.getKey();

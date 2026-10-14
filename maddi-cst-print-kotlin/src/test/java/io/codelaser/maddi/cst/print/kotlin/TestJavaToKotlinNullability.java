@@ -119,6 +119,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return checked.contains("!" + variable.simpleName());
         }
 
+        /** {@code "^x"} in checked: parameter x is declared non-null as its method's precondition. */
+        @Override
+        public boolean preconditionNonNull(ParameterInfo parameterInfo) {
+            return checked.contains("^" + parameterInfo.name());
+        }
+
         /** {@code "~x"} in checked: local x is proven unobserved before its first dereference. */
         @Override
         public boolean unobservedBeforeDereference(MethodInfo method, Element declaration, LocalVariable variable) {
@@ -175,6 +181,48 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         // t is not asserted at its declaration: its `!!`, if any, is an ordinary one
         assertTrue(messages.stream().noneMatch(m -> m.code() == KotlinPrintCode.ASSERT_AT_DECLARATION
                                                     && m.line() == 12), messages.toString());
+    }
+
+    @Language("java")
+    private static final String PRECONDITION = """
+            package a;
+            class P {
+                interface Visitor { void visit(String n); }
+                static class Printer implements Visitor {
+                    public void visit(String n) { System.out.println(n.length()); }
+                }
+                static String find(String k) { return k.isEmpty() ? null : k; }
+                static void go(Visitor v, String k) {
+                    v.visit(find(k));
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi#125: a parameter the pass declares non-null as a precondition of its override family (the
+     * verdict is the family's: the printer prints it as given on the interface and on the override). The caller that
+     * may pass null asserts, and the NullPointerException moves from the method's body to the call, a behaviour
+     * change reported at each declaration.
+     */
+    @Test
+    public void preconditionNonNull() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("find()"), Set.of("^n")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin(PRECONDITION, options);
+        contains(kotlin, "fun visit(n: String)");
+        contains(kotlin, "override fun visit(n: String)");
+        contains(kotlin, "v.visit(find(k)!!)");
+        List<PrintMessage<KotlinPrintCode>> messages = messages(PRECONDITION.replace("class P {", "class P2 {"), options);
+        List<PrintMessage<KotlinPrintCode>> preconditions = messages.stream()
+                .filter(m -> m.code() == KotlinPrintCode.PRECONDITION_NON_NULL).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(3, 5), preconditions.stream().map(PrintMessage::line).distinct().sorted().toList(),
+                messages.toString());
+        assertTrue(preconditions.stream().allMatch(m -> m.severity() == PrintMessage.Severity.BEHAVIOUR_CHANGE
+                && m.detail().equals("the NPE moves from visit's body to the call")), preconditions.toString());
+        // not a precondition: no message, though the parameter is just as non-null
+        List<PrintMessage<KotlinPrintCode>> none = messages(PRECONDITION.replace("class P {", "class P3 {"),
+                new KotlinPrintOptions(new ByName(Set.of("find()")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertTrue(none.stream().noneMatch(m -> m.code() == KotlinPrintCode.PRECONDITION_NON_NULL), none.toString());
     }
 
     @Language("java")

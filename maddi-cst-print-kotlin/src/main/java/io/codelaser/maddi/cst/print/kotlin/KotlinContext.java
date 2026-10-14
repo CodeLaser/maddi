@@ -63,10 +63,6 @@ final class KotlinContext {
             return kind;
         }
 
-        Statement statement() {
-            return statement;
-        }
-
         String label() {
             return label;
         }
@@ -156,11 +152,6 @@ final class KotlinContext {
     /** The call around the innermost one: {@code Collections.sort(list, …)} while printing its comparingInt(…). */
     static io.codelaser.maddi.cst.api.expression.Expression enclosingCall() {
         return STATE.get().enclosingCall();
-    }
-
-    /** The innermost method or constructor call being printed: where a per-expression fact is asked for. */
-    static io.codelaser.maddi.cst.api.expression.Expression currentCall() {
-        return STATE.get().currentCall();
     }
 
     static void pushCall(io.codelaser.maddi.cst.api.expression.Expression call) {

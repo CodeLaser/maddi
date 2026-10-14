@@ -847,12 +847,6 @@ public class MethodResolutionImpl implements MethodResolution {
         return 0;
     }
 
-    private boolean isUnboundMethodTypeParameter(ParameterizedType actualType) {
-        return actualType.typeParameter() != null
-               && actualType.typeParameter().isMethodTypeParameter()
-               && actualType.typeParameter().typeBounds().isEmpty();
-    }
-
     private FilterResult filterMethodCandidatesInErasureMode(Context context,
                                                              Map<MethodTypeParameterMap, Integer> methodCandidates,
                                                              List<Object> expressions) {

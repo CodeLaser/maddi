@@ -155,6 +155,18 @@ public interface NullabilityFacts {
     }
 
     /**
+     * The parameter is non-null because it is a precondition: its method, and every method of its override family,
+     * dereferences it, requires it or rejects null on every normal exit, and the analysis declared it non-null although
+     * a caller may pass null (maddi-mod's {@code Policy.preconditionsNonNull}). The caller asserts that argument
+     * ({@code f(x!!)}, {@code F(x!)}): in Kotlin the NullPointerException moves from the method's body to the call; in
+     * C# and in Java's annotations nothing changes at run time. False for a parameter no null reaches, which is
+     * non-null without the precondition.
+     */
+    default boolean preconditionNonNull(ParameterInfo parameterInfo) {
+        return false;
+    }
+
+    /**
      * The nullability analysis ran over the whole program under a null-marked policy: a type without {@code ?} is
      * not null, and a translation's project may enable C#'s nullable reference types.
      */

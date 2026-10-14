@@ -47,7 +47,6 @@ public class MyMethodVisitor extends MethodVisitor {
         private final int index;
         private String name;
         private boolean isVarArgs;
-        private boolean isFinal;
         private final List<AnnotationExpression> annotations = new ArrayList<>();
 
         ParamBuilder(int i) {
@@ -141,7 +140,6 @@ public class MyMethodVisitor extends MethodVisitor {
 
         @Override
         public ParameterInfo.Builder setIsFinal(boolean isFinal) {
-            this.isFinal = isFinal;
             return this;
         }
     }

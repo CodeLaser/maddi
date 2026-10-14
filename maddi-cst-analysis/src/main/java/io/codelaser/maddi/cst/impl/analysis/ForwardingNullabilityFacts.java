@@ -88,6 +88,11 @@ public class ForwardingNullabilityFacts implements NullabilityFacts {
     }
 
     @Override
+    public boolean preconditionNonNull(ParameterInfo parameterInfo) {
+        return delegate.preconditionNonNull(parameterInfo);
+    }
+
+    @Override
     public boolean nullabilityAnalysed() {
         return delegate.nullabilityAnalysed();
     }

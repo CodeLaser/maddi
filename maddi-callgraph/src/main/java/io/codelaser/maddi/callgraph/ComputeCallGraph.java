@@ -58,7 +58,6 @@ call & reference graphs.
 direction of arrow: I need you to exist first (I, from -> you, to)
  */
 public class ComputeCallGraph {
-    private final Runtime runtime;
     private final Set<TypeInfo> primaryTypes;
     private final Set<MethodInfo> recursive = new HashSet<>();
     // ⛔ mergeWeights, NOT Long::sum: the weight is six packed counters, and a carry out of one is a different KIND
@@ -171,7 +170,6 @@ public class ComputeCallGraph {
     public ComputeCallGraph(Runtime runtime,
                             ParseResult parseResult,
                             Predicate<TypeInfo> externalsToAccept) {
-        this.runtime = runtime;
         this.primaryTypes = parseResult.primaryTypes();
         this.externalsToAccept = externalsToAccept;
         this.moduleInfos = parseResult.sourceSetToModuleInfoMap().values();
@@ -181,7 +179,6 @@ public class ComputeCallGraph {
                             Set<TypeInfo> primaryTypes,
                             Collection<ModuleInfo> moduleInfos,
                             Predicate<TypeInfo> externalsToAccept) {
-        this.runtime = runtime;
         this.primaryTypes = primaryTypes;
         this.externalsToAccept = externalsToAccept;
         this.moduleInfos = moduleInfos;

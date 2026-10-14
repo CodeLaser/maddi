@@ -71,12 +71,10 @@ public class TypeGraphIO {
     }
 
     public static class Node {
-        final int id;
         String label;
         long weight;
 
         Node(int id) {
-            this.id = id;
         }
 
         public void setLabel(String label) {

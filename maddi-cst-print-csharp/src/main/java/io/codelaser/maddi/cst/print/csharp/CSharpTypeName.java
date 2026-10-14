@@ -382,9 +382,4 @@ public final class CSharpTypeName {
         }
         return constraints;
     }
-
-    /** A primitive, or a boxed primitive's value type: what a {@code default(T)} is not null for. */
-    static boolean isValueType(ParameterizedType pt) {
-        return pt.arrays() == 0 && pt.typeInfo() != null && PRIMITIVE.containsKey(pt.typeInfo().fullyQualifiedName());
-    }
 }

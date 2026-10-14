@@ -266,6 +266,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             type = CSharpTypeName.argument(p.parameterizedType(), q);
         } else {
             type = CSharpTypeName.declared(p.parameterizedType(), program.readOnly(p), program.facts().nullable(p), q);
+            if (program.facts().preconditionNonNull(p) && program.facts().nullable(p) != io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) {
+                CSharpContext.message(CSharpPrintCode.PRECONDITION_NON_NULL, p, p.methodInfo().name() + "(" + p.name()
+                        + "): non-nullable, the method's precondition");
+            }
             if (nullableTypeParameter(p, program.facts().nullable(p))) type += "?";
         }
         return new OutputBuilderImpl().add(CSharpAttributes.uses(p.annotations(), LibraryMapping.Target.PARAMETER, q, false)).add(new TextImpl((p.isVarArgs() ? "params " : "") + type + " "

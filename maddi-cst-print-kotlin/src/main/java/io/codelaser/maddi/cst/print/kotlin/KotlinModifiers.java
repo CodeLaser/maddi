@@ -73,12 +73,6 @@ public class KotlinModifiers {
         return visibility(access);
     }
 
-    /** As {@link #visibility(Access)}, reporting a protected {@code subject} that prints as public. */
-    static Optional<Keyword> visibility(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
-        reportProtected(access, subject);
-        return visibility(access);
-    }
-
     private static void reportProtected(Access access, io.codelaser.maddi.cst.api.element.Element subject) {
         if (subject != null && access != null && access.isProtected() && KotlinContext.translatingJava()) {
             KotlinContext.message(KotlinPrintCode.PROTECTED_AS_PUBLIC, subject, KotlinContext.describe(subject));
