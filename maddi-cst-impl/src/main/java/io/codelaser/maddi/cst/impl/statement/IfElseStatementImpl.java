@@ -26,6 +26,7 @@ import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.IfElseStatement;
+import io.codelaser.maddi.cst.api.statement.LoopStatement;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
@@ -142,16 +143,39 @@ public class IfElseStatementImpl extends StatementImpl implements IfElseStatemen
 
     @Override
     public OutputBuilder print(Qualification qualification) {
+        // ⛔ a then-part without braces must not end in an 'if' without 'else': this statement's 'else' would bind
+        // to that one. The source cannot have it, but a rewrite of the then-part can.
+        boolean thenNeedsBraces = !elseBlock.isEmpty() && endsInOpenIf(block);
         OutputBuilder outputBuilder = outputBuilder(qualification)
                 .add(KeywordImpl.IF)
                 .add(SymbolEnum.LEFT_PARENTHESIS_AFTER_KEYWORD)
                 .add(expression.print(qualification))
                 .add(SymbolEnum.RIGHT_PARENTHESIS)
-                .add(block.print(qualification));
+                .add(thenNeedsBraces ? ((BlockImpl) block).printWithBraces(qualification) : block.print(qualification));
         if (!elseBlock.isEmpty()) {
-            outputBuilder.add(KeywordImpl.ELSE).add(elseBlock.print(qualification));
+            outputBuilder.add(KeywordImpl.ELSE);
+            if (elseBlock instanceof BlockImpl eb && eb.printsWithoutBraces()
+                && eb.statements().getFirst() instanceof IfElseStatement elseIf) {
+                // 'else if', as written: not a block holding an 'if' one level deeper (#49)
+                outputBuilder.add(elseIf.print(qualification));
+            } else {
+                outputBuilder.add(elseBlock.print(qualification));
+            }
         }
         return outputBuilder;
+    }
+
+    /*
+    true when the block prints without braces and its statement, followed by 'else', would take that 'else':
+    an 'if' without one, or a braceless loop, 'else' or labeled body ending in such an 'if'
+     */
+    private static boolean endsInOpenIf(Block block) {
+        if (!(block instanceof BlockImpl b) || !b.printsWithoutBraces()) return false;
+        Statement statement = b.statements().getFirst();
+        if (statement instanceof IfElseStatement ifElse) {
+            return ifElse.elseBlock().isEmpty() || endsInOpenIf(ifElse.elseBlock());
+        }
+        return statement instanceof LoopStatement loop && endsInOpenIf(loop.block());
     }
 
     @Override

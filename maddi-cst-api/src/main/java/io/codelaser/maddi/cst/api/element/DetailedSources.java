@@ -82,6 +82,13 @@ public interface DetailedSources {
      */
     Object WHOLE_COMMENT = new Object();
     /**
+     * Present on the source of the body of an {@code if}, {@code else}, {@code for}, {@code while} or {@code do}
+     * that was written without braces ({@code if (c) return x;}): the block is javac's wrapper around the one
+     * statement. The Java printer writes such a body without braces as long as it still holds that one statement
+     * (CodeLaser/maddi#49).
+     */
+    Object BRACELESS = new Object();
+    /**
      * Position of the comma that <em>precedes</em> an element in a comma-separated list.
      * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
      * local-variable declaration lists. For a local variable it is nested in each variable's name source.

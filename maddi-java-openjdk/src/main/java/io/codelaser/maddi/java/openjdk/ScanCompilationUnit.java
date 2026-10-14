@@ -1508,6 +1508,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return statement instanceof ExplicitConstructorInvocation && statement.isSynthetic();
     }
 
+    /*
+    The body of an if, else, for, while or do. A body written without braces is marked BRACELESS (#49), so that the
+    printer writes it as it was written; javac's tree gives the statement, which parseBlock wraps in a block.
+     */
+    private Block bodyBlock(String blockIndex, StatementTree body) {
+        Block block = parseBlock(blockIndex, body);
+        if (body == null || body instanceof JCTree.JCBlock || block.statements().size() != 1) return block;
+        Source source = block.source();
+        return (Block) block.withSource(source.mergeDetailedSources(runtime.newDetailedSourcesBuilder()
+                .put(DetailedSources.BRACELESS, source).build()));
+    }
+
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
         return parseBlock(blockIndex, node, 0, false, variablesToAdd);
     }
@@ -1719,7 +1731,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitDoWhileLoop(DoWhileLoopTree node, Void unused) {
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
@@ -1779,7 +1791,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
         } else throw new UnsupportedOperationException(unexpected("for-each loop variable", node.getVariable()));
 
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         Source source = statementSourceForNode(node);
         addStatement(runtime.newForEachBuilder()
                 .setLabel(statementLabels.get(node))
@@ -1839,7 +1851,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         }
 
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         elementStack.pop();
         Source source = statementSourceForNode(node);
         addStatement(forBuilder
@@ -1857,8 +1869,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
 
-        Block block = parseBlock("0", node.getThenStatement());
-        Block elseBlock = parseBlock("1", node.getElseStatement());
+        Block block = bodyBlock("0", node.getThenStatement());
+        Block elseBlock = bodyBlock("1", node.getElseStatement());
 
         Source source = statementSourceForNode(node);
         addStatement(runtime.newIfElseBuilder()
@@ -2430,7 +2442,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         Source source = statementSourceForNode(node);
         addStatement(runtime.newWhileBuilder()
                 .setLabel(statementLabels.get(node))

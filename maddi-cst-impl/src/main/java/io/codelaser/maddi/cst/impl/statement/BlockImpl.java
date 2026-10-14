@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.statement;
 
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
@@ -101,6 +102,28 @@ public class BlockImpl extends StatementImpl implements Block {
 
     @Override
     public OutputBuilder print(Qualification qualification) {
+        if (printsWithoutBraces()) {
+            // the one statement, laid out as a braced block's statements are: on its own indented line when the
+            // block does not fit, or when priority blocks always break
+            return new OutputBuilderImpl().add(Stream.of(statements.getFirst().print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock())));
+        }
+        return printWithBraces(qualification);
+    }
+
+    /**
+     * A body written without braces ({@link DetailedSources#BRACELESS}) prints without them while it still holds the
+     * one statement it was written with, and nothing a brace would have to enclose (CodeLaser/maddi#49).
+     */
+    public boolean printsWithoutBraces() {
+        Source source = source();
+        return source != null && source.detailedSources() != null
+               && source.detailedSources().detail(DetailedSources.BRACELESS) != null
+               && statements.size() == 1 && !statements.getFirst().isSynthetic()
+               && trailingComments.isEmpty() && comments().isEmpty() && annotations().isEmpty() && label() == null;
+    }
+
+    public OutputBuilder printWithBraces(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification);
         outputBuilder.add(SymbolEnum.LEFT_BRACE);
         if (!statements.isEmpty() || !trailingComments.isEmpty()) {
