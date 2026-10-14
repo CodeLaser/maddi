@@ -49,13 +49,11 @@ final class KotlinContext {
     /** A loop, a switch, or a lambda body, innermost first. */
     static final class Frame {
         private final Kind kind;
-        private final Statement statement;
         private final String label;
         private boolean leftEarly;
 
-        Frame(Kind kind, Statement statement, String label) {
+        Frame(Kind kind, String label) {
             this.kind = kind;
-            this.statement = statement;
             this.label = label;
         }
 

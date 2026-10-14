@@ -237,7 +237,7 @@ public class KotlinStatementPrinter {
 
     /** {@code label: { … break label; }}: a {@code run label@{ }} left with {@code return@label}. */
     private static OutputBuilder labelledBlock(Block block, String label, Qualification q) {
-        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, block, label));
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, label));
         try {
             return new OutputBuilderImpl().add(new TextImpl("run " + label + "@")).add(block(block, q));
         } finally {
@@ -294,7 +294,7 @@ public class KotlinStatementPrinter {
     // ---------------------------------------------------------------- loops
 
     private static OutputBuilder loop(Statement loop, Qualification q, java.util.function.Supplier<OutputBuilder> body) {
-        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, loop, loop.label()));
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, loop.label()));
         try {
             OutputBuilder printed = body.get();
             if (loop.label() == null) return printed;
@@ -325,7 +325,7 @@ public class KotlinStatementPrinter {
         boolean continues = !updates.isEmpty() && continuesItself(fs);
 
         OutputBuilder whileLoop;
-        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, fs, label));
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LOOP, label));
         try {
             List<OutputBuilder> body = new ArrayList<>();
             String first = null;
@@ -484,7 +484,7 @@ public class KotlinStatementPrinter {
 
     private static OutputBuilder switchNewStyle(SwitchStatementNewStyle sw, Qualification q) {
         String label = KotlinContext.freshLabel("switch");
-        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
+        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, label);
         KotlinContext.push(frame);
         OutputBuilder when;
         try {
@@ -630,7 +630,7 @@ public class KotlinStatementPrinter {
         List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
 
         String label = KotlinContext.freshLabel("switch");
-        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, sw, label);
+        KotlinContext.Frame frame = new KotlinContext.Frame(KotlinContext.Kind.SWITCH, label);
         boolean intSelector = isIntSelector(sw.expression(),
                 sw.switchLabels().stream().map(SwitchStatementOldStyle.SwitchLabel::literal).toList());
         KotlinContext.push(frame);

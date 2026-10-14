@@ -1498,7 +1498,7 @@ public class KotlinExpressionPrinter {
 
         OutputBuilder inner;
         boolean labelled = false;
-        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LAMBDA, null, KotlinContext.LAMBDA_LABEL));
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.LAMBDA, KotlinContext.LAMBDA_LABEL));
         KotlinContext.pushScope(body);
         try {
             // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
