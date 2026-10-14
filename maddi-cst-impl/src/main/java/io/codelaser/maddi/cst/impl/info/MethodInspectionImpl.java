@@ -132,6 +132,18 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
         return overrides;
     }
 
+    /*
+     Unmodifiable, in the order of the fully qualified names. Not Set.copyOf: the JDK salts the iteration order of its
+     immutable sets per JVM, so every "first override that ..." differed between two runs of the same code
+     (maddi-mod#47's hints, the nullability pass's cause chains, maddi-mod#33).
+     */
+    static Set<MethodInfo> inNameOrder(Collection<MethodInfo> methods) {
+        if (methods.isEmpty()) return Set.of();
+        List<MethodInfo> sorted = new ArrayList<>(methods);
+        sorted.sort(Comparator.comparing(MethodInfo::fullyQualifiedName));
+        return Collections.unmodifiableSequencedSet(new LinkedHashSet<>(sorted));
+    }
+
     @Override
     public ParameterizedType returnType() {
         return returnType;
@@ -358,7 +370,7 @@ public class MethodInspectionImpl extends InspectionImpl implements MethodInspec
             if (!fullyQualifiedName.isSet()) commitParameters();
             MethodInspection mi = new MethodInspectionImpl(this, returnType, List.copyOf(typeParameters),
                     List.copyOf(parameters), Set.copyOf(methodModifiers), List.copyOf(exceptionTypes),
-                    operatorType, methodBody, fullyQualifiedName.get(), Set.copyOf(overrides), missingData);
+                    operatorType, methodBody, fullyQualifiedName.get(), inNameOrder(overrides), missingData);
             methodInfo.commit(mi);
         }
 
