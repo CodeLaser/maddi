@@ -330,16 +330,10 @@ public class ResourcesImpl implements Resources {
 
     @Override
     public void addDirectoryFromFileSystem(File base, SourceSet sourceSet) {
-        File file = new File("");
-        try {
-            recursivelyAddFiles(base, file, sourceSet);
-        } catch (MalformedURLException e) {
-            throw new UnsupportedOperationException("??");
-        }
+        recursivelyAddFiles(base, new File(""), sourceSet);
     }
 
-    private void recursivelyAddFiles(File baseDirectory, File dirRelativeToBase, SourceSet sourceSet)
-            throws MalformedURLException {
+    private void recursivelyAddFiles(File baseDirectory, File dirRelativeToBase, SourceSet sourceSet) {
         File dir = new File(baseDirectory, dirRelativeToBase.getPath());
         if (dir.isDirectory()) {
             File[] subDirs = dir.listFiles(File::isDirectory);

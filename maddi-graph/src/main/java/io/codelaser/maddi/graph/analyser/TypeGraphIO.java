@@ -104,7 +104,7 @@ public class TypeGraphIO {
                 .buildGraph();
     }
 
-    public static <T> void dumpGraph(File file, G<T> typeGraph) throws IOException {
+    public static <T> void dumpGraph(File file, G<T> typeGraph) {
         Graph<T, DefaultWeightedEdge> graph =
                 GraphTypeBuilder.<T, DefaultWeightedEdge>directed()
                         .allowingMultipleEdges(false)
@@ -137,7 +137,7 @@ public class TypeGraphIO {
 
     private static <T> void exportWeightedGraph(Graph<T, DefaultWeightedEdge> graph,
                                                 Function<T, Map<String, Attribute>> vertexAttributeProvider,
-                                                File file) throws IOException {
+                                                File file) {
         GmlExporter<T, DefaultWeightedEdge> exporter = new GmlExporter<>();
         exporter.setParameter(GmlExporter.Parameter.EXPORT_VERTEX_LABELS, true);
         exporter.setParameter(GmlExporter.Parameter.EXPORT_CUSTOM_VERTEX_ATTRIBUTES, true);

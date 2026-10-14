@@ -48,10 +48,15 @@ public record Javac(int sourceRelease,
         final List<String> addExports = new ArrayList<>();
         final Set<String> warningFlags = new LinkedHashSet<>();
 
+        // the builder's lists stay changeable after build(): the record keeps copies
+        private static List<String> copy(List<String> list) {
+            return list == null ? null : List.copyOf(list);
+        }
+
         public Javac build() {
             return new Javac(sourceRelease, targetRelease, release,
                     destination, generatedHeadersDestination, generatedSourceFilesDestination,
-                    classpath, modulePath, sourcePath, List.copyOf(sourceFiles),
+                    copy(classpath), copy(modulePath), sourcePath, List.copyOf(sourceFiles),
                     processorPath, annotationProcessing,
                     encoding, addModules, List.copyOf(addExports), List.copyOf(warningFlags));
         }
