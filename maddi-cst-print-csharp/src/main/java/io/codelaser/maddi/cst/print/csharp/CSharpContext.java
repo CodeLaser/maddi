@@ -17,6 +17,7 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
@@ -57,6 +58,8 @@ final class CSharpContext {
         final Set<TypeInfo> rawInProgress = new HashSet<>();
         /** The selectors of the switches being printed, innermost first: a char selector's int labels are chars. */
         final Deque<Expression> selectors = new ArrayDeque<>();
+        /** The library rules of the calls printed, null included: a call's is asked for more than once. */
+        final Map<MethodCall, LibraryMapping.Rule> rules = new IdentityHashMap<>();
         final Set<String> usings = new TreeSet<>();
         Set<Object> privateReachedFromOutside = Set.of();
         CSharpProgram program = CSharpProgram.NONE;
@@ -104,6 +107,15 @@ final class CSharpContext {
     static CSharpProgram.Memo memo() {
         State state = STATE.get();
         return state.program == CSharpProgram.NONE ? state.memo : state.program.memo();
+    }
+
+    /** The library mappings' rule for {@code call}, of a library's method; null when they have none. */
+    static LibraryMapping.Rule rule(MethodCall call) {
+        Map<MethodCall, LibraryMapping.Rule> rules = STATE.get().rules;
+        if (rules.containsKey(call)) return rules.get(call);
+        LibraryMapping.Rule rule = libraries().call(call.methodInfo(), call);
+        rules.put(call, rule);
+        return rule;
     }
 
     static List<TypeInfo> innerInProgress() {

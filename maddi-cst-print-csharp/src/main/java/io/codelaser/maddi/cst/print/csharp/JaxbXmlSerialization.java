@@ -278,7 +278,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         if (CSharpNames.isEnumConstant(field)) {
             // a C# enum's member is written by its C# name; JAXB writes the Java one
             String name = CSharpNames.field(field);
-            if (name.equals(field.name()) || !CSharpTypePrinter.simpleEnum(field.owner())
+            if (name.equals(field.name()) || !CSharpNames.simpleEnum(field.owner())
                 || !known().enums().contains(field.owner())) {
                 return null;
             }
@@ -418,7 +418,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
             conversion = new Conversion("object", x -> x, x -> "(" + cast + ") " + x);
         } else if (valueType.arrays() == 0 && valueType.typeInfo() != null && valueType.typeInfo().typeNature().isEnum()
                    && CSharpNames.translated(valueType.typeInfo())
-                   && CSharpTypePrinter.simpleEnum(valueType.typeInfo())) {
+                   && CSharpNames.simpleEnum(valueType.typeInfo())) {
             // a C# enum, whose members are [XmlEnum("NAME")]
             conversion = IDENTITY;
         } else if (valueType.arrays() == 0 && valueType.typeInfo() != null && valueType.typeInfo().typeNature().isEnum()

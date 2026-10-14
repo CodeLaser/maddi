@@ -58,6 +58,14 @@ public final class CSharpTypeName {
     private CSharpTypeName() {
     }
 
+    /** A mapping that is its type argument, {@code {0?}}: Optional's. */
+    private static final Pattern ARGUMENT_TEMPLATE = Pattern.compile("\\{(\\d+)\\??}");
+
+    /** The value types C# has for Java's types, the primitives and the BCL mapping's structs. */
+    private static final Set<String> VALUE_TYPES = Set.of("int", "long", "short", "sbyte", "byte", "char", "bool",
+            "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
+            "KeyValuePair", "ValueTuple");
+
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
             "java.util.List", "IList",
@@ -110,7 +118,7 @@ public final class CSharpTypeName {
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
         if (bcl == null) return !CSharpNames.translated(typeInfo);
         // Optional<ByteBuffer> is its argument, {0?}
-        Matcher argument = Pattern.compile("\\{(\\d+)\\??}").matcher(bcl.template());
+        Matcher argument = ARGUMENT_TEMPLATE.matcher(bcl.template());
         if (!argument.matches()) return false;
         int index = Integer.parseInt(argument.group(1));
         return index < pt.parameters().size() && unmapped(pt.parameters().get(index));
@@ -122,14 +130,12 @@ public final class CSharpTypeName {
      */
     private static boolean valueTypeFree(ParameterizedType pt, String type) {
         if (pt.arrays() == 0 && pt.typeInfo() != null && pt.typeInfo().typeNature().isEnum()
-            && CSharpTypePrinter.simpleEnum(pt.typeInfo())) {
+            && CSharpNames.simpleEnum(pt.typeInfo())) {
             return false;
         }
         int generic = type.indexOf('<');
         String raw = generic < 0 ? type : type.substring(0, generic);
-        return !Set.of("int", "long", "short", "sbyte", "byte", "char", "bool", "double", "float", "decimal",
-                "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan", "KeyValuePair", "ValueTuple")
-                .contains(raw);
+        return !VALUE_TYPES.contains(raw);
     }
 
     /**

@@ -82,7 +82,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 CSharpContext.message(CSharpPrintCode.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
                 return new OutputBuilderImpl();
             }
-            if (typeInfo.typeNature().isEnum() && simpleEnum()) return simpleEnum(importData.insideType());
+            if (typeInfo.typeNature().isEnum() && CSharpNames.simpleEnum(typeInfo)) return simpleEnum(importData.insideType());
             if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
             OutputBuilder type = printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
@@ -362,23 +362,6 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     // ---------------------------------------------------------------- enums
-
-    /** Only constants, without arguments or bodies, and nothing else: a C# enum. */
-    private boolean simpleEnum() {
-        return simpleEnum(typeInfo);
-    }
-
-    static boolean simpleEnum(TypeInfo typeInfo) {
-        if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
-        if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
-        if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic() && !isImplicitDefaultConstructor(c))) {
-            return false;
-        }
-        if (!typeInfo.interfacesImplemented().isEmpty()) return false;
-        return typeInfo.fields().stream().filter(f -> !f.isSynthetic()).allMatch(f -> CSharpNames.isEnumConstant(f)
-                && (!(f.initializer() instanceof ConstructorCall cc)
-                    || cc.parameterExpressions().isEmpty() && cc.anonymousClass() == null));
-    }
 
     private OutputBuilder simpleEnum(Qualification q) {
         String access = typeAccess();
@@ -789,6 +772,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** The interface methods abstract class {@code cls} redeclares abstract: no class or default implements them. */
     static List<LeftAbstract> leftAbstract(TypeInfo cls) {
         if (cls.isInterface() || !cls.isAbstract() || !CSharpNames.translated(cls)) return List.of();
+        Map<TypeInfo, List<LeftAbstract>> cache = CSharpContext.memo().leftAbstract;
+        List<LeftAbstract> known = cache.get(cls);
+        if (known == null) {
+            known = computeLeftAbstract(cls);
+            cache.put(cls, known);
+        }
+        return known;
+    }
+
+    private static List<LeftAbstract> computeLeftAbstract(TypeInfo cls) {
         List<MethodInfo> implementations = new ArrayList<>();
         for (TypeInfo t = cls; t != null; t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
             implementations.addAll(t.methods());
@@ -830,7 +823,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 left.add(new LeftAbstract(m, typeArguments(i)));
             }
         });
-        return left;
+        return List.copyOf(left);
     }
 
     private static final Set<String> OBJECT_METHODS = Set.of("equals/1", "hashCode/0", "toString/0");
@@ -841,7 +834,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * The no-arg, empty-body constructor, the only one of its type, that C# gives the class by default (an enum's
      * constructor is private, and a C# enum has none).
      */
-    private static boolean isImplicitDefaultConstructor(MethodInfo c) {
+    static boolean isImplicitDefaultConstructor(MethodInfo c) {
         TypeInfo owner = c.typeInfo();
         return c.parameters().isEmpty() && emptyBody(c)
                && owner.constructors().stream().filter(x -> !x.isSynthetic()).count() == 1

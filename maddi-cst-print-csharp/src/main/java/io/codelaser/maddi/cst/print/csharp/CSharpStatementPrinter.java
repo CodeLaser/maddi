@@ -528,7 +528,7 @@ public final class CSharpStatementPrinter {
     private static FieldInfo enumClassConstant(Expression literal) {
         if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
             && CSharpNames.isEnumConstant(fr.fieldInfo()) && CSharpNames.translated(fr.fieldInfo().owner())
-            && !CSharpTypePrinter.simpleEnum(fr.fieldInfo().owner())) {
+            && !CSharpNames.simpleEnum(fr.fieldInfo().owner())) {
             return fr.fieldInfo();
         }
         return null;

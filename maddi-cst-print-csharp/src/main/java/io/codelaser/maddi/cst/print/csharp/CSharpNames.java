@@ -133,6 +133,20 @@ public final class CSharpNames {
             if (n == 1 && "equals".equals(javaName)) return "Equals";
         }
         if (!translated(methodInfo.typeInfo())) return name(javaName);
+        // an anonymous class's name is the file's, as hoisted (CSharpAnonymous)
+        if (methodInfo.typeInfo().isAnonymous()) return translatedMethod(methodInfo);
+        Map<MethodInfo, String> cache = CSharpContext.memo().methodNames;
+        String known = cache.get(methodInfo);
+        if (known == null) {
+            known = translatedMethod(methodInfo);
+            cache.put(methodInfo, known);
+        }
+        return known;
+    }
+
+    /** The name of a method of the program, which is not one of Object's. */
+    private static String translatedMethod(MethodInfo methodInfo) {
+        String javaName = methodInfo.name();
         String bcl = CSharpContext.libraries().overrideName(methodInfo);
         if (bcl != null) return bcl;
         // an override is named as what it overrides, which may have kept its Java name
@@ -176,6 +190,30 @@ public final class CSharpNames {
                         || owner.fields().stream().anyMatch(f -> f != fieldInfo && r.equals(f.name()))
                         || owner.subTypes().stream().anyMatch(st -> r.equals(type(st)));
         return clash ? name(fieldInfo.name()) : r;
+    }
+
+    /** An enum of constants only, without arguments or bodies, and nothing else: a C# enum. */
+    static boolean simpleEnum(TypeInfo typeInfo) {
+        Map<TypeInfo, Boolean> cache = CSharpContext.memo().simpleEnum;
+        Boolean known = cache.get(typeInfo);
+        if (known == null) {
+            known = computeSimpleEnum(typeInfo);
+            cache.put(typeInfo, known);
+        }
+        return known;
+    }
+
+    private static boolean computeSimpleEnum(TypeInfo typeInfo) {
+        if (typeInfo.methods().stream().anyMatch(m -> !m.isSynthetic())) return false;
+        if (typeInfo.subTypes().stream().anyMatch(st -> !st.isSynthetic())) return false;
+        if (typeInfo.constructors().stream().anyMatch(c -> !c.isSynthetic()
+                                                           && !CSharpTypePrinter.isImplicitDefaultConstructor(c))) {
+            return false;
+        }
+        if (!typeInfo.interfacesImplemented().isEmpty()) return false;
+        return typeInfo.fields().stream().filter(f -> !f.isSynthetic()).allMatch(f -> isEnumConstant(f)
+                && (!(f.initializer() instanceof ConstructorCall cc)
+                    || cc.parameterExpressions().isEmpty() && cc.anonymousClass() == null));
     }
 
     /** An enum constant: a static final field of the enum's own type. */

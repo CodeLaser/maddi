@@ -513,6 +513,12 @@ public final class CSharpProgram {
         final Map<TypeInfo, Boolean> inner = new ConcurrentHashMap<>();
         /** Whether a generic type has a companion class for its static members ({@link CSharpNames#hasCompanion}). */
         final Map<TypeInfo, Boolean> hasCompanion = new ConcurrentHashMap<>();
+        /** Whether an enum is a C# enum ({@link CSharpNames#simpleEnum}). */
+        final Map<TypeInfo, Boolean> simpleEnum = new ConcurrentHashMap<>();
+        /** The interface methods an abstract class redeclares ({@link CSharpTypePrinter#leftAbstract}). */
+        final Map<TypeInfo, List<CSharpTypePrinter.LeftAbstract>> leftAbstract = new ConcurrentHashMap<>();
+        /** C#'s names of the methods of named types ({@link CSharpNames#method}). */
+        final Map<MethodInfo, String> methodNames = new ConcurrentHashMap<>();
     }
 
     Memo memo() {

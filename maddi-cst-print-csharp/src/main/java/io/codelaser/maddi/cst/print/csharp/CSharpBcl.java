@@ -1496,7 +1496,7 @@ final class CSharpBcl implements LibraryMapping {
     private static boolean simpleEnum(MethodCall call) {
         if (call == null || call.object() == null || call.object().parameterizedType() == null) return true;
         TypeInfo t = call.object().parameterizedType().typeInfo();
-        return t == null || !t.typeNature().isEnum() || CSharpTypePrinter.simpleEnum(t);
+        return t == null || !t.typeNature().isEnum() || CSharpNames.simpleEnum(t);
     }
 
     /** The receiver is a future of Void, as CompletableFuture.allOf's: a Task without a value. */

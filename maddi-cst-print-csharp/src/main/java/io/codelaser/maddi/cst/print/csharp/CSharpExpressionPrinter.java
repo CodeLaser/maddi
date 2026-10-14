@@ -333,7 +333,7 @@ public final class CSharpExpressionPrinter {
         TypeInfo owner = method.typeInfo();
         if (CSharpNames.translated(owner)) {
             // the implicit values() and valueOf(String) of an enum C# declares as an enum
-            if (owner.typeNature().isEnum() && method.isStatic() && CSharpTypePrinter.simpleEnum(owner)) {
+            if (owner.typeNature().isEnum() && method.isStatic() && CSharpNames.simpleEnum(owner)) {
                 String self = CSharpTypeName.name(owner, null);
                 if ("values".equals(method.name()) && method.parameters().isEmpty()) {
                     return new LibraryMapping.Rule("Enum.GetValues<" + self + ">()", null, List.of("System"));
@@ -344,7 +344,7 @@ public final class CSharpExpressionPrinter {
             }
             return null;
         }
-        return CSharpContext.libraries().call(method, mc);
+        return CSharpContext.rule(mc);
     }
 
     /**
@@ -1349,7 +1349,7 @@ public final class CSharpExpressionPrinter {
         ParameterizedType o = other.parameterizedType();
         if (v == null || o == null || v.arrays() > 0 || !o.isJavaLangObject() || o.arrays() > 0) return false;
         return v.isPrimitiveExcludingVoid() || v.typeInfo() != null && v.typeInfo().typeNature().isEnum()
-                                               && CSharpNames.translated(v.typeInfo()) && CSharpTypePrinter.simpleEnum(v.typeInfo());
+                                               && CSharpNames.translated(v.typeInfo()) && CSharpNames.simpleEnum(v.typeInfo());
     }
 
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
