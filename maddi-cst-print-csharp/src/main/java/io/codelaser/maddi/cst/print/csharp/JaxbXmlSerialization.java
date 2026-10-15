@@ -425,7 +425,13 @@ final class JaxbXmlSerialization implements LibraryMapping {
             ParameterizedType adapted = adapter == null ? null : adaptedValueType(adapter);
             if (adapted == null) return Converted.unbound("an adapter without its value type");
             String a = CSharpTypeName.name(adapter, q);
-            conversion = new Conversion(CSharpTypeName.of(adapted, q), x -> "new " + a + "().Marshal(" + x + ")",
+            // the adapter's Marshal(TimeSpan) of a TimeSpan?: JAXB marshals no null
+            String value = !collection && CSharpTypeName.valueReference(valueType) && !valueType.isBoxedExcludingVoid()
+                           && !CSharpTypeName.valueReference(adapted) && !adapted.isPrimitiveExcludingVoid()
+                    ? CSharpTypeName.argument(valueType, q) : null;
+            conversion = new Conversion(CSharpTypeName.of(adapted, q), x -> value == null
+                    ? "new " + a + "().Marshal(" + x + ")"
+                    : x + " == null ? null : new " + a + "().Marshal((" + value + ") " + x + ")",
                     x -> "new " + a + "().Unmarshal(" + x + ")");
         } else if (!alternatives.isEmpty() || objectTyped(valueType)) {
             // a single value may be null; a collection's elements are not
@@ -450,7 +456,7 @@ final class JaxbXmlSerialization implements LibraryMapping {
         if (!conversion.identity() && type.arrays() > 0) return Converted.unbound("an array of a converted type");
         if (conversion.identity() && collection && genericInterface(type)) {
             // XmlSerializer cannot write a member of an interface type, ISet<T>: its elements as an array
-            conversion = new Conversion(CSharpTypeName.of(valueType, q), x -> x, x -> x);
+            conversion = new Conversion(CSharpTypeName.argument(valueType, q), x -> x, x -> x);
         }
         return new Converted(conversion, null);
     }

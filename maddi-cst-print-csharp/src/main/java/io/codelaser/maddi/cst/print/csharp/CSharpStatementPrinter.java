@@ -254,7 +254,9 @@ public final class CSharpStatementPrinter {
         LocalVariable lv = lvc.localVariable();
         Expression init = lv.assignmentExpression();
         if (init == null || init.isEmpty() || init instanceof EmptyExpression) return false;
-        if (lvc.isVar()) return true;
+        // var style = Style.AND is a Style in C#, where Java's var is the reference that a Style? is: declared, so that
+        // a later style = getStyle() compiles
+        if (lvc.isVar()) return !CSharpTypeName.valueReference(lv.parameterizedType());
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
         if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
             return true;
@@ -513,7 +515,7 @@ public final class CSharpStatementPrinter {
         }
         if (literal instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
             && CSharpNames.isEnumConstant(fr.fieldInfo())) {
-            return text(CSharpTypeName.name(fr.fieldInfo().owner(), q) + "." + CSharpNames.field(fr.fieldInfo()));
+            return text(CSharpTypeName.nameInExpression(fr.fieldInfo().owner(), q) + "." + CSharpNames.field(fr.fieldInfo()));
         }
         if (literal instanceof TypeExpression te) {
             // case String s -> without a variable: a type pattern

@@ -87,6 +87,38 @@ public final class CSharpTypeName {
             "java.util.Set", "IReadOnlyCollection",
             "java.lang.Iterable", "IEnumerable");
 
+    private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * A type as an expression, {@code Kind.Filter}, {@code Owner.Method}: without {@code ?}, and qualified where a
+     * member hides it, a property too ({@link #shadowedByMember}); in a declaration C# looks for a type only.
+     */
+    static String inExpression(ParameterizedType pt, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return of(pt, q, true);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** {@link #inExpression} of a type's name. */
+    static String nameInExpression(TypeInfo typeInfo, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return name(typeInfo, q);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** An array's element type: an enum's or a struct's is the value type itself, an Integer's int? (Integer[]). */
+    static String element(ParameterizedType element, Qualification q) {
+        return of(element, q, !element.isBoxedExcludingVoid());
+    }
+
     /** The C# type reference, no leading or trailing space. */
     public static String of(ParameterizedType pt, Qualification q) {
         return of(pt, q, false);
@@ -185,7 +217,7 @@ public final class CSharpTypeName {
     private static String of(ParameterizedType pt, Qualification q, boolean typeArgument) {
         if (pt.arrays() > 0) {
             ParameterizedType element = pt.copyWithoutArrays();
-            return of(element, q, !element.isBoxedExcludingVoid()) + "[]".repeat(pt.arrays());
+            return element(element, q) + "[]".repeat(pt.arrays());
         }
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound() || pt.typeInfo() == null && pt.typeParameter() == null) {
@@ -361,16 +393,25 @@ public final class CSharpTypeName {
 
     /**
      * A member of the type being printed, of a type it is nested in, or of their superclasses, has the type's simple
-     * C# name: in C#, the member hides the type.
+     * C# name: in C#, the member hides the type. In an expression a property too, a getter's {@code StreamKind}: C#
+     * lets a property of the type itself be read as the type ("Color Color"), not one of its {@code StreamKind?}.
      */
     private static boolean shadowedByMember(TypeInfo typeInfo) {
         if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
-        String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
+        // the name printed first: the top-level type's; in an expression, the type's own too, where it is in scope by
+        // its simple name, and a property's
+        boolean expression = EXPRESSION.get();
+        List<String> names = expression
+                ? List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)), CSharpNames.type(typeInfo))
+                : List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)));
+        CSharpProgram program = CSharpContext.program();
         for (TypeInfo t = CSharpContext.currentType(); t != null; t = CstQueries.enclosing(t)) {
             for (TypeInfo c : CstQueries.classChain(t)) {
                 if (!CSharpNames.translated(c)) break;
-                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
-                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
+                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && (names.contains(CSharpNames.method(m))
+                                                                             || expression && program.propertyRead(m) != null
+                                                                                && names.contains(program.propertyRead(m))))
+                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && names.contains(CSharpNames.field(f)))) {
                     return true;
                 }
             }

@@ -286,6 +286,50 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
             }
             """;
 
+    @Language("java")
+    private static final String VALUE_USES = """
+            package org.example.values;
+            import java.math.BigDecimal;
+            import java.util.List;
+            import java.util.function.BinaryOperator;
+            import java.util.function.Supplier;
+            public class Uses {
+                enum Kind { FILTER, JOIN }
+                static class Node {
+                    private Kind kind = Kind.JOIN;
+                    public Kind getKind() { return kind; }
+                    Kind other() { return Kind.FILTER; }
+                }
+                static class Total implements Supplier<BigDecimal> {
+                    private BigDecimal a = BigDecimal.ONE;
+                    private BigDecimal b = BigDecimal.TEN;
+                    @Override public BigDecimal get() { return a.add(b); }
+                }
+                static BigDecimal[] zeros(int n) { return new BigDecimal[n]; }
+                static BinaryOperator<BigDecimal> adder() { return BigDecimal::add; }
+                static Kind pick(Node node, boolean join) {
+                    var kind = Kind.FILTER;
+                    if (join) kind = node.getKind();
+                    return kind;
+                }
+            }
+            """;
+
+    /** Where C# has the value type itself, an X? is cast, and a type named as a property in scope is qualified. */
+    @Test
+    public void valueUses() {
+        String cs = translate("Uses", VALUE_USES);
+        contains(cs, "internal static decimal[] Zeros(int n) => new decimal[n];");
+        contains(cs, "Adder() => (decimal p0, decimal p1) => p0 + p1;");
+        // Java's var is the reference, a Kind? that a later assignment fits
+        contains(cs, "Kind? kind = Kind.Filter;");
+        // in an expression the property Kind hides the type Kind ("Color Color" holds for a Kind, not a Kind?); a
+        // declaration's type is looked up as a type only
+        contains(cs, "public Kind? Kind { get; } = Org.Example.Values.Uses.Kind.Join;");
+        // an operand of a template, and Supplier's T Get() of a decimal: the value type
+        contains(cs, "public decimal Get() => ((decimal) a) + ((decimal) b);");
+    }
+
     /**
      * A Java reference that is a C# value type, a simple enum or Duration's TimeSpan, is its X? as an Integer is
      * int?: Java's null fits, and a use as the value casts as an Integer's does.

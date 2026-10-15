@@ -39,7 +39,8 @@ all its uses agree without a renaming pass.
   `enum Result` and field `result`). A type parameter named as a member takes the C# convention's `T` prefix
   (`EmbeddingMatch<TEmbedded>` with `Embedded()`).
 - A type is qualified with its namespace where a member of the printed class (or of a class it is nested in, or of
-  their superclasses) hides it (`VideoContent.Video()` hides `Video`), and outside its namespace where its simple
+  their superclasses) hides it (`VideoContent.Video()` hides `Video`; in an expression, `Kind.Filter`, a property
+  `Kind` of type `Kind?` hides it too, where C#'s "Color Color" rule lets a `Kind` through), and outside its namespace where its simple
   name is ambiguous: declared by two namespaces of the program, or by the BCL (`CSharpProgram`).
 - A namespace segment that is also the name of a type, of the program or of the BCL, is plural: the namespace
   `Dev.Langchain4j.Exception` would hide `System.Exception` from the code in `Dev.Langchain4j`, and
@@ -68,7 +69,11 @@ Library declarations keep their Java names, except where the BCL mapping (below)
   `null` fits there, `private Style style = null`, `requireNonNullElse(style, Style.OR)` (`style ?? Style.Or`), and a
   use as the value casts as an `int?`'s does. As a type argument, and as an array's element (`Enum.GetValues<E>()` is
   an `E[]`), it is the value type itself. Not `Map.Entry`'s `KeyValuePair`: an entry is its map's, and a
-  `KeyValuePair<K, V>?` would cast every `e.Key` of a for-each over the map.
+  `KeyValuePair<K, V>?` would cast every `e.Key` of a for-each over the map. Java's `var` of such a type is declared
+  (`Kind? kind = Kind.Filter`), so that a later `kind = node.getKind()` fits. Where C# has the value type itself, the
+  `X?` is cast: a template's operand (`BigDecimal.add`'s `((decimal) a) + ((decimal) b)`), a library's parameter of
+  the struct, an override of `T get()` (`decimal Get()`), a lambda's result; a method reference's typed parameters
+  are the delegate's type arguments (`(decimal p0, decimal p1) => p0 + p1`).
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
   non-generic one, a parameter of a program type with wildcards is captured as Java does, and any other wildcard is
