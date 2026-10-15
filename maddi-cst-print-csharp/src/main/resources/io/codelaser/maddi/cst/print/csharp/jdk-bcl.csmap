@@ -783,7 +783,7 @@ member java.lang.Object.getClass/0 -> $0.GetType()
 member java.lang.Object.notifyAll/0 -> Monitor.PulseAll($0) using System.Threading
 member java.lang.Object.notify/0 -> Monitor.Pulse($0) using System.Threading
 member java.lang.Object.wait/0 -> Monitor.Wait($0) using System.Threading
-member java.lang.Class.getName/0 -> $0.FullName
+member java.lang.Class.getName/0 ->? $0.FullName
 member java.lang.Class.getSimpleName/0 -> $0.Name
 member java.lang.Class.getCanonicalName/0 ->? JavaClass.CanonicalName($0) using Maddi.JavaCompat
 member java.lang.Thread.currentThread/0 -> Thread.CurrentThread using System.Threading

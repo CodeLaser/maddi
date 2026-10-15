@@ -1351,9 +1351,13 @@ public final class CSharpExpressionPrinter {
                     : () -> receiver(scope, q);
             List<Supplier<OutputBuilder>> args = parameters.subList(unbound ? 1 : 0, parameters.size())
                     .stream().map(p -> (Supplier<OutputBuilder>) () -> text(p)).toList();
-            return new OutputBuilderImpl().add(text(parameterList)).add(SymbolEnum.binaryOperator("=>"))
-                    .add(new CSharpTemplate(receiver, args, args, null, mr.concreteReturnType(),
-                            scope.parameterizedType(), q).render(rule.template(false)));
+            OutputBuilder body = new CSharpTemplate(receiver, args, args, null, mr.concreteReturnType(),
+                    scope.parameterizedType(), q).render(rule.template(false));
+            if (rule.nullableResult() && CSharpContext.program().facts().nullabilityAnalysed()) {
+                // a result C# declares nullable where Java's is not, Class::getName's p0.FullName, as a call has it
+                body = (rule.template(false).contains(" ") ? parenthesized(body) : body).add(CSharpNullability.NULL_FORGIVING);
+            }
+            return new OutputBuilderImpl().add(text(parameterList)).add(SymbolEnum.binaryOperator("=>")).add(body);
         }
         unmapped(method, mr);
         String name = CSharpNames.method(method) + methodGroupTypeArguments(mr, q);

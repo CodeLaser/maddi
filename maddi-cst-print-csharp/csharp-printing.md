@@ -145,7 +145,8 @@ implements the interface.
   in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
 - The result of a library call may be null where C# declares it so, whatever the analysis says of the Java method:
-  `object.ToString()` is `string?`, Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
+  `object.ToString()` is `string?`, `Class.getName()`'s `Type.FullName` too (`Class::getName` is
+  `p0 => p0.FullName!`), Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
   (`GetConstructor`, `GetMethod`, `GetElementType`, `Invoke`) return null where Java throws. The printer knows these
   from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`), or from the rule itself: a mapping
   file's `->?` (`member java.util.Deque.poll/0 ->? $0.PollFirst()`), for the compatibility library's members that

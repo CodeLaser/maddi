@@ -393,6 +393,11 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 }
                 static void validate(Number total) { }
                 static void penalize(BigDecimal total) { validate(total); }
+                static void named(String name) { }
+                static int hash(Object o) { named(o.getClass().getName()); return o.getClass().getName().hashCode(); }
+                static java.util.List<String> names(java.util.List<Class<?>> types) {
+                    return types.stream().map(Class::getName).toList();
+                }
             }
             """;
 
@@ -411,6 +416,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         String cs = translate("Weights", VALUE_NULLS);
         contains(cs, "internal static void Penalize(decimal? total) { Validate(total!); }");
         contains(cs, "public string Build(Kind? kind, decimal? weight) => f((Kind) kind!, (decimal) weight!);");
+        // Type.FullName is a string? in C#, never null in Java's getName()
+        contains(cs, "named(o.GetType().FullName!);");
+        contains(cs, "return o.GetType().FullName!.GetHashCode();");
+        contains(cs, "types.Select((Type p0) => p0.FullName!).ToList();");
     }
 
     @Language("java")
