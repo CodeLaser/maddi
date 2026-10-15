@@ -259,7 +259,10 @@ public final class CSharpStatementPrinter {
      */
     private static boolean writableCommonType(ParameterizedType type, Expression init) {
         if (type == null || containsWildcard(type)) return false;
-        if (!type.isJavaLangObject()) return true;
+        // what C# writes as object: Object, and a type without a TypeInfo, the intersection Named & Sized as the front
+        // end may give it (a gate run had it, where a local run has Object)
+        boolean object = type.isJavaLangObject() || type.typeInfo() == null && !type.isTypeParameter();
+        if (!object) return true;
         Set<ParameterizedType> types = new HashSet<>();
         collectBranchTypes(CSharpExpressionPrinter.unwrap(init), types);
         return types.stream().noneMatch(t -> t.typeInfo() != null && CSharpNames.translated(t.typeInfo()));
