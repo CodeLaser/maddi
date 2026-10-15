@@ -18,9 +18,12 @@ package io.codelaser.maddi.cst.api.info;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
+import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.type.NamedType;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -29,6 +32,7 @@ import io.codelaser.maddi.support.Either;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -527,6 +531,40 @@ public interface TypeInfo extends NamedType, Info {
     /** Streams this type and every subtype recursively, depth-first. */
     default Stream<TypeInfo> recursiveSubTypeStream() {
         return Stream.concat(Stream.of(this), subTypes().stream().flatMap(TypeInfo::recursiveSubTypeStream));
+    }
+
+    /**
+     * The anonymous classes ({@code new T() { … }}, an enum constant with a body) and the local classes declared
+     * in this type's own code: its method and constructor bodies and its field initializers, lambdas included. Not
+     * those of its member types, nor those nested inside another anonymous or local class (they are that class's).
+     * In source order when the declarations have sources. They are not in {@link #subTypes()}; see
+     * {@link #recursiveSubTypeStreamIncludingLocal()} to descend into them (CodeLaser/maddi#126).
+     */
+    default Stream<TypeInfo> localTypeStream() {
+        List<TypeInfo> found = new ArrayList<>();
+        Predicate<Element> collect = e -> {
+            if (e instanceof ConstructorCall cc && cc.anonymousClass() != null) found.add(cc.anonymousClass());
+            if (e instanceof LocalTypeDeclaration ltd && ltd.typeInfo() != null) found.add(ltd.typeInfo());
+            return true; // the visit itself does not enter an anonymous or local class's body
+        };
+        for (FieldInfo fieldInfo : fields()) {
+            if (fieldInfo.initializer() != null) fieldInfo.initializer().visit(collect);
+        }
+        constructorAndMethodStream().filter(mi -> mi.methodBody() != null)
+                .forEach(mi -> mi.methodBody().visit(collect));
+        Comparator<TypeInfo> bySource = Comparator.comparingInt((TypeInfo ti) -> ti.source().beginLine())
+                .thenComparingInt(ti -> ti.source().beginPos());
+        return found.stream().allMatch(ti -> ti.source() != null && ti.source().beginLine() > 0)
+                ? found.stream().distinct().sorted(bySource) : found.stream().distinct();
+    }
+
+    /**
+     * As {@link #recursiveSubTypeStream()}, and descending into the anonymous and local classes of every type it
+     * meets ({@link #localTypeStream()}): all the code of a compilation unit (CodeLaser/maddi#126).
+     */
+    default Stream<TypeInfo> recursiveSubTypeStreamIncludingLocal() {
+        return Stream.concat(Stream.of(this), Stream.concat(subTypes().stream(), localTypeStream())
+                .flatMap(TypeInfo::recursiveSubTypeStreamIncludingLocal));
     }
 
     /** Streams this type followed by every type in its supertype hierarchy, depth-first. */
