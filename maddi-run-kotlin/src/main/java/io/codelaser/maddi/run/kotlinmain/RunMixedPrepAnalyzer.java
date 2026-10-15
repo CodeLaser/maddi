@@ -139,6 +139,9 @@ public class RunMixedPrepAnalyzer {
                 .setFailFast(false)
                 .setLombok(inputConfiguration.containsLombok())
                 .setIgnoreModule(true)
+                // as the other runners: the configured parallelism. The javac front end reads it nowhere today (only
+                // the congocc inspector does), so this changes nothing yet; set, the option means the same in each.
+                .setParallel(options.parallel())
                 .build();
         MixedProjectInspector.Result parsed = new MixedProjectInspector(new MixedProjectInspector.Settings(parseOptions))
                 .parse(inputConfiguration);

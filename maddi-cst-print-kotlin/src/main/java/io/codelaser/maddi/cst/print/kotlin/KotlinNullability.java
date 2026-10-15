@@ -201,13 +201,14 @@ final class KotlinNullability {
         if (type.arrays() > 0) return type.componentType();
         TypeInfo iterableType = supertype(type.typeInfo(), "java.lang.Iterable", new java.util.HashSet<>());
         if (iterableType == null) return null;
+        // concreteSuperType walks the hierarchy recursively: a deep or cyclic one overflows, as caught across maddi
         try {
             ParameterizedType asIterable = type.typeInfo() == iterableType ? type
                     : type.concreteSuperType(iterableType.asParameterizedType());
             if (asIterable == null || asIterable.parameters().size() != 1) return null;
             ParameterizedType element = asIterable.parameters().getFirst();
             return element == null || element.wildcard() != null ? null : element;
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             return null;
         }
     }
@@ -410,7 +411,7 @@ final class KotlinNullability {
             // an inherited member (ArrayList<E> calling Collection.add(E)): the receiver as its declaring type
             try {
                 receiver = receiver.concreteSuperType(declaring.asParameterizedType());
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 return declared;
             }
             if (receiver == null || receiver.typeInfo() != declaring) return declared;

@@ -338,4 +338,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         String kotlin = kotlin(CAST_INTO_TYPE_VARIABLE);
         contains(kotlin, "as Class<G>");
     }
+
+    @Language("java")
+    private static final String WIDENED_ARRAY_ELEMENTS = """
+            package a;
+            class W {
+                static double[] d() { return new double[]{1, 2}; }
+                static long[] l(int x) { long[] l = {1, x}; return l; }
+                static double[][] dd() { return new double[][]{{1}, {2.5, 3}}; }
+                static float[] f(char c) { return new float[]{c, 1}; }
+            }
+            """;
+
+    /** Java widens an array initializer's elements to the element type, Kotlin does not: doubleArrayOf(1, 2) fails. */
+    @Test
+    public void widenedArrayElements() {
+        String kotlin = kotlin(WIDENED_ARRAY_ELEMENTS);
+        contains(kotlin, "doubleArrayOf(1.toDouble(), 2.toDouble())");
+        contains(kotlin, "longArrayOf(1, x.toLong())");
+        contains(kotlin, "doubleArrayOf(2.5, 3.toDouble())");
+        contains(kotlin, "floatArrayOf(c.code.toFloat(), 1.toFloat())");
+    }
 }

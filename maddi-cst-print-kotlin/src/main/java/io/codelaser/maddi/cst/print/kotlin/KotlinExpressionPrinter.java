@@ -1444,8 +1444,10 @@ public class KotlinExpressionPrinter {
                 ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                 : ai.expressions().stream()
                 .map(x -> x instanceof ArrayInitializer nested ? arrayInitializer(nested, element, q)
-                        // an element into a non-null element type is asserted, as a write a[i] = x is
-                        : KotlinNullability.toTarget(x, element, true, print(x, q), q))
+                        // an element into a non-null element type is asserted, as a write a[i] = x is; and widened
+                        // to it, as Java does implicitly: double[] d = {1, 2} is doubleArrayOf(1.0, 2.0)
+                        : KotlinNullability.toTarget(x, element, true,
+                                element == null ? print(x, q) : widened(x, element, q), q))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
         return new OutputBuilderImpl().add(new TextImpl(factory)).add(args);
