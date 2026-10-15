@@ -28,10 +28,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The analysis's facts, by override family: a method's result is nullable where a method of the program overriding
- * it may return null, as C# lets an override narrow {@code T?} to {@code T}, not widen {@code T} to {@code T?} (CS8764,
- * CS8766); a parameter is nullable where the method it overrides has it nullable, the other way around (CS8765,
- * CS8767). A call through the base reaches the override. The analysis decides each method alone.
+ * The analysis's facts, with a method's result nullable where a method of the program overriding it may return null:
+ * C# lets an override narrow {@code T?} to {@code T}, not widen {@code T} to {@code T?} (CS8764, CS8766), and a call
+ * through the base reaches the override. The analysis decides each method alone; the printer, its override family.
  */
 final class FamilyFacts extends ForwardingNullabilityFacts implements CSharpFacts {
 
@@ -54,7 +53,7 @@ final class FamilyFacts extends ForwardingNullabilityFacts implements CSharpFact
                 m.overrides().stream().filter(o -> o != m).forEach(overridden::add);
             }
         }
-        return new FamilyFacts(facts, overridden);
+        return overridden.isEmpty() ? facts : new FamilyFacts(facts, overridden);
     }
 
     @Override
@@ -79,22 +78,9 @@ final class FamilyFacts extends ForwardingNullabilityFacts implements CSharpFact
         return facts.nullable(field);
     }
 
-    /**
-     * Nullable where the method it overrides or implements has it nullable: an override may widen a parameter's T to
-     * T?, not narrow T? to T (CS8765, CS8767), and a call through the base may pass the null.
-     */
     @Override
     public NullableState nullable(ParameterInfo parameter) {
-        NullableState own = facts.nullable(parameter);
-        if (own == NullableState.NULLABLE) return own;
-        MethodInfo method = parameter.methodInfo();
-        if (method == null || method.isStatic() || method.isConstructor()) return own;
-        int index = parameter.index();
-        for (MethodInfo o : method.overrides()) {
-            if (o == method || index >= o.parameters().size()) continue;
-            if (facts.nullable(o.parameters().get(index)) == NullableState.NULLABLE) return NullableState.NULLABLE;
-        }
-        return own;
+        return facts.nullable(parameter);
     }
 
     @Override

@@ -157,9 +157,7 @@ implements the interface.
 - A method's result is nullable where an override's may be null: C# lets an override narrow `T?` to `T`, not widen
   `T` to `T?` (CS8764, CS8766), and a call through the base reaches the override. The analysis decides each method
   alone; the printer takes the override family (`FamilyFacts`): `protected internal abstract S? CreateUpcoming();`,
-  and a call where null may not go is asserted, `CreateUpcoming()!`. A parameter, the other way around, is nullable
-  where the method it overrides or implements has it nullable (CS8765, CS8767): `void On(string? @event)` in every
-  implementation of the interface's, its lambda class too, `Lambda(Action<string?> f)`.
+  and a call where null may not go is asserted, `CreateUpcoming()!`.
 - An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
   Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
   `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it
