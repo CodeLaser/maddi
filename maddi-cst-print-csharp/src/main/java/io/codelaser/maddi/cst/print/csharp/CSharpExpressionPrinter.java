@@ -1137,6 +1137,7 @@ public final class CSharpExpressionPrinter {
         return ai.expressions().stream().map(x -> x instanceof ArrayInitializer nested
                 ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
                         .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
+                : unboxedValue(x) ? unboxCast(CSharpTypeName.argument(x.parameterizedType(), q), x, q)
                 : CSharpNullability.intoElement(x, element, print(x, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
@@ -1416,6 +1417,11 @@ public final class CSharpExpressionPrinter {
         OutputBuilder increment = Emission.increment(a, target);
         if (increment != null) return increment;
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
+        if (a.assignmentOperator() == null && a.variableTarget() instanceof DependentVariable && unboxedValue(a.value())) {
+            // an array's element is the enum's or the struct's value type, decimal[]: the X? as its value
+            OutputBuilder value = unboxCast(CSharpTypeName.argument(a.value().parameterizedType(), q), a.value(), q);
+            return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
+        }
         OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
                 ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
         if (a.assignmentOperator() == null) value = CSharpNullability.intoVariable(a.value(), a.variableTarget(), value);

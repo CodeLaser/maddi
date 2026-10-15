@@ -516,9 +516,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         // a method that is a property is implemented as one
         String property = CSharpContext.program().computedProperty(sam);
         String member = property != null ? property : CSharpNames.method(sam) + "(" + parameters + ")";
+        // the delegate's type arguments are value types: a Kind? or an int? parameter goes in as its value
+        List<String> forwarded = IntStream.range(0, names.size())
+                .mapToObj(i -> CSharpTypeName.valueReference(samParameters.get(i))
+                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) : names.get(i)).toList();
         return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
                 + " { public " + CSharpTypeName.of(samReturn, q) + " " + member + " => " + f + "("
-                + String.join(", ", names) + "); }"));
+                + String.join(", ", forwarded) + "); }"));
     }
 
     /** The record's canonical constructor, compact or not, when written; null when C#'s positional one serves. */

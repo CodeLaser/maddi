@@ -306,6 +306,16 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     @Override public BigDecimal get() { return a.add(b); }
                 }
                 static BigDecimal[] zeros(int n) { return new BigDecimal[n]; }
+                static BigDecimal[] scores(BigDecimal hard, BigDecimal soft) {
+                    BigDecimal[] scores = new BigDecimal[] { hard, BigDecimal.ZERO };
+                    scores[1] = soft;
+                    return scores;
+                }
+                interface Constructor { String build(Kind kind, Integer weight); }
+                static class Named implements Constructor {
+                    public String build(Kind kind, Integer weight) { return "named"; }
+                }
+                static Constructor anonymous() { return (kind, weight) -> "lambda"; }
                 static BinaryOperator<BigDecimal> adder() { return BigDecimal::add; }
                 static Kind pick(Node node, boolean join) {
                     var kind = Kind.FILTER;
@@ -320,6 +330,11 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     public void valueUses() {
         String cs = translate("Uses", VALUE_USES);
         contains(cs, "internal static decimal[] Zeros(int n) => new decimal[n];");
+        // an array's element is the value type itself
+        contains(cs, "decimal[] scores = new decimal[] { (decimal) hard, 0m };");
+        contains(cs, "scores[1] = (decimal) soft;");
+        // a functional interface's lambda class passes its Kind? and int? to the delegate's Kind and int
+        contains(cs, "public string Build(Kind? kind, int? weight) => f((Kind) kind, (int) weight);");
         contains(cs, "Adder() => (decimal p0, decimal p1) => p0 + p1;");
         // Java's var is the reference, a Kind? that a later assignment fits
         contains(cs, "Kind? kind = Kind.Filter;");
