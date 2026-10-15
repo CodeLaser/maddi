@@ -38,14 +38,17 @@ import java.util.function.BiConsumer;
  * in sight: those of a private field or a closed method in its compilation unit, those of any member of a type in the
  * {@link KotlinWorld} (the code translated together) in the world's types that mention it.
  * <ul>
- *   <li>a collection field the analysis proves structurally unmodified ({@link FieldInfo#isStructurallyUnmodified()})
- *   is a {@code List} when each read of it is the receiver of a call that is no mutator, the collection of a
+ *   <li>a collection field the analysis proves structurally unmodified ({@link FieldInfo#isStructurallyUnmodified()}),
+ *   or one only ever given immutable values ({@code List.copyOf(x)}, maddi#141),
+ *   is a {@code List} when each read of it is the receiver of a call that adds and removes nothing (the stored
+ *   verdict, or the library's {@code @NotModified}), the collection of a
  *   for-each, an operand of {@code ==} or a string concatenation, an argument to a parameter that takes a read-only
  *   collection, the value assigned to another read-only field, or the value returned by a read-only method.
  *   Assignments to it are no reads: a {@code MutableList} is a {@code List}. A call the analysis proves
  *   {@code @Identity} ({@code ensureNotNull(builder.variables, …)}) carries the field's value: its result is judged
  *   where it is used, as a read of the field;</li>
- *   <li>a method that overrides none returns a {@code List} when each of its {@code return}s returns such a field,
+ *   <li>a method that overrides none returns a {@code List} when each of its {@code return}s returns such a field
+ *   or an immutable value,
  *   and each call of it is read as the field is (an override may still return a {@code MutableList}: Kotlin's
  *   results are covariant). A caller that changed the result would have changed the field, which then is not
  *   structurally unmodified.</li>
@@ -57,11 +60,6 @@ final class KotlinReadOnly {
 
     private static final ThreadLocal<Set<Object>> IN_PROGRESS =
             ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
-
-    /** What Kotlin's read-only collection interfaces do not have. */
-    private static final Set<String> MUTATORS = Set.of("add", "addAll", "addFirst", "addLast", "clear", "compute",
-            "computeIfAbsent", "computeIfPresent", "merge", "put", "putAll", "putIfAbsent", "remove", "removeAll",
-            "removeFirst", "removeIf", "removeLast", "replace", "replaceAll", "retainAll", "set", "sort");
 
     private KotlinReadOnly() {
     }
@@ -76,11 +74,124 @@ final class KotlinReadOnly {
         if (!KotlinContext.translatingJava() || fieldInfo.isSynthetic() || fieldInfo.access() == null
             || !fieldInfo.access().isPrivate() && !inWorld(fieldInfo.owner())
             || KotlinTypePrinter.fromKotlinSource(fieldInfo.owner())
-            || !isCollection(KotlinNullability.fieldType(fieldInfo)) || !KotlinContext.options().modification().structurallyUnmodified(fieldInfo)
-            || inPrimaryConstructor(fieldInfo)) {
+            || !isCollection(KotlinNullability.fieldType(fieldInfo)) || inPrimaryConstructor(fieldInfo)) {
             return false;
         }
+        boolean unmodified = KotlinContext.options().modification().structurallyUnmodified(fieldInfo);
+        if (!unmodified && !bornImmutable(fieldInfo)) return false;
         return decided(fieldInfo, () -> onlyRead(fieldInfo, fieldInfo.owner()));
+    }
+
+    /**
+     * Every value the field is given is an immutable value, or null (#141): {@code this.items = List.copyOf(x)}.
+     * Nothing can change it then, whatever the analysis concluded about its uses; the reads still decide.
+     */
+    private static boolean bornImmutable(FieldInfo fieldInfo) {
+        List<Expression> values = new java.util.ArrayList<>();
+        if (fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty()) values.add(fieldInfo.initializer());
+        KotlinWorld world = KotlinContext.options().world();
+        List<TypeInfo> writers = world.contains(fieldInfo.owner().primaryType()) ? world.mentioning(fieldInfo)
+                : List.of(fieldInfo.owner().primaryType());
+        writers.forEach(writer -> forEachBody(writer, (method, body) -> body.visit((Element e) -> {
+            if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr
+                && fr.fieldInfo() == fieldInfo) {
+                values.add(a.value());
+            }
+            return true;
+        })));
+        return !values.isEmpty() && values.stream().allMatch(KotlinReadOnly::immutableValue);
+    }
+
+    // the values that land in a read-only position, for the primary type being printed: computed once per type
+    private static final ThreadLocal<Object[]> BOUND = new ThreadLocal<>();
+
+    /**
+     * {@code e} lands where a read-only collection is declared: the initializer of, or a value assigned to, a
+     * read-only field; a value a read-only method returns; an argument to a collection parameter that takes a
+     * read-only one (not a type variable's, whose type comes back elsewhere). Through the branches of a
+     * conditional and the right of an elvis. There {@code List.of(…)} may print as {@code listOf(…)} (#141).
+     */
+    static boolean boundToReadOnly(Expression e) {
+        TypeInfo current = KotlinContext.currentType();
+        if (current == null || !KotlinContext.translatingJava()) return false;
+        TypeInfo primary = current.primaryType();
+        Object[] cached = BOUND.get();
+        if (cached == null || cached[0] != primary) {
+            cached = new Object[]{primary, boundValues(primary)};
+            BOUND.set(cached);
+        }
+        @SuppressWarnings("unchecked")
+        Set<Expression> bound = (Set<Expression>) cached[1];
+        return bound.contains(unwrapped(e));
+    }
+
+    private static Set<Expression> boundValues(TypeInfo primary) {
+        Set<Expression> bound = Collections.newSetFromMap(new IdentityHashMap<>());
+        forEachType(primary, type -> {
+            for (FieldInfo f : type.fields()) {
+                if (f.initializer() != null && !f.initializer().isEmpty() && field(f)) addValue(bound, f.initializer());
+            }
+        });
+        forEachBody(primary, (method, body) -> {
+            boolean readOnlyResult = method != null && body == method.methodBody() && returns(method);
+            body.visit((Element e) -> {
+                if (e instanceof Lambda) return false; // its returns are the lambda's
+                switch (e) {
+                    case Assignment a when a.variableTarget() instanceof FieldReference fr && field(fr.fieldInfo()) ->
+                            addValue(bound, a.value());
+                    case ReturnStatement rs when readOnlyResult && rs.expression() != null -> addValue(bound, rs.expression());
+                    case MethodCall mc when mc.methodInfo() != null -> arguments(bound, mc.parameterExpressions(), mc.methodInfo());
+                    case ConstructorCall cc when cc.constructor() != null ->
+                            arguments(bound, cc.parameterExpressions(), cc.constructor());
+                    default -> {
+                    }
+                }
+                return true;
+            });
+        });
+        return bound;
+    }
+
+    private static void arguments(Set<Expression> bound, List<Expression> args, MethodInfo callee) {
+        for (int i = 0; i < args.size() && i < callee.parameters().size(); i++) {
+            io.codelaser.maddi.cst.api.info.ParameterInfo p = callee.parameters().get(i);
+            if (p.isVarArgs() || p.parameterizedType().typeParameter() != null
+                || !isCollection(p.parameterizedType())) {
+                continue;
+            }
+            if (KotlinMethodPrinter.acceptsReadOnly(callee, i)) addValue(bound, args.get(i));
+        }
+    }
+
+    private static void addValue(Set<Expression> bound, Expression value) {
+        Expression u = unwrapped(value);
+        bound.add(u);
+        if (u instanceof InlineConditional ic) {
+            KotlinNullCheckShapes.Elvis elvis = KotlinNullCheckShapes.elvis(ic);
+            if (elvis != null) {
+                addValue(bound, elvis.otherwise());
+            } else {
+                addValue(bound, ic.ifTrue());
+                addValue(bound, ic.ifFalse());
+            }
+        }
+    }
+
+    private static void forEachType(TypeInfo typeInfo, java.util.function.Consumer<TypeInfo> consumer) {
+        consumer.accept(typeInfo);
+        typeInfo.subTypes().forEach(t -> forEachType(t, consumer));
+    }
+
+    /** An immutable value (at least immutable-HC), or null: a call whose result is one ({@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#immutableResult}). */
+    static boolean immutableValue(Expression e) {
+        Expression u = unwrapped(e);
+        return switch (u) {
+            case NullConstant nc -> true;
+            case MethodCall mc -> mc.methodInfo() != null
+                                  && KotlinContext.options().modification().immutableResult(mc.methodInfo());
+            case InlineConditional ic -> immutableValue(ic.ifTrue()) && immutableValue(ic.ifFalse());
+            default -> false;
+        };
     }
 
     static boolean returns(MethodInfo methodInfo) {
@@ -101,8 +212,9 @@ final class KotlinReadOnly {
         return decided(methodInfo, () -> {
             List<ReturnStatement> returns = returnStatements(methodInfo);
             return !returns.isEmpty() && returns.stream().allMatch(rs -> rs.expression() != null
-                    && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve
-                    && ve.variable() instanceof FieldReference fr && field(fr.fieldInfo()))
+                    && (KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve
+                        && ve.variable() instanceof FieldReference fr && field(fr.fieldInfo())
+                        || immutableValue(rs.expression())))
                    && onlyRead(methodInfo, methodInfo.typeInfo());
         });
     }
@@ -178,8 +290,10 @@ final class KotlinReadOnly {
                         }
                     }
                     case MethodCall mc -> {
-                        // a mutator on a field the analysis did not see written (a type of the world reaches it)
-                        if (mc.object() != null && (mc.methodInfo() == null || !MUTATORS.contains(mc.methodInfo().name()))) {
+                        // what a read-only type allows: a call the analysis, or the library's contract, says adds
+                        // and removes nothing (#141; a list of mutator names before)
+                        if (mc.object() != null && mc.methodInfo() != null
+                            && KotlinContext.options().modification().structurallyNonModifying(mc.methodInfo())) {
                             accept(carriers, mc.object(), accepted);
                         }
                         if (identity(mc) && carriers.contains(mc)) {

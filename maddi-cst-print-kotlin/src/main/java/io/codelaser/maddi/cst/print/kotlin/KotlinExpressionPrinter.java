@@ -86,6 +86,7 @@ public class KotlinExpressionPrinter {
             case MethodCall mc when KotlinSmartCasts.copy(mc) != null ->
                     new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(KotlinSmartCasts.copy(mc).name())));
             case MethodCall mc when equality(mc) != null -> equality(equality(mc), "==", q);
+            case MethodCall mc when KotlinCollectionFactories.applies(mc) -> KotlinCollectionFactories.print(mc, q);
             case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
