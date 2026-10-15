@@ -522,9 +522,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String property = CSharpContext.program().computedProperty(sam);
         String member = property != null ? property : CSharpNames.method(sam) + "(" + parameters + ")";
         // the delegate's type arguments are value types: a Kind? or an int? parameter goes in as its value
+        // with the analysis, ! as on any unboxing cast: C# thinks a Kind? may be null (CS8629), as Java may pass one
+        String forgiven = CSharpContext.program().facts().nullabilityAnalysed() ? "!" : "";
         List<String> forwarded = IntStream.range(0, names.size())
                 .mapToObj(i -> CSharpTypeName.valueReference(samParameters.get(i))
-                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) : names.get(i)).toList();
+                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
         return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
                 + " { public " + CSharpTypeName.of(samReturn, q) + " " + member + " => " + f + "("
                 + String.join(", ", forwarded) + "); }"));

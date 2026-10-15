@@ -162,6 +162,8 @@ implements the interface.
 
 ### Access
 
+  So is a `decimal?` or a `Kind?` boxed into a reference parameter, `Validate(total!)` of an `IConvertible` (CS8604),
+  and a functional interface's lambda class passing one to its delegate, `f((Kind) kind!)`.
 - **Access.** Every declaration states its access, except the public members of an interface, where C# writes none.
   - Package access becomes `internal`, because a translated code base is one assembly.
   - `protected` becomes `protected internal`, because Java's `protected` also grants package access.

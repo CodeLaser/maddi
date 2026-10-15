@@ -104,7 +104,14 @@ final class CSharpNullability {
         ParameterizedType type = parameter.parameterizedType();
         boolean open = !nullConstant && !elementOrKey && CSharpTypeName.unconstrained(value.parameterizedType())
                        && type.arrays() == 0 && !type.isTypeParameter() && !type.isPrimitiveExcludingVoid();
-        if (nullConstant ? !elementOrKey : !mayBeNull(value) && !open) return printed;
+        // a decimal? into an IConvertible or an object boxes what C# thinks may be null, whatever the analysis says
+        // of its declaration (as an unboxing cast's, unboxed): only a use-site fact makes it non-null
+        Expression inner = CSharpExpressionPrinter.unwrap(value);
+        boolean boxing = !nullConstant && CSharpExpressionPrinter.unboxed(inner) && type.arrays() == 0
+                         && !CSharpTypeName.valueReference(type) && !type.isPrimitiveExcludingVoid()
+                         && !type.isTypeParameter()
+                         && !(inner instanceof VariableExpression ve && knownNonNull(ve.variable()));
+        if (nullConstant ? !elementOrKey : !mayBeNull(value) && !open && !boxing) return printed;
         ParameterizedType valueType = value.parameterizedType();
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
         boolean unboxed = CSharpTypeName.valueReference(valueType)

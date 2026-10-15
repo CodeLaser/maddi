@@ -382,6 +382,38 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String VALUE_NULLS = """
+            package org.example.values;
+            import java.math.BigDecimal;
+            class Weights {
+                enum Kind { PENALTY, REWARD }
+                interface Builder { String build(Kind kind, BigDecimal weight); }
+                static class Named implements Builder {
+                    public String build(Kind kind, BigDecimal weight) { return "named"; }
+                }
+                static void validate(Number total) { }
+                static void penalize(BigDecimal total) { validate(total); }
+            }
+            """;
+
+    /**
+     * A decimal? or a Kind? is what C# takes to be possibly null whatever the analysis says of its declaration: into
+     * an object or an IConvertible, and into a lambda class's delegate, it is asserted, as an int? is.
+     */
+    @Test
+    public void valueNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Weights", VALUE_NULLS);
+        contains(cs, "internal static void Penalize(decimal? total) { Validate(total!); }");
+        contains(cs, "public string Build(Kind? kind, decimal? weight) => f((Kind) kind!, (decimal) weight!);");
+    }
+
+    @Language("java")
     private static final String OPEN_NULLS = """
             package org.example.open;
             import jakarta.xml.bind.Marshaller;
