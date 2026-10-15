@@ -39,7 +39,7 @@ import java.util.function.BiConsumer;
  * {@link KotlinWorld} (the code translated together) in the world's types that mention it.
  * <ul>
  *   <li>a collection field the analysis proves structurally unmodified ({@link FieldInfo#isStructurallyUnmodified()}),
- *   or one only ever given immutable containers ({@code List.copyOf(x)}, maddi#141),
+ *   or one only ever given immutable values ({@code List.copyOf(x)}, maddi#141),
  *   is a {@code List} when each read of it is the receiver of a call that adds and removes nothing (the stored
  *   verdict, or the library's {@code @NotModified}), the collection of a
  *   for-each, an operand of {@code ==} or a string concatenation, an argument to a parameter that takes a read-only
@@ -48,7 +48,7 @@ import java.util.function.BiConsumer;
  *   {@code @Identity} ({@code ensureNotNull(builder.variables, …)}) carries the field's value: its result is judged
  *   where it is used, as a read of the field;</li>
  *   <li>a method that overrides none returns a {@code List} when each of its {@code return}s returns such a field
- *   or an immutable container,
+ *   or an immutable value,
  *   and each call of it is read as the field is (an override may still return a {@code MutableList}: Kotlin's
  *   results are covariant). A caller that changed the result would have changed the field, which then is not
  *   structurally unmodified.</li>
@@ -83,7 +83,7 @@ final class KotlinReadOnly {
     }
 
     /**
-     * Every value the field is given is an immutable container, or null (#141): {@code this.items = List.copyOf(x)}.
+     * Every value the field is given is an immutable value, or null (#141): {@code this.items = List.copyOf(x)}.
      * Nothing can change it then, whatever the analysis concluded about its uses; the reads still decide.
      */
     private static boolean bornImmutable(FieldInfo fieldInfo) {
@@ -182,13 +182,13 @@ final class KotlinReadOnly {
         typeInfo.subTypes().forEach(t -> forEachType(t, consumer));
     }
 
-    /** An immutable container, or null: a call whose result is one ({@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#immutableContainer}). */
+    /** An immutable value (at least immutable-HC), or null: a call whose result is one ({@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#immutableResult}). */
     static boolean immutableValue(Expression e) {
         Expression u = unwrapped(e);
         return switch (u) {
             case NullConstant nc -> true;
             case MethodCall mc -> mc.methodInfo() != null
-                                  && KotlinContext.options().modification().immutableContainer(mc.methodInfo());
+                                  && KotlinContext.options().modification().immutableResult(mc.methodInfo());
             case InlineConditional ic -> immutableValue(ic.ifTrue()) && immutableValue(ic.ifFalse());
             default -> false;
         };

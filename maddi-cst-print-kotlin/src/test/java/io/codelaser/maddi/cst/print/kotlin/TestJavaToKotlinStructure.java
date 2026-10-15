@@ -1212,7 +1212,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     /**
-     * maddi#141: a field or result only ever given an immutable container is read-only without the analysis'
+     * maddi#141: a field or result only ever given an immutable value is read-only without the analysis'
      * structural verdict, and List.of prints as listOf where it lands read-only. The archive's
      * {@code @ImmutableContainer} on List.of, copyOf, Set.of and Map.of is set here as the stored property it becomes.
      */
@@ -1237,7 +1237,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
         // copyOf keeps Java's call: listOf has no copying form
         contains(kotlin, "this.names = java.util.List.copyOf(names)");
-        // a new ArrayList is no immutable container, and nothing proves it unmodified
+        // a new ArrayList is no immutable value, and nothing proves it unmodified
         contains(kotlin, "private val grown: MutableList<String>");
     }
 }

@@ -62,7 +62,7 @@ public interface ModificationFacts {
         (Guava's ImmutableList) does make the claim: the value is one.
          */
         @Override
-        public boolean immutableContainer(MethodInfo methodInfo) {
+        public boolean immutableResult(MethodInfo methodInfo) {
             if (methodInfo.isConstructor() || methodInfo.isIdentity()) return false;
             ParameterizedType returnType = methodInfo.returnType();
             if (returnType == null || returnType.typeParameter() != null || returnType.typeInfo() == null) return false;
@@ -100,12 +100,14 @@ public interface ModificationFacts {
     }
 
     /**
-     * A call of the method returns an immutable container ({@code @ImmutableContainer}: {@code List.of},
-     * {@code List.copyOf}, Guava's {@code ImmutableList.of}), so whatever holds only such values can be typed
-     * read-only (CodeLaser/maddi#141). Read from the stored properties, so that a better annotation in the archive
+     * A call of the method returns an object that is at least immutable-HC ({@code IMMUTABLE_METHOD}, from the
+     * archive's {@code @ImmutableContainer} on {@code List.of} and {@code List.copyOf}, or a type that is one, as
+     * Guava's {@code ImmutableList}), so whatever holds only such values can be typed read-only (CodeLaser/maddi#141).
+     * The immutability of the result only: the container aspect ({@code @Container}, no method modifies its
+     * parameters) is a separate property, and not read here. Read from the stored properties, so that a better annotation in the archive
      * reaches the printer without a change to it.
      */
-    default boolean immutableContainer(MethodInfo methodInfo) {
+    default boolean immutableResult(MethodInfo methodInfo) {
         return false;
     }
 }
