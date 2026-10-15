@@ -141,9 +141,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
             if (record && canonical == null) {
                 FieldPrinterFactory componentPrinter = CSharpFieldPrinter::new;
-                out.add(components.stream().map(f -> componentPrinter.create(f, formatter2).print(q, true))
+                out.add(CSharpTypeName.inHeader(typeInfo, () -> components.stream()
+                        .map(f -> componentPrinter.create(f, formatter2).print(q, true))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()))));
             }
             List<String> supers = new ArrayList<>(superTypes(q));
             // the wildcard interface of a self-bounded type (CSharpWildcardInterfaces)

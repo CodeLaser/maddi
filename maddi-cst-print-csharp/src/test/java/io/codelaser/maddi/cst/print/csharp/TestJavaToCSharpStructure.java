@@ -261,6 +261,30 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String STATIC_SCOPES = """
+            package org.example.scopes;
+            public abstract class Move<T> {
+                protected static int size(Object o) { return 1; }
+                abstract T value();
+                public record Id(long key, Kind kind) {
+                    public enum Kind { NODE, INPUT }
+                    Id(long key) { this(key, Kind.NODE); }
+                }
+            }
+            """;
+
+    /**
+     * A generic class's protected static is its companion's, a static class, which has no protected members: internal.
+     * A positional record's parameter list does not see the record's nested types: qualified.
+     */
+    @Test
+    public void staticScopes() {
+        String cs = translate("Move", STATIC_SCOPES);
+        contains(cs, "public static class Move { internal static int Size(object o) => 1; }");
+        contains(cs, "public sealed record Id(long Key, Id.Kind? kind) {");
+    }
+
+    @Language("java")
     private static final String EXPRESSIONS = """
             package org.example.expr;
             class Expressions {

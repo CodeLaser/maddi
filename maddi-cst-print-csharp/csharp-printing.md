@@ -264,7 +264,8 @@ implements the interface.
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
   `ordinal()` a cast to `int`. A constant with a body, an anonymous subclass of its enum, is not translated
   (`ANONYMOUS_CLASS`). A switch on such a class is under Switch statements.
-- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. One with
+- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. Its
+  parameter list does not see the record's nested types, which are qualified there: `record Id(long Key, Id.Kind? kind)`. One with
   a canonical or compact constructor, which a positional record cannot have, declares get-only properties and that
   constructor. Another constructor with as many parameters as components would clash with the positional one and is
   left out (`RECORD_CONSTRUCTOR`). An accessor that implements an interface's method, `T response()`, is the property:
@@ -318,7 +319,8 @@ implements the interface.
   parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#
   idiom of `Tuple` and `Tuple<T>`: `public static class Response { public static Response<T> From<T>(T content)
   … }`, which `Response.From(x)` calls as Java does. The generic type's own code qualifies them (`Response.Count()`);
-  the private members either side reaches become `internal`, as the two are siblings. A static member whose code
+  the private members either side reaches become `internal`, as the two are siblings, and so do the protected ones,
+  which a static class cannot have (CS1057) and Java's subclasses reach. A static member whose code
   declares an anonymous or local class keeps the type without a companion.
 
 ### Generics
