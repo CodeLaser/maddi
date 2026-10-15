@@ -306,15 +306,47 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * which Kotlin's read-only {@code List<T>} allows too): Kotlin's read-only interface, covariant where MutableList
      * is invariant. {@code changeEverywhere(…, List<Statement> statements)} only iterates, and is called with a
      * {@code List<Statement?>} and with a {@code MutableList<Statement>}; only {@code List<Statement?>} takes both.
-     * Not without the analysis (unmodified is then false), and only for a method no other can override and that
-     * overrides none: Kotlin wants an override's parameter types exactly the overridden member's.
+     * Not without the analysis (unmodified is then false). For a method no other can override and that overrides
+     * none, its own verdict; for any other, its override family's in the {@link KotlinWorld} (maddi-mod#25): Kotlin
+     * wants an override's parameter types exactly the overridden member's.
      */
     private static boolean readOnlyParameter(ParameterInfo pi) {
         MethodInfo m = pi.methodInfo();
-        if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
+        if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
-        if (!closed || !KotlinContext.options().modification().structurallyUnmodified(pi)) return false;
+        if (closed && m.overrides().isEmpty()) return readOnlyIn(pi);
+        // maddi-mod#25, the family rule: in the code translated together, the override family is complete, and the
+        // position is read-only for all of it when each member's parameter there is (Kotlin wants an override's
+        // parameter types exactly the overridden member's; callers pass a MutableList to a List either way)
+        java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+        if (family == null) return false;
+        KotlinWorld world = KotlinContext.options().world();
+        Boolean known = world.readOnly(pi);
+        if (known != null) return known;
+        // each member's own collection type there: an implementation of Handler<T>.handle(T t) as
+        // handle(List<X> xs) overrides it in a class that implements Handler<MutableList<X>>
+        boolean verdict = family.stream().allMatch(member -> member.parameters().size() > pi.index()
+                && !member.parameters().get(pi.index()).isVarArgs()
+                && member.parameters().get(pi.index()).parameterizedType().typeParameter() == null
+                && KotlinReadOnly.isCollection(member.parameters().get(pi.index()).parameterizedType())
+                && readOnlyIn(member.parameters().get(pi.index())));
+        if (READ_ONLY_IN_PROGRESS.get().isEmpty()) {
+            family.forEach(member -> world.readOnly(member.parameters().get(pi.index()), verdict));
+        }
+        return verdict;
+    }
+
+    /**
+     * One method's parameter: structurally unmodified, and only read in its body (a method without one, abstract, has
+     * the analysis' verdict folded over its implementations).
+     */
+    private static boolean readOnlyIn(ParameterInfo pi) {
+        if (!KotlinContext.options().modification().structurallyUnmodified(pi)) return false;
+        MethodInfo m = pi.methodInfo();
+        if (m.isAbstract() || m.methodBody() == null || m.methodBody().isEmpty() && m.typeInfo().isInterface()) {
+            return true;
+        }
         // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
         // is unmodified, and each one's other uses are checked where the cycle is entered
         java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();

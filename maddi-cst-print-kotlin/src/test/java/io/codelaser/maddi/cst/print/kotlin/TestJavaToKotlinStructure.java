@@ -1293,4 +1293,63 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "Collections.unmodifiableList(names)");
         contains(kotlin, "private val grown: MutableList<String>");
     }
+
+    @Language("java")
+    private static final String FAMILY = """
+            package a;
+            import java.util.*;
+            class Family {
+                interface Counter { int count(List<String> names); }
+                static class Plain implements Counter {
+                    public int count(List<String> names) { return names.size(); }
+                }
+                static class Twice extends Plain {
+                    @Override public int count(List<String> names) { return 2 * names.size(); }
+                }
+                interface Sink { void put(List<String> names); }
+                static class Filler implements Sink {
+                    public void put(List<String> names) { names.add("x"); }
+                }
+                static class Reader implements Sink {
+                    public void put(List<String> names) { System.out.println(names.size()); }
+                }
+                interface Viewer { int view(List<String> names); }
+                static Viewer viewer() { return names -> names.size(); }
+                static class Shown implements Viewer {
+                    public int view(List<String> names) { return names.size(); }
+                }
+            }
+            """;
+
+    /**
+     * maddi-mod#25, the family rule: in the code translated together an open method's collection parameter is
+     * read-only when it is in every member of its override family (Kotlin wants an override's parameter types exactly
+     * the overridden member's). One member that adds keeps the whole family mutable; so does a lambda implementing
+     * it, whose parameter Kotlin types from the interface.
+     */
+    @Test
+    public void familyRule() {
+        String world = kotlinInWorld(FAMILY, KotlinPrintOptions.DEFAULT, type -> {
+            type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p -> {
+                boolean adds = m.name().equals("put");
+                p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.from(!adds));
+            }));
+            type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
+        });
+        contains(world, "fun count(names: List<String>): Int");
+        contains(world, "override fun count(names: List<String>): Int = names.size");
+        contains(world, "override fun count(names: List<String>): Int = 2 * names.size");
+        contains(world, "fun put(names: MutableList<String>)");
+        contains(world, "fun view(names: MutableList<String>): Int");
+
+        String alone = kotlin(FAMILY.replace("class Family", "class Alone"), KotlinPrintOptions.DEFAULT, type -> {
+            type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p ->
+                    p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+            type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
+        });
+        // the printer alone sees no family: open methods keep Java's mutable type
+        contains(alone, "fun count(names: MutableList<String>): Int");
+    }
 }
