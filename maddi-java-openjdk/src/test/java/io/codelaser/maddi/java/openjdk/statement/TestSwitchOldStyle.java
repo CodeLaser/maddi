@@ -297,6 +297,41 @@ public class TestSwitchOldStyle extends CommonTest {
             }
             """;
 
+    @Language("java")
+    private static final String INPUT_MULTI_DECLARATION = """
+            package a.b;
+            class X {
+                int select(int index) {
+                    int r = 0;
+                    switch (index) {
+                        case -2:
+                            int a = 1, b = 2;
+                            r = a + b;
+                            break;
+                        case -1:
+                            return -1;
+                        default:
+                            r = 3;
+                    }
+                    return r;
+                }
+            }
+            """;
+
+    @DisplayName("a declaration of two variables in a case does not shift the later labels (CodeLaser/maddi#135)")
+    @Test
+    public void testMultiVariableDeclaration() {
+        TypeInfo typeInfo = scan("a.b.X", INPUT_MULTI_DECLARATION);
+        MethodInfo select = typeInfo.findUniqueMethod("select", 1);
+        SwitchStatementOldStyle sso = (SwitchStatementOldStyle) select.methodBody().statements().get(1);
+        // javac has two declarations for 'int a = 1, b = 2;', the block one LocalVariableCreation
+        assertEquals(5, sso.block().statements().size());
+        assertEquals(List.of(0, 3, 4), sso.switchLabels().stream()
+                .map(SwitchStatementOldStyle.SwitchLabel::startFromPosition).toList());
+        assertEquals("switch(index){case -2:int a=1,b=2;r=a+b;break;case -1:return -1;default:r=3;}",
+                sso.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+    }
+
     @DisplayName("visit() reaches the type pattern of an old-style switch label")
     @Test
     public void testPatternLabelIsVisited() {

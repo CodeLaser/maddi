@@ -1552,7 +1552,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         // comments found there are the statement's, and the block taking them too would print them twice
         List<Comment> comments = node instanceof JCTree.JCBlock ? commentsForNode(source) : List.of();
         return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
-                statementLabels.get(node), source, comments, variablesToAdd);
+                statementLabels.get(node), source, comments, null, variablesToAdd);
     }
 
     /**
@@ -1563,6 +1563,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
      *                 leading comment, and the block took it -- so the switch had none, and the comment then
      *                 vanished on output, the old-style switch printer not printing its block's comments. That
      *                 caller passes an empty list and the switch keeps its own; see TestCommentBeforeSwitch.
+     * @param positions null, or an array of {@code statements.size() + 1} filled with the position in the block of
+     *                  each javac statement, and then the block's size. Not the javac index: the declarators of
+     *                  {@code int a = 1, b = 2;} are two javac statements and one LocalVariableCreation. The
+     *                  old-style switch places its labels with these (CodeLaser/maddi#135).
      */
     private Block parseBlock(String blockIndex,
                              List<JCTree.JCStatement> statements,
@@ -1571,6 +1575,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                              String label,
                              Source source,
                              List<Comment> comments,
+                             int[] positions,
                              LocalVariable... variablesToAdd) {
         Map<String, Element> localVariableMap = elementStack.push();
         for (LocalVariable lv : variablesToAdd) {
@@ -1580,7 +1585,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
         blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
 
+        int k = 0;
         for (JCTree.JCStatement statement : statements) {
+            if (positions != null) positions[k++] = blockBuilders.getLast().blockBuilder.statements().size();
             if (statement instanceof JCTree.JCBlock subBlock) {
                 // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
                 Block parsedSub = parseBlock("0", subBlock, 0, true);
@@ -1592,6 +1599,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 scan(statement, null);
             }
         }
+        if (positions != null) positions[k] = blockBuilders.getLast().blockBuilder.statements().size();
 
         elementStack.pop();
 
@@ -1942,7 +1950,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .addSwitchEntries(switchEntries)
                     .build();
         } else {
-            List<SwitchStatementOldStyle.SwitchLabel> switchLabels = new ArrayList<>();
+            // a label's position is known only once the block is parsed: the declarators of 'int a = 1, b = 2;' are
+            // two javac statements and one LocalVariableCreation (CodeLaser/maddi#135)
+            record PendingLabel(Expression expression, int javacIndex, RecordPattern patternVariable,
+                                Expression whenExpression) {
+            }
+            List<PendingLabel> pendingLabels = new ArrayList<>();
             int statementCount = 0;
             List<JCTree.JCStatement> statementsToParse = new ArrayList<>();
             for (JCTree.JCCase jcCase : jcSwitch.cases) {
@@ -1976,17 +1989,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     scan(jcCase.getGuard(), null);
                     Expression whenExpression = currentExpression;
 
-                    SwitchStatementOldStyle.SwitchLabel switchLabel = runtime.newSwitchLabelOldStyle
-                            (expression, statementCount, patternVariable, whenExpression);
-                    switchLabels.add(switchLabel);
+                    pendingLabels.add(new PendingLabel(expression, statementCount, patternVariable, whenExpression));
                 }
                 statementsToParse.addAll(jcCase.stats);
                 statementCount += jcCase.stats.size();
             }
             // no comments for the synthesised block: at the switch's own source, the lookup would answer with the
             // SWITCH's leading comment, and then the switch has none -- see the parseBlock parameter's javadoc
+            int[] positions = new int[statementsToParse.size() + 1];
             Block block = parseBlock("0", statementsToParse, 0, false,
-                    null, sourceForNode(node), List.of());
+                    null, sourceForNode(node), List.of(), positions);
+            List<SwitchStatementOldStyle.SwitchLabel> switchLabels = pendingLabels.stream()
+                    .map(pl -> runtime.newSwitchLabelOldStyle(pl.expression, positions[pl.javacIndex],
+                            pl.patternVariable, pl.whenExpression))
+                    .toList();
             s = runtime.newSwitchStatementOldStyleBuilder()
                     .setLabel(statementLabels.get(node))
                     .setSelector(selector)
