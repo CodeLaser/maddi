@@ -533,7 +533,7 @@
  {"name": "MtoArray(46)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N(Q)"}},
  {"name": "MtoArray(47,java.util.function.IntFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":1,"independentMethod":[1,{"-1":1}],"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MtoList(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
+ {"name": "MtoList(48)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"finalizerMethod":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
 
 {"name": "Tjava.util.stream.StreamSupport", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "MdoubleStream(0,java.util.Spliterator.OfDouble,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
