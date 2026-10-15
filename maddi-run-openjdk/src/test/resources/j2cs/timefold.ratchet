@@ -111,9 +111,11 @@
 # 2026-10-15, maddi 7717d7f4b, f9973dec2, f355bb80b: record patterns as property patterns, a record's equals as
 # Equals(R? o) with its components' hash where it has no hashCode, and a class that implements a functional interface
 # C# has as a delegate is the delegate's method group where one is expected: 1086 -> 1110 compiling files, 2082 -> 1971 errors.
+# 2026-10-15, maddi 56b4ecf89: == on a type parameter as object.ReferenceEquals, a class's wildcard test of itself
+# with its own type parameters: 1110 -> 1127 compiling files, 1971 -> 1893 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1110
+compilingFiles	1127
 unmappedJdkUses	379
