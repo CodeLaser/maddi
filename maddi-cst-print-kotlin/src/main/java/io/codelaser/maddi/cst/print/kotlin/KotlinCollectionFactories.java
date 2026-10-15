@@ -48,8 +48,23 @@ final class KotlinCollectionFactories {
         return mc.methodInfo() != null && mc.methodInfo().isStatic() && "of".equals(mc.methodInfo().name())
                && FACTORIES.containsKey(mc.methodInfo().typeInfo().fullyQualifiedName())
                && (!"java.util.Map".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
-                   || mc.parameterExpressions().size() % 2 == 0)
+                   || mc.parameterExpressions().size() % 2 == 0
+                      && mc.parameterExpressions().stream().noneMatch(KotlinCollectionFactories::typedByTarget))
                && KotlinReadOnly.boundToReadOnly(mc);
+    }
+
+    /*
+    A value whose Kotlin type comes from what it initializes: an array or a generic construction, a lambda, a method
+    reference. In Map.of(k, v) the expected type reaches v; in mapOf(k to v) the pair stands between, and fernflower's
+    Map.of(EQ, new Integer[]{NE, null}) became an Array<Int> where the field holds Array<Int?>: kept as Java's call.
+     */
+    private static boolean typedByTarget(Expression e) {
+        Expression u = KotlinExpressionPrinter.unwrap(e);
+        return u instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall
+               || u instanceof io.codelaser.maddi.cst.api.expression.ArrayInitializer
+               || u instanceof io.codelaser.maddi.cst.api.expression.Lambda
+               || u instanceof io.codelaser.maddi.cst.api.expression.MethodReference
+               || u instanceof io.codelaser.maddi.cst.api.expression.InlineConditional;
     }
 
     static OutputBuilder print(MethodCall mc, Qualification q) {

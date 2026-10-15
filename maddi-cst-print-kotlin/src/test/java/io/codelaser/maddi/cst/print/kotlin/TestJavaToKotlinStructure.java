@@ -1202,12 +1202,13 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 private final List<String> names;
                 private final Map<String, Integer> counts = Map.of("a", 1, "b", 2);
                 private final Set<String> none = Set.of();
+                private final Map<Integer, Integer[]> pairs = Map.of(1, new Integer[]{2, null});
                 private final List<String> grown = new ArrayList<>();
                 Born(List<String> names) { this.names = List.copyOf(names); }
                 List<String> names() { return names; }
                 static List<String> letters() { return List.of("a", "b"); }
                 List<String> grown() { return grown; }
-                int size() { return names.size() + counts.size() + none.size(); }
+                int size() { return names.size() + counts.size() + none.size() + pairs.size(); }
             }
             """;
 
@@ -1235,6 +1236,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private val none: Set<String> = emptySet()");
         contains(kotlin, "fun names(): List<String> = names");
         contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
+        // in mapOf(k to v) the pair hides the field's type from the array: Java's call stays
+        contains(kotlin, "= java.util.Map.of(1, arrayOf(2, null))");
         // copyOf keeps Java's call: listOf has no copying form
         contains(kotlin, "this.names = java.util.List.copyOf(names)");
         // a new ArrayList is no immutable value, and nothing proves it unmodified
