@@ -107,7 +107,7 @@ final class CSharpNullability {
         if (nullConstant ? !elementOrKey : !mayBeNull(value) && !open) return printed;
         ParameterizedType valueType = value.parameterizedType();
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
-        boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
+        boolean unboxed = CSharpTypeName.valueReference(valueType)
                           && type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isTypeParameter());
         if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0 || CSharpTypeName.optional(type)
             || !elementOrKey && facts().nullable(parameter) == NullableState.NULLABLE) {
@@ -174,10 +174,10 @@ final class CSharpNullability {
         if (!facts().nullabilityAnalysed()) return printed;
         Expression x = CSharpExpressionPrinter.unwrap(operand);
         ParameterizedType type = x.parameterizedType();
-        boolean boxed = type != null && type.arrays() == 0 && type.isBoxedExcludingVoid();
+        boolean boxed = CSharpTypeName.valueReference(type);
         boolean mayBe = !boxed ? mayBeNull(x) : switch (x) {
             // a method of Integer is C#'s int?; one of a type parameter its argument, List<int>'s int, unless nullable
-            case MethodCall mc -> mc.methodInfo().returnType().isBoxedExcludingVoid() || mayBeNull(mc);
+            case MethodCall mc -> CSharpTypeName.valueReference(mc.methodInfo().returnType()) || mayBeNull(mc);
             case VariableExpression ve -> !knownNonNull(ve.variable());
             case Cast c -> !(CSharpExpressionPrinter.unwrap(c.expression()).parameterizedType() instanceof
                     ParameterizedType t && t.isPrimitiveExcludingVoid());
@@ -192,8 +192,8 @@ final class CSharpNullability {
 
     /** A primitive or a boxed type, C#'s value type or its {@code T?}: no {@code !} there. */
     private static boolean valueType(ParameterizedType type) {
-        return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid()
-                                                      || type.isBoxedExcludingVoid());
+        return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid())
+               || CSharpTypeName.valueReference(type);
     }
 
     /**
@@ -216,6 +216,12 @@ final class CSharpNullability {
 
     /** The receiver of {@code .member}, {@code [i]} or a {@code foreach}: with {@code !} when it may be null. */
     static OutputBuilder dereferenced(Expression e, Qualification q) {
+        // a member of TimeSpan, of an enum, of int is not one of its X?: of the value, cast as Java unboxes it
+        if (CSharpExpressionPrinter.unboxed(CSharpExpressionPrinter.unwrap(e))) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(CSharpExpressionPrinter.unboxCast(CSharpTypeName.argument(e.parameterizedType(), q), e, q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         OutputBuilder receiver = CSharpExpressionPrinter.receiver(e, q);
         if (!mayBeNull(e)) return receiver;
         return receiver.add(NULL_FORGIVING);

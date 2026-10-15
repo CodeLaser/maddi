@@ -126,7 +126,7 @@ public final class CSharpExpressionPrinter {
                     .add(text("Length"));
             case ArrayInitializer ai -> arrayInitializer(ai, ai.parameterizedType(), q);
             case ClassExpression ce -> text("typeof(" + typeOfArgument(ce.type(), q) + ")");
-            case TypeExpression te -> text(CSharpTypeName.of(te.parameterizedType(), q));
+            case TypeExpression te -> text(CSharpTypeName.inExpression(te.parameterizedType(), q));
             case StringConstant sc -> text(stringLiteral(sc.constant()));
             case CharConstant cc -> text(charLiteral(cc.constant()));
             case BooleanConstant bc -> text(Boolean.toString(bc.constant()));
@@ -206,7 +206,7 @@ public final class CSharpExpressionPrinter {
             }
             if (t.parentClass() != null && t.parentClass().typeInfo() != null) todo.push(t.parentClass().typeInfo());
         }
-        return CSharpTypeName.name(owner, q);
+        return CSharpTypeName.nameInExpression(owner, q);
     }
 
     // ---------------------------------------------------------------- variables
@@ -286,12 +286,12 @@ public final class CSharpExpressionPrinter {
             // a static import, or an interface's constant, which C# does not bring into the scope of the classes
             // implementing the interface
             if (field.isStatic() && !inScope(field.owner(), CSharpNames.inCompanion(field))) {
-                return text(CSharpTypeName.name(field.owner(), q) + "." + name);
+                return text(CSharpTypeName.nameInExpression(field.owner(), q) + "." + name);
             }
             return text(name);
         }
         if (fr.isStatic() && fr.scope() instanceof TypeExpression) {
-            return text(CSharpTypeName.name(field.owner(), q) + "." + name);
+            return text(CSharpTypeName.nameInExpression(field.owner(), q) + "." + name);
         }
         OutputBuilder scope = field.isStatic() ? receiver(fr.scope(), q) : CSharpNullability.dereferenced(fr.scope(), q);
         return new OutputBuilderImpl().add(scope).add(SymbolEnum.DOT).add(text(name));
@@ -413,7 +413,7 @@ public final class CSharpExpressionPrinter {
         Expression object = mc.object();
         Supplier<OutputBuilder> receiver = () -> object == null ? text("this")
                 : object instanceof VariableExpression ve && ve.variable() instanceof This t ? text(thisOrBase(t))
-                : object instanceof TypeExpression te ? text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
+                : object instanceof TypeExpression te ? text(CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q))
                 : mc.methodInfo().isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q);
         List<Expression> parameterExpressions = mc.parameterExpressions();
         List<Supplier<OutputBuilder>> args = IntStream.range(0, parameterExpressions.size())
@@ -474,7 +474,7 @@ public final class CSharpExpressionPrinter {
             if (t.writeSuper() || !mc.objectIsImplicit()) b.add(text(thisOrBase(t))).add(SymbolEnum.DOT);
         } else if (object instanceof TypeExpression te) {
             if (!mc.objectIsImplicit() || method.isStatic() && !inScope(method.typeInfo(), CSharpNames.inCompanion(method))) {
-                b.add(text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
+                b.add(text(CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
             b.add(method.isStatic() ? receiver(object, q) : CSharpNullability.dereferenced(object, q)).add(SymbolEnum.DOT);
@@ -735,7 +735,7 @@ public final class CSharpExpressionPrinter {
         }
         // new int[n][] is C#'s jagged array creation, as Java's
         OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE)
-                .add(text(CSharpTypeName.of(type.copyWithoutArrays(), q)));
+                .add(text(CSharpTypeName.element(type.copyWithoutArrays(), q)));
         for (int i = 0; i < type.arrays(); i++) {
             if (i < dimensions.size()) {
                 b.add(SymbolEnum.LEFT_BRACKET).add(print(dimensions.get(i), q)).add(SymbolEnum.RIGHT_BRACKET);
@@ -948,9 +948,9 @@ public final class CSharpExpressionPrinter {
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */
-    private static OutputBuilder unboxCast(String primitive, Expression value, Qualification q) {
+    static OutputBuilder unboxCast(String primitive, Expression value, Qualification q) {
         Expression inner = unwrap(value);
-        Expression operand = inner instanceof Cast cast && cast.parameterizedType().isBoxedExcludingVoid()
+        Expression operand = inner instanceof Cast cast && CSharpTypeName.valueReference(cast.parameterizedType())
                 ? cast.expression() : value;
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(primitive))
                 .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
@@ -968,6 +968,10 @@ public final class CSharpExpressionPrinter {
 
     /** The {@code i}-th argument of a call of {@code method}: converted to its parameter's type, asserted when null may not go there. */
     private static OutputBuilder argument(Expression value, MethodInfo method, int i, Qualification q) {
+        // Marshal(TimeSpan v) of an adapter's XmlAdapter<string, TimeSpan>: the value type
+        if (method != null && unboxedValue(value) && CSharpMethodPrinter.plainParameter(method, i)) {
+            return unboxCast(CSharpTypeName.argument(value.parameterizedType(), q), value, q);
+        }
         return CSharpNullability.intoParameter(value, method, i, converted(value, argumentTarget(value, method, i), q));
     }
 
@@ -1025,6 +1029,10 @@ public final class CSharpExpressionPrinter {
         if (elementOrKey && type.isJavaLangObject() && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
+        // a library's parameter of a struct, TimeSpan, is the value type
+        if (type != null && !type.isTypeParameter() && CSharpTypeName.valueReference(type) && unboxedValue(value)) {
+            return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
+        }
         // the method's own type parameter is whatever the template makes of it: Objects.requireNonNullElse(i, 0) is
         // i ?? 0, of the int? itself
         if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter() && unboxed(inner)) {
@@ -1054,15 +1062,40 @@ public final class CSharpExpressionPrinter {
     /** The value of a {@code return} in the current method or lambda. */
     static OutputBuilder returned(Expression value, Qualification q) {
         MethodInfo method = CSharpContext.currentMethod();
+        // a lambda's result is its delegate's type argument, an override of T Get()'s the class's: the value type
+        if (method != null && unboxedValue(value) && (method.typeInfo().isAnonymous()
+                                                       || CSharpMethodPrinter.plainResult(method))) {
+            return unboxCast(CSharpTypeName.argument(value.parameterizedType(), q), value, q);
+        }
         return CSharpNullability.intoReturn(value, converted(value, method == null ? null : method.returnType(), q));
     }
 
-    /** A value of a boxed type, C#'s nullable value type: a call or a variable, not a constant or an operation. */
-    private static boolean unboxed(Expression e) {
+    /**
+     * A value of a reference type that is C#'s nullable value type, an {@code Integer}'s {@code int?}
+     * ({@link CSharpTypeName#valueReference}): a call or a variable, not a constant or an operation.
+     */
+    static boolean unboxed(Expression e) {
         ParameterizedType type = e.parameterizedType();
-        return type != null && type.isBoxedExcludingVoid() && type.arrays() == 0
+        return CSharpTypeName.valueReference(type) && !plainValue(e)
                && (e instanceof MethodCall || e instanceof VariableExpression && !lambdaParameter(e) || e instanceof Cast
                    || e instanceof Assignment);
+    }
+
+    /**
+     * Not an {@code X?} in C#: an enum's constant, and a library's field or method of an enum or a struct, which C#
+     * declares with the value type ({@code TimeSpan.FromMilliseconds}); a library's {@code Integer} is C#'s
+     * {@code int?} still, and a type parameter's result its argument.
+     */
+    private static boolean plainValue(Expression e) {
+        if (e.parameterizedType().isBoxedExcludingVoid()) return false;
+        return switch (e) {
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
+                    CSharpNames.isEnumConstant(fr.fieldInfo()) || !CSharpNames.translated(fr.fieldInfo().owner())
+                                                                  && !fr.fieldInfo().type().isTypeParameter();
+            case MethodCall mc -> !CSharpNames.translated(mc.methodInfo().typeInfo())
+                                  && !mc.methodInfo().returnType().isTypeParameter();
+            default -> false;
+        };
     }
 
     /** A lambda's parameter has the delegate's type argument as its type, the value type itself: Func<int, int>. */
@@ -1104,6 +1137,7 @@ public final class CSharpExpressionPrinter {
         return ai.expressions().stream().map(x -> x instanceof ArrayInitializer nested
                 ? new OutputBuilderImpl().add(KeywordImpl.NEW).add(SpaceEnum.ONE).add(text(CSharpTypeName.of(element, q)))
                         .add(SpaceEnum.ONE).add(arrayInitializer(nested, element, q))
+                : unboxedValue(x) ? unboxCast(CSharpTypeName.argument(x.parameterizedType(), q), x, q)
                 : CSharpNullability.intoElement(x, element, print(x, q))).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA,
                 SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.defaultGuideGenerator()));
     }
@@ -1272,18 +1306,19 @@ public final class CSharpExpressionPrinter {
         List<String> parameters = IntStream.range(0, arity).mapToObj(i -> "p" + i).toList();
         String parameterList = arity == 1 ? parameters.getFirst() : String.join(", ", parameters);
         if (arity != 1) parameterList = "(" + parameterList + ")";
-        // String::length is (string p0) => p0.Length: typed, so that a generic method taking it infers its arguments
+        // String::length is (string p0) => p0.Length: typed, so that a generic method taking it infers its arguments;
+        // as the delegate's type arguments, BigDecimal::add's (decimal p0, decimal p1), not decimal?
         boolean unboundReceiver = scope instanceof TypeExpression && !method.isStatic() && !method.isConstructor();
         if (CSharpContext.program().isInvoke(method)) {
             // f::apply of a delegate f: f.Invoke; ExprentIterator::processExprent: (ExprentIterator p0, …) => p0(…)
             if (!unboundReceiver) return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text("Invoke"));
-            String typedList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.of(mr.concreteParameterTypes().get(i), q)
+            String typedList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.argument(mr.concreteParameterTypes().get(i), q)
                     + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));
             return text(typedList + " => " + parameters.getFirst() + "("
                         + String.join(", ", parameters.subList(1, parameters.size())) + ")");
         }
         if (unboundReceiver && arity > 0) {
-            parameterList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.of(mr.concreteParameterTypes().get(i), q)
+            parameterList = IntStream.range(0, arity).mapToObj(i -> CSharpTypeName.argument(mr.concreteParameterTypes().get(i), q)
                     + " " + parameters.get(i)).collect(Collectors.joining(", ", "(", ")"));
         }
         if (method.isConstructor()) {
@@ -1299,7 +1334,7 @@ public final class CSharpExpressionPrinter {
                 type = type.withParameters(result.parameters());
             }
             String created = type.arrays() > 0
-                    ? "new " + CSharpTypeName.of(type.copyWithoutArrays(), q) + "[" + parameters.getFirst() + "]"
+                    ? "new " + CSharpTypeName.element(type.copyWithoutArrays(), q) + "[" + parameters.getFirst() + "]"
                       + "[]".repeat(type.arrays() - 1)
                     : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", constructorArguments(type, parameters))
                       + ")";
@@ -1312,7 +1347,7 @@ public final class CSharpExpressionPrinter {
             rule.namespaces().forEach(CSharpContext::using);
             boolean unbound = scope instanceof TypeExpression && !method.isStatic();
             Supplier<OutputBuilder> receiver = unbound ? () -> text(parameters.getFirst())
-                    : scope instanceof TypeExpression te ? () -> text(CSharpTypeName.name(te.parameterizedType().typeInfo(), q))
+                    : scope instanceof TypeExpression te ? () -> text(CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q))
                     : () -> receiver(scope, q);
             List<Supplier<OutputBuilder>> args = parameters.subList(unbound ? 1 : 0, parameters.size())
                     .stream().map(p -> (Supplier<OutputBuilder>) () -> text(p)).toList();
@@ -1323,7 +1358,7 @@ public final class CSharpExpressionPrinter {
         unmapped(method, mr);
         String name = CSharpNames.method(method) + methodGroupTypeArguments(mr, q);
         if (scope instanceof TypeExpression te) {
-            String owner = CSharpTypeName.name(te.parameterizedType().typeInfo(), q);
+            String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
             if (method.isStatic()) return text(owner + "." + name);
             // String::length: the first parameter is the receiver
             return text(parameterList + " => " + parameters.getFirst() + "." + name + "("
@@ -1382,6 +1417,11 @@ public final class CSharpExpressionPrinter {
         OutputBuilder increment = Emission.increment(a, target);
         if (increment != null) return increment;
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
+        if (a.assignmentOperator() == null && a.variableTarget() instanceof DependentVariable && unboxedValue(a.value())) {
+            // an array's element is the enum's or the struct's value type, decimal[]: the X? as its value
+            OutputBuilder value = unboxCast(CSharpTypeName.argument(a.value().parameterizedType(), q), a.value(), q);
+            return new OutputBuilderImpl().add(target).add(SymbolEnum.assignment(operator)).add(value);
+        }
         OutputBuilder value = converts(a.value(), a.variableTarget().parameterizedType())
                 ? converted(a.value(), a.variableTarget().parameterizedType(), q) : operand(a.precedence(), a.value(), q);
         if (a.assignmentOperator() == null) value = CSharpNullability.intoVariable(a.value(), a.variableTarget(), value);
@@ -1547,7 +1587,19 @@ public final class CSharpExpressionPrinter {
     /** {@code @1} in a template: a receiver, or a literal ({@code (decimal) 3L}), which is an atom as an operand. */
     private static OutputBuilder templateOperand(Expression e, Qualification q) {
         if (e instanceof ConstantExpression<?> c && !(e instanceof NullConstant) && !negative(c)) return print(e, q);
+        // an operand is the value: BigDecimal.add's @0 + @1 of a decimal? is ((decimal) x)
+        if (unboxedValue(e)) return parenthesized(unboxCast(CSharpTypeName.argument(e.parameterizedType(), q), e, q));
         return receiver(e, q);
+    }
+
+    /** An enum's or a struct's {@code X?} ({@link #unboxed}), not an {@code Integer}'s {@code int?}. */
+    private static boolean unboxedValue(Expression e) {
+        Expression inner = unwrap(e);
+        return unboxed(inner) && !inner.parameterizedType().isBoxedExcludingVoid();
+    }
+
+    private static OutputBuilder parenthesized(OutputBuilder b) {
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(b).add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** A constant C# writes with a leading minus: a negative number, or a negative zero. */

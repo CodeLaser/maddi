@@ -366,13 +366,13 @@ final class CSharpBcl implements LibraryMapping {
 
     // ---------------------------------------------------------------- what the choosers ask of a call
 
-    /** The call's type argument {@code index} (of its return type) is a boxed primitive: a value type in C#. */
+    /** The call's type argument {@code index} (of its return type) is a value type in C#: a boxed primitive, an enum, a struct. */
     private static boolean valueType(MethodCall call, int index) {
         if (call == null || call.object() == null) return false;
         ParameterizedType receiver = call.object().parameterizedType();
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
-        return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+        return CSharpTypeName.valueReference(v);
     }
 
     /** The receiver is a collection of {@code ?}, which C# has as a non-generic interface. */

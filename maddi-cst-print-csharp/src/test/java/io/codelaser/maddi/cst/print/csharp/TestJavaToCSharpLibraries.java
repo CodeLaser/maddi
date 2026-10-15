@@ -406,7 +406,8 @@ public class TestJavaToCSharpLibraries extends CommonJavaToCSharp {
         contains(cs, "[XmlRoot(\"solver\", Namespace = \"urn:example\")]\n[XmlType(\"solverConfig\", Namespace = \"urn:example\")]");
         contains(cs, "[XmlAttribute(\"id\")]\npublic string XmlId { get => this.id; set => this.id = value; }");
         contains(cs, "public enum Mode { [XmlEnum(\"FAST\")] Fast, [XmlEnum(\"SAFE\")] Safe }");
-        contains(cs, "[XmlElement(\"mode\", Order = 0)]\npublic Mode XmlMode { get => this.Mode; set => this.Mode = value; }");
+        contains(cs, "[XmlElement(\"mode\", Order = 0)]\npublic Mode? XmlMode { get => this.Mode; set => this.Mode = value; }\n"
+                     + "public bool ShouldSerializeXmlMode() => this.Mode != null;");
         contains(cs, "public int? XmlCount { get => this.count; set => this.count = value; }");
         contains(cs, "public bool ShouldSerializeXmlCount() => this.count != null;");
         contains(cs, "[XmlElement(\"entityClass\", Order = 2)]\npublic List<string> XmlClasses");

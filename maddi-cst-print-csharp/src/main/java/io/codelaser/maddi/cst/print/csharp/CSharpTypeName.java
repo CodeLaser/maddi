@@ -67,6 +67,10 @@ public final class CSharpTypeName {
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
             "KeyValuePair", "ValueTuple");
 
+    /** The structs a Java reference type maps to, {@link #valueReference}. */
+    private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
+            "DateTimeOffset", "TimeSpan");
+
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
             "java.util.List", "IList",
@@ -82,6 +86,38 @@ public final class CSharpTypeName {
             "java.util.Collection", "IReadOnlyCollection",
             "java.util.Set", "IReadOnlyCollection",
             "java.lang.Iterable", "IEnumerable");
+
+    private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * A type as an expression, {@code Kind.Filter}, {@code Owner.Method}: without {@code ?}, and qualified where a
+     * member hides it, a property too ({@link #shadowedByMember}); in a declaration C# looks for a type only.
+     */
+    static String inExpression(ParameterizedType pt, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return of(pt, q, true);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** {@link #inExpression} of a type's name. */
+    static String nameInExpression(TypeInfo typeInfo, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return name(typeInfo, q);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** An array's element type: an enum's or a struct's is the value type itself, an Integer's int? (Integer[]). */
+    static String element(ParameterizedType element, Qualification q) {
+        return of(element, q, !element.isBoxedExcludingVoid());
+    }
 
     /** The C# type reference, no leading or trailing space. */
     public static String of(ParameterizedType pt, Qualification q) {
@@ -181,7 +217,7 @@ public final class CSharpTypeName {
     private static String of(ParameterizedType pt, Qualification q, boolean typeArgument) {
         if (pt.arrays() > 0) {
             ParameterizedType element = pt.copyWithoutArrays();
-            return of(element, q, false) + "[]".repeat(pt.arrays());
+            return element(element, q) + "[]".repeat(pt.arrays());
         }
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound() || pt.typeInfo() == null && pt.typeParameter() == null) {
@@ -248,9 +284,26 @@ public final class CSharpTypeName {
             printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
-        if (bcl != null) return bcl(bcl, printed, arguments, q);
-        String name = name(typeInfo, q);
-        return printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
+        String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /**
+     * A Java reference type that is a C# value type, which Java's null makes {@code X?} as it makes an
+     * {@code Integer} {@code int?}: a boxed primitive, a simple enum (a C# enum), a library type mapped to a struct
+     * ({@code Duration}'s {@code TimeSpan}). Not {@code Map.Entry}'s {@code KeyValuePair}: an entry is its map's,
+     * and {@code KeyValuePair<K, V>?} would cast every {@code e.Key} of a for-each over the map. A type argument
+     * and an array's element are the value type itself: {@code List<E>}, {@code Enum.GetValues<E>()}'s {@code E[]}.
+     */
+    static boolean valueReference(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.isTypeParameter() || pt.typeInfo() == null) return false;
+        if (pt.isBoxedExcludingVoid()) return true;
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo.typeNature().isEnum()) return CSharpNames.translated(typeInfo) && CSharpNames.simpleEnum(typeInfo);
+        if (CSharpNames.translated(typeInfo)) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
+        return bcl != null && !bcl.ofArgument() && STRUCTS.contains(bcl.name());
     }
 
     /**
@@ -340,16 +393,25 @@ public final class CSharpTypeName {
 
     /**
      * A member of the type being printed, of a type it is nested in, or of their superclasses, has the type's simple
-     * C# name: in C#, the member hides the type.
+     * C# name: in C#, the member hides the type. In an expression a property too, a getter's {@code StreamKind}: C#
+     * lets a property of the type itself be read as the type ("Color Color"), not one of its {@code StreamKind?}.
      */
     private static boolean shadowedByMember(TypeInfo typeInfo) {
         if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
-        String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
+        // the name printed first: the top-level type's; in an expression, the type's own too, where it is in scope by
+        // its simple name, and a property's
+        boolean expression = EXPRESSION.get();
+        List<String> names = expression
+                ? List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)), CSharpNames.type(typeInfo))
+                : List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)));
+        CSharpProgram program = CSharpContext.program();
         for (TypeInfo t = CSharpContext.currentType(); t != null; t = CstQueries.enclosing(t)) {
             for (TypeInfo c : CstQueries.classChain(t)) {
                 if (!CSharpNames.translated(c)) break;
-                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
-                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
+                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && (names.contains(CSharpNames.method(m))
+                                                                             || expression && program.propertyRead(m) != null
+                                                                                && names.contains(program.propertyRead(m))))
+                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && names.contains(CSharpNames.field(f)))) {
                     return true;
                 }
             }
