@@ -219,6 +219,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
+        if (record) members.addAll(recordHashCode(components));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
@@ -305,11 +306,36 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 supers.add(CSharpTypeName.of(parent, q));
             }
         }
-        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
+        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in; a
+        // delegate is sealed, and an instance becomes its method group where one is expected (implementationGroup)
         typeInfo.interfacesImplemented().stream()
-                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName()))
+                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName())
+                             && !CSharpTypeName.libraryDelegate(i.typeInfo()))
                 .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
         return supers;
+    }
+
+    /**
+     * A record that declares equals(Object) but not hashCode(): Java's hashCode stays the components', and C# warns of
+     * an Equals(R?) without GetHashCode (CS8851): the components' hash, as the record's own would be.
+     */
+    private List<OutputBuilder> recordHashCode(List<FieldInfo> components) {
+        boolean equals = typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && !m.isSynthetic() && "equals".equals(m.name())
+                && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject());
+        boolean hashCode = typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && !m.isSynthetic()
+                && "hashCode".equals(m.name()) && m.parameters().isEmpty());
+        if (!equals || hashCode) return List.of();
+        CSharpContext.using("System");
+        String value = components.isEmpty() ? "0" : combined(components.stream().map(CSharpNames::field).toList());
+        return List.of(new OutputBuilderImpl()
+                .add(new TextImpl("public override int GetHashCode() => " + value + ";")));
+    }
+
+    /** {@code HashCode.Combine(a, b)}, nested beyond its eight arguments. */
+    private static String combined(List<String> values) {
+        if (values.size() <= 8) return "HashCode.Combine(" + String.join(", ", values) + ")";
+        return "HashCode.Combine(" + combined(values.subList(0, 7)) + ", " + combined(values.subList(7, values.size()))
+               + ")";
     }
 
     /**

@@ -257,7 +257,10 @@ implements the interface.
   a canonical or compact constructor, which a positional record cannot have, declares get-only properties and that
   constructor. Another constructor with as many parameters as components would clash with the positional one and is
   left out (`RECORD_CONSTRUCTOR`). An accessor that implements an interface's method, `T response()`, is the property:
-  the interface's method is implemented explicitly, `T IResult<T>.Response() => Response;`.
+  the interface's method is implemented explicitly, `T IResult<T>.Response() => Response;`. A record's
+  `equals(Object)` is `public bool Equals(Point? o)`: C# synthesizes `Equals(object)`, which may not be declared
+  (CS0111), and it calls this one with the other record or null. A record with `equals` but no `hashCode` keeps
+  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
   parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
@@ -399,7 +402,10 @@ differences:
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
   declared type. Otherwise it keeps its type.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
-  `x is not T`.
+  `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
+  `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
+  var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
+  record has no such properties (`SWITCH_FORM`).
 - **String identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
   `object.ReferenceEquals(a, b)`.
 - **Lambdas and method references.**
@@ -620,7 +626,9 @@ from a map, a stream's collector.
   asserted where its value is dereferenced: `Find(l)!.Length`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
-  invocation: `f.apply(x)` becomes `f(x)`.
+  invocation: `f.apply(x)` becomes `f(x)`. A class of the program that implements one does not derive from the
+  delegate, a sealed type (CS0509); where the interface is expected, its instance is the method group:
+  `list.sort(new ByLength())` becomes `JavaCollections.Sort(list, new ByLength().Compare)`.
 - **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
   `DateTimeOffset` does:
   - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `OffsetDateTime` →

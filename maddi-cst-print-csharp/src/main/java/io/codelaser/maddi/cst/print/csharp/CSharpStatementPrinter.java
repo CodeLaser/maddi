@@ -491,6 +491,8 @@ public final class CSharpStatementPrinter {
             return text(CSharpTypeName.of(pattern.localVariable().parameterizedType(), q) + " "
                         + CSharpContext.declare(pattern.localVariable().simpleName()));
         }
+        String deconstructed = CSharpExpressionPrinter.recordPattern(pattern, null, q);
+        if (deconstructed != null) return text(deconstructed);
         CSharpContext.message(CSharpPrintCode.SWITCH_FORM, null, "record pattern");
         return text(CSharpTypeName.of(pattern.parameterizedType(), q));
     }
@@ -570,10 +572,11 @@ public final class CSharpStatementPrinter {
     private static OutputBuilder switchArm(SwitchEntry entry, ParameterizedType type, Qualification q) {
         OutputBuilder head;
         List<Expression> conditions = entry.conditions();
-        if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
-            head = text("_");
-        } else if (entry.patternVariable() != null) {
+        if (entry.patternVariable() != null) {
+            // a record pattern's arm has no condition
             head = pattern(entry.patternVariable(), q);
+        } else if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
+            head = text("_");
         } else {
             head = joinOr(conditions, q);
         }

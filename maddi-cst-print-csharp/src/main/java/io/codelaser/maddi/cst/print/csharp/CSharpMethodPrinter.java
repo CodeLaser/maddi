@@ -83,7 +83,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // C#'s interface members are public; a private one says so
         if (access != null) modifiers.append(access).append(' ');
         if (methodInfo.isStatic()) modifiers.append("static ");
-        String inheritance = CSharpModifiers.inheritance(methodInfo, typeInfo);
+        // a record's equals(Object) is C#'s Equals(R? other): a record synthesizes Equals(object) (CS0111), which
+        // calls it with the other record, or with null
+        boolean recordEquals = recordEquals(methodInfo);
+        String inheritance = recordEquals ? null : CSharpModifiers.inheritance(methodInfo, typeInfo);
         if (inheritance != null) modifiers.append(inheritance).append(' ');
 
         if (methodInfo.isConstructor()) {
@@ -114,7 +117,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(new TextImpl(modifiers + returnType(q))).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
-        b.add(parameters(methodInfo, captured, q));
+        b.add(recordEquals ? recordEqualsParameter(methodInfo, q) : parameters(methodInfo, captured, q));
         // an override and an explicit implementation inherit the constraints, and may not repeat them (CS0460)
         boolean inherited = overridden != null || inheritance != null && inheritance.contains("override");
         List<String> constraints = new ArrayList<>(erased || inherited ? List.of()
@@ -220,6 +223,22 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         .map(p -> parameter(p, null, q)))
                 .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
+    }
+
+    private static boolean recordEquals(MethodInfo m) {
+        return m.typeInfo().typeNature().isRecord() && !m.isStatic() && "equals".equals(m.name())
+               && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject();
+    }
+
+    /** {@code (R? o)}, the record's own type: {@code ?} in a nullable context. */
+    private static OutputBuilder recordEqualsParameter(MethodInfo m, Qualification q) {
+        TypeInfo record = m.typeInfo();
+        String type = CSharpNames.type(record) + (record.typeParameters().isEmpty() ? "" : "<" + String.join(", ",
+                record.typeParameters().stream().map(CSharpNames::typeParameter).toList()) + ">");
+        String nullable = CSharpContext.program().facts().nullabilityAnalysed() ? "?" : "";
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(new TextImpl(type + nullable + " " + CSharpContext.declare(m.parameters().getFirst().name())))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /** {@code (int a, params string[] rest)}. */

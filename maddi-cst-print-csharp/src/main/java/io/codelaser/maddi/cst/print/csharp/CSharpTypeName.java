@@ -381,6 +381,12 @@ public final class CSharpTypeName {
         return of(pt, q, true);
     }
 
+    /** A library's functional interface that C# has as a delegate: {@code Comparator<T>} as {@code Comparison<T>}. */
+    static boolean libraryDelegate(TypeInfo typeInfo) {
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(typeInfo);
+        return mapping != null && mapping.delegate() && !CSharpNames.translated(typeInfo);
+    }
+
     /**
      * A type parameter C# leaves unconstrained ({@link #constraints}): its argument may be {@code string?}, so that C#
      * takes its values to be ones that may be null where they go into {@code object} (CS8604).

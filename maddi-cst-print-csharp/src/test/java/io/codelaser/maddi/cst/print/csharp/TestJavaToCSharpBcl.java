@@ -365,4 +365,42 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaArrays.DeepEquals(a, b)");
         contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
     }
+
+    @Language("java")
+    private static final String DELEGATE_CLASSES = """
+            package org.example.delegates;
+            import java.util.Comparator;
+            import java.util.List;
+            import java.util.function.Supplier;
+            class ByLength implements Comparator<String> {
+                public int compare(String a, String b) { return Integer.compare(a.length(), b.length()); }
+            }
+            class Fixed implements Supplier<String> {
+                public String get() { return "x"; }
+            }
+            class Sorting {
+                static void sort(List<String> l) { l.sort(new ByLength()); }
+                static Comparator<String> by() { return new ByLength(); }
+                static int direct(ByLength c) { return c.compare("a", "bb"); }
+                static String value() {
+                    Supplier<String> s = new Fixed();
+                    return s.get();
+                }
+            }
+            """;
+
+    /**
+     * A class that implements a functional interface C# has as a delegate does not derive from the delegate, a sealed
+     * type; where the interface is expected, its instance is the method group.
+     */
+    @Test
+    public void delegateClasses() {
+        String cs = translate("Sorting", DELEGATE_CLASSES);
+        contains(cs, "internal sealed class ByLength {");
+        contains(cs, "internal sealed class Fixed {");
+        contains(cs, "JavaCollections.Sort(l, new ByLength().Compare);");
+        contains(cs, "internal static Comparison<string> By() => new ByLength().Compare;");
+        contains(cs, "c.Compare(\"a\", \"bb\")");
+        contains(cs, "Func<string> s = new Fixed().Get;");
+    }
 }
