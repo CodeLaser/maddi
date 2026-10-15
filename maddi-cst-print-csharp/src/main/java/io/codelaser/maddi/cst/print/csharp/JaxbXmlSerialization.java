@@ -388,13 +388,13 @@ final class JaxbXmlSerialization implements LibraryMapping {
         Conversion conversion = converted.conversion();
         PropertyCode code = propertyCode(f, conversion, collection, q, namespaces);
         AnnotationExpression attribute = find(annotations, "XmlAttribute");
-        if (attribute != null && type.isBoxedExcludingVoid()) return unbound(f, "an attribute of a boxed type");
+        if (attribute != null && CSharpTypeName.valueReference(type)) return unbound(f, "an attribute of a nullable value type");
         String name = "Xml" + CSharpNames.pascal(f.name());
         List<AddedMember> members = new ArrayList<>();
         members.add(new AddedMember(attributes(f, annotations, alternatives, order, print), "public "
                 + code.type() + " " + name + " { get => " + code.get() + ";"
                 + (code.set() != null ? " set => " + code.set() + ";" : "") + " }"));
-        if (attribute == null && (type.isBoxedExcludingVoid() || conversion.identity() && code.type().endsWith("?")
+        if (attribute == null && (CSharpTypeName.valueReference(type) || conversion.identity() && code.type().endsWith("?")
                                                                  && type.typeInfo() != null
                                                                  && type.typeInfo().typeNature().isEnum())) {
             // XmlSerializer writes a null int? as xsi:nil; JAXB leaves the element out

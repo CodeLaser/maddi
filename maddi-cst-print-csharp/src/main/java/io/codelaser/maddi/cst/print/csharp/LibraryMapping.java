@@ -72,7 +72,7 @@ public interface LibraryMapping {
         }
 
         /** The template's type name, without its arguments and the {@code System} namespace. */
-        private String name() {
+        String name() {
             int angle = template.indexOf('<');
             String name = angle < 0 ? template : template.substring(0, angle);
             return name.startsWith("System.") ? name.substring("System.".length()) : name;

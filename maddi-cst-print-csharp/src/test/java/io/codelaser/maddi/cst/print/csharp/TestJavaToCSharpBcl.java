@@ -69,14 +69,14 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     public void values() {
         String cs = translate("Values", VALUES);
         contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
-        contains(cs, "internal static Guid Parse(string s) => Guid.Parse(s);");
+        contains(cs, "internal static Guid? Parse(string s) => Guid.Parse(s);");
         contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
         contains(cs, "internal static string Path(Uri uri) => uri.AbsolutePath;");
         contains(cs, ".CompareTo((decimal) 3L)");
         contains(cs, "o is IConvertible n ? Convert.ToDouble(n) : 0");
         contains(cs, "DateOnly.ParseExact(s, \"yyyy-MM-dd\", CultureInfo.InvariantCulture)");
-        contains(cs, "internal static DateTime Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
-        contains(cs, "internal static DateTimeOffset At(DateTimeOffset t) => t;");
+        contains(cs, "internal static DateTime? Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
+        contains(cs, "internal static DateTimeOffset? At(DateTimeOffset? t) => t;");
         contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
         contains(cs, "random.Next(6)");
         contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
@@ -256,6 +256,55 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         String cs = translate("Limits", DEFAULTS);
         contains(cs, "internal int Limit() => (int) (GetLimit() ?? 400);");
         contains(cs, "internal bool Random() => (bool) (random ?? true);");
+    }
+
+    @Language("java")
+    private static final String VALUE_REFERENCES = """
+            package org.example.config;
+            import java.time.Duration;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Objects;
+            public class Config {
+                enum Style { AND, OR }
+                private Style style = null;
+                private Duration limit = null;
+                Style getStyle() { return style; }
+                Style style() { return Objects.requireNonNullElse(style, Style.OR); }
+                void setStyle(Style style) { this.style = Objects.requireNonNull(style); }
+                boolean unset() { return style == null; }
+                long millis() { return limit.toMillis(); }
+                int rank() { return style.compareTo(Style.AND); }
+                void collect(List<Style> styles) { styles.add(style); }
+                Style lookup(Map<String, Style> styles, String key) { return styles.get(key); }
+                String name() {
+                    switch (style) {
+                        case AND: return "and";
+                        default: return "or";
+                    }
+                }
+            }
+            """;
+
+    /**
+     * A Java reference that is a C# value type, a simple enum or Duration's TimeSpan, is its X? as an Integer is
+     * int?: Java's null fits, and a use as the value casts as an Integer's does.
+     */
+    @Test
+    public void valueReferences() {
+        String cs = translate("Config", VALUE_REFERENCES);
+        contains(cs, "private Style? style = null;");
+        contains(cs, "private TimeSpan? limit = null;");
+        contains(cs, "internal Style? StyleValue() => style ?? Style.Or;");
+        contains(cs, "this.style = (style ?? throw new NullReferenceException());");
+        contains(cs, "internal bool Unset() => style == null;");
+        // a member of the value: cast, as Java unboxes
+        contains(cs, "internal long Millis() => (long) ((TimeSpan) limit).TotalMilliseconds;");
+        contains(cs, "internal int Rank() => ((Style) style).CompareTo(Style.And);");
+        // a type argument is the value type itself, and a map's absent key null, not the enum's first member
+        contains(cs, "internal void Collect(List<Style> styles) { styles.Add((Style) style); }");
+        contains(cs, "=> styles.GetValueOrNull(key);");
+        contains(cs, "case Style.And: return \"and\";");
     }
 
     @Language("java")

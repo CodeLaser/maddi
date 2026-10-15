@@ -169,15 +169,18 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /**
-     * A boxed type where a method of the program it overrides has a type parameter of its class: the overridden method's
+     * A boxed type, an enum or a struct ({@link CSharpTypeName#valueReference}) where a method it overrides has a type
+     * parameter of its class: the overridden method's
      * {@code T Describe()} in {@code Holder<int>} is {@code int Describe()}, so {@code Integer describe()} is
      * {@code int Describe()}, not {@code int?} (CS0508), and a parameter likewise (CS0115).
      */
     private static boolean boxedTypeArgument(ParameterizedType pt, MethodInfo method,
                                              Function<MethodInfo, ParameterizedType> inOverridden) {
-        if (pt.arrays() != 0 || !pt.isBoxedExcludingVoid()) return false;
-        // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>)
-        return method.overrides().stream().filter(o -> o != method && CSharpNames.translated(o.typeInfo()))
+        if (!CSharpTypeName.valueReference(pt)) return false;
+        // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>); an enum's
+        // or a struct's is the value type (IComparer<E>)
+        boolean boxed = pt.isBoxedExcludingVoid();
+        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())))
                 .map(inOverridden)
                 .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
                                && !o.typeParameter().isMethodTypeParameter());

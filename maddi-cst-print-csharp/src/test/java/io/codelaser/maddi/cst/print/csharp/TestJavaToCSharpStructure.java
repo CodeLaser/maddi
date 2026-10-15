@@ -168,7 +168,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal sealed class Planet {");
         contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23) { Name = \"MERCURY\", Ordinal = 0 };");
         contains(cs, "case Primary.Red:");
-        contains(cs, "internal static Primary First() => Primary.Red;");
+        contains(cs, "internal static Primary? First() => Primary.Red;");
     }
 
     @Language("java")
@@ -1016,7 +1016,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         String cs = translate("Match", MEMBER_NAMES);
         contains(cs, "internal sealed class Match<TEmbedded> {");
         contains(cs, "internal TEmbedded Embedded { get; }");
-        contains(cs, "internal Result ResultValue() => result;");
+        contains(cs, "internal Result? ResultValue() => result;");
     }
 
     @Language("java")

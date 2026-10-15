@@ -948,9 +948,9 @@ public final class CSharpExpressionPrinter {
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */
-    private static OutputBuilder unboxCast(String primitive, Expression value, Qualification q) {
+    static OutputBuilder unboxCast(String primitive, Expression value, Qualification q) {
         Expression inner = unwrap(value);
-        Expression operand = inner instanceof Cast cast && cast.parameterizedType().isBoxedExcludingVoid()
+        Expression operand = inner instanceof Cast cast && CSharpTypeName.valueReference(cast.parameterizedType())
                 ? cast.expression() : value;
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(primitive))
                 .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST)
@@ -1057,12 +1057,32 @@ public final class CSharpExpressionPrinter {
         return CSharpNullability.intoReturn(value, converted(value, method == null ? null : method.returnType(), q));
     }
 
-    /** A value of a boxed type, C#'s nullable value type: a call or a variable, not a constant or an operation. */
-    private static boolean unboxed(Expression e) {
+    /**
+     * A value of a reference type that is C#'s nullable value type, an {@code Integer}'s {@code int?}
+     * ({@link CSharpTypeName#valueReference}): a call or a variable, not a constant or an operation.
+     */
+    static boolean unboxed(Expression e) {
         ParameterizedType type = e.parameterizedType();
-        return type != null && type.isBoxedExcludingVoid() && type.arrays() == 0
+        return CSharpTypeName.valueReference(type) && !plainValue(e)
                && (e instanceof MethodCall || e instanceof VariableExpression && !lambdaParameter(e) || e instanceof Cast
                    || e instanceof Assignment);
+    }
+
+    /**
+     * Not an {@code X?} in C#: an enum's constant, and a library's field or method of an enum or a struct, which C#
+     * declares with the value type ({@code TimeSpan.FromMilliseconds}); a library's {@code Integer} is C#'s
+     * {@code int?} still, and a type parameter's result its argument.
+     */
+    private static boolean plainValue(Expression e) {
+        if (e.parameterizedType().isBoxedExcludingVoid()) return false;
+        return switch (e) {
+            case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
+                    CSharpNames.isEnumConstant(fr.fieldInfo()) || !CSharpNames.translated(fr.fieldInfo().owner())
+                                                                  && !fr.fieldInfo().type().isTypeParameter();
+            case MethodCall mc -> !CSharpNames.translated(mc.methodInfo().typeInfo())
+                                  && !mc.methodInfo().returnType().isTypeParameter();
+            default -> false;
+        };
     }
 
     /** A lambda's parameter has the delegate's type argument as its type, the value type itself: Func<int, int>. */

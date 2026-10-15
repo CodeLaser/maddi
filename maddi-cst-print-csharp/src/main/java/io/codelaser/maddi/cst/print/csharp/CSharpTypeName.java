@@ -67,6 +67,10 @@ public final class CSharpTypeName {
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
             "KeyValuePair", "ValueTuple");
 
+    /** The structs a Java reference type maps to, {@link #valueReference}. */
+    private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
+            "DateTimeOffset", "TimeSpan");
+
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
             "java.util.List", "IList",
@@ -181,7 +185,7 @@ public final class CSharpTypeName {
     private static String of(ParameterizedType pt, Qualification q, boolean typeArgument) {
         if (pt.arrays() > 0) {
             ParameterizedType element = pt.copyWithoutArrays();
-            return of(element, q, false) + "[]".repeat(pt.arrays());
+            return of(element, q, !element.isBoxedExcludingVoid()) + "[]".repeat(pt.arrays());
         }
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound() || pt.typeInfo() == null && pt.typeParameter() == null) {
@@ -248,9 +252,26 @@ public final class CSharpTypeName {
             printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
-        if (bcl != null) return bcl(bcl, printed, arguments, q);
-        String name = name(typeInfo, q);
-        return printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
+        String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /**
+     * A Java reference type that is a C# value type, which Java's null makes {@code X?} as it makes an
+     * {@code Integer} {@code int?}: a boxed primitive, a simple enum (a C# enum), a library type mapped to a struct
+     * ({@code Duration}'s {@code TimeSpan}). Not {@code Map.Entry}'s {@code KeyValuePair}: an entry is its map's,
+     * and {@code KeyValuePair<K, V>?} would cast every {@code e.Key} of a for-each over the map. A type argument
+     * and an array's element are the value type itself: {@code List<E>}, {@code Enum.GetValues<E>()}'s {@code E[]}.
+     */
+    static boolean valueReference(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.isTypeParameter() || pt.typeInfo() == null) return false;
+        if (pt.isBoxedExcludingVoid()) return true;
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo.typeNature().isEnum()) return CSharpNames.translated(typeInfo) && CSharpNames.simpleEnum(typeInfo);
+        if (CSharpNames.translated(typeInfo)) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
+        return bcl != null && !bcl.ofArgument() && STRUCTS.contains(bcl.name());
     }
 
     /**

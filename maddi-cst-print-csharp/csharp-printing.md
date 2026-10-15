@@ -63,6 +63,12 @@ Library declarations keep their Java names, except where the BCL mapping (below)
 - `String` and `Object` become `string` and `object`.
 - A boxed type becomes the nullable value type, `Integer` → `int?`. As a type argument it becomes the value type
   itself: `List<Integer>` → `List<int>`, because C# generics are not erased.
+- So does every Java reference type that is a C# value type: a simple enum (a C# `enum`), and a library type mapped
+  to a struct (`Duration` → `TimeSpan?`, `UUID` → `Guid?`, `BigDecimal` → `decimal?`, the `java.time` types). Java's
+  `null` fits there, `private Style style = null`, `requireNonNullElse(style, Style.OR)` (`style ?? Style.Or`), and a
+  use as the value casts as an `int?`'s does. As a type argument, and as an array's element (`Enum.GetValues<E>()` is
+  an `E[]`), it is the value type itself. Not `Map.Entry`'s `KeyValuePair`: an entry is its map's, and a
+  `KeyValuePair<K, V>?` would cast every `e.Key` of a for-each over the map.
 - In a pattern, a type has no `?`: `o instanceof Integer` becomes `o is int`.
 - C# has no wildcards. A collection of `? extends T` is C#'s covariant read-only interface, a collection of `?` its
   non-generic one, a parameter of a program type with wildcards is captured as Java does, and any other wildcard is
@@ -94,7 +100,7 @@ implements the interface.
     `JavaCollections.IndexOf`, `subList` is `Skip`/`Take`, `get` on a map is `GetValueOrDefault` (or a `ContainsKey`
     test when the value is a value type).
 - A field, parameter or method return that the nullability analysis finds nullable has the type `T?`. Value types
-  (primitives, simple enums, the BCL's structs such as `KeyValuePair`), a method's own type parameters and types that
+  (primitives, and `KeyValuePair`; a simple enum or a struct is `X?` already), a method's own type parameters and types that
   already end in `?` are left alone: on a value type `?` would make it `Nullable<T>`, another type. A class's type
   parameter takes it, `T? held`: an unconstrained `T?` is `T` itself for a value type. So is a library type without a
   mapping (UNMAPPED_JDK): C# reads its `X?` as `Nullable<X>`, and every use of the variable becomes another error.
@@ -565,7 +571,8 @@ public TerminationConfig XmlTerminationConfig { get => this.terminationConfig; s
     `new A().Marshal`/`Unmarshal`.
   - A collection whose elements are converted becomes an array. `XmlSerializer` assigns an array once it has read
     all of it, but it fills a list through its getter, so a converted list would lose what was read.
-- **Null values.** A boxed primitive (`int?`) is written only when it holds a value (`ShouldSerializeXmlName`).
+- **Null values.** A boxed primitive (`int?`), a simple enum or a struct (`Mode?`) is written only when it holds a
+  value (`ShouldSerializeXmlName`); as an attribute, which `XmlSerializer` cannot write nullable, it is not bound.
   `XmlSerializer` would write a null as `xsi:nil`, where JAXB leaves the element out.
 - **Public members.** The public members of a bound type are `[XmlIgnore]`, because the added properties take their
   place.
@@ -681,7 +688,9 @@ from a map, a stream's collector.
   → `Exception`, and so on. Their constructor of a cause alone becomes `(cause?.ToString(), cause)`, Java's message.
 - **Conversions.** C# does not unbox implicitly: an `Integer` (`int?`) where an `int` is expected (an assignment, a
   compound one too, an argument, a return value, a conditional's branch, an arithmetic operand) gets a cast, and
-  `(Boolean) o` used as a condition becomes `(bool) o`. A lambda's parameter is the delegate's value type already. A
+  `(Boolean) o` used as a condition becomes `(bool) o`. A member of an `X?`'s value casts its receiver:
+  `((TimeSpan) limit).TotalMilliseconds`, `((Style) style).CompareTo(Style.And)`; not an enum's constant or a
+  library's struct result (`TimeSpan.FromSeconds(1)`), which are the value type itself. A lambda's parameter is the delegate's value type already. A
   `char` switch's `int` labels are `char` literals. Java's `null` where a type parameter is expected becomes
   `default`. An argument of a template's own type parameter keeps its `int?`: `Objects.requireNonNullElse(i, 400)`
   is `i ?? 400`, where `(int) i` would not compile.
