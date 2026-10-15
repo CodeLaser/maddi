@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -88,6 +89,29 @@ public final class CSharpTypeName {
             "java.lang.Iterable", "IEnumerable");
 
     private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
+
+    /** The record whose positional parameter list is printed ({@link #inHeader}); null otherwise. */
+    private static final ThreadLocal<TypeInfo> HEADER = new ThreadLocal<>();
+
+    /** {@code header}'s positional parameter list, printed by {@code print}: its own nested types qualified. */
+    static <T> T inHeader(TypeInfo header, Supplier<T> print) {
+        TypeInfo outer = HEADER.get();
+        HEADER.set(header);
+        try {
+            return print.get();
+        } finally {
+            HEADER.set(outer);
+        }
+    }
+
+    private static boolean nestedInHeader(TypeInfo typeInfo) {
+        TypeInfo header = HEADER.get();
+        if (header == null || !CSharpNames.translated(typeInfo)) return false;
+        for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) {
+            if (t.equals(header)) return true;
+        }
+        return false;
+    }
 
     /**
      * A type as an expression, {@code Kind.Filter}, {@code Owner.Method}: without {@code ?}, and qualified where a
@@ -361,6 +385,11 @@ public final class CSharpTypeName {
             String namespace = CSharpNames.namespace(typeInfo);
             String fromPrimary = fromPrimaryType(typeInfo);
             return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
+        }
+        if (nestedInHeader(typeInfo)) {
+            // a positional record's parameter list does not see the record's own nested types: R(R.Kind? Kind)
+            if (typeInfo.primaryType() != null) CSharpContext.referenced(CSharpNames.topLevel(typeInfo));
+            return fromPrimaryType(typeInfo);
         }
         if (q == null) {
             CSharpContext.referenced(typeInfo);

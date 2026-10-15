@@ -75,8 +75,8 @@ final class CSharpAttributes {
             "ANNOTATION_TYPE", "AttributeTargets.Class",
             "TYPE_USE", "AttributeTargets.All");
 
-    /** The attribute class of an annotation type. */
-    static OutputBuilder declaration(TypeInfo annotation, String access, Qualification q) {
+    /** The attribute class of an annotation type, with its nested types, printed. */
+    static OutputBuilder declaration(TypeInfo annotation, String access, Qualification q, List<OutputBuilder> nested) {
         CSharpContext.using("System");
         String name = CSharpNames.type(annotation);
         List<OutputBuilder> members = new ArrayList<>();
@@ -112,6 +112,7 @@ final class CSharpAttributes {
                     .add(SpaceEnum.ONE).add(new TextImpl("{ Value = value; }")));
         }
         constructors.addAll(members);
+        constructors.addAll(nested);
         OutputBuilder out = new OutputBuilderImpl();
         String usage = usage(annotation);
         if (usage != null) out.add(new TextImpl("[AttributeUsage(" + usage + ")]")).add(SpaceEnum.NEWLINE);

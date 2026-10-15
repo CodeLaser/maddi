@@ -382,6 +382,47 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String VALUE_NULLS = """
+            package org.example.values;
+            import java.math.BigDecimal;
+            class Weights {
+                enum Kind { PENALTY, REWARD }
+                interface Builder { String build(Kind kind, BigDecimal weight); }
+                static class Named implements Builder {
+                    public String build(Kind kind, BigDecimal weight) { return "named"; }
+                }
+                static void validate(Number total) { }
+                static void penalize(BigDecimal total) { validate(total); }
+                static void named(String name) { }
+                static int hash(Object o) { named(o.getClass().getName()); return o.getClass().getName().hashCode(); }
+                static java.util.List<String> names(java.util.List<Class<?>> types) {
+                    return types.stream().map(Class::getName).toList();
+                }
+            }
+            """;
+
+    /**
+     * A decimal? or a Kind? is what C# takes to be possibly null whatever the analysis says of its declaration: into
+     * an object or an IConvertible, and into a lambda class's delegate, it is asserted, as an int? is.
+     */
+    @Test
+    public void valueNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Weights", VALUE_NULLS);
+        contains(cs, "internal static void Penalize(decimal? total) { Validate(total!); }");
+        contains(cs, "public string Build(Kind? kind, decimal? weight) => f((Kind) kind!, (decimal) weight!);");
+        // Type.FullName is a string? in C#, never null in Java's getName()
+        contains(cs, "named(o.GetType().FullName!);");
+        contains(cs, "return o.GetType().FullName!.GetHashCode();");
+        contains(cs, "types.Select((Type p0) => p0.FullName!).ToList();");
+    }
+
+    @Language("java")
     private static final String OPEN_NULLS = """
             package org.example.open;
             import jakarta.xml.bind.Marshaller;

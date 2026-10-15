@@ -261,6 +261,123 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String CONDITIONAL_VARS = """
+            package org.example.nodes;
+            public class Nodes {
+                static abstract class Node<A> { abstract int size(); }
+                static final class Indexed<A> extends Node<A> { int size() { return 1; } }
+                static final class Unindexed<A> extends Node<A> { int size() { return 0; } }
+                static <A> int build(boolean joiners) {
+                    var node = joiners ? new Indexed<A>() : new Unindexed<A>();
+                    return node.size();
+                }
+                static String describe(Object bean) {
+                    var beanClass = bean == null ? "null" : bean.getClass();
+                    return "" + beanClass;
+                }
+                static int same(boolean b) {
+                    var n = b ? new Indexed<String>() : new Indexed<String>();
+                    return n.size();
+                }
+                static abstract class Exists<T, R> { abstract int size(); }
+                static final class IndexedExists<T, R> extends Exists<T, R> { int size() { return 1; } }
+                static final class UnindexedExists<T, R> extends Exists<T, R> { int size() { return 0; } }
+                static <A, B> int exists(boolean joiners) {
+                    var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, String>();
+                    return node.size();
+                }
+                interface Named { String name(); }
+                interface Sized { int size(); }
+                static final class Genuine implements Named, Sized {
+                    public String name() { return "g"; } public int size() { return 1; }
+                }
+                static final class Shadow implements Named, Sized {
+                    public String name() { return "s"; } public int size() { return 0; }
+                }
+                static String metaModel(boolean genuine) {
+                    var model = genuine ? new Genuine() : new Shadow();
+                    return model.name();
+                }
+            }
+            """;
+
+    /** Java's var of a conditional is its branches' common supertype; C#'s var needs one of them: declared. */
+    @Test
+    public void conditionalVars() {
+        String cs = translate("Nodes", CONDITIONAL_VARS);
+        contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
+        contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
+        contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
+        // not when C# cannot write Java's common type: with a wildcard, or an intersection of the program's types
+        contains(cs, "var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
+        contains(cs, "var model = genuine ? new Genuine() : new Shadow();");
+    }
+
+    @Language("java")
+    private static final String TWO_ITERABLES = """
+            package org.example.iter;
+            import java.util.Iterator;
+            import java.util.List;
+            public class Selectors {
+                interface Selector<T> extends Iterable<T> { long size(); }
+                interface ListIterable<T> extends Iterable<T> { List<T> list(); }
+                static class FromList<T> implements Selector<T>, ListIterable<T> {
+                    private final List<T> items;
+                    FromList(List<T> items) { this.items = items; }
+                    public long size() { return items.size(); }
+                    public List<T> list() { return items; }
+                    public Iterator<T> iterator() { return items.iterator(); }
+                }
+                static final class Cached<T> extends FromList<T> {
+                    Cached(List<T> items) { super(items); }
+                }
+                interface EntitySelector<T> extends Selector<T>, ListIterable<T> { }
+                static abstract class Caching<T> implements EntitySelector<T> {
+                    public long size() { return 0; }
+                }
+            }
+            """;
+
+    /**
+     * Two interfaces that are iterable each have default GetEnumerators; a class implementing both declares its own,
+     * which C# finds most specific (CS8705), and its subclasses inherit it.
+     */
+    @Test
+    public void twoIterables() {
+        String cs = translate("Selectors", TWO_ITERABLES);
+        contains(cs, "internal class FromList<T> : ISelector<T>, IListIterable<T> {");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();");
+        contains(cs, "internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }");
+        // through an interface that extends both, which has no defaults of its own
+        contains(cs, "internal abstract class Caching<T> : IEntitySelector<T> {");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();\n    System.Collections");
+    }
+
+    @Language("java")
+    private static final String STATIC_SCOPES = """
+            package org.example.scopes;
+            public abstract class Move<T> {
+                protected static int size(Object o) { return 1; }
+                abstract T value();
+                public record Id(long key, Kind kind) {
+                    public enum Kind { NODE, INPUT }
+                    Id(long key) { this(key, Kind.NODE); }
+                }
+            }
+            """;
+
+    /**
+     * A generic class's protected static is its companion's, a static class, which has no protected members: internal.
+     * A positional record's parameter list does not see the record's nested types: qualified.
+     */
+    @Test
+    public void staticScopes() {
+        String cs = translate("Move", STATIC_SCOPES);
+        contains(cs, "public static class Move { internal static int Size(object o) => 1; }");
+        contains(cs, "public sealed record Id(long Key, Id.Kind? kind) {");
+    }
+
+    @Language("java")
     private static final String EXPRESSIONS = """
             package org.example.expr;
             class Expressions {
@@ -854,7 +971,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     String name() default "";
                     String[] value() default "";
                     boolean required() default true;
+                    Class<? extends Ranker> ranker() default NullRanker.class;
+                    interface Ranker { int rank(Method m); }
+                    interface NullRanker extends Ranker { }
                 }
+                static boolean ranked(Tool tool) { return tool.ranker() != Tool.NullRanker.class; }
                 @Tool(value = "Adds", name = "add")
                 int add(int a, int b) { return a + b; }
                 @Deprecated
@@ -879,6 +1000,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "[Tool(\"Adds\", Name = \"add\")]");
         contains(cs, "[Obsolete]");
         contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
+        // an annotation's nested types are the attribute's
+        contains(cs, "public Type Ranker { get; set; } = typeof(Tools.ToolAttribute.INullRanker);");
+        contains(cs, "public interface INullRanker : Tools.ToolAttribute.IRanker {");
     }
 
     @Language("java")
@@ -1470,6 +1594,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static <S> String describe(Director<S, ?> director, S solution) {
                     return director.calculate(solution).toShortString();
                 }
+                public record Inner<Score_ extends Score<Score_>>(Score_ raw, int unassigned)
+                        implements Comparable<Inner<Score_>> {
+                    public int compareTo(Inner<Score_> other) { return raw.compareTo(other.raw); }
+                }
+                static int compareInner(Inner<?> a, Inner<?> b) { return ((Inner) a).compareTo(b); }
             }
             """;
 
@@ -1484,6 +1613,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // Comparable<Score_>: the companion is C#'s non-generic IComparable, which the type implements by a cast
         contains(cs, "public interface IScore : IComparable {");
         contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Score_) other!);");
+        // Comparable<Inner<Score_>>, of the type itself, likewise
+        contains(cs, "public interface IInner : IComparable {");
+        contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Inner<Score_>) other!);");
         contains(cs, "IScore Negate();");
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");

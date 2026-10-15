@@ -145,7 +145,8 @@ implements the interface.
   in Java (CS8600). So is a cast of `null`, which picks an overload: `(AiMessage?) null`. A method's own type
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
 - The result of a library call may be null where C# declares it so, whatever the analysis says of the Java method:
-  `object.ToString()` is `string?`, Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
+  `object.ToString()` is `string?`, `Class.getName()`'s `Type.FullName` too (`Class::getName` is
+  `p0 => p0.FullName!`), Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
   (`GetConstructor`, `GetMethod`, `GetElementType`, `Invoke`) return null where Java throws. The printer knows these
   from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`), or from the rule itself: a mapping
   file's `->?` (`member java.util.Deque.poll/0 ->? $0.PollFirst()`), for the compatibility library's members that
@@ -162,6 +163,8 @@ implements the interface.
 
 ### Access
 
+  So is a `decimal?` or a `Kind?` boxed into a reference parameter, `Validate(total!)` of an `IConvertible` (CS8604),
+  and a functional interface's lambda class passing one to its delegate, `f((Kind) kind!)`.
 - **Access.** Every declaration states its access, except the public members of an interface, where C# writes none.
   - Package access becomes `internal`, because a translated code base is one assembly.
   - `protected` becomes `protected internal`, because Java's `protected` also grants package access.
@@ -226,7 +229,10 @@ implements the interface.
   walks its `Iterator()`, so that `foreach` and LINQ work on it. An interface that extends `Iterable` declares
   `IJavaIterator<T> Iterator();` and is enumerable through default implementations over it
   (`IEnumerator<T> IEnumerable<T>.GetEnumerator() => …`), so that every implementation is; an abstract class that
-  leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it.
+  leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it. A
+  class that reaches two such interfaces, neither extending the other (directly, or through an interface that
+  extends both), declares its own `GetEnumerator()`: C#
+  finds no most specific of their defaults (CS8705). Its subclasses inherit it.
 
 ### Members
 
@@ -264,7 +270,8 @@ implements the interface.
   `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
   `ordinal()` a cast to `int`. A constant with a body, an anonymous subclass of its enum, is not translated
   (`ANONYMOUS_CLASS`). A switch on such a class is under Switch statements.
-- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. One with
+- **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. Its
+  parameter list does not see the record's nested types, which are qualified there: `record Id(long Key, Id.Kind? kind)`. One with
   a canonical or compact constructor, which a positional record cannot have, declares get-only properties and that
   constructor. Another constructor with as many parameters as components would clash with the positional one and is
   left out (`RECORD_CONSTRUCTOR`). An accessor that implements an interface's method, `T response()`, is the property:
@@ -274,7 +281,8 @@ implements the interface.
   Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
-  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
+  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Its nested types are the attribute's,
+  `PlanningVariable.NullComparator`, a `Class` element's default, is `PlanningVariableAttribute.INullComparator<>`. Reading an element, `tool.name()`, reads
   the property, `tool.Name`. A use on a type, method, field or parameter is an attribute,
   `[Tool("Adds", Name = "add")]`; `@Deprecated` is `[Obsolete]`. Other JDK annotations have no C# counterpart, and
   those of other libraries are what their mapping makes of them, or dropped.
@@ -318,7 +326,8 @@ implements the interface.
   parameters, so they are declared in a non-generic static class of the same name beside the generic type, the C#
   idiom of `Tuple` and `Tuple<T>`: `public static class Response { public static Response<T> From<T>(T content)
   … }`, which `Response.From(x)` calls as Java does. The generic type's own code qualifies them (`Response.Count()`);
-  the private members either side reaches become `internal`, as the two are siblings. A static member whose code
+  the private members either side reaches become `internal`, as the two are siblings, and so do the protected ones,
+  which a static class cannot have (CS1057) and Java's subclasses reach. A static member whose code
   declares an anonymous or local class keeps the type without a companion.
 
 ### Generics
@@ -411,7 +420,10 @@ differences:
     clauses.
   - A multi-catch becomes `catch (Exception e) when (e is A || e is B)`.
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
-  declared type. Otherwise it keeps its type.
+  declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
+  supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
+  Unindexed<A>()`, and C# types the conditional from it; not when C# cannot write that type, with a wildcard or as
+  `object` for an intersection of the program's types.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
@@ -629,7 +641,8 @@ from a map, a stream's collector.
   `IScore`. In an instance member of the type itself, a cast to or a local of its wildcard is the type with its own
   type parameters, which has the private members the wildcard interface has not: Java's `equals`,
   `MinCollector<?, ?> that = (MinCollector<?, ?>) o`, is `MinCollector<A, P> that = (MinCollector<A, P>) o`, after the
-  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s
+  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>`, or comparable
+  with itself (`InnerScore<Score_>` a `Comparable<InnerScore<Score_>>`), has C#'s
   non-generic `IComparable` in its wildcard interface, which it implements by a cast
   (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed
   parameter inside another type (`List<Score_>`) is not the wildcard interface's. The wildcard interface extends those

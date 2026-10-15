@@ -20,8 +20,10 @@ import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EmptyExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -37,6 +39,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -249,6 +252,39 @@ public final class CSharpStatementPrinter {
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 
+    /**
+     * Java's common type of a conditional's branches, as C# can declare it: without wildcards, which C# would write as
+     * {@code object} arguments the branches do not convert to, and not {@code object} for branches of the program, an
+     * intersection type whose members the code uses.
+     */
+    private static boolean writableCommonType(ParameterizedType type, Expression init) {
+        if (type == null || containsWildcard(type)) return false;
+        if (!type.isJavaLangObject()) return true;
+        Set<ParameterizedType> types = new HashSet<>();
+        collectBranchTypes(CSharpExpressionPrinter.unwrap(init), types);
+        return types.stream().noneMatch(t -> t.typeInfo() != null && CSharpNames.translated(t.typeInfo()));
+    }
+
+    private static boolean containsWildcard(ParameterizedType t) {
+        return t.wildcard() != null || t.parameters().stream().anyMatch(CSharpStatementPrinter::containsWildcard);
+    }
+
+    /** A conditional, nested ones too, whose branches are not all of one type. */
+    private static boolean branchesDiffer(Expression init) {
+        Set<ParameterizedType> types = new HashSet<>();
+        collectBranchTypes(CSharpExpressionPrinter.unwrap(init), types);
+        return types.size() > 1;
+    }
+
+    private static void collectBranchTypes(Expression e, Set<ParameterizedType> types) {
+        if (e instanceof InlineConditional ic) {
+            collectBranchTypes(CSharpExpressionPrinter.unwrap(ic.ifTrue()), types);
+            collectBranchTypes(CSharpExpressionPrinter.unwrap(ic.ifFalse()), types);
+        } else if (!(e instanceof NullConstant) && e.parameterizedType() != null) {
+            types.add(e.parameterizedType());
+        }
+    }
+
     private static boolean implicitlyTyped(LocalVariableCreation lvc) {
         if (!lvc.otherLocalVariables().isEmpty()) return false;
         LocalVariable lv = lvc.localVariable();
@@ -256,7 +292,12 @@ public final class CSharpStatementPrinter {
         if (init == null || init.isEmpty() || init instanceof EmptyExpression) return false;
         // var style = Style.AND is a Style in C#, where Java's var is the reference that a Style? is: declared, so that
         // a later style = getStyle() compiles
-        if (lvc.isVar()) return !CSharpTypeName.valueReference(lv.parameterizedType());
+        // var node = c ? new IndexedNode<A>() : new UnindexedNode<A>() is the branches' common supertype in Java; C#'s
+        // var needs one branch to convert to the other (CS0173): declared, the conditional is target-typed
+        if (lvc.isVar()) {
+            return !CSharpTypeName.valueReference(lv.parameterizedType())
+                   && !(branchesDiffer(init) && writableCommonType(lv.parameterizedType(), init));
+        }
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
         if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
             return true;

@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -118,6 +119,63 @@ final class CSharpHierarchy {
         return parent == null || !needsAbstractIterator(parent);
     }
 
+
+    /**
+     * A class that reaches two interfaces of the program, neither extending the other, that extend Iterable: each has
+     * default GetEnumerators, and C# has no most specific one (CS8705). The class declares its own, unless a
+     * superclass of the program does.
+     */
+    static boolean ambiguousEnumerable(TypeInfo cls) {
+        if (cls.isInterface() || !CSharpNames.translated(cls)) return false;
+        TypeInfo parent = CstQueries.superclass(cls);
+        if (parent != null && CSharpNames.translated(parent) && declaresEnumerator(parent)) return false;
+        Set<TypeInfo> iterables = new LinkedHashSet<>();
+        Deque<TypeInfo> todo = new ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        for (TypeInfo at : CstQueries.classChain(cls)) {
+            at.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
+        }
+        while (!todo.isEmpty()) {
+            TypeInfo i = todo.poll();
+            if (!seen.add(i) || !CSharpNames.translated(i)) continue;
+            // the interfaces with default GetEnumerators: those that extend Iterable themselves (CSharpTypePrinter)
+            if (i.isInterface() && i.interfacesImplemented().stream().anyMatch(s -> s.typeInfo() != null
+                    && "java.lang.Iterable".equals(s.typeInfo().fullyQualifiedName()))) {
+                iterables.add(i);
+            }
+            i.interfacesImplemented().forEach(s -> { if (s.typeInfo() != null) todo.add(s.typeInfo()); });
+        }
+        // the most specific ones: C# takes the default of an interface over the one it extends
+        List<TypeInfo> mostSpecific = iterables.stream()
+                .filter(i -> iterables.stream().noneMatch(j -> j != i && extendsInterface(j, i))).toList();
+        return mostSpecific.size() > 1;
+    }
+
+    /** A class of the program that declares GetEnumerator: it implements Iterable itself, or resolves an ambiguity. */
+    private static boolean declaresEnumerator(TypeInfo cls) {
+        for (TypeInfo at : CstQueries.classChain(cls)) {
+            if (!CSharpNames.translated(at)) break;
+            if (at.interfacesImplemented().stream().anyMatch(i -> i.typeInfo() != null
+                    && "java.lang.Iterable".equals(i.typeInfo().fullyQualifiedName()))) {
+                return true;
+            }
+            if (ambiguousEnumerable(at)) return true;
+        }
+        return false;
+    }
+
+    private static boolean extendsInterface(TypeInfo sub, TypeInfo sup) {
+        Deque<TypeInfo> todo = new ArrayDeque<>();
+        Set<TypeInfo> seen = new HashSet<>();
+        sub.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
+        while (!todo.isEmpty()) {
+            TypeInfo t = todo.poll();
+            if (t.equals(sup)) return true;
+            if (!seen.add(t)) continue;
+            t.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
+        }
+        return false;
+    }
 
     /** An interface's method an abstract class leaves to its subclasses, and the interface's type arguments. */
     record LeftAbstract(MethodInfo method, Map<TypeParameter, ParameterizedType> typeArguments) {}

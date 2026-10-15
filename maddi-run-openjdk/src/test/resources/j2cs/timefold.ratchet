@@ -113,9 +113,17 @@
 # C# has as a delegate is the delegate's method group where one is expected: 1086 -> 1110 compiling files, 2082 -> 1971 errors.
 # 2026-10-15, maddi 56b4ecf89: == on a type parameter as object.ReferenceEquals, a class's wildcard test of itself
 # with its own type parameters: 1110 -> 1127 compiling files, 1971 -> 1893 errors.
+# 2026-10-15, maddi b37c5502b, dbcbb02b5, d168e2f81, dc5f6622b, 76269400f, 6ddef0e0a, 88609dc66, a0af43409: an Integer
+# into a template's own type parameter keeps its int?; an enum's or a struct's X? as an Integer's int? (Java's null
+# fits), cast where C# has the value type; a companion's protected member internal; a record header's nested types
+# qualified; an annotation's nested types printed; Class.getName()'s FullName a string?: 1127 -> 1153 compiling files,
+# 1893 -> 1799 errors.
+# 2026-10-15, maddi 1b73bbe2e, 2c4419b6b, 519f58f0c: a self-bounded type comparable with itself has IComparable in its
+# wildcard interface; Java's var of a conditional with differing branches declared; a class implementing two iterable
+# interfaces declares its GetEnumerator: 1153 -> 1167 compiling files, 1799 -> 1783 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1127
+compilingFiles	1167
 unmappedJdkUses	379
