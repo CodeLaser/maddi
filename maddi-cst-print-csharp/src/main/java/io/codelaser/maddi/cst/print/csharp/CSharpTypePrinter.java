@@ -523,7 +523,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> CSharpHierarchy.substitute(p.parameterizedType(), map))
                 .toList();
         ParameterizedType samReturn = CSharpHierarchy.substitute(sam.returnType(), map);
-        List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
+        // as the interface's method has them, T? where the analysis has the parameter nullable: Action<string?>
+        CSharpFacts facts = CSharpContext.program().facts();
+        List<String> parameterTypes = IntStream.range(0, samParameters.size())
+                .mapToObj(i -> CSharpTypeName.withNullable(samParameters.get(i),
+                        CSharpTypeName.argument(samParameters.get(i), q), facts.nullable(sam.parameters().get(i))))
+                .toList();
         boolean isVoid = samReturn.isVoid();
         List<String> delegateArguments = new ArrayList<>(parameterTypes);
         if (!isVoid) delegateArguments.add(CSharpTypeName.argument(samReturn, q));
@@ -533,7 +538,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String f = names.contains("f") ? "function" : "f";
         String parameters = IntStream.range(0, names.size())
-                .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
+                .mapToObj(i -> CSharpTypeName.withNullable(samParameters.get(i), CSharpTypeName.of(samParameters.get(i), q),
+                        facts.nullable(sam.parameters().get(i))) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
         CSharpContext.using("System");
         // a method that is a property is implemented as one

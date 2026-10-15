@@ -400,6 +400,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                     public boolean hasNext() { return false; }
                     public String next() { return null; }
                 }
+                interface Listener { void on(String event); }
+                static final class Printer implements Listener {
+                    public void on(String event) { System.out.println(event); }
+                }
             }
             """;
 
@@ -418,6 +422,11 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
             }
 
             @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return parameter.methodInfo().typeInfo().isInterface() ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+
+            @Override
             public boolean nullabilityAnalysed() {
                 return true;
             }
@@ -429,6 +438,10 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "public S Next() => CreateUpcoming()!;");
         // a compatibility interface's method, redeclared abstract, likewise
         contains(cs, "public abstract S? Next();");
+        // a parameter the interface has nullable is nullable in its implementation, which the analysis has non-null
+        contains(cs, "internal sealed class Printer : IListener { public void On(string? @event) {");
+        // and in the interface's lambda class, its delegate's type argument too
+        contains(cs, "public sealed class Lambda(Action<string?> f) : IListener { public void On(string? @event) => f(@event); }");
     }
 
     @Language("java")
