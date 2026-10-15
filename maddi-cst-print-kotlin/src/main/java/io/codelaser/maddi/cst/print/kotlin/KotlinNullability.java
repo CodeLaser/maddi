@@ -312,6 +312,8 @@ final class KotlinNullability {
                 }
                 default -> false;
             };
+            case InlineConditional ic when KotlinNullCheckShapes.elvis(ic) != null ->
+                    nullableInKotlin(KotlinNullCheckShapes.elvis(ic).otherwise());
             case InlineConditional ic -> nullableInKotlin(ic.ifTrue()) || nullableInKotlin(ic.ifFalse());
             default -> false;
         };
@@ -612,7 +614,32 @@ final class KotlinNullability {
     }
 
     /** A receiver: {@code x!!.} or {@code x?.} when Kotlin types it nullable, else {@code x.}. */
+    // the receiver of a call that KotlinNullCheckShapes prints as x?.m(); set while that call is printed
+    private static final ThreadLocal<Expression[]> SAFE_RECEIVER = new ThreadLocal<>();
+
+    /**
+     * Print a call with {@code ?.} after {@code receiver}; null when the call does not print its receiver through
+     * {@link #receiverWithDot} (a member Kotlin writes otherwise), so that the caller prints the conditional instead.
+     */
+    static OutputBuilder withSafeReceiver(Expression receiver, java.util.function.Supplier<OutputBuilder> call) {
+        Expression[] previous = SAFE_RECEIVER.get();
+        Expression[] slot = {KotlinExpressionPrinter.unwrap(receiver), null};
+        SAFE_RECEIVER.set(slot);
+        try {
+            OutputBuilder printed = call.get();
+            return slot[1] != null ? printed : null;
+        } finally {
+            SAFE_RECEIVER.set(previous);
+        }
+    }
+
     static OutputBuilder receiverWithDot(Expression object, Qualification q) {
+        Expression[] safe = SAFE_RECEIVER.get();
+        if (safe != null && safe[1] == null && KotlinExpressionPrinter.unwrap(object) == safe[0]) {
+            safe[1] = object; // consumed: once
+            return KotlinExpressionPrinter.receiver(object, q)
+                    .add(new SymbolEnum("?.", SpaceEnum.NO_SPACE_SPLIT_ALLOWED, SpaceEnum.NONE, null));
+        }
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(object, q);
         if (!nullableInKotlin(object) || object instanceof NullConstant) return receiver.add(SymbolEnum.DOT);
         if (KotlinContext.options().nullCheck() == KotlinPrintOptions.NullCheck.SAFE_CALL) {

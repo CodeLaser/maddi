@@ -81,17 +81,11 @@ public class KotlinExpressionPrinter {
                 // desugared elvis `a ?: b` = InlineConditional(a==null, ifTrue=b, ifFalse=a); recover the `?:`
                     new OutputBuilderImpl().add(operand(ic.precedence(), ic.ifFalse(), q))
                             .add(SymbolEnum.binaryOperator("?:")).add(operand(ic.precedence(), ic.ifTrue(), q));
-            case InlineConditional ic -> new OutputBuilderImpl()
-                    .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                    .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ic.condition()),
-                            () -> branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q))).add(SpaceEnum.ONE)
-                    .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
-                    .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenFalse(ic.condition()),
-                            () -> branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q)));
+            case InlineConditional ic -> inlineConditional(ic, q);
             // a getter's call whose value a local val holds (KotlinValCopies)
             case MethodCall mc when KotlinSmartCasts.copy(mc) != null ->
                     new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(KotlinSmartCasts.copy(mc).name())));
+            case MethodCall mc when equality(mc) != null -> equality(equality(mc), "==", q);
             case MethodCall mc -> inCall(mc, () -> nonNullFilter(mc, methodCall(mc, q)));
             case MethodReference mr -> methodReference(mr, q);
             case SwitchExpression se -> KotlinStatementPrinter.whenExpression(se.selector(), se.entries(), false, q);
@@ -906,6 +900,9 @@ public class KotlinExpressionPrinter {
     private static boolean mayBeNull(Expression e) {
         Expression x = unwrap(e);
         if (x instanceof NullConstant) return true;
+        if (x instanceof InlineConditional ic && KotlinNullCheckShapes.elvis(ic) != null) {
+            return mayBeNull(KotlinNullCheckShapes.elvis(ic).otherwise());
+        }
         if (x instanceof InlineConditional ic) return mayBeNull(ic.ifTrue()) || mayBeNull(ic.ifFalse());
         return KotlinNullability.nullableInKotlin(x);
     }
@@ -1139,6 +1136,13 @@ public class KotlinExpressionPrinter {
         if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);
+        }
+        if (e instanceof InlineConditional ic && target != null && KotlinNullCheckShapes.elvis(ic) != null) {
+            KotlinNullCheckShapes.Elvis elvis = KotlinNullCheckShapes.elvis(ic);
+            return elvis(elvis, widened(elvis.otherwise(), target, q), q);
+        }
+        if (e instanceof InlineConditional ic && target != null && KotlinNullCheckShapes.safeCall(ic) != null) {
+            return print(ic, q);
         }
         if (e instanceof InlineConditional ic && target != null && !isElvis(ic)) {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
@@ -1837,6 +1841,7 @@ public class KotlinExpressionPrinter {
                     .add(KotlinSymbols.binary(op)).add(operand(equals.precedence(), equals.rhs(), q));
         }
         if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // !(x is T) -> x !is T
+        if (inner instanceof MethodCall mc && equality(mc) != null) return equality(equality(mc), "!=", q);
         return new OutputBuilderImpl()
                 .add(neg.expression().isNumeric() ? SymbolEnum.UNARY_MINUS : SymbolEnum.UNARY_BOOLEAN_NOT)
                 .add(operand(neg.precedence(), neg.expression(), q));
@@ -1923,6 +1928,9 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder unaryOperator(UnaryOperator uo, Qualification q) {
         Expression inner = unwrap(uo.expression());
         if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // a unary op wrapping `is` is `!` -> `!is`
+        if ("!".equals(uo.operator().name()) && inner instanceof MethodCall mc && equality(mc) != null) {
+            return equality(equality(mc), "!=", q); // !a.equals(b) -> a != b
+        }
         if ("~".equals(uo.operator().name())) {
             return receiver(uo.expression(), q).add(SymbolEnum.DOT).add(new TextImpl("inv()"));
         }
@@ -2077,6 +2085,112 @@ public class KotlinExpressionPrinter {
 
     // ---------------------------------------------------------------- precedence
 
+    private static final java.util.Set<String> BOXED_OR_STRING = java.util.Set.of("java.lang.Integer",
+            "java.lang.Long", "java.lang.Short", "java.lang.Byte", "java.lang.Character", "java.lang.Boolean",
+            "java.lang.String");
+    private static final java.util.Map<String, String> BOX = java.util.Map.of("int", "java.lang.Integer",
+            "long", "java.lang.Long", "short", "java.lang.Short", "byte", "java.lang.Byte", "char",
+            "java.lang.Character", "boolean", "java.lang.Boolean", "double", "java.lang.Double",
+            "float", "java.lang.Float");
+    // what a boxed type or String may be compared with in Kotlin, besides itself
+    private static final java.util.Set<String> SUPERTYPES_OF_BOXED = java.util.Set.of("java.lang.Object",
+            "java.lang.Number", "java.lang.Comparable", "java.io.Serializable", "java.lang.CharSequence");
+
+    /**
+     * {@code Objects.equals(a, b)} and {@code a.equals(b)} as Kotlin's {@code a == b}, which is
+     * {@code a?.equals(b) ?: (b === null)} (CodeLaser/maddi#140, item 1). The two operands, or null where that does
+     * not hold or does not compile:
+     * <ul>
+     *     <li>{@code a.equals(b)} on an {@code a} Kotlin types nullable throws in Java and not in Kotlin: kept;</li>
+     *     <li>{@code super.equals(o)} calls another method than {@code ==}: kept;</li>
+     *     <li>Double and Float: on non-null floating-point types {@code ==} compares as IEEE does ({@code NaN != NaN},
+     *     {@code 0.0 == -0.0}), equals does not: kept;</li>
+     *     <li>{@code ==} does not compile between incompatible types ({@code Int == Long}), nor is it wanted on
+     *     arrays: kept.</li>
+     * </ul>
+     */
+    private static Expression[] equality(MethodCall mc) {
+        if (!KotlinContext.translatingJava() || !"equals".equals(mc.methodInfo().name())) return null;
+        List<Expression> args = mc.parameterExpressions();
+        Expression a, b;
+        if (mc.methodInfo().isStatic() && args.size() == 2
+            && "java.util.Objects".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+            a = args.get(0);
+            b = args.get(1);
+        } else if (!mc.methodInfo().isStatic() && args.size() == 1 && mc.object() != null && !mc.objectIsImplicit()
+                   && mc.methodInfo().parameters().getFirst().parameterizedType().isJavaLangObject()
+                   && !(unwrap(mc.object()) instanceof VariableExpression ve && ve.variable() instanceof This t
+                        && t.writeSuper())
+                   && !(unwrap(mc.object()) instanceof TypeExpression)
+                   && !KotlinNullability.nullableInKotlin(mc.object())) {
+            a = mc.object();
+            b = args.getFirst();
+        } else {
+            return null;
+        }
+        return comparableInKotlin(a.parameterizedType(), b.parameterizedType()) ? new Expression[]{a, b} : null;
+    }
+
+    private static boolean comparableInKotlin(ParameterizedType a, ParameterizedType b) {
+        if (a.arrays() > 0 || b.arrays() > 0) return false;
+        String na = boxedName(a), nb = boxedName(b);
+        if ("java.lang.Double".equals(na) || "java.lang.Float".equals(na) || "java.lang.Double".equals(nb)
+            || "java.lang.Float".equals(nb)) {
+            return false;
+        }
+        if (na == null || nb == null || na.equals(nb)) return true;
+        if (BOXED_OR_STRING.contains(na)) return SUPERTYPES_OF_BOXED.contains(nb);
+        if (BOXED_OR_STRING.contains(nb)) return SUPERTYPES_OF_BOXED.contains(na);
+        TypeInfo ta = a.typeInfo(), tb = b.typeInfo();
+        return ta == null || tb == null || ta.isInterface() || tb.isInterface()
+               || "java.lang.Object".equals(na) || "java.lang.Object".equals(nb)
+               || ta.recursiveSuperTypeStream().anyMatch(tb::equals) || tb.recursiveSuperTypeStream().anyMatch(ta::equals);
+    }
+
+    // the fully qualified name, boxed; null for a type parameter
+    private static String boxedName(ParameterizedType type) {
+        if (type.typeInfo() == null) return null;
+        String fqn = type.typeInfo().fullyQualifiedName();
+        return BOX.getOrDefault(fqn, fqn);
+    }
+
+    private static OutputBuilder equality(Expression[] operands, String operator, Qualification q) {
+        return new OutputBuilderImpl().add(operand(PrecedenceEnum.EQUALITY, operands[0], q))
+                .add(KotlinSymbols.binary(operator)).add(operand(PrecedenceEnum.EQUALITY, operands[1], q));
+    }
+
+    // x != null ? x : d is x ?: d, x != null ? x.m() : null is x?.m() (KotlinNullCheckShapes); otherwise an if
+    private static OutputBuilder inlineConditional(InlineConditional ic, Qualification q) {
+        KotlinNullCheckShapes.Elvis elvis = KotlinNullCheckShapes.elvis(ic);
+        if (elvis != null) return elvis(elvis, print(elvis.otherwise(), q), q);
+        KotlinNullCheckShapes.SafeCall safeCall = KotlinNullCheckShapes.safeCall(ic);
+        if (safeCall != null) {
+            OutputBuilder printed = KotlinNullability.withSafeReceiver(safeCall.receiver(),
+                    () -> print(safeCall.call(), q));
+            if (printed != null) return printed;
+        }
+        return new OutputBuilderImpl()
+                .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ic.condition()),
+                        () -> branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q))).add(SpaceEnum.ONE)
+                .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
+                .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenFalse(ic.condition()),
+                        () -> branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q)));
+    }
+
+    // the right operand in parentheses when it binds looser than '+': '?:' binds tighter than comparison, equality,
+    // && and ||, and looser than arithmetic, ranges, infix calls and 'as'
+    private static OutputBuilder elvis(KotlinNullCheckShapes.Elvis elvis, OutputBuilder otherwise, Qualification q) {
+        Expression right = unwrap(elvis.otherwise());
+        boolean bare = !PrecedenceEnum.ADDITIVE.greaterThan(right.precedence())
+                       && !(right instanceof MethodCall mc && equality(mc) != null);
+        OutputBuilder rightPrinted = bare ? otherwise : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(otherwise).add(SymbolEnum.RIGHT_PARENTHESIS);
+        return new OutputBuilderImpl().add(print(elvis.value(), q)).add(SymbolEnum.binaryOperator("?:"))
+                .add(rightPrinted);
+    }
+
     /** True when this desugared inline conditional was a Kotlin elvis, marked in {@link DetailedSources}. */
     private static boolean isElvis(InlineConditional ic) {
         Source source = ic.source();
@@ -2092,7 +2206,11 @@ public class KotlinExpressionPrinter {
     static OutputBuilder operand(io.codelaser.maddi.cst.api.expression.Precedence precedence, Expression e,
                                  Qualification q) {
         OutputBuilder inner = print(e, q);
-        if (precedence.greaterThan(e.precedence()) || needsParenthesesInKotlin(e)) {
+        // a call printed as a == b binds as == does
+        io.codelaser.maddi.cst.api.expression.Precedence own = unwrap(e) instanceof MethodCall mc
+                                                               && equality(mc) != null ? PrecedenceEnum.EQUALITY
+                : e.precedence();
+        if (precedence.greaterThan(own) || needsParenthesesInKotlin(e)) {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         return inner;

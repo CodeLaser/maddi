@@ -924,7 +924,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun <T> identity(t: T): T");
         // the supplier's T reaches the result: a Supplier<X?> makes it nullable
         contains(kotlin, "fun <T> getOrDefault(value: T?, supplier: java.util.function.Supplier<T>): T");
-        contains(kotlin, "value else supplier.get()) as T)");
+        // an elvis (#140): its type is supplier.get()'s, T, so no cast
+        contains(kotlin, "): T = value ?: supplier.get()");
     }
 
     @Language("java")
@@ -1132,5 +1133,55 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 "exprents", "label", "l")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "val exprents = stat.getExprents()\nif (exprents != null && !exprents.isEmpty()) { return exprents.size }");
         contains(kotlin, "stat.getLabel()!!.length");
+    }
+
+    @Language("java")
+    private static final String NULL_CHECK_SHAPES = """
+            package a;
+            import java.util.Objects;
+            class C {
+                String name;
+                Integer count;
+                String elvis(String s, String d) { return s != null ? s : d; }
+                String elvisFlipped(String s) { return s == null ? "none" : s; }
+                Integer safeCall(String s) { return s != null ? s.length() : null; }
+                String safeCallFlipped(String s) { return s == null ? null : s.trim(); }
+                String safeCallArgument(String s) { return s != null ? s.concat(s) : null; }
+                String twice() { return name() != null ? name() : "x"; }
+                String name() { return name; }
+                boolean objectsEquals(String a, String b) { return Objects.equals(a, b); }
+                boolean equalsNonNull(String a, String b) { return a.equals(b); }
+                boolean notEquals(String a, String b) { return !a.equals(b); }
+                boolean equalsNullable(String s, String b) { return s.equals(b); }
+                boolean incomparable(Integer i, Long l) { return Objects.equals(i, l) || i.equals(l); }
+                boolean floating(Double x, Double y) { return Objects.equals(x, y); }
+                String concatenated(String s, String a) { return s != null ? s : a + "!"; }
+                String nested(String s, boolean c) { return s != null ? s : c ? "x" : "y"; }
+            }
+            """;
+
+    /** CodeLaser/maddi#140, item 1: Java's null-check conditionals and equals calls, as Kotlin writes them. */
+    @Test
+    public void nullCheckShapes() {
+        String kotlin = kotlin(NULL_CHECK_SHAPES, new KotlinPrintOptions(new ByName(Set.of("s", "name()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun elvis(s: String?, d: String): String = s ?: d");
+        contains(kotlin, "fun elvisFlipped(s: String?): String = s ?: \"none\"");
+        contains(kotlin, "fun safeCall(s: String?): Int? = s?.length");
+        contains(kotlin, "= (s?.trim())!!");
+        // the argument reads s: kept, ?. gives it no smart cast
+        contains(kotlin, "if (s != null) s.plus(s) else null");
+        // a call is evaluated twice in Java, once by ?:: kept
+        contains(kotlin, "if (name() != null) name() else \"x\"");
+        contains(kotlin, "fun objectsEquals(a: String, b: String): Boolean = a == b");
+        contains(kotlin, "fun equalsNonNull(a: String, b: String): Boolean = a == b");
+        contains(kotlin, "fun notEquals(a: String, b: String): Boolean = a != b");
+        // s.equals(b) throws in Java when s is null; s == b does not
+        contains(kotlin, "s!!.equals(b)");
+        // Int == Long does not compile; Double == Double is IEEE on non-null doubles
+        contains(kotlin, "Objects.equals(i, l) || i!!.equals(l)");
+        contains(kotlin, "Objects.equals(x, y)");
+        contains(kotlin, "s ?: a + \"!\"");
+        contains(kotlin, "s ?: (if (c) \"x\" else \"y\")");
     }
 }
