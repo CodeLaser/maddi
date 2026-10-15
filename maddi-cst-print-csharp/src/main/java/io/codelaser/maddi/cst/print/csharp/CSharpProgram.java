@@ -234,6 +234,8 @@ public final class CSharpProgram {
         CSharpContext.program(b.build());
         List<TypeInfo> all = new ArrayList<>();
         primaryTypes.forEach(t -> collect(t, all));
+        // a method's result is nullable where an override's is (FamilyFacts)
+        b.facts = FamilyFacts.of(b.facts, all);
         CSharpProgramIndex index = CSharpProgramIndex.of(all);
         Set<TypeInfo> candidates = new HashSet<>();
         Set<TypeInfo> implemented = new HashSet<>();

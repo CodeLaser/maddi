@@ -673,8 +673,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             // a compatibility interface's member is Java's name in PascalCase: IJavaIterator's HasNext()
             String name = CSharpNames.translated(m.typeInfo()) ? CSharpNames.method(m) : CSharpNames.pascal(m.name());
-            StringBuilder sb = new StringBuilder("public abstract ")
-                    .append(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q)).append(' ')
+            // nullable where an override's result is (FamilyFacts): S? Next() of an iterator that may give null
+            ParameterizedType returned = CSharpHierarchy.substitute(m.returnType(), left.typeArguments());
+            String returnType = CSharpTypeName.withNullable(returned, CSharpTypeName.of(returned, q),
+                    CSharpContext.program().facts().nullable(m));
+            StringBuilder sb = new StringBuilder("public abstract ").append(returnType).append(' ')
                     .append(name).append('(');
             StringBuilder signature = new StringBuilder(name);
             for (int k = 0; k < m.parameters().size(); k++) {

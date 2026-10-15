@@ -382,6 +382,56 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String NULLABLE_FAMILY = """
+            package org.example.family;
+            import java.util.Iterator;
+            class Selections {
+                static abstract class Upcoming<S> implements Iterator<S> {
+                    protected abstract S createUpcoming();
+                    public boolean hasNext() { return true; }
+                    public S next() { return createUpcoming(); }
+                }
+                static final class Filtering<S> extends Upcoming<S> {
+                    private S last;
+                    protected S createUpcoming() { return last; }
+                }
+                static abstract class Selection<S> implements Iterator<S> { }
+                static final class Countdown extends Selection<String> {
+                    public boolean hasNext() { return false; }
+                    public String next() { return null; }
+                }
+            }
+            """;
+
+    /**
+     * A method's result is nullable where an override's may be null: C# lets an override narrow T? to T, not widen
+     * T to T? (CS8764), and the analysis decides each method alone.
+     */
+    @Test
+    public void nullableFamily() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                boolean nullable = "createUpcoming".equals(method.name()) && "Filtering".equals(method.typeInfo().simpleName())
+                                   || "next".equals(method.name()) && "Countdown".equals(method.typeInfo().simpleName());
+                return nullable ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Selections", NULLABLE_FAMILY);
+        contains(cs, "protected internal abstract S? CreateUpcoming();");
+        contains(cs, "protected internal override S? CreateUpcoming() => last;");
+        // the analysis has next() non-null: the call through the nullable base is asserted
+        contains(cs, "public S Next() => CreateUpcoming()!;");
+        // a compatibility interface's method, redeclared abstract, likewise
+        contains(cs, "public abstract S? Next();");
+    }
+
+    @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
             import java.math.BigDecimal;

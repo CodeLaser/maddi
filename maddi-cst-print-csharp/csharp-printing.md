@@ -154,6 +154,10 @@ implements the interface.
   (`DeclaringType`, `DocumentElement`, JAXB's `GetNode()`); `CSharpBcl`'s `nullable(...)` for a chooser's
   (`Map.get`'s `$0.Get($1)`). A class's enumerator over an `iterator()` the analysis finds nullable asserts it:
   `Iterator()!.AsEnumerator()`, where Java's for-each throws.
+- A method's result is nullable where an override's may be null: C# lets an override narrow `T?` to `T`, not widen
+  `T` to `T?` (CS8764, CS8766), and a call through the base reaches the override. The analysis decides each method
+  alone; the printer takes the override family (`FamilyFacts`): `protected internal abstract S? CreateUpcoming();`,
+  and a call where null may not go is asserted, `CreateUpcoming()!`.
 - An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
   Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
   `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it
