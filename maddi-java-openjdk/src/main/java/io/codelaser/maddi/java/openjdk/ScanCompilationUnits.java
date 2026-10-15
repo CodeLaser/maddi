@@ -65,8 +65,12 @@ public class ScanCompilationUnits {
     private final boolean computeFingerPrints;
     private SourceSetInterleave interleave;
 
+    /**
+     * @param typeless the units javac parsed that declare no type (a file of comments only): they produce no type
+     *                 and are not a loss (CodeLaser/maddi#133)
+     */
     public record Result(List<TypeInfo> primaryTypes, List<ModuleInfo> modules, List<TypeInfo> preloads,
-                         List<CompilationUnitFailure> failures) {
+                         List<CompilationUnitFailure> failures, Set<URI> typeless) {
     }
 
     /**
@@ -355,8 +359,13 @@ public class ScanCompilationUnits {
         for (ScanCompilationUnit scu : scanners) {
             scu.commitDeferredFields();
         }
+        Set<URI> typeless = StreamSupport.stream(units.spliterator(), false)
+                .filter(unit -> unit.getModule() == null && unit.getTypeDecls().stream()
+                        .noneMatch(td -> td instanceof JCTree.JCClassDecl))
+                .map(unit -> unit.getSourceFile().toUri())
+                .collect(Collectors.toUnmodifiableSet());
         return new Result(List.copyOf(primaryTypes), List.copyOf(modules), List.copyOf(preloads),
-                List.copyOf(failures));
+                List.copyOf(failures), typeless);
     }
 
     /**
