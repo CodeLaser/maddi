@@ -53,15 +53,29 @@ public class TestUnaccountedUnits {
     @DisplayName("a file importing a type its source set does not depend on is reported, the rest parses")
     @Test
     public void undeclaredDependency(@TempDir Path dir) throws IOException {
+        undeclaredDependency(dir, false);
+    }
+
+    @DisplayName("the same, with module-info: 'requires a' without the dependency")
+    @Test
+    public void undeclaredDependencyModule(@TempDir Path dir) throws IOException {
+        undeclaredDependency(dir, true);
+    }
+
+    private static void undeclaredDependency(Path dir, boolean module) throws IOException {
         Path a = dir.resolve("a"), b = dir.resolve("b");
         write(a, "a/A.java", "package a;\npublic class A { public static int f() { return 1; } }\n");
         write(b, "b/Uses.java", "package b;\nimport a.A;\npublic class Uses { int g() { return A.f(); } }\n");
         write(b, "b/Plain.java", "package b;\npublic class Plain { }\n");
         write(b, "b/Comments.java", "// nothing here\n");
+        if (module) {
+            write(a, "module-info.java", "module a { exports a; }\n");
+            write(b, "module-info.java", "module b { requires a; }\n");
+        }
         SourceSet ssA = new SourceSetImpl.Builder().setName("a").setSourceDirectories(List.of(a))
-                .setUri(a.toUri()).build();
+                .setUri(a.toUri()).setModule(module).build();
         SourceSet ssB = new SourceSetImpl.Builder().setName("b").setSourceDirectories(List.of(b))
-                .setUri(b.toUri()).build(); // no dependency on a
+                .setUri(b.toUri()).setModule(module).build(); // no dependency on a
         InputConfiguration ic = new InputConfigurationImpl.Builder().addSourceSets(ssA, ssB)
                 .addClassPath("jmod:java.base").build();
         JavaInspector javaInspector = new JavaInspectorImpl();
@@ -74,6 +88,10 @@ public class TestUnaccountedUnits {
         List<Summary.ParseException> all = Stream.concat(summary.parseExceptions().stream(),
                 summary.parseWarnings().stream()).toList();
         assertTrue(all.stream().anyMatch(e -> uses.equals(e.uri())), "the dropped unit is reported");
+        // #139: an import that is not on the source set's dependencies is unresolved there, a tolerable drop; it
+        // used to reach the type of the other source set, and fail as an error on its committed inspection
+        assertTrue(summary.parseExceptions().stream().noneMatch(e -> uses.equals(e.uri())),
+                () -> summary.parseExceptions().stream().map(Throwable::getMessage).toList().toString());
         // the drop is reported once, by the scan; a file of comments is no loss
         assertTrue(all.stream().noneMatch(e -> e.getMessage().contains("no type was produced")),
                 () -> all.stream().map(Throwable::getMessage).toList().toString());
