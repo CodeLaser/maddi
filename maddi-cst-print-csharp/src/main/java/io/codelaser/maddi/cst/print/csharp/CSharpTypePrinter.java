@@ -671,7 +671,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 continue;
             }
-            String name = CSharpNames.method(m);
+            // a compatibility interface's member is Java's name in PascalCase: IJavaIterator's HasNext()
+            String name = CSharpNames.translated(m.typeInfo()) ? CSharpNames.method(m) : CSharpNames.pascal(m.name());
             StringBuilder sb = new StringBuilder("public abstract ")
                     .append(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q)).append(' ')
                     .append(name).append('(');

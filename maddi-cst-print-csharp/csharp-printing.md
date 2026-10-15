@@ -209,7 +209,9 @@ implements the interface.
   - a default method that implements an inherited interface's method is an explicit implementation:
     `Type IListener<string>.EventClass() => typeof(string);`;
   - an abstract class that leaves an interface's method to its subclasses redeclares it,
-    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s. A method of a
+    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s; a
+    compatibility interface's too, `Iterator`'s `public abstract bool HasNext();`, whose `S Next()` a
+    `SelectionIterator<int>`'s override has as `int Next()`. A method of a
     superclass with the interface method's signature implements it, in C# as in Java, although Java's overrides()
     does not link the two: the class in between does not redeclare it.
 

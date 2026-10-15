@@ -220,7 +220,9 @@ final class CSharpHierarchy {
         CstQueries.superclasses(cls).forEach(t -> leftAbstract(t).forEach(l -> declaredAbove.add(l.method())));
         List<LeftAbstract> left = new ArrayList<>();
         interfaces.forEach((iface, i) -> {
-            if (!CSharpNames.translated(iface)) return;
+            // a library interface too that the compatibility library declares with Java's members in PascalCase,
+            // Iterator's IJavaIterator: SelectionIterator<S> leaves HasNext() and Next() to its subclasses
+            if (!CSharpNames.translated(iface) && !compatInterface(iface)) return;
             for (MethodInfo m : iface.methods()) {
                 if (declaredAbove.contains(m)) continue;
                 if (m.isStatic() || !m.isAbstract() || !m.typeParameters().isEmpty() || m.isSynthetic()
@@ -232,6 +234,12 @@ final class CSharpHierarchy {
             }
         });
         return List.copyOf(left);
+    }
+
+    private static boolean compatInterface(TypeInfo iface) {
+        if (!iface.isInterface()) return false;
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(iface);
+        return mapping != null && mapping.compat();
     }
 
     /**

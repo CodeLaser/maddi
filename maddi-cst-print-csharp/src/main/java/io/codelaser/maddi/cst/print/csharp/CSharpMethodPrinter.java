@@ -174,6 +174,12 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * {@code T Describe()} in {@code Holder<int>} is {@code int Describe()}, so {@code Integer describe()} is
      * {@code int Describe()}, not {@code int?} (CS0508), and a parameter likewise (CS0115).
      */
+    /** A library interface's method a superclass of the program declares abstract: S Next() of IJavaIterator<S>. */
+    private static boolean redeclaredAbove(MethodInfo o, TypeInfo owner) {
+        return CstQueries.superclasses(owner).stream().anyMatch(s -> CSharpHierarchy.leftAbstract(s).stream()
+                .anyMatch(l -> l.method().equals(o)));
+    }
+
     /** {@code method}'s result is printed as the value type itself, an override of {@code T Get()}. */
     static boolean plainResult(MethodInfo method) {
         return boxedTypeArgument(method.returnType(), method, MethodInfo::returnType);
@@ -192,7 +198,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>); an enum's
         // or a struct's is the value type (IComparer<E>)
         boolean boxed = pt.isBoxedExcludingVoid();
-        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())))
+        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())
+                                                                       || redeclaredAbove(o, method.typeInfo())))
                 .map(inOverridden)
                 .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
                                && !o.typeParameter().isMethodTypeParameter());

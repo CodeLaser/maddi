@@ -354,6 +354,32 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ABSTRACT_ITERATORS = """
+            package org.example.iterators;
+            import java.util.Iterator;
+            public class Iterators {
+                static abstract class SelectionIterator<S> implements Iterator<S> {
+                    @Override public void remove() { throw new UnsupportedOperationException(); }
+                }
+                static final class Countdown extends SelectionIterator<Integer> {
+                    private int left = 3;
+                    @Override public boolean hasNext() { return left > 0; }
+                    @Override public Integer next() { return left--; }
+                }
+            }
+            """;
+
+    /** An abstract class leaves a compatibility interface's methods, IJavaIterator's, to its subclasses: abstract. */
+    @Test
+    public void abstractIterators() {
+        String cs = translate("Iterators", ABSTRACT_ITERATORS);
+        contains(cs, "public abstract bool HasNext();");
+        contains(cs, "public abstract S Next();");
+        // the override of S Next() in a SelectionIterator<int> is the value type
+        contains(cs, "public override int Next() => left--;");
+    }
+
+    @Language("java")
     private static final String STATIC_SCOPES = """
             package org.example.scopes;
             public abstract class Move<T> {
