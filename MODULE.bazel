@@ -78,6 +78,10 @@ maven.install(
         "org.eclipse.collections:eclipse-collections-api:13.0.0",
         "org.eclipse.collections:eclipse-collections:13.0.0",
         "com.google.guava:guava:33.6.0-jre",
+        "org.hamcrest:hamcrest:2.2",
+        "org.junit.jupiter:junit-jupiter-params:5.13.0", # Gradle: 6.0.3; the JUnit of this list
+        "org.mockito:mockito-core:5.23.0",
+        "commons-io:commons-io:2.20.0",
 
         # used for testing the parser (need not be updated for compilation, building)
         "org.apiguardian:apiguardian-api:1.1.2",

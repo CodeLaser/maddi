@@ -20,6 +20,7 @@ maddi_java_library(
         "//maddi-cst-api",
         "//maddi-cst-analysis",
         "//maddi-cst-impl",
+        "//maddi-cst-print",
         "//maddi-cst-print-translate",
     ],
 )
