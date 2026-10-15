@@ -635,7 +635,8 @@ from a map, a stream's collector.
   `IScore`. In an instance member of the type itself, a cast to or a local of its wildcard is the type with its own
   type parameters, which has the private members the wildcard interface has not: Java's `equals`,
   `MinCollector<?, ?> that = (MinCollector<?, ?>) o`, is `MinCollector<A, P> that = (MinCollector<A, P>) o`, after the
-  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>` has C#'s
+  `GetType()` comparison that C# makes with the type arguments. A type that is `Comparable<Score_>`, or comparable
+  with itself (`InnerScore<Score_>` a `Comparable<InnerScore<Score_>>`), has C#'s
   non-generic `IComparable` in its wildcard interface, which it implements by a cast
   (`int IComparable.CompareTo(object other) => CompareTo((Score_) other!);`). A member whose result has the removed
   parameter inside another type (`List<Score_>`) is not the wildcard interface's. The wildcard interface extends those

@@ -8,12 +8,25 @@ public sealed class Scores {
         return false;
     }
     internal static string Describe<S>(IDirector<S> director, S solution) => director.Calculate(solution).ToShortString();
+    internal static int CompareInner(IInner a, IInner b) => ((IInner) a).CompareTo(b);
     public interface IDirector<Solution_, Score_> : IDirector<Solution_> where Score_ : IScore<Score_> {
         Score_ Calculate(Solution_ solution);
         List<Score_> History();
         IScore IDirector<Solution_>.Calculate(Solution_ solution) => Calculate(solution);
     }
     public interface IDirector<Solution_> { IScore Calculate(Solution_ solution); }
+
+    public sealed record Inner<Score_>(Score_ Raw, int Unassigned)
+        : IComparable<Inner<Score_>>, IInner where Score_ : IScore<Score_> {
+        public int CompareTo(Inner<Score_> other) => Raw.CompareTo(other.Raw);
+        IScore IInner.Raw => Raw;
+        int IInner.Unassigned => Unassigned;
+        int IComparable.CompareTo(object other) => CompareTo((Inner<Score_>) other!);
+    }
+    public interface IInner : IComparable {
+        IScore Raw { get; }
+        int Unassigned { get; }
+    }
 
     internal sealed class MinCollector<A, P> : IMinCollector<A> where P : IComparable<P> {
         private readonly Func<A, P> mapper;

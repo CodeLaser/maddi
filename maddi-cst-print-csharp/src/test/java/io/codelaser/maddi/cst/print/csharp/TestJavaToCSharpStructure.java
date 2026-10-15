@@ -1501,6 +1501,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static <S> String describe(Director<S, ?> director, S solution) {
                     return director.calculate(solution).toShortString();
                 }
+                public record Inner<Score_ extends Score<Score_>>(Score_ raw, int unassigned)
+                        implements Comparable<Inner<Score_>> {
+                    public int compareTo(Inner<Score_> other) { return raw.compareTo(other.raw); }
+                }
+                static int compareInner(Inner<?> a, Inner<?> b) { return ((Inner) a).compareTo(b); }
             }
             """;
 
@@ -1515,6 +1520,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // Comparable<Score_>: the companion is C#'s non-generic IComparable, which the type implements by a cast
         contains(cs, "public interface IScore : IComparable {");
         contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Score_) other!);");
+        // Comparable<Inner<Score_>>, of the type itself, likewise
+        contains(cs, "public interface IInner : IComparable {");
+        contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Inner<Score_>) other!);");
         contains(cs, "IScore Negate();");
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");

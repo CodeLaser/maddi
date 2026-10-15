@@ -221,7 +221,7 @@ final class CSharpWildcardInterfaces {
             } else if (has(st)) {
                 String erased = erased(s, removed, q);
                 if (erased != null) supers.add(erased);
-            } else if (comparableOfRemoved(s, removed)) {
+            } else if (comparableOfRemoved(s, removed, t)) {
                 // Comparable<Score_>: C#'s non-generic IComparable, which the type implements by a cast
                 CSharpContext.using("System");
                 supers.add("IComparable");
@@ -230,10 +230,15 @@ final class CSharpWildcardInterfaces {
         return List.copyOf(supers);
     }
 
-    private static boolean comparableOfRemoved(ParameterizedType s, List<TypeParameter> removed) {
-        return s.typeInfo() != null && "java.lang.Comparable".equals(s.typeInfo().fullyQualifiedName())
-               && s.parameters().size() == 1 && s.parameters().getFirst().isTypeParameter()
-               && removed.contains(s.parameters().getFirst().typeParameter());
+    /** {@code Comparable<Score_>} of a removed type parameter, or {@code Comparable<InnerScore<Score_>>} of the type itself. */
+    private static boolean comparableOfRemoved(ParameterizedType s, List<TypeParameter> removed, TypeInfo t) {
+        if (s.typeInfo() == null || !"java.lang.Comparable".equals(s.typeInfo().fullyQualifiedName())
+            || s.parameters().size() != 1) {
+            return false;
+        }
+        ParameterizedType argument = s.parameters().getFirst();
+        return argument.isTypeParameter() ? removed.contains(argument.typeParameter())
+                : argument.arrays() == 0 && t.equals(argument.typeInfo());
     }
 
     private static String interfaceOfClosed(ParameterizedType s, Qualification q) {
@@ -372,9 +377,11 @@ final class CSharpWildcardInterfaces {
         List<OutputBuilder> bridges = new ArrayList<>(members(t, q).stream()
                 .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.bridge()))).toList());
         List<TypeParameter> removed = removed(t);
-        t.interfacesImplemented().stream().filter(s -> comparableOfRemoved(s, removed)).findFirst().ifPresent(s -> {
+        t.interfacesImplemented().stream().filter(s -> comparableOfRemoved(s, removed, t)).findFirst().ifPresent(s -> {
             String object = CSharpContext.program().facts().nullabilityAnalysed() ? "object?" : "object";
-            String self = CSharpNames.typeParameter(s.parameters().getFirst().typeParameter());
+            ParameterizedType argument = s.parameters().getFirst();
+            String self = argument.isTypeParameter() ? CSharpNames.typeParameter(argument.typeParameter())
+                    : CSharpTypeName.of(argument, q);
             bridges.add(new OutputBuilderImpl().add(new TextImpl("int IComparable.CompareTo(" + object + " other) => CompareTo(("
                     + self + ") other!);")));
         });
