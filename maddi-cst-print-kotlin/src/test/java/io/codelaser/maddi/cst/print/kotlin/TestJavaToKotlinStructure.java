@@ -1415,4 +1415,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
         contains(alone, "fun names(): MutableList<String>\n");
     }
+
+    /**
+     * maddi-mod#50: guava's printing did not finish. Each field's reads are assignments to the next two, so deciding
+     * the first asked for every later one along each path to it: Fibonacci-many decisions of 40 fields, as nothing
+     * decided inside an open chain was remembered.
+     */
+    @Test
+    public void chainOfFieldsDecidedOnce() {
+        int n = 40;
+        StringBuilder source = new StringBuilder("package a;\nimport java.util.*;\nclass Chain {\n");
+        for (int i = 0; i < n; i++) source.append("    private List<String> f").append(i).append(" = new ArrayList<>();\n");
+        source.append("    void link() {\n");
+        for (int i = 0; i + 1 < n; i++) {
+            source.append("        f").append(i + 1).append(" = f").append(i).append(";\n");
+            if (i + 2 < n) source.append("        f").append(i + 2).append(" = f").append(i).append(";\n");
+        }
+        source.append("    }\n    int size() { return f").append(n - 1).append(".size(); }\n}\n");
+        String kotlin = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(60),
+                () -> kotlinInWorld(source.toString(), KotlinPrintOptions.DEFAULT, type -> {
+                    type.fields().forEach(f -> f.analysis().set(
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                    notModified(type, "size");
+                }));
+        contains(kotlin, "private val f0: List<String>");
+        contains(kotlin, "private var f" + (n - 1) + ": List<String>");
+    }
 }
