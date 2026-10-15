@@ -108,8 +108,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(parameterInfo.name(), parameterInfo.parameterizedType());
         }
 
+        /** {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one). */
         @Override
         public ParameterizedType returnType(MethodInfo methodInfo) {
+            if (checked.contains("=" + methodInfo.name() + "()")) {
+                return methodInfo.returnType().withNullable(NullableState.NONNULL);
+            }
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
 
@@ -1072,6 +1076,32 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun blank(s: String?): Boolean = s.isNullOrEmpty()");
         contains(kotlin, "fun some(l: MutableList<String>?): Boolean = !l.isNullOrEmpty()");
         contains(kotlin, "s == null || t!!.isEmpty()");
+    }
+
+    private static final String LAMBDA_RESULT = """
+            package a;
+            import java.util.function.Function;
+            public class Retriever {
+                private final Function<String, Double> minScore;
+                public Retriever(Double minScore) { this(query -> minScore, 0); }
+                private Retriever(Function<String, Double> dynamicMinScore, int unused) { this.minScore = dynamicMinScore; }
+            }
+            """;
+
+    /**
+     * A public signature's boxed parameter is Kotlin's {@code Double?} whatever the verdict (the Java ABI), so a lambda
+     * returning it into a {@code Function<String, Double>} asserts it where the pass decides the lambda's result
+     * non-null; without that verdict it prints as before (langchain4j EmbeddingStoreContentRetriever, maddi-mod#38).
+     */
+    @Test
+    public void lambdaResultIntoNonNullSlot() {
+        String kotlin = kotlin(LAMBDA_RESULT, new KotlinPrintOptions(new ByName(Set.of(), Set.of("=apply()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "minScore: Double?");
+        contains(kotlin, "{ query -> minScore!! }");
+        String undecided = kotlin(LAMBDA_RESULT.replace("Retriever", "Retriever2"),
+                new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(undecided, "{ query -> minScore }");
     }
 
     private static final String VAL_COPIES = """
