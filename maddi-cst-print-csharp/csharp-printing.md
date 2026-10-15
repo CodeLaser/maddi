@@ -405,9 +405,12 @@ differences:
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
   var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
-  record has no such properties (`SWITCH_FORM`).
-- **String identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
-  `object.ReferenceEquals(a, b)`.
+  record has no such properties (`SWITCH_FORM`). C# cannot test against an open generic type, and
+  `o is Pair<object, object>` does not match a `Pair<string, int>`: in the class itself, `o instanceof Pair<?, ?> p`
+  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters.
+- **Reference identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
+  `object.ReferenceEquals(a, b)`. So does `==` on a type parameter's value, which C# does not allow (except against
+  `null`).
 - **Lambdas and method references.**
   - A lambda becomes `(a, b) => …`.
   - A method reference becomes a method group (`Owner.Method`, `receiver.Method`). For an unbound receiver or a

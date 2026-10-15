@@ -62,7 +62,8 @@ import java.util.stream.Stream;
  * <ul>
  *   <li>{@code x instanceof T} is {@code x is T}, and {@code !(x instanceof T)} is {@code x is not T};</li>
  *   <li>{@code ==} between two Strings is Java's identity comparison; C#'s {@code ==} compares their contents, so it
- *   is {@code object.ReferenceEquals(a, b)};</li>
+ *   is {@code object.ReferenceEquals(a, b)}, as is {@code ==} on a type parameter's value, which C# does not
+ *   allow;</li>
  *   <li>a lambda is {@code (a, b) => …}; a method reference is a method group ({@code Owner.Method},
  *   {@code receiver.Method}) or, for an unbound receiver or a constructor, a lambda;</li>
  *   <li>{@code X.class} is {@code typeof(X)}; {@code super.m()} is {@code base.M()}; an array's {@code length} is
@@ -1400,8 +1401,8 @@ public final class CSharpExpressionPrinter {
                     .add(arguments(List.of(bo.lhs(), bo.rhs()), q));
             return "==".equals(op) ? call : new OutputBuilderImpl().add(SymbolEnum.UNARY_BOOLEAN_NOT).add(call);
         }
-        if (("==".equals(op) || "!=".equals(op)) && stringIdentity(bo.lhs(), bo.rhs())) {
-            // Java's == on two Strings compares references; C#'s compares contents
+        if (("==".equals(op) || "!=".equals(op)) && referenceIdentity(bo.lhs(), bo.rhs())) {
+            // Java's == on two Strings compares references, C#'s compares contents; C# has no == on a type parameter
             OutputBuilder call = new OutputBuilderImpl().add(text("object.ReferenceEquals"))
                     .add(arguments(List.of(bo.lhs(), bo.rhs()), q));
             return "==".equals(op) ? call
@@ -1418,19 +1419,24 @@ public final class CSharpExpressionPrinter {
                 .add(operand(bo.precedence(), bo.rhs(), q));
     }
 
-    private static boolean stringIdentity(Expression lhs, Expression rhs) {
+    /**
+     * Java's {@code ==} compares references where C#'s does not: two Strings, which C# compares by contents, and a
+     * type parameter's value, which C# cannot compare with {@code ==} at all. Against {@code null}, C#'s is fine.
+     */
+    private static boolean referenceIdentity(Expression lhs, Expression rhs) {
         if (unwrap(lhs) instanceof NullConstant || unwrap(rhs) instanceof NullConstant) return false;
         ParameterizedType l = lhs.parameterizedType();
         ParameterizedType r = rhs.parameterizedType();
-        return l != null && r != null && l.arrays() == 0 && r.arrays() == 0 && l.isJavaLangString() && r.isJavaLangString();
+        if (l == null || r == null || l.arrays() > 0 || r.arrays() > 0) return false;
+        return l.isJavaLangString() && r.isJavaLangString() || l.isTypeParameter() || r.isTypeParameter();
     }
 
     private static OutputBuilder negation(Negation neg, Qualification q) {
         Expression inner = unwrap(neg.expression());
         if (inner instanceof InstanceOf io) return instanceOf(io, true, q); // !(x instanceof T) -> x is not T
-        // !(a == b) is a != b, unless == is not C#'s == (binaryOperator): a string identity, or a value against an
+        // !(a == b) is a != b, unless == is not C#'s == (binaryOperator): a reference identity, or a value against an
         // object, which the default below negates
-        if (inner instanceof Equals equals && !stringIdentity(equals.lhs(), equals.rhs())
+        if (inner instanceof Equals equals && !referenceIdentity(equals.lhs(), equals.rhs())
             && !valueAndObject(equals.lhs(), equals.rhs()) && !valueAndObject(equals.rhs(), equals.lhs())) {
             return new OutputBuilderImpl().add(operand(equals.precedence(), equals.lhs(), q))
                     .add(SymbolEnum.NOT_EQUALS).add(operand(equals.precedence(), equals.rhs(), q));
