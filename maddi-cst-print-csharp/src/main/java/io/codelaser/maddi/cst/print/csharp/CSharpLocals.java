@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.statement.Block;
@@ -54,12 +55,16 @@ final class CSharpLocals {
                 lvc.localVariableStream().map(LocalVariable::simpleName).forEach(names::add);
             }
             s.visit((Element e) -> {
-                if (e instanceof InstanceOf io && io.patternVariable() != null && io.patternVariable().localVariable() != null) {
-                    names.add(io.patternVariable().localVariable().simpleName());
-                }
+                if (e instanceof InstanceOf io && io.patternVariable() != null) patternVariables(io.patternVariable(), names);
                 return e == s || !(e instanceof Block) && !(e instanceof Lambda) && !(e instanceof Statement);
             });
         }
         return names;
+    }
+
+    /** The variables of a pattern, a record pattern's at any depth. */
+    private static void patternVariables(RecordPattern pattern, Set<String> names) {
+        if (pattern.localVariable() != null) names.add(pattern.localVariable().simpleName());
+        if (pattern.patterns() != null) pattern.patterns().forEach(p -> patternVariables(p, names));
     }
 }

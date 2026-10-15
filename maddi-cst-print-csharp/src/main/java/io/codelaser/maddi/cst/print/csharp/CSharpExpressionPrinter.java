@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
+import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.*;
@@ -1432,10 +1433,40 @@ public final class CSharpExpressionPrinter {
                             : CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q)))
                     .add(SpaceEnum.ONE).add(text(CSharpContext.declare(pattern.localVariable().simpleName())));
         }
+        String deconstructed = pattern == null ? null : recordPattern(pattern, null, q);
+        if (deconstructed != null) return b.add(text(deconstructed));
         if (pattern != null) {
             CSharpContext.message(CSharpPrintCode.SWITCH_FORM, io, CSharpContext.describe(io));
         }
         return b.add(text(classPattern != null ? classPattern : CSharpTypeName.pattern(io.testType(), q)));
+    }
+
+    /**
+     * A record pattern, Java's {@code R(long x, P(var a, _) p)}, as C#'s property pattern
+     * {@code R { X: var x, P: P { A: var a } }}: a record of the program is a C# record whose components are its
+     * properties. A variable of the component's own type is {@code var}, of a narrower one a type test, as in Java.
+     * Null for a library's record, which has no such properties. {@code component} is null at the top.
+     */
+    static String recordPattern(RecordPattern p, ParameterizedType component, Qualification q) {
+        if (p.unnamedPattern()) return "_";
+        LocalVariable lv = p.localVariable();
+        if (lv != null) {
+            String name = CSharpContext.declare(lv.simpleName());
+            boolean same = component != null && lv.parameterizedType().equals(component);
+            return (same ? "var" : CSharpTypeName.pattern(lv.parameterizedType(), q)) + " " + name;
+        }
+        ParameterizedType type = p.recordType();
+        TypeInfo record = type == null ? null : type.typeInfo();
+        if (record == null || !record.typeNature().isRecord() || !CSharpNames.translated(record)) return null;
+        List<FieldInfo> components = record.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+        if (components.size() != p.patterns().size()) return null;
+        List<String> parts = new ArrayList<>();
+        for (int i = 0; i < components.size(); i++) {
+            String sub = recordPattern(p.patterns().get(i), components.get(i).type(), q);
+            if (sub == null) return null;
+            if (!"_".equals(sub)) parts.add(CSharpNames.field(components.get(i)) + ": " + sub);
+        }
+        return CSharpTypeName.pattern(type, q) + " { " + String.join(", ", parts) + (parts.isEmpty() ? "}" : " }");
     }
 
     // ---------------------------------------------------------------- literals

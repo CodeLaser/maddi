@@ -349,14 +349,38 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
             record Point(int x, int y) {
                 Point scale(int f) { return new Point(x * f, y() * f); }
                 static Point origin() { return new Point(0, 0); }
+                @Override
+                public boolean equals(Object o) { return o instanceof Point(int px, var py) && px == x && py == y; }
+                @Override
+                public int hashCode() { return 31 * x + y; }
+            }
+            record Line(Point from, Point to) {
+                static int dx(Object o) {
+                    return switch (o) {
+                        case Line(Point(var x1, var y1), Point(int x2, int y2)) -> x2 - x1;
+                        default -> 0;
+                    };
+                }
+                static boolean vertical(Object o) {
+                    if (o instanceof Line(Point(var x1, var y1), Point to) && to.x() == x1) return true;
+                    return false;
+                }
             }
             """;
 
+    /**
+     * A record is a positional record. Its equals(Object) is C#'s Equals(R other), as a record synthesizes
+     * Equals(object); a record pattern is a property pattern.
+     */
     @Test
     public void record() {
         String cs = translate("Point", RECORD);
         contains(cs, "internal sealed record Point(int X, int Y) {");
         contains(cs, "internal Point Scale(int f) => new Point(X * f, Y * f);");
+        contains(cs, "public bool Equals(Point o) => o is Point { X: var px, Y: var py } && px == X && py == Y;");
+        contains(cs, "public override int GetHashCode()");
+        contains(cs, "Line { From: Point { X: var x1, Y: var y1 }, To: Point { X: var x2, Y: var y2 } }");
+        contains(cs, "o is Line { From: Point { X: var x1, Y: var y1 }, To: var to } && to.X == x1");
     }
 
     @Language("java")
