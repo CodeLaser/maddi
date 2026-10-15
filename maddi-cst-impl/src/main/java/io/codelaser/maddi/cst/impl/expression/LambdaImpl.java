@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.expression;
 
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.Expression;
@@ -194,6 +195,13 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         }
     }
 
+    // a body written as a block keeps its braces when printed, even around a single return (CodeLaser/maddi#137)
+    private boolean writtenAsBlock() {
+        Source source = methodInfo.methodBody().source();
+        return source != null && source.detailedSources() != null
+               && source.detailedSources().detail(DetailedSources.BLOCK_BODY) != null;
+    }
+
     @Override
     public Expression singleExpression() {
         List<Statement> statements = methodInfo.methodBody().statements();
@@ -250,7 +258,7 @@ public class LambdaImpl extends ExpressionImpl implements Lambda {
         }
         outputBuilder.add(SymbolEnum.LAMBDA);
 
-        Expression singleExpression = singleExpression();
+        Expression singleExpression = writtenAsBlock() ? null : singleExpression();
         if (singleExpression != null) {
             outputBuilder.add(outputInParenthesis(qualification, precedence(), singleExpression));
         } else {

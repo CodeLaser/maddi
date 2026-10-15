@@ -2881,7 +2881,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setSource(sourceForNode(lambda.body))
                     .addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
-            methodBody = parseBlock("", lambda.body);
+            Block block = parseBlock("", lambda.body);
+            Source blockSource = block.source();
+            methodBody = blockSource == null ? block
+                    : (Block) block.withSource(blockSource.mergeDetailedSources(runtime.newDetailedSourcesBuilder()
+                    .put(DetailedSources.BLOCK_BODY, blockSource).build()));
         } else {
             throw new UnsupportedOperationException("Unexpected lambda body kind: " + lambda.getBodyKind());
         }

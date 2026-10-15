@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
+import io.codelaser.maddi.cst.api.output.OutputElement;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Block;
 import io.codelaser.maddi.cst.api.statement.Statement;
@@ -66,9 +67,19 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     }
 
     protected OutputBuilder outputBuilder(Qualification qualification) {
-        OutputBuilder ob = new OutputBuilderImpl();
-        if (!comments.isEmpty()) {
-            ob.add(comments.stream().map(c -> c.print(qualification)).collect(OutputBuilderImpl
+        List<Comment> after = commentsAfterOnLastLine(comments, source);
+        List<Comment> before = after.isEmpty() ? comments
+                : comments.stream().filter(c -> !after.contains(c)).toList();
+        OutputBuilder ob;
+        if (after.isEmpty()) {
+            ob = new OutputBuilderImpl();
+        } else {
+            OutputBuilder tail = new OutputBuilderImpl();
+            after.forEach(c -> tail.add(SpaceEnum.ONE).add(c.print(qualification)));
+            ob = new WithTail(tail);
+        }
+        if (!before.isEmpty()) {
+            ob.add(before.stream().map(c -> c.print(qualification)).collect(OutputBuilderImpl
                     .joining(SpaceEnum.NONE, GuideImpl.multipleComments())));
         }
         if (!annotations.isEmpty()) {
@@ -81,6 +92,38 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
             ob.add(SpaceEnum.ONE);
         }
         return ob;
+    }
+
+    /*
+    A statement adds its parts to the builder outputBuilder() hands it; the comments after it stay at the end, so
+    that every statement prints them after itself without knowing about them.
+     */
+    private static class WithTail extends OutputBuilderImpl {
+        private final int tail;
+
+        WithTail(OutputBuilder tail) {
+            super.add(tail);
+            this.tail = list().size();
+        }
+
+        @Override
+        public OutputBuilder add(OutputElement... outputElements) {
+            list().addAll(list().size() - tail, List.of(outputElements));
+            return this;
+        }
+
+        @Override
+        public OutputBuilder add(OutputBuilder... outputBuilders) {
+            for (OutputBuilder ob : outputBuilders) {
+                list().addAll(list().size() - tail, ob.list());
+            }
+            return this;
+        }
+
+        @Override
+        public void removeLast() {
+            if (list().size() > tail) list().remove(list().size() - tail - 1);
+        }
     }
 
     @Override

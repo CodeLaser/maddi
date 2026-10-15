@@ -88,6 +88,13 @@ public interface DetailedSources {
      * (CodeLaser/maddi#49).
      */
     Object BRACELESS = new Object();
+
+    /**
+     * Present on the source of a lambda's body written as a block ({@code () -> { a(); }}). The Java printer keeps
+     * the braces even when the block holds the one return or expression statement it could print as an expression
+     * body (CodeLaser/maddi#137).
+     */
+    Object BLOCK_BODY = new Object();
     /**
      * Position of the comma that <em>precedes</em> an element in a comma-separated list.
      * Computed for formal type parameter lists, formal method parameter lists, field declaration lists, and
