@@ -3061,6 +3061,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         currentExpression = null;
         scan(mr.getQualifierExpression(), unused);
         Expression evaluatedScope = currentExpression;
+        // CodeLaser/maddi#136: scanning 'ArrayList<String>' visits its identifiers one by one and leaves the LAST
+        // one, the type argument 'String', as the current expression; 'ArrayList<String>::new' printed as
+        // 'String::new'. A parameterized qualifier is converted as one type instead.
+        Tree qualifier = mr.getQualifierExpression();
+        Tree unannotated = qualifier instanceof JCTree.JCAnnotatedType at ? at.getUnderlyingType() : qualifier;
+        if (unannotated instanceof JCTree.JCTypeApply) {
+            DetailedSources.Builder qdsb = runtime.newDetailedSourcesBuilder();
+            List<AnnotationExpression> annots = new ArrayList<>();
+            ParameterizedType type = convertTypeWithAnnotations(qualifier, qdsb, annots::add);
+            evaluatedScope = runtime.newTypeExpressionBuilder()
+                    .addAnnotations(annots)
+                    .setSource(sourceForNode(qualifier, qdsb))
+                    .setDiamond(runtime.diamondShowAll())
+                    .setParameterizedType(type)
+                    .build();
+        }
         MethodInfo method;
         ParameterizedType concreteFunctionalType;
         ParameterizedType concreteReturnType;
@@ -3075,13 +3091,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // invisible to the refactoring levers too, so their edits silently skip its call sites.
             boolean arrayOwner = "Array".equals(ms.owner.getQualifiedName().toString());
             if (ms.isConstructor() && arrayOwner) {
-                // array construction. For a primitive component ('byte[]::new', elasticsearch zstd) the
-                // qualifier scan yields no expression: derive the array type from javac's own type instead.
-                if (evaluatedScope == null) {
-                    concreteReturnType = convertType.convert(((JCTree) mr.getQualifierExpression()).type);
-                } else {
-                    concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
-                }
+                // array construction
+                // javac's own type: the scanned expression is the element type, and adding one dimension to it
+                // made 'String[][]::new' a 'String[]' constructor. A primitive component ('byte[]::new',
+                // elasticsearch zstd) yields no expression at all.
+                concreteReturnType = convertType.convert(((JCTree) qualifier).type);
                 scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
                         .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
                         .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())
