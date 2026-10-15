@@ -73,6 +73,18 @@ public interface ModificationFacts {
                     .getOrNull(PropertyImpl.IMMUTABLE_METHOD, ValueImpl.ImmutableImpl.class);
             return ofMethod != null && ofMethod.isAtLeastImmutableHC();
         }
+        @Override
+        public boolean unmodifiableResult(MethodInfo methodInfo) {
+            if (methodInfo.isConstructor()) return false;
+            Value.Bool ofMethod = methodInfo.analysis()
+                    .getOrNull(PropertyImpl.UNMODIFIABLE_VIEW_METHOD, ValueImpl.BoolImpl.class);
+            if (ofMethod != null && ofMethod.isTrue()) return true;
+            ParameterizedType returnType = methodInfo.returnType();
+            if (returnType == null || returnType.arrays() > 0 || returnType.typeInfo() == null) return false;
+            Value.Bool ofType = returnType.typeInfo().analysis()
+                    .getOrNull(PropertyImpl.UNMODIFIABLE_TYPE, ValueImpl.BoolImpl.class);
+            return ofType != null && ofType.isTrue();
+        }
     };
 
     /** No code modifies the collection the field holds: no element is added or removed (its elements may change). */
@@ -108,6 +120,17 @@ public interface ModificationFacts {
      * reaches the printer without a change to it.
      */
     default boolean immutableResult(MethodInfo methodInfo) {
+        return false;
+    }
+
+    /**
+     * The method's result is an object nothing is added to or removed from through that reference, though it may be
+     * a view of one that changes: {@code Collections.unmodifiableList(x)} ({@code UNMODIFIABLE_VIEW_METHOD}, a
+     * contract on library methods and computed from the returned values otherwise), or a value of a type that
+     * admits no structural change through any reference ({@code UNMODIFIABLE_TYPE}). Weaker than
+     * {@link #immutableResult}; enough for a read-only collection type (CodeLaser/maddi-mod#52).
+     */
+    default boolean unmodifiableResult(MethodInfo methodInfo) {
         return false;
     }
 }

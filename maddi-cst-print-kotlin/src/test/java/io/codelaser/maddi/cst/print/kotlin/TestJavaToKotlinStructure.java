@@ -1243,4 +1243,54 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // a new ArrayList is no immutable value, and nothing proves it unmodified
         contains(kotlin, "private val grown: MutableList<String>");
     }
+
+    @Language("java")
+    private static final String UNMODIFIABLE_VIEW = """
+            package a;
+            import java.util.*;
+            final class Viewed {
+                private final List<String> names;
+                private final Map<String, Integer> counts;
+                private final List<String> grown = new ArrayList<>();
+                Viewed(List<String> names, Map<String, Integer> counts) {
+                    this.names = Collections.unmodifiableList(names);
+                    this.counts = Collections.unmodifiableMap(counts);
+                }
+                List<String> names() { return names; }
+                Map<String, Integer> counts() { return counts; }
+                static List<String> wrap(List<String> xs) { return Collections.unmodifiableList(xs); }
+                List<String> grown() { return grown; }
+                int size() { return names.size() + counts.size() + grown.size(); }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi-mod#52: an unmodifiable view is not immutable (whoever holds the list it wraps can change it),
+     * but nothing is added to or removed from it through this reference, which is all a read-only type says. The
+     * archive's {@code @UnmodifiableView} on Collections.unmodifiable* is set here as the stored property it becomes.
+     */
+    @Test
+    public void unmodifiableView() {
+        String kotlin = kotlin(UNMODIFIABLE_VIEW, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && "java.util.Collections".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
+                    && mc.methodInfo().name().startsWith("unmodifiable")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(kotlin, "private val names: List<String>");
+        contains(kotlin, "private val counts: Map<String, Int>");
+        contains(kotlin, "fun names(): List<String> = names");
+        contains(kotlin, "fun counts(): Map<String, Int> = counts");
+        contains(kotlin, "fun wrap(xs: MutableList<String>): List<String>");
+        // a view is not an immutable value: no listOf, Java's call stays
+        contains(kotlin, "Collections.unmodifiableList(names)");
+        contains(kotlin, "private val grown: MutableList<String>");
+    }
 }

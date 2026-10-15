@@ -182,13 +182,19 @@ final class KotlinReadOnly {
         typeInfo.subTypes().forEach(t -> forEachType(t, consumer));
     }
 
-    /** An immutable value (at least immutable-HC), or null: a call whose result is one ({@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#immutableResult}). */
+    /**
+     * An immutable value (at least immutable-HC) or an unmodifiable view, or null: a call whose result is one
+     * ({@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#immutableResult},
+     * {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#unmodifiableResult}). Either way nothing is added
+     * to or removed from it through this reference, which is what Kotlin's read-only type says.
+     */
     static boolean immutableValue(Expression e) {
         Expression u = unwrapped(e);
         return switch (u) {
             case NullConstant nc -> true;
             case MethodCall mc -> mc.methodInfo() != null
-                                  && KotlinContext.options().modification().immutableResult(mc.methodInfo());
+                                  && (KotlinContext.options().modification().immutableResult(mc.methodInfo())
+                                      || KotlinContext.options().modification().unmodifiableResult(mc.methodInfo()));
             case InlineConditional ic -> immutableValue(ic.ifTrue()) && immutableValue(ic.ifFalse());
             default -> false;
         };
