@@ -39,17 +39,28 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
 
     private final Expression assignmentExpression;
     private final String name;
+    // one per declaration, carried by every copy: see LocalVariable.declarationId (CodeLaser/maddi#127)
+    private final Object declarationId;
 
     public LocalVariableImpl(ParameterizedType parameterizedType, Expression assignmentExpression) {
-        super(parameterizedType);
-        this.name = UNNAMED;
-        this.assignmentExpression = assignmentExpression;
+        this(UNNAMED, parameterizedType, assignmentExpression, new Object());
     }
 
     public LocalVariableImpl(String name, ParameterizedType parameterizedType, Expression assignmentExpression) {
+        this(name, parameterizedType, assignmentExpression, new Object());
+    }
+
+    private LocalVariableImpl(String name, ParameterizedType parameterizedType, Expression assignmentExpression,
+                              Object declarationId) {
         super(parameterizedType);
         this.name = Objects.requireNonNull(name);
         this.assignmentExpression = assignmentExpression;
+        this.declarationId = declarationId;
+    }
+
+    @Override
+    public Object declarationId() {
+        return declarationId;
     }
 
     /*
@@ -60,6 +71,7 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
      (2) linking/analysis graphs are per-method, so cross-method name collisions cannot meet.
      Do not key a CROSS-method structure by Variable without qualifying locals first. The name-based hashCode is
      deterministic across JVM runs (String hash), which analysis determinism relies on.
+     A caller that needs the declaration rather than the name keys on declarationId() (#127).
      */
     @Override
     public String fullyQualifiedName() {
@@ -73,17 +85,17 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
 
     @Override
     public LocalVariable withAssignmentExpression(Expression expression) {
-        return new LocalVariableImpl(name, parameterizedType(), expression);
+        return new LocalVariableImpl(name, parameterizedType(), expression, declarationId);
     }
 
     @Override
     public LocalVariable withName(String name) {
-        return new LocalVariableImpl(name, parameterizedType(), assignmentExpression);
+        return new LocalVariableImpl(name, parameterizedType(), assignmentExpression, declarationId);
     }
 
     @Override
     public LocalVariable withType(ParameterizedType type) {
-        return new LocalVariableImpl(name, type, assignmentExpression);
+        return new LocalVariableImpl(name, type, assignmentExpression, declarationId);
     }
 
     @Override
@@ -140,7 +152,7 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
         Expression tex = assignmentExpression == null ? null : assignmentExpression.translate(translationMap);
         ParameterizedType type = translationMap.translateType(parameterizedType());
         if (tex != assignmentExpression || type != parameterizedType()) {
-            LocalVariable translated = new LocalVariableImpl(name, type, tex);
+            LocalVariable translated = new LocalVariableImpl(name, type, tex, declarationId);
             translationMap.rememberTranslatedLocalVariable(this, translated);
             return translated;
         }
@@ -150,6 +162,6 @@ public class LocalVariableImpl extends VariableImpl implements LocalVariable {
     @Override
     public Variable rewire(InfoMapView infoMap) {
         return new LocalVariableImpl(name, parameterizedType().rewire(infoMap), assignmentExpression == null ? null
-                : assignmentExpression.rewire(infoMap));
+                : assignmentExpression.rewire(infoMap), declarationId);
     }
 }
