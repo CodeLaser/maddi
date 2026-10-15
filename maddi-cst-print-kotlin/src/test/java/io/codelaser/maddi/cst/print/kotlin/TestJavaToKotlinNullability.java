@@ -129,6 +129,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return checked.contains("^" + parameterInfo.name());
         }
 
+        /** {@code "%x"} in checked: parameter x's method answers null with its own exception. */
+        @Override
+        public boolean rejectsNull(ParameterInfo parameterInfo) {
+            return checked.contains("%" + parameterInfo.name());
+        }
+
         /** {@code "~x"} in checked: local x is proven unobserved before its first dereference. */
         @Override
         public boolean unobservedBeforeDereference(MethodInfo method, Element declaration, LocalVariable variable) {
@@ -1077,6 +1083,40 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun blank(s: String?): Boolean = s.isNullOrEmpty()");
         contains(kotlin, "fun some(l: MutableList<String>?): Boolean = !l.isNullOrEmpty()");
         contains(kotlin, "s == null || t!!.isEmpty()");
+    }
+
+    private static final String REJECTS_NULL = """
+            package a;
+            class Doc {
+                private final String text;
+                Doc(String text) {
+                    if (text == null) throw new IllegalArgumentException("text cannot be null");
+                    this.text = text;
+                }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi-mod#28: a non-null parameter whose method answers null with its own exception. Kotlin's entry
+     * check throws a NullPointerException first for a Java caller's null: reported, the declaration stays non-null.
+     * Not where the parameter is nullable, which the method's own check still guards.
+     */
+    @Test
+    public void nullRejectionReplaced() {
+        List<PrintMessage<KotlinPrintCode>> messages = messages(REJECTS_NULL,
+                new KotlinPrintOptions(new ByName(Set.of(), Set.of("%text")), KotlinPrintOptions.NullCheck.ASSERT));
+        List<PrintMessage<KotlinPrintCode>> replaced = messages.stream()
+                .filter(m -> m.code() == KotlinPrintCode.NULL_REJECTION_REPLACED).toList();
+        org.junit.jupiter.api.Assertions.assertEquals(1, replaced.size(), messages.toString());
+        assertTrue(replaced.getFirst().severity() == PrintMessage.Severity.BEHAVIOUR_CHANGE
+                   && replaced.getFirst().line() == 4, replaced.toString());
+        contains(kotlin(REJECTS_NULL.replace("class Doc", "class Doc2"),
+                new KotlinPrintOptions(new ByName(Set.of(), Set.of("%text")), KotlinPrintOptions.NullCheck.ASSERT)),
+                "class Doc2(text: String)");
+        List<PrintMessage<KotlinPrintCode>> nullable = messages(REJECTS_NULL.replace("class Doc", "class Doc3"),
+                new KotlinPrintOptions(new ByName(Set.of("text"), Set.of("%text")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertTrue(nullable.stream().noneMatch(m -> m.code() == KotlinPrintCode.NULL_REJECTION_REPLACED),
+                nullable.toString());
     }
 
     private static final String LAMBDA_RESULT = """
