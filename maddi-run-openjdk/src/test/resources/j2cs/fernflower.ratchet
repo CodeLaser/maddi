@@ -66,9 +66,13 @@
 # & | % as template operators: 181 files compile; errors 50 -> 42.
 # 2026-10-11, a ClassLoader as the Assembly that holds the types (loadClass is GetType), Optional.stream:
 # 182 files compile; errors 42 -> 38.
+#
+# 2026-10-15, maddi 7717d7f4b, f9973dec2, f355bb80b: record patterns as property patterns, a record's equals as
+# Equals(R? o) with its components' hash where it has no hashCode, and a class that implements a functional interface
+# C# has as a delegate is the delegate's method group where one is expected: 182 -> 183 compiling files, 36 -> 35 errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	182
+compilingFiles	183
 unmappedJdkUses	15
