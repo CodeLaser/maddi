@@ -424,20 +424,22 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (typeInfo.isInterface()) {
             // an interface's implementations are enumerable through its default implementations, over its Iterator()
             String name = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+            String call = name + "()" + (iterator == null ? "" : CSharpNullability.resultForgiven(iterator));
             if (iterator == null) {
                 out.add(new OutputBuilderImpl().add(new TextImpl("IJavaIterator<" + element + "> Iterator();")));
             }
             out.add(new OutputBuilderImpl().add(new TextImpl("IEnumerator<" + element + "> IEnumerable<" + element
-                                                             + ">.GetEnumerator() => " + name + "().AsEnumerator();")));
+                                                             + ">.GetEnumerator() => " + call + ".AsEnumerator();")));
             out.add(new OutputBuilderImpl().add(new TextImpl("System.Collections.IEnumerator System.Collections.IEnumerable"
-                                                             + ".GetEnumerator() => " + name + "().AsEnumerator();")));
+                                                             + ".GetEnumerator() => " + call + ".AsEnumerator();")));
             return out;
         }
         if (iterator == null && !abstractIterator) return out;
-        String iteratorName = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+        String iteratorCall = iterator == null ? "Iterator()"
+                : CSharpNames.method(iterator) + "()" + CSharpNullability.resultForgiven(iterator);
         out.addAll(List.of(
                 new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
-                                                         + iteratorName + "().AsEnumerator();")),
+                                                         + iteratorCall + ".AsEnumerator();")),
                 new OutputBuilderImpl().add(new TextImpl(
                         "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();"))));
         return out;

@@ -123,7 +123,9 @@ implements the interface.
   passes the null on, and so does C#. A program's parameter is nullable when the analysis says so, a library's when
   its hints do. C# prints no `?` in a type argument (`List<Exprent>`), so that a collection's element or key is not
   nullable whatever the hints: Java's `contains(Object)` takes null, C#'s `Contains(T)` does not, and even a `null`
-  there is `null!`. This is the write the analysis asserts under its Kotlin policy (`assertContentWrites`).
+  there is `null!`. This is the write the analysis asserts under its Kotlin policy (`assertContentWrites`). A value of
+  a type parameter C# leaves unconstrained may be `string?` to C#: into a reference type that is not a type parameter
+  it is asserted whatever the analysis knows, `marshaller.Marshal(root!, w)`.
 - The same holds for the other places a value goes (CS8603, CS8625, CS8601): a `return` of a value that may be null,
   or of `null`, from a method the analysis does not find nullable, or from a lambda, whose result is a delegate's type
   argument; a write into an array's element, which C# prints without `?` (`arr[i] = null!`, `{ x, null! }`: the array
@@ -137,7 +139,9 @@ implements the interface.
   from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`), or from the rule itself: a mapping
   file's `->?` (`member java.util.Deque.poll/0 ->? $0.PollFirst()`), for the compatibility library's members that
   return `T?` (`Put`, `PollFirst`, the navigable lookups, `GetProperty`) and the BCL's nullable properties
-  (`DeclaringType`, `DocumentElement`); `CSharpBcl`'s `nullable(...)` for a chooser's (`Map.get`'s `$0.Get($1)`).
+  (`DeclaringType`, `DocumentElement`, JAXB's `GetNode()`); `CSharpBcl`'s `nullable(...)` for a chooser's
+  (`Map.get`'s `$0.Get($1)`). A class's enumerator over an `iterator()` the analysis finds nullable asserts it:
+  `Iterator()!.AsEnumerator()`, where Java's for-each throws.
 - An unboxing cast, `(int) x`, has a `!` on a value that may be null (CS8629, CS8605): `(int) map.GetValueOrNull(k)!`.
   Java's unboxing throws a NullPointerException there, C#'s cast an InvalidOperationException. An `Integer` is C#'s
   `int?` whatever the analysis says of its declaration, so a variable has the `!` unless a use-site fact makes it

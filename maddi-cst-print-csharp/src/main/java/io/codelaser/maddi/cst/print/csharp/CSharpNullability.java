@@ -91,16 +91,20 @@ final class CSharpNullability {
      * A library's parameter is nullable only when the analysis's hints say so; a type argument C# prints is not
      * nullable either ({@code List<Exprent>}), so that {@code list.Add(x!)} is the write the analysis asserts. A
      * collection's element or key ({@code elementOrKey}: Java's {@code contains(Object)}, C#'s {@code Contains(T)})
-     * is not nullable whatever the hints, and there even a {@code null} is {@code null!}.
+     * is not nullable whatever the hints, and there even a {@code null} is {@code null!}. A value of an unconstrained
+     * type parameter is one C# takes to be possibly null where it goes into a reference type that is not a type
+     * parameter, {@code Marshal(root!)}, whatever the analysis knows of it.
      */
     static OutputBuilder intoParameter(Expression value, MethodInfo method, int i, boolean elementOrKey,
                                        OutputBuilder printed) {
         if (method == null || method.parameters().isEmpty() || !facts().nullabilityAnalysed()) return printed;
         boolean nullConstant = CSharpExpressionPrinter.unwrap(value) instanceof NullConstant;
-        if (nullConstant ? !elementOrKey : !mayBeNull(value)) return printed;
         ParameterInfo parameter =
                 method.parameters().get(Math.min(i, method.parameters().size() - 1));
         ParameterizedType type = parameter.parameterizedType();
+        boolean open = !nullConstant && !elementOrKey && CSharpTypeName.unconstrained(value.parameterizedType())
+                       && type.arrays() == 0 && !type.isTypeParameter() && !type.isPrimitiveExcludingVoid();
+        if (nullConstant ? !elementOrKey : !mayBeNull(value) && !open) return printed;
         ParameterizedType valueType = value.parameterizedType();
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
         boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
@@ -190,6 +194,14 @@ final class CSharpNullability {
     private static boolean valueType(ParameterizedType type) {
         return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid()
                                                       || type.isBoxedExcludingVoid());
+    }
+
+    /**
+     * {@code !} when the analysis finds that {@code method} may return null, for its result where the printer writes
+     * the call itself: {@code Iterator()!.AsEnumerator()}, Java's for-each, which throws there too.
+     */
+    static String resultForgiven(MethodInfo method) {
+        return facts().nullabilityAnalysed() && facts().nullable(method) == NullableState.NULLABLE ? "!" : "";
     }
 
     /** {@code printed!}, in parentheses unless it is a call, a variable or null. */

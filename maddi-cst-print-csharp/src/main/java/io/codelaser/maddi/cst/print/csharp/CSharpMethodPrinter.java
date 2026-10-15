@@ -263,7 +263,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         CSharpProgram program = CSharpContext.program();
         String type;
         if (wildcardNames != null) {
-            type = CSharpWildcards.type(p.parameterizedType(), wildcardNames, q);
+            type = CSharpTypeName.withNullable(p.parameterizedType(),
+                    CSharpWildcards.type(p.parameterizedType(), wildcardNames, q), program.facts().nullable(p));
         } else if (boxedTypeArgument(p.parameterizedType(), p.methodInfo(), o -> o.parameters().size() > p.index()
                 ? o.parameters().get(p.index()).parameterizedType() : null)) {
             type = CSharpTypeName.argument(p.parameterizedType(), q);

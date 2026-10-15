@@ -380,4 +380,59 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "internal static string? Find(List<string> l) => l.FirstOrDefault();");
         contains(cs, "Find(l)!.Length");
     }
+
+    @Language("java")
+    private static final String OPEN_NULLS = """
+            package org.example.open;
+            import jakarta.xml.bind.Marshaller;
+            import jakarta.xml.bind.ValidationEvent;
+            import java.io.Writer;
+            import java.util.Iterator;
+            import java.util.List;
+            class Open<T> implements Iterable<String> {
+                private Iterator<String> source;
+                public Iterator<String> iterator() { return source; }
+                void write(Marshaller m, T root, Writer w) throws Exception { m.marshal(root, w); }
+                void keep(List<T> l, T t) { l.add(t); }
+                static String where(ValidationEvent e) { return e.getLocator().getNode().getNodeName(); }
+                static <N extends Event> Box<N> recast(Box<? extends Event> b) { return new Box<>(); }
+            }
+            interface Event {
+            }
+            class Box<E extends Event> {
+            }
+            """;
+
+    /**
+     * What C# takes to be possibly null beyond the analysis's verdicts: the iterator a class's enumerator walks, a
+     * value of an unconstrained type parameter into {@code object}, a library result C# declares nullable
+     * ({@code GetNode()}); and a nullable parameter whose wildcards are the method's type parameters.
+     */
+    @Test
+    public void openNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return "iterator".equals(method.name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+
+            @Override
+            public NullableState nullable(ParameterInfo parameter) {
+                return "recast".equals(parameter.methodInfo().name()) ? NullableState.NULLABLE : NullableState.NONNULL;
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Open", OPEN_NULLS);
+        contains(cs, "GetEnumerator() => Iterator()!.AsEnumerator();");
+        contains(cs, "m.Marshal(root!, w);");
+        // into a type parameter, C# does not warn
+        contains(cs, "l.Add(t);");
+        contains(cs, "e.GetLocator().GetNode()!.Name");
+        // a wildcard is a method's type parameter in C#; the parameter keeps its ?
+        contains(cs, "Recast<N, TE>(Box<TE>? b)");
+    }
 }
