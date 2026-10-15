@@ -386,9 +386,13 @@ final class KotlinReadOnly {
         return u == null ? e : u;
     }
 
+    // a method reference hands the result to code out of sight (Optional.map(Memory::messages), then add): never
+    // accepted, also where it is an argument to a parameter that takes any value
     private static void accept(Set<Expression> carriers, Expression e, Set<Element> accepted) {
         Expression u = unwrapped(e);
-        if (carriers.contains(u)) accepted.add(u);
+        if (carriers.contains(u) && !(u instanceof io.codelaser.maddi.cst.api.expression.MethodReference)) {
+            accepted.add(u);
+        }
     }
 
     /**

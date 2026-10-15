@@ -1372,6 +1372,15 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 static int count(Source s) { return s.names().size(); }
                 static void fill(Bag b) { b.items().add("d"); }
+                interface Memory { List<String> messages(); }
+                static class Window implements Memory {
+                    private final List<String> kept = new ArrayList<>();
+                    public List<String> messages() { return List.copyOf(kept); }
+                }
+                static void grow(Memory m) {
+                    var l = Optional.ofNullable(m).map(Memory::messages).orElseGet(ArrayList::new);
+                    l.add("e");
+                }
             }
             """;
 
@@ -1399,6 +1408,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(world, "override fun names(): MutableList<String> = grown");
         contains(world, "fun items(): MutableList<String>\n");
         contains(world, "override fun items(): MutableList<String>");
+        // a method reference may hand the result on to anything: Memory::messages, then add
+        contains(world, "fun messages(): MutableList<String>\n");
 
         String alone = kotlin(FAMILY_RESULTS.replace("class Results", "class Alone"), type -> notModified(type, "size"));
         // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
