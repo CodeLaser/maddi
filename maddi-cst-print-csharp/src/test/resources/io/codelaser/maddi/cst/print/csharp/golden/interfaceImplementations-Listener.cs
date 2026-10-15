@@ -21,6 +21,22 @@ internal abstract class AbstractModel : IModel {
     public abstract string Embed(string text);
 }
 internal sealed class UpperModel : AbstractModel { public override string Embed(string text) => text.ToUpperInvariant(); }
+internal interface IStream {
+    string GetSemantics();
+    bool Distinct();
+    int Size { get; }
+}
+internal abstract class BaseStream {
+    private readonly string semantics;
+    internal BaseStream(string semantics) { this.semantics = semantics; }
+    public string GetSemantics() => semantics;
+    public bool Distinct() => false;
+}
+internal abstract class MiddleStream : BaseStream, IStream {
+    internal MiddleStream() : base("all") { }
+    public abstract int Size { get; }
+}
+internal sealed class LeafStream : MiddleStream { public override int Size => 0; }
 internal sealed class Holder {
     internal sealed class SimpleFailure : IFailure {
         public SimpleFailure WithCode(int code) => this;

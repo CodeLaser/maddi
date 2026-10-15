@@ -195,7 +195,9 @@ implements the interface.
   - a default method that implements an inherited interface's method is an explicit implementation:
     `Type IListener<string>.EventClass() => typeof(string);`;
   - an abstract class that leaves an interface's method to its subclasses redeclares it,
-    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s.
+    `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s. A method of a
+    superclass with the interface method's signature implements it, in C# as in Java, although Java's overrides()
+    does not link the two: the class in between does not redeclare it.
 
   A generic interface method (Java may implement `<T> Class<T> eventClass()` raw) is left as it is.
 - **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
@@ -230,8 +232,9 @@ implements the interface.
     code may override, as the policy has it, makes the property `virtual`.
   - The getter's annotations move to the property. One whose attribute only applies to methods goes on the
     accessor: `{ [Experimental] get; }`.
-  - A lone getter qualifies only when nothing overrides it, it overrides nothing, no method reference names it, and
-    its name is not taken in its class, the classes above it, or those that extend it.
+  - A lone getter qualifies only when nothing overrides it, it overrides nothing, it implements no subclass's
+    interface method, no method reference names it, and its name is not taken in its class, the classes above it,
+    or those that extend it.
   - Methods that override one another are one property when all of them are parameterless with one return type,
     in classes and interfaces that are not delegates:
     - an interface's method becomes `T Name { get; }`, or `T Name => expr;` with a default body;

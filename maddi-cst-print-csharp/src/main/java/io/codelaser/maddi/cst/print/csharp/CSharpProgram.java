@@ -263,7 +263,10 @@ public final class CSharpProgram {
         b.extended = Set.copyOf(extended);
         b.overridden = Set.copyOf(overridden);
         if (policy.accessors() == Accessors.PROPERTIES) {
-            b.properties = CSharpProperties.analyze(index, overridden, delegates);
+            // a superclass's method that implements a subclass's interface is a method there too
+            Set<MethodInfo> implementing = new HashSet<>(overridden);
+            all.forEach(t -> implementing.addAll(CSharpHierarchy.inheritedImplementations(t)));
+            b.properties = CSharpProperties.analyze(index, implementing, delegates);
         }
         b.readOnly = CSharpReadOnly.analyze(index, policy.facts(), delegates);
         b.erasedGenerics = erasedGenerics(index);

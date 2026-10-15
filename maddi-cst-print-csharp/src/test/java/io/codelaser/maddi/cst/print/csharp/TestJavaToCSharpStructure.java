@@ -908,6 +908,23 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
             final class UpperModel extends AbstractModel {
                 public String embed(String text) { return text.toUpperCase(); }
             }
+            interface Stream {
+                String getSemantics();
+                boolean distinct();
+                int size();
+            }
+            abstract class BaseStream {
+                private final String semantics;
+                BaseStream(String semantics) { this.semantics = semantics; }
+                public String getSemantics() { return semantics; }
+                public boolean distinct() { return false; }
+            }
+            abstract class MiddleStream extends BaseStream implements Stream {
+                MiddleStream() { super("all"); }
+            }
+            final class LeafStream extends MiddleStream {
+                public int size() { return 0; }
+            }
             class Holder {
                 static final class SimpleFailure implements Failure {
                     public SimpleFailure withCode(int code) { return this; }
@@ -915,7 +932,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
             }
             """;
 
-    /** C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. */
+    /**
+     * C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. A
+     * superclass's method implements a subclass's interface in C# as in Java: it stays a method, and the abstract
+     * class in between does not declare it again.
+     */
     @Test
     public void interfaceImplementations() {
         String cs = translate("Listener", INTERFACES);
@@ -924,6 +945,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "IFailure IFailure.WithCode(int code) => WithCode(code);");
         contains(cs, "public abstract string Embed(string text);");
         contains(cs, "public override string Embed(string text) => text.ToUpperInvariant();");
+        contains(cs, "public string GetSemantics() => semantics;");
+        contains(cs, "public abstract int Size { get; }");
+        assertFalse(cs.contains("abstract bool Distinct()"), cs);
+        assertFalse(cs.contains("abstract string GetSemantics()"), cs);
     }
 
     @Language("java")
