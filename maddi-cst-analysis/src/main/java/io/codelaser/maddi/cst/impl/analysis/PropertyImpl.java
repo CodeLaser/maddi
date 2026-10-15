@@ -25,6 +25,17 @@ public class PropertyImpl implements Property {
     public static final Property CONTAINER_TYPE = new PropertyImpl("containerType");
     public static final Property INDEPENDENT_TYPE = new PropertyImpl("independentType",
             ValueImpl.IndependentImpl.DEPENDENT);
+    /**
+     * Nothing is added to or removed from an instance of this type through any reference to it: rule 0 (no
+     * assignable field, no setter) and the structural reading of rule 1 (every field structurally unmodified, every
+     * abstract method structurally non-modifying) of road-to-immutability §050, read before the independence cap
+     * that stops an unmodifiable view at FINAL_FIELDS. Computed beside {@link #IMMUTABLE_TYPE}, never derived from
+     * it: a FINAL_FIELDS verdict does not say whether rule 1 failed or only independence did. Says nothing about the
+     * hidden content (a list's elements may change) nor about {@link #CONTAINER_TYPE}. Implied by IMMUTABLE_HC.
+     * Absent while undecided. The Java-to-Kotlin printer reads it for a read-only collection type
+     * (CodeLaser/maddi-mod#52).
+     */
+    public static final Property UNMODIFIABLE_TYPE = new PropertyImpl("unmodifiableType");
     public static final Property IMMUTABLE_TYPE_INDEPENDENT_OF_TYPE_PARAMETERS
             = new PropertyImpl("immutableTypeDeterminedByParameters");
     public static final Property FINAL_TYPE = new PropertyImpl("finalType");
@@ -52,6 +63,16 @@ public class PropertyImpl implements Property {
      * to choose a read-only collection type (CodeLaser/maddi-mod#25); immutability and independence keep the deep one.
      */
     public static final Property STRUCTURALLY_NON_MODIFYING_METHOD = new PropertyImpl("structurallyNonModifyingMethod");
+    /**
+     * The method's result is an object nothing is added to or removed from through this reference: an unmodifiable
+     * view ({@code Collections.unmodifiableList(x)}: whoever holds {@code x} can still change what the view shows),
+     * an instance of an {@link #UNMODIFIABLE_TYPE}, or a value that is at least immutable-HC. A contract
+     * ({@code @UnmodifiableView}) on a bodiless method, computed from the returned values otherwise. Kept apart from
+     * {@link #IMMUTABLE_METHOD}, which immutability and independence read and which a view must not claim: the
+     * view's type fails independence, and a defensive copy it is not. Absent while undecided
+     * (CodeLaser/maddi-mod#52).
+     */
+    public static final Property UNMODIFIABLE_VIEW_METHOD = new PropertyImpl("unmodifiableViewMethod");
     /** the method has a STATIC SIDE EFFECT: it modifies static/global state belonging to a type other than its
      * own primary type (a modifying call on, or assignment to, another type's static field). Informational — it
      * does not by itself cap the type's immutability (immutability inspects only the type's own fields) — but it
