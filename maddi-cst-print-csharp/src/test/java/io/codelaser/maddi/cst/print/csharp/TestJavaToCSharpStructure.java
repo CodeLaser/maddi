@@ -261,6 +261,37 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String CONDITIONAL_VARS = """
+            package org.example.nodes;
+            public class Nodes {
+                static abstract class Node<A> { abstract int size(); }
+                static final class Indexed<A> extends Node<A> { int size() { return 1; } }
+                static final class Unindexed<A> extends Node<A> { int size() { return 0; } }
+                static <A> int build(boolean joiners) {
+                    var node = joiners ? new Indexed<A>() : new Unindexed<A>();
+                    return node.size();
+                }
+                static String describe(Object bean) {
+                    var beanClass = bean == null ? "null" : bean.getClass();
+                    return "" + beanClass;
+                }
+                static int same(boolean b) {
+                    var n = b ? new Indexed<String>() : new Indexed<String>();
+                    return n.size();
+                }
+            }
+            """;
+
+    /** Java's var of a conditional is its branches' common supertype; C#'s var needs one of them: declared. */
+    @Test
+    public void conditionalVars() {
+        String cs = translate("Nodes", CONDITIONAL_VARS);
+        contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
+        contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
+        contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
+    }
+
+    @Language("java")
     private static final String STATIC_SCOPES = """
             package org.example.scopes;
             public abstract class Move<T> {

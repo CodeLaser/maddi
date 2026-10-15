@@ -417,7 +417,9 @@ differences:
     clauses.
   - A multi-catch becomes `catch (Exception e) when (e is A || e is B)`.
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
-  declared type. Otherwise it keeps its type.
+  declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
+  supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
+  Unindexed<A>()`, and C# types the conditional from it.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:

@@ -20,8 +20,10 @@ import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.EmptyExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.InlineConditional;
 import io.codelaser.maddi.cst.api.expression.IntConstant;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.NullConstant;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
@@ -37,6 +39,7 @@ import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -249,6 +252,22 @@ public final class CSharpStatementPrinter {
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 
+    /** A conditional, nested ones too, whose branches are not all of one type. */
+    private static boolean branchesDiffer(Expression init) {
+        Set<ParameterizedType> types = new HashSet<>();
+        collectBranchTypes(CSharpExpressionPrinter.unwrap(init), types);
+        return types.size() > 1;
+    }
+
+    private static void collectBranchTypes(Expression e, Set<ParameterizedType> types) {
+        if (e instanceof InlineConditional ic) {
+            collectBranchTypes(CSharpExpressionPrinter.unwrap(ic.ifTrue()), types);
+            collectBranchTypes(CSharpExpressionPrinter.unwrap(ic.ifFalse()), types);
+        } else if (!(e instanceof NullConstant) && e.parameterizedType() != null) {
+            types.add(e.parameterizedType());
+        }
+    }
+
     private static boolean implicitlyTyped(LocalVariableCreation lvc) {
         if (!lvc.otherLocalVariables().isEmpty()) return false;
         LocalVariable lv = lvc.localVariable();
@@ -256,7 +275,11 @@ public final class CSharpStatementPrinter {
         if (init == null || init.isEmpty() || init instanceof EmptyExpression) return false;
         // var style = Style.AND is a Style in C#, where Java's var is the reference that a Style? is: declared, so that
         // a later style = getStyle() compiles
-        if (lvc.isVar()) return !CSharpTypeName.valueReference(lv.parameterizedType());
+        // var node = c ? new IndexedNode<A>() : new UnindexedNode<A>() is the branches' common supertype in Java; C#'s
+        // var needs one branch to convert to the other (CS0173): declared, the conditional is target-typed
+        if (lvc.isVar()) {
+            return !CSharpTypeName.valueReference(lv.parameterizedType()) && !branchesDiffer(init);
+        }
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
         if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
             return true;
