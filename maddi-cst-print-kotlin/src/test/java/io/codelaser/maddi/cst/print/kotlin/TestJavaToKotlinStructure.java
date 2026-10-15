@@ -1352,4 +1352,56 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // the printer alone sees no family: open methods keep Java's mutable type
         contains(alone, "fun count(names: MutableList<String>): Int");
     }
+
+    @Language("java")
+    private static final String FAMILY_RESULTS = """
+            package a;
+            import java.util.*;
+            class Results {
+                interface Source { List<String> names(); }
+                static class Fixed implements Source {
+                    public List<String> names() { return List.of("a", "b"); }
+                }
+                static class Grower implements Source {
+                    private final List<String> grown = new ArrayList<>();
+                    public List<String> names() { return grown; }
+                }
+                interface Bag { List<String> items(); }
+                static class Held implements Bag {
+                    public List<String> items() { return List.of("c"); }
+                }
+                static int count(Source s) { return s.names().size(); }
+                static void fill(Bag b) { b.items().add("d"); }
+            }
+            """;
+
+    /**
+     * maddi-mod#25, the result side: in the code translated together an abstract method returns a read-only
+     * collection when each call of it only reads, and an override may then return one too, or keep a
+     * MutableList (Kotlin's results are covariant). A caller that adds keeps the whole line mutable.
+     */
+    @Test
+    public void familyResults() {
+        String world = kotlinInWorld(FAMILY_RESULTS, KotlinPrintOptions.DEFAULT, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(world, "fun names(): List<String>\n");
+        contains(world, "override fun names(): List<String> = listOf(\"a\", \"b\")");
+        contains(world, "override fun names(): MutableList<String> = grown");
+        contains(world, "fun items(): MutableList<String>\n");
+        contains(world, "override fun items(): MutableList<String>");
+
+        String alone = kotlin(FAMILY_RESULTS.replace("class Results", "class Alone"), type -> notModified(type, "size"));
+        // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
+        contains(alone, "fun names(): MutableList<String>\n");
+    }
 }

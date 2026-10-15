@@ -47,11 +47,12 @@ import java.util.function.BiConsumer;
  *   Assignments to it are no reads: a {@code MutableList} is a {@code List}. A call the analysis proves
  *   {@code @Identity} ({@code ensureNotNull(builder.variables, …)}) carries the field's value: its result is judged
  *   where it is used, as a read of the field;</li>
- *   <li>a method that overrides none returns a {@code List} when each of its {@code return}s returns such a field
- *   or an immutable value,
- *   and each call of it is read as the field is (an override may still return a {@code MutableList}: Kotlin's
- *   results are covariant). A caller that changed the result would have changed the field, which then is not
- *   structurally unmodified.</li>
+ *   <li>a method returns a {@code List} when each of its {@code return}s returns such a field or an immutable value
+ *   (an abstract one has none to check), and each call of it is read as the field is (an override may still return
+ *   a {@code MutableList}: Kotlin's results are covariant). A caller that changed the result would have changed the
+ *   field, which then is not structurally unmodified. An override does so only where each member it overrides
+ *   returns a {@code List} too, or no collection at all ({@code Object}), maddi-mod#25: a {@code List} is no
+ *   {@code MutableList}.</li>
  * </ul>
  * The two depend on each other ({@code items} is read-only when {@code items()} is, which is when {@code items} is):
  * a cycle is assumed read-only, and each member's other uses are checked where it is entered, as for parameters.
@@ -201,11 +202,21 @@ final class KotlinReadOnly {
     }
 
     static boolean returns(MethodInfo methodInfo) {
-        if (!KotlinContext.translatingJava() || methodInfo.isConstructor() || methodInfo.isAbstract()
-            || methodInfo.methodBody() == null || !methodInfo.overrides().isEmpty()
+        if (!KotlinContext.translatingJava() || methodInfo.isConstructor()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())
             || !isCollection(KotlinNullability.returnType(methodInfo))) {
             return false;
+        }
+        boolean bodiless = methodInfo.isAbstract() || methodInfo.methodBody() == null;
+        if (bodiless && !methodInfo.isAbstract()) return false;
+        if (!methodInfo.overrides().isEmpty()) {
+            // maddi-mod#25: Kotlin's results are covariant, so a List may override a List or an Any, never a
+            // MutableList; nor a type variable's result, which the subtype may have made a MutableList. An override
+            // of a generic member prints that member's result type (KotlinMethodPrinter.genericOverridden).
+            boolean overridable = methodInfo.overrides().stream().allMatch(o -> o.typeParameters().isEmpty()
+                    && o.returnType() != null && o.returnType().typeParameter() == null
+                    && (!isCollection(o.returnType()) || inWorld(o.typeInfo()) && returns(o)));
+            if (!overridable || !inWorld(methodInfo.typeInfo())) return false;
         }
         // closed: the callers of an open member are all over the code base, and a caller in another file that hands
         // the result to a MutableList parameter or field is out of this file's sight (as a closed one's may be too,
@@ -216,6 +227,7 @@ final class KotlinReadOnly {
                          || methodInfo.typeInfo().isFinal();
         if (!closed && !inWorld(methodInfo.typeInfo())) return false;
         return decided(methodInfo, () -> {
+            if (bodiless) return onlyRead(methodInfo, methodInfo.typeInfo());
             List<ReturnStatement> returns = returnStatements(methodInfo);
             return !returns.isEmpty() && returns.stream().allMatch(rs -> rs.expression() != null
                     && (KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve
