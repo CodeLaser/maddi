@@ -36,6 +36,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
             import java.time.Duration;
             import java.time.LocalDate;
             import java.time.LocalDateTime;
+            import java.time.OffsetDateTime;
             import java.util.Base64;
             import java.util.Map;
             import java.util.Random;
@@ -52,6 +53,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static double number(Object o) { return o instanceof Number n ? n.doubleValue() : 0; }
                 static LocalDate date(String s) { return LocalDate.parse(s, ISO_LOCAL_DATE); }
                 static LocalDateTime now(Clock clock) { return LocalDateTime.now(clock); }
+                static OffsetDateTime at(OffsetDateTime t) { return t; }
                 static Duration since(long before, long after) { return Duration.ofNanos(after - before); }
                 static int roll(Random random) { return random.nextInt(6); }
                 static String encode(byte[] bytes) { return Base64.getEncoder().encodeToString(bytes); }
@@ -74,6 +76,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "o is IConvertible n ? Convert.ToDouble(n) : 0");
         contains(cs, "DateOnly.ParseExact(s, \"yyyy-MM-dd\", CultureInfo.InvariantCulture)");
         contains(cs, "internal static DateTime Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
+        contains(cs, "internal static DateTimeOffset At(DateTimeOffset t) => t;");
         contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
         contains(cs, "random.Next(6)");
         contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");

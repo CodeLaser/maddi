@@ -61,6 +61,7 @@ type java.time.Instant -> DateTimeOffset using System
 type java.time.LocalDate -> DateOnly using System
 type java.time.LocalTime -> TimeOnly using System
 type java.time.LocalDateTime -> DateTime using System
+type java.time.OffsetDateTime -> DateTimeOffset using System
 type java.time.Duration -> TimeSpan using System
 type java.time.Clock -> TimeProvider using System
 # a formatter is a custom format string: the ISO ones are constants (FIELDS)
