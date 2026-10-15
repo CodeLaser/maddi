@@ -15,13 +15,16 @@
 
 package io.codelaser.maddi.cst.api.output.element;
 
-import io.codelaser.maddi.cst.api.output.OutputElement;
 
 /**
  * Marks a blank line in the source in front of the element that follows: a statement, a member, the imports or a
  * type declaration. A printer adds it when the sources of two neighbours say so; the formatter writes it only when
  * {@link io.codelaser.maddi.cst.api.output.FormattingOptions#blankLinesFromSource()} is set, and then writes no
  * blank line of its own (CodeLaser/maddi#49). It is empty otherwise.
+ * <p>
+ * It is a {@link Space}: no space, never a split. A client that walks an output and knows nothing of blank lines
+ * (a tokenizer) treats it as the empty space it is to them, rather than meeting an element type it does not know.
+ * A formatter that does know must test for it BEFORE it tests for a space.
  */
-public interface BlankLine extends OutputElement {
+public interface BlankLine extends Space {
 }

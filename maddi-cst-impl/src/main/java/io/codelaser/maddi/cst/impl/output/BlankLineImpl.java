@@ -21,6 +21,8 @@ import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.element.BlankLine;
+import io.codelaser.maddi.cst.api.output.element.ElementarySpace;
+import io.codelaser.maddi.cst.api.output.element.Split;
 
 import java.util.List;
 
@@ -43,6 +45,22 @@ public enum BlankLineImpl implements BlankLine {
     @Override
     public String generateJavaForDebugging() {
         return ".add(BlankLineImpl.INSTANCE)";
+    }
+
+    // as a Space, for the clients that do not know BlankLine: no space, never a split
+    @Override
+    public ElementarySpace elementarySpace(FormattingOptions options) {
+        return ElementarySpaceEnum.NONE;
+    }
+
+    @Override
+    public ElementarySpace nice() {
+        return ElementarySpaceEnum.NONE;
+    }
+
+    @Override
+    public Split split() {
+        return SplitEnum.NEVER;
     }
 
     /**
