@@ -247,6 +247,11 @@ final class KotlinContext {
         return SHADOWING.get().contains(name);
     }
 
+    /** The innermost type being printed. */
+    static TypeInfo currentType() {
+        return STATE.get().currentType();
+    }
+
     static void pushType(TypeInfo typeInfo) {
         STATE.get().pushType(typeInfo);
     }

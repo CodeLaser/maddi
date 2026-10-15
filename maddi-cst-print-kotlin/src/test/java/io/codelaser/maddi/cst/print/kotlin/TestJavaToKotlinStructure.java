@@ -1049,6 +1049,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             type.methods().stream().filter(m -> m.name().equals("same"))
                     .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IDENTITY_METHOD,
                             io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+            notModified(type, "size", "getOrDefault");
         });
         contains(kotlin, "private val names: List<String>");
         contains(kotlin, "private val counts: Map<String, Int>");
@@ -1098,6 +1099,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     private static void unmodifiedFields(TypeInfo type) {
         type.fields().forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
                 io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+        notModified(type, "size");
     }
 
     /**
@@ -1190,5 +1192,52 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "n += r.length");
         contains(kotlin, "if (o is Int) o else 0");
         contains(kotlin, "n + (o as String).length");
+    }
+
+    @Language("java")
+    private static final String BORN_IMMUTABLE = """
+            package a;
+            import java.util.*;
+            final class Born {
+                private final List<String> names;
+                private final Map<String, Integer> counts = Map.of("a", 1, "b", 2);
+                private final Set<String> none = Set.of();
+                private final List<String> grown = new ArrayList<>();
+                Born(List<String> names) { this.names = List.copyOf(names); }
+                List<String> names() { return names; }
+                static List<String> letters() { return List.of("a", "b"); }
+                List<String> grown() { return grown; }
+                int size() { return names.size() + counts.size() + none.size(); }
+            }
+            """;
+
+    /**
+     * maddi#141: a field or result only ever given an immutable container is read-only without the analysis'
+     * structural verdict, and List.of prints as listOf where it lands read-only. The archive's
+     * {@code @ImmutableContainer} on List.of, copyOf, Set.of and Map.of is set here as the stored property it becomes.
+     */
+    @Test
+    public void bornImmutable() {
+        String kotlin = kotlin(BORN_IMMUTABLE, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(kotlin, "private val names: List<String>");
+        contains(kotlin, "private val counts: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)");
+        contains(kotlin, "private val none: Set<String> = emptySet()");
+        contains(kotlin, "fun names(): List<String> = names");
+        contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
+        // copyOf keeps Java's call: listOf has no copying form
+        contains(kotlin, "this.names = java.util.List.copyOf(names)");
+        // a new ArrayList is no immutable container, and nothing proves it unmodified
+        contains(kotlin, "private val grown: MutableList<String>");
     }
 }

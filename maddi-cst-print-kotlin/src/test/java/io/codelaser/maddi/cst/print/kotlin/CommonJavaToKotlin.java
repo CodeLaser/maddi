@@ -124,4 +124,25 @@ public abstract class CommonJavaToKotlin {
         return new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true, options.apply(primaryTypes))
                 .printWithMessages(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
     }
+
+    /**
+     * The library contracts the annotated archive gives in a full run, which these tests do not load: the JDK methods
+     * named here, wherever {@code type}'s code calls them, are {@code @NotModified} (maddi#141: the printer reads the
+     * stored verdict, not a list of names).
+     */
+    protected static void notModified(TypeInfo type, String... methodNames) {
+        java.util.Set<String> names = java.util.Set.of(methodNames);
+        io.codelaser.maddi.cst.print.kotlin.KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit(
+                (io.codelaser.maddi.cst.api.element.Element e) -> {
+                    if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo() != null
+                        && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.")
+                        && names.contains(mc.methodInfo().name())
+                        && !mc.methodInfo().analysis().haveAnalyzedValueFor(
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD)) {
+                        mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                    }
+                    return true;
+                }));
+    }
 }
