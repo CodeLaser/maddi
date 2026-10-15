@@ -1104,6 +1104,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(undecided, "{ query -> minScore }");
     }
 
+    private static final String TYPE_TOKEN = """
+            package a;
+            import java.util.List;
+            class Tokens {
+                static abstract class TypeRef<T> { }
+                private static final TypeRef<List<String>> LIST_TYPE = new TypeRef<>() { };
+            }
+            """;
+
+    /**
+     * {@code new TypeRef<>() {}} takes the type arguments of the field it initializes, as a constructor call does:
+     * Kotlin's generics are invariant (langchain4j DefaultStructuredPromptFactory's MAP_TYPE, maddi-mod#38).
+     */
+    @Test
+    public void typeTokenTakesTheFieldsTypeArguments() {
+        String kotlin = kotlin(TYPE_TOKEN, new KotlinPrintOptions(new ByName(Set.of("LIST_TYPE<<>>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "LIST_TYPE: TypeRef<MutableList<String?>> = object : TypeRef<MutableList<String?>>() { }");
+    }
+
     private static final String VAL_COPIES = """
             package a;
             import java.util.List;

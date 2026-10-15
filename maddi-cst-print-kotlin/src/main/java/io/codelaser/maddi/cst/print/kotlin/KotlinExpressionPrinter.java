@@ -1152,6 +1152,13 @@ public class KotlinExpressionPrinter {
             ParameterizedType withStates = withTargetStates(cc.parameterizedType(), target);
             if (withStates != null) return inCall(cc, () -> constructorCall(cc, withStates, q));
         }
+        if (unwrap(e) instanceof ConstructorCall cc && target != null && typeToken(cc, target)) {
+            // MAP_TYPE: TypeReference<MutableMap<String, Any?>> = object : TypeReference<MutableMap<String, Any?>>() { }:
+            // 'new TypeReference<>() {}' takes the type arguments of what it initializes, states included, as a
+            // constructor call does (Kotlin's generics are invariant; langchain4j DefaultStructuredPromptFactory,
+            // maddi-mod#38). Only without members, which would override with the supertype's arguments
+            return anonymousClass(cc, target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+        }
         if (unwrap(e) instanceof ConstructorCall cc && cc.arrayInitializer() == null && cc.anonymousClass() == null
             && target != null && target.arrays() > 0 && cc.parameterizedType().arrays() == target.arrays()
             && cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).count() == 1 && nonNullElements(target)) {
@@ -1382,15 +1389,40 @@ public class KotlinExpressionPrinter {
                 .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
 
+    /** {@code new TypeReference<>() {}} into a {@code TypeReference<…>}: a diamond, no members, the target's class. */
+    private static boolean typeToken(ConstructorCall cc, ParameterizedType target) {
+        TypeInfo anonymous = cc.anonymousClass();
+        if (anonymous == null || cc.diamond() == null || !cc.diamond().isYes() || target.arrays() > 0
+            || target.parameters().isEmpty() || !anonymous.fields().isEmpty()
+            || anonymous.methods().stream().anyMatch(m -> !m.isSynthetic())) {
+            return false;
+        }
+        ParameterizedType supertype = supertypeOf(anonymous);
+        return supertype != null && supertype.typeInfo() == target.typeInfo() && sameUpToStates(supertype, target);
+    }
+
+    private static ParameterizedType supertypeOf(TypeInfo anonymous) {
+        ParameterizedType parent = anonymous.parentClass();
+        if (parent != null && !parent.isJavaLangObject()) return parent;
+        return anonymous.interfacesImplemented().isEmpty() ? null : anonymous.interfacesImplemented().getFirst();
+    }
+
     private static OutputBuilder anonymousClass(ConstructorCall cc, Qualification q) {
+        return anonymousClass(cc, null, q);
+    }
+
+    /** {@code supertype}: the class or interface to write, null for the anonymous class's own. */
+    private static OutputBuilder anonymousClass(ConstructorCall cc, ParameterizedType supertype, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
                 .add(SymbolEnum.COLON).add(SpaceEnum.ONE);
         ParameterizedType parent = anonymous.parentClass();
         if (parent != null && !parent.isJavaLangObject()) {
-            b.add(new TextImpl(KotlinTypeName.of(parent, q))).add(arguments(cc.parameterExpressions(), q));
+            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype : parent, q)))
+                    .add(arguments(cc.parameterExpressions(), q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
-            b.add(new TextImpl(KotlinTypeName.of(anonymous.interfacesImplemented().getFirst(), q)));
+            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
+                    : anonymous.interfacesImplemented().getFirst(), q)));
         } else {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
