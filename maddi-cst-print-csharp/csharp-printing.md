@@ -620,7 +620,8 @@ from a map, a stream's collector.
   invocation: `f.apply(x)` becomes `f(x)`.
 - **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
   `DateTimeOffset` does:
-  - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `Duration` → `TimeSpan`.
+  - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `OffsetDateTime` →
+    `DateTimeOffset`, `Duration` → `TimeSpan`.
   - `Clock` → `TimeProvider`, so `LocalDateTime.now(clock)` becomes `clock.GetLocalNow().DateTime`.
   - A `DateTimeFormatter` becomes a custom format string. The ISO constants are .NET patterns
     (`ISO_LOCAL_DATE` → `"yyyy-MM-dd"`), and `parse(s, f)` becomes `ParseExact(s, f, CultureInfo.InvariantCulture)`.
