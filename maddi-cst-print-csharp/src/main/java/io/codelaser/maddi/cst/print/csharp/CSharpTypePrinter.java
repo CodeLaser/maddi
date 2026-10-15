@@ -445,6 +445,24 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             CSharpContext.using(CSharpCompat.NAMESPACE);
             out.add(new OutputBuilderImpl().add(new TextImpl("public abstract IJavaIterator<" + element + "> Iterator();")));
         }
+        if (iterable == null && CSharpHierarchy.ambiguousEnumerable(typeInfo)) {
+            // two of its interfaces each give default GetEnumerators (CS8705): its own, over its Iterator()
+            ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
+            String element = seen == null || seen.parameters().isEmpty() ? "object"
+                    : CSharpTypeName.argument(seen.parameters().getFirst(), q);
+            MethodInfo iterator = CstQueries.classChain(typeInfo).stream().flatMap(t -> t.methods().stream())
+                    .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty())
+                    .findFirst().orElse(null);
+            String call = (iterator == null ? "Iterator" : CSharpNames.method(iterator)) + "()"
+                          + (iterator == null ? "" : CSharpNullability.resultForgiven(iterator));
+            CSharpContext.using(CSharpBcl.GENERIC);
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            out.add(new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
+                                                             + call + ".AsEnumerator();")));
+            out.add(new OutputBuilderImpl().add(new TextImpl(
+                    "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();")));
+            return out;
+        }
         if (iterable == null) return out;
         MethodInfo iterator = typeInfo.methods().stream()
                 .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty()).findFirst()

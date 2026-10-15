@@ -292,6 +292,39 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String TWO_ITERABLES = """
+            package org.example.iter;
+            import java.util.Iterator;
+            import java.util.List;
+            public class Selectors {
+                interface Selector<T> extends Iterable<T> { long size(); }
+                interface ListIterable<T> extends Iterable<T> { List<T> list(); }
+                static class FromList<T> implements Selector<T>, ListIterable<T> {
+                    private final List<T> items;
+                    FromList(List<T> items) { this.items = items; }
+                    public long size() { return items.size(); }
+                    public List<T> list() { return items; }
+                    public Iterator<T> iterator() { return items.iterator(); }
+                }
+                static final class Cached<T> extends FromList<T> {
+                    Cached(List<T> items) { super(items); }
+                }
+            }
+            """;
+
+    /**
+     * Two interfaces that are iterable each have default GetEnumerators; a class implementing both declares its own,
+     * which C# finds most specific (CS8705), and its subclasses inherit it.
+     */
+    @Test
+    public void twoIterables() {
+        String cs = translate("Selectors", TWO_ITERABLES);
+        contains(cs, "internal class FromList<T> : ISelector<T>, IListIterable<T> {");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();");
+        contains(cs, "internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }");
+    }
+
+    @Language("java")
     private static final String STATIC_SCOPES = """
             package org.example.scopes;
             public abstract class Move<T> {

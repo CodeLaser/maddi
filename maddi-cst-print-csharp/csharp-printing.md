@@ -229,7 +229,9 @@ implements the interface.
   walks its `Iterator()`, so that `foreach` and LINQ work on it. An interface that extends `Iterable` declares
   `IJavaIterator<T> Iterator();` and is enumerable through default implementations over it
   (`IEnumerator<T> IEnumerable<T>.GetEnumerator() => …`), so that every implementation is; an abstract class that
-  leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it.
+  leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it. A
+  class that implements two such interfaces, neither extending the other, declares its own `GetEnumerator()`: C#
+  finds no most specific of their defaults (CS8705). Its subclasses inherit it.
 
 ### Members
 
