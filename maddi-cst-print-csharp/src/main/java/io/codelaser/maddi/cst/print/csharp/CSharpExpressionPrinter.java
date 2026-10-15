@@ -1025,6 +1025,11 @@ public final class CSharpExpressionPrinter {
         if (elementOrKey && type.isJavaLangObject() && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
+        // the method's own type parameter is whatever the template makes of it: Objects.requireNonNullElse(i, 0) is
+        // i ?? 0, of the int? itself
+        if (type != null && type.isTypeParameter() && type.typeParameter().isMethodTypeParameter() && unboxed(inner)) {
+            type = null;
+        }
         return CSharpNullability.intoParameter(value, method, i, elementOrKey, converted(value, type, q));
     }
 
