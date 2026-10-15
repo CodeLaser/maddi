@@ -405,9 +405,12 @@ differences:
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:
   var to }`. A component's own type is `var`, a narrower one a type test; `_` leaves the component out. A library's
-  record has no such properties (`SWITCH_FORM`).
-- **String identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
-  `object.ReferenceEquals(a, b)`.
+  record has no such properties (`SWITCH_FORM`). C# cannot test against an open generic type, and
+  `o is Pair<object, object>` does not match a `Pair<string, int>`: in the class itself, `o instanceof Pair<?, ?> p`
+  (its `equals`) becomes `o is Pair<A, B> p`, with the class's own type parameters.
+- **Reference identity.** `==` between two Strings is identity in Java and content equality in C#, so it becomes
+  `object.ReferenceEquals(a, b)`. So does `==` on a type parameter's value, which C# does not allow (except against
+  `null`).
 - **Lambdas and method references.**
   - A lambda becomes `(a, b) => …`.
   - A method reference becomes a method group (`Owner.Method`, `receiver.Method`). For an unbound receiver or a
@@ -680,7 +683,8 @@ from a map, a stream's collector.
   compound one too, an argument, a return value, a conditional's branch, an arithmetic operand) gets a cast, and
   `(Boolean) o` used as a condition becomes `(bool) o`. A lambda's parameter is the delegate's value type already. A
   `char` switch's `int` labels are `char` literals. Java's `null` where a type parameter is expected becomes
-  `default`.
+  `default`. An argument of a template's own type parameter keeps its `int?`: `Objects.requireNonNullElse(i, 400)`
+  is `i ?? 400`, where `(int) i` would not compile.
 - **Static members.** C# finds a static member by its simple name only in the type itself, the types it is nested
   in, and their base classes. Any other, a static import or an interface's constant used in an implementing class,
   is qualified with its type: `ExitExprent.EXIT_THROW`.

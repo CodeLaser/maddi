@@ -238,6 +238,27 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String DEFAULTS = """
+            package org.example.defaults;
+            import java.util.Objects;
+            public class Limits {
+                Integer limit;
+                Boolean random;
+                Integer getLimit() { return limit; }
+                int limit() { return Objects.requireNonNullElse(getLimit(), 400); }
+                boolean random() { return Objects.requireNonNullElse(random, true); }
+            }
+            """;
+
+    /** Objects.requireNonNullElse(i, d) is i ?? d of the int? itself: an int on the left of ?? does not compile. */
+    @Test
+    public void nonNullElseOfBoxed() {
+        String cs = translate("Limits", DEFAULTS);
+        contains(cs, "internal int Limit() => (int) (GetLimit() ?? 400);");
+        contains(cs, "internal bool Random() => (bool) (random ?? true);");
+    }
+
+    @Language("java")
     private static final String PUTS = """
             package org.example.puts;
             import java.util.Map;
