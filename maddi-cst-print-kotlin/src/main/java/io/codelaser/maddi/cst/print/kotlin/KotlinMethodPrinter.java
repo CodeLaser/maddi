@@ -265,6 +265,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             KotlinContext.message(KotlinPrintCode.PRECONDITION_NON_NULL, pi, "the NPE moves from "
                     + pi.methodInfo().name() + "'s body to the call");
         }
+        if (KotlinNullability.verdicts().rejectsNull(pi) && !KotlinNullability.isNullable(declared)) {
+            KotlinContext.message(KotlinPrintCode.NULL_REJECTION_REPLACED, pi, "a Java caller's null meets the entry"
+                    + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
+        }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)

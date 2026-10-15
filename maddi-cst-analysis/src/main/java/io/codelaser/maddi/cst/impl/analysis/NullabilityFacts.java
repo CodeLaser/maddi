@@ -167,6 +167,16 @@ public interface NullabilityFacts {
     }
 
     /**
+     * The method answers a null argument with its own check, not a dereference: it needs the value on every normal
+     * exit, and compares it with null first ({@code if (p == null) throw new IllegalArgumentException(...)}, a helper
+     * such as {@code ensureNotBlank}). Declared non-null in Kotlin, a Java caller's null meets Kotlin's entry check, a
+     * NullPointerException, instead of that exception (CodeLaser/maddi-mod#28).
+     */
+    default boolean rejectsNull(ParameterInfo parameterInfo) {
+        return false;
+    }
+
+    /**
      * The nullability analysis ran over the whole program under a null-marked policy: a type without {@code ?} is
      * not null, and a translation's project may enable C#'s nullable reference types.
      */
