@@ -61,6 +61,12 @@ final class KotlinReadOnly {
 
     private static final ThreadLocal<Set<Object>> IN_PROGRESS =
             ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
+    // verdicts reached inside a cycle: read-only ones hold once the cycle's root is read-only too
+    private static final ThreadLocal<Set<Object>> PROVISIONAL =
+            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
+    // members found not read-only while some cycle is open: that holds whatever the cycle assumes
+    private static final ThreadLocal<Set<Object>> REFUSED =
+            ThreadLocal.withInitial(() -> Collections.newSetFromMap(new IdentityHashMap<>()));
 
     private KotlinReadOnly() {
     }
@@ -244,21 +250,39 @@ final class KotlinReadOnly {
 
     /**
      * The verdict on a field or method: a cycle through it is assumed read-only, and checked where it is entered.
-     * Remembered for the world when it was reached outside any cycle, as an assumption inside one may not hold.
+     * The assumption only ever widens what is accepted, so a member found not read-only inside a cycle is not
+     * read-only, and is remembered at once. One found read-only depends on the open assumptions: it is remembered
+     * for the cycle while no member turns out not read-only (which may have been assumed), and for the world when
+     * the cycle's root is read-only. Without that each member of a long chain of fields assigned to each other was
+     * decided again for each path to it: guava's printing did not finish (maddi-mod#50).
      */
     private static boolean decided(Object member, java.util.function.BooleanSupplier compute) {
         KotlinWorld world = KotlinContext.options().world();
         Boolean known = world.readOnly(member);
         if (known != null) return known;
         Set<Object> visiting = IN_PROGRESS.get();
-        if (!visiting.add(member)) return true;
+        Set<Object> provisional = PROVISIONAL.get();
+        Set<Object> refused = REFUSED.get();
+        if (refused.contains(member)) return false;
+        if (provisional.contains(member) || !visiting.add(member)) return true;
         boolean result;
         try {
             result = compute.getAsBoolean();
         } finally {
             visiting.remove(member);
         }
-        if (visiting.isEmpty()) world.readOnly(member, result);
+        if (!result) {
+            world.readOnly(member, false);
+            refused.add(member);
+            provisional.clear();
+        } else if (visiting.isEmpty()) {
+            world.readOnly(member, true);
+            provisional.forEach(m -> world.readOnly(m, true));
+            provisional.clear();
+        } else {
+            provisional.add(member);
+        }
+        if (visiting.isEmpty()) refused.clear();
         return result;
     }
 
@@ -293,24 +317,30 @@ final class KotlinReadOnly {
                 : List.of(owner.primaryType());
         readers.forEach(reader -> forEachBody(reader, (method, body) -> {
             Set<Expression> carriers = carriers(member, body);
+            if (carriers.isEmpty()) return;
             reads[0] += carriers.size();
+            // each verdict below is asked only where a read of the member lands (maddi-mod#50)
             Set<ReturnStatement> readOnlyReturns = Collections.newSetFromMap(new IdentityHashMap<>());
-            if (method != null && body == method.methodBody() && returns(method)) {
-                readOnlyReturns.addAll(returnStatements(method));
+            if (method != null && body == method.methodBody()) {
+                List<ReturnStatement> own = returnStatements(method);
+                if (own.stream().anyMatch(rs -> rs.expression() != null && carriers.contains(unwrapped(rs.expression())))
+                    && returns(method)) {
+                    readOnlyReturns.addAll(own);
+                }
             }
             body.visit((Element e) -> {
                 switch (e) {
                     case Assignment a -> {
                         accept(carriers, a.target(), accepted);
                         if (a.variableTarget() instanceof FieldReference fr && fr.fieldInfo() != member
-                            && field(fr.fieldInfo())) {
+                            && carriers.contains(unwrapped(a.value())) && field(fr.fieldInfo())) {
                             accept(carriers, a.value(), accepted);
                         }
                     }
                     case MethodCall mc -> {
                         // what a read-only type allows: a call the analysis, or the library's contract, says adds
                         // and removes nothing (#141; a list of mutator names before)
-                        if (mc.object() != null && mc.methodInfo() != null
+                        if (mc.object() != null && mc.methodInfo() != null && carriers.contains(unwrapped(mc.object()))
                             && KotlinContext.options().modification().structurallyNonModifying(mc.methodInfo())) {
                             accept(carriers, mc.object(), accepted);
                         }
@@ -386,9 +416,13 @@ final class KotlinReadOnly {
         return u == null ? e : u;
     }
 
+    // a method reference hands the result to code out of sight (Optional.map(Memory::messages), then add): never
+    // accepted, also where it is an argument to a parameter that takes any value
     private static void accept(Set<Expression> carriers, Expression e, Set<Element> accepted) {
         Expression u = unwrapped(e);
-        if (carriers.contains(u)) accepted.add(u);
+        if (carriers.contains(u) && !(u instanceof io.codelaser.maddi.cst.api.expression.MethodReference)) {
+            accepted.add(u);
+        }
     }
 
     /**
@@ -401,6 +435,7 @@ final class KotlinReadOnly {
                                  Set<Element> accepted) {
         if (callee == null || callee.parameters().isEmpty()) return;
         for (int i = 0; i < args.size(); i++) {
+            if (!carriers.contains(unwrapped(args.get(i)))) continue;
             ParameterizedType type = callee.parameters().get(Math.min(i, callee.parameters().size() - 1)).parameterizedType();
             ParameterizedType element = i >= callee.parameters().size() - 1 && callee.parameters().getLast().isVarArgs()
                                         && type.arrays() == 1 ? type.componentType() : type;
