@@ -72,7 +72,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         CSharpContext.pushType(typeInfo);
         try {
             if (CSharpAttributes.isAttribute(typeInfo)) {
-                return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType());
+                // an annotation's nested types, PlanningVariable.NullComparator, the default of an element
+                List<OutputBuilder> nested = typeInfo.subTypes().stream()
+                        .filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
+                        .map(st -> enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)).toList();
+                return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType(), nested);
             }
             if (typeInfo.typeNature().isAnnotation()) {
                 CSharpContext.message(CSharpPrintCode.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());

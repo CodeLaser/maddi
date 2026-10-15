@@ -878,7 +878,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     String name() default "";
                     String[] value() default "";
                     boolean required() default true;
+                    Class<? extends Ranker> ranker() default NullRanker.class;
+                    interface Ranker { int rank(Method m); }
+                    interface NullRanker extends Ranker { }
                 }
+                static boolean ranked(Tool tool) { return tool.ranker() != Tool.NullRanker.class; }
                 @Tool(value = "Adds", name = "add")
                 int add(int a, int b) { return a + b; }
                 @Deprecated
@@ -903,6 +907,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "[Tool(\"Adds\", Name = \"add\")]");
         contains(cs, "[Obsolete]");
         contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
+        // an annotation's nested types are the attribute's
+        contains(cs, "public Type Ranker { get; set; } = typeof(Tools.ToolAttribute.INullRanker);");
+        contains(cs, "public interface INullRanker : Tools.ToolAttribute.IRanker {");
     }
 
     @Language("java")

@@ -275,7 +275,8 @@ implements the interface.
   Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
-  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
+  parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Its nested types are the attribute's,
+  `PlanningVariable.NullComparator`, a `Class` element's default, is `PlanningVariableAttribute.INullComparator<>`. Reading an element, `tool.name()`, reads
   the property, `tool.Name`. A use on a type, method, field or parameter is an attribute,
   `[Tool("Adds", Name = "add")]`; `@Deprecated` is `[Obsolete]`. Other JDK annotations have no C# counterpart, and
   those of other libraries are what their mapping makes of them, or dropped.
