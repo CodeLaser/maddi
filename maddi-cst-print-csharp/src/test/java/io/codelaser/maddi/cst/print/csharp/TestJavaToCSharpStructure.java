@@ -279,6 +279,25 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     var n = b ? new Indexed<String>() : new Indexed<String>();
                     return n.size();
                 }
+                static abstract class Exists<T, R> { abstract int size(); }
+                static final class IndexedExists<T, R> extends Exists<T, R> { int size() { return 1; } }
+                static final class UnindexedExists<T, R> extends Exists<T, R> { int size() { return 0; } }
+                static <A, B> int exists(boolean joiners) {
+                    var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, String>();
+                    return node.size();
+                }
+                interface Named { String name(); }
+                interface Sized { int size(); }
+                static final class Genuine implements Named, Sized {
+                    public String name() { return "g"; } public int size() { return 1; }
+                }
+                static final class Shadow implements Named, Sized {
+                    public String name() { return "s"; } public int size() { return 0; }
+                }
+                static String metaModel(boolean genuine) {
+                    var model = genuine ? new Genuine() : new Shadow();
+                    return model.name();
+                }
             }
             """;
 
@@ -289,6 +308,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
         contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
         contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
+        // not when C# cannot write Java's common type: with a wildcard, or an intersection of the program's types
+        contains(cs, "var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
+        contains(cs, "var model = genuine ? new Genuine() : new Shadow();");
     }
 
     @Language("java")
@@ -309,6 +331,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static final class Cached<T> extends FromList<T> {
                     Cached(List<T> items) { super(items); }
                 }
+                interface EntitySelector<T> extends Selector<T>, ListIterable<T> { }
+                static abstract class Caching<T> implements EntitySelector<T> {
+                    public long size() { return 0; }
+                }
             }
             """;
 
@@ -322,6 +348,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal class FromList<T> : ISelector<T>, IListIterable<T> {");
         contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();");
         contains(cs, "internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }");
+        // through an interface that extends both, which has no defaults of its own
+        contains(cs, "internal abstract class Caching<T> : IEntitySelector<T> {");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();\n    System.Collections");
     }
 
     @Language("java")

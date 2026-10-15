@@ -230,7 +230,8 @@ implements the interface.
   `IJavaIterator<T> Iterator();` and is enumerable through default implementations over it
   (`IEnumerator<T> IEnumerable<T>.GetEnumerator() => …`), so that every implementation is; an abstract class that
   leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it. A
-  class that implements two such interfaces, neither extending the other, declares its own `GetEnumerator()`: C#
+  class that reaches two such interfaces, neither extending the other (directly, or through an interface that
+  extends both), declares its own `GetEnumerator()`: C#
   finds no most specific of their defaults (CS8705). Its subclasses inherit it.
 
 ### Members
@@ -421,7 +422,8 @@ differences:
 - **Local variables.** A local is declared `var` when Java says `var`, or when its initializer constructs exactly the
   declared type. Otherwise it keeps its type. Java's `var` of a conditional whose branches differ is their common
   supertype, which C#'s `var` does not infer (CS0173): it is declared, `Node<A> node = c ? new Indexed<A>() : new
-  Unindexed<A>()`, and C# types the conditional from it.
+  Unindexed<A>()`, and C# types the conditional from it; not when C# cannot write that type, with a wildcard or as
+  `object` for an intersection of the program's types.
 - **Type tests.** `instanceof` becomes `is`, `x instanceof T t` becomes `x is T t`, and `!(x instanceof T)` becomes
   `x is not T`. A record pattern of the program's record is a property pattern, in a type test and in a `case` alike:
   `o instanceof Line(Point(var x1, var y1), Point to)` becomes `o is Line { From: Point { X: var x1, Y: var y1 }, To:

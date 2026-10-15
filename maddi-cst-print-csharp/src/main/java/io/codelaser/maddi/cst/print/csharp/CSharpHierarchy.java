@@ -121,7 +121,7 @@ final class CSharpHierarchy {
 
 
     /**
-     * A class that reaches two interfaces of the program, neither extending the other, that are iterable: each has
+     * A class that reaches two interfaces of the program, neither extending the other, that extend Iterable: each has
      * default GetEnumerators, and C# has no most specific one (CS8705). The class declares its own, unless a
      * superclass of the program does.
      */
@@ -138,7 +138,11 @@ final class CSharpHierarchy {
         while (!todo.isEmpty()) {
             TypeInfo i = todo.poll();
             if (!seen.add(i) || !CSharpNames.translated(i)) continue;
-            if (i.isInterface() && iterableAsSeen(i) != null) iterables.add(i);
+            // the interfaces with default GetEnumerators: those that extend Iterable themselves (CSharpTypePrinter)
+            if (i.isInterface() && i.interfacesImplemented().stream().anyMatch(s -> s.typeInfo() != null
+                    && "java.lang.Iterable".equals(s.typeInfo().fullyQualifiedName()))) {
+                iterables.add(i);
+            }
             i.interfacesImplemented().forEach(s -> { if (s.typeInfo() != null) todo.add(s.typeInfo()); });
         }
         // the most specific ones: C# takes the default of an interface over the one it extends

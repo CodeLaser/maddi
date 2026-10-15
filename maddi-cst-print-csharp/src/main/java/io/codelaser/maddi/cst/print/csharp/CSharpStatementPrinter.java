@@ -252,6 +252,23 @@ public final class CSharpStatementPrinter {
         return CSharpTypeName.declared(pt, false, nullable ? NullableState.NULLABLE : NullableState.UNSPECIFIED, q);
     }
 
+    /**
+     * Java's common type of a conditional's branches, as C# can declare it: without wildcards, which C# would write as
+     * {@code object} arguments the branches do not convert to, and not {@code object} for branches of the program, an
+     * intersection type whose members the code uses.
+     */
+    private static boolean writableCommonType(ParameterizedType type, Expression init) {
+        if (type == null || containsWildcard(type)) return false;
+        if (!type.isJavaLangObject()) return true;
+        Set<ParameterizedType> types = new HashSet<>();
+        collectBranchTypes(CSharpExpressionPrinter.unwrap(init), types);
+        return types.stream().noneMatch(t -> t.typeInfo() != null && CSharpNames.translated(t.typeInfo()));
+    }
+
+    private static boolean containsWildcard(ParameterizedType t) {
+        return t.wildcard() != null || t.parameters().stream().anyMatch(CSharpStatementPrinter::containsWildcard);
+    }
+
     /** A conditional, nested ones too, whose branches are not all of one type. */
     private static boolean branchesDiffer(Expression init) {
         Set<ParameterizedType> types = new HashSet<>();
@@ -278,7 +295,8 @@ public final class CSharpStatementPrinter {
         // var node = c ? new IndexedNode<A>() : new UnindexedNode<A>() is the branches' common supertype in Java; C#'s
         // var needs one branch to convert to the other (CS0173): declared, the conditional is target-typed
         if (lvc.isVar()) {
-            return !CSharpTypeName.valueReference(lv.parameterizedType()) && !branchesDiffer(init);
+            return !CSharpTypeName.valueReference(lv.parameterizedType())
+                   && !(branchesDiffer(init) && writableCommonType(lv.parameterizedType(), init));
         }
         // Map.Entry<K, V> e = map.floorEntry(k): a JavaEntry, null when there is none; a KeyValuePair cannot be
         if (CSharpExpressionPrinter.unwrap(init) instanceof MethodCall mc && CSharpBcl.navigationEntry(mc.methodInfo())) {
