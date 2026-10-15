@@ -163,7 +163,19 @@ public final class CSharpTypeName {
             if (pattern.namespace() != null) CSharpContext.using(pattern.namespace());
             return pattern.value();
         }
-        return of(pt, q, true);
+        return of(ownTypeArguments(pt), q, true);
+    }
+
+    /**
+     * {@code o instanceof Pair<?, ?>} in Pair itself (its equals) as {@code o is Pair<A, B>}: C# cannot test against
+     * an open generic type, and {@code Pair<object, object>} would not match a {@code Pair<string, int>}. Inside the
+     * class its own type parameters are in scope; other types keep the wildcards as {@code object}.
+     */
+    private static ParameterizedType ownTypeArguments(ParameterizedType pt) {
+        TypeInfo current = CSharpContext.currentType();
+        if (current == null || pt.arrays() > 0 || !current.equals(pt.typeInfo()) || pt.parameters().isEmpty()
+            || !pt.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard)) return pt;
+        return current.asParameterizedType();
     }
 
     private static String of(ParameterizedType pt, Qualification q, boolean typeArgument) {

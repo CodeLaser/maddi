@@ -278,6 +278,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static int[] numbers() { return new int[] { 1, 2, 3 }; }
                 static long widen(int i) { return (long) i << 2; }
                 static char letter() { return '\\''; }
+                static final class Box<T> {
+                    T value;
+                    boolean holds(T other) { return value == other; }
+                    boolean lacks(T other) { return !(value == other); }
+                    boolean empty() { return value == null; }
+                    @Override public boolean equals(Object o) { return o instanceof Box<?> b && b.value == value; }
+                    @Override public int hashCode() { return 1; }
+                }
             }
             """;
 
@@ -291,6 +299,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "typeof(Expressions)");
         contains(cs, "new int[] { 1, 2, 3 }");
         contains(cs, "'\\''");
+        // == on a type parameter's value is Java's identity, which C#'s == does not allow
+        contains(cs, "internal bool Holds(T other) => object.ReferenceEquals(value, other);");
+        contains(cs, "internal bool Empty() => value == null;");
+        // a wildcard test of the class itself, in its equals: its own type parameters, not object
+        contains(cs, "public override bool Equals(object o) => o is Box<T> b && object.ReferenceEquals(b.value, value);");
     }
 
     @Language("java")
