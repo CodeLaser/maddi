@@ -1517,6 +1517,15 @@ public class KotlinExpressionPrinter {
                 } else {
                     inner = printStatement(value, q);
                 }
+                // as a method's expression body: into the result the pass decides non-null, a value Kotlin types
+                // nullable is asserted. '{ query -> minScore!! }': a public signature's boxed Double is Double? (the
+                // Java ABI, KotlinNullability.parameterType), the Function<Query, Double> it goes into is not
+                // (langchain4j EmbeddingStoreContentRetriever, maddi-mod#38). Not without a verdict: no decision
+                ParameterizedType decided = KotlinNullability.verdicts().returnType(lambda.methodInfo());
+                if (decided != null && !KotlinNullability.isNullable(decided)
+                    && !(unwrap(value) instanceof ConstructorCall cc && inferred(cc))) {
+                    inner = KotlinNullability.toTarget(value, decided, true, inner, q);
+                }
             } else {
                 labelled = hasInnerReturn(statements);
                 OutputBuilder lines = KotlinStatementPrinter.lambdaBody(statements, q);
