@@ -870,9 +870,34 @@ public final class CSharpExpressionPrinter {
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
+        OutputBuilder group = implementationGroup(value, inner, target, q);
+        if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
         return print(value, q);
+    }
+
+    /**
+     * An instance of a class of the program where a library's functional interface that C# has as a delegate is
+     * expected ({@code Comparator<T>} is {@code Comparison<T>}): the class cannot implement the delegate, a sealed
+     * type (CS0509), so its method is the method group, {@code new DepthFirst().Compare}.
+     */
+    private static OutputBuilder implementationGroup(Expression value, Expression inner, ParameterizedType target,
+                                                     Qualification q) {
+        if (target.arrays() != 0 || target.typeInfo() == null) return null;
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || from.typeInfo() == null || from.typeInfo().isInterface()
+            || !CSharpNames.translated(from.typeInfo()) || !CSharpTypeName.libraryDelegate(target.typeInfo())) {
+            return null;
+        }
+        // Comparator declares equals(Object) abstract too
+        MethodInfo sam = target.typeInfo().isFunctionalInterface() ? target.typeInfo().singleAbstractMethod() : null;
+        if (sam == null) return null;
+        MethodInfo implementation = CstQueries.classChain(from.typeInfo()).stream().flatMap(t -> t.methods().stream())
+                .filter(m -> !m.isStatic() && m.overrides().contains(sam)).findFirst().orElse(null);
+        if (implementation == null) return null;
+        return new OutputBuilderImpl().add(receiver(value, q)).add(SymbolEnum.DOT)
+                .add(text(CSharpNames.method(implementation)));
     }
 
     /**

@@ -306,9 +306,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 supers.add(CSharpTypeName.of(parent, q));
             }
         }
-        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
+        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in; a
+        // delegate is sealed, and an instance becomes its method group where one is expected (implementationGroup)
         typeInfo.interfacesImplemented().stream()
-                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName()))
+                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName())
+                             && !CSharpTypeName.libraryDelegate(i.typeInfo()))
                 .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
         return supers;
     }

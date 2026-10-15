@@ -626,7 +626,9 @@ from a map, a stream's collector.
   asserted where its value is dereferenced: `Find(l)!.Length`.
 - **Functional interfaces.** These become delegates: `Function<T, R>` → `Func<T, R>`, `Predicate<T>` →
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
-  invocation: `f.apply(x)` becomes `f(x)`.
+  invocation: `f.apply(x)` becomes `f(x)`. A class of the program that implements one does not derive from the
+  delegate, a sealed type (CS0509); where the interface is expected, its instance is the method group:
+  `list.sort(new ByLength())` becomes `JavaCollections.Sort(list, new ByLength().Compare)`.
 - **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
   `DateTimeOffset` does:
   - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `OffsetDateTime` →
