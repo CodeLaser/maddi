@@ -241,8 +241,8 @@ public class TestTypeParameter extends CommonTest {
                 import io.codelaser.maddi.annotation.Container;
                 import io.codelaser.maddi.annotation.Independent;
                 class X {
-                    private static final String COMMENT = "comment";
                     class Class$<@Independent @Container(comment = X.COMMENT) T> { }
+                    private static final String COMMENT = "comment";
                 }
                 """, javaInspector.print2(typeInfo.compilationUnit()));
     }
