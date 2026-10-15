@@ -70,9 +70,14 @@
 # 2026-10-15, maddi 7717d7f4b, f9973dec2, f355bb80b: record patterns as property patterns, a record's equals as
 # Equals(R? o) with its components' hash where it has no hashCode, and a class that implements a functional interface
 # C# has as a delegate is the delegate's method group where one is expected: 284 -> 287 compiling files, 234 -> 231 errors.
+# 2026-10-15, maddi b37c5502b, dbcbb02b5, d168e2f81, dc5f6622b, 76269400f, 6ddef0e0a, 88609dc66, a0af43409: an Integer
+# into a template's own type parameter keeps its int?; an enum's or a struct's X? as an Integer's int? (Java's null
+# fits), cast where C# has the value type; a companion's protected member internal; a record header's nested types
+# qualified; an annotation's nested types printed; Class.getName()'s FullName a string?: 287 -> 289 compiling files,
+# 231 -> 225 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	287
+compilingFiles	289
 unmappedJdkUses	153
