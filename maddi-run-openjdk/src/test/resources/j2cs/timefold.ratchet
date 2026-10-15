@@ -123,9 +123,12 @@
 # interfaces declares its GetEnumerator: 1153 -> 1167 compiling files, 1799 -> 1783 errors.
 # 2026-10-15, maddi 359209d09: a conditional's var kept where C# cannot write the common type; a class reaching two
 # iterable interfaces through a third declares its GetEnumerator: 1167 -> 1168 compiling files, 1783 -> 1756 errors.
+# 2026-10-15, maddi 194d43906, ad15ab18e: an abstract class redeclares the compatibility interface's methods it leaves
+# abstract (IJavaIterator's HasNext, Next); a method's result is nullable where an override's may be null
+# (FamilyFacts): 1168 -> 1172 compiling files, 1756 -> 1749 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1168
+compilingFiles	1172
 unmappedJdkUses	379
