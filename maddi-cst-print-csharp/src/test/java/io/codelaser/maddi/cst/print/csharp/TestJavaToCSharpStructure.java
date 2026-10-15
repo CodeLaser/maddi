@@ -366,11 +366,16 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     return false;
                 }
             }
+            record Id(String name, int n) {
+                @Override
+                public boolean equals(Object o) { return o instanceof Id id && id.name.equals(name); }
+            }
             """;
 
     /**
      * A record is a positional record. Its equals(Object) is C#'s Equals(R other), as a record synthesizes
-     * Equals(object); a record pattern is a property pattern.
+     * Equals(object), and its hashCode stays the components' where it declares none; a record pattern is a property
+     * pattern.
      */
     @Test
     public void record() {
@@ -381,6 +386,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "public override int GetHashCode()");
         contains(cs, "Line { From: Point { X: var x1, Y: var y1 }, To: Point { X: var x2, Y: var y2 } }");
         contains(cs, "o is Line { From: Point { X: var x1, Y: var y1 }, To: var to } && to.X == x1");
+        contains(cs, "public override int GetHashCode() => HashCode.Combine(Name, N);");
     }
 
     @Language("java")

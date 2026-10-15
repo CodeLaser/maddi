@@ -1,3 +1,4 @@
+using System;
 namespace Org.Example.Geo;
 internal sealed record Point(int X, int Y) {
     internal Point Scale(int f) => new Point(X * f, Y * f);
@@ -15,4 +16,8 @@ internal sealed record Line(Point From, Point To) {
         if (o is Line { From: Point { X: var x1, Y: var y1 }, To: var to } && to.X == x1) { return true; }
         return false;
     }
+}
+internal sealed record Id(string Name, int N) {
+    public bool Equals(Id o) => o is Id id && id.Name.Equals(Name);
+    public override int GetHashCode() => HashCode.Combine(Name, N);
 }

@@ -259,7 +259,8 @@ implements the interface.
   left out (`RECORD_CONSTRUCTOR`). An accessor that implements an interface's method, `T response()`, is the property:
   the interface's method is implemented explicitly, `T IResult<T>.Response() => Response;`. A record's
   `equals(Object)` is `public bool Equals(Point? o)`: C# synthesizes `Equals(object)`, which may not be declared
-  (CS0111), and it calls this one with the other record or null.
+  (CS0111), and it calls this one with the other record or null. A record with `equals` but no `hashCode` keeps
+  Java's hash of its components, `public override int GetHashCode() => HashCode.Combine(Name, N);` (CS8851).
 - **Annotations.** An annotation type of the program is a sealed attribute class, `ToolAttribute : Attribute`
   (`CSharpAttributes`): its elements are properties with their defaults, a `value` element also the constructor's
   parameter (`params` for an array), and `@Target` is `[AttributeUsage]`. Reading an element, `tool.name()`, reads
