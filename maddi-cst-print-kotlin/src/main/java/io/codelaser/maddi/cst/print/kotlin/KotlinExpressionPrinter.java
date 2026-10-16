@@ -392,8 +392,8 @@ public class KotlinExpressionPrinter {
     }
 
     /**
-     * Type arguments Kotlin cannot infer from a lambda: a type parameter that only the parameters taking a lambda or
-     * method reference mention ({@code <F> Ordering<F> onResultOf(Function<F, ? extends T>)} called with
+     * Type arguments Kotlin cannot infer from a lambda: each type parameter only mentioned by the parameters taking a
+     * lambda or method reference, and there as the lambda's input ({@code <F> Ordering<F> onResultOf(Function<F, ? extends T>)} called with
      * {@code Entry::getValue}). Java infers F from the reference's receiver; Kotlin's {@code { it.value }} has no type
      * for {@code it} unless an expected type fixes F, and inside another generic call (guava's
      * {@code Arrays.sort(entries, 0, size, ordering.onResultOf(…))}) none does. Java's inferred arguments, read off the
@@ -407,7 +407,9 @@ public class KotlinExpressionPrinter {
             return null;
         }
         List<Expression> args = mc.parameterExpressions();
-        boolean lambdaOnly = typeParameters.stream().anyMatch(tp -> {
+        // every type parameter so: one a lambda's result fixes, or a plain argument, Kotlin infers better than Java's
+        // inferred argument pinned without its states (Collectors.toMap's U into a Map<…, V?>, langchain4j)
+        boolean lambdaOnly = typeParameters.stream().allMatch(tp -> {
             boolean input = false;
             for (int i = 0; i < m.parameters().size() && i < args.size(); i++) {
                 ParameterizedType p = m.parameters().get(i).parameterizedType();

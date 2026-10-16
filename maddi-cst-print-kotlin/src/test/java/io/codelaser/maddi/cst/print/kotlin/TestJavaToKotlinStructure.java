@@ -1703,6 +1703,19 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "ord.onResultOf<");
+        // toMap's K and U are the lambdas' results: Kotlin infers them, with the expected type's states (langchain4j)
+        String toMap = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.*;
+                class Collect {
+                    static Map<String, Integer> invert(Map<Integer, String> m) {
+                        return m.entrySet().stream().collect(Collectors.toMap(e -> e.getValue(), e -> e.getKey()));
+                    }
+                }
+                """);
+        contains(toMap, "Collectors.toMap(");
+        compiles(toMap);
         compiles(kotlin);
     }
 }
