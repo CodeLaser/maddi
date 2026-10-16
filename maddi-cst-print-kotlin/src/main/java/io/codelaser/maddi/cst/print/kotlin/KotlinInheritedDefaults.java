@@ -17,14 +17,14 @@ import java.util.stream.Collectors;
 
 /**
  * Overrides Kotlin wants where Java chooses by itself. guava's {@code WrappedSet extends WrappedCollection implements
- * Set<V>} inherits {@code spliterator()} twice: Collection's default through its superclass, Set's through the
- * interface. Java takes the more specific default (a superclass's own method before any default); Kotlin refuses a
- * class that "inherits multiple implementations" and wants the choice written:
- * {@code override fun spliterator(): Spliterator<V> = super<MutableSet>.spliterator()}.
+ * Set<V>} inherits {@code spliterator()} twice: WrappedCollection's own, and Set's default through the interface.
+ * Java takes a superclass's own method before any default; Kotlin refuses a class that "inherits multiple
+ * implementations" and wants the choice written:
+ * {@code override fun spliterator(): Spliterator<V> = super<WrappedCollection>.spliterator()}.
  * <p>
- * Only between two library defaults (Kotlin sees through a translated interface's override, and lets a superclass's
- * own method win, as Java does), and only for methods without parameters, whose signature reads the same from either
- * side.
+ * Only where the superclass chain's own method overrides another declaration than the interface's default
+ * (WrappedCollection's spliterator overrides Collection's, not Set's), and only for methods without parameters, whose
+ * signature reads the same from either side.
  */
 final class KotlinInheritedDefaults {
 
@@ -44,19 +44,13 @@ final class KotlinInheritedDefaults {
                 String key = key(d);
                 if (done.contains(key) || declares(typeInfo, d)) continue;
                 MethodInfo fromSuper = fromSuperclass(typeInfo, d);
-                // a superclass's own method, or a translated interface's (whose overrides Kotlin sees): no conflict
-                if (fromSuper == null || fromSuper == d || !fromSuper.typeInfo().isInterface()
-                    || KotlinNullability.translated(fromSuper.typeInfo()) || KotlinNullability.translated(d.typeInfo())) {
+                // a superclass's own method that overrides the default's (or an interface's override Kotlin sees
+                // through): no conflict. Java takes a class's method before any default
+                if (fromSuper == null || fromSuper == d || fromSuper.typeInfo().isInterface()
+                    || isSubtype(fromSuper.typeInfo(), d.typeInfo())) {
                     continue;
                 }
-                String via;
-                if (isSubtype(d.typeInfo(), fromSuper.typeInfo())) {
-                    via = superName(iface, q);
-                } else if (isSubtype(fromSuper.typeInfo(), d.typeInfo())) {
-                    via = superName(typeInfo.parentClass(), q);
-                } else {
-                    continue;
-                }
+                String via = superName(typeInfo.parentClass(), q);
                 done.add(key);
                 result.add(override(d, iface, via, q));
             }

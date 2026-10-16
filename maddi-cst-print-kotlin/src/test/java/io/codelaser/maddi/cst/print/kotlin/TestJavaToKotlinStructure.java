@@ -1836,9 +1836,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
-     * guava's {@code WrappedSet extends WrappedCollection implements Set<V>}: spliterator() comes twice, Collection's
-     * default through the superclass and Set's through the interface. Java takes Set's, the more specific; Kotlin
-     * wants it written.
+     * guava's {@code WrappedSet extends WrappedCollection implements Set<V>}: spliterator() comes twice,
+     * WrappedCollection's own and Set's default. Java takes the class's; Kotlin wants it written.
      */
     @Test
     public void inheritedDefaultsChosenExplicitly() {
@@ -1849,11 +1848,24 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     final List<V> delegate = new ArrayList<>();
                     @Override public Iterator<V> iterator() { return delegate.iterator(); }
                     @Override public int size() { return delegate.size(); }
+                    @Override public Spliterator<V> spliterator() { return delegate.spliterator(); }
                 }
                 class WrappedSet<V> extends Wrapped<V> implements Set<V> { }
                 """);
-        contains(kotlin, "override fun spliterator(): Spliterator<V> = super<MutableSet>.spliterator()");
+        contains(kotlin, "override fun spliterator(): Spliterator<V> = super<Wrapped>.spliterator()");
         compiles(kotlin);
+        // without a method of the superclass's own: Set's default overrides Collection's, which Kotlin sees
+        String defaults = kotlin("""
+                package a;
+                import java.util.*;
+                class Plain<V> extends AbstractCollection<V> {
+                    final List<V> delegate = new ArrayList<>();
+                    @Override public Iterator<V> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                }
+                class PlainSet<V> extends Plain<V> implements Set<V> { }
+                """);
+        compiles(defaults);
         // langchain4j's DefaultInputGuardrailExecutedEvent: a superclass's own method beside an interface's default,
         // which Kotlin accepts as Java does; no override written
         String own = kotlin("""
