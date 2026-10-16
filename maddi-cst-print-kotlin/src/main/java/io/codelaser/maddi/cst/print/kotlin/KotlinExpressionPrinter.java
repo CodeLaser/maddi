@@ -232,7 +232,7 @@ public class KotlinExpressionPrinter {
     }
 
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
-        String name = KotlinNames.name(fr.fieldInfo().name());
+        String name = KotlinFieldPrinter.name(fr.fieldInfo());
         Expression scope = fr.scope();
         if (fr.isStatic()) {
             TypeInfo owner = fr.fieldInfo().owner();
@@ -329,6 +329,11 @@ public class KotlinExpressionPrinter {
             String element = array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
+        }
+        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+            // c.toArray(): Kotlin's collections have no toArray() either; Java's Object[] is an Array<Any?>, and a
+            // Collection<out E> is a Collection<Any?> (guava's views and immutable collections)
+            return b.add(new TextImpl("toTypedArray<Any?>()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
         if (mapped != null) return b.add(new TextImpl(mapped));
@@ -1346,6 +1351,11 @@ public class KotlinExpressionPrinter {
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
     }
 
+    private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        return m != null && "toArray".equals(m.name()) && m.parameters().isEmpty()
+               && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+    }
+
     private static boolean toArrayOf(io.codelaser.maddi.cst.api.info.MethodInfo m) {
         return m != null && "toArray".equals(m.name()) && m.parameters().size() == 1
                && m.parameters().getFirst().parameterizedType().arrays() == 1
@@ -1390,8 +1400,23 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
-        return b.add(new TextImpl(KotlinTypeName.constructed(type, q)))
-                .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        String constructed = KotlinTypeName.constructed(type, q);
+        if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
+            constructed = implicitOuter(constructed, type.typeInfo());
+        }
+        return b.add(new TextImpl(constructed)).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+    }
+
+    /**
+     * {@code new Values()} of an inner class, the outer instance implicit (this, or an enclosing this): by its simple
+     * name, which Kotlin resolves with that receiver, in the outer class, its subclasses and their inner classes.
+     * {@code AbstractMultimap.Values()} is the static-style access an inner class does not allow (guava's multimaps).
+     */
+    private static String implicitOuter(String constructed, TypeInfo inner) {
+        String simple = KotlinNames.name(inner.simpleName());
+        int lt = constructed.indexOf('<');
+        String head = lt < 0 ? constructed : constructed.substring(0, lt);
+        return head.endsWith("." + simple) ? simple + (lt < 0 ? "" : constructed.substring(lt)) : constructed;
     }
 
     /** {@code new TypeReference<>() {}} into a {@code TypeReference<…>}: a diamond, no members, the target's class. */

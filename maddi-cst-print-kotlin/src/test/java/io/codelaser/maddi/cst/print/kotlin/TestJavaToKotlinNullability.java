@@ -713,6 +713,28 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("next(): E?"), kotlin);
     }
 
+    /**
+     * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
+     * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
+     * conditional is cast as a whole, not asserted.
+     */
+    @Test
+    public void nullForATypeVariableHeldNonNull() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Keys<E> implements Iterator<E> {
+                    private int pos;
+                    public boolean hasNext() { return true; }
+                    E key(int i) { return null; }
+                    public E next() { return pos < 2 ? key(pos++) : null; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("key()"), Set.of("=next()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun next(): E");
+        contains(kotlin, ") as E");
+    }
+
     @Language("java")
     private static final String USES = """
             package a;

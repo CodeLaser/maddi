@@ -234,6 +234,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // read-only, invariant: Kotlin's MutableCollection<E>.addAll(elements: Collection<E>)
             return "Collection<" + KotlinTypeName.of(t.parameters().getFirst(), q) + ">";
         }
+        if (t.typeInfo() != null && "java.util.Map".equals(t.typeInfo().fullyQualifiedName())) {
+            // read-only, keys out-projected: Kotlin's MutableMap<K, V>.putAll(from: Map<out K, V>)
+            return "Map<out " + KotlinTypeName.of(t.parameters().get(0), q) + ", "
+                   + KotlinTypeName.of(t.parameters().get(1), q) + ">";
+        }
         return KotlinTypeName.of(t, q);
     }
 

@@ -1442,4 +1442,134 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private val f0: List<String>");
         contains(kotlin, "private var f" + (n - 1) + ": List<String>");
     }
+
+    /**
+     * guava's AbstractBiMap.KeySet: an inner class's collection override takes Kotlin's parameter type through the
+     * supertype chain, where the outer class's type variable stays itself ({@code contains(o: K)}). It used to fall
+     * back to the supertype's formal parameter, {@code contains(o: E)}, which names nothing there.
+     */
+    @Test
+    public void innerCollectionOverrideKeepsOuterTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class BiMap<K, V> {
+                    private final Set<K> keys = new HashSet<>();
+                    abstract static class Forwarding<E> extends AbstractSet<E> { }
+                    class KeySet extends Forwarding<K> {
+                        @Override public boolean contains(Object o) { return keys.contains(o); }
+                        @Override public boolean remove(Object o) { return keys.remove(o); }
+                        @Override public Iterator<K> iterator() { return keys.iterator(); }
+                        @Override public int size() { return keys.size(); }
+                    }
+                }
+                """);
+        contains(kotlin, "override fun contains(o: K): Boolean");
+        contains(kotlin, "override fun remove(o: K): Boolean");
+    }
+
+    /**
+     * guava's maps: Java's Map.remove(Object, Object), getOrDefault(Object, V) and putAll(Map<? extends K, ? extends V>)
+     * are Kotlin's remove(key: K, value: V), getOrDefault(key: K, defaultValue: V) and putAll(from: Map<out K, V>).
+     */
+    @Test
+    public void mapOverridesTakeKotlinsParameterTypes() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Forwarding<K, V> extends AbstractMap<K, V> {
+                    private final Map<K, V> delegate = new HashMap<>();
+                    @Override public Set<Map.Entry<K, V>> entrySet() { return delegate.entrySet(); }
+                    @Override public boolean remove(Object key, Object value) { return delegate.remove(key, value); }
+                    @Override public V getOrDefault(Object key, V defaultValue) { return delegate.getOrDefault(key, defaultValue); }
+                    @Override public void putAll(Map<? extends K, ? extends V> map) { delegate.putAll(map); }
+                }
+                """);
+        contains(kotlin, "override fun remove(key: K, value: V): Boolean");
+        contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
+        contains(kotlin, "override fun putAll(map: Map<out K, V>)");
+    }
+
+    /**
+     * guava's AbstractMapBasedMultiset: a field named as a property a mapped supertype declares ({@code size} of
+     * Kotlin's Collection) is renamed, else Kotlin has two properties {@code size} and each use is ambiguous.
+     */
+    @Test
+    public void fieldClashingWithMappedPropertyIsRenamed() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Counted<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    private long size;
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public boolean add(E e) { size++; return items.add(e); }
+                    @Override public int size() { return (int) size; }
+                }
+                """);
+        contains(kotlin, "private var _size: Long");
+        contains(kotlin, "override val size: Int");
+        contains(kotlin, "_size++");
+    }
+
+    /**
+     * guava's ArrayTable and ObjectArrays import java.lang.reflect.Array: imported, it shadows Kotlin's Array, and each
+     * {@code Array<V?>} is the reflection class, which takes no type arguments. It is written qualified instead.
+     */
+    @Test
+    public void reflectArrayDoesNotShadowKotlinsArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.Array;
+                class Arrays2<T> {
+                    private final T[][] rows = null;
+                    @SuppressWarnings("unchecked")
+                    static <T> T[] newArray(T[] reference, int length) {
+                        return (T[]) Array.newInstance(reference.getClass().getComponentType(), length);
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
+        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "Array<Array<T");
+    }
+
+    /**
+     * guava's multimaps: {@code new Values()} of an inner class of a superclass, its outer instance implicit, is
+     * {@code Values()}; qualified, {@code Base.Values()}, Kotlin finds no receiver for it.
+     */
+    @Test
+    public void innerClassOfSuperclassConstructedBySimpleName() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Base {
+                    class Values { }
+                    class Wrapped { class It { } It it() { return new It(); } }
+                    static class Sub extends Base {
+                        Object values() { return new Values(); }
+                    }
+                }
+                """);
+        contains(kotlin, "= Values()");
+        contains(kotlin, "= It()");
+        assertFalse(kotlin.contains("Base.Values()"), kotlin);
+    }
+
+    /**
+     * guava's MapMakerInternalMap: a class's type parameter bounded by one of its own nested types. Kotlin resolves
+     * the header outside the class's scope, so the nested type is named from the class.
+     */
+    @Test
+    public void headerNamesOwnNestedTypesQualified() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Internal<K, E extends Internal.Entry<K, E>> implements Comparator<Internal.Entry<K, E>> {
+                    interface Entry<K, E extends Entry<K, E>> { K key(); }
+                    public int compare(Entry<K, E> a, Entry<K, E> b) { return 0; }
+                }
+                """);
+        contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
+        contains(kotlin, "Comparator<Internal.Entry<K, E>>");
+    }
 }

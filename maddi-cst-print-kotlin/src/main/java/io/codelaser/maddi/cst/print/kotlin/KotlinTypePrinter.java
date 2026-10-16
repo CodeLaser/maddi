@@ -170,7 +170,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (!typeInfo.typeParameters().isEmpty()) {
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 out.add(typeInfo.typeParameters().stream()
-                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, insideType))))
+                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp,
+                                new KotlinHeaderQualification(insideType, typeInfo)))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }
@@ -212,7 +213,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                            || constructors.stream().allMatch(KotlinTypePrinter::isImplicitDefaultConstructor)
                     ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                     : initConstructor != null ? superArguments(initConstructor, insideType) : null;
-            List<OutputBuilder> supers = annotationType ? List.of() : superTypes(superArguments, insideType);
+            List<OutputBuilder> supers = annotationType ? List.of()
+                    : superTypes(superArguments, new KotlinHeaderQualification(insideType, typeInfo));
             if (!supers.isEmpty()) {
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
