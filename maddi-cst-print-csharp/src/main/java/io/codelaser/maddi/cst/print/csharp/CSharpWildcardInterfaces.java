@@ -115,9 +115,8 @@ final class CSharpWildcardInterfaces {
 
     private static List<TypeParameter> candidates(TypeInfo t) {
         CSharpProgram program = CSharpContext.program();
-        // a delegate implements no interface; an interface's companion class has the wildcard interface's name
-        Set<TypeParameter> wildcarded = program.delegate(t) || t.isInterface() && CSharpNames.hasCompanion(t) ? Set.of()
-                : program.wildcarded(t);
+        // a delegate implements no interface; an interface's companion is its wildcard interface (CSharpTypePrinter)
+        Set<TypeParameter> wildcarded = program.delegate(t) ? Set.of() : program.wildcarded(t);
         return t.typeParameters().stream().filter(tp -> selfBounded(t, tp) || wildcarded.contains(tp)).toList();
     }
 
@@ -587,6 +586,11 @@ final class CSharpWildcardInterfaces {
 
     /** {@code interface IScore : … { members }}, after the type's own declaration. */
     static OutputBuilder declaration(TypeInfo t, String access, Qualification q) {
+        return declaration(t, access, q, List.of());
+    }
+
+    /** As above, with the static members of an interface's companion, which has the wildcard interface's name. */
+    static OutputBuilder declaration(TypeInfo t, String access, Qualification q, List<OutputBuilder> statics) {
         List<TypeParameter> remaining = remaining(t);
         List<TypeParameter> removed = removed(t);
         String typeParameters = CSharpNames.typeParameters(remaining);
@@ -599,8 +603,9 @@ final class CSharpWildcardInterfaces {
                 .filter(tp -> tp.typeBounds().stream().noneMatch(b -> CstQueries.mentionsAny(b, removed))).toList(), q)) {
             header.append(' ').append(constraint);
         }
-        List<OutputBuilder> body = members(t, q).stream()
-                .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.declaration()))).toList();
+        List<OutputBuilder> body = new ArrayList<>(members(t, q).stream()
+                .map(m -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl(m.declaration()))).toList());
+        body.addAll(statics);
         return new OutputBuilderImpl().add(new TextImpl(header.toString())).add(SpaceEnum.ONE)
                 .add(CSharpStatementPrinter.braces(body));
     }

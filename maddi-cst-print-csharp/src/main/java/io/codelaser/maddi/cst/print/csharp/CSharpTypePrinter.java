@@ -86,7 +86,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
             OutputBuilder type = printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
-            if (doTypeDeclaration && CSharpNames.hasCompanion(typeInfo)) {
+            if (doTypeDeclaration && CSharpNames.hasCompanion(typeInfo) && !companionInWildcardInterface()) {
                 type.add(SpaceEnum.NEWLINE).add(companion(importData.insideType(), methodPrinterFactory,
                         fieldPrinterFactory));
             }
@@ -237,7 +237,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
         out.add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(nonEmpty));
         if (doTypeDeclaration && CSharpWildcardInterfaces.has(typeInfo)) {
-            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q));
+            List<OutputBuilder> statics = companionInWildcardInterface()
+                    ? companionMembers(q, methodPrinterFactory, fieldPrinterFactory) : List.of();
+            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q, statics));
         }
         return out;
     }
@@ -625,6 +627,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder companion(Qualification q, MethodPrinterFactory methodPrinterFactory,
                                     FieldPrinterFactory fieldPrinterFactory) {
+        String access = typeAccess();
+        return new OutputBuilderImpl()
+                .add(new TextImpl((access == null ? "" : access + " ") + "static class " + CSharpNames.type(typeInfo)))
+                .add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(companionMembers(q, methodPrinterFactory,
+                        fieldPrinterFactory)));
+    }
+
+    private List<OutputBuilder> companionMembers(Qualification q, MethodPrinterFactory methodPrinterFactory,
+                                                 FieldPrinterFactory fieldPrinterFactory) {
         TypeInfo previous = CSharpContext.companion();
         CSharpContext.companion(typeInfo);
         try {
@@ -634,13 +645,18 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             Stream.concat(typeInfo.constructors().stream(), typeInfo.methods().stream())
                     .filter(CSharpNames::inCompanion)
                     .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
-            String access = typeAccess();
-            return new OutputBuilderImpl()
-                    .add(new TextImpl((access == null ? "" : access + " ") + "static class " + CSharpNames.type(typeInfo)))
-                    .add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(members.stream().filter(m -> !m.isEmpty()).toList()));
+            return members.stream().filter(m -> !m.isEmpty()).toList();
         } finally {
             CSharpContext.companion(previous);
         }
+    }
+
+    /**
+     * An interface's companion and its wildcard interface have the same name, {@code ITupleLifecycle}: one interface,
+     * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's.
+     */
+    private boolean companionInWildcardInterface() {
+        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo);
     }
 
     /**

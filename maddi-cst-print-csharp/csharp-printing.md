@@ -652,7 +652,8 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept. Only where it declares every member the code reaches through such a wildcard: a field read
-  through it, or a method it cannot declare, keeps the type's wildcards their bound. A wildcard of a library type,
+  through it, or a method it cannot declare, keeps the type's wildcards their bound. An interface whose statics have a companion, of
+  the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. A wildcard of a library type,
   and `? extends B` (what the code stores there is a `B`), is its bound (`WILDCARD_AS_BOUND`).
 - **Self-bounded types.** A wildcard of a type whose parameter is bounded by itself, `Score<?>` of
   `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As

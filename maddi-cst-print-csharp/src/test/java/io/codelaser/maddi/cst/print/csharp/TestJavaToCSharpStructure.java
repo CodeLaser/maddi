@@ -1761,6 +1761,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 public interface TupleLifecycle<Tuple_ extends Tuple> extends ActivitySupport {
                     void insert(Tuple_ tuple);
                     void afterAllFactsInserted(boolean canProduce);
+                    static <T extends Tuple> TupleLifecycle<T> same(TupleLifecycle<T> lifecycle) { return lifecycle; }
                 }
                 public abstract static class Node<Left_ extends Tuple> {
                     private final TupleLifecycle<?> downstream;
@@ -1769,7 +1770,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     public void done() { downstream.afterAllFactsInserted(true); }
                 }
                 public static final class PairNode extends Node<Pair> {
-                    PairNode(TupleLifecycle<Pair> next) { super(next); }
+                    PairNode(TupleLifecycle<Pair> next) { super(TupleLifecycle.same(next)); }
                 }
                 public static class Box<T> {
                     private final T value;
@@ -1823,6 +1824,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void wildcardInterfaces() {
         String cs = translate("Lifecycles", LIFECYCLES);
         contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
+        // its statics, the companion's, which has the wildcard interface's name: one interface
+        contains(cs, "public static ITupleLifecycle<T> Same<T>(ITupleLifecycle<T> lifecycle) where T : ITuple => lifecycle;");
+        contains(cs, "base(ITupleLifecycle.Same(next))");
+        assertFalse(cs.contains("static class ITupleLifecycle"), cs);
         contains(cs, "void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);");
         contains(cs, "private readonly ITupleLifecycle downstream;");
         contains(cs, "Node(ITupleLifecycle downstream)");

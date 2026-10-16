@@ -51,7 +51,10 @@ public sealed class Lifecycles {
         public void Done() { downstream.AfterAllFactsInserted(true); }
     }
     public sealed record Pair(int Size) : ITuple { int ITuple.Size() => Size; }
-    public sealed class PairNode : Node<Pair> { internal PairNode(ITupleLifecycle<Pair> next) : base(next) { } }
+    public sealed class PairNode : Node<Pair> {
+        internal PairNode(ITupleLifecycle<Pair> next) : base(ITupleLifecycle.Same(next)) { }
+    }
+
     public interface ITuple {
         int Size();
         public sealed class Lambda(Func<int> f) : ITuple { public int Size() => f(); }
@@ -62,7 +65,10 @@ public sealed class Lifecycles {
         void AfterAllFactsInserted(bool canProduce);
         void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);
     }
-    public interface ITupleLifecycle : IActivitySupport { void AfterAllFactsInserted(bool canProduce); }
+    public interface ITupleLifecycle : IActivitySupport {
+        void AfterAllFactsInserted(bool canProduce);
+        public static ITupleLifecycle<T> Same<T>(ITupleLifecycle<T> lifecycle) where T : ITuple => lifecycle;
+    }
 
     public sealed class Typed<A> : ITyped {
         public Type Kind { get; }
