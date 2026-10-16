@@ -278,7 +278,8 @@ implements the interface.
 
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
-  `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
+  `Ordinal`, and with `Values()` and `ValueOf(string)`. As Java's enum it is comparable by its ordinal,
+  `IComparable<Planet>` with `CompareTo`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
   `ordinal()` a cast to `int`. A constant with a body, an anonymous subclass of its enum, is not translated
   (`ANONYMOUS_CLASS`). A switch on such a class is under Switch statements.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. Its

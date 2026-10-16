@@ -158,6 +158,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     }
                 }
                 static Primary first() { return Primary.RED; }
+                static boolean later(Planet a, Planet b) { return a.compareTo(b) > 0; }
             }
             """;
 
@@ -165,7 +166,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void enums() {
         String cs = translate("Palette", ENUMS);
         contains(cs, "internal enum Primary { Red, Green, Blue }");
-        contains(cs, "internal sealed class Planet {");
+        // Java's enum is Comparable by its ordinal
+        contains(cs, "internal sealed class Planet : IComparable<Planet> {");
+        contains(cs, "public int CompareTo(Planet other) => Ordinal.CompareTo(other.Ordinal);");
+        contains(cs, "internal static bool Later(Planet a, Planet b) => a.CompareTo(b) > 0;");
         contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23) { Name = \"MERCURY\", Ordinal = 0 };");
         contains(cs, "case Primary.Red:");
         contains(cs, "internal static Primary? First() => Primary.Red;");

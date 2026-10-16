@@ -9,11 +9,13 @@ public sealed class Palette {
         }
     }
     internal static Primary? First() => Primary.Red;
-    internal sealed class Planet {
+    internal static bool Later(Planet a, Planet b) => a.CompareTo(b) > 0;
+    internal sealed class Planet : IComparable<Planet> {
         public static readonly Planet Mercury = new Planet(3.303E23) { Name = "MERCURY", Ordinal = 0 };
         public static readonly Planet Earth = new Planet(5.976E24) { Name = "EARTH", Ordinal = 1 };
         public string Name { get; private init; }
         public int Ordinal { get; private init; }
+        public int CompareTo(Planet other) => Ordinal.CompareTo(other.Ordinal);
         public override string ToString() => Name;
         public static Planet[] Values() => new Planet[] { Mercury, Earth };
         public static Planet ValueOf(string name) => Array.Find(Values(), v => v.Name == name) ?? throw new ArgumentException(name);

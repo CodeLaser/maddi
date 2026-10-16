@@ -153,6 +153,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             List<String> supers = new ArrayList<>(superTypes(q));
             // the wildcard interface of a self-bounded type (CSharpWildcardInterfaces)
             if (CSharpWildcardInterfaces.has(typeInfo)) supers.add(CSharpWildcardInterfaces.selfReference(typeInfo));
+            // Java's enum is Comparable by its ordinal (enumInstances)
+            if (enumClass) supers.add("IComparable<" + CSharpNames.type(typeInfo) + ">");
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
@@ -387,7 +389,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /**
      * {@code public static readonly Color Red = new Color(255, 0, 0) { Name = "Red", Ordinal = 0 };} per constant,
-     * then Java's {@code name()}, {@code ordinal()}, {@code values()} and {@code valueOf(String)}.
+     * then Java's {@code name()}, {@code ordinal()}, {@code compareTo(E)}, {@code values()} and {@code valueOf(String)}.
      */
     private List<OutputBuilder> enumInstances(Qualification q) {
         String self = CSharpNames.type(typeInfo);
@@ -415,6 +417,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String notNull = CSharpContext.program().facts().nullabilityAnalysed() ? " = null!;" : "";
         out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }" + notNull)));
         out.add(new OutputBuilderImpl().add(new TextImpl("public int Ordinal { get; private init; }")));
+        // Java's compareTo of null throws, as other!.Ordinal does
+        String other = CSharpContext.program().facts().nullabilityAnalysed() ? self + "? other) => Ordinal.CompareTo(other!.Ordinal);"
+                : self + " other) => Ordinal.CompareTo(other.Ordinal);";
+        out.add(new OutputBuilderImpl().add(new TextImpl("public int CompareTo(" + other)));
         if (typeInfo.methods().stream().noneMatch(m -> "toString".equals(m.name()) && m.parameters().isEmpty())) {
             out.add(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => Name;")));
         }
