@@ -1773,4 +1773,36 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "Acc<Any> ::combine");
         compiles(kotlin);
     }
+
+    /**
+     * guava's primitives: Java narrows an int constant into a char, byte or short implicitly
+     * ({@code char MIN = 0}, {@code byte MAX_POWER_OF_TWO = 1 << 6}) and widens a char where an int goes in, and an
+     * int assigned inside a condition into a long ({@code (read = in.read(buf)) != -1}). Kotlin converts explicitly.
+     */
+    @Test
+    public void implicitPrimitiveConversions() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.*;
+                import java.util.BitSet;
+                class Prim {
+                    static final char MIN = 0;
+                    static final char CASE_MASK = 0x20;
+                    static final byte MAX_POWER_OF_TWO = 1 << 6;
+                    static final short SHORT_POWER = 1 << (Short.SIZE - 2);
+                    private char safeMax;
+                    void reset() { safeMax = 0; }
+                    static String hex(char ch) { return Integer.toHexString(ch); }
+                    static void mark(BitSet table, char c) { table.set(c); }
+                    static long copy(InputStream in, byte[] buf) throws IOException {
+                        long total = 0;
+                        long read;
+                        while ((read = in.read(buf)) != -1) { total += read; }
+                        return total;
+                    }
+                    static long mix(long h, int length) { h ^= length; return h ^ length; }
+                }
+                """);
+        compiles(kotlin);
+    }
 }

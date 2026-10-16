@@ -568,7 +568,8 @@ public class KotlinExpressionPrinter {
         // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
         // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
         // argument is asserted like one for translated code. equals takes Any? everywhere.
-        boolean mapped = method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName());
+        // A static (java.lang.Integer.toHexString) is called as Java's, with Java's parameter types.
+        boolean mapped = method != null && !method.isStatic() && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName());
         boolean translated = method != null && (mapped ? !"equals".equals(method.name())
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
@@ -1301,6 +1302,19 @@ public class KotlinExpressionPrinter {
         }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
+        if (narrowedConstant(from, to)) {
+            // char MIN = 0, byte MAX_POWER_OF_TWO = 1 << 6: Java narrows a constant implicitly. A Kotlin integer
+            // literal adapts to Byte and Short by itself, not to Char
+            if (unwrap(e) instanceof IntConstant ic && to == Primitive.CHAR && ic.constant() >= 0 && ic.constant() <= 0xFFFF) {
+                return text(charLiteral((char) ic.constant().intValue()));
+            }
+            if (unwrap(e) instanceof IntConstant) return print(e, q);
+            OutputBuilder narrowed = valueOperand(e, q);
+            for (String call : conversion(from, to).split("\\.")) {
+                if (!call.isEmpty()) narrowed.add(SymbolEnum.DOT).add(new TextImpl(call));
+            }
+            return narrowed;
+        }
         if (to == null || from == null || from == to || from == Primitive.BOOLEAN || to == Primitive.BOOLEAN
             || to == Primitive.CHAR || rank(to) < rank(from)) {
             return print(e, q);
@@ -1312,6 +1326,21 @@ public class KotlinExpressionPrinter {
             if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
         }
         return receiver;
+    }
+
+    /** Java widens {@code e}'s primitive into {@code target}'s, and Kotlin wants it explicit. */
+    private static boolean widens(Expression e, ParameterizedType target) {
+        Primitive to = target == null ? null : primitive(target);
+        Primitive from = primitive(e.parameterizedType());
+        return to != null && from != null && from != to && from != Primitive.BOOLEAN && to != Primitive.BOOLEAN
+               && to != Primitive.CHAR && rank(to) >= rank(from) && !(unwrap(e) instanceof IntConstant);
+    }
+
+    /** An int (or char) constant Java narrows into a char, byte or short without a cast. */
+    private static boolean narrowedConstant(Primitive from, Primitive to) {
+        return to != null && from != null && from != to
+               && (to == Primitive.CHAR || to == Primitive.BYTE || to == Primitive.SHORT)
+               && (from == Primitive.INT || from == Primitive.CHAR || from == Primitive.SHORT);
     }
 
     /**
@@ -1457,20 +1486,23 @@ public class KotlinExpressionPrinter {
      * The receiver of an unbound reference {@code Acc::add}: the first parameter of the functional type's single
      * abstract method ({@code BiConsumer<Acc<Object>, Object>} takes an {@code Acc<Object>}), when it is the owner
      * with its type arguments. Where the single abstract method is not known (a library interface not inspected),
-     * the functional type's one distinct type argument of the owner. Null otherwise.
+     * or one inherited and not seen through ({@code BinaryOperator}'s {@code apply} is {@code BiFunction}'s), the
+     * functional type's one distinct type argument of the owner. Null otherwise.
      */
     private static ParameterizedType referenceReceiver(MethodReference mr, TypeInfo owner) {
         ParameterizedType functional = mr.parameterizedType();
         if (functional == null) return null;
         List<ParameterizedType> types = KotlinNullability.samParameterTypes(functional);
-        List<ParameterizedType> candidates = types.isEmpty()
-                ? functional.parameters().stream().filter(p -> p.typeInfo() == owner).distinct().toList()
-                : types.subList(0, 1);
-        if (candidates.size() != 1) return null;
-        ParameterizedType first = candidates.getFirst();
-        return first != null && first.typeInfo() == owner && first.arrays() == 0 && first.wildcard() == null
-               && first.parameters().size() == owner.typeParameters().size()
-               && first.parameters().stream().allMatch(p -> p.wildcard() == null) ? first : null;
+        if (!types.isEmpty() && typedOwner(types.getFirst(), owner)) return types.getFirst();
+        List<ParameterizedType> candidates = functional.parameters().stream()
+                .filter(p -> typedOwner(p, owner)).distinct().toList();
+        return candidates.size() == 1 ? candidates.getFirst() : null;
+    }
+
+    private static boolean typedOwner(ParameterizedType type, TypeInfo owner) {
+        return type != null && type.typeInfo() == owner && type.arrays() == 0 && type.wildcard() == null
+               && type.parameters().size() == owner.typeParameters().size()
+               && type.parameters().stream().allMatch(p -> p.wildcard() == null);
     }
 
     private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {
@@ -1777,9 +1809,10 @@ public class KotlinExpressionPrinter {
         String op = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         String binary = op.length() > 1 ? op.substring(0, op.length() - 1) : null;
         if (binary != null && INFIX.containsKey(binary)) {
-            // x &= y -> x = x and (y): Kotlin has no compound form of its infix operators
+            // x &= y -> x = x and (y): Kotlin has no compound form of its infix operators; h ^= length with an int
+            // length into a long h widens it, as Java's does
             return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment("="))
-                    .add(infix(variableAsExpression(a), INFIX.get(binary), a.value(), q));
+                    .add(compoundInfix(a, INFIX.get(binary), q));
         }
         if (!"=".equals(op)) return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op)).add(print(a.value(), q));
         ParameterizedType targetType = declaredType(a.variableTarget());
@@ -1832,12 +1865,15 @@ public class KotlinExpressionPrinter {
             && cc.parameterizedType().arrays() == 0) {
             // ArrayList<Int?>().also { lst = it }: the constructed type takes the target's states, as an assignment's
             value = widened(a.value(), declaredType(a.variableTarget()), q);
+        } else if ("=".equals(op) && widens(a.value(), a.variableTarget().parameterizedType())) {
+            // (read = in.read(buf)) != -1 with a long read: in.read(buf).toLong().also { read = it }
+            value = widened(a.value(), a.variableTarget().parameterizedType(), q);
         } else if ("=".equals(op)) {
             value = receiver(a.value(), q);
         } else {
             String binary = op.substring(0, op.length() - 1);
             OutputBuilder computed = INFIX.containsKey(binary)
-                    ? infix(variableAsExpression(a), INFIX.get(binary), a.value(), q)
+                    ? compoundInfix(a, INFIX.get(binary), q)
                     : new OutputBuilderImpl().add(variable(a.variableTarget(), q))
                     .add(KotlinSymbols.binary(binary)).add(operand(PrecedenceEnum.MULTIPLICATIVE, a.value(), q));
             value = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(computed)
@@ -1846,6 +1882,13 @@ public class KotlinExpressionPrinter {
         return value.add(SymbolEnum.DOT).add(new TextImpl("also")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE)
                 .add(SpaceEnum.ONE).add(variable(a.variableTarget(), q)).add(KotlinSymbols.assignment("="))
                 .add(new TextImpl("it")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    private static OutputBuilder compoundInfix(Assignment a, String function, Qualification q) {
+        boolean shift = function.startsWith("sh") || "ushr".equals(function);
+        Primitive to = primitive(a.variableTarget().parameterizedType());
+        return new OutputBuilderImpl().add(valueOperand(variableAsExpression(a), q)).add(KotlinSymbols.binary(function))
+                .add(shift ? valueOperand(a.value(), q) : bitOperand(a.value(), to, q));
     }
 
     private static Expression variableAsExpression(Assignment a) {
