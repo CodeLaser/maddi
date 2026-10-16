@@ -224,7 +224,8 @@ implements the interface.
   the interface, `((IResult) this).Failed()`.
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
-  `Cloneable`, `Serializable` and `RandomAccess` are dropped.
+  `Cloneable`, `Serializable`, `RandomAccess` and `EventListener` are dropped, from a type parameter's constraints
+  too (`Support<E extends EventListener>` is `Support<E>`).
 - **Subclasses of collections.** C#'s `List<T>` has no virtual methods. A class extending `ArrayList` extends the
   compatibility library's `JavaArrayList<E>`, a `List<E>` whose Java methods (`Add`, `Remove`, `Set`, `AddAll`,
   `Clear`, `Clone`, …) are virtual. A call on a receiver of such a class goes through them, also where its value is

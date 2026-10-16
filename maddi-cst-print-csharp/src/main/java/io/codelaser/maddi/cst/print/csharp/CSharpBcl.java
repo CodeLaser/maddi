@@ -101,8 +101,12 @@ final class CSharpBcl implements LibraryMapping {
     /** Java's list classes, which a class of the program extends as the compatibility library's JavaArrayList. */
     static final Set<String> LIST_BASES = Set.of("java.util.ArrayList", "java.util.AbstractList", "java.util.LinkedList");
 
-    /** Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in. */
-    static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess");
+    /**
+     * Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in, an
+     * event listener any type. Left out of a type's bases and a type parameter's constraints.
+     */
+    static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess",
+            "java.util.EventListener");
 
     private static final Set<String> OBJECT_OVERRIDABLE = Set.of("equals/1", "hashCode/0", "toString/0");
 

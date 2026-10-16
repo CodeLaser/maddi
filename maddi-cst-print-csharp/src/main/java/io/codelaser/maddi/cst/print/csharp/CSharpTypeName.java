@@ -505,7 +505,10 @@ public final class CSharpTypeName {
     static List<String> constraints(List<TypeParameter> typeParameters, Qualification q) {
         List<String> constraints = new ArrayList<>();
         for (TypeParameter tp : typeParameters) {
-            List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+            // a marker interface, E extends EventListener, is no C# type: no constraint
+            List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()
+                    && !(b.typeInfo() != null && b.arrays() == 0
+                         && CSharpBcl.MARKERS.contains(b.typeInfo().fullyQualifiedName()))).toList();
             // a dictionary's key (CSharpNotNullKeys), unless a class bound says it already
             boolean notNull = CSharpContext.program().notNullKey(tp)
                               && bounds.stream().noneMatch(b -> b.typeInfo() != null && !b.isTypeParameter()

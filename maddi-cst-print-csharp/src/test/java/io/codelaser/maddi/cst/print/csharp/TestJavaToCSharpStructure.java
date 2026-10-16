@@ -383,6 +383,32 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String MARKERS = """
+            package org.example.events;
+            import java.util.ArrayList;
+            import java.util.EventListener;
+            import java.util.List;
+            public class Events {
+                interface PhaseListener extends EventListener { void phaseStarted(); }
+                static abstract class Support<E extends EventListener> {
+                    protected final List<E> listeners = new ArrayList<>();
+                    void add(E listener) { listeners.add(listener); }
+                }
+                static final class PhaseSupport extends Support<PhaseListener> {
+                    void fire() { listeners.forEach(PhaseListener::phaseStarted); }
+                }
+            }
+            """;
+
+    /** A marker interface, EventListener, is no C# type: left out of the bases and of the constraints. */
+    @Test
+    public void markers() {
+        String cs = translate("Events", MARKERS);
+        contains(cs, "internal interface IPhaseListener {");
+        contains(cs, "internal abstract class Support<E> {");
+    }
+
+    @Language("java")
     private static final String STATIC_SCOPES = """
             package org.example.scopes;
             public abstract class Move<T> {
