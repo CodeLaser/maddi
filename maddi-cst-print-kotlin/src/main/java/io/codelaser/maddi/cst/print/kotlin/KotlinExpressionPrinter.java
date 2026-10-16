@@ -277,6 +277,19 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
+        if (object != null && !mc.objectIsImplicit() && expectedElement(mc) == null && (toArrayOf(mc.methodInfo())
+                && mc.parameterExpressions().getFirst().parameterizedType() != null
+                && mc.parameterExpressions().getFirst().parameterizedType().arrays() == 1
+                && mc.parameterExpressions().getFirst().parameterizedType().componentType().typeParameter() != null
+            || toArray(mc.methodInfo()) && typeVariableElement(object, mc.methodInfo().typeInfo()))) {
+            // delegate().toArray(array) with a T[]: toTypedArray<T>() wants a reified T, and Java fills and returns the
+            // array it is handed (guava-testlib checks it). delegate().toArray() on a Collection<E>: no Collection<Any>
+            // where E may be nullable. Java's own toArray, through java.util.Collection, whose platform array fits
+            return b.add(SymbolEnum.LEFT_PARENTHESIS).add(print(object, q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl("java.util.Collection<*>")).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SymbolEnum.DOT).add(new TextImpl("toArray"))
+                    .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
+        }
         if (KotlinMappedMembers.isJavaStringOnly(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             // s.stripTrailing() -> (s as java.lang.String).stripTrailing()
             return b.add(SymbolEnum.LEFT_PARENTHESIS)
@@ -324,9 +337,12 @@ public class KotlinExpressionPrinter {
         }
         if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             // c.toArray(new X[0]): Kotlin's collections have no toArray(T[]); toTypedArray<X>() types the array as
-            // Java's argument does (Kotlin's arrays are invariant, its Collection<out E> is not)
+            // Java's argument does (Kotlin's arrays are invariant, its Collection<out E> is not), with the element
+            // state of what it initializes
             ParameterizedType array = mc.parameterExpressions().getFirst().parameterizedType();
-            String element = array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
+            ParameterizedType expected = expectedElement(mc);
+            String element = expected != null ? KotlinTypeName.of(expected, q)
+                    : array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
@@ -335,7 +351,9 @@ public class KotlinExpressionPrinter {
             // Object[] prints here (a Collection<out E> is a Collection of either): typed by the collection, a local
             // would be an Array<String> where Java declares an Object[]
             ParameterizedType result = KotlinNullability.kotlinType(mc);
-            String element = result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
+            ParameterizedType expected = expectedElement(mc);
+            String element = expected != null ? KotlinTypeName.of(expected, q)
+                    : result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
@@ -1244,6 +1262,18 @@ public class KotlinExpressionPrinter {
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
+        if (target != null && target.arrays() == 1 && unwrap(e) instanceof MethodCall mc && mc.methodInfo() != null
+            && (toArray(mc.methodInfo()) || toArrayOf(mc.methodInfo())) && KotlinNullability.isNullable(target.componentType())) {
+            // return c.toArray() into an Object[] whose elements are nullable: toTypedArray<Any?>(), as Kotlin's
+            // arrays are invariant
+            java.util.Map.Entry<MethodCall, ParameterizedType> previous = TO_ARRAY_TARGET.get();
+            TO_ARRAY_TARGET.set(java.util.Map.entry(mc, target.componentType()));
+            try {
+                return print(e, q);
+            } finally {
+                TO_ARRAY_TARGET.set(previous);
+            }
+        }
         if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
             && c.parameterizedType().arrays() == target.arrays() && sameUpToStates(c.parameterizedType(), target)
             && KotlinTypeName.primitiveArray(c.parameterizedType().componentType()) == null) {
@@ -1522,6 +1552,20 @@ public class KotlinExpressionPrinter {
         return type != null && type.typeInfo() == owner && type.arrays() == 0 && type.wildcard() == null
                && type.parameters().size() == owner.typeParameters().size()
                && type.parameters().stream().allMatch(p -> p.wildcard() == null);
+    }
+
+    /** The receiver's element type (E of its Collection<E>) is a type variable. */
+    private static boolean typeVariableElement(Expression object, TypeInfo collection) {
+        ParameterizedType element = lookedUp(object.parameterizedType(), collection, 0);
+        return element != null && element.typeParameter() != null && element.arrays() == 0;
+    }
+
+    /** The toArray call {@link #widened} prints into an array whose elements are nullable, with that element type. */
+    private static final ThreadLocal<java.util.Map.Entry<MethodCall, ParameterizedType>> TO_ARRAY_TARGET = new ThreadLocal<>();
+
+    private static ParameterizedType expectedElement(MethodCall mc) {
+        java.util.Map.Entry<MethodCall, ParameterizedType> t = TO_ARRAY_TARGET.get();
+        return t != null && t.getKey() == mc ? t.getValue() : null;
     }
 
     private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {

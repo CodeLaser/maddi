@@ -65,7 +65,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
         }
         visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
-        if (!methodInfo.overrides().isEmpty()) {
+        if (!methodInfo.overrides().isEmpty() && !interfaceOnlyToArray(methodInfo)) {
             // an abstract class re-declaring an interface method, to narrow its return type
             if (methodInfo.isAbstract() && !typeInfo.isInterface()) b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
@@ -476,6 +476,17 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * not when T is a type argument of a parameter: {@code <T> T getOrDefault(T value, Supplier<T> supplier)} returns
      * what the supplier gives, which a {@code Supplier<DocumentSplitter?>} makes nullable.
      */
+    /**
+     * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection
+     * declares no toArray to override, and a member {@code fun toArray(): Array<Any?>} is Java's toArray on the JVM.
+     * Through a Java class (AbstractCollection) it is visible, and overridden as usual.
+     */
+    static boolean interfaceOnlyToArray(MethodInfo methodInfo) {
+        return KotlinContext.translatingJava() && "toArray".equals(methodInfo.name())
+               && methodInfo.parameters().size() <= 1 && methodInfo.overrides().stream()
+                       .allMatch(o -> o.typeInfo().isInterface() && o.typeInfo().fullyQualifiedName().startsWith("java.util."));
+    }
+
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!methodInfo.overrides().isEmpty()) {

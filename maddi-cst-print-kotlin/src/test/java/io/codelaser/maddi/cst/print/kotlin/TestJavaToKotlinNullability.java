@@ -1396,4 +1396,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "as Array<T?>");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Collections2, Maps: {@code return Lists.newArrayList(iterator()).toArray()} from a toArray() whose
+     * Object[] holds nulls: toTypedArray<Any?>(), as Kotlin's arrays are invariant.
+     */
+    @Test
+    public void toArrayTakesTargetElementState() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("copy()[]")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Copy {
+                    private final List<String> items = new ArrayList<>();
+                    Object[] copy() { return items.toArray(); }
+                }
+                """, options);
+        contains(kotlin, "toTypedArray<Any?>()");
+        compiles(kotlin);
+    }
 }

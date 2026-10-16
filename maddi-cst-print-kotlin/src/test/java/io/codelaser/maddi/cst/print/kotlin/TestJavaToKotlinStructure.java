@@ -1878,4 +1878,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(own.contains("super<"), own);
         compiles(own);
     }
+
+    /**
+     * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection has no
+     * toArray to override, so the members are declared plainly (Java's toArray on the JVM); toArray(T[]) with a T[]
+     * calls Java's, which fills and returns the array it is handed.
+     */
+    @Test
+    public void toArrayInInterfaceOnlyCollection() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> implements Collection<E> {
+                    abstract Collection<E> delegate();
+                    @Override public Iterator<E> iterator() { return delegate().iterator(); }
+                    @Override public int size() { return delegate().size(); }
+                    @Override public Object[] toArray() { return delegate().toArray(); }
+                    @Override public <T> T[] toArray(T[] array) { return delegate().toArray(array); }
+                }
+                """);
+        assertFalse(kotlin.contains("override fun toArray"), kotlin);
+        contains(kotlin, "(delegate() as java.util.Collection<*>).toArray(array)");
+        compiles(kotlin);
+    }
 }
