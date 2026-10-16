@@ -893,11 +893,32 @@ public final class CSharpExpressionPrinter {
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
         }
+        // a class's wildcard interface where its superclass is expected: IAbstractConcatNode is no AbstractNode to C#
+        if (wildcardToSuperclass(inner, target)) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(value, q));
+        }
         OutputBuilder group = implementationGroup(value, inner, target, q);
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
         return print(value, q);
+    }
+
+    /**
+     * A wildcard of a class printed as its wildcard interface ({@link CSharpWildcardInterfaces}), {@code
+     * AbstractConcatNode<?, ?, ?>}, where a superclass of it is expected: Java's is one, C#'s interface cannot extend
+     * the class, a cast is.
+     */
+    private static boolean wildcardToSuperclass(Expression inner, ParameterizedType target) {
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || target.arrays() != 0 || from.typeInfo() == null
+            || target.typeInfo() == null || from.typeInfo().isInterface() || target.typeInfo().isInterface()
+            || target.isJavaLangObject() || from.typeInfo().equals(target.typeInfo())
+            || !CSharpWildcardInterfaces.isWildcardUse(from) || CSharpWildcardInterfaces.isWildcardUse(target)) {
+            return false;
+        }
+        return from.typeInfo().recursiveSuperTypeStream().anyMatch(target.typeInfo()::equals);
     }
 
     /**

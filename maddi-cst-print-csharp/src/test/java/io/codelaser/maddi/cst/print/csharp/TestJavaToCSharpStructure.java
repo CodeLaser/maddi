@@ -1761,6 +1761,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 public interface TupleLifecycle<Tuple_ extends Tuple> extends ActivitySupport {
                     void insert(Tuple_ tuple);
                     void afterAllFactsInserted(boolean canProduce);
+                    static <T extends Tuple> TupleLifecycle<T> same(TupleLifecycle<T> lifecycle) { return lifecycle; }
                 }
                 public abstract static class Node<Left_ extends Tuple> {
                     private final TupleLifecycle<?> downstream;
@@ -1769,7 +1770,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     public void done() { downstream.afterAllFactsInserted(true); }
                 }
                 public static final class PairNode extends Node<Pair> {
-                    PairNode(TupleLifecycle<Pair> next) { super(next); }
+                    PairNode(TupleLifecycle<Pair> next) { super(TupleLifecycle.same(next)); }
                 }
                 public static class Box<T> {
                     private final T value;
@@ -1792,6 +1793,17 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     return sum;
                 }
                 static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
+                public interface Grade<G extends Grade<G>> { }
+                public interface Impacter<G extends Grade<G>> {
+                    java.util.List<G> impacts();
+                    static <G extends Grade<G>> Impacter<G> none() { return null; }
+                }
+                static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
+                public abstract static class Base { }
+                public static final class Node2<T> extends Base { public int size() { return 0; } }
+                static Node2<?> node() { return new Node2<String>(); }
+                static int based(Base base) { return 1; }
+                static int nodes() { var n = node(); return based(n) + n.size(); }
                 static int countOf(boolean b) { return any(b).count(); }
                 static Object first(boolean b) { return any(b).get(); }
                 static int sum(java.util.List<? extends Box<?>> boxes) { return boxes.size(); }
@@ -1823,11 +1835,20 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void wildcardInterfaces() {
         String cs = translate("Lifecycles", LIFECYCLES);
         contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
+        // its statics, the companion's, which has the wildcard interface's name: one interface
+        contains(cs, "public static ITupleLifecycle<T> Same<T>(ITupleLifecycle<T> lifecycle) where T : ITuple => lifecycle;");
+        contains(cs, "base(ITupleLifecycle.Same(next))");
+        assertFalse(cs.contains("static class ITupleLifecycle"), cs);
         contains(cs, "void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);");
         contains(cs, "private readonly ITupleLifecycle downstream;");
         contains(cs, "Node(ITupleLifecycle downstream)");
         contains(cs, "public interface IBox {");
         contains(cs, "internal static IBox Any(bool b)");
+        // an interface with a companion, reached through a member its wildcard interface cannot declare: none
+        contains(cs, "public static class IImpacter {");
+        assertFalse(cs.contains("public interface IImpacter :"), cs);
+        // the wildcard interface where its class's superclass is expected: a cast
+        contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out
         contains(cs, "object Get { get; }");
         assertFalse(cs.contains("void Set(object"), cs);
