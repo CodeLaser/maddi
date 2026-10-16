@@ -141,9 +141,11 @@
 # 2026-10-16, maddi 6215b7856, a2f61355b, b3f768c2d, e967b1ba8: an interface's companion is its wildcard interface,
 # statics and all (TupleLifecycle<?> is ITupleLifecycle), not a self-bounded one's; a class's wildcard interface is cast
 # to its superclass, (AbstractNode) node: 1216 -> 1220 compiling files, 1502 -> 1485 errors.
+# 2026-10-16, maddi 5a264dae4, e8082ad87: a SequencedCollection is an ICollection, which a LinkedHashSet's HashSet is;
+# List.listIterator(index) and WeakHashMap mapped: 1220 -> 1236 compiling files, 1485 -> 1458 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1220
+compilingFiles	1236
 unmappedJdkUses	375
