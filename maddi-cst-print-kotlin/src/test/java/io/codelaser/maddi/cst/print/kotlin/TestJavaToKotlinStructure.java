@@ -1610,4 +1610,23 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // the positional value of a Java annotation stays a vararg
         contains(kotlin, "@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)");
     }
+
+    /**
+     * guava's Forwarding collections: {@code removeAll(Collection<?> c)} is Kotlin's {@code removeAll(elements:
+     * Collection<E>)}, read-only, and hands c to a translated method that takes a mutable collection. Cast, as the
+     * same java.util.Collection is passed at runtime.
+     */
+    @Test
+    public void forcedReadOnlyOverrideParameterIntoMutableIsCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> extends AbstractCollection<E> {
+                    protected boolean standardRemoveAll(Collection<?> collection) { collection.clear(); return true; }
+                    @Override public boolean removeAll(Collection<?> c) { return standardRemoveAll(c); }
+                }
+                """);
+        contains(kotlin, "override fun removeAll(c: Collection<E>): Boolean");
+        contains(kotlin, "standardRemoveAll((c as MutableCollection<E>))");
+    }
 }

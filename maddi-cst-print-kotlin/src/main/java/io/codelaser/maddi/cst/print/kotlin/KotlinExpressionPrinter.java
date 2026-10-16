@@ -513,6 +513,15 @@ public class KotlinExpressionPrinter {
             boolean hasParameter = method != null && i < method.parameters().size()
                                    && !method.parameters().get(i).isVarArgs();
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
+            String forced = hasParameter && !mapped ? forcedReadOnlyElement(args.get(i), q) : null;
+            if (forced != null && !KotlinMethodPrinter.acceptsReadOnly(method, i)) {
+                // removeAll(c: Collection<E>) handing c to standardRemoveAll(MutableCollection<*>): Kotlin's override
+                // signature makes c read-only, its uses were not checked; the same java.util.Collection at runtime
+                printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q))
+                        .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl("MutableCollection<" + forced + ">")).add(SymbolEnum.RIGHT_PARENTHESIS));
+                continue;
+            }
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
             if (call != null && unwrap(args.get(i)) instanceof MethodReference mr && nullableStreamElements(method, call)) {
                 OutputBuilder asserting = assertingReference(mr, q);
@@ -2097,6 +2106,23 @@ public class KotlinExpressionPrinter {
         return known != null && type != null && type.typeInfo() != null && type.arrays() == 0
                && type.parameters().isEmpty() && known.arrays() == 0 && known.typeInfo() == type.typeInfo()
                && known.parameters().isEmpty();
+    }
+
+    /**
+     * The element type, printed, of a parameter of the current method that Kotlin's override signature makes a
+     * read-only {@code Collection<E>} ({@link KotlinMappedMembers#overriddenParameterType}: removeAll, retainAll,
+     * addAll, containsAll), when {@code e} reads it; null otherwise.
+     */
+    private static String forcedReadOnlyElement(Expression e, Qualification q) {
+        if (!(unwrap(e) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)) return null;
+        io.codelaser.maddi.cst.api.info.MethodInfo current = KotlinContext.currentMethod();
+        if (current == null || pi.methodInfo() != current) return null;
+        ParameterizedType t = KotlinMappedMembers.overriddenParameterType(current, pi.index());
+        if (t == null || t.typeInfo() == null || !"java.util.Collection".equals(t.typeInfo().fullyQualifiedName())
+            || t.parameters().isEmpty()) {
+            return null;
+        }
+        return KotlinTypeName.of(t.parameters().getFirst(), q);
     }
 
     /**
