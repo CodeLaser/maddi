@@ -48,6 +48,29 @@ public interface Summary {
      * carries it ({@link ParseException#classOutputProblem()}), and {@link #classOutputProblems()} collects them, so
      * a consumer never has to recognise the message text. One per (source set, dependency) pair with a problem; a
      * dependency whose class output is fresh produces none.
+     * <p>
+     * <b>Complete per summary.</b> Every parse checks every source set it holds, and so does a re-parse after a
+     * write (kept and rewired sets as well as re-scanned ones): a summary's list replaces the previous one, it does
+     * not add to it.
+     * <p>
+     * <b>What is checked:</b> for each source set, each of its dependencies that is itself a parsed source set read
+     * from files on disk, and within it each parsed primary type: is there a class file (or, javac's class path
+     * doubling as its source path, a source file) at its package path in the dependency's class output, and is that
+     * class file no older than the type's source file?
+     * <p>
+     * <b>What is not:</b>
+     * <ul>
+     *     <li>a class directory that is only an external class-path part, not a parsed source set: there are no
+     *     parsed sources to compare it with;</li>
+     *     <li>an in-memory source set (no files, no build output to be wrong about);</li>
+     *     <li>a class file whose type was deleted from the sources: it is not a parsed type, so it is never looked
+     *     up, and a lingering class file is not flagged;</li>
+     *     <li>package-info: never the target of a reference, and javac often writes no class file for it;</li>
+     *     <li>nested types: only the primary type's class file is compared;</li>
+     *     <li>a class file less than a second (file-system timestamp granularity) older than its source.</li>
+     * </ul>
+     * When maddi generates the class files itself ({@code JavaInspector.setGeneratedClassesDirectory}), the
+     * generated directory is what is checked, and it is current by construction.
      *
      * @param sourceSet         the source set being compiled
      * @param dependency        the source set it resolves into through class files

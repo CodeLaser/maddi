@@ -323,6 +323,51 @@ public class TestGeneratedClassOutput {
         assertFalse(holds(summary, USER_FQN), "User calls greet(), which the stale class file lacks");
     }
 
+    @Language("java")
+    private static final String OTHER = """
+            package e.f;
+            public class Other {
+                public int n() { return 1; }
+            }
+            """;
+
+    @DisplayName("a re-parse that re-scans one set still reports another set's stale class output")
+    @Test
+    public void testReparseKeepsTheClassOutputProblemOfAKeptSet() throws IOException {
+        setup(BASE, USER);
+        compile(List.of(mainSrc.resolve("Base.java")), mainClasses);
+        Path classFile = mainClasses.resolve("a/b/Base.class");
+        Files.setLastModifiedTime(mainSrc.resolve("Base.java"),
+                FileTime.fromMillis(Files.getLastModifiedTime(classFile).toMillis() + 10_000));
+        Path otherSrc = Files.createDirectories(root.resolve("other-src/e/f"));
+        Files.writeString(otherSrc.resolve("Other.java"), OTHER);
+        SourceSet other = new SourceSetImpl.Builder().setName("other")
+                .setSourceDirectories(List.of(root.resolve("other-src")))
+                .setUri(root.resolve("other-classes").toUri())
+                .build();
+
+        JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.initialize(new InputConfigurationImpl.Builder()
+                .addSourceSets(main, dependent, other)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build());
+        Summary first = javaInspector.parse(Map.of(),
+                new JavaInspector.ParseOptions.Builder().setFailFast(false).build());
+        List<Summary.ClassOutputProblem> before = first.classOutputProblems();
+        assertEquals(1, before.size(), "expected one class-output problem, got " + before);
+        assertEquals("dependent", before.getFirst().sourceSet());
+        assertEquals(List.of(BASE_FQN), before.getFirst().stale());
+
+        // a write in 'other' only: it is re-scanned, 'main' and 'dependent' are kept
+        Summary second = javaInspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder().setFailFast(false)
+                .setInvalidated(ti -> other.equals(ti.compilationUnit().sourceSet())
+                        ? JavaInspector.InvalidationState.INVALID
+                        : JavaInspector.InvalidationState.UNCHANGED)
+                .build());
+        assertEquals(before, second.classOutputProblems(),
+                "the kept set's problem must be in the new summary, which replaces the old one");
+    }
+
     @DisplayName("class output one edit behind, generation on: the dependent resolves against the current source")
     @Test
     public void testGenerationSupersedesTheStaleClassOutput() throws IOException {
