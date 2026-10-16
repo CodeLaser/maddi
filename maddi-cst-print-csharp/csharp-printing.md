@@ -278,7 +278,8 @@ implements the interface.
 
 - **Enums.** An enum of constants only becomes a C# `enum`. One with fields, methods or constructors becomes a sealed
   class with a `public static readonly` instance per constant (`ENUM_AS_CLASS`), initialised with its `Name` and
-  `Ordinal`, and with `Values()` and `ValueOf(string)`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
+  `Ordinal`, and with `Values()` and `ValueOf(string)`. As Java's enum it is comparable by its ordinal,
+  `IComparable<Planet>` with `CompareTo`. On a C# enum, `values()` becomes `Enum.GetValues<T>()` and
   `ordinal()` a cast to `int`. A constant with a body, an anonymous subclass of its enum, is not translated
   (`ANONYMOUS_CLASS`). A switch on such a class is under Switch statements.
 - **Records.** A record becomes a positional `sealed record Point(int X, int Y)`, and `p.x()` becomes `p.X`. Its
@@ -448,7 +449,9 @@ differences:
 - **Lambdas and method references.**
   - A lambda becomes `(a, b) => …`.
   - A method reference becomes a method group (`Owner.Method`, `receiver.Method`). For an unbound receiver or a
-    constructor it becomes a lambda: `(p0, p1) => p0.M(p1)` or `p0 => new T(p0)`.
+    constructor it becomes a lambda: `(p0, p1) => p0.M(p1)` or `p0 => new T(p0)`. A result that is a boxed value
+    (`Long`, `long?`) into a functional interface whose result is a type parameter (`Func<State, long>`) is unboxed in
+    a lambda, where the receiver is a type, `this` or the lambda's parameter: `(State p0) => (long) p0.Result()`.
 - **Other expressions.**
   - `X.class` becomes `typeof(X)`.
   - `super.m()` becomes `base.M()`.

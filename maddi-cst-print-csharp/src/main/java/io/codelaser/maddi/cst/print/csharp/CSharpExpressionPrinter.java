@@ -1365,21 +1365,41 @@ public final class CSharpExpressionPrinter {
         // !, a lambda does, where its receiver is evaluated once anyway, a type or this
         boolean forgiven = !method.isVoid() && CSharpContext.program().facts().nullabilityAnalysed()
                            && CSharpContext.program().facts().nullable(method) == NullableState.NULLABLE;
-        String arguments = "(" + String.join(", ", parameters) + ")!";
+        // a Long result into a Function's R, C#'s long: a lambda that unboxes, (long) p0.Result()
+        String cast = unboxing(mr, method, q);
+        String arguments = "(" + String.join(", ", parameters) + ")" + (forgiven && cast == null ? "!" : "");
+        String prefix = cast == null ? "" : cast;
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
             if (method.isStatic()) {
-                return text(forgiven ? parameterList + " => " + owner + "." + name + arguments : owner + "." + name);
+                return text(forgiven || cast != null ? parameterList + " => " + prefix + owner + "." + name + arguments
+                        : owner + "." + name);
             }
             // String::length: the first parameter is the receiver
-            return text(parameterList + " => " + parameters.getFirst() + "." + name + "("
-                        + String.join(", ", parameters.subList(1, parameters.size())) + ")" + (forgiven ? "!" : ""));
+            return text(parameterList + " => " + prefix + parameters.getFirst() + "." + name + "("
+                        + String.join(", ", parameters.subList(1, parameters.size())) + ")"
+                        + (forgiven && cast == null ? "!" : ""));
         }
-        if (forgiven && scope instanceof VariableExpression ve && ve.variable() instanceof This) {
-            return new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE).add(receiver(scope, q))
-                    .add(SymbolEnum.DOT).add(text(name + arguments));
+        if ((forgiven || cast != null) && scope instanceof VariableExpression ve && ve.variable() instanceof This) {
+            OutputBuilder lambda = new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE);
+            if (cast != null) lambda.add(text(cast.strip())).add(SpaceEnum.ONE);
+            return lambda.add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name + arguments));
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /**
+     * {@code (long) }, where a method reference's result is a boxed value, {@code long?}, and its functional
+     * interface's result a type parameter, which C# has as the value type itself: {@code Func<State, long>}. Null
+     * otherwise.
+     */
+    private static String unboxing(MethodReference mr, MethodInfo method, Qualification q) {
+        if (method.isVoid() || method.isConstructor() || !CSharpTypeName.valueReference(method.returnType())) return null;
+        ParameterizedType target = mr.parameterizedType();
+        TypeInfo functional = target == null ? null : target.typeInfo();
+        MethodInfo sam = functional == null ? null : CSharpNames.singleAbstractMethod(functional);
+        if (sam == null || !sam.returnType().isTypeParameter()) return null;
+        return "(" + CSharpTypeName.argument(method.returnType(), q) + ") ";
     }
 
     /** {@code created} declares {@code supertype} with its own type parameters, in order: {@code HashSet<E> : Set<E>}. */
