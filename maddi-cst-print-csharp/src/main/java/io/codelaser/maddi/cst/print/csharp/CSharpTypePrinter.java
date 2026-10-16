@@ -327,12 +327,22 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 supers.add(CSharpTypeName.of(parent, q));
             }
         }
+        // a class that implements Set itself: JavaSet, which is the ISet (CSharpBcl.directSet)
+        boolean directSet = CSharpBcl.directSet(typeInfo);
         // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in; a
         // delegate is sealed, and an instance becomes its method group where one is expected (implementationGroup)
         typeInfo.interfacesImplemented().stream()
                 .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName())
                              && !CSharpTypeName.libraryDelegate(i.typeInfo()))
-                .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
+                .forEach(i -> {
+                    if (directSet && "java.util.Set".equals(i.typeInfo().fullyQualifiedName())) {
+                        CSharpContext.using(CSharpCompat.NAMESPACE);
+                        supers.addFirst("JavaSet<" + i.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                                .collect(Collectors.joining(", ")) + ">");
+                    } else {
+                        supers.add(CSharpTypeName.of(i, q));
+                    }
+                });
         return supers;
     }
 

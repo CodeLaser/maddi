@@ -105,6 +105,20 @@ final class CSharpBcl implements LibraryMapping {
      * Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in, an
      * event listener any type. Left out of a type's bases and a type parameter's constraints.
      */
+    /**
+     * A class that implements Java's {@code Set} itself, without a superclass: as one extending {@code AbstractSet}, it
+     * extends the compatibility library's {@code JavaSet}, whose Java methods it overrides ({@link #JAVA_SET_METHODS}).
+     */
+    static boolean directSet(TypeInfo t) {
+        if (t.isInterface() || t.parentClass() != null && !t.parentClass().isJavaLangObject()) return false;
+        return t.interfacesImplemented().stream()
+                .anyMatch(i -> i.typeInfo() != null && "java.util.Set".equals(i.typeInfo().fullyQualifiedName()));
+    }
+
+    /** The Java methods JavaSet declares, abstract or virtual: name/parameter count. */
+    static final Set<String> JAVA_SET_METHODS = Set.of("iterator/0", "size/0", "isEmpty/0", "contains/1", "add/1",
+            "remove/1", "clear/0", "containsAll/1", "addAll/1", "removeAll/1", "retainAll/1", "toArray/0");
+
     static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess",
             "java.util.EventListener");
 

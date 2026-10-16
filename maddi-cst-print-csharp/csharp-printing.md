@@ -239,7 +239,8 @@ implements the interface.
 - **Subclasses of `AbstractSet`.** C#'s `ISet<T>` has no virtual methods. A class extending `AbstractSet` extends the
   compatibility library's `JavaSet<E>`, whose `Iterator()` and `Size()` are abstract and whose `Contains`, `Add`,
   `Remove`, `Clear`, `ContainsAll`, `AddAll`, `RemoveAll` and `RetainAll` are virtual, with `AbstractCollection`'s
-  defaults; it implements `ISet<E>` on them. A class implementing `Set` directly is not yet one.
+  defaults; it implements `ISet<E>` on them. A class implementing `Set` itself, without a superclass, extends it
+  too, and its methods of those names override them.
 - **Subclasses of `Number`.** A `Number` is C#'s `IConvertible`, which has no `intValue()` to override. A class
   extending `Number` extends the compatibility library's `JavaNumber`, whose `IntValue()`, `LongValue()`,
   `FloatValue()` and `DoubleValue()` are abstract and which implements `IConvertible` on them, so that

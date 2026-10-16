@@ -1767,7 +1767,7 @@ public abstract class JavaSet<E> : ISet<E>, IReadOnlyCollection<E>
         return changed;
     }
 
-    public virtual object?[] ToArray() => this.Cast<object?>().ToArray();
+    public virtual object[] ToArray() => this.Select(e => (object) e!).ToArray();
 
     public IEnumerator<E> GetEnumerator() => Iterator().AsEnumerator();
 
