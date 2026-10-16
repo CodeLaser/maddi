@@ -163,8 +163,21 @@ final class KotlinNullability {
      */
     static boolean returnsNullForTypeVariable(MethodInfo methodInfo) {
         if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
+        if (kotlinNullableMapResult(methodInfo)) return false;
         return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
                 && !isNullable(declaredReturnType(m)));
+    }
+
+    /**
+     * Kotlin declares these members of its Map nullable, {@code get(key: K): V?}, {@code replace(key, value): V?},
+     * {@code compute(…): V?}: an override may return {@code V?} (guava's Maps, ForwardingConcurrentMap, LocalCache).
+     */
+    private static final Set<String> KOTLIN_NULLABLE_MAP_RESULTS = Set.of("get", "put", "remove", "putIfAbsent",
+            "replace", "compute", "computeIfPresent", "merge");
+
+    private static boolean kotlinNullableMapResult(MethodInfo methodInfo) {
+        return methodInfo.overrides().stream().anyMatch(m -> "java.util.Map".equals(m.typeInfo().fullyQualifiedName())
+                && KOTLIN_NULLABLE_MAP_RESULTS.contains(m.name()));
     }
 
     /** A translated method's return verdict; a library's or a Kotlin source's return type as declared. */

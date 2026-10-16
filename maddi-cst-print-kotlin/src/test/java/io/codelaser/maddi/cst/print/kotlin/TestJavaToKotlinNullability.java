@@ -1416,4 +1416,32 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "toTypedArray<Any?>()");
         compiles(kotlin);
     }
+
+    /**
+     * guava's ImmutableMap declares {@code abstract @Nullable V get(@Nullable Object key)}, and its subclasses override
+     * it again. Kotlin's own Map declares {@code get(key: K): V?}, so the overrides keep the verdict's {@code V?}
+     * instead of being clamped to V, as an override of Iterator.next(): E is.
+     */
+    @Test
+    public void mapGetOverrideStaysNullable() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("get()")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Base<K, V> extends AbstractMap<K, V> {
+                    @Override public abstract V get(Object key);
+                }
+                class Single<K, V> extends Base<K, Set<V>> {
+                    private final Map<K, V> delegate = new HashMap<>();
+                    @Override public Set<V> get(Object key) {
+                        V v = delegate.get(key);
+                        return v == null ? null : Collections.singleton(v);
+                    }
+                    @Override public Set<Map.Entry<K, Set<V>>> entrySet() { return Collections.emptySet(); }
+                }
+                """, options);
+        contains(kotlin, "abstract override fun get(key: K): V?");
+        contains(kotlin, "override fun get(key: K): MutableSet<V>?");
+        compiles(kotlin);
+    }
 }
