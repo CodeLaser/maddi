@@ -1793,6 +1793,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     return sum;
                 }
                 static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
+                public interface Grade<G extends Grade<G>> { }
+                public interface Impacter<G extends Grade<G>> {
+                    java.util.List<G> impacts();
+                    static <G extends Grade<G>> Impacter<G> none() { return null; }
+                }
+                static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
                 public abstract static class Base { }
                 public static final class Node2<T> extends Base { public int size() { return 0; } }
                 static Node2<?> node() { return new Node2<String>(); }
@@ -1838,6 +1844,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Node(ITupleLifecycle downstream)");
         contains(cs, "public interface IBox {");
         contains(cs, "internal static IBox Any(bool b)");
+        // an interface with a companion, reached through a member its wildcard interface cannot declare: none
+        contains(cs, "public static class IImpacter {");
+        assertFalse(cs.contains("public interface IImpacter :"), cs);
         // the wildcard interface where its class's superclass is expected: a cast
         contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out

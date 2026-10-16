@@ -108,6 +108,11 @@ final class CSharpWildcardInterfaces {
      */
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
         List<TypeParameter> candidates = candidates(t);
+        // an interface with a companion had none before its companion became the wildcard interface: there, a
+        // self-bounded one is checked too (WeightedScoreImpacter's impactScore, of a ScoreImpact<Score_>, it cannot declare)
+        if (t.isInterface() && CSharpNames.hasCompanion(t)) {
+            return candidates.isEmpty() || reachable(t, candidates) ? candidates : List.of();
+        }
         List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
         if (candidates.size() == selfBounded.size() || reachable(t, candidates)) return candidates;
         return selfBounded;

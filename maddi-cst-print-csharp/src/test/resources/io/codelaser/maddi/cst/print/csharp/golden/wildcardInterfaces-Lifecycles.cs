@@ -12,6 +12,7 @@ public sealed class Lifecycles {
         return sum;
     }
     internal static IBox Any(bool b) => b ? new Box<string>("s") : new Box<int>(1);
+    internal static int Impacts(IImpacter<IGrade> impacter) => impacter.Impacts().Count;
     internal static INode2 node() => new Node2<string>();
     internal static int Based(Base @base) => 1;
     internal static int Nodes() {
@@ -40,10 +41,19 @@ public sealed class Lifecycles {
         int Count();
     }
 
+    public interface IGrade<G> : IGrade where G : IGrade<G> { }
+    public interface IGrade { }
+
     public sealed class Holder<T> {
         internal readonly object[] items = { };
         public T First() => default;
     }
+
+    public interface IImpacter<G> where G : IGrade<G> {
+        List<G> Impacts();
+        public sealed class Lambda(Func<List<G>> f) : IImpacter<G> { public List<G> Impacts() => f(); }
+    }
+    public static class IImpacter { public static IImpacter<IGrade> None() => null; }
 
     public sealed class Named : Box<string> {
         internal Named() : base("n") { }
