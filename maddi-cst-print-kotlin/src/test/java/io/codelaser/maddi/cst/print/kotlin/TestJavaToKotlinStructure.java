@@ -1834,4 +1834,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("as Fn<"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's {@code WrappedSet extends WrappedCollection implements Set<V>}: spliterator() comes twice, Collection's
+     * default through the superclass and Set's through the interface. Java takes Set's, the more specific; Kotlin
+     * wants it written.
+     */
+    @Test
+    public void inheritedDefaultsChosenExplicitly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Wrapped<V> extends AbstractCollection<V> {
+                    final List<V> delegate = new ArrayList<>();
+                    @Override public Iterator<V> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                }
+                class WrappedSet<V> extends Wrapped<V> implements Set<V> { }
+                """);
+        contains(kotlin, "override fun spliterator(): Spliterator<V> = super<MutableSet>.spliterator()");
+        compiles(kotlin);
+    }
 }

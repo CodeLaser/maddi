@@ -432,6 +432,20 @@ final class KotlinNullability {
         return substitute(declared, receiver, false);
     }
 
+    /**
+     * A member's type {@code declared} in {@code declaring}, as a supertype {@code receiver} of a class sees it:
+     * Collection's {@code spliterator(): Spliterator<E>} through a {@code Set<V>} is a {@code Spliterator<V>}.
+     */
+    static ParameterizedType seenThrough(ParameterizedType declared, TypeInfo declaring, ParameterizedType receiver) {
+        ParameterizedType seen;
+        try {
+            seen = receiver.typeInfo() == declaring ? receiver : receiver.concreteSuperType(declaring.asParameterizedType());
+        } catch (RuntimeException | AssertionError e) {
+            seen = null;
+        }
+        return seen == null || seen.typeInfo() == null ? declared : substitute(declared, seen);
+    }
+
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver, boolean input) {
         if (declared == null) return null;
         if (declared.isTypeParameter() && declared.arrays() == 0) {

@@ -272,6 +272,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
                 .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
+        if (KotlinContext.translatingJava()) members.addAll(KotlinInheritedDefaults.overrides(typeInfo, insideType));
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
