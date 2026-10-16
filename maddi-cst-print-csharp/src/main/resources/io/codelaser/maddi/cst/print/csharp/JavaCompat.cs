@@ -81,6 +81,9 @@ public static class JavaCollections
     /// <summary>Iterable.iterator: Java's iterator, with remove.</summary>
     public static JavaIterator<T> Iterator<T>(this IEnumerable<T> e) => new JavaIterator<T>(e);
 
+    /// <summary>Java's listIterator(index): an iterator from the element at index on.</summary>
+    public static JavaIterator<T> Iterator<T>(this IList<T> l, int index) => new JavaIterator<T>(l, index);
+
     public static V? RemoveAndGet<K, V>(this IDictionary<K, V> d, K key)
     {
         if (!d.TryGetValue(key, out var old)) return default;
@@ -1141,6 +1144,13 @@ public class JavaIterator<T> : IJavaIterator<T>
             collection = source as ICollection<T>;
             enumerator = (collection != null ? source.ToList() : source).GetEnumerator();
         }
+    }
+
+    /// <summary>Over a list, from the element at start on.</summary>
+    public JavaIterator(IList<T> source, int start) : this(source)
+    {
+        if (start < 0 || start > source.Count) throw new ArgumentOutOfRangeException(nameof(start));
+        index = start;
     }
 
     public bool HasNext()

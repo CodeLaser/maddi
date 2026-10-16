@@ -14,7 +14,8 @@ type java.util.AbstractList -> List using System.Collections.Generic
 type java.util.Deque -> List using System.Collections.Generic
 type java.util.ArrayDeque -> List using System.Collections.Generic
 type java.util.Queue -> List using System.Collections.Generic
-type java.util.SequencedCollection -> List using System.Collections.Generic
+# a SequencedCollection is a list's, a deque's or a LinkedHashSet's: C#'s ICollection, which List and HashSet are
+type java.util.SequencedCollection -> ICollection using System.Collections.Generic
 # Java's Map and Set are implemented by hash and tree collections alike: C#'s interfaces. A HashMap is C#'s
 # Dictionary; a LinkedHashMap keeps its insertion order, as OrderedDictionary does; an EnumMap iterates in
 # the order of its keys, as SortedDictionary does.
@@ -22,6 +23,8 @@ type java.util.Map -> IDictionary using System.Collections.Generic
 type java.util.AbstractMap -> IDictionary using System.Collections.Generic
 type java.util.HashMap -> Dictionary using System.Collections.Generic
 type java.util.IdentityHashMap -> Dictionary using System.Collections.Generic
+# a WeakHashMap's keys are weak, which a Dictionary's are not: a key stays until it is removed
+type java.util.WeakHashMap -> Dictionary using System.Collections.Generic
 type java.util.concurrent.ConcurrentHashMap -> Dictionary using System.Collections.Generic
 type java.util.LinkedHashMap -> OrderedDictionary using System.Collections.Generic
 type java.util.EnumMap -> SortedDictionary using System.Collections.Generic
@@ -236,6 +239,7 @@ member java.util.Map.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
 member java.lang.Iterable.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.List.listIterator/1 -> $0.Iterator($1) using Maddi.JavaCompat
 member java.util.List.add/2 -> $0.Insert($1, $2)
 member java.util.List.remove(Object) -> $0.Remove($1)
 member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
@@ -246,8 +250,8 @@ member java.util.List.lastIndexOf/1 -> $0.LastIndexOf($1) using Maddi.JavaCompat
 member java.util.List.sort/1 -> JavaCollections.Sort($0, $1) using Maddi.JavaCompat
 member java.util.List.getFirst/0 -> $0[0]
 member java.util.List.getLast/0 -> $0[^1]
-member java.util.SequencedCollection.getFirst/0 -> $0[0]
-member java.util.SequencedCollection.getLast/0 -> $0[^1]
+member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
+member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
 member java.util.List.of/1 -> new List<{R0}> { $* }
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
