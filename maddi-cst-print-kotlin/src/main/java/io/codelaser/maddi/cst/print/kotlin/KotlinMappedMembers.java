@@ -14,6 +14,8 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Map;
@@ -196,6 +198,72 @@ final class KotlinMappedMembers {
         if (declared.typeParameter() == null || declared.arrays() > 0) return null;
         int index = m.typeInfo().typeParameters().indexOf(declared.typeParameter());
         return index < 0 ? null : index;
+    }
+
+    /**
+     * Map's default methods as Kotlin sees the JDK's: definitely non-null value types where Java's nullness
+     * annotations say so, and a nullable result. {K}, {V} and {V!} (V & Any) stand for the owner's type arguments.
+     * An override printed with Java's types overrides nothing (guava's LocalCache, Maps, ForwardingMap).
+     */
+    private record DefaultSignature(List<String> parameters, String result) {
+    }
+
+    private static final Map<Key, DefaultSignature> MAP_DEFAULTS = Map.of(
+            new Key("java.util.Map", "computeIfPresent", 2),
+            new DefaultSignature(List.of("{K}", "BiFunction<in {K}, in {V!}, out {V}?>"), "{V}?"),
+            new Key("java.util.Map", "merge", 3),
+            new DefaultSignature(List.of("{K}", "{V!}", "BiFunction<in {V!}, in {V!}, out {V}?>"), "{V}?"),
+            new Key("java.util.Map", "compute", 2),
+            new DefaultSignature(List.of("{K}", "BiFunction<in {K}, in {V}?, out {V}?>"), "{V}?"));
+
+    /** Parameter {@code i}'s Kotlin type in an override of one of Map's default methods; null otherwise. */
+    static String mapDefaultParameter(MethodInfo methodInfo, int i, Qualification q) {
+        String[] kv = mapDefaultTypeArguments(methodInfo, q);
+        if (kv == null) return null;
+        DefaultSignature signature = mapDefault(methodInfo);
+        return i < signature.parameters().size() ? substitute(signature.parameters().get(i), kv) : null;
+    }
+
+    /** The result's Kotlin type in an override of one of Map's default methods; null otherwise. */
+    static String mapDefaultResult(MethodInfo methodInfo, Qualification q) {
+        String[] kv = mapDefaultTypeArguments(methodInfo, q);
+        return kv == null ? null : substitute(mapDefault(methodInfo).result(), kv);
+    }
+
+    private static DefaultSignature mapDefault(MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.overrides().isEmpty()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return null;
+        }
+        for (MethodInfo m : methodInfo.overrides()) {
+            DefaultSignature signature = MAP_DEFAULTS.get(new Key(m.typeInfo().fullyQualifiedName(), m.name(),
+                    m.parameters().size()));
+            if (signature != null) return signature;
+        }
+        return null;
+    }
+
+    /** K, V and V & Any for the method's class as a Map, printed; null when it is not one of Map's defaults. */
+    private static String[] mapDefaultTypeArguments(MethodInfo methodInfo, Qualification q) {
+        if (mapDefault(methodInfo) == null) return null;
+        TypeInfo map = methodInfo.overrides().stream().map(MethodInfo::typeInfo)
+                .filter(t -> "java.util.Map".equals(t.fullyQualifiedName())).findFirst().orElse(null);
+        if (map == null) return null;
+        ParameterizedType asMap;
+        try {
+            asMap = methodInfo.typeInfo().asParameterizedType().concreteSuperType(map.asParameterizedType());
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            return null;
+        }
+        if (asMap == null || asMap.parameters().size() != 2) return null;
+        ParameterizedType v = asMap.parameters().get(1);
+        String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+        return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
+                v.typeParameter() != null ? vName + " & Any" : vName};
+    }
+
+    private static String substitute(String template, String[] kv) {
+        return template.replace("{K}", kv[0]).replace("{V!}", kv[2]).replace("{V}", kv[1]);
     }
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
