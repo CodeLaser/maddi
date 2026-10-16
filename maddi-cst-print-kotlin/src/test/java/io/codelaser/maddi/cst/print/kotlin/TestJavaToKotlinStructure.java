@@ -1718,4 +1718,59 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         compiles(toMap);
         compiles(kotlin);
     }
+
+    /**
+     * guava's multimaps: {@code map.remove(key)} with an {@code Object} key into a {@code Map<K, V>}. Kotlin's member
+     * takes K, its stdlib extension infers K from the inputs alone, so the argument is cast to {@code K?}: unchecked,
+     * as Java's lookup is, and a null key finds nothing instead of {@code !!} throwing.
+     */
+    @Test
+    public void objectLookupIntoTypeVariableIsCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Multi<K, V> {
+                    private final Map<K, Collection<V>> map = new HashMap<>();
+                    private final Set<V> values = new HashSet<>();
+                    int removeAll(Object key) {
+                        Collection<V> collection = map.remove(key);
+                        return collection == null ? 0 : collection.size();
+                    }
+                    boolean has(Object key, Object value) {
+                        return map.containsKey(key) && map.get(key) != null && values.contains(value);
+                    }
+                }
+                """);
+        contains(kotlin, "map.remove((key as K?))");
+        contains(kotlin, "values.contains((value as V?))");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's collectors: {@code Collector.of(Acc::create, Acc::add, Acc::combine, Acc::result)} on a generic class
+     * of ours. Kotlin wants the receiver's type arguments on an unbound reference ({@code Acc<T>::add}, from the
+     * functional type's first parameter), and finds a static in the companion ({@code Acc.Companion::create}).
+     */
+    @Test
+    public void referencesIntoGenericClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.*;
+                class Acc<T> {
+                    private final List<T> items = new ArrayList<>();
+                    static <T> Acc<T> create() { return new Acc<>(); }
+                    void add(T t) { items.add(t); }
+                    Acc<T> combine(Acc<T> other) { items.addAll(other.items); return this; }
+                    List<T> result() { return items; }
+                    static Collector<Object, ?, List<Object>> all() {
+                        return Collector.of(Acc::create, Acc::add, Acc::combine, Acc::result);
+                    }
+                }
+                """);
+        contains(kotlin, "Acc.Companion ::create");
+        contains(kotlin, "Acc<Any> ::add");
+        contains(kotlin, "Acc<Any> ::combine");
+        compiles(kotlin);
+    }
 }

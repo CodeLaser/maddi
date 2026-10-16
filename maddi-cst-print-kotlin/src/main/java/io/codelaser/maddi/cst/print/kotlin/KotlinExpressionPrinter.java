@@ -662,8 +662,9 @@ public class KotlinExpressionPrinter {
                 // Kotlin's stdlib extensions take any supertype of the element or key, so no `!!` (which throws)
                 ParameterizedType lookedUp = hasParameter && call != null ? nullableLookup(method, call, args.get(i), i) : null;
                 if (lookedUp != null) {
-                    if (unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
-                        && KotlinNullability.nullableInKotlin(args.get(i))) {
+                    if (lookedUp.typeParameter() != null
+                        || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
+                           && KotlinNullability.nullableInKotlin(args.get(i))) {
                         // lst.remove(varassign) with a VarExprent? from a List<Exprent>: T is inferred from the
                         // inputs only, so the argument is cast up to the element type
                         printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
@@ -1068,12 +1069,24 @@ public class KotlinExpressionPrinter {
                       && KotlinNullability.isNullable(kotlin) ? kotlin.withWildcard(null) : null;
         }
         ParameterizedType argumentType = argument.parameterizedType();
+        if (typeVariableLookup(element, argumentType)) return element;
         boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
                         && element.wildcard() == null && element.typeInfo() != null
                         && (element.typeInfo() == argumentType.typeInfo()
                             || element.arrays() == 0 && element.parameters().isEmpty()
                                && isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>()));
         return found ? element : null;
+    }
+
+    /**
+     * guava's {@code map.remove(key)} with an {@code Object} key into a {@code Map<K, V>}: the element is a type
+     * variable the argument is not. The cast to {@code K?} is unchecked, as Java's lookup is; casting to a class would
+     * throw where Java finds nothing.
+     */
+    private static boolean typeVariableLookup(ParameterizedType element, ParameterizedType argumentType) {
+        return element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
+               && element.wildcard() == null && argumentType.arrays() == 0
+               && argumentType.typeParameter() != element.typeParameter();
     }
 
     private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
@@ -1424,11 +1437,40 @@ public class KotlinExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         if (scope instanceof TypeExpression te) {
             TypeInfo owner = te.parameterizedType().typeInfo();
-            b.add(new TextImpl(mr.methodInfo().isStatic() ? KotlinTypeName.staticOwner(owner, q) : KotlinTypeName.name(owner, q)));
+            String name = mr.methodInfo().isStatic() ? KotlinTypeName.staticOwner(owner, q) : KotlinTypeName.name(owner, q);
+            if (KotlinContext.translatingJava() && !owner.typeParameters().isEmpty() && KotlinNullability.translated(owner)) {
+                // Acc::create, Acc::add on a generic class of ours: Kotlin wants the class's type arguments, and finds
+                // a static in the companion
+                ParameterizedType receiver = m.isStatic() ? null : referenceReceiver(mr, owner);
+                if (m.isStatic()) name += ".Companion";
+                else if (receiver != null) name = KotlinTypeName.of(receiver
+                        .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            }
+            b.add(new TextImpl(name));
         } else {
             b.add(receiver(scope, q));
         }
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
+    }
+
+    /**
+     * The receiver of an unbound reference {@code Acc::add}: the first parameter of the functional type's single
+     * abstract method ({@code BiConsumer<Acc<Object>, Object>} takes an {@code Acc<Object>}), when it is the owner
+     * with its type arguments. Where the single abstract method is not known (a library interface not inspected),
+     * the functional type's one distinct type argument of the owner. Null otherwise.
+     */
+    private static ParameterizedType referenceReceiver(MethodReference mr, TypeInfo owner) {
+        ParameterizedType functional = mr.parameterizedType();
+        if (functional == null) return null;
+        List<ParameterizedType> types = KotlinNullability.samParameterTypes(functional);
+        List<ParameterizedType> candidates = types.isEmpty()
+                ? functional.parameters().stream().filter(p -> p.typeInfo() == owner).distinct().toList()
+                : types.subList(0, 1);
+        if (candidates.size() != 1) return null;
+        ParameterizedType first = candidates.getFirst();
+        return first != null && first.typeInfo() == owner && first.arrays() == 0 && first.wildcard() == null
+               && first.parameters().size() == owner.typeParameters().size()
+               && first.parameters().stream().allMatch(p -> p.wildcard() == null) ? first : null;
     }
 
     private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {

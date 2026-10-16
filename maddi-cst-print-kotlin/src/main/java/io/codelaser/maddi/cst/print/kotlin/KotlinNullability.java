@@ -478,7 +478,16 @@ final class KotlinNullability {
      */
     static List<ParameterizedType> lambdaParameterTypes(MethodCall call, ParameterizedType functional) {
         ParameterizedType seen = throughReceiver(functional, call);
-        if (seen == null || seen == functional || seen.typeInfo() == null || seen.arrays() > 0) return List.of();
+        if (seen == null || seen == functional) return List.of();
+        return samParameterTypes(seen);
+    }
+
+    /**
+     * The parameter types of a functional type's single abstract method, seen through its type arguments
+     * ({@code BinaryOperator<Acc<Object>>} takes two {@code Acc<Object>}). Empty when not known.
+     */
+    static List<ParameterizedType> samParameterTypes(ParameterizedType seen) {
+        if (seen == null || seen.typeInfo() == null || seen.arrays() > 0) return List.of();
         MethodInfo sam;
         try {
             sam = seen.typeInfo().singleAbstractMethod();
