@@ -312,6 +312,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
                         .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.lang.Number".equals(parent.typeInfo().fullyQualifiedName())) {
+                // a Number is C#'s IConvertible, which has no intValue() to override: the compatibility library's
+                // JavaNumber, which has them abstract and implements IConvertible on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaNumber");
             } else {
                 supers.add(CSharpTypeName.of(parent, q));
             }

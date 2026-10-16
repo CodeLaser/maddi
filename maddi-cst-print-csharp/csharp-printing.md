@@ -234,6 +234,10 @@ implements the interface.
   not used (`Remove(int)`, not `RemoveAt`). A call through a `List<E>`-typed reference reaches `List`'s method, not
   the override: `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but
   `IList<T>` is not an `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
+- **Subclasses of `Number`.** A `Number` is C#'s `IConvertible`, which has no `intValue()` to override. A class
+  extending `Number` extends the compatibility library's `JavaNumber`, whose `IntValue()`, `LongValue()`,
+  `FloatValue()` and `DoubleValue()` are abstract and which implements `IConvertible` on them, so that
+  `Convert.ToInt64(n)` reads it as it reads an `Integer`.
 - **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that
   walks its `Iterator()`, so that `foreach` and LINQ work on it. An interface that extends `Iterable` declares
   `IJavaIterator<T> Iterator();` and is enumerable through default implementations over it

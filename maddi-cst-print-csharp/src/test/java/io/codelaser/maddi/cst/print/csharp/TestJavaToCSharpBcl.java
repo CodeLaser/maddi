@@ -484,6 +484,14 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     return set;
                 }
                 static Object first(SequencedCollection<Object> c) { return c.getFirst(); }
+                static final class Counter extends Number {
+                    private int value;
+                    public int intValue() { return value; }
+                    public long longValue() { return value; }
+                    public float floatValue() { return value; }
+                    public double doubleValue() { return value; }
+                }
+                static long asLong(Number n) { return n.longValue(); }
                 static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
                 static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
@@ -509,6 +517,9 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "c.First()");
         contains(cs, "l.Iterator(i)");
         contains(cs, "new Dictionary<object, string>()");
+        // a class extending Number: the compatibility library's JavaNumber, an IConvertible
+        contains(cs, "internal sealed class Counter : JavaNumber {");
+        contains(cs, "public override int IntValue() => value;");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");
