@@ -306,7 +306,10 @@ implements the interface.
   and gets a nested adapter, `public sealed class Lambda(Func<Exprent, int> f) : IExprentIterator { … }`, around its
   lambdas and method references: `new IExprentIterator.Lambda(e => 0)`. The policy `FunctionalInterfaces.ADAPTER`,
   and a printer that is not given the program (`CSharpProgram.NONE`), use this form for all of them. The JDK's
-  functional interfaces are the BCL's delegates (see the JDK mapping).
+  functional interfaces are the BCL's delegates (see the JDK mapping). One that extends a JDK functional interface,
+  `MovableFilter<Solution_> extends BiPredicate<Solution_, Object>`, cannot extend the delegate: it declares the method
+  itself in PascalCase, `bool Test(Solution_ arg0, object arg1);`, and a call through it is `filter.Test(s, e)`, not
+  the delegate's invocation.
 - **Anonymous classes.** One of either kind of functional interface that only implements the method, without fields
   and without using itself, becomes a lambda. Any other is hoisted (`CSharpAnonymous`): a private sealed nested class
   of the type whose code creates it, named after what it extends (`GraphImpl`). The local variables and parameters

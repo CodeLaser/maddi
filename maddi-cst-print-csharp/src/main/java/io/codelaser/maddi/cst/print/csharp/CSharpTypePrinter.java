@@ -223,6 +223,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
+        if (CSharpNames.librarySingleAbstractMethod(typeInfo) != null) members.add(librarySingleAbstractMethod(q));
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
@@ -532,6 +533,41 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
         MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
+        Signature signature = signature(sam, q);
+        List<String> parameterTypes = signature.parameterTypes();
+        List<String> names = signature.names();
+        boolean isVoid = signature.result().isVoid();
+        List<String> delegateArguments = new ArrayList<>(parameterTypes);
+        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(signature.result(), q));
+        String delegate = (isVoid ? "Action" : "Func")
+                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
+        String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
+        String f = names.contains("f") ? "function" : "f";
+        CSharpContext.using("System");
+        // the delegate's type arguments are value types: a Kind? or an int? parameter goes in as its value
+        // with the analysis, ! as on any unboxing cast: C# thinks a Kind? may be null (CS8629), as Java may pass one
+        String forgiven = CSharpContext.program().facts().nullabilityAnalysed() ? "!" : "";
+        List<String> forwarded = IntStream.range(0, names.size())
+                .mapToObj(i -> CSharpTypeName.valueReference(signature.parameters().get(i))
+                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
+        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
+                + " { public " + CSharpTypeName.of(signature.result(), q) + " " + signature.member() + " => " + f + "("
+                + String.join(", ", forwarded) + "); }"));
+    }
+
+    /** {@code bool Test(Solution_ arg0, object arg1);}: the library's method the interface has as its own. */
+    private OutputBuilder librarySingleAbstractMethod(Qualification q) {
+        Signature signature = signature(CSharpNames.singleAbstractMethod(typeInfo), q);
+        return new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(signature.result(), q) + " "
+                                                        + signature.member() + ";"));
+    }
+
+    /** The one abstract method as the interface has it: its arguments substituted, its C# name. */
+    private record Signature(List<ParameterizedType> parameters, ParameterizedType result, List<String> parameterTypes,
+                             List<String> names, String member) {
+    }
+
+    private Signature signature(MethodInfo sam, Qualification q) {
         // a method of a generic super-interface, Listener<T>.onEvent(T), is the interface's with its arguments
         ParameterizedType asSeen = sam.typeInfo().equals(typeInfo) ? null
                 : CSharpHierarchy.implementedAs(typeInfo, sam.typeInfo());
@@ -540,30 +576,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .toList();
         ParameterizedType samReturn = CSharpHierarchy.substitute(sam.returnType(), map);
         List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
-        boolean isVoid = samReturn.isVoid();
-        List<String> delegateArguments = new ArrayList<>(parameterTypes);
-        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(samReturn, q));
-        String delegate = (isVoid ? "Action" : "Func")
-                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
-        String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
-        String f = names.contains("f") ? "function" : "f";
         String parameters = IntStream.range(0, names.size())
                 .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
-        CSharpContext.using("System");
-        // a method that is a property is implemented as one
+        // a method that is a property is implemented as one; a library's, BiPredicate.test, is the interface's Test
         String property = CSharpContext.program().computedProperty(sam);
-        String member = property != null ? property : CSharpNames.method(sam) + "(" + parameters + ")";
-        // the delegate's type arguments are value types: a Kind? or an int? parameter goes in as its value
-        // with the analysis, ! as on any unboxing cast: C# thinks a Kind? may be null (CS8629), as Java may pass one
-        String forgiven = CSharpContext.program().facts().nullabilityAnalysed() ? "!" : "";
-        List<String> forwarded = IntStream.range(0, names.size())
-                .mapToObj(i -> CSharpTypeName.valueReference(samParameters.get(i))
-                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
-        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + CSharpTypeName.of(samReturn, q) + " " + member + " => " + f + "("
-                + String.join(", ", forwarded) + "); }"));
+        String name = CSharpNames.translated(sam.typeInfo()) ? CSharpNames.method(sam) : CSharpNames.pascal(sam.name());
+        String member = property != null ? property : name + "(" + parameters + ")";
+        return new Signature(samParameters, samReturn, parameterTypes, names, member);
     }
 
     /** The record's canonical constructor, compact or not, when written; null when C#'s positional one serves. */
