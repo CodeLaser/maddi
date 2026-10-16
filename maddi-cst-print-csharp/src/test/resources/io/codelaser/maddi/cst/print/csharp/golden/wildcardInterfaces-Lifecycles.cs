@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace Org.Example.Lifecycleses;
 public sealed class Lifecycles {
+    internal static readonly Key<ITuple>[] KEYS = { };
     internal static int Counted(IBox box) => box.Count();
     internal static int Sized<T>(Box<T> box) => box.Count();
     internal static int Sized(Named named) => 0;
@@ -22,6 +23,16 @@ public sealed class Lifecycles {
     internal static int CountOf(bool b) => Any(b).Count();
     internal static object First(bool b) => Any(b).Get;
     internal static int Sum(IReadOnlyList<IBox> boxes) => boxes.Count;
+    internal static T Attribute<T>(Key<T> key) where T : ITuple => default;
+    internal static int named() {
+        int n = 0;
+        foreach (Key<ITuple> k in KEYS) {
+            n += k.name.Length;
+            Attribute(k);
+        }
+        return n;
+    }
+
     public interface IActivitySupport {
         bool IsActive();
         public sealed class Lambda(Func<bool> f) : IActivitySupport { public bool IsActive() => f(); }
@@ -66,7 +77,7 @@ public sealed class Lifecycles {
     }
     public interface IImpacter { }
     public static class IImpacter { public static IImpacter None() => null; }
-
+    public sealed class Key<T> where T : ITuple { internal readonly string name = "k"; }
     public sealed class Named : Box<string> {
         internal Named() : base("n") { }
         public override object Mapping() => "m";

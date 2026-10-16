@@ -1817,6 +1817,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     public Class<A> kind() { return type; }
                 }
                 public static class Counter<T> { int count; T last; }
+                public static final class Key<T extends Tuple> { final String name = "k"; }
+                static <T extends Tuple> T attribute(Key<T> key) { return null; }
+                static final Key<?>[] KEYS = {};
+                static int named() { int n = 0; for (Key<?> k : KEYS) { n += k.name.length(); attribute(k); } return n; }
                 static final class Uses {
                     private Counter<?> counter;
                     void bump() { counter.count = 1; }
@@ -1866,6 +1870,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "private IHolder holder;");
         contains(cs, "internal object[] items { get; }");
         contains(cs, "object[] IHolder.items => items;");
+        // a wildcard passed where the type is declared with arguments, Key<T>: no wildcard interface, which infers no T
+        contains(cs, "Key<ITuple>[] KEYS");
         // one written through it is not: Counter keeps its bound
         contains(cs, "private Counter<object> counter;");
         // Class<A>, C#'s Type, needs no argument

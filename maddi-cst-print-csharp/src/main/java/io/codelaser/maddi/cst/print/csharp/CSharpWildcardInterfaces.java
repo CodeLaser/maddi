@@ -17,6 +17,7 @@ package io.codelaser.maddi.cst.print.csharp;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
@@ -248,6 +249,25 @@ final class CSharpWildcardInterfaces {
     private record Written(FieldInfo field) {
     }
 
+    /** A wildcard passed where its type is declared with arguments, which the wildcard interface cannot be. */
+    private record PassedAsGeneric(ParameterizedType formal) {
+    }
+
+    private static void passed(MethodInfo method, List<Expression> arguments, BiConsumer<Expression, Object> through) {
+        List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters = method.parameters();
+        for (int i = 0; i < arguments.size() && !parameters.isEmpty(); i++) {
+            ParameterizedType formal = parameters.get(Math.min(i, parameters.size() - 1)).parameterizedType();
+            ParameterizedType actual = arguments.get(i).parameterizedType();
+            if (formal.arrays() != 0 || actual == null || formal.typeInfo() == null
+                || !formal.typeInfo().equals(actual.typeInfo()) || formal.parameters().isEmpty()) {
+                continue;
+            }
+            if (formal.parameters().stream().noneMatch(a -> a.wildcard() != null)) {
+                through.accept(arguments.get(i), new PassedAsGeneric(formal));
+            }
+        }
+    }
+
     record Uses(Map<TypeInfo, Set<TypeParameter>> wildcarded, Map<TypeInfo, Set<Object>> reached) {
         static final Uses NONE = new Uses(Map.of(), Map.of());
     }
@@ -306,6 +326,12 @@ final class CSharpWildcardInterfaces {
             for (Element element : CstQueries.code(t)) {
                 element.visit((Element e) -> {
                     if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
+                    // a wildcard passed where the type is declared with arguments, getAttribute(Key<T> key): the
+                    // wildcard interface infers no T (CS0411)
+                    if (e instanceof MethodCall mc) passed(mc.methodInfo(), mc.parameterExpressions(), through);
+                    if (e instanceof ConstructorCall cc && cc.constructor() != null) {
+                        passed(cc.constructor(), cc.parameterExpressions(), through);
+                    }
                     if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                         && !fr.fieldInfo().isStatic()) {
                         through.accept(fr.scope(), fr.fieldInfo());
