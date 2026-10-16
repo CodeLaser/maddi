@@ -62,7 +62,7 @@ public final class KotlinTranslator {
                 Files.createDirectories(file.getParent());
                 Files.writeString(file, kotlin);
                 files.add(file.toAbsolutePath().normalize());
-            } catch (RuntimeException | StackOverflowError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 crashes.add(type.fullyQualifiedName() + ": " + e);
             }
         }
