@@ -1591,4 +1591,23 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("fun hashCode"), kotlin);
         contains(kotlin, "fun apply(input: T): Boolean");
     }
+
+    /**
+     * guava's {@code @Immutable(containerOf = "B")}: Java allows a single value for a named array element; Kotlin, for a
+     * Java annotation, only for the positional {@code value}, which is a vararg. A named one is {@code ["B"]}.
+     */
+    @Test
+    public void namedArrayElementOfJavaAnnotationIsAnArray() {
+        String kotlin = kotlin("""
+                package a;
+                @javax.annotation.processing.Generated(value = "gen", comments = "c")
+                class Old {
+                    @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)
+                    @interface Marker { }
+                }
+                """);
+        contains(kotlin, "value = [\"gen\"], comments = \"c\"");
+        // the positional value of a Java annotation stays a vararg
+        contains(kotlin, "@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)");
+    }
 }
