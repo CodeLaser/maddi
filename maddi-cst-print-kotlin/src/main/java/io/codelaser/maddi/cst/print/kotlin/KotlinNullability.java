@@ -173,11 +173,15 @@ final class KotlinNullability {
         return verdict != null ? verdict : m.returnType();
     }
 
-    /** {@code (value) as E}, for a return from a method {@link #returnsNullForTypeVariable}; null otherwise. */
+    /**
+     * {@code (value) as E}, for a return from a method {@link #returnsNullForTypeVariable}; null otherwise. Whether the
+     * verdict is nullable (the override keeps E all the same) or the pass holds it non-null for Kotlin's member
+     * (maddi-mod a8cac5ca): Java returns the null, and so does the cast, where {@code !!} would throw.
+     */
     static OutputBuilder typeVariableReturn(MethodInfo methodInfo, Expression value, Qualification q) {
         if (!(value instanceof NullConstant) && !nullableInKotlin(value)) return null;
         ParameterizedType verdict = verdicts().returnType(methodInfo);
-        if (verdict == null || !isNullable(verdict) || !returnsNullForTypeVariable(methodInfo)) return null;
+        if (verdict == null || !returnsNullForTypeVariable(methodInfo)) return null;
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
