@@ -759,6 +759,8 @@ member java.util.Comparator.thenComparingInt/1 -> $0.ThenComparing($1) using Mad
 member java.util.Comparator.thenComparingLong/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.reversed/0 -> $0.Reversed() using Maddi.JavaCompat
 member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
+member java.util.Comparator.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
+member java.util.Collections.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 
 # ---------------------------------------------------------------- system
 member java.lang.System.arraycopy/5 -> Array.Copy($1, $2, $3, $4, $5) using System
@@ -811,6 +813,9 @@ member java.io.BufferedReader.readLine/0 -> $0.ReadLine()
 # file streams: a java.io.File or a path
 # an EnumMap orders by its keys, as a SortedDictionary does; its Class argument is the key type's
 member java.util.EnumMap.new(Class) -> new {R}() using System.Collections.Generic
+# a sorted collection's Comparator is C#'s Comparison delegate; SortedDictionary and SortedSet take an IComparer
+member java.util.TreeMap.new(Comparator) -> new {R}(Comparer<{R0}>.Create($1)) using System.Collections.Generic
+member java.util.TreeSet.new(Comparator) -> new {R}(Comparer<{R0}>.Create($1)) using System.Collections.Generic
 member java.io.FileOutputStream.new/1 -> new FileStream($1.ToString(), FileMode.Create) using System.IO
 member java.io.FileOutputStream.new/2 -> new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create) using System.IO
 member java.io.FileInputStream.new/1 -> File.OpenRead($1.ToString()) using System.IO

@@ -424,6 +424,8 @@ public static class JavaComparator
 
     public static Comparison<T> Reversed<T>(this Comparison<T> c) => (a, b) => c(b, a);
 
+    public static Comparison<T> ReverseOrder<T>() => (a, b) => Comparer<T>.Default.Compare(b, a);
+
     public static Comparison<KeyValuePair<K, V>> ComparingByKey<K, V>() =>
         (a, b) => Comparer<K>.Default.Compare(a.Key, b.Key);
 

@@ -476,6 +476,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 }
                 static boolean same(int[][] a, int[][] b) { return Arrays.deepEquals(a, b); }
                 static void blank(int[] a) { Arrays.fill(a, 1, 3, 0); }
+                static TreeSet<String> byLength(Comparator<String> c) { return new TreeSet<>(c); }
+                static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
             }
             """;
 
@@ -493,6 +495,10 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaCollections.Shuffle(list, random);");
         contains(cs, "JavaArrays.DeepEquals(a, b)");
         contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
+        // a Comparator is a Comparison delegate, the sorted collections take an IComparer
+        contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
+        contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");
+        contains(cs, "JavaComparator.ReverseOrder<string>()));");
     }
 
     @Language("java")
