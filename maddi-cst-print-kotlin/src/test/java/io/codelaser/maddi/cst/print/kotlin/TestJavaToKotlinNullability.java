@@ -1314,4 +1314,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "as MutableList<T>)");
         compiles(kotlin);
     }
+
+    /**
+     * langchain4j's ModerationModel: {@code moderate(List.of(message))} with a nullable message. List.of is a static
+     * of a mapped type, called with Java's parameter types, and takes no null all the same: asserted as in Java, where
+     * it throws.
+     */
+    @Test
+    public void nullableIntoListOfAsserted() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("message")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.List;
+                interface Moderation {
+                    int moderate(List<String> messages);
+                    default int moderate(String message) { return moderate(List.of(message)); }
+                }
+                """, options);
+        contains(kotlin, "message!!");
+        compiles(kotlin);
+    }
 }

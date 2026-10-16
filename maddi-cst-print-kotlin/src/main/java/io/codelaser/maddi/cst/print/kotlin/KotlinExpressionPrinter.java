@@ -568,9 +568,11 @@ public class KotlinExpressionPrinter {
         // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
         // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
         // argument is asserted like one for translated code. equals takes Any? everywhere.
-        // A static (java.lang.Integer.toHexString) is called as Java's, with Java's parameter types.
-        boolean mapped = method != null && !method.isStatic() && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName());
-        boolean translated = method != null && (mapped ? !"equals".equals(method.name())
+        // A static (java.lang.Integer.toHexString) is called as Java's, with Java's parameter types; List.of still
+        // takes no null.
+        boolean mappedType = method != null && KotlinTypeName.isMapped(method.typeInfo().fullyQualifiedName());
+        boolean mapped = mappedType && !method.isStatic();
+        boolean translated = method != null && (mappedType ? !"equals".equals(method.name())
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
         for (int i = 0; i < args.size(); i++) {
