@@ -359,4 +359,21 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "doubleArrayOf(2.5, 3.toDouble())");
         contains(kotlin, "floatArrayOf(c.code.toFloat(), 1.toFloat())");
     }
+
+    /** guava's views: {@code c.toArray()} on a Java collection, which Kotlin's collection types do not have. */
+    @Test
+    public void toArrayWithoutArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Snap {
+                    static Object[] snap(Map<String, Integer> m, List<String> l) {
+                        Object[] keys = m.keySet().toArray();
+                        return l.isEmpty() ? keys : l.toArray();
+                    }
+                }
+                """);
+        contains(kotlin, "m.keys.toTypedArray<Any?>()");
+        contains(kotlin, "l.toTypedArray<Any?>()");
+    }
 }

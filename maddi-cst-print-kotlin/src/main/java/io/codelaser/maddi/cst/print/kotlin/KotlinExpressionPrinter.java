@@ -330,6 +330,11 @@ public class KotlinExpressionPrinter {
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
+        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+            // c.toArray(): Kotlin's collections have no toArray() either; Java's Object[] is an Array<Any?>, and a
+            // Collection<out E> is a Collection<Any?> (guava's views and immutable collections)
+            return b.add(new TextImpl("toTypedArray<Any?>()"));
+        }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
         if (mapped != null) return b.add(new TextImpl(mapped));
         if (KotlinMappedMembers.isIndexGet(mc.methodInfo())) {
@@ -1344,6 +1349,11 @@ public class KotlinExpressionPrinter {
             b.add(receiver(scope, q));
         }
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
+    }
+
+    private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        return m != null && "toArray".equals(m.name()) && m.parameters().isEmpty()
+               && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
     }
 
     private static boolean toArrayOf(io.codelaser.maddi.cst.api.info.MethodInfo m) {
