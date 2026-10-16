@@ -1511,4 +1511,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override val size: Int");
         contains(kotlin, "_size++");
     }
+
+    /**
+     * guava's ArrayTable and ObjectArrays import java.lang.reflect.Array: imported, it shadows Kotlin's Array, and each
+     * {@code Array<V?>} is the reflection class, which takes no type arguments. It is written qualified instead.
+     */
+    @Test
+    public void reflectArrayDoesNotShadowKotlinsArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.Array;
+                class Arrays2<T> {
+                    private final T[][] rows = null;
+                    @SuppressWarnings("unchecked")
+                    static <T> T[] newArray(T[] reference, int length) {
+                        return (T[]) Array.newInstance(reference.getClass().getComponentType(), length);
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
+        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "Array<Array<T");
+    }
 }

@@ -207,9 +207,26 @@ public class KotlinTypeName {
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
+    /**
+     * Kotlin's own types the printer names by their simple name. A Java type of the same simple name is not imported
+     * and is written qualified: guava's {@code import java.lang.reflect.Array} would make each {@code Array<V?>} the
+     * reflection class, which takes no type arguments.
+     */
+    static final java.util.Set<String> KOTLIN_BUILT_IN_NAMES = java.util.Set.of("Array", "Any", "Unit", "Nothing");
+
+    /** A Java type whose simple name is one of {@link #KOTLIN_BUILT_IN_NAMES}: always written qualified. */
+    static boolean shadowsKotlinBuiltIn(String fullyQualifiedName) {
+        int dot = fullyQualifiedName.lastIndexOf('.');
+        return dot > 0 && KOTLIN_BUILT_IN_NAMES.contains(fullyQualifiedName.substring(dot + 1))
+               && !fullyQualifiedName.startsWith("kotlin.");
+    }
+
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
+        if (typeInfo.isPrimaryType() && shadowsKotlinBuiltIn(typeInfo.fullyQualifiedName())) {
+            return KotlinNames.dotted(typeInfo.fullyQualifiedName());
+        }
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
         String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
         TypeInfo primary = typeInfo.primaryType();
