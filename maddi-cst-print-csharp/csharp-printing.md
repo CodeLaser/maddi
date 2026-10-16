@@ -213,7 +213,9 @@ implements the interface.
   - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
     method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
   - a default method that implements an inherited interface's method is an explicit implementation:
-    `Type IListener<string>.EventClass() => typeof(string);`;
+    `Type IListener<string>.EventClass() => typeof(string);`; so is one of a JDK interface's method that C# names
+    otherwise, `default void close()` of a `Closeable`: `void IDisposable.Dispose() { }`, which a `Dispose()` of its
+    own would hide;
   - an abstract class that leaves an interface's method to its subclasses redeclares it,
     `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s; a
     compatibility interface's too, `Iterator`'s `public abstract bool HasNext();`, whose `S Next()` a

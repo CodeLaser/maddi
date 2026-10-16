@@ -492,6 +492,9 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     public double doubleValue() { return value; }
                 }
                 static long asLong(Number n) { return n.longValue(); }
+                interface Listener extends java.io.Closeable { void changed(); default void close() { } }
+                static final class Tracker implements Listener { public void changed() { } }
+                static void done(Listener l) throws java.io.IOException { l.close(); }
                 static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
                 static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
@@ -520,6 +523,9 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a class extending Number: the compatibility library's JavaNumber, an IConvertible
         contains(cs, "internal sealed class Counter : JavaNumber {");
         contains(cs, "public override int IntValue() => value;");
+        // a default close() of a Closeable implements IDisposable's Dispose explicitly, which one named Dispose hides
+        contains(cs, "void IDisposable.Dispose() { }");
+        contains(cs, "l.Dispose();");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");

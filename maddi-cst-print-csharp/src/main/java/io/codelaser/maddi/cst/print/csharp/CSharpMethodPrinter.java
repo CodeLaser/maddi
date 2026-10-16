@@ -110,7 +110,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(owner);
             b.add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
-                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
+                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + (CSharpNames.translated(overridden.typeInfo())
+                            ? CSharpNames.method(overridden) : CSharpNames.method(methodInfo))));
         } else {
             String property = CSharpContext.program().computedProperty(methodInfo);
             if (property != null) return property(b, modifiers.toString(), property, q);
