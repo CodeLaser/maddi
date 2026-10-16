@@ -1691,6 +1691,35 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String BOXED_REFERENCES = """
+            package org.example.boxedrefs;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            public class Counts {
+                static final class State {
+                    Long result() { return 1L; }
+                    static Long initial() { return 0L; }
+                    Long own() { return 2L; }
+                    Supplier<Long> mine() { return this::own; }
+                }
+                static Function<State, Long> finisher() { return State::result; }
+                static Supplier<Long> first() { return State::initial; }
+            }
+            """;
+
+    /**
+     * A method reference whose result is a Long, long?, into a functional interface whose result is a type parameter,
+     * C#'s long in Func<State, long>: a method group does not convert, a lambda unboxes.
+     */
+    @Test
+    public void boxedMethodReferences() {
+        String cs = translate("Counts", BOXED_REFERENCES);
+        contains(cs, "(State p0) => (long) p0.Result()");
+        contains(cs, "() => (long) State.Initial()");
+        contains(cs, "() => (long) this.Own()");
+    }
+
+    @Language("java")
     private static final String LIFECYCLES = """
             package org.example.lifecycles;
             public class Lifecycles {

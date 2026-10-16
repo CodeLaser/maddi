@@ -449,7 +449,9 @@ differences:
 - **Lambdas and method references.**
   - A lambda becomes `(a, b) => …`.
   - A method reference becomes a method group (`Owner.Method`, `receiver.Method`). For an unbound receiver or a
-    constructor it becomes a lambda: `(p0, p1) => p0.M(p1)` or `p0 => new T(p0)`.
+    constructor it becomes a lambda: `(p0, p1) => p0.M(p1)` or `p0 => new T(p0)`. A result that is a boxed value
+    (`Long`, `long?`) into a functional interface whose result is a type parameter (`Func<State, long>`) is unboxed in
+    a lambda, where the receiver is a type, `this` or the lambda's parameter: `(State p0) => (long) p0.Result()`.
 - **Other expressions.**
   - `X.class` becomes `typeof(X)`.
   - `super.m()` becomes `base.M()`.
