@@ -1554,4 +1554,22 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "= It()");
         assertFalse(kotlin.contains("Base.Values()"), kotlin);
     }
+
+    /**
+     * guava's MapMakerInternalMap: a class's type parameter bounded by one of its own nested types. Kotlin resolves
+     * the header outside the class's scope, so the nested type is named from the class.
+     */
+    @Test
+    public void headerNamesOwnNestedTypesQualified() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Internal<K, E extends Internal.Entry<K, E>> implements Comparator<Internal.Entry<K, E>> {
+                    interface Entry<K, E extends Entry<K, E>> { K key(); }
+                    public int compare(Entry<K, E> a, Entry<K, E> b) { return 0; }
+                }
+                """);
+        contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
+        contains(kotlin, "Comparator<Internal.Entry<K, E>>");
+    }
 }
