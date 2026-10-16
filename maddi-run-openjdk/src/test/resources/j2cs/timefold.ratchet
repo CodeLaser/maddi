@@ -146,9 +146,12 @@
 # 2026-10-16, maddi f8701687b, 19081f381: a wildcard interface declares the fields read through it, as properties;
 # none for a wildcard passed where its type is declared with arguments (getAttribute(Key<T>)): 1236 -> 1238 compiling
 # files; errors 1458 -> 1546, more in the inner collectors, broken before and after.
+# 2026-10-16, maddi 76cc8a338, 8e0fe3de3: a class extending Number extends JavaNumber, an IConvertible; an interface's
+# default close() of a Closeable implements IDisposable.Dispose explicitly: 1238 -> 1242 compiling files,
+# 1546 -> 1499 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1238
+compilingFiles	1242
 unmappedJdkUses	375
