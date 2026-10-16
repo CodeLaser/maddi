@@ -1533,4 +1533,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "java.lang.reflect.Array.newInstance(");
         contains(kotlin, "Array<Array<T");
     }
+
+    /**
+     * guava's multimaps: {@code new Values()} of an inner class of a superclass, its outer instance implicit, is
+     * {@code Values()}; qualified, {@code Base.Values()}, Kotlin finds no receiver for it.
+     */
+    @Test
+    public void innerClassOfSuperclassConstructedBySimpleName() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Base {
+                    class Values { }
+                    class Wrapped { class It { } It it() { return new It(); } }
+                    static class Sub extends Base {
+                        Object values() { return new Values(); }
+                    }
+                }
+                """);
+        contains(kotlin, "= Values()");
+        contains(kotlin, "= It()");
+        assertFalse(kotlin.contains("Base.Values()"), kotlin);
+    }
 }

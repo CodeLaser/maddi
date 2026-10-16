@@ -1390,8 +1390,23 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
-        return b.add(new TextImpl(KotlinTypeName.constructed(type, q)))
-                .add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        String constructed = KotlinTypeName.constructed(type, q);
+        if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
+            constructed = implicitOuter(constructed, type.typeInfo());
+        }
+        return b.add(new TextImpl(constructed)).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+    }
+
+    /**
+     * {@code new Values()} of an inner class, the outer instance implicit (this, or an enclosing this): by its simple
+     * name, which Kotlin resolves with that receiver, in the outer class, its subclasses and their inner classes.
+     * {@code AbstractMultimap.Values()} is the static-style access an inner class does not allow (guava's multimaps).
+     */
+    private static String implicitOuter(String constructed, TypeInfo inner) {
+        String simple = KotlinNames.name(inner.simpleName());
+        int lt = constructed.indexOf('<');
+        String head = lt < 0 ? constructed : constructed.substring(0, lt);
+        return head.endsWith("." + simple) ? simple + (lt < 0 ? "" : constructed.substring(lt)) : constructed;
     }
 
     /** {@code new TypeReference<>() {}} into a {@code TypeReference<…>}: a diamond, no members, the target's class. */
