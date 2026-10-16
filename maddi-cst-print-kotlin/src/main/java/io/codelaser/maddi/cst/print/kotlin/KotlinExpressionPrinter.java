@@ -232,7 +232,7 @@ public class KotlinExpressionPrinter {
     }
 
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
-        String name = KotlinNames.name(fr.fieldInfo().name());
+        String name = KotlinFieldPrinter.name(fr.fieldInfo());
         Expression scope = fr.scope();
         if (fr.isStatic()) {
             TypeInfo owner = fr.fieldInfo().owner();

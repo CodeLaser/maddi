@@ -1489,4 +1489,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
         contains(kotlin, "override fun putAll(map: Map<out K, V>)");
     }
+
+    /**
+     * guava's AbstractMapBasedMultiset: a field named as a property a mapped supertype declares ({@code size} of
+     * Kotlin's Collection) is renamed, else Kotlin has two properties {@code size} and each use is ambiguous.
+     */
+    @Test
+    public void fieldClashingWithMappedPropertyIsRenamed() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Counted<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    private long size;
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public boolean add(E e) { size++; return items.add(e); }
+                    @Override public int size() { return (int) size; }
+                }
+                """);
+        contains(kotlin, "private var _size: Long");
+        contains(kotlin, "override val size: Int");
+        contains(kotlin, "_size++");
+    }
 }
