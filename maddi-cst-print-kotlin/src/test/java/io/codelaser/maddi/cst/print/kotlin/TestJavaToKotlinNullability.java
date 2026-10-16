@@ -733,6 +733,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "override fun next(): E");
         contains(kotlin, ") as E");
+        compiles(kotlin);
     }
 
     @Language("java")
@@ -1282,5 +1283,6 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("element")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "override fun add(element: E): Boolean");
+        compiles(kotlin);
     }
 }

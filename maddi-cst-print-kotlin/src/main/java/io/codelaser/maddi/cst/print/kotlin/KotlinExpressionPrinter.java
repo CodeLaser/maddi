@@ -331,9 +331,12 @@ public class KotlinExpressionPrinter {
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
-            // c.toArray(): Kotlin's collections have no toArray() either; Java's Object[] is an Array<Any?>, and a
-            // Collection<out E> is a Collection<Any?> (guava's views and immutable collections)
-            return b.add(new TextImpl("toTypedArray<Any?>()"));
+            // c.toArray(): Kotlin's collections have no toArray() either. toTypedArray<Any?>() or <Any>(), as Java's
+            // Object[] prints here (a Collection<out E> is a Collection of either): typed by the collection, a local
+            // would be an Array<String> where Java declares an Object[]
+            ParameterizedType result = KotlinNullability.kotlinType(mc);
+            String element = result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
+            return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
         if (mapped != null) return b.add(new TextImpl(mapped));

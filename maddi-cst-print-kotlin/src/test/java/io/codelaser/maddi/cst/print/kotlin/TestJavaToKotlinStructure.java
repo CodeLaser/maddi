@@ -1414,6 +1414,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String alone = kotlin(FAMILY_RESULTS.replace("class Results", "class Alone"), type -> notModified(type, "size"));
         // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
         contains(alone, "fun names(): MutableList<String>\n");
+        compiles(world);
     }
 
     /**
@@ -1441,6 +1442,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }));
         contains(kotlin, "private val f0: List<String>");
         contains(kotlin, "private var f" + (n - 1) + ": List<String>");
+        compiles(kotlin);
     }
 
     /**
@@ -1466,6 +1468,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "override fun contains(o: K): Boolean");
         contains(kotlin, "override fun remove(o: K): Boolean");
+        compiles(kotlin);
     }
 
     /**
@@ -1488,6 +1491,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun remove(key: K, value: V): Boolean");
         contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
         contains(kotlin, "override fun putAll(map: Map<out K, V>)");
+        compiles(kotlin);
     }
 
     /**
@@ -1510,6 +1514,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private var _size: Long");
         contains(kotlin, "override val size: Int");
         contains(kotlin, "_size++");
+        compiles(kotlin);
     }
 
     /**
@@ -1522,7 +1527,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 package a;
                 import java.lang.reflect.Array;
                 class Arrays2<T> {
-                    private final T[][] rows = null;
+                    static <T> int count(T[][] rows) { return rows.length; }
                     @SuppressWarnings("unchecked")
                     static <T> T[] newArray(T[] reference, int length) {
                         return (T[]) Array.newInstance(reference.getClass().getComponentType(), length);
@@ -1532,6 +1537,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
         contains(kotlin, "java.lang.reflect.Array.newInstance(");
         contains(kotlin, "Array<Array<T");
+        compiles(kotlin);
     }
 
     /**
@@ -1553,6 +1559,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "= Values()");
         contains(kotlin, "= It()");
         assertFalse(kotlin.contains("Base.Values()"), kotlin);
+        compiles(kotlin);
     }
 
     /**
@@ -1571,6 +1578,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
         contains(kotlin, "Comparator<Internal.Entry<K, E>>");
+        compiles(kotlin);
     }
 
     /**
@@ -1590,6 +1598,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("fun equals"), kotlin);
         assertFalse(kotlin.contains("fun hashCode"), kotlin);
         contains(kotlin, "fun apply(input: T): Boolean");
+        compiles(kotlin);
     }
 
     /**
@@ -1628,5 +1637,6 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "override fun removeAll(c: Collection<E>): Boolean");
         contains(kotlin, "standardRemoveAll((c as MutableCollection<E>))");
+        compiles(kotlin);
     }
 }
