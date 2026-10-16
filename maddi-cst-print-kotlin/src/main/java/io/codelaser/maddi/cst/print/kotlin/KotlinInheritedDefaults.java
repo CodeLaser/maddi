@@ -22,7 +22,9 @@ import java.util.stream.Collectors;
  * class that "inherits multiple implementations" and wants the choice written:
  * {@code override fun spliterator(): Spliterator<V> = super<MutableSet>.spliterator()}.
  * <p>
- * Only methods whose parameters are no type variables: their signature reads the same from either side.
+ * Only between two library defaults (Kotlin sees through a translated interface's override, and lets a superclass's
+ * own method win, as Java does), and only for methods without parameters, whose signature reads the same from either
+ * side.
  */
 final class KotlinInheritedDefaults {
 
@@ -42,11 +44,13 @@ final class KotlinInheritedDefaults {
                 String key = key(d);
                 if (done.contains(key) || declares(typeInfo, d)) continue;
                 MethodInfo fromSuper = fromSuperclass(typeInfo, d);
-                if (fromSuper == null || fromSuper == d) continue;
+                // a superclass's own method, or a translated interface's (whose overrides Kotlin sees): no conflict
+                if (fromSuper == null || fromSuper == d || !fromSuper.typeInfo().isInterface()
+                    || KotlinNullability.translated(fromSuper.typeInfo()) || KotlinNullability.translated(d.typeInfo())) {
+                    continue;
+                }
                 String via;
-                if (!fromSuper.typeInfo().isInterface()) {
-                    via = superName(typeInfo.parentClass(), q); // a class's method before any default
-                } else if (fromSuper != d && isSubtype(d.typeInfo(), fromSuper.typeInfo())) {
+                if (isSubtype(d.typeInfo(), fromSuper.typeInfo())) {
                     via = superName(iface, q);
                 } else if (isSubtype(fromSuper.typeInfo(), d.typeInfo())) {
                     via = superName(typeInfo.parentClass(), q);
@@ -85,7 +89,7 @@ final class KotlinInheritedDefaults {
         if (!visited.add(iface)) return List.of();
         List<MethodInfo> result = new ArrayList<>();
         for (MethodInfo m : iface.methods()) {
-            if (m.isDefault() && !m.isStatic() && plainParameters(m)) result.add(m);
+            if (m.isDefault() && !m.isStatic() && m.parameters().isEmpty()) result.add(m);
         }
         for (ParameterizedType sup : iface.interfacesImplemented()) {
             if (sup.typeInfo() == null) continue;
@@ -124,11 +128,6 @@ final class KotlinInheritedDefaults {
 
     private static boolean declares(TypeInfo t, MethodInfo shape) {
         return own(t, shape) != null;
-    }
-
-    private static boolean plainParameters(MethodInfo m) {
-        return m.parameters().stream().allMatch(p -> p.parameterizedType().typeParameter() == null
-                                                     && p.parameterizedType().typeInfo() != null);
     }
 
     private static boolean sameSignature(MethodInfo a, MethodInfo b) {

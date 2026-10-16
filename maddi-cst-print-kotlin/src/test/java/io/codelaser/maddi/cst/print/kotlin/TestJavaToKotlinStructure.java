@@ -1854,5 +1854,16 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "override fun spliterator(): Spliterator<V> = super<MutableSet>.spliterator()");
         compiles(kotlin);
+        // langchain4j's DefaultInputGuardrailExecutedEvent: a superclass's own method beside an interface's default,
+        // which Kotlin accepts as Java does; no override written
+        String own = kotlin("""
+                package a;
+                interface Named { default String name() { return "named"; } }
+                interface Event extends Named { }
+                class Base implements Named { public String name() { return "base"; } }
+                class Sub extends Base implements Event { }
+                """);
+        assertFalse(own.contains("super<"), own);
+        compiles(own);
     }
 }
