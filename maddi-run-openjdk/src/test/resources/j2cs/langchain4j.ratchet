@@ -83,9 +83,12 @@
 # ordinal; a method reference of a Long into a Function's R unboxes, (long) p0.Result(); a functional interface that
 # extends a JDK one declares its method, bool Test(...), and is called by it: 295 -> 297 compiling files, 220 ->
 # 218 errors.
+# 2026-10-16, maddi f8701687b, 19081f381: a wildcard interface declares the fields read through it, as properties;
+# none for a wildcard passed where its type is declared with arguments (getAttribute(Key<T>)): 297 -> 298 compiling
+# files, 219 -> 201 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	297
+compilingFiles	298
 unmappedJdkUses	153
