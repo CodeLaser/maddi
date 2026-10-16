@@ -12,6 +12,12 @@ public sealed class Lifecycles {
         return sum;
     }
     internal static IBox Any(bool b) => b ? new Box<string>("s") : new Box<int>(1);
+    internal static INode2 node() => new Node2<string>();
+    internal static int Based(Base @base) => 1;
+    internal static int Nodes() {
+        var n = node();
+        return Based((Base) n) + n.Size();
+    }
     internal static int CountOf(bool b) => Any(b).Count();
     internal static object First(bool b) => Any(b).Get;
     internal static int Sum(IReadOnlyList<IBox> boxes) => boxes.Count;
@@ -19,7 +25,7 @@ public sealed class Lifecycles {
         bool IsActive();
         public sealed class Lambda(Func<bool> f) : IActivitySupport { public bool IsActive() => f(); }
     }
-
+    public abstract class Base { }
     public class Box<T> : IBox {
         public T Get { get; }
         internal Box(T value) { this.Get = value; }
@@ -50,6 +56,12 @@ public sealed class Lifecycles {
         public bool Active() => downstream.IsActive();
         public void Done() { downstream.AfterAllFactsInserted(true); }
     }
+
+    public sealed class Node2<T> : Base, INode2 {
+        public int Size() => 0;
+        int INode2.Size() => Size();
+    }
+    public interface INode2 { int Size(); }
     public sealed record Pair(int Size) : ITuple { int ITuple.Size() => Size; }
     public sealed class PairNode : Node<Pair> {
         internal PairNode(ITupleLifecycle<Pair> next) : base(ITupleLifecycle.Same(next)) { }

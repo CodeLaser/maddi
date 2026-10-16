@@ -1793,6 +1793,11 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     return sum;
                 }
                 static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
+                public abstract static class Base { }
+                public static final class Node2<T> extends Base { public int size() { return 0; } }
+                static Node2<?> node() { return new Node2<String>(); }
+                static int based(Base base) { return 1; }
+                static int nodes() { var n = node(); return based(n) + n.size(); }
                 static int countOf(boolean b) { return any(b).count(); }
                 static Object first(boolean b) { return any(b).get(); }
                 static int sum(java.util.List<? extends Box<?>> boxes) { return boxes.size(); }
@@ -1833,6 +1838,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Node(ITupleLifecycle downstream)");
         contains(cs, "public interface IBox {");
         contains(cs, "internal static IBox Any(bool b)");
+        // the wildcard interface where its class's superclass is expected: a cast
+        contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out
         contains(cs, "object Get { get; }");
         assertFalse(cs.contains("void Set(object"), cs);
