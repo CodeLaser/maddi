@@ -4,6 +4,8 @@ using System.Linq;
 namespace Org.Example.Lifecycleses;
 public sealed class Lifecycles {
     internal static int Counted(IBox box) => box.Count();
+    internal static int Sized<T>(Box<T> box) => box.Count();
+    internal static int Sized(Named named) => 0;
     internal static int Total(List<IBox> boxes) {
         int sum = 0;
         foreach (var box in boxes) { sum += Counted(box); }

@@ -58,8 +58,9 @@ final class CSharpWildcards {
         for (int i = 0; i < method.parameters().size(); i++) {
             ParameterizedType pt = method.parameters().get(i).parameterizedType();
             // a type whose wildcard interface the wildcard is: the parameter is that, which the code may pass (a
-            // List<AbstractDatasetInstance<Solution_, ?>>'s element)
-            if (!capturable(pt) || CSharpWildcardInterfaces.isWildcardUse(pt)) continue;
+            // List<AbstractDatasetInstance<Solution_, ?>>'s element); not beside an overload, which C# would find as
+            // specific as the generic one (CS0121), where Java picks the more specific wildcard
+            if (!capturable(pt) || CSharpWildcardInterfaces.isWildcardUse(pt) && !overloaded(method)) continue;
             TypeInfo generic = pt.typeInfo();
             List<String> forParameter = new ArrayList<>();
             List<String> forConstraints = new ArrayList<>();
@@ -102,6 +103,11 @@ final class CSharpWildcards {
             if (m.typeInfo().isInterface() && CSharpNames.singleAbstractMethod(m.typeInfo()) == m) return false;
         }
         return true;
+    }
+
+    private static boolean overloaded(MethodInfo method) {
+        return method.typeInfo().methods().stream().anyMatch(m -> m != method && m.name().equals(method.name())
+                                                                   && m.parameters().size() == method.parameters().size());
     }
 
     /** Whether {@link #captured} names the wildcards of the method's parameter: it prints no wildcard of its own. */
