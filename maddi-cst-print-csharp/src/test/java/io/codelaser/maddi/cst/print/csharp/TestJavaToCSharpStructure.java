@@ -1717,6 +1717,22 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static int countOf(boolean b) { return any(b).count(); }
                 static Object first(boolean b) { return any(b).get(); }
                 static int sum(java.util.List<? extends Box<?>> boxes) { return boxes.size(); }
+                public static class Holder<T> {
+                    final Object[] items = {};
+                    public T first() { return null; }
+                }
+                public static class Typed<A> {
+                    private final Class<A> type;
+                    Typed(Class<A> type) { this.type = type; }
+                    public Class<A> kind() { return type; }
+                }
+                static final class Uses {
+                    private Holder<?> holder;
+                    private Typed<?> typed;
+                    private Box<? extends Tuple> boxed;
+                    int items() { return holder.items.length; }
+                    String name() { return typed.kind().getSimpleName(); }
+                }
             }
             """;
 
@@ -1739,6 +1755,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         assertFalse(cs.contains("void Set(object"), cs);
         assertFalse(cs.contains("ITupleLifecycle<ITuple>"), cs);
         assertFalse(cs.contains("Box<object>"), cs);
+        // a field read through the wildcard is no wildcard interface's: Holder keeps its bound
+        contains(cs, "private Holder<object> holder;");
+        assertFalse(cs.contains("IHolder"), cs);
+        // Class<A>, C#'s Type, needs no argument
+        contains(cs, "private ITyped typed;");
+        contains(cs, "public interface ITyped { Type Kind { get; } }");
+        // ? extends Tuple is its bound, what the code stores there
+        contains(cs, "private Box<ITuple> boxed;");
     }
 
     @Language("java")

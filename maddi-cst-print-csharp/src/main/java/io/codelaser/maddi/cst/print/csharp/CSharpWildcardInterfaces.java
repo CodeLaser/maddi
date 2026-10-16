@@ -16,7 +16,10 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.Cast;
+import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -26,6 +29,7 @@ import io.codelaser.maddi.cst.api.statement.LocalVariableCreation;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
@@ -38,6 +42,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -52,8 +57,9 @@ import java.util.stream.Collectors;
  * Any other wildcard has no C# type argument either, where a method's parameter does not capture it
  * ({@link CSharpWildcards}): a field's {@code TupleLifecycle<?>}, a constructor's, a result's {@code Node<?, ?, ?>}.
  * {@code ITupleLifecycle<ITuple>}, its bound, is no {@code ITupleLifecycle<IUniTuple<A>>}. The type parameters the
- * program declares with a wildcard ({@link #wildcarded}) are removed as the self-bounded ones are:
- * {@code ITupleLifecycle} beside {@code ITupleLifecycle<Tuple_>}.
+ * program declares with {@code ?} ({@link #wildcarded}) are removed as the self-bounded ones are:
+ * {@code ITupleLifecycle} beside {@code ITupleLifecycle<Tuple_>}; where the wildcard interface declares every member
+ * the code reaches through such a wildcard, not a field.
  * <p>
  * The wildcard interface declares the type's own members that a wildcard's user can call: those whose parameters do
  * not mention a removed type parameter, a class's public and internal ones (Java's package-private), with the removed parameter in the result erased to its bound's wildcard
@@ -80,17 +86,129 @@ final class CSharpWildcardInterfaces {
             || t.isAnonymous() || t.enclosingMethod() != null) {
             return List.of();
         }
-        return CSharpContext.memo().wildcardInterfaces.computeIfAbsent(t, CSharpWildcardInterfaces::computeRemoved);
+        Map<TypeInfo, List<TypeParameter>> memo = CSharpContext.memo().wildcardInterfaces;
+        List<TypeParameter> known = memo.get(t);
+        if (known != null) return known;
+        // a member's result of another type asks that type's: a cycle back to t has t's candidates
+        if (!IN_PROGRESS.get().add(t)) return candidates(t);
+        try {
+            known = computeRemoved(t);
+        } finally {
+            IN_PROGRESS.get().remove(t);
+        }
+        memo.put(t, known);
+        return known;
     }
 
+    private static final ThreadLocal<Set<TypeInfo>> IN_PROGRESS = ThreadLocal.withInitial(HashSet::new);
+
+    /**
+     * The self-bounded type parameters, and the wildcarded ones where the wildcard interface declares every member that
+     * Java's code reaches through the wildcard; else a wildcard is its bound, as before.
+     */
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
-        Set<TypeParameter> wildcarded = CSharpContext.program().delegate(t) ? Set.of()
-                : CSharpContext.program().wildcarded(t);
-        List<TypeParameter> removed = new ArrayList<>();
-        for (TypeParameter tp : t.typeParameters()) {
-            if (selfBounded(t, tp) || wildcarded.contains(tp)) removed.add(tp);
+        List<TypeParameter> candidates = candidates(t);
+        List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
+        if (candidates.size() == selfBounded.size() || reachable(t, candidates)) return candidates;
+        return selfBounded;
+    }
+
+    private static List<TypeParameter> candidates(TypeInfo t) {
+        CSharpProgram program = CSharpContext.program();
+        // a delegate implements no interface; an interface's companion class has the wildcard interface's name
+        Set<TypeParameter> wildcarded = program.delegate(t) || t.isInterface() && CSharpNames.hasCompanion(t) ? Set.of()
+                : program.wildcarded(t);
+        return t.typeParameters().stream().filter(tp -> selfBounded(t, tp) || wildcarded.contains(tp)).toList();
+    }
+
+    /** Whether the wildcard interface without {@code removed} declares what the code reaches through t's wildcard. */
+    private static boolean reachable(TypeInfo t, List<TypeParameter> removed) {
+        Set<Object> declared = declared(t, removed);
+        for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
+            if (declared.contains(info)) continue;
+            if (info instanceof MethodInfo m) {
+                if ("java.lang.Object".equals(m.typeInfo().fullyQualifiedName())) continue;
+                if (m.overrides().stream().filter(o -> o != m).map(MethodInfo::typeInfo)
+                        .anyMatch(o -> inheritedClosed(t, o, removed)) || inheritedClosed(t, m.typeInfo(), removed)) {
+                    continue;
+                }
+            }
+            return false;
         }
-        return List.copyOf(removed);
+        return true;
+    }
+
+    /** {@code owner} is an interface the wildcard interface extends: t's, and closed. */
+    private static boolean inheritedClosed(TypeInfo t, TypeInfo owner, List<TypeParameter> removed) {
+        if (owner.equals(t) || !owner.isInterface()) return false;
+        for (ParameterizedType s : t.interfacesImplemented()) {
+            TypeInfo st = s.typeInfo();
+            if (st == null || CstQueries.mentionsAny(s, removed)) continue;
+            if (st.equals(owner) || st.recursiveSuperTypeStream().anyMatch(owner::equals)) return true;
+        }
+        return false;
+    }
+
+    /** The members the wildcard interface without {@code removed} declares, as {@link #members} prints them. */
+    private static Set<Object> declared(TypeInfo t, List<TypeParameter> removed) {
+        Set<Object> declared = new HashSet<>();
+        if (t.typeNature().isRecord()) {
+            for (FieldInfo f : t.fields()) {
+                if (f.isStatic() || !erasable(f.type(), removed)) continue;
+                declared.add(f);
+                t.methods().stream().filter(m -> CstQueries.isRecordAccessor(m) && m.name().equals(f.name()))
+                        .forEach(declared::add);
+            }
+        }
+        for (MethodInfo m : t.methods()) {
+            if (candidate(t, m, removed) && (m.isVoid() || erasable(m.returnType(), removed))) declared.add(m);
+        }
+        return declared;
+    }
+
+    /** Whether {@link #erased} has a type for {@code pt}. */
+    private static boolean erasable(ParameterizedType pt, List<TypeParameter> removed) {
+        if (!CstQueries.mentionsAny(pt, removed)) return true;
+        if (pt.arrays() > 0) return false;
+        if (pt.isTypeParameter()) return true;
+        TypeInfo t = pt.typeInfo();
+        if (t == null) return false;
+        if (!CSharpNames.translated(t)) return CSharpTypeName.dropsArguments(t);
+        if (!has(t)) return false;
+        List<TypeParameter> own = removed(t);
+        for (int i = 0; i < t.typeParameters().size(); i++) {
+            if (own.contains(t.typeParameters().get(i))) continue;
+            if (i >= pt.parameters().size() || CstQueries.mentionsAny(pt.parameters().get(i), removed)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * A method the wildcard interface may declare: an instance method reachable outside the type, not an override of
+     * the program's (the supertype's wildcard interface has it) or of Object's, with no parameter of a removed type.
+     */
+    private static boolean candidate(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
+        CSharpProgram program = CSharpContext.program();
+        if (CstQueries.isRecordAccessor(m)) return false;
+        if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
+            || m.overrides().stream().anyMatch(o -> o != m && (CSharpNames.translated(o.typeInfo())
+                                                              || "java.lang.Object".equals(o.typeInfo().fullyQualifiedName())))
+            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0
+            || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
+            return false;
+        }
+        // a class's members that Java's code reaches through the wildcard: internal ones too
+        String access = t.isInterface() ? null : CSharpModifiers.access(m, t);
+        if (access != null && !"public".equals(access) && !"internal".equals(access)
+            && !"protected internal".equals(access)) {
+            return false;
+        }
+        CSharpProperties.Property accessor = program.accessorOf(m);
+        if (accessor != null && accessor.getter() != m) return false;
+        if (m.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
+            return false;
+        }
+        return m.typeParameters().stream().noneMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)));
     }
 
     private static boolean selfBounded(TypeInfo t, TypeParameter tp) {
@@ -98,13 +216,17 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
-     * The type parameters of the program's generic types that the program declares with a wildcard, {@code ?} or
-     * {@code ? extends B}, where C# has no type argument for it: the type of a field, a constructor's parameter, a
+     * The type parameters of the program's generic types that the program declares with an unbound wildcard, where C#
+     * has no type argument for it: the type of a field, a constructor's parameter, a
      * method's result, a local, a cast, a bound, a type argument; not a method's parameter that {@link CSharpWildcards}
      * captures. Such a wildcard is the type's wildcard interface, which every {@code X<A>} is, as a self-bounded one
      * is: {@code TupleLifecycle<?>} is {@code ITupleLifecycle} beside {@code ITupleLifecycle<Tuple_>}.
      */
-    static Map<TypeInfo, Set<TypeParameter>> wildcarded(List<TypeInfo> all) {
+    record Uses(Map<TypeInfo, Set<TypeParameter>> wildcarded, Map<TypeInfo, Set<Object>> reached) {
+        static final Uses NONE = new Uses(Map.of(), Map.of());
+    }
+
+    static Uses wildcarded(List<TypeInfo> all) {
         Map<TypeInfo, Set<TypeParameter>> wildcarded = new HashMap<>();
         Consumer<ParameterizedType> declared = pt -> wildcarded(pt, wildcarded);
         for (TypeInfo t : all) {
@@ -139,7 +261,36 @@ final class CSharpWildcardInterfaces {
         }
         Map<TypeInfo, Set<TypeParameter>> result = new HashMap<>();
         wildcarded.forEach((t, tps) -> result.put(t, Set.copyOf(tps)));
-        return Map.copyOf(result);
+        // the members the code reaches through such a wildcard: a method called, a field read
+        Map<TypeInfo, Set<Object>> reached = new HashMap<>();
+        BiConsumer<Expression, Object> through = (scope, member) -> {
+            if (scope == null) return;
+            ParameterizedType pt = scope.parameterizedType();
+            TypeInfo t = pt == null ? null : pt.typeInfo();
+            Set<TypeParameter> tps = t == null ? null : result.get(t);
+            if (tps == null || pt.arrays() > 0 || pt.parameters().size() != t.typeParameters().size()) return;
+            for (int i = 0; i < pt.parameters().size(); i++) {
+                if (tps.contains(t.typeParameters().get(i)) && open(pt.parameters().get(i))) {
+                    reached.computeIfAbsent(t, k -> new HashSet<>()).add(member);
+                    return;
+                }
+            }
+        };
+        for (TypeInfo t : all) {
+            for (Element element : CstQueries.code(t)) {
+                element.visit((Element e) -> {
+                    if (e instanceof MethodCall mc && !mc.methodInfo().isStatic()) through.accept(mc.object(), mc.methodInfo());
+                    if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+                        && !fr.fieldInfo().isStatic()) {
+                        through.accept(fr.scope(), fr.fieldInfo());
+                    }
+                    return true;
+                });
+            }
+        }
+        Map<TypeInfo, Set<Object>> reachedCopy = new HashMap<>();
+        reached.forEach((t, members) -> reachedCopy.put(t, Set.copyOf(members)));
+        return new Uses(Map.copyOf(result), Map.copyOf(reachedCopy));
     }
 
     private static void wildcarded(ParameterizedType pt, Map<TypeInfo, Set<TypeParameter>> wildcarded) {
@@ -158,13 +309,11 @@ final class CSharpWildcardInterfaces {
     }
 
     /**
-     * {@code ?} or {@code ? extends B}, which C#'s {@code B} is not: {@code ? extends String} is {@code string}, a final
-     * class has no subtype.
+     * {@code ?}, which C#'s bound is not. Not {@code ? extends Mapped_}: the bound, as C# has it, is what the code
+     * stores there, {@code TriFunction<? super A, ? super B, ? super C, ? extends Mapped_>} the mapper of a Mapped_.
      */
     private static boolean open(ParameterizedType a) {
-        if (a.wildcard() == null || a.wildcard().isSuper()) return false;
-        if (a.wildcard().isUnbound()) return true;
-        return a.arrays() > 0 || a.isTypeParameter() || a.typeInfo() == null || !a.typeInfo().isFinal();
+        return a.wildcard() != null && a.wildcard().isUnbound();
     }
 
     static boolean has(TypeInfo t) {
@@ -268,6 +417,8 @@ final class CSharpWildcardInterfaces {
         if (pt.arrays() > 0) return null;
         if (pt.isTypeParameter()) return erasedBound(pt.typeParameter(), removed, new HashSet<>(), q);
         TypeInfo t = pt.typeInfo();
+        // Class<A>: C#'s Type, which has no arguments
+        if (t != null && !CSharpNames.translated(t) && CSharpTypeName.dropsArguments(t)) return CSharpTypeName.of(pt, q);
         if (t == null || !has(t)) return null;
         List<TypeParameter> own = removed(t);
         List<String> printed = new ArrayList<>();
@@ -370,27 +521,9 @@ final class CSharpWildcardInterfaces {
             }
         }
         for (MethodInfo m : t.methods()) {
-            if (CstQueries.isRecordAccessor(m)) continue;
-            if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
-                || m.overrides().stream().anyMatch(o -> o != m) || CSharpWildcards.mayCapture(m)
-                || program.typeToken(m) >= 0 || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
-                continue;
-            }
-            // a class's members that Java's code reaches through the wildcard: internal ones too
+            if (!candidate(t, m, removed)) continue;
             String access = t.isInterface() ? null : CSharpModifiers.access(m, t);
-            if (access != null && !"public".equals(access) && !"internal".equals(access)
-                && !"protected internal".equals(access)) {
-                continue;
-            }
             String modifier = access == null || "public".equals(access) ? "" : "internal ";
-            CSharpProperties.Property accessor = program.accessorOf(m);
-            if (accessor != null && accessor.getter() != m) continue;
-            if (m.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), removed) || p.isVarArgs())) {
-                continue;
-            }
-            if (m.typeParameters().stream().anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> CstQueries.mentionsAny(b, removed)))) {
-                continue;
-            }
             String returnType = m.isVoid() ? "void" : result(m, removed, q);
             if (returnType == null) continue;
             String property = program.propertyRead(m);

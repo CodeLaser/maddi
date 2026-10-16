@@ -313,6 +313,14 @@ public final class CSharpTypeName {
         return !typeArgument && valueReference(pt) ? type + "?" : type;
     }
 
+    /** A library type C# prints without its type arguments: {@code Class<A>}'s {@code Type}. */
+    static boolean dropsArguments(TypeInfo t) {
+        String fqn = t.fullyQualifiedName();
+        if (PRIMITIVE.containsKey(fqn) || BOXED.containsKey(fqn) || MAPPED.containsKey(fqn)) return true;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(t);
+        return bcl != null && !bcl.template().contains("{") && (bcl.template().contains("<") || bcl.dropArguments());
+    }
+
     /**
      * A Java reference type that is a C# value type, which Java's null makes {@code X?} as it makes an
      * {@code Integer} {@code int?}: a boxed primitive, a simple enum (a C# enum), a library type mapped to a struct

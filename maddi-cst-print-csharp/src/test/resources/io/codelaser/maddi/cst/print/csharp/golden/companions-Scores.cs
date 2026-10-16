@@ -28,7 +28,7 @@ public sealed class Scores {
         int Unassigned { get; }
     }
 
-    internal sealed class MinCollector<A, P> : IMinCollector where P : IComparable<P> {
+    internal sealed class MinCollector<A, P> : IMinCollector<A> where P : IComparable<P> {
         private readonly Func<A, P> mapper;
         internal MinCollector(Func<A, P> mapper) { this.mapper = mapper; }
         public override bool Equals(object o) {
@@ -38,7 +38,7 @@ public sealed class Scores {
         }
         public override int GetHashCode() => mapper.GetHashCode();
     }
-    internal interface IMinCollector { }
+    internal interface IMinCollector<A> { }
 
     public interface IScore<Score_> : IComparable<Score_>, IScore where Score_ : IScore<Score_> {
         Score_ Add(Score_ other);

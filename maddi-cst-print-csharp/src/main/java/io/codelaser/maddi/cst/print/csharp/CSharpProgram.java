@@ -151,7 +151,7 @@ public final class CSharpProgram {
     private final Map<String, TypeInfo> packageInfos;
     private final List<TypeInfo> types;
     private final Set<TypeParameter> notNullKeys;
-    private final Map<TypeInfo, Set<TypeParameter>> wildcarded;
+    private final CSharpWildcardInterfaces.Uses wildcardUses;
     private final Memo memo = new Memo();
 
     /** The decisions as the analyses make them, one after the other; what none has made yet is the NONE program's. */
@@ -173,7 +173,7 @@ public final class CSharpProgram {
         Map<String, TypeInfo> packageInfos = Map.of();
         List<TypeInfo> types = List.of();
         Set<TypeParameter> notNullKeys = Set.of();
-        Map<TypeInfo, Set<TypeParameter>> wildcarded = Map.of();
+        CSharpWildcardInterfaces.Uses wildcardUses = CSharpWildcardInterfaces.Uses.NONE;
 
         CSharpProgram build() {
             return new CSharpProgram(this);
@@ -205,7 +205,7 @@ public final class CSharpProgram {
         packageInfos = b.packageInfos;
         types = b.types;
         notNullKeys = b.notNullKeys;
-        wildcarded = b.wildcarded;
+        wildcardUses = b.wildcardUses;
     }
 
     @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
@@ -285,7 +285,7 @@ public final class CSharpProgram {
         if (policy.facts().nullabilityAnalysed()) b.notNullKeys = CSharpNotNullKeys.analyze(all);
         // which wildcards are a wildcard interface: the capture of a method's parameter asks which classes are open
         CSharpContext.program(b.build());
-        b.wildcarded = CSharpWildcardInterfaces.wildcarded(all);
+        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all);
         return b.build();
     }
 
@@ -638,7 +638,12 @@ public final class CSharpProgram {
     /** {@code typeInfo} is printed as a C# delegate. */
     /** The type parameters of a program type that the program declares with a wildcard ({@link CSharpWildcardInterfaces#wildcarded}). */
     Set<TypeParameter> wildcarded(TypeInfo typeInfo) {
-        return wildcarded.getOrDefault(typeInfo, Set.of());
+        return wildcardUses.wildcarded().getOrDefault(typeInfo, Set.of());
+    }
+
+    /** The members the code reaches through a wildcard of the type: a method called, a field read. */
+    Set<Object> reachedThroughWildcard(TypeInfo typeInfo) {
+        return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
     }
 
     public boolean delegate(TypeInfo typeInfo) {

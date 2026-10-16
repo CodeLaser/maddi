@@ -25,6 +25,11 @@ public sealed class Lifecycles {
         int Count();
     }
 
+    public sealed class Holder<T> {
+        internal readonly object[] items = { };
+        public T First() => default;
+    }
+
     public abstract class Node<Left_> where Left_ : ITuple {
         private readonly ITupleLifecycle downstream;
         protected internal Node(ITupleLifecycle downstream) { this.downstream = downstream; }
@@ -44,4 +49,19 @@ public sealed class Lifecycles {
         void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);
     }
     public interface ITupleLifecycle : IActivitySupport { void AfterAllFactsInserted(bool canProduce); }
+
+    public sealed class Typed<A> : ITyped {
+        public Type Kind { get; }
+        internal Typed(Type type) { this.Kind = type; }
+        Type ITyped.Kind => Kind;
+    }
+    public interface ITyped { Type Kind { get; } }
+
+    internal sealed class Uses {
+        private Holder<object> holder;
+        private ITyped typed;
+        private Box<ITuple> boxed;
+        internal int Items() => holder.items.Length;
+        internal string Name() => typed.Kind.Name;
+    }
 }
