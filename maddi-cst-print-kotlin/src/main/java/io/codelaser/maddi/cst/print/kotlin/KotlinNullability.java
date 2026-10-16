@@ -520,6 +520,20 @@ final class KotlinNullability {
                         .contains(m.name()));
     }
 
+    /** The code being printed is a test: its nulls into non-null parameters are there to be rejected. */
+    private static boolean inTestSource() {
+        MethodInfo method = KotlinContext.currentMethod();
+        return method != null && method.typeInfo().compilationUnit() != null
+               && method.typeInfo().compilationUnit().sourceSet() != null
+               && method.typeInfo().compilationUnit().sourceSet().test();
+    }
+
+    /** No type variable in it: a parameter's type at the call names none the caller does not know. */
+    private static boolean writable(ParameterizedType type) {
+        if (type.typeParameter() != null) return false;
+        return type.parameters().stream().allMatch(p -> p.wildcard() != null && p.typeInfo() == null || writable(p));
+    }
+
     /** Declared by the code being translated, so Kotlin will hold a value for it to its (non-)nullability. */
     static boolean translated(TypeInfo owner) {
         return !owner.compilationUnit().externalLibrary() && !KotlinTypePrinter.fromKotlinSource(owner);
@@ -549,6 +563,18 @@ final class KotlinNullability {
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (targetTranslated && target != null && value instanceof NullConstant && !isNullable(target)
+            && !target.isPrimitiveExcludingVoid() && inTestSource()) {
+            // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
+            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type,
+            // or Nothing where that type names the callee's type variables
+            KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, value, KotlinContext.describe(value));
+            if (!writable(target)) return new OutputBuilderImpl().add(printed).add(NOT_NULL);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target.withNullable(NullableState.NULLABLE), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(NOT_NULL);
         }
         if (!targetTranslated && !unboxed || target == null || isNullable(target) || value instanceof NullConstant
             || !nullableInKotlin(value) && !nullableTypeVariable(value, target)) {

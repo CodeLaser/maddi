@@ -1356,4 +1356,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "override fun <E : Any> first(");
         compiles(kotlin);
     }
+
+    /**
+     * guava's {@code Equivalence<T> implements BiPredicate<@Nullable T, @Nullable T>}: the supertype clause keeps the
+     * type-use annotation's state, so that {@code test(t: T?, u: T?)} overrides what it says.
+     */
+    @Test
+    public void supertypeArgumentDeclaredNullable() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("t", "u")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.BiPredicate;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                abstract class Equiv<T> implements BiPredicate<@Nullable T, @Nullable T> {
+                    @Override public boolean test(@Nullable T t, @Nullable T u) { return t == u; }
+                }
+                """, options);
+        contains(kotlin, "BiPredicate<T?, T?>");
+        compiles(kotlin);
+    }
 }

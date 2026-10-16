@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -540,17 +541,38 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return true;
     }
 
+    /**
+     * A supertype with the nullability its type arguments declare by a type-use annotation: guava's
+     * {@code Equivalence<T> implements BiPredicate<@Nullable T, @Nullable T>} is a {@code BiPredicate<T?, T?>}, and
+     * the overrides of {@code test} take the {@code T?} the clause says.
+     */
+    static ParameterizedType declaredArguments(ParameterizedType supertype) {
+        if (supertype == null || supertype.parameters().isEmpty()) return supertype;
+        boolean changed = false;
+        List<ParameterizedType> arguments = new ArrayList<>(supertype.parameters().size());
+        for (ParameterizedType a : supertype.parameters()) {
+            ParameterizedType inner = declaredArguments(a);
+            if (a.wildcard() == null && a.arrays() == 0 && inner.annotations().stream()
+                    .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
+                inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+            }
+            changed |= inner != a;
+            arguments.add(inner);
+        }
+        return changed ? supertype.withParameters(arguments) : supertype;
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
-            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(typeInfo.parentClass(), q)));
+            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
         typeInfo.interfacesImplemented().forEach(i ->
                 supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
-                        ? KotlinTypeName.of(i, q).replaceFirst("^MutableIterator", "Iterator")
-                        : KotlinTypeName.of(i, q)))));
+                        ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
+                        : KotlinTypeName.of(declaredArguments(i), q)))));
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));
