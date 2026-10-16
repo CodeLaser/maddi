@@ -660,6 +660,11 @@ public class JavaInspectorImpl implements JavaInspector {
      * <p>
      * The linearization guarantees that a source set is handled after everything it depends on, so by the time a set
      * is rewired, the objects it must point at already exist.
+     * <p>
+     * <b>Every set's class output is checked, kept and rewired ones too</b> ({@link #validateClassOutput}): each
+     * re-parse returns a new {@link Summary}, and a consumer replaces its diagnostics with that summary's. Checking
+     * only the re-scanned sets made a kept set's class-output problem vanish after an unrelated write, reading as
+     * fresh when it was not. The check is one file stat per parsed type.
      */
     private void reparse(Summary summary,
                          Map<String, String> sourcesByFqn,
@@ -684,10 +689,12 @@ public class JavaInspectorImpl implements JavaInspector {
                 }
                 case REWIRE -> {
                     summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
+                    validateClassOutput(summary, sourceSet);
                     toRewire.addAll(types);
                 }
                 case KEEP -> {
                     summary.ensureSourceSet(sourceSet);
+                    validateClassOutput(summary, sourceSet);
                     types.forEach(summary::addType);
                 }
             }
