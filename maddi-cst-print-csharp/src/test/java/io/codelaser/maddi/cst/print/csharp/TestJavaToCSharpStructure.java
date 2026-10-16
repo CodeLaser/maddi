@@ -1712,6 +1712,17 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     public T get() { return value; }
                     public int count() { return 1; }
                     public void set(T t) { }
+                    public <M> M mapping() { return null; }
+                }
+                public static final class Named extends Box<String> {
+                    Named() { super("n"); }
+                    @Override public Object mapping() { return "m"; }
+                }
+                static int counted(Box<?> box) { return box.count(); }
+                static int total(java.util.List<Box<?>> boxes) {
+                    int sum = 0;
+                    for (var box : boxes) sum += counted(box);
+                    return sum;
                 }
                 static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
                 static int countOf(boolean b) { return any(b).count(); }
@@ -1755,6 +1766,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         assertFalse(cs.contains("void Set(object"), cs);
         assertFalse(cs.contains("ITupleLifecycle<ITuple>"), cs);
         assertFalse(cs.contains("Box<object>"), cs);
+        // a parameter of a type with a wildcard interface is not captured: an element of a List<Box<?>> is passed
+        contains(cs, "internal static int Counted(IBox box)");
+        // a generic method C# prints erased is no wildcard interface's
+        assertFalse(cs.contains("IBox.Mapping"), cs);
         // a field read through the wildcard is no wildcard interface's: Holder keeps its bound
         contains(cs, "private Holder<object> holder;");
         assertFalse(cs.contains("IHolder"), cs);

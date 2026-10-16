@@ -185,7 +185,8 @@ final class CSharpWildcardInterfaces {
 
     /**
      * A method the wildcard interface may declare: an instance method reachable outside the type, not an override of
-     * the program's (the supertype's wildcard interface has it) or of Object's, with no parameter of a removed type.
+     * the program's (the supertype's wildcard interface has it) or of Object's, not a generic method C# prints erased,
+     * with no parameter of a removed type.
      */
     private static boolean candidate(TypeInfo t, MethodInfo m, List<TypeParameter> removed) {
         CSharpProgram program = CSharpContext.program();
@@ -193,7 +194,7 @@ final class CSharpWildcardInterfaces {
         if (m.isStatic() || m.isSynthetic() || m.isConstructor() || m.access() != null && m.access().isPrivate()
             || m.overrides().stream().anyMatch(o -> o != m && (CSharpNames.translated(o.typeInfo())
                                                               || "java.lang.Object".equals(o.typeInfo().fullyQualifiedName())))
-            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0
+            || CSharpWildcards.mayCapture(m) || program.typeToken(m) >= 0 || program.erasedGeneric(m)
             || CSharpHierarchy.interfaceMethodDefaulted(t, m) != null) {
             return false;
         }

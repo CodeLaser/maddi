@@ -3,6 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 namespace Org.Example.Lifecycleses;
 public sealed class Lifecycles {
+    internal static int Counted(IBox box) => box.Count();
+    internal static int Total(List<IBox> boxes) {
+        int sum = 0;
+        foreach (var box in boxes) { sum += Counted(box); }
+        return sum;
+    }
     internal static IBox Any(bool b) => b ? new Box<string>("s") : new Box<int>(1);
     internal static int CountOf(bool b) => Any(b).Count();
     internal static object First(bool b) => Any(b).Get;
@@ -12,11 +18,12 @@ public sealed class Lifecycles {
         public sealed class Lambda(Func<bool> f) : IActivitySupport { public bool IsActive() => f(); }
     }
 
-    public sealed class Box<T> : IBox {
+    public class Box<T> : IBox {
         public T Get { get; }
         internal Box(T value) { this.Get = value; }
         public int Count() => 1;
         public void Set(T t) { }
+        public virtual object Mapping() => default;
         object IBox.Get => Get;
         int IBox.Count() => Count();
     }
@@ -28,6 +35,11 @@ public sealed class Lifecycles {
     public sealed class Holder<T> {
         internal readonly object[] items = { };
         public T First() => default;
+    }
+
+    public sealed class Named : Box<string> {
+        internal Named() : base("n") { }
+        public override object Mapping() => "m";
     }
 
     public abstract class Node<Left_> where Left_ : ITuple {

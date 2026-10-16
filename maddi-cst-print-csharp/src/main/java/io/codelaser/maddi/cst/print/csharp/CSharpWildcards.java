@@ -57,7 +57,9 @@ final class CSharpWildcards {
         List<String> constraints = new ArrayList<>();
         for (int i = 0; i < method.parameters().size(); i++) {
             ParameterizedType pt = method.parameters().get(i).parameterizedType();
-            if (!capturable(pt)) continue;
+            // a type whose wildcard interface the wildcard is: the parameter is that, which the code may pass (a
+            // List<AbstractDatasetInstance<Solution_, ?>>'s element)
+            if (!capturable(pt) || CSharpWildcardInterfaces.isWildcardUse(pt)) continue;
             TypeInfo generic = pt.typeInfo();
             List<String> forParameter = new ArrayList<>();
             List<String> forConstraints = new ArrayList<>();
