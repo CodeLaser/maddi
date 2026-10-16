@@ -2,6 +2,7 @@ using Maddi.JavaCompat;
 using System.Collections.Generic;
 namespace Org.Example.Iter;
 public sealed class Selectors {
+    internal static T First<T>(IEntitySelector<T> selector) => selector.Iterator().Next();
     internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }
     internal abstract class Caching<T> : IEntitySelector<T> {
         public long Size => 0;
@@ -10,7 +11,7 @@ public sealed class Selectors {
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
         public abstract List<T> List();
     }
-    internal interface IEntitySelector<T> : ISelector<T>, IListIterable<T> { }
+    internal interface IEntitySelector<T> : ISelector<T>, IListIterable<T> { new IJavaIterator<T> Iterator(); }
     internal class FromList<T> : ISelector<T>, IListIterable<T> {
         private readonly List<T> items;
         internal FromList(List<T> items) { this.items = items; }

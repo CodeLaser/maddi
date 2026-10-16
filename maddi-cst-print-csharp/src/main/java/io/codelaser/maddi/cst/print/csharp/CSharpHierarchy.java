@@ -129,10 +129,29 @@ final class CSharpHierarchy {
         if (cls.isInterface() || !CSharpNames.translated(cls)) return false;
         TypeInfo parent = CstQueries.superclass(cls);
         if (parent != null && CSharpNames.translated(parent) && declaresEnumerator(parent)) return false;
+        return mostSpecificIterables(CstQueries.classChain(cls)).size() > 1;
+    }
+
+    /**
+     * An interface that extends two interfaces of the program that extend Iterable, neither extending the other: each
+     * declares {@code Iterator()}, and a call through it is ambiguous (CS0121). It redeclares it, {@code new}.
+     */
+    static boolean ambiguousIterator(TypeInfo iface) {
+        if (!iface.isInterface() || !CSharpNames.translated(iface) || extendsIterable(iface)) return false;
+        return mostSpecificIterables(List.of(iface)).size() > 1;
+    }
+
+    private static boolean extendsIterable(TypeInfo t) {
+        return t.interfacesImplemented().stream().anyMatch(s -> s.typeInfo() != null
+                && "java.lang.Iterable".equals(s.typeInfo().fullyQualifiedName()));
+    }
+
+    /** The interfaces of the program that extend Iterable themselves, reached from {@code types}, the most specific. */
+    private static List<TypeInfo> mostSpecificIterables(List<TypeInfo> types) {
         Set<TypeInfo> iterables = new LinkedHashSet<>();
         Deque<TypeInfo> todo = new ArrayDeque<>();
         Set<TypeInfo> seen = new HashSet<>();
-        for (TypeInfo at : CstQueries.classChain(cls)) {
+        for (TypeInfo at : types) {
             at.interfacesImplemented().forEach(i -> { if (i.typeInfo() != null) todo.add(i.typeInfo()); });
         }
         while (!todo.isEmpty()) {
@@ -146,9 +165,8 @@ final class CSharpHierarchy {
             i.interfacesImplemented().forEach(s -> { if (s.typeInfo() != null) todo.add(s.typeInfo()); });
         }
         // the most specific ones: C# takes the default of an interface over the one it extends
-        List<TypeInfo> mostSpecific = iterables.stream()
-                .filter(i -> iterables.stream().noneMatch(j -> j != i && extendsInterface(j, i))).toList();
-        return mostSpecific.size() > 1;
+        return iterables.stream().filter(i -> iterables.stream().noneMatch(j -> j != i && extendsInterface(j, i)))
+                .toList();
     }
 
     /** A class of the program that declares GetEnumerator: it implements Iterable itself, or resolves an ambiguity. */

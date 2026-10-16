@@ -238,7 +238,9 @@ implements the interface.
   leaves `iterator()` to its subclasses declares it abstract, once, and the subclasses' `Iterator()` override it. A
   class that reaches two such interfaces, neither extending the other (directly, or through an interface that
   extends both), declares its own `GetEnumerator()`: C#
-  finds no most specific of their defaults (CS8705). Its subclasses inherit it.
+  finds no most specific of their defaults (CS8705). Its subclasses inherit it. An interface that extends two such
+  redeclares `new IJavaIterator<T> Iterator();`: each of them declares one, and a call through it is ambiguous
+  (CS0121).
 
 ### Members
 

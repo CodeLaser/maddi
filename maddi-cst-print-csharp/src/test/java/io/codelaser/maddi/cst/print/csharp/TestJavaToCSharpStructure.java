@@ -335,6 +335,7 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static abstract class Caching<T> implements EntitySelector<T> {
                     public long size() { return 0; }
                 }
+                static <T> T first(EntitySelector<T> selector) { return selector.iterator().next(); }
             }
             """;
 
@@ -350,6 +351,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }");
         // through an interface that extends both, which has no defaults of its own
         contains(cs, "internal abstract class Caching<T> : IEntitySelector<T> {");
+        // a call through the interface that extends both: its own Iterator(), hiding theirs (CS0121)
+        contains(cs, "interface IEntitySelector<T> : ISelector<T>, IListIterable<T> { new IJavaIterator<T> Iterator(); }");
         contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();\n    System.Collections");
     }
 

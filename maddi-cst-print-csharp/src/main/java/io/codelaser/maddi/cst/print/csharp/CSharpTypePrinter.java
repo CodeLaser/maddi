@@ -445,6 +445,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             CSharpContext.using(CSharpCompat.NAMESPACE);
             out.add(new OutputBuilderImpl().add(new TextImpl("public abstract IJavaIterator<" + element + "> Iterator();")));
         }
+        if (iterable == null && CSharpHierarchy.ambiguousIterator(typeInfo)
+            && typeInfo.methods().stream().noneMatch(m -> "iterator".equals(m.name()) && m.parameters().isEmpty())) {
+            // two of its interfaces each declare Iterator() (CS0121 on a call through it): one, hiding both
+            ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
+            String element = seen == null || seen.parameters().isEmpty() ? "object"
+                    : CSharpTypeName.argument(seen.parameters().getFirst(), q);
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            out.add(new OutputBuilderImpl().add(new TextImpl("new IJavaIterator<" + element + "> Iterator();")));
+            return out;
+        }
         if (iterable == null && CSharpHierarchy.ambiguousEnumerable(typeInfo)) {
             // two of its interfaces each give default GetEnumerators (CS8705): its own, over its Iterator()
             ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
