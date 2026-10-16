@@ -376,4 +376,21 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "m.keys.toTypedArray<Any?>()");
         contains(kotlin, "l.toTypedArray<Any?>()");
     }
+
+    /** guava's escapers: a char used as an array index, which Java widens to int and Kotlin does not. */
+    @Test
+    public void charIndexIsWidened() {
+        String kotlin = kotlin("""
+                package a;
+                class Esc {
+                    static char[] escape(char[][] replacements, char c, byte b) {
+                        replacements[c] = null;
+                        return c < replacements.length ? replacements[c] : replacements[b];
+                    }
+                }
+                """);
+        contains(kotlin, "replacements[c.code] = null");
+        contains(kotlin, "replacements[c.code]");
+        contains(kotlin, "replacements[b.toInt()]");
+    }
 }

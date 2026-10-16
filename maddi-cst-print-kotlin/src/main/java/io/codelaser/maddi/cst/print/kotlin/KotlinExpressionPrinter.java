@@ -216,7 +216,7 @@ public class KotlinExpressionPrinter {
             case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t)));
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(KotlinNullability.asserted(dv.arrayExpression(), q))
-                    .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
+                    .add(SymbolEnum.LEFT_BRACKET).add(arrayIndex(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
             default -> {
                 java.util.function.Supplier<OutputBuilder> pattern = KotlinContext.patternVariable(v);
                 yield pattern != null ? pattern.get() : new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(v.simpleName())));
@@ -2097,6 +2097,20 @@ public class KotlinExpressionPrinter {
         return known != null && type != null && type.typeInfo() != null && type.arrays() == 0
                && type.parameters().isEmpty() && known.arrays() == 0 && known.typeInfo() == type.typeInfo()
                && known.parameters().isEmpty();
+    }
+
+    /**
+     * An array index, an Int: Java widens a char, byte or short index ({@code replacements[c]} in guava's escapers),
+     * Kotlin does not ({@code replacements[c.code]}).
+     */
+    private static OutputBuilder arrayIndex(Expression index, Qualification q) {
+        Primitive from = primitive(index.parameterizedType());
+        if (from != Primitive.CHAR && from != Primitive.BYTE && from != Primitive.SHORT) return print(index, q);
+        OutputBuilder receiver = valueOperand(index, q);
+        for (String call : conversion(from, Primitive.INT).split("\\.")) {
+            if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
+        }
+        return receiver;
     }
 
     private static String conversion(Primitive from, Primitive to) {
