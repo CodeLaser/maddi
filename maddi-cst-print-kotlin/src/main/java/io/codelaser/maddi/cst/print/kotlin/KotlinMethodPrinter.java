@@ -472,13 +472,18 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * T. Kotlin's unbounded {@code <T>} is {@code T : Any?}, so a nullable argument makes T nullable and the "non-null"
      * result with it: {@code this.metadata = ensureNotNull(metadata, "metadata")} did not type-check against a
      * {@code Metadata}. Bounded {@code T : Any}, T is the argument's non-null type and {@code T?} the parameter's.
-     * Only for an unbounded type parameter of a method that overrides nothing (an override cannot change bounds), and
+     * Only for an unbounded type parameter; an override takes the bound of what it overrides (it cannot change it), and
      * not when T is a type argument of a parameter: {@code <T> T getOrDefault(T value, Supplier<T> supplier)} returns
      * what the supplier gives, which a {@code Supplier<DocumentSplitter?>} makes nullable.
      */
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        if (!methodInfo.overrides().isEmpty() || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
-            return false;
+        if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
+        if (!methodInfo.overrides().isEmpty()) {
+            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds
+            int index = methodInfo.typeParameters().indexOf(tp);
+            return index >= 0 && methodInfo.overrides().stream().anyMatch(o -> KotlinNullability.translated(o.typeInfo())
+                    && index < o.typeParameters().size()
+                    && nonNullBound(o, o.typeParameters().get(index)));
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;

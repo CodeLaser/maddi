@@ -1335,4 +1335,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "message!!");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Ordering: {@code <E> List<E> sortedCopy(Iterable<E> elements)} prints {@code <E : Any>} where its
+     * parameter's E is nullable and its result's is not; AllEqualOrdering's override takes the same bound, which
+     * Kotlin wants identical.
+     */
+    @Test
+    public void overrideTakesOverriddenBound() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("e")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                abstract class Ord {
+                    <E> E first(E e) { return e; }
+                }
+                class AllEqual extends Ord {
+                    @Override <E> E first(E e) { return e; }
+                }
+                """, options);
+        contains(kotlin, "override fun <E : Any> first(");
+        compiles(kotlin);
+    }
 }
