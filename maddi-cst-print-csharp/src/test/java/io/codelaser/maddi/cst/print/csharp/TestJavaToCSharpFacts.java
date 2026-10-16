@@ -432,6 +432,46 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String NULLABLE_GROUPS = """
+            package org.example.groups;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Replays {
+                private Object last;
+                Object replayed() { return last; }
+                static Object initial() { return null; }
+                Object peek() { return last; }
+                Supplier<Object> fromThis() { return this::replayed; }
+                static Supplier<Object> fromType() { return Replays::initial; }
+                static Function<Replays, Object> unbound() { return Replays::peek; }
+            }
+            """;
+
+    /**
+     * A method group of a nullable result where the delegate's is not (CS8621) is a lambda with !, where its receiver
+     * is evaluated once anyway: a type, this, the lambda's own parameter.
+     */
+    @Test
+    public void nullableGroups() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public NullableState nullable(MethodInfo method) {
+                return Set.of("replayed", "initial", "peek").contains(method.name()) ? NullableState.NULLABLE
+                        : NullableState.NONNULL;
+            }
+
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Replays", NULLABLE_GROUPS);
+        contains(cs, "internal Func<object> FromThis() => () => this.Replayed()!;");
+        contains(cs, "internal static Func<object> FromType() => () => Replays.Initial()!;");
+        contains(cs, "internal static Func<Replays, object> Unbound() => (Replays p0) => p0.Peek()!;");
+    }
+
+    @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
             import java.math.BigDecimal;

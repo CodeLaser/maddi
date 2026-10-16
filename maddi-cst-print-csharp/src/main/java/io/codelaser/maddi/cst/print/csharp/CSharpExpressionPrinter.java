@@ -1361,12 +1361,23 @@ public final class CSharpExpressionPrinter {
         }
         unmapped(method, mr);
         String name = CSharpNames.method(method) + methodGroupTypeArguments(mr, q);
+        // a result the analysis has nullable goes to a delegate whose result is not (CS8621): a method group takes no
+        // !, a lambda does, where its receiver is evaluated once anyway, a type or this
+        boolean forgiven = !method.isVoid() && CSharpContext.program().facts().nullabilityAnalysed()
+                           && CSharpContext.program().facts().nullable(method) == NullableState.NULLABLE;
+        String arguments = "(" + String.join(", ", parameters) + ")!";
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
-            if (method.isStatic()) return text(owner + "." + name);
+            if (method.isStatic()) {
+                return text(forgiven ? parameterList + " => " + owner + "." + name + arguments : owner + "." + name);
+            }
             // String::length: the first parameter is the receiver
             return text(parameterList + " => " + parameters.getFirst() + "." + name + "("
-                        + String.join(", ", parameters.subList(1, parameters.size())) + ")");
+                        + String.join(", ", parameters.subList(1, parameters.size())) + ")" + (forgiven ? "!" : ""));
+        }
+        if (forgiven && scope instanceof VariableExpression ve && ve.variable() instanceof This) {
+            return new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE).add(receiver(scope, q))
+                    .add(SymbolEnum.DOT).add(text(name + arguments));
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
     }

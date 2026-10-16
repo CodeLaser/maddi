@@ -146,7 +146,9 @@ implements the interface.
   parameter has no `T?` there, and its operand is asserted instead: `(T) m.Get(k)!`.
 - The result of a library call may be null where C# declares it so, whatever the analysis says of the Java method:
   `object.ToString()` is `string?`, `Class.getName()`'s `Type.FullName` too (`Class::getName` is
-  `p0 => p0.FullName!`), Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
+  `p0 => p0.FullName!`; a method reference of the program's method with a nullable result, to a delegate whose
+  result is not, likewise a lambda with `!` where its receiver is a type, `this` or its own parameter,
+  `() => this.Replayed()!`), Jackson's `node.get(k)` is `node[k]`, a `JsonNode?`, and reflection's lookups
   (`GetConstructor`, `GetMethod`, `GetElementType`, `Invoke`) return null where Java throws. The printer knows these
   from the mapping's C# template (`CSharpExpressionPrinter.nullableResult`), or from the rule itself: a mapping
   file's `->?` (`member java.util.Deque.poll/0 ->? $0.PollFirst()`), for the compatibility library's members that
