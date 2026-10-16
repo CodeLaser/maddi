@@ -1682,4 +1682,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         compiles(kotlin);
     }
+
+    /**
+     * guava's Ordering.onResultOf(Entry::getValue): the method's type parameter F is fixed only by the method
+     * reference's receiver. As a lambda, {@code { it.value }}, Kotlin has nothing to infer F from.
+     */
+    @Test
+    public void typeParameterFixedByMethodReferenceOnly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Ord<T> implements Comparator<T> {
+                    interface Fn<F, T> { T apply(F f); }
+                    public int compare(T a, T b) { return 0; }
+                    <F> Ord<F> onResultOf(Fn<F, ? extends T> f) { return new Ord<>(); }
+                    static <E> void sort(E[] a, Comparator<? super E> c) { }
+                    static void sortByValue(Map.Entry<String, Integer>[] entries, Ord<Integer> ord) {
+                        sort(entries, ord.onResultOf(Map.Entry::getValue));
+                    }
+                }
+                """);
+        contains(kotlin, "ord.onResultOf<");
+        compiles(kotlin);
+    }
 }

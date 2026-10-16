@@ -381,9 +381,75 @@ public class KotlinExpressionPrinter {
         }
         String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
                 .map(t -> KotlinTypeName.of(t, q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
-                : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyTypeArguments(mc, q);
+                : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyOrLambdaOnly(mc, q);
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
+    }
+
+    private static String resultOnlyOrLambdaOnly(MethodCall mc, Qualification q) {
+        String resultOnly = resultOnlyTypeArguments(mc, q);
+        return resultOnly != null ? resultOnly : lambdaOnlyTypeArguments(mc, q);
+    }
+
+    /**
+     * Type arguments Kotlin cannot infer from a lambda: a type parameter that only the parameters taking a lambda or
+     * method reference mention ({@code <F> Ordering<F> onResultOf(Function<F, ? extends T>)} called with
+     * {@code Entry::getValue}). Java infers F from the reference's receiver; Kotlin's {@code { it.value }} has no type
+     * for {@code it} unless an expected type fixes F, and inside another generic call (guava's
+     * {@code Arrays.sort(entries, 0, size, ordering.onResultOf(…))}) none does. Java's inferred arguments, read off the
+     * call's concrete result; null when they are not all there.
+     */
+    private static String lambdaOnlyTypeArguments(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
+        if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null
+            || mc.concreteReturnType() == null) {
+            return null;
+        }
+        List<Expression> args = mc.parameterExpressions();
+        boolean lambdaOnly = typeParameters.stream().anyMatch(tp -> {
+            boolean input = false;
+            for (int i = 0; i < m.parameters().size() && i < args.size(); i++) {
+                ParameterizedType p = m.parameters().get(i).parameterizedType();
+                if (!CstQueries.mentions(p, tp)) continue;
+                Expression arg = unwrap(args.get(i));
+                if (!(arg instanceof Lambda) && !(arg instanceof MethodReference)) return false;
+                if (lambdaInput(p, tp)) input = true;
+            }
+            return input;
+        });
+        if (!lambdaOnly) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete =
+                m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType c = concrete.get(tp);
+            if (c == null || c.wildcard() != null || c.typeParameter() == tp) return null;
+            printed.add(KotlinTypeName.of(c, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * {@code tp} is in a type argument of the functional type {@code p} that its single abstract method takes: the
+     * type of the lambda's parameter ({@code F} in {@code Function<F, ? extends T>}), not of its result, which Kotlin
+     * infers from the body.
+     */
+    private static boolean lambdaInput(ParameterizedType p, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        TypeInfo functional = p.typeInfo();
+        if (functional == null || functional.singleAbstractMethod() == null
+            || functional.typeParameters().size() != p.parameters().size()) {
+            return false;
+        }
+        io.codelaser.maddi.cst.api.info.MethodInfo sam = functional.singleAbstractMethod();
+        for (int j = 0; j < p.parameters().size(); j++) {
+            io.codelaser.maddi.cst.api.info.TypeParameter formal = functional.typeParameters().get(j);
+            if (CstQueries.mentions(p.parameters().get(j), tp)
+                && sam.parameters().stream().anyMatch(sp -> CstQueries.mentions(sp.parameterizedType(), formal))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
