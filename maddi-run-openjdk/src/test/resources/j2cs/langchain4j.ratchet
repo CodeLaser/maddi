@@ -79,9 +79,13 @@
 # Comparer.Create; an unbound wildcard of a program type, TupleLifecycle<?>, Node<?, ?, ?>, is the type's wildcard
 # interface (ITupleLifecycle) where it declares every member the code reaches through it, as a self-bounded type's is: 289 ->
 # 295 compiling files, 225 -> 220 errors.
+# 2026-10-16, maddi 24c40feab, cf927219c, a2428aa4c, f0ca0e080: an enum printed as a class is IComparable by its
+# ordinal; a method reference of a Long into a Function's R unboxes, (long) p0.Result(); a functional interface that
+# extends a JDK one declares its method, bool Test(...), and is called by it: 295 -> 297 compiling files, 220 ->
+# 218 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	295
+compilingFiles	297
 unmappedJdkUses	153
