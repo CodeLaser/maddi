@@ -1639,4 +1639,47 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "standardRemoveAll((c as MutableCollection<E>))");
         compiles(kotlin);
     }
+
+    /**
+     * guava's LocalCache and Maps: overrides of Map's default methods. Kotlin sees the JDK's merge and
+     * computeIfPresent with definitely non-null value types ({@code V & Any}); an override printed with Java's types
+     * overrides nothing.
+     */
+    @Test
+    public void mapDefaultMethodOverrides() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                abstract class Cache<K, V> extends AbstractMap<K, V> {
+                    @Override public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> f) { return null; }
+                    @Override public V compute(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V computeIfAbsent(K key, Function<? super K, ? extends V> f) { return f.apply(key); }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
+     * superclass is an inner class of a generic superclass of its outer class.
+     */
+    @Test
+    public void innerClassExtendingInheritedInnerClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Outer {
+                    static class Base<K> {
+                        K last;
+                        class Inner { K get() { return last; } }
+                    }
+                    static class Sub<K> extends Base<K> {
+                        class SubInner extends Inner { }
+                        Inner make() { return new SubInner(); }
+                    }
+                }
+                """);
+        compiles(kotlin);
+    }
 }

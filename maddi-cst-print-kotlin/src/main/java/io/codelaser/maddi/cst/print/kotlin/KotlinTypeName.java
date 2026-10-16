@@ -221,12 +221,28 @@ public class KotlinTypeName {
                && !fullyQualifiedName.startsWith("kotlin.");
     }
 
+    /**
+     * An inner class of a generic class, where the code printed is inside that class or a subclass of it (or a type
+     * nested there): by its simple name. Qualified, Kotlin wants the outer class's type arguments,
+     * {@code Maps.FilteredEntryMap<K, V>.KeySet}, which Java's {@code KeySet} does not spell out (guava's
+     * FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's KeySet).
+     */
+    private static boolean innerOfGenericInScope(TypeInfo typeInfo) {
+        if (!KotlinContext.translatingJava() || !typeInfo.isInnerClass()) return false;
+        TypeInfo outer = typeInfo.enclosingTypeStream().skip(1).findFirst().orElse(null);
+        if (outer == null || outer.enclosingTypeStream().allMatch(t -> t.typeParameters().isEmpty())) return false;
+        TypeInfo current = KotlinContext.currentType();
+        return current != null && current.enclosingTypeStream()
+                .anyMatch(t -> t.meAndMyRecursiveSuperTypeStream().anyMatch(s -> s == outer));
+    }
+
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
         if (typeInfo.isPrimaryType() && shadowsKotlinBuiltIn(typeInfo.fullyQualifiedName())) {
             return KotlinNames.dotted(typeInfo.fullyQualifiedName());
         }
+        if (innerOfGenericInScope(typeInfo)) return KotlinNames.name(typeInfo.simpleName());
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
         String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
         TypeInfo primary = typeInfo.primaryType();
