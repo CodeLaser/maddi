@@ -656,7 +656,8 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's.
      */
     private boolean companionInWildcardInterface() {
-        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo);
+        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo)
+               && !CSharpWildcardInterfaces.companionOfSelfBounded(typeInfo);
     }
 
     /**

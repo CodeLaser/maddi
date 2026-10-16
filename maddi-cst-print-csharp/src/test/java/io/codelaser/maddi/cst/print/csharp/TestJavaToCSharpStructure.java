@@ -1844,9 +1844,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "Node(ITupleLifecycle downstream)");
         contains(cs, "public interface IBox {");
         contains(cs, "internal static IBox Any(bool b)");
-        // an interface with a companion, reached through a member its wildcard interface cannot declare: none
+        // a self-bounded interface with a companion keeps both, as before the companion became the wildcard interface
         contains(cs, "public static class IImpacter {");
-        assertFalse(cs.contains("public interface IImpacter :"), cs);
         // the wildcard interface where its class's superclass is expected: a cast
         contains(cs, "Based((Base) n)");
         // a result of the wildcarded parameter is its bound, a parameter's keeps the member out

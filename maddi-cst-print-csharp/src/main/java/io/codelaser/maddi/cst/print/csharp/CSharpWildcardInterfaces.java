@@ -108,11 +108,6 @@ final class CSharpWildcardInterfaces {
      */
     private static List<TypeParameter> computeRemoved(TypeInfo t) {
         List<TypeParameter> candidates = candidates(t);
-        // an interface with a companion had none before its companion became the wildcard interface: there, a
-        // self-bounded one is checked too (WeightedScoreImpacter's impactScore, of a ScoreImpact<Score_>, it cannot declare)
-        if (t.isInterface() && CSharpNames.hasCompanion(t)) {
-            return candidates.isEmpty() || reachable(t, candidates) ? candidates : List.of();
-        }
         List<TypeParameter> selfBounded = t.typeParameters().stream().filter(tp -> selfBounded(t, tp)).toList();
         if (candidates.size() == selfBounded.size() || reachable(t, candidates)) return candidates;
         return selfBounded;
@@ -120,9 +115,17 @@ final class CSharpWildcardInterfaces {
 
     private static List<TypeParameter> candidates(TypeInfo t) {
         CSharpProgram program = CSharpContext.program();
-        // a delegate implements no interface; an interface's companion is its wildcard interface (CSharpTypePrinter)
-        Set<TypeParameter> wildcarded = program.delegate(t) ? Set.of() : program.wildcarded(t);
+        // a delegate implements no interface; an interface's companion is its wildcard interface (CSharpTypePrinter),
+        // not a self-bounded one's: WeightedScoreImpacter's companion and wildcard interface stay as they were
+        Set<TypeParameter> wildcarded = program.delegate(t) || companionOfSelfBounded(t) ? Set.of()
+                : program.wildcarded(t);
         return t.typeParameters().stream().filter(tp -> selfBounded(t, tp) || wildcarded.contains(tp)).toList();
+    }
+
+    /** An interface with a companion and a self-bounded type parameter. */
+    static boolean companionOfSelfBounded(TypeInfo t) {
+        return t.isInterface() && CSharpNames.hasCompanion(t)
+               && t.typeParameters().stream().anyMatch(tp -> selfBounded(t, tp));
     }
 
     /** Whether the wildcard interface without {@code removed} declares what the code reaches through t's wildcard. */
