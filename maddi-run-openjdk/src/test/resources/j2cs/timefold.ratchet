@@ -138,9 +138,12 @@
 # ordinal; a method reference of a Long into a Function's R unboxes, (long) p0.Result(); a functional interface that
 # extends a JDK one declares its method, bool Test(...), and is called by it: 1198 -> 1216 compiling files, 1595 ->
 # 1502 errors.
+# 2026-10-16, maddi 6215b7856, a2f61355b, b3f768c2d, e967b1ba8: an interface's companion is its wildcard interface,
+# statics and all (TupleLifecycle<?> is ITupleLifecycle), not a self-bounded one's; a class's wildcard interface is cast
+# to its superclass, (AbstractNode) node: 1216 -> 1220 compiling files, 1502 -> 1485 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1216
+compilingFiles	1220
 unmappedJdkUses	375
