@@ -41,12 +41,23 @@ public sealed class Lifecycles {
         int Count();
     }
 
+    public sealed class Counter<T> {
+        internal int count;
+        internal T last;
+    }
+
     public interface IGrade<G> : IGrade where G : IGrade<G> { }
     public interface IGrade { }
 
-    public sealed class Holder<T> {
+    public sealed class Holder<T> : IHolder {
         internal readonly object[] items = { };
         public T First() => default;
+        object[] IHolder.items => items;
+        object IHolder.First() => First();
+    }
+    public interface IHolder {
+        internal object[] items { get; }
+        object First();
     }
 
     public interface IImpacter<G> : IImpacter where G : IGrade<G> {
@@ -101,9 +112,11 @@ public sealed class Lifecycles {
     public interface ITyped { Type Kind { get; } }
 
     internal sealed class Uses {
-        private Holder<object> holder;
+        private Counter<object> counter;
+        private IHolder holder;
         private ITyped typed;
         private Box<ITuple> boxed;
+        internal void Bump() { counter.count = 1; }
         internal int Items() => holder.items.Length;
         internal string Name() => typed.Kind.Name;
     }
