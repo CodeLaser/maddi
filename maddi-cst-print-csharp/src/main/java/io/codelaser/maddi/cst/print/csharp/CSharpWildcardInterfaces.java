@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.Cast;
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
@@ -170,7 +171,20 @@ final class CSharpWildcardInterfaces {
         for (MethodInfo m : t.methods()) {
             if (candidate(t, m, removed) && (m.isVoid() || erasable(m.returnType(), removed))) declared.add(m);
         }
+        declared.addAll(readFields(t, removed));
         return declared;
+    }
+
+    /**
+     * A class's fields that the code reads through the wildcard, which the wildcard interface has as properties of
+     * the field's name: {@code Type IMoveSelectorConfig.filterClass => filterClass;}. Not a record's, whose components
+     * it has anyway.
+     */
+    private static List<FieldInfo> readFields(TypeInfo t, List<TypeParameter> removed) {
+        if (t.typeNature().isRecord()) return List.of();
+        Set<Object> reached = CSharpContext.program().reachedThroughWildcard(t);
+        return t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic() && reached.contains(f)
+                                               && erasable(f.type(), removed)).toList();
     }
 
     /** Whether {@link #erased} has a type for {@code pt}. */
@@ -230,6 +244,10 @@ final class CSharpWildcardInterfaces {
      * captures. Such a wildcard is the type's wildcard interface, which every {@code X<A>} is, as a self-bounded one
      * is: {@code TupleLifecycle<?>} is {@code ITupleLifecycle} beside {@code ITupleLifecycle<Tuple_>}.
      */
+    /** A field the code writes through a wildcard, which the wildcard interface cannot have. */
+    private record Written(FieldInfo field) {
+    }
+
     record Uses(Map<TypeInfo, Set<TypeParameter>> wildcarded, Map<TypeInfo, Set<Object>> reached) {
         static final Uses NONE = new Uses(Map.of(), Map.of());
     }
@@ -291,6 +309,11 @@ final class CSharpWildcardInterfaces {
                     if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                         && !fr.fieldInfo().isStatic()) {
                         through.accept(fr.scope(), fr.fieldInfo());
+                    }
+                    // a field written through the wildcard: no property of the wildcard interface takes it
+                    if (e instanceof Assignment a && a.variableTarget() instanceof FieldReference fr
+                        && !fr.fieldInfo().isStatic()) {
+                        through.accept(fr.scope(), new Written(fr.fieldInfo()));
                     }
                     return true;
                 });
@@ -527,6 +550,19 @@ final class CSharpWildcardInterfaces {
                 members.add(new Member(type + " " + property + " { get; }",
                         type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
             }
+        }
+        for (FieldInfo f : readFields(t, removed)) {
+            NullableState nullable = program.facts().nullable(f);
+            String type = CstQueries.mentionsAny(f.type(), removed) ? erased(f.type(), removed, q)
+                    : CSharpTypeName.declared(f.type(), false, nullable, q);
+            if (type == null) continue;
+            String property = CSharpNames.field(f);
+            if (!signatures.add(property)) continue;
+            String modifier = "public".equals(CSharpModifiers.access(f)) ? "" : "internal ";
+            boolean assertNotNull = program.facts().nullabilityAnalysed() && CstQueries.mentionsAny(f.type(), removed)
+                                    && !type.endsWith("?");
+            members.add(new Member(modifier + type + " " + property + " { get; }",
+                    type + " " + self + "." + property + " => " + property + (assertNotNull ? "!" : "") + ";"));
         }
         for (MethodInfo m : t.methods()) {
             if (!candidate(t, m, removed)) continue;

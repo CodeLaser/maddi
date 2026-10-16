@@ -14,13 +14,19 @@ internal sealed class Expressions {
     internal static int[] Numbers() => new int[] { 1, 2, 3 };
     internal static long Widen(int i) => (long) i << 2;
     internal static char Letter() => '\'';
-    internal sealed class Box<T> {
+    internal sealed class Box<T> : IBox {
         internal T value;
         internal bool Holds(T other) => object.ReferenceEquals(value, other);
         internal bool Lacks(T other) => !(object.ReferenceEquals(value, other));
         internal bool Empty() => value == null;
         public override bool Equals(object o) => o is Box<T> b && object.ReferenceEquals(b.value, value);
         public override int GetHashCode() => 1;
+        object IBox.value => value;
+        bool IBox.Empty() => Empty();
+    }
+    internal interface IBox {
+        internal object value { get; }
+        internal bool Empty();
     }
     internal delegate int Op(int a, int b);
 }

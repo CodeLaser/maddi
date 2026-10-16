@@ -1816,7 +1816,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     Typed(Class<A> type) { this.type = type; }
                     public Class<A> kind() { return type; }
                 }
+                public static class Counter<T> { int count; T last; }
                 static final class Uses {
+                    private Counter<?> counter;
+                    void bump() { counter.count = 1; }
                     private Holder<?> holder;
                     private Typed<?> typed;
                     private Box<? extends Tuple> boxed;
@@ -1859,9 +1862,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "internal static int Sized<T>(Box<T> box)");
         // a generic method C# prints erased is no wildcard interface's
         assertFalse(cs.contains("IBox.Mapping"), cs);
-        // a field read through the wildcard is no wildcard interface's: Holder keeps its bound
-        contains(cs, "private Holder<object> holder;");
-        assertFalse(cs.contains("IHolder"), cs);
+        // a field read through the wildcard is a property of the wildcard interface, of the field's name
+        contains(cs, "private IHolder holder;");
+        contains(cs, "internal object[] items { get; }");
+        contains(cs, "object[] IHolder.items => items;");
+        // one written through it is not: Counter keeps its bound
+        contains(cs, "private Counter<object> counter;");
         // Class<A>, C#'s Type, needs no argument
         contains(cs, "private ITyped typed;");
         contains(cs, "public interface ITyped { Type Kind { get; } }");
