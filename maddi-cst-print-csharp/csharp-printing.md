@@ -236,6 +236,10 @@ implements the interface.
   not used (`Remove(int)`, not `RemoveAt`). A call through a `List<E>`-typed reference reaches `List`'s method, not
   the override: `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but
   `IList<T>` is not an `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
+- **Subclasses of `AbstractSet`.** C#'s `ISet<T>` has no virtual methods. A class extending `AbstractSet` extends the
+  compatibility library's `JavaSet<E>`, whose `Iterator()` and `Size()` are abstract and whose `Contains`, `Add`,
+  `Remove`, `Clear`, `ContainsAll`, `AddAll`, `RemoveAll` and `RetainAll` are virtual, with `AbstractCollection`'s
+  defaults; it implements `ISet<E>` on them. A class implementing `Set` directly is not yet one.
 - **Subclasses of `Number`.** A `Number` is C#'s `IConvertible`, which has no `intValue()` to override. A class
   extending `Number` extends the compatibility library's `JavaNumber`, whose `IntValue()`, `LongValue()`,
   `FloatValue()` and `DoubleValue()` are abstract and which implements `IConvertible` on them, so that

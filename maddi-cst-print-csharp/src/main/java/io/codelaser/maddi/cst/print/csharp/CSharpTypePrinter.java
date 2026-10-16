@@ -312,6 +312,12 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
                         .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.util.AbstractSet".equals(parent.typeInfo().fullyQualifiedName())) {
+                // C#'s ISet has no virtual methods: the compatibility library's JavaSet, whose Java methods are
+                // abstract (Iterator, Size) or virtual, and which is an ISet on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaSet<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                        .collect(Collectors.joining(", ")) + ">");
             } else if ("java.lang.Number".equals(parent.typeInfo().fullyQualifiedName())) {
                 // a Number is C#'s IConvertible, which has no intValue() to override: the compatibility library's
                 // JavaNumber, which has them abstract and implements IConvertible on them
