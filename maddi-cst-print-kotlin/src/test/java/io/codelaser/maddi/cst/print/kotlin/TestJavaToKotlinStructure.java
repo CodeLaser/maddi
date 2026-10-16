@@ -1805,4 +1805,33 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         compiles(kotlin);
     }
+
+    /**
+     * guava's {@code Maps.transformValues(map, fn)} beside its SortedMap overload: a cast that keeps Java's overload
+     * choice cannot name the callee's own type parameters ({@code Function<in V1, V2>}), which only it knows.
+     */
+    @Test
+    public void overloadCastNamesNoCalleeTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Fn<F, T> { T apply(F input); }
+                class Maps2 {
+                    static <K, V1, V2> Map<K, V2> transformValues(Map<K, V1> from, Fn<? super V1, V2> f) {
+                        Map<K, V2> result = new HashMap<>();
+                        for (Map.Entry<K, V1> e : from.entrySet()) result.put(e.getKey(), f.apply(e.getValue()));
+                        return result;
+                    }
+                    static <K, V1, V2> SortedMap<K, V2> transformValues(SortedMap<K, V1> from, Fn<? super V1, V2> f) {
+                        return new TreeMap<>(transformValues((Map<K, V1>) from, f));
+                    }
+                    static Map<String, Integer> lengths(Map<String, String> m) { return transformValues(m, String::length); }
+                    static Map<String, Set<Integer>> copies(Map<String, List<Integer>> m) {
+                        return transformValues(m, HashSet::new);
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("as Fn<"), kotlin);
+        compiles(kotlin);
+    }
 }

@@ -704,21 +704,21 @@ public class KotlinExpressionPrinter {
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
                                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
-                } else if (hasParameter && nullabilityTiesOverload(method, i, args.get(i))) {
+                } else if (hasParameter && castable(method, i) && nullabilityTiesOverload(method, i, args.get(i))) {
                     // Json.fromJson(String?, Class<T>) beside fromJson(String, Type), with a non-null String: each is
                     // more specific in one parameter, and Kotlin finds the call ambiguous; Java's choice, by its type
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
-                } else if (hasParameter && boxedIntoReference(method, i, args.get(i))) {
+                } else if (hasParameter && castable(method, i) && boxedIntoReference(method, i, args.get(i))) {
                     // new PrimitiveConstant(tag, Integer.valueOf(v)): Java's Integer takes (int, Object), Kotlin's
                     // Int the (int, int) overload; the cast keeps Java's choice
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
-                } else if (hasParameter && collectionBesideObject(method, i)) {
+                } else if (hasParameter && castable(method, i) && collectionBesideObject(method, i)) {
                     // template.apply(Collections.singletonMap("name", "Klaus")) beside apply(Object): Java takes the
                     // Map overload; Kotlin's MutableMap<String, Any?> is invariant and takes no Map<String, String>,
                     // so Kotlin took apply(value: Any). The cast keeps Java's choice, unchecked, as Java's generics are
@@ -726,7 +726,7 @@ public class KotlinExpressionPrinter {
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                             .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
-                } else if (hasParameter && nullableBesideVarargs(method, i)) {
+                } else if (hasParameter && castable(method, i) && nullableBesideVarargs(method, i)) {
                     // UserMessage(text: String?) beside UserMessage(name: String, vararg contents: Content): Java
                     // takes the first for UserMessage("hi"), Kotlin the more specific second with no contents
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
@@ -1088,6 +1088,15 @@ public class KotlinExpressionPrinter {
         return element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
                && element.wildcard() == null && argumentType.arrays() == 0
                && argumentType.typeParameter() != element.typeParameter();
+    }
+
+    /**
+     * The parameter's type can be written at the call: it names none of the called method's own type parameters
+     * ({@code Maps.transformValues}'s {@code Function<? super V1, V2>}), which only the callee knows.
+     */
+    private static boolean castable(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        return method.typeParameters().stream().noneMatch(tp -> CstQueries.mentions(p, tp));
     }
 
     private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
