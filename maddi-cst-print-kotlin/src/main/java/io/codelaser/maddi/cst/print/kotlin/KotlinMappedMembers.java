@@ -164,6 +164,8 @@ final class KotlinMappedMembers {
                     : i < perParameter.size() && perParameter.get(i) >= 0 ? perParameter.get(i) : null;
             boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
             boolean map = MAP_PARAMETER.contains(key);
+            Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
+            if (ownVariable != null) index = ownVariable;
             if (index == null && !collection && !map) continue;
             ParameterizedType asOwner;
             try {
@@ -180,6 +182,20 @@ final class KotlinMappedMembers {
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
         }
         return null;
+    }
+
+    /**
+     * Parameter {@code i} of a member of a type Kotlin maps to its own, declared as one of the owner's type parameters:
+     * that parameter's index, null otherwise. Kotlin declares it exactly so, non-null ({@code MutableCollection.add(
+     * element: E)}), and an override with a nullable verdict there overrides nothing (guava's ForwardingCollection
+     * printed {@code add(element: E?)}).
+     */
+    private static Integer ownTypeVariable(MethodInfo m, int i) {
+        if (i >= m.parameters().size() || !KotlinTypeName.isMapped(m.typeInfo().fullyQualifiedName())) return null;
+        ParameterizedType declared = m.parameters().get(i).parameterizedType();
+        if (declared.typeParameter() == null || declared.arrays() > 0) return null;
+        int index = m.typeInfo().typeParameters().indexOf(declared.typeParameter());
+        return index < 0 ? null : index;
     }
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
