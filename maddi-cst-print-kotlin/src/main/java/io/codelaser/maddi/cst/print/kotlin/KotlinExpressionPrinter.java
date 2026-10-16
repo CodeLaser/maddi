@@ -1244,6 +1244,14 @@ public class KotlinExpressionPrinter {
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
+        if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
+            && c.parameterizedType().arrays() == target.arrays() && sameUpToStates(c.parameterizedType(), target)
+            && KotlinTypeName.primitiveArray(c.parameterizedType().componentType()) == null) {
+            // (E[]) new Object[n] into an Array<E?>: Kotlin's arrays are invariant, and the cast checks no element;
+            // it takes the elements' states of what it initializes
+            ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
         if (e instanceof ArrayInitializer ai && target != null && target.arrays() > 0) {
             // {…} takes its type from what it initializes: its elements may all be null, or arrays themselves
             return arrayInitializer(ai, target, q);

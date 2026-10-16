@@ -1376,4 +1376,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "BiPredicate<T?, T?>");
         compiles(kotlin);
     }
+
+    /**
+     * guava's TopKSelector, ImmutableSet: {@code buffer = (T[]) new Object[2 * k]} into a field whose elements are
+     * nullable. The cast takes the target's element state ({@code as Array<T?>}): Kotlin's arrays are invariant.
+     */
+    @Test
+    public void arrayCastTakesTargetElementState() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("buffer[]", "grid[]")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                class TopK<T> {
+                    private final T[] buffer;
+                    TopK(int k) { this.buffer = (T[]) new Object[2 * k]; }
+                    T first() { return buffer[0]; }
+                }
+                """, options);
+        contains(kotlin, "as Array<T?>");
+        compiles(kotlin);
+    }
 }
