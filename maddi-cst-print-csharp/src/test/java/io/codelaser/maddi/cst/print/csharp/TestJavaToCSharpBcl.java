@@ -477,6 +477,13 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static boolean same(int[][] a, int[][] b) { return Arrays.deepEquals(a, b); }
                 static void blank(int[] a) { Arrays.fill(a, 1, 3, 0); }
                 static TreeSet<String> byLength(Comparator<String> c) { return new TreeSet<>(c); }
+                static SequencedCollection<Object> entities(Object a, Object b) {
+                    var set = new LinkedHashSet<Object>();
+                    set.add(a);
+                    set.add(b);
+                    return set;
+                }
+                static Object first(SequencedCollection<Object> c) { return c.getFirst(); }
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
             }
             """;
@@ -495,6 +502,9 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaCollections.Shuffle(list, random);");
         contains(cs, "JavaArrays.DeepEquals(a, b)");
         contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
+        // a SequencedCollection is a List's or a LinkedHashSet's: ICollection
+        contains(cs, "internal static ICollection<object> Entities(object a, object b)");
+        contains(cs, "c.First()");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");
