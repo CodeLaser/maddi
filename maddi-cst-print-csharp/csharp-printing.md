@@ -639,7 +639,13 @@ from a map, a stream's collector.
   in the body: the method gets a type parameter of its own, `void OnRequest<TEmbedded>(Context<TEmbedded> c)`,
   constrained by the wildcard's bound or the declared one (`CSharpWildcards`). Not in a constructor, a functional
   interface's method, an override of a library method, or when the bound is no valid C# constraint (string, a
-  delegate, a sealed class, a type parameter). Any other wildcard is its bound (`WILDCARD_AS_BOUND`).
+  delegate, a sealed class, a type parameter). Any other wildcard of a program type, `?` or `? extends B` of a `B` that
+  is not final, is the type's wildcard interface, as a self-bounded type's is (below): the type parameters the program
+  declares with such a wildcard, in a field, a constructor's parameter, a result, a local, a cast, a bound or a type
+  argument, are removed. `TupleLifecycle<?>` is `ITupleLifecycle` beside `ITupleLifecycle<Tuple_>`, which
+  `ITupleLifecycle<IUniTuple<A>>` is and `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its
+  internal members too, Java's package-private ones that the code reaches through the wildcard. A wildcard of a library
+  type, or `? extends String`, is its bound (`WILDCARD_AS_BOUND`).
 - **Self-bounded types.** A wildcard of a type whose parameter is bounded by itself, `Score<?>` of
   `Score<Score_ extends Score<Score_>>`, has no C# type argument: none satisfies `where Score_ : IScore<Score_>`. As
   C#'s `IComparable` beside `IComparable<T>`, such a type has a wildcard interface without its self-bounded parameters

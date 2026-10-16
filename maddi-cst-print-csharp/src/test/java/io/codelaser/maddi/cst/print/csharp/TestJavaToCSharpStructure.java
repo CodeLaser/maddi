@@ -1605,7 +1605,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // an argument of a creation: the creation's own type arguments, as printed
         contains(cs, "new SortedDictionary<R, R>()");
         // an override inherits its constraints, and may not repeat them (CS0460)
-        contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
+        // Stream<?>, a bound: the wildcard interface IStream, which every IStream<T> is
+        contains(cs, "internal abstract S Build<S>(S s) where S : IStream;");
+        contains(cs, "internal Bridge(IStreams parent)");
         contains(cs, "internal override S Build<S>(S s) => s;");
     }
 
@@ -1685,6 +1687,61 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String LIFECYCLES = """
+            package org.example.lifecycles;
+            public class Lifecycles {
+                public interface Tuple { int size(); }
+                public record Pair(int size) implements Tuple {}
+                public interface ActivitySupport { boolean isActive(); }
+                public interface TupleLifecycle<Tuple_ extends Tuple> extends ActivitySupport {
+                    void insert(Tuple_ tuple);
+                    void afterAllFactsInserted(boolean canProduce);
+                }
+                public abstract static class Node<Left_ extends Tuple> {
+                    private final TupleLifecycle<?> downstream;
+                    protected Node(TupleLifecycle<?> downstream) { this.downstream = downstream; }
+                    public boolean active() { return downstream.isActive(); }
+                    public void done() { downstream.afterAllFactsInserted(true); }
+                }
+                public static final class PairNode extends Node<Pair> {
+                    PairNode(TupleLifecycle<Pair> next) { super(next); }
+                }
+                public static class Box<T> {
+                    private final T value;
+                    Box(T value) { this.value = value; }
+                    public T get() { return value; }
+                    public int count() { return 1; }
+                    public void set(T t) { }
+                }
+                static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
+                static int countOf(boolean b) { return any(b).count(); }
+                static Object first(boolean b) { return any(b).get(); }
+                static int sum(java.util.List<? extends Box<?>> boxes) { return boxes.size(); }
+            }
+            """;
+
+    /**
+     * A wildcard of any generic type the program declares a field, a constructor's parameter, a result, a local with
+     * has no C# type argument either, where a method's parameter would capture it: the type's wildcard interface,
+     * without the wildcarded type parameters, which every X<A> implements.
+     */
+    @Test
+    public void wildcardInterfaces() {
+        String cs = translate("Lifecycles", LIFECYCLES);
+        contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
+        contains(cs, "void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);");
+        contains(cs, "private readonly ITupleLifecycle downstream;");
+        contains(cs, "Node(ITupleLifecycle downstream)");
+        contains(cs, "public interface IBox {");
+        contains(cs, "internal static IBox Any(bool b)");
+        // a result of the wildcarded parameter is its bound, a parameter's keeps the member out
+        contains(cs, "object Get { get; }");
+        assertFalse(cs.contains("void Set(object"), cs);
+        assertFalse(cs.contains("ITupleLifecycle<ITuple>"), cs);
+        assertFalse(cs.contains("Box<object>"), cs);
+    }
+
+    @Language("java")
     private static final String PHASE_SCOPES = """
             package org.example.phasescopes;
             public class PhaseScopes {
@@ -1737,8 +1794,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void resultOnlySelfBound() {
         String cs = translate("PhaseScopes", PHASE_SCOPES);
-        // a record has a companion too, with its components
-        contains(cs, "public interface IInner { IScore Raw { get; } }");
+        // a record has a companion too, with its components, and its package-private methods internal
+        contains(cs, "IScore Raw { get; }");
+        contains(cs, "internal bool Zero();");
         contains(cs, "IScore IInner.Raw => Raw;");
         contains(cs, "public IInner GetBest() => (IInner) (object) best;");
         contains(cs, "public IDirector<Solution_> GetDirector() => solverScope.GetDirector();");

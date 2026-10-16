@@ -12,8 +12,9 @@ internal sealed class Metadata {
             this.name = name;
             return (T) (object) this;
         }
+        IBuilder IBuilder.Name(string name) => Name(name);
     }
-    internal interface IBuilder { }
+    internal interface IBuilder { internal IBuilder Name(string name); }
 
     internal interface IListener<T> {
         void OnEvent(T @event);

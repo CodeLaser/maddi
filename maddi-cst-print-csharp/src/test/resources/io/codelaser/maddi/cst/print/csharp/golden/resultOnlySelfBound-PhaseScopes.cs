@@ -30,8 +30,12 @@ public sealed class PhaseScopes {
     public sealed record Inner<Score_>(Score_ Raw) : IInner where Score_ : IScore<Score_> {
         internal bool Zero() => Raw.IsZero();
         IScore IInner.Raw => Raw;
+        bool IInner.Zero() => Zero();
     }
-    public interface IInner { IScore Raw { get; } }
+    public interface IInner {
+        IScore Raw { get; }
+        internal bool Zero();
+    }
 
     internal sealed class PhaseScope<Solution_> {
         internal SolverScope<Solution_> solverScope;
