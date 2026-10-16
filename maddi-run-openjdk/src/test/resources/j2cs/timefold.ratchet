@@ -130,9 +130,13 @@
 # Iterator(); java.util.EventListener a marker, out of the bases and constraints; a method reference of a nullable
 # result a lambda with ! where the receiver is a type, this or the lambda's parameter: 1172 -> 1185 compiling files,
 # 1749 -> 1723 errors, 379 -> 376 unmapped JDK uses.
+# 2026-10-16, maddi a42af1bb2, baada3a61, 0b33335c5, 32d01b41e, dc527276e: a TreeMap's or TreeSet's Comparator in
+# Comparer.Create; an unbound wildcard of a program type, TupleLifecycle<?>, Node<?, ?, ?>, is the type's wildcard
+# interface (ITupleLifecycle) where it declares every member the code reaches through it, as a self-bounded type's is: 1185 ->
+# 1198 compiling files, 1723 -> 1595 errors, 376 -> 375 unmapped JDK uses.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1185
-unmappedJdkUses	376
+compilingFiles	1198
+unmappedJdkUses	375

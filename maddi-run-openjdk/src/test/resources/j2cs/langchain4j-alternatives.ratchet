@@ -21,9 +21,13 @@
 # fits), cast where C# has the value type; a companion's protected member internal; a record header's nested types
 # qualified; an annotation's nested types printed; Class.getName()'s FullName a string?: 287 -> 289 compiling files,
 # 231 -> 225 errors.
+# 2026-10-16, maddi a42af1bb2, baada3a61, 0b33335c5, 32d01b41e, dc527276e: a TreeMap's or TreeSet's Comparator in
+# Comparer.Create; an unbound wildcard of a program type, TupleLifecycle<?>, Node<?, ?, ?>, is the type's wildcard
+# interface (ITupleLifecycle) where it declares every member the code reaches through it, as a self-bounded type's is: 289 ->
+# 295 compiling files, 225 -> 220 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	289
+compilingFiles	295
 unmappedJdkUses	153
