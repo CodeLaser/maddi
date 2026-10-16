@@ -1467,4 +1467,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun contains(o: K): Boolean");
         contains(kotlin, "override fun remove(o: K): Boolean");
     }
+
+    /**
+     * guava's maps: Java's Map.remove(Object, Object), getOrDefault(Object, V) and putAll(Map<? extends K, ? extends V>)
+     * are Kotlin's remove(key: K, value: V), getOrDefault(key: K, defaultValue: V) and putAll(from: Map<out K, V>).
+     */
+    @Test
+    public void mapOverridesTakeKotlinsParameterTypes() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Forwarding<K, V> extends AbstractMap<K, V> {
+                    private final Map<K, V> delegate = new HashMap<>();
+                    @Override public Set<Map.Entry<K, V>> entrySet() { return delegate.entrySet(); }
+                    @Override public boolean remove(Object key, Object value) { return delegate.remove(key, value); }
+                    @Override public V getOrDefault(Object key, V defaultValue) { return delegate.getOrDefault(key, defaultValue); }
+                    @Override public void putAll(Map<? extends K, ? extends V> map) { delegate.putAll(map); }
+                }
+                """);
+        contains(kotlin, "override fun remove(key: K, value: V): Boolean");
+        contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
+        contains(kotlin, "override fun putAll(map: Map<out K, V>)");
+    }
 }

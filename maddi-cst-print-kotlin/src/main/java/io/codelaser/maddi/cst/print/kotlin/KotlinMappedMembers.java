@@ -116,6 +116,18 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.util.Map", "get", 1), 0),
             Map.entry(new Key("java.util.Map", "remove", 1), 0));
 
+    /**
+     * As {@link #OBJECT_PARAMETER}, per parameter, for members with more than one: the owner's type parameter for
+     * each, -1 where the parameter keeps its own type ({@code Map.remove(Object, Object)} is
+     * {@code remove(key: K, value: V)}; {@code getOrDefault(Object, V)} is {@code getOrDefault(key: K, defaultValue: V)}).
+     */
+    private static final Map<Key, List<Integer>> OBJECT_PARAMETERS = Map.of(
+            new Key("java.util.Map", "remove", 2), List.of(0, 1),
+            new Key("java.util.Map", "getOrDefault", 2), List.of(0, -1));
+
+    /** {@code Map.putAll(Map<? extends K, ? extends V>)}, which Kotlin declares {@code putAll(from: Map<out K, V>)}. */
+    private static final Set<Key> MAP_PARAMETER = Set.of(new Key("java.util.Map", "putAll", 1));
+
     /** The {@code Collection<?>}/{@code Collection<? extends E>} parameters Kotlin declares {@code Collection<E>}. */
     private static final Set<Key> COLLECTION_PARAMETER = Set.of(
             new Key("java.util.Collection", "containsAll", 1), new Key("java.util.Collection", "addAll", 1),
@@ -147,9 +159,12 @@ final class KotlinMappedMembers {
         }
         for (MethodInfo m : methodInfo.overrides()) {
             Key key = new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size());
-            Integer index = OBJECT_PARAMETER.get(key);
+            List<Integer> perParameter = OBJECT_PARAMETERS.get(key);
+            Integer index = perParameter == null ? OBJECT_PARAMETER.get(key)
+                    : i < perParameter.size() && perParameter.get(i) >= 0 ? perParameter.get(i) : null;
             boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
-            if (index == null && !collection) continue;
+            boolean map = MAP_PARAMETER.contains(key);
+            if (index == null && !collection && !map) continue;
             ParameterizedType asOwner;
             try {
                 asOwner = methodInfo.typeInfo().asParameterizedType()
@@ -159,6 +174,7 @@ final class KotlinMappedMembers {
             }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
+            if (map) return asOwner.parameters().size() == 2 ? asOwner : null;
             ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
             return collectionType.typeInfo() == null ? null
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
