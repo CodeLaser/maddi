@@ -522,6 +522,25 @@ final class KotlinNullability {
         // a library's int parameter is Kotlin's Int all the same: Java unboxes an Integer into it (Math.min(map.get(k), 1))
         boolean unboxed = target != null && target.arrays() == 0 && target.isPrimitiveExcludingVoid()
                           && KotlinExpressionPrinter.primitive(target) == KotlinExpressionPrinter.primitive(value.parameterizedType());
+        if (targetTranslated && target != null && value instanceof NullConstant && target.arrays() == 0
+            && !isNullable(target) && unboundTypeVariable(target)) {
+            // lstKeys.add(null) into a MutableList<K>: null stops at a type-variable slot (maddi-mod 77674c0c), and
+            // the null passes as in Java: an unchecked cast, erased
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (targetTranslated && target != null && !isNullable(target) && typeVariableArgument(target)
+            && nullableLambdaResultInChain(value)) {
+            // results.stream().filter(…).map { it.response() }.toList() into a List<T>: Kotlin infers List<T?> from the
+            // nullable response(), where null stops at the declaration's type-variable slot; Java's list holds the
+            // nulls all the same: an unchecked cast, erased
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (!targetTranslated && !unboxed || target == null || isNullable(target) || value instanceof NullConstant
             || !nullableInKotlin(value) && !nullableTypeVariable(value, target)) {
             return printed;
@@ -585,6 +604,42 @@ final class KotlinNullability {
     }
 
     /** A type variable whose upper bound is Kotlin's {@code Any?}: no {@code T : Any} printed for it. */
+    /** A type argument of {@code type}, at the top level, is an unbound type variable printed non-null. */
+    private static boolean typeVariableArgument(ParameterizedType type) {
+        return type.arrays() == 0 && type.parameters().stream()
+                .anyMatch(a -> a != null && a.arrays() == 0 && unboundTypeVariable(a) && !isNullable(a));
+    }
+
+    /**
+     * {@code value} is a chain of calls on a stream, one of which takes a lambda or method reference whose result
+     * Kotlin types nullable ({@code map(BatchItemResult::response)} with a nullable response()): Kotlin infers the
+     * elements nullable from it.
+     */
+    private static boolean nullableLambdaResultInChain(Expression value) {
+        Expression e = KotlinExpressionPrinter.unwrap(value);
+        while (e instanceof MethodCall mc) {
+            if (mc.methodInfo() != null && "java.util.stream.Stream".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+                for (Expression a : mc.parameterExpressions()) {
+                    Expression u = KotlinExpressionPrinter.unwrap(a);
+                    if (u instanceof io.codelaser.maddi.cst.api.expression.Lambda l && lambdaResultNullable(l)
+                        || u instanceof MethodReference mr && mr.methodInfo() != null && !mr.methodInfo().isConstructor()
+                           && isNullable(returnType(mr.methodInfo()))) {
+                        return true;
+                    }
+                }
+            }
+            e = mc.object() == null ? null : KotlinExpressionPrinter.unwrap(mc.object());
+        }
+        return false;
+    }
+
+    private static boolean lambdaResultNullable(io.codelaser.maddi.cst.api.expression.Lambda l) {
+        io.codelaser.maddi.cst.api.statement.Block body = l.methodInfo().methodBody();
+        if (body == null || body.statements().size() != 1) return false;
+        return body.statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
+               && rs.expression() != null && nullableInKotlin(rs.expression());
+    }
+
     private static boolean unboundTypeVariable(ParameterizedType type) {
         if (!type.isTypeParameter() || type.wildcard() != null) return false;
         io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();

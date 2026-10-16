@@ -1285,4 +1285,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "override fun add(element: E): Boolean");
         compiles(kotlin);
     }
+
+    /**
+     * Null stops at a type-variable slot (maddi-mod 77674c0c): a {@code List<K>} into which Java adds null
+     * (fernflower's VBStyleCollection) and a {@code List<T>} collected from a nullable result (langchain4j's
+     * BatchResponse.responses()). Java's list holds the nulls; the printer casts, unchecked, where Kotlin's types
+     * disagree with the declaration.
+     */
+    @Test
+    public void nullIntoTypeVariableSlot() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class VB<E, K> {
+                    private final List<K> keys = new ArrayList<>();
+                    void addNull() { keys.add(null); }
+                    static class Item<T> {
+                        T value;
+                        boolean ok() { return value != null; }
+                        T response() { return value; }
+                    }
+                    static <T> List<T> responses(List<Item<T>> results) {
+                        return results.stream().filter(Item::ok).map(Item::response).toList();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("response()", "value")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "keys.add((null as K))");
+        contains(kotlin, "as MutableList<T>)");
+        compiles(kotlin);
+    }
 }
