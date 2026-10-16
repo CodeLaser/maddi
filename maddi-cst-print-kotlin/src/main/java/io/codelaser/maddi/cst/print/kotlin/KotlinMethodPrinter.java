@@ -111,8 +111,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 rt = rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
             }
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
-                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinReadOnly.returns(methodInfo)
-                        ? KotlinTypeName.readOnly(rt, qualification) : KotlinTypeName.of(rt, qualification)));
+                String mapDefault = KotlinMappedMembers.mapDefaultResult(methodInfo, qualification);
+                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(mapDefault != null ? mapDefault
+                        : KotlinReadOnly.returns(methodInfo) ? KotlinTypeName.readOnly(rt, qualification)
+                        : KotlinTypeName.of(rt, qualification)));
             }
         }
 
@@ -228,6 +230,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** Kotlin's parameter type for an override of a mapped collection member: {@code E}, {@code Collection<E>}. */
     private static String mappedParameterType(MethodInfo methodInfo, ParameterInfo pi, Qualification q) {
+        String mapDefault = KotlinMappedMembers.mapDefaultParameter(methodInfo, pi.index(), q);
+        if (mapDefault != null) return mapDefault;
         ParameterizedType t = KotlinMappedMembers.overriddenParameterType(methodInfo, pi.index());
         if (t == null) return null;
         if (t.typeInfo() != null && "java.util.Collection".equals(t.typeInfo().fullyQualifiedName())) {

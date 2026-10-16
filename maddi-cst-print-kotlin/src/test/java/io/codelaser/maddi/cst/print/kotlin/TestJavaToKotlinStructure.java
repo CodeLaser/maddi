@@ -1414,6 +1414,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String alone = kotlin(FAMILY_RESULTS.replace("class Results", "class Alone"), type -> notModified(type, "size"));
         // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
         contains(alone, "fun names(): MutableList<String>\n");
+        compiles(world);
     }
 
     /**
@@ -1441,6 +1442,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }));
         contains(kotlin, "private val f0: List<String>");
         contains(kotlin, "private var f" + (n - 1) + ": List<String>");
+        compiles(kotlin);
     }
 
     /**
@@ -1466,6 +1468,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "override fun contains(o: K): Boolean");
         contains(kotlin, "override fun remove(o: K): Boolean");
+        compiles(kotlin);
     }
 
     /**
@@ -1488,6 +1491,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun remove(key: K, value: V): Boolean");
         contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
         contains(kotlin, "override fun putAll(map: Map<out K, V>)");
+        compiles(kotlin);
     }
 
     /**
@@ -1510,6 +1514,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private var _size: Long");
         contains(kotlin, "override val size: Int");
         contains(kotlin, "_size++");
+        compiles(kotlin);
     }
 
     /**
@@ -1522,7 +1527,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 package a;
                 import java.lang.reflect.Array;
                 class Arrays2<T> {
-                    private final T[][] rows = null;
+                    static <T> int count(T[][] rows) { return rows.length; }
                     @SuppressWarnings("unchecked")
                     static <T> T[] newArray(T[] reference, int length) {
                         return (T[]) Array.newInstance(reference.getClass().getComponentType(), length);
@@ -1532,6 +1537,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
         contains(kotlin, "java.lang.reflect.Array.newInstance(");
         contains(kotlin, "Array<Array<T");
+        compiles(kotlin);
     }
 
     /**
@@ -1553,6 +1559,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "= Values()");
         contains(kotlin, "= It()");
         assertFalse(kotlin.contains("Base.Values()"), kotlin);
+        compiles(kotlin);
     }
 
     /**
@@ -1571,5 +1578,108 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
         contains(kotlin, "Comparator<Internal.Entry<K, E>>");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Predicate redeclares equals(Object) abstract, for its documentation. In Kotlin that abstract override would
+     * oblige each implementing class to implement equals again; it is left out.
+     */
+    @Test
+    public void interfaceRedeclaringEqualsLeavesItOut() {
+        String kotlin = kotlin("""
+                package a;
+                interface Pred<T> {
+                    boolean apply(T input);
+                    @Override boolean equals(Object obj);
+                    @Override int hashCode();
+                }
+                """);
+        assertFalse(kotlin.contains("fun equals"), kotlin);
+        assertFalse(kotlin.contains("fun hashCode"), kotlin);
+        contains(kotlin, "fun apply(input: T): Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's {@code @Immutable(containerOf = "B")}: Java allows a single value for a named array element; Kotlin, for a
+     * Java annotation, only for the positional {@code value}, which is a vararg. A named one is {@code ["B"]}.
+     */
+    @Test
+    public void namedArrayElementOfJavaAnnotationIsAnArray() {
+        String kotlin = kotlin("""
+                package a;
+                @javax.annotation.processing.Generated(value = "gen", comments = "c")
+                class Old {
+                    @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)
+                    @interface Marker { }
+                }
+                """);
+        contains(kotlin, "value = [\"gen\"], comments = \"c\"");
+        // the positional value of a Java annotation stays a vararg
+        contains(kotlin, "@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)");
+    }
+
+    /**
+     * guava's Forwarding collections: {@code removeAll(Collection<?> c)} is Kotlin's {@code removeAll(elements:
+     * Collection<E>)}, read-only, and hands c to a translated method that takes a mutable collection. Cast, as the
+     * same java.util.Collection is passed at runtime.
+     */
+    @Test
+    public void forcedReadOnlyOverrideParameterIntoMutableIsCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> extends AbstractCollection<E> {
+                    protected boolean standardRemoveAll(Collection<?> collection) { collection.clear(); return true; }
+                    @Override public boolean removeAll(Collection<?> c) { return standardRemoveAll(c); }
+                }
+                """);
+        contains(kotlin, "override fun removeAll(c: Collection<E>): Boolean");
+        contains(kotlin, "standardRemoveAll((c as MutableCollection<E>))");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's LocalCache and Maps: overrides of Map's default methods. Kotlin sees the JDK's merge and
+     * computeIfPresent with definitely non-null value types ({@code V & Any}); an override printed with Java's types
+     * overrides nothing.
+     */
+    @Test
+    public void mapDefaultMethodOverrides() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                abstract class Cache<K, V> extends AbstractMap<K, V> {
+                    @Override public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> f) { return null; }
+                    @Override public V compute(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V computeIfAbsent(K key, Function<? super K, ? extends V> f) { return f.apply(key); }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
+     * superclass is an inner class of a generic superclass of its outer class.
+     */
+    @Test
+    public void innerClassExtendingInheritedInnerClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Outer {
+                    static class Base<K> {
+                        K last;
+                        class Inner { K get() { return last; } }
+                    }
+                    static class Sub<K> extends Base<K> {
+                        class SubInner extends Inner { }
+                        Inner make() { return new SubInner(); }
+                    }
+                }
+                """);
+        compiles(kotlin);
     }
 }

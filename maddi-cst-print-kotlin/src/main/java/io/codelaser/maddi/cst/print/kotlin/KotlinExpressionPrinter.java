@@ -216,7 +216,7 @@ public class KotlinExpressionPrinter {
             case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t)));
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(KotlinNullability.asserted(dv.arrayExpression(), q))
-                    .add(SymbolEnum.LEFT_BRACKET).add(print(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
+                    .add(SymbolEnum.LEFT_BRACKET).add(arrayIndex(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
             default -> {
                 java.util.function.Supplier<OutputBuilder> pattern = KotlinContext.patternVariable(v);
                 yield pattern != null ? pattern.get() : new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(v.simpleName())));
@@ -331,9 +331,12 @@ public class KotlinExpressionPrinter {
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
-            // c.toArray(): Kotlin's collections have no toArray() either; Java's Object[] is an Array<Any?>, and a
-            // Collection<out E> is a Collection<Any?> (guava's views and immutable collections)
-            return b.add(new TextImpl("toTypedArray<Any?>()"));
+            // c.toArray(): Kotlin's collections have no toArray() either. toTypedArray<Any?>() or <Any>(), as Java's
+            // Object[] prints here (a Collection<out E> is a Collection of either): typed by the collection, a local
+            // would be an Array<String> where Java declares an Object[]
+            ParameterizedType result = KotlinNullability.kotlinType(mc);
+            String element = result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
+            return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
         if (mapped != null) return b.add(new TextImpl(mapped));
@@ -513,6 +516,15 @@ public class KotlinExpressionPrinter {
             boolean hasParameter = method != null && i < method.parameters().size()
                                    && !method.parameters().get(i).isVarArgs();
             ParameterizedType target = !hasParameter || mapped ? null : method.parameters().get(i).parameterizedType();
+            String forced = hasParameter && !mapped ? forcedReadOnlyElement(args.get(i), q) : null;
+            if (forced != null && !KotlinMethodPrinter.acceptsReadOnly(method, i)) {
+                // removeAll(c: Collection<E>) handing c to standardRemoveAll(MutableCollection<*>): Kotlin's override
+                // signature makes c read-only, its uses were not checked; the same java.util.Collection at runtime
+                printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q))
+                        .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl("MutableCollection<" + forced + ">")).add(SymbolEnum.RIGHT_PARENTHESIS));
+                continue;
+            }
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
             if (call != null && unwrap(args.get(i)) instanceof MethodReference mr && nullableStreamElements(method, call)) {
                 OutputBuilder asserting = assertingReference(mr, q);
@@ -2097,6 +2109,37 @@ public class KotlinExpressionPrinter {
         return known != null && type != null && type.typeInfo() != null && type.arrays() == 0
                && type.parameters().isEmpty() && known.arrays() == 0 && known.typeInfo() == type.typeInfo()
                && known.parameters().isEmpty();
+    }
+
+    /**
+     * The element type, printed, of a parameter of the current method that Kotlin's override signature makes a
+     * read-only {@code Collection<E>} ({@link KotlinMappedMembers#overriddenParameterType}: removeAll, retainAll,
+     * addAll, containsAll), when {@code e} reads it; null otherwise.
+     */
+    private static String forcedReadOnlyElement(Expression e, Qualification q) {
+        if (!(unwrap(e) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)) return null;
+        io.codelaser.maddi.cst.api.info.MethodInfo current = KotlinContext.currentMethod();
+        if (current == null || pi.methodInfo() != current) return null;
+        ParameterizedType t = KotlinMappedMembers.overriddenParameterType(current, pi.index());
+        if (t == null || t.typeInfo() == null || !"java.util.Collection".equals(t.typeInfo().fullyQualifiedName())
+            || t.parameters().isEmpty()) {
+            return null;
+        }
+        return KotlinTypeName.of(t.parameters().getFirst(), q);
+    }
+
+    /**
+     * An array index, an Int: Java widens a char, byte or short index ({@code replacements[c]} in guava's escapers),
+     * Kotlin does not ({@code replacements[c.code]}).
+     */
+    private static OutputBuilder arrayIndex(Expression index, Qualification q) {
+        Primitive from = primitive(index.parameterizedType());
+        if (from != Primitive.CHAR && from != Primitive.BYTE && from != Primitive.SHORT) return print(index, q);
+        OutputBuilder receiver = valueOperand(index, q);
+        for (String call : conversion(from, Primitive.INT).split("\\.")) {
+            if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
+        }
+        return receiver;
     }
 
     private static String conversion(Primitive from, Primitive to) {

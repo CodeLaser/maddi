@@ -358,6 +358,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "longArrayOf(1, x.toLong())");
         contains(kotlin, "doubleArrayOf(2.5, 3.toDouble())");
         contains(kotlin, "floatArrayOf(c.code.toFloat(), 1.toFloat())");
+        compiles(kotlin);
     }
 
     /** guava's views: {@code c.toArray()} on a Java collection, which Kotlin's collection types do not have. */
@@ -373,7 +374,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "m.keys.toTypedArray<Any?>()");
-        contains(kotlin, "l.toTypedArray<Any?>()");
+        contains(kotlin, "m.keys.toTypedArray<Any>()");
+        contains(kotlin, "l.toTypedArray<Any>()");
+        compiles(kotlin);
+    }
+
+    /** guava's escapers: a char used as an array index, which Java widens to int and Kotlin does not. */
+    @Test
+    public void charIndexIsWidened() {
+        String kotlin = kotlin("""
+                package a;
+                class Esc {
+                    static char[] escape(char[][] replacements, char c, byte b) {
+                        replacements[c] = new char[0];
+                        return c < replacements.length ? replacements[c] : replacements[b];
+                    }
+                }
+                """);
+        contains(kotlin, "replacements[c.code] = CharArray(0)");
+        contains(kotlin, "replacements[c.code]");
+        contains(kotlin, "replacements[b.toInt()]");
+        compiles(kotlin);
     }
 }

@@ -86,6 +86,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
     }
 
+    /**
+     * {@code boolean equals(Object)}, {@code int hashCode()} or {@code String toString()} redeclared abstract in an
+     * interface, for its documentation (guava's Predicate, Function, Equivalence): Java's classes keep Object's
+     * implementation, but in Kotlin the abstract override in the interface wins, and every class implementing it
+     * would have to implement the member again. Left out: the interface means the same without it.
+     */
+    private static boolean abstractObjectMethod(MethodInfo m) {
+        if (!m.typeInfo().isInterface() || !m.isAbstract() || m.isStatic()) return false;
+        return "equals".equals(m.name()) && m.parameters().size() == 1
+               && m.parameters().getFirst().parameterizedType().isJavaLangObject()
+               || ("hashCode".equals(m.name()) || "toString".equals(m.name())) && m.parameters().isEmpty();
+    }
+
     private OutputBuilder printType(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration,
                                     MethodPrinterFactory methodPrinterFactory, FieldPrinterFactory fieldPrinterFactory,
                                     EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
@@ -256,7 +269,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // getter stays a method, because its callers print as calls (prepwork marks it all the same)
                 .filter(m -> !m.isSynthetic() && (companion || !isAccessor(m)))
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
-                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m))
+                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
@@ -510,6 +523,23 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * The supertypes after {@code :}. The superclass is called, {@code Super(args)}, only by a primary constructor (or
      * the implicit one); with secondary constructors only, each of those delegates, and the header names the type.
      */
+    /**
+     * {@code implements Iterator<E>} without a {@code remove()} of its own (in the class or a superclass): Java's
+     * default remove throws UnsupportedOperationException. Kotlin's MutableIterator declares remove abstract; its
+     * read-only Iterator does not, and Kotlin gives the class a remove that throws the same exception.
+     */
+    private boolean readOnlyIterator(ParameterizedType implemented) {
+        if (implemented.typeInfo() == null || !"java.util.Iterator".equals(implemented.typeInfo().fullyQualifiedName())
+            || !KotlinContext.translatingJava()) {
+            return false;
+        }
+        for (TypeInfo t = typeInfo; t != null && !t.isJavaLangObject();
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            if (t.methods().stream().anyMatch(m -> "remove".equals(m.name()) && m.parameters().isEmpty())) return false;
+        }
+        return true;
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
@@ -518,7 +548,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             supers.add(parent);
         }
         typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(i, q)))));
+                supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
+                        ? KotlinTypeName.of(i, q).replaceFirst("^MutableIterator", "Iterator")
+                        : KotlinTypeName.of(i, q)))));
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));

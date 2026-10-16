@@ -733,6 +733,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "override fun next(): E");
         contains(kotlin, ") as E");
+        compiles(kotlin);
     }
 
     @Language("java")
@@ -1265,5 +1266,23 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "Objects.equals(x, y)");
         contains(kotlin, "s ?: a + \"!\"");
         contains(kotlin, "s ?: (if (c) \"x\" else \"y\")");
+    }
+
+    /**
+     * guava's ForwardingCollection: an override of a mapped collection member takes Kotlin's parameter type, the
+     * owner's type variable, whatever the verdict says: {@code add(element: E?)} overrides nothing.
+     */
+    @Test
+    public void mappedOverrideParameterKeepsTheTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Forwarding<E> extends AbstractCollection<E> {
+                    abstract Collection<E> delegate();
+                    @Override public boolean add(E element) { return delegate().add(element); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("element")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun add(element: E): Boolean");
+        compiles(kotlin);
     }
 }

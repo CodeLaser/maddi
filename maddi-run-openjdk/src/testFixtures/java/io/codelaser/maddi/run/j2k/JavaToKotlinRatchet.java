@@ -82,7 +82,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * </ol>
  * The tests run when the corpus has a built test source set and the test JVM has
  * {@code -Dmaddi.test.junitConsoleClasspath} (the {@code junitConsole} configuration beside {@code kotlinCompiler});
- * otherwise {@code testsPassing} is neither measured nor ratcheted.
+ * otherwise {@code testsPassing} is neither measured nor ratcheted. Nor with {@link #COMPILE_ONLY}, a working cycle's
+ * switch.
  * <p>
  * The output lands in {@code build/j2k/<name>/}: the translated sources, both compilers' raw output, and
  * {@code report.txt} with the errors by kind. Read the report before tightening.
@@ -102,6 +103,20 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
     /** The test counts: what a translation without verdicts reports and does not ratchet. */
     public static final Set<String> TESTS = Set.of("testsPassing", "translatedTestsPassing");
+
+    /**
+     * The switch for a working cycle: {@code J2K_COMPILE_ONLY=true} (passed on by the build as
+     * {@code -Dmaddi.j2k.compileOnly}) translates and compiles as always, test sources included, and runs none of
+     * the corpus's tests. {@link #TESTS} are then not measured, so neither recorded nor ratcheted: guava's three test
+     * passes take some 75 of its 80 minutes, its type errors the first 8. Run the full ratchet before writing a record.
+     */
+    public static final String COMPILE_ONLY = "J2K_COMPILE_ONLY";
+
+    private static boolean compileOnly() {
+        String value = System.getProperty("maddi.j2k.compileOnly");
+        if (value == null || value.isBlank()) value = System.getenv(COMPILE_ONLY);
+        return value != null && !value.isBlank() && !"false".equalsIgnoreCase(value.trim());
+    }
 
     /** Every metric ratcheted. */
     public JavaToKotlinRatchet(String name, Path ratchetFile) {
@@ -285,12 +300,19 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (corpus.junit4() && runner != null && vintage != null && !vintage.isBlank()) {
             runner = runner + java.io.File.pathSeparator + vintage;
         }
-        if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri())) && runner != null && !runner.isBlank()) {
+        boolean compileOnly = compileOnly();
+        if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri()))
+            && (compileOnly || runner != null && !runner.isBlank())) {
             Path testClasses = Path.of(testSet.get().uri());
-            Tests original = runTests(corpus, null, testClasses, runner, out.resolve("tests/original"));
-            Tests kotlin = runTests(corpus, List.of(bytecode.classes), testClasses, runner, out.resolve("tests/kotlin"));
-            measured.put("testsPassing", (long) kotlin.passed.size());
-            testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
+            Tests original = null;
+            if (compileOnly) {
+                testReport = "\ntests: not run (compile only: " + COMPILE_ONLY + ")\n";
+            } else {
+                original = runTests(corpus, null, testClasses, runner, out.resolve("tests/original"));
+                Tests kotlin = runTests(corpus, List.of(bytecode.classes), testClasses, runner, out.resolve("tests/kotlin"));
+                measured.put("testsPassing", (long) kotlin.passed.size());
+                testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
+            }
 
             // the tests translated as well: Kotlin tests against the Kotlin translation
             if (testTranslation == null) {
@@ -303,13 +325,15 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 testClassPath.add(testClasses.toString());
                 Bytecode testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
                 measured.put("testBytecodeFiles", (long) testBytecode.files.size());
-                Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses, runner,
-                        out.resolve("tests/translated"));
-                measured.put("translatedTestsPassing", (long) translated.passed.size());
                 testReport += "\ntest sources translated: " + corpus.testTypes().size() + " types, "
                               + tests.crashes.size() + " printer crashes" + bytecodeReport(testBytecode, "compile 4 (the "
-                              + "test sources to class files)")
-                              + testReport(original, translated, out.resolve("tests"), "translated tests");
+                              + "test sources to class files)");
+                if (!compileOnly) {
+                    Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses,
+                            runner, out.resolve("tests/translated"));
+                    measured.put("translatedTestsPassing", (long) translated.passed.size());
+                    testReport += testReport(original, translated, out.resolve("tests"), "translated tests");
+                }
                 if (!tests.crashes.isEmpty()) testReport += "  test printer crashes:\n" + tests.crashes.stream()
                         .map(c -> "    " + c + "\n").collect(Collectors.joining());
             }

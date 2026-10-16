@@ -46,3 +46,18 @@ tasks.test {
         "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
     )
 }
+// The snippet tests' judge: kotlinc 2.4.0, the ratchets' compiler (see maddi-run-openjdk), in a child JVM.
+// CommonJavaToKotlin.compiles(kotlin) checks that the printed Kotlin compiles, not only that it reads as intended.
+val kotlinCompiler = configurations.create("kotlinCompiler") {
+    isCanBeResolved = true
+    isCanBeConsumed = false
+}
+dependencies {
+    kotlinCompiler("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.4.0")
+}
+tasks.withType<Test>().configureEach {
+    inputs.files(kotlinCompiler).withPropertyName("kotlinCompiler")
+    jvmArgumentProviders.add(CommandLineArgumentProvider {
+        listOf("-Dmaddi.test.kotlinCompilerClasspath=" + kotlinCompiler.asPath)
+    })
+}

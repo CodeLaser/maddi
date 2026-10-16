@@ -130,6 +130,38 @@ public abstract class CommonJavaToKotlin {
      * named here, wherever {@code type}'s code calls them, are {@code @NotModified} (maddi#141: the printer reads the
      * stored verdict, not a list of names).
      */
+    /**
+     * The printed Kotlin compiles: kotlinc 2.4.0, the J2K ratchets' compiler, in a child JVM, against the standard
+     * library and the JDK only. A snippet test that checks the text with {@code contains} says what the printer wrote;
+     * this says that kotlinc accepts it, which the text alone does not (an override that overrides nothing reads
+     * fine). For self-contained snippets: one that uses a library needs that library, and is not judged here.
+     */
+    protected static void compiles(String kotlin) {
+        String compilerClassPath = System.getProperty("maddi.test.kotlinCompilerClasspath");
+        org.junit.jupiter.api.Assertions.assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
+                "no -Dmaddi.test.kotlinCompilerClasspath: run this through Gradle");
+        String stdlib = java.util.Arrays.stream(compilerClassPath.split(java.io.File.pathSeparator))
+                .filter(e -> java.nio.file.Path.of(e).getFileName().toString().matches("kotlin-stdlib-[0-9.]+\\.jar"))
+                .findFirst().orElseThrow(() -> new AssertionError("no kotlin-stdlib in " + compilerClassPath));
+        try {
+            java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("maddi-kotlinc");
+            java.nio.file.Path source = dir.resolve("Snippet.kt");
+            java.nio.file.Files.writeString(source, kotlin);
+            java.nio.file.Path javaBin = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java");
+            Process process = new ProcessBuilder(javaBin.toString(), "-Xmx1g", "-cp", compilerClassPath,
+                    "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", "-no-stdlib", "-no-reflect", "-jvm-target", "21",
+                    "-classpath", stdlib, "-d", dir.resolve("classes").toString(), source.toString())
+                    .redirectErrorStream(true).start();
+            String output = new String(process.getInputStream().readAllBytes());
+            int exit = process.waitFor();
+            String errors = output.lines().filter(l -> l.contains("error:")).collect(java.util.stream.Collectors.joining("\n"));
+            org.junit.jupiter.api.Assertions.assertTrue(exit == 0 && errors.isEmpty(),
+                    () -> "kotlinc rejects the printed Kotlin:\n" + errors + "\n--- in ---\n" + kotlin);
+        } catch (IOException | InterruptedException e) {
+            throw new AssertionError("kotlinc did not run", e);
+        }
+    }
+
     protected static void notModified(TypeInfo type, String... methodNames) {
         java.util.Set<String> names = java.util.Set.of(methodNames);
         io.codelaser.maddi.cst.print.kotlin.KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit(

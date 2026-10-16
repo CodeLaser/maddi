@@ -90,8 +90,10 @@ final class KotlinAnnotations {
                     b.add(value(ai.expressions().get(j), q));
                 }
             } else {
-                // a translated annotation class's array element is an Array property: @Tool(["x"]), not @Tool("x")
-                b.add(elementValue(kv.value(), translated && arrayElement(ae.typeInfo(), kv), q));
+                // a translated annotation class's array element is an Array property: @Tool(["x"]), not @Tool("x");
+                // a Java annotation's too, when named: only its positional value is a vararg (guava's
+                // @Immutable(containerOf = ["B"]))
+                b.add(elementValue(kv.value(), (translated || !positional) && arrayElement(ae.typeInfo(), kv), q));
             }
         }
         return b.add(SymbolEnum.RIGHT_PARENTHESIS);
