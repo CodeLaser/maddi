@@ -1901,4 +1901,22 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "(delegate() as java.util.Collection<*>).toArray(array)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Optional.toJavaUtil(), AbstractValueGraph.edgeValue: java.util.Optional.ofNullable(t) into an
+     * Optional<T>. Kotlin's Optional bounds its T non-null, so the call is an Optional<T & Any>; the cast is unchecked.
+     */
+    @Test
+    public void optionalOfTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                class Box<T> {
+                    private T value;
+                    Optional<T> toJavaUtil() { return Optional.ofNullable(value); }
+                }
+                """);
+        contains(kotlin, "(Optional.ofNullable(value) as Optional<T>)");
+        compiles(kotlin);
+    }
 }

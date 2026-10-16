@@ -1262,6 +1262,18 @@ public class KotlinExpressionPrinter {
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
+        if (target != null && unwrap(e) instanceof MethodCall mc && optionalFactory(mc) && target.typeInfo() != null
+            && "java.util.Optional".equals(target.typeInfo().fullyQualifiedName()) && target.arrays() == 0
+            && target.parameters().size() == 1 && target.parameters().getFirst().typeParameter() != null
+            && target.parameters().getFirst().wildcard() == null) {
+            // Optional.ofNullable(element) into an Optional<T>: Kotlin's Optional bounds its T non-null, so the call
+            // is an Optional<T & Any>, which the invariant Optional<T> is not. Erased, the cast checks nothing
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (target != null && target.arrays() == 1 && unwrap(e) instanceof MethodCall mc && mc.methodInfo() != null
             && (toArray(mc.methodInfo()) || toArrayOf(mc.methodInfo())) && KotlinNullability.isNullable(target.componentType())) {
             // return c.toArray() into an Object[] whose elements are nullable: toTypedArray<Any?>(), as Kotlin's
@@ -1552,6 +1564,12 @@ public class KotlinExpressionPrinter {
         return type != null && type.typeInfo() == owner && type.arrays() == 0 && type.wildcard() == null
                && type.parameters().size() == owner.typeParameters().size()
                && type.parameters().stream().allMatch(p -> p.wildcard() == null);
+    }
+
+    private static boolean optionalFactory(MethodCall mc) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        return m != null && m.isStatic() && "java.util.Optional".equals(m.typeInfo().fullyQualifiedName())
+               && java.util.Set.of("of", "ofNullable", "empty").contains(m.name());
     }
 
     /** The receiver's element type (E of its Collection<E>) is a type variable. */
