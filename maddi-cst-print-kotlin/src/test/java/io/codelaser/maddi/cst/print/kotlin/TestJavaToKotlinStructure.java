@@ -1442,4 +1442,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private val f0: List<String>");
         contains(kotlin, "private var f" + (n - 1) + ": List<String>");
     }
+
+    /**
+     * guava's AbstractBiMap.KeySet: an inner class's collection override takes Kotlin's parameter type through the
+     * supertype chain, where the outer class's type variable stays itself ({@code contains(o: K)}). It used to fall
+     * back to the supertype's formal parameter, {@code contains(o: E)}, which names nothing there.
+     */
+    @Test
+    public void innerCollectionOverrideKeepsOuterTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class BiMap<K, V> {
+                    private final Set<K> keys = new HashSet<>();
+                    abstract static class Forwarding<E> extends AbstractSet<E> { }
+                    class KeySet extends Forwarding<K> {
+                        @Override public boolean contains(Object o) { return keys.contains(o); }
+                        @Override public boolean remove(Object o) { return keys.remove(o); }
+                        @Override public Iterator<K> iterator() { return keys.iterator(); }
+                        @Override public int size() { return keys.size(); }
+                    }
+                }
+                """);
+        contains(kotlin, "override fun contains(o: K): Boolean");
+        contains(kotlin, "override fun remove(o: K): Boolean");
+    }
 }
