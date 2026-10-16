@@ -1631,28 +1631,33 @@ public class JavaInspectorImpl implements JavaInspector {
                                        SourceSet dependency,
                                        List<TypeInfo> parsed,
                                        Map<TypeInfo, Long> sourceModified) {
+        // ⛔ A PACKAGE-INFO IS NEVER THE TARGET OF A REFERENCE, so it never has to resolve through a class file —
+        // and javac writes none for a package-info without annotations, nor for a unit that declares no type
+        // (which the parse models as a package-info too). Counted, it claimed dropped units that were not:
+        // Apache Ignite's commented-out GridTcpCommunicationBenchmark.java warned 22 dependent source sets.
+        // By name, not typeNature(): '-' cannot occur in a Java identifier, and the name holds before commit.
+        List<TypeInfo> primary = parsed.stream().filter(t -> !"package-info".equals(t.simpleName())).toList();
         File dir = classOutputOf(dependency);
         if (dir == null) {
             reportClassOutputProblem(summary, sourceSet, dependency, dependency.uri(),
                     parsed.size() + " type(s) were parsed from it, but its URI (" + dependency.uri()
-                    + ") is not a usable class-path entry, so javac has no class files for any of them");
+                    + ") is not a usable class-path entry, so javac has no class files for any of them",
+                    Summary.ClassOutputProblem.Kind.UNUSABLE_URI, parsed.size(), fullyQualifiedNames(primary),
+                    List.of(), null, null);
             return;
         }
         if (!dir.isDirectory()) {
             reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(),
                     parsed.size() + " type(s) were parsed from it, but its class output " + dir
-                    + " does not exist");
+                    + " does not exist", Summary.ClassOutputProblem.Kind.NO_CLASS_OUTPUT, parsed.size(),
+                    fullyQualifiedNames(primary), List.of(), null, null);
             return;
         }
         List<String> missing = new ArrayList<>();
         List<String> stale = new ArrayList<>();
-        for (TypeInfo typeInfo : parsed) {
-            // ⛔ A PACKAGE-INFO IS NEVER THE TARGET OF A REFERENCE, so it never has to resolve through a class file —
-            // and javac writes none for a package-info without annotations, nor for a unit that declares no type
-            // (which the parse models as a package-info too). Counted, it claimed dropped units that were not:
-            // Apache Ignite's commented-out GridTcpCommunicationBenchmark.java warned 22 dependent source sets.
-            // By name, not typeNature(): '-' cannot occur in a Java identifier, and the name holds before commit.
-            if ("package-info".equals(typeInfo.simpleName())) continue;
+        long newestClassFile = 0L;
+        long oldestStaleSource = Long.MAX_VALUE;
+        for (TypeInfo typeInfo : primary) {
             // a primary type is top-level, so its class file sits at the package path under the output directory
             String path = typeInfo.fullyQualifiedName().replace('.', '/');
             File classFile = new File(dir, path + ".class");
@@ -1664,9 +1669,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 // Miss this and every plugin user gets a warning about a set-up that is in fact fine.
                 if (!new File(dir, path + ".java").isFile()) missing.add(typeInfo.fullyQualifiedName());
             } else {
+                newestClassFile = Math.max(newestClassFile, lastModified);
                 Long source = sourceModified.get(typeInfo);
                 if (source != null && source > 0L && lastModified + STALE_GRACE_MILLIS < source) {
                     stale.add(typeInfo.fullyQualifiedName());
+                    oldestStaleSource = Math.min(oldestStaleSource, source);
                 }
             }
         }
@@ -1680,19 +1687,30 @@ public class JavaInspectorImpl implements JavaInspector {
                 .append(Stream.concat(missing.stream(), stale.stream()).limit(REPORTED_EXAMPLES)
                         .collect(Collectors.joining(", ")))
                 .append(")");
-        reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString());
+        reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
+                Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
+                stale.stream().sorted().toList(),
+                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+    }
+
+    private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
+        return types.stream().map(TypeInfo::fullyQualifiedName).sorted().toList();
     }
 
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
-                                          String problem) {
+                                          String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
+                                          List<String> missing, List<String> stale,
+                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
                         + " Rebuild '" + dependency.name() + "' before analysing, or have maddi compile it itself"
                         + " (JavaInspector.setGeneratedClassesDirectory).";
         LOGGER.warn(detail);
-        summary.addParseWarning(new Summary.ParseException(uri, dependency.name(), detail, null,
-                Message.Severity.WARN));
+        Summary.ClassOutputProblem structured = new Summary.ClassOutputProblem(sourceSet.name(), dependency.name(),
+                kind, uri, parsedTypes, missing, stale, newestClassFile, oldestStaleSource);
+        summary.addParseWarning(Summary.ParseException.classOutput(uri, dependency.name(), detail, structured));
     }
 
     /**

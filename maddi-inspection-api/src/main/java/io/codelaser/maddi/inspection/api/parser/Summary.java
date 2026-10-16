@@ -23,8 +23,10 @@ import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /*
@@ -37,24 +39,99 @@ public interface Summary {
 
     boolean haveErrors();
 
+    /**
+     * What javac will resolve a source set's references into is not what was parsed: the class output of one of its
+     * dependencies is unusable, absent, or lacks or predates class files for types parsed from that dependency's
+     * sources. References into those types do not resolve, and the compilation units holding them are dropped.
+     * <p>
+     * The structured form of the class-output WARN in {@link #parseWarnings()}: the same {@link ParseException}
+     * carries it ({@link ParseException#classOutputProblem()}), and {@link #classOutputProblems()} collects them, so
+     * a consumer never has to recognise the message text. One per (source set, dependency) pair with a problem; a
+     * dependency whose class output is fresh produces none.
+     *
+     * @param sourceSet         the source set being compiled
+     * @param dependency        the source set it resolves into through class files
+     * @param kind              what is wrong
+     * @param classDirectory    the class output checked; for {@link Kind#UNUSABLE_URI}, the dependency's URI as given
+     * @param parsedTypes       how many types were parsed from the dependency's sources (package-infos included)
+     * @param missing           fully qualified names of the primary types with neither a class file nor a source file
+     *                          in the class output; for {@link Kind#UNUSABLE_URI} and {@link Kind#NO_CLASS_OUTPUT},
+     *                          every primary type parsed from the dependency. Sorted. Package-infos never count.
+     * @param stale             fully qualified names of the primary types whose class file is older than their source
+     *                          file (by more than a second, file-system timestamp granularity). Sorted.
+     * @param newestClassFile   the most recent modification time among the class files found for the parsed types,
+     *                          {@code null} when none was found
+     * @param oldestStaleSource the earliest modification time among the sources of the {@code stale} types,
+     *                          {@code null} when nothing is stale
+     */
+    record ClassOutputProblem(String sourceSet,
+                              String dependency,
+                              Kind kind,
+                              URI classDirectory,
+                              int parsedTypes,
+                              List<String> missing,
+                              List<String> stale,
+                              Instant newestClassFile,
+                              Instant oldestStaleSource) {
+        public enum Kind {
+            /** the dependency's URI is not a usable class-path entry (relative, opaque, not a file URI) */
+            UNUSABLE_URI,
+            /** the class output directory does not exist */
+            NO_CLASS_OUTPUT,
+            /** the directory exists, but class files are missing or older than their sources */
+            MISSING_OR_STALE
+        }
+
+        public ClassOutputProblem {
+            Objects.requireNonNull(sourceSet);
+            Objects.requireNonNull(dependency);
+            Objects.requireNonNull(kind);
+            missing = List.copyOf(missing);
+            stale = List.copyOf(stale);
+        }
+    }
+
+    /** The class-output problems among {@link #parseWarnings()}, in the order they were reported. */
+    default List<ClassOutputProblem> classOutputProblems() {
+        return parseWarnings().stream().map(ParseException::classOutputProblem).filter(Objects::nonNull).toList();
+    }
+
     class ParseException extends RuntimeException {
         private final URI uri;
         private final Throwable throwable;
         private final Object where;
         private final Source source;       // line/col, derived from 'where' when it is a located Element
         private final Message.Level level; // WARN (tolerable) or ERROR
+        private final ClassOutputProblem classOutputProblem; // null unless this reports one
 
         public ParseException(URI uri, Object where, String msg, Throwable throwable) {
             this(uri, where, msg, throwable, Message.Severity.ERROR);
         }
 
         public ParseException(URI uri, Object where, String msg, Throwable throwable, Message.Level level) {
+            this(uri, where, msg, throwable, level, null);
+        }
+
+        /**
+         * A WARN carrying the structured form of a class-output problem; {@code msg} stays the human-readable one.
+         * A factory rather than a constructor: a constructor would make every existing {@code (uri, where, msg, null)}
+         * call ambiguous.
+         */
+        public static ParseException classOutput(URI uri, Object where, String msg,
+                                                 ClassOutputProblem classOutputProblem) {
+            return new ParseException(uri, where, msg, null, Message.Severity.WARN,
+                    Objects.requireNonNull(classOutputProblem));
+        }
+
+        private ParseException(URI uri, Object where, String msg, Throwable throwable, Message.Level level,
+                               ClassOutputProblem classOutputProblem) {
             super(makeMessage(uri, deriveSource(where), where, msg, throwable), throwable);
             this.uri = uri;
             this.where = where;
             this.source = deriveSource(where);
             this.level = level;
             this.throwable = throwable;
+            this.classOutputProblem = classOutputProblem;
         }
 
         // the CST carries a Source (line/col) on every element; recover it from 'where' so errors are locatable
@@ -114,6 +191,11 @@ public interface Summary {
         /** Severity: {@link Message.Severity#WARN} or {@link Message.Severity#ERROR}. */
         public Message.Level level() {
             return level;
+        }
+
+        /** The structured class-output problem this warning reports, {@code null} for any other parse message. */
+        public ClassOutputProblem classOutputProblem() {
+            return classOutputProblem;
         }
     }
 
