@@ -444,6 +444,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 Supplier<Object> fromThis() { return this::replayed; }
                 static Supplier<Object> fromType() { return Replays::initial; }
                 static Function<Replays, Object> unbound() { return Replays::peek; }
+                Long tally() { return null; }
+                static Function<Replays, Long> tallies() { return Replays::tally; }
             }
             """;
 
@@ -469,6 +471,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "internal Func<object> FromThis() => () => this.Replayed()!;");
         contains(cs, "internal static Func<object> FromType() => () => Replays.Initial()!;");
         contains(cs, "internal static Func<Replays, object> Unbound() => (Replays p0) => p0.Peek()!;");
+        // an unboxing cast, of C#'s long? (CS8629)
+        contains(cs, "(Replays p0) => (long) p0.Tally()!;");
     }
 
     @Language("java")

@@ -1389,7 +1389,9 @@ public final class CSharpExpressionPrinter {
                            && CSharpContext.program().facts().nullable(method) == NullableState.NULLABLE;
         // a Long result into a Function's R, C#'s long: a lambda that unboxes, (long) p0.Result()
         String cast = unboxing(mr, method, q);
-        String arguments = "(" + String.join(", ", parameters) + ")" + (forgiven && cast == null ? "!" : "");
+        // with the analysis, ! as on any unboxing cast: C# thinks the long? may be null (CS8629)
+        boolean asserted = forgiven || cast != null && CSharpContext.program().facts().nullabilityAnalysed();
+        String arguments = "(" + String.join(", ", parameters) + ")" + (asserted ? "!" : "");
         String prefix = cast == null ? "" : cast;
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
@@ -1399,8 +1401,7 @@ public final class CSharpExpressionPrinter {
             }
             // String::length: the first parameter is the receiver
             return text(parameterList + " => " + prefix + parameters.getFirst() + "." + name + "("
-                        + String.join(", ", parameters.subList(1, parameters.size())) + ")"
-                        + (forgiven && cast == null ? "!" : ""));
+                        + String.join(", ", parameters.subList(1, parameters.size())) + ")" + (asserted ? "!" : ""));
         }
         if ((forgiven || cast != null) && scope instanceof VariableExpression ve && ve.variable() instanceof This) {
             OutputBuilder lambda = new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE);
