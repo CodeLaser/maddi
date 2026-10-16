@@ -343,6 +343,17 @@ public final class CSharpNames {
         return sam != null && sam.typeParameters().isEmpty();
     }
 
+    /**
+     * The library's method that a translated functional interface printed with an adapter has as its one abstract
+     * method, {@code BiPredicate.test} of {@code MovableFilter extends BiPredicate<Solution_, Object>}: C#'s interface
+     * cannot extend the delegate, it declares the method itself, {@code Test}. Null otherwise.
+     */
+    static MethodInfo librarySingleAbstractMethod(TypeInfo typeInfo) {
+        if (typeInfo == null || !lambdaAdapter(typeInfo)) return null;
+        MethodInfo sam = singleAbstractMethod(typeInfo);
+        return translated(sam.typeInfo()) ? null : sam;
+    }
+
     /** The one abstract method of a functional interface, also when no lambda targets it. */
     static MethodInfo singleAbstractMethod(TypeInfo typeInfo) {
         if (!typeInfo.interfacesImplemented().isEmpty()) {

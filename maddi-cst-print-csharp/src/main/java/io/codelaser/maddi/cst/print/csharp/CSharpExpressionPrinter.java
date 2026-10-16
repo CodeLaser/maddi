@@ -400,11 +400,33 @@ public final class CSharpExpressionPrinter {
     }
 
     private static OutputBuilder methodCallInCall(MethodCall mc, Qualification q, boolean statement) {
+        OutputBuilder own = librarySingleAbstractMethodCall(mc, q);
+        if (own != null) return own;
         LibraryMapping.Rule rule = rule(mc);
         if (rule != null) return mappedCall(mc, rule, q, statement);
         OutputBuilder special = specialCall(mc, q);
         if (special != null) return special;
         return member(mc, qualifier(mc, q), q);
+    }
+
+    /**
+     * MovableFilter's test, BiPredicate's, through the program's interface: the interface's own Test
+     * ({@link CSharpNames#librarySingleAbstractMethod}), not the delegate's invocation that the library's rule has.
+     */
+    private static OutputBuilder librarySingleAbstractMethodCall(MethodCall mc, Qualification q) {
+        MethodInfo method = mc.methodInfo();
+        Expression object = mc.object();
+        if (method.isStatic() || CSharpNames.translated(method.typeInfo())) return null;
+        TypeInfo receiverType = object == null || mc.objectIsImplicit() ? CSharpContext.currentType()
+                : object.parameterizedType().typeInfo();
+        MethodInfo sam = CSharpNames.librarySingleAbstractMethod(receiverType);
+        if (sam == null || !sam.name().equals(method.name()) || !sam.typeInfo().equals(method.typeInfo())
+            || sam.parameters().size() != method.parameters().size()) {
+            return null;
+        }
+        OutputBuilder b = new OutputBuilderImpl();
+        if (object != null && !mc.objectIsImplicit()) b.add(CSharpNullability.dereferenced(object, q)).add(SymbolEnum.DOT);
+        return b.add(text(CSharpNames.pascal(method.name()))).add(arguments(mc.parameterExpressions(), method, q));
     }
 
     /** A call of a library's method, as its rule's template has it. */

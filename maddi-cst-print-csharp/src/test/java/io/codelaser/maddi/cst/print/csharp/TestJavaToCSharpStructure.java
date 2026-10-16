@@ -1691,6 +1691,38 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String LIBRARY_FUNCTIONAL = """
+            package org.example.filters;
+            import java.util.function.BiPredicate;
+            import java.util.function.ToIntFunction;
+            public class Filters {
+                interface Movable<S> extends BiPredicate<S, Object> {
+                    default Movable<S> and(Movable<S> other) { return (s, e) -> test(s, e) && other.test(s, e); }
+                }
+                interface PinReader extends ToIntFunction<Object> { }
+                static boolean movable(Movable<String> m, Object e) { return m.test("s", e); }
+                static int pin(PinReader r, Object e) { return r == null ? 0 : r.applyAsInt(e); }
+                static final class Always implements Movable<String> {
+                    public boolean test(String s, Object e) { return true; }
+                }
+            }
+            """;
+
+    /**
+     * A functional interface of the program that extends the library's, MovableFilter of BiPredicate: C# cannot extend
+     * the delegate, the interface declares the method itself, in PascalCase, and a call through it is no invocation.
+     */
+    @Test
+    public void libraryFunctionalInterfaces() {
+        String cs = translate("Filters", LIBRARY_FUNCTIONAL);
+        contains(cs, "bool Test(S ");
+        contains(cs, "Test(s, e) && other.Test(s, e)");
+        contains(cs, "m.Test(\"s\", e)");
+        contains(cs, "r.ApplyAsInt(e)");
+        contains(cs, "public bool Test(string s, object e) => true;");
+    }
+
+    @Language("java")
     private static final String BOXED_REFERENCES = """
             package org.example.boxedrefs;
             import java.util.function.Function;
