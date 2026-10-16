@@ -1572,4 +1572,23 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
         contains(kotlin, "Comparator<Internal.Entry<K, E>>");
     }
+
+    /**
+     * guava's Predicate redeclares equals(Object) abstract, for its documentation. In Kotlin that abstract override would
+     * oblige each implementing class to implement equals again; it is left out.
+     */
+    @Test
+    public void interfaceRedeclaringEqualsLeavesItOut() {
+        String kotlin = kotlin("""
+                package a;
+                interface Pred<T> {
+                    boolean apply(T input);
+                    @Override boolean equals(Object obj);
+                    @Override int hashCode();
+                }
+                """);
+        assertFalse(kotlin.contains("fun equals"), kotlin);
+        assertFalse(kotlin.contains("fun hashCode"), kotlin);
+        contains(kotlin, "fun apply(input: T): Boolean");
+    }
 }

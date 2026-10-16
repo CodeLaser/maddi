@@ -86,6 +86,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
     }
 
+    /**
+     * {@code boolean equals(Object)}, {@code int hashCode()} or {@code String toString()} redeclared abstract in an
+     * interface, for its documentation (guava's Predicate, Function, Equivalence): Java's classes keep Object's
+     * implementation, but in Kotlin the abstract override in the interface wins, and every class implementing it
+     * would have to implement the member again. Left out: the interface means the same without it.
+     */
+    private static boolean abstractObjectMethod(MethodInfo m) {
+        if (!m.typeInfo().isInterface() || !m.isAbstract() || m.isStatic()) return false;
+        return "equals".equals(m.name()) && m.parameters().size() == 1
+               && m.parameters().getFirst().parameterizedType().isJavaLangObject()
+               || ("hashCode".equals(m.name()) || "toString".equals(m.name())) && m.parameters().isEmpty();
+    }
+
     private OutputBuilder printType(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration,
                                     MethodPrinterFactory methodPrinterFactory, FieldPrinterFactory fieldPrinterFactory,
                                     EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
@@ -256,7 +269,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // getter stays a method, because its callers print as calls (prepwork marks it all the same)
                 .filter(m -> !m.isSynthetic() && (companion || !isAccessor(m)))
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
-                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m))
+                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
