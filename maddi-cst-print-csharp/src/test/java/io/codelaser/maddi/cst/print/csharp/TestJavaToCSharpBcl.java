@@ -484,6 +484,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     return set;
                 }
                 static Object first(SequencedCollection<Object> c) { return c.getFirst(); }
+                static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
+                static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
             }
             """;
@@ -505,6 +507,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a SequencedCollection is a List's or a LinkedHashSet's: ICollection
         contains(cs, "internal static ICollection<object> Entities(object a, object b)");
         contains(cs, "c.First()");
+        contains(cs, "l.Iterator(i)");
+        contains(cs, "new Dictionary<object, string>()");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");

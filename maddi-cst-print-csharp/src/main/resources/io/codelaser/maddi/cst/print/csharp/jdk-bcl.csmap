@@ -23,6 +23,8 @@ type java.util.Map -> IDictionary using System.Collections.Generic
 type java.util.AbstractMap -> IDictionary using System.Collections.Generic
 type java.util.HashMap -> Dictionary using System.Collections.Generic
 type java.util.IdentityHashMap -> Dictionary using System.Collections.Generic
+# a WeakHashMap's keys are weak, which a Dictionary's are not: a key stays until it is removed
+type java.util.WeakHashMap -> Dictionary using System.Collections.Generic
 type java.util.concurrent.ConcurrentHashMap -> Dictionary using System.Collections.Generic
 type java.util.LinkedHashMap -> OrderedDictionary using System.Collections.Generic
 type java.util.EnumMap -> SortedDictionary using System.Collections.Generic
@@ -237,6 +239,7 @@ member java.util.Map.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
 member java.lang.Iterable.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.List.listIterator/1 -> $0.Iterator($1) using Maddi.JavaCompat
 member java.util.List.add/2 -> $0.Insert($1, $2)
 member java.util.List.remove(Object) -> $0.Remove($1)
 member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
