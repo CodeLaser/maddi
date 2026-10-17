@@ -1378,6 +1378,43 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's {@code Iterators.partitionImpl}: {@code new UnmodifiableIterator<List<@Nullable T>>() {...}}. The
+     * anonymous class's header keeps the type-use annotation's state, as a named class's does, so that its
+     * {@code next(): MutableList<T?>} overrides what the header says (CodeLaser/maddi#144).
+     */
+    @Test
+    public void anonymousSupertypeArgumentDeclaredNullable() {
+        // the results as the pass reads them from guava's annotations: next() a List<T?>, the factories an It<List<T?>>
+        KotlinPrintOptions options = new KotlinPrintOptions(
+                new ByName(Set.of("next()<>", "get()<>", "ofClass()<<>>", "ofInterface()<<>>")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Iterator;
+                import java.util.List;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                class Partition {
+                    abstract static class It<E> implements Iterator<E> {
+                        @Override public boolean hasNext() { return false; }
+                    }
+                    static <T> It<List<@Nullable T>> ofClass() {
+                        return new It<List<@Nullable T>>() {
+                            @Override public List<@Nullable T> next() { return new java.util.ArrayList<>(); }
+                        };
+                    }
+                    static <T> java.util.function.Supplier<List<@Nullable T>> ofInterface() {
+                        return new java.util.function.Supplier<List<@Nullable T>>() {
+                            @Override public List<@Nullable T> get() { return new java.util.ArrayList<>(); }
+                        };
+                    }
+                }
+                """, options);
+        contains(kotlin, "object : It<MutableList<T?>>()");
+        contains(kotlin, "object : java.util.function.Supplier<MutableList<T?>>");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's TopKSelector, ImmutableSet: {@code buffer = (T[]) new Object[2 * k]} into a field whose elements are
      * nullable. The cast takes the target's element state ({@code as Array<T?>}): Kotlin's arrays are invariant.
      */

@@ -1784,12 +1784,16 @@ public class KotlinExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
                 .add(SymbolEnum.COLON).add(SpaceEnum.ONE);
         ParameterizedType parent = anonymous.parentClass();
+        // the written supertype's type-use states, as a named class's header has them (KotlinTypePrinter):
+        // 'new UnmodifiableIterator<List<@Nullable T>>() {...}' is an UnmodifiableIterator<MutableList<T?>>, the type
+        // its own 'next(): MutableList<T?>' overrides (guava Iterators.partitionImpl, CodeLaser/maddi#144)
         if (parent != null && !parent.isJavaLangObject()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype : parent, q)))
+            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
+                            : KotlinTypePrinter.declaredArguments(parent), q)))
                     .add(arguments(cc.parameterExpressions(), q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
-                    : anonymous.interfacesImplemented().getFirst(), q)));
+                    : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
         } else {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
