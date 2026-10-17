@@ -1241,6 +1241,11 @@ public class KotlinExpressionPrinter {
                                                        Expression argument) {
         if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())
             || i >= method.parameters().size() || method.parameters().get(i).isVarArgs()) return false;
+        // a named argument needs the callee's Kotlin: a test compiles against the Java class where the callee's file
+        // does not compile (guava's FauxveridesTest, ImmutableSortedSet.copyOf), so only within its own source set
+        io.codelaser.maddi.cst.api.info.MethodInfo caller = KotlinContext.currentMethod();
+        if (caller == null || caller.typeInfo().compilationUnit().sourceSet()
+                              != method.typeInfo().compilationUnit().sourceSet()) return false;
         ParameterInfo p = method.parameters().get(i);
         ParameterizedType type = p.parameterizedType();
         if (type.arrays() != 0 || type.typeInfo() == null || type.typeParameter() != null
