@@ -737,10 +737,20 @@ public class KotlinExpressionPrinter {
                     // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
                     ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    ParameterizedType castType = KotlinNullability.parameterType(vararg)
+                            .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+                    // ImmutableList.copyOf(futures) into copyOf(elements: Array<E?>): the elements' state is the
+                    // callee's, as Kotlin's Array is invariant (the cast checks no element)
+                    ParameterizedType into = KotlinNullability.parameterType(method.parameters().get(i));
+                    if (into.arrays() == 1 && castType.arrays() == 1
+                        && KotlinNullability.isNullable(into.componentType())
+                        && !KotlinNullability.isNullable(castType.componentType())) {
+                        castType = castType.withComponentType(castType.componentType()
+                                .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+                    }
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
-                                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                            .add(new TextImpl(KotlinTypeName.of(castType, q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
                 } else if (hasParameter && castable(method, i) && nullabilityTiesOverload(method, i, args.get(i))) {
                     // Json.fromJson(String?, Class<T>) beside fromJson(String, Type), with a non-null String: each is
