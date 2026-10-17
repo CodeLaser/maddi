@@ -783,7 +783,8 @@ public class KotlinExpressionPrinter {
                                             && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
-                if (hasParameter && covariantArrayArgument(method, i, args.get(i))) {
+                if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
+                                     || nullableElementsParameter(method, i, args.get(i)))) {
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
@@ -1700,6 +1701,29 @@ public class KotlinExpressionPrinter {
         ParameterizedType type = KotlinNullability.parameterType(p);
         return !p.isVarArgs() && type.arrays() == 1 && !KotlinMethodPrinter.covariantArray(p, type)
                && covariantArray(arg, p.parameterizedType());
+    }
+
+    /**
+     * An array whose elements Kotlin types non-null handed to a translated method's invariant array parameter whose
+     * elements are nullable: guava's RegularImmutableSet.EMPTY, {@code new RegularImmutableSet<>(EMPTY_ARRAY, 0,
+     * EMPTY_ARRAY, 0)}, an {@code Array<Any>} into {@code table: Array<Any?>}. Erased, the cast checks nothing.
+     */
+    private static boolean nullableElementsParameter(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                     Expression arg) {
+        if (!KotlinContext.translatingJava() || method == null || i >= method.parameters().size()
+            || !KotlinNullability.translated(method.typeInfo())) {
+            return false;
+        }
+        ParameterInfo p = method.parameters().get(i);
+        ParameterizedType type = KotlinNullability.parameterType(p);
+        if (p.isVarArgs() || type.arrays() != 1 || KotlinMethodPrinter.covariantArray(p, type)
+            || !KotlinNullability.isNullable(type.componentType()) || type.componentType().typeParameter() != null) {
+            return false;
+        }
+        ParameterizedType value = KotlinNullability.kotlinType(arg);
+        return value != null && value.arrays() == 1 && !(unwrap(arg) instanceof ConstructorCall)
+               && !KotlinNullability.isNullable(value.componentType()) && value.componentType().wildcard() == null
+               && sameUpToStates(value.componentType(), type.componentType());
     }
 
     private static boolean vararg(Expression e) {

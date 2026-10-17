@@ -865,6 +865,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's RegularImmutableSet.EMPTY: {@code new RegularImmutableSet<>(EMPTY_ARRAY, 0)}, an {@code Array<Any>}
+     * constant into a {@code table: Array<Any?>}: Kotlin's arrays are invariant, so the cast.
+     */
+    @Test
+    public void nonNullElementsIntoNullableElementsParameter() {
+        String kotlin = kotlin("""
+                package a;
+                final class Set0 {
+                    private static final Object[] EMPTY_ARRAY = new Object[0];
+                    static final Set0 EMPTY = new Set0(EMPTY_ARRAY, 0);
+                    final Object[] table;
+                    final int size;
+                    Set0(Object[] table, int size) { this.table = table; this.size = size; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("table[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "EMPTY_ARRAY as Array<Any?>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
