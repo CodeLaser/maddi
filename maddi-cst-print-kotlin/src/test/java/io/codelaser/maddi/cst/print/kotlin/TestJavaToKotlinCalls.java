@@ -943,4 +943,20 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 """);
         assertFalse(kotlin.contains("& Any"), kotlin);
     }
+
+    /** guava's AbstractScheduledService.ReschedulableCallable: {@code Void call() { …; return null; }}, a Unit call(). */
+    @Test
+    public void voidReturningCallable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.Callable;
+                final class Task implements Callable<Void> {
+                    int runs;
+                    @Override public Void call() { runs++; return null; }
+                }
+                """);
+        contains(kotlin, "override fun call() {");
+        assertFalse(kotlin.contains("return null"), kotlin);
+        compiles(kotlin);
+    }
 }

@@ -285,6 +285,15 @@ public class KotlinStatementPrinter {
         String label = rs.goToLabel() != null ? rs.goToLabel()
                 : KotlinContext.inLambda() ? KotlinContext.LAMBDA_LABEL : null;
         OutputBuilder b = new OutputBuilderImpl().add(label == null ? KotlinKeyword.RETURN : new TextImpl("return@" + label));
+        io.codelaser.maddi.cst.api.info.MethodInfo voidMethod = KotlinContext.currentMethod();
+        if (!rs.hasNoValue() && label == null && voidMethod != null && !voidMethod.isConstructor()
+            && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+            && voidMethod.returnType().arrays() == 0 && voidMethod.returnType().typeInfo() != null
+            && "java.lang.Void".equals(voidMethod.returnType().typeInfo().fullyQualifiedName())) {
+            // guava's AbstractScheduledService: Void call() { …; return null; } is Kotlin's Unit call(), as the
+            // Callable<Void> it implements is a Callable<Unit>
+            return b;
+        }
         if (!rs.hasNoValue()) {
             Expression value = rs.expression();
             OutputBuilder printed;
