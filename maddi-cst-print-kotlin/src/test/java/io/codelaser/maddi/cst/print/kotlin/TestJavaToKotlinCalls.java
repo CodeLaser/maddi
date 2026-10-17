@@ -463,4 +463,52 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "val result: MutableList<N> = ");
         compiles(kotlin);
     }
+
+    /**
+     * guava's CollectCollectors and TableCollectors: Java types {@code Collector.of}'s accumulator from a generic
+     * reference, a cast to a functional interface, or a cast to the raw Collector; Kotlin infers none of them.
+     */
+    @Test
+    public void collectorOfGenericReferences() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                import java.util.stream.Collector;
+                class Bag<E> {
+                    static <E> Bag<E> create() { return new Bag<>(); }
+                    static <E> Bag<E> create(int n) { return new Bag<>(); }
+                    void add(E e) { }
+                    Bag<E> merge(Bag<E> other) { return this; }
+                    List<E> list() { return new ArrayList<>(); }
+                    static <E> List<E> copyOf(Collection<? extends E> c) { return new ArrayList<>(c); }
+                }
+                class Acc<R, V> {
+                    void put(R r, V v) { }
+                    Acc<R, V> combine(Acc<R, V> other) { return this; }
+                    Map<R, V> done() { return new HashMap<>(); }
+                }
+                class Collectors2 {
+                    private static final Collector<Object, ?, List<Object>> TO_LIST =
+                            Collector.of(ArrayList::new, (List<Object> l, Object o) -> l.add(o), (a, b) -> { a.addAll(b); return a; });
+                    @SuppressWarnings("unchecked")
+                    static <E> Collector<E, ?, List<E>> toList() { return (Collector) TO_LIST; }
+                    static <T, E> Collector<T, ?, List<E>> toBag(Function<? super T, ? extends E> f) {
+                        return Collector.of(Bag::create, (bag, t) -> bag.add(f.apply(t)), (b1, b2) -> b1.merge(b2), (Bag<E> b) -> b.list());
+                    }
+                    static <T, R, V> Collector<T, ?, Map<R, V>> toMap(Function<T, R> r, Function<T, V> v) {
+                        return Collector.of(Acc<R, V>::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
+                                (a1, a2) -> a1.combine(a2), acc -> acc.done());
+                    }
+                    static <T, R, V> Collector<T, ?, Map<R, V>> toMap2(Function<T, R> r, Function<T, V> v) {
+                        return Collector.of((Supplier<Acc<R, V>>) Acc::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
+                                Acc::combine, Acc::done);
+                    }
+                }
+                """);
+        contains(kotlin, "TO_LIST as Collector<E, *, MutableList<E>>");
+        contains(kotlin, "Supplier<Bag<E>>(");
+        contains(kotlin, "Supplier<Acc<R, V>>(");
+        compiles(kotlin);
+    }
 }

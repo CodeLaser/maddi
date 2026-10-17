@@ -623,6 +623,15 @@ public class KotlinExpressionPrinter {
                     continue;
                 }
             }
+            if (hasParameter && unwrap(args.get(i)) instanceof MethodReference mr && genericReferenceTyping(method, i, mr)) {
+                // Collector.of(LinkedHashMultiset::create, …): Java infers create's E, and so Collector.of's A, from
+                // the target; Kotlin infers neither from a bare reference. A SAM constructor of the reference's
+                // functional type gives both
+                printed.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(mr.parameterizedType()
+                                .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                        .add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+                continue;
+            }
             if (hasParameter && unwrap(args.get(i)) instanceof MethodReference mr && besideTypeParameter(method, i)) {
                 // Function<Range<K>, Cut<K>>({ it.lowerBound() }): the reference's own type arguments, or Kotlin infers
                 // none for a SAM constructor around a lambda (guava's ImmutableRangeMap)
@@ -1123,6 +1132,25 @@ public class KotlinExpressionPrinter {
      * The parameter's type can be written at the call: it names none of the called method's own type parameters
      * ({@code Maps.transformValues}'s {@code Function<? super V1, V2>}), which only the callee knows.
      */
+    /**
+     * A reference to a generic constructor or static method, whose type arguments only the target gives, passed where
+     * the callee's own type parameters are inferred: {@code Collector.of(LinkedHashMultiset::create, …)}. Only with the
+     * reference's functional type fully known.
+     */
+    private static boolean genericReferenceTyping(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                  MethodReference mr) {
+        if (!KotlinContext.translatingJava() || castable(method, i) || mr.methodInfo() == null) return false;
+        io.codelaser.maddi.cst.api.info.MethodInfo referenced = mr.methodInfo();
+        boolean generic = referenced.isConstructor() ? !referenced.typeInfo().typeParameters().isEmpty()
+                : referenced.isStatic() && !referenced.typeParameters().isEmpty();
+        ParameterizedType functional = mr.parameterizedType();
+        TypeInfo samType = method.parameters().get(i).parameterizedType().typeInfo();
+        return generic && functional != null && samType != null && functional.typeInfo() == samType
+               && functional.arrays() == 0 && !functional.parameters().isEmpty()
+               && functional.parameters().stream().allMatch(p -> p.wildcard() == null && !CstQueries.mentionsAny(p,
+                        method.typeParameters()));
+    }
+
     private static boolean castable(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
         ParameterizedType p = method.parameters().get(i).parameterizedType();
         return method.typeParameters().stream().noneMatch(tp -> CstQueries.mentions(p, tp));
@@ -1268,6 +1296,12 @@ public class KotlinExpressionPrinter {
             && sameUpToStates(c.parameterizedType(), target)) {
             // (Map<String, Object>) Json.fromJson(…) into a Map<String, Object?>: Kotlin's generics are invariant, and
             // the cast checks no type argument; it takes those of what it initializes
+            ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
+        if (unwrap(e) instanceof Cast c && target != null && rawCastTo(c.parameterizedType(), target)) {
+            // return (Collector) TO_IMMUTABLE_LIST into a Collector<E, ?, ImmutableList<E>>: Java's raw type converts
+            // unchecked, Kotlin's Collector<*, *, *> does not; the cast takes the type arguments of what it initializes
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
@@ -1485,6 +1519,14 @@ public class KotlinExpressionPrinter {
         // Class<?> is not raw, and Class.forName's Class<*> is nothing to adopt
         return raw.parameters().isEmpty() && !typed.parameters().isEmpty()
                && typed.parameters().stream().noneMatch(p -> p.wildcard() != null || p.isTypeParameter() && p.typeParameter() == null);
+    }
+
+    /** A cast to a raw type, into a parameterization of it: unlike a creation, a cast may write a wildcard. */
+    private static boolean rawCastTo(ParameterizedType raw, ParameterizedType typed) {
+        return raw.typeInfo() != null && raw.typeInfo() == typed.typeInfo() && raw.arrays() == typed.arrays()
+               && !raw.typeInfo().typeParameters().isEmpty() && raw.parameters().isEmpty()
+               && typed.parameters().size() == raw.typeInfo().typeParameters().size()
+               && typed.parameters().stream().noneMatch(p -> p.isTypeParameter() && p.typeParameter() == null);
     }
 
     private static int rank(Primitive p) {
@@ -2327,6 +2369,17 @@ public class KotlinExpressionPrinter {
                 if (!call.isEmpty()) receiver.add(SymbolEnum.DOT).add(new TextImpl(call));
             }
             return receiver;
+        }
+        if (KotlinContext.translatingJava() && (unwrap(cast.expression()) instanceof MethodReference
+                                                 || unwrap(cast.expression()) instanceof Lambda)
+            && castType.typeInfo() != null && castType.typeInfo().isFunctionalInterface() && castType.arrays() == 0
+            && !castType.parameters().isEmpty() && castType.parameters().stream().allMatch(p -> p.wildcard() == null)) {
+            // (Supplier<ImmutableTable.Builder<R, C, V>>) ImmutableTable.Builder::new: the cast is what types the
+            // reference for Java; Kotlin's `{ ImmutableTable.Builder() } as Supplier<…>` infers nothing from it, a SAM
+            // constructor does
+            return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(castType.withNullable(
+                            io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
         ParameterizedType type = nullable
