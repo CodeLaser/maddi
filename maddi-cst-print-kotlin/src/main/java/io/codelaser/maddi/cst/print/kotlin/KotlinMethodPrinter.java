@@ -434,6 +434,18 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
                 passedOn(pi, mc.parameterExpressions(), mc.methodInfo(), reads);
             }
+            // guava's SetView.minSize(Set<?> set): set instanceof SetView ? ((SetView<?>) set).minSize() : set.size().
+            // A test or a cast compiles from the read-only type too; the analysis says nothing modifies the set
+            if (e instanceof io.codelaser.maddi.cst.api.expression.InstanceOf io
+                && KotlinExpressionPrinter.unwrap(io.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Cast c
+                && KotlinExpressionPrinter.unwrap(c.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
+            }
             if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.constructor() != null) {
                 passedOn(pi, cc.parameterExpressions(), cc.constructor(), reads);
             }
