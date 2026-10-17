@@ -901,4 +901,22 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "tryFind<E & Any>(");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Parameter.getDeclaredAnnotations(): {@code annotations.toArray(new Annotation[0])} on its own
+     * ImmutableCollection, whose {@code <T> T[] toArray(T[] other)} is translated: arrayOfNulls would make T nullable.
+     */
+    @Test
+    public void emptyArrayIntoATranslatedToArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Coll<E> {
+                    abstract <T> T[] toArray(T[] other);
+                    static String[] names(Coll<String> c) { return c.toArray(new String[0]); }
+                }
+                """);
+        contains(kotlin, "toArray(emptyArray<String>())");
+        compiles(kotlin);
+    }
 }

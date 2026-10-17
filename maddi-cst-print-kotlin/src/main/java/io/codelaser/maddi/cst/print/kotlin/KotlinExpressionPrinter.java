@@ -746,6 +746,18 @@ public class KotlinExpressionPrinter {
                     }
                     argumentTranslated = false;
                 }
+                if (hasParameter && "toArray".equals(method.name()) && method.parameters().size() == 1
+                    && KotlinNullability.translated(method.typeInfo()) && unwrap(args.get(i)) instanceof ConstructorCall ec
+                    && ec.arrayInitializer() == null && ec.parameterizedType().arrays() == 1
+                    && ec.parameterExpressions().size() == 1 && unwrap(ec.parameterExpressions().getFirst()) instanceof IntConstant zero
+                    && zero.constant() == 0 && ec.parameterizedType().componentType().typeParameter() == null
+                    && KotlinTypeName.primitiveArray(ec.parameterizedType().componentType()) == null) {
+                    // guava's annotations.toArray(new Annotation[0]) on its own ImmutableCollection: arrayOfNulls makes
+                    // its T an Annotation?, and the result an Array<Annotation?>; an empty array has no nulls
+                    printed.add(text("emptyArray<" + KotlinTypeName.of(ec.parameterizedType().componentType()
+                            .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q) + ">()"));
+                    continue;
+                }
                 if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
                     // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
                     // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin
