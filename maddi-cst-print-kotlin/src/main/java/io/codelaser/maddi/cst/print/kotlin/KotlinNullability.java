@@ -592,12 +592,12 @@ final class KotlinNullability {
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         if (targetTranslated && target != null && value instanceof NullConstant && !isNullable(target)
-            && !target.isPrimitiveExcludingVoid() && inTestSource()) {
+            && !target.isPrimitiveExcludingVoid() && inTestSource() && writable(target)) {
             // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
-            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type,
-            // or Nothing where that type names the callee's type variables
+            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type.
+            // Not into a type variable's slot, which the call may instantiate nullable (guava's GeneralRangeTest
+            // passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw)
             KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, value, KotlinContext.describe(value));
-            if (!writable(target)) return new OutputBuilderImpl().add(printed).add(NOT_NULL);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target.withNullable(NullableState.NULLABLE), q)))
