@@ -217,6 +217,32 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String LAMBDA_INFERENCE = """
+            package org.example.inference;
+            import java.util.List;
+            class Groups {
+                interface Lifecycle<T> { }
+                interface Constructor<T> { }
+                interface Builder<K, T> { Object build(K key, int index, Lifecycle<T> next); }
+                static final class Node<K, T> { Node(K key, int index, Lifecycle<T> next) { } }
+                static <K, T> Constructor<T> groupBy(K key, Builder<K, T> builder) { return null; }
+                static Constructor<List<String>> byReference(String key) { return groupBy(key, Node::new); }
+                static Constructor<List<String>> byLambda(String key) {
+                    return groupBy(key, (k, i, next) -> new Node<>(k, i, next));
+                }
+            }
+            """;
+
+    /** A type parameter only a lambda's or a method reference's parameters mention: C# does not infer it. */
+    @Test
+    public void lambdaInference() {
+        String cs = translate("Groups", LAMBDA_INFERENCE);
+        contains(cs, "GroupBy<string, List<string>>(\nkey,");
+        // a raw Node::new creates the type of the delegate's parameters
+        contains(cs, "(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

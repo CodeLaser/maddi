@@ -384,7 +384,9 @@ implements the interface.
   inferred them, `tuple.GetStore<Bucket<…>>(i)`, unless one is not a type C# can write. So does a method group,
   whose type arguments C# does not infer from the delegate it converts to: `AbstractMinMaxSlot::minState` as a
   supplier is `AbstractMinMaxSlot.MinState<Result_>`. A `Class<T>` parameter is C#'s `Type`, from which C# infers
-  nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a `Class<?>` its own bound.
+  nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a `Class<?>` its own bound. Nor does C# infer
+  from an implicitly typed lambda's parameters: a type parameter that only parameters given a lambda or a method
+  reference mention, `oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)`'s `Tuple_`, gets them all too.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
   for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
@@ -399,7 +401,9 @@ implements the interface.
   `Func<object, object>` is no `Func<A, object>[]`.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
-  parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`.
+  parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
+  say, the delegate's parameter types do: `Node::new` as a `Builder<String, List<String>>` of
+  `(K key, int index, Lifecycle<T> next)` is `(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)`.
 - **Type parameters in scope.** Where the printer writes a type Java inferred (a cast after an erased call, explicit
   type arguments, a diamond), each type parameter in it must be one C# can name there: a method's being printed, or
   the current type's or an enclosing one's, not in the non-generic companion class of the static members.
