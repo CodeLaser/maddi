@@ -50,6 +50,8 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.lang.Throwable", "getCause", 0), "cause"),
             Map.entry(new Key("java.lang.Enum", "name", 0), "name"),
             Map.entry(new Key("java.lang.Enum", "ordinal", 0), "ordinal"),
+            // Kotlin's Enum has no getDeclaringClass(); kotlin.jvm's extension property gives Java's
+            Map.entry(new Key("java.lang.Enum", "getDeclaringClass", 0), "declaringJavaClass"),
             Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"));
 
     private static final Map<Key, String> FUNCTION = Map.ofEntries(
@@ -319,7 +321,7 @@ final class KotlinMappedMembers {
     static boolean isJavaStringOnly(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName())
                && java.util.Set.of("strip", "stripLeading", "stripTrailing", "stripIndent", "indent",
-                "translateEscapes").contains(methodInfo.name());
+                "translateEscapes", "getChars").contains(methodInfo.name());
     }
 
     /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */

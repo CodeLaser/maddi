@@ -396,4 +396,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "replacements[b.toInt()]");
         compiles(kotlin);
     }
+
+    /**
+     * guava's EnumMultiset, Platform, CycleDetectingLockFactory: Enum.getDeclaringClass() is Kotlin's declaringJavaClass;
+     * Strings.repeat, CharEscaper: String.getChars(…) is Java's only.
+     */
+    @Test
+    public void enumDeclaringClassAndGetChars() {
+        String kotlin = kotlin("""
+                package a;
+                class Names {
+                    enum Color { RED }
+                    static <E extends Enum<E>> Class<E> type(E e) { return e.getDeclaringClass(); }
+                    static String rank(Enum<?> rank) { return rank.getDeclaringClass().getSimpleName() + "." + rank.name(); }
+                    static char[] chars(String s) {
+                        char[] dest = new char[s.length()];
+                        s.getChars(0, s.length(), dest, 0);
+                        return dest;
+                    }
+                }
+                """);
+        contains(kotlin, "e.declaringJavaClass");
+        contains(kotlin, "(s as java.lang.String).getChars(");
+        compiles(kotlin);
+    }
 }
