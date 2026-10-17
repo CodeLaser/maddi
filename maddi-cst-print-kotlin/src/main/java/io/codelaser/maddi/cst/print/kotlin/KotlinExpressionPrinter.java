@@ -1115,15 +1115,20 @@ public class KotlinExpressionPrinter {
      */
     private static ParameterizedType nullableLookup(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call,
                                           Expression argument, int i) {
-        if (!LOOKUPS.contains(method.name()) || !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
-            || "remove".equals(method.name()) && method.parameters().size() != 1
-            || call.object() == null || call.objectIsImplicit()) {
-            return null;
-        }
-        ParameterizedType p = method.parameters().get(i).parameterizedType();
-        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0) return null;
-        ParameterizedType element = lookedUp(call.object().parameterizedType(), method.typeInfo(),
-                "containsValue".equals(method.name()) ? 1 : 0);
+        if (!LOOKUPS.contains(method.name()) || call.object() == null || call.objectIsImplicit()) return null;
+        // this@LocalCache.get(key): the receiver's own override of a java.util lookup, which Kotlin declares
+        // get(key: K) as Map's; and Map's remove(key, value), whose value is a V
+        io.codelaser.maddi.cst.api.info.MethodInfo lookup = method.typeInfo().fullyQualifiedName().startsWith("java.util.")
+                ? method : method.overrides().stream()
+                .filter(o -> o.typeInfo().fullyQualifiedName().startsWith("java.util.")).findFirst().orElse(null);
+        if (lookup == null) return null;
+        boolean removeEntry = "remove".equals(method.name()) && method.parameters().size() == 2
+                              && lookup.typeInfo().fullyQualifiedName().endsWith("Map");
+        if ("remove".equals(method.name()) && method.parameters().size() != 1 && !removeEntry) return null;
+        ParameterizedType p = lookup.parameters().get(i).parameterizedType();
+        if (!p.isJavaLangObject() || p.arrays() != 0 || i != 0 && !removeEntry) return null;
+        ParameterizedType element = lookedUp(call.object().parameterizedType(), lookup.typeInfo(),
+                "containsValue".equals(method.name()) || removeEntry && i == 1 ? 1 : 0);
         if (element != null && element.wildcard() != null && element.wildcard().isSuper()) {
             // lst.remove(post) on a MutableList<in Statement?>: the member takes the bound, when that is nullable
             ParameterizedType kotlin = lookedUp(KotlinNullability.kotlinType(call.object()), method.typeInfo(),

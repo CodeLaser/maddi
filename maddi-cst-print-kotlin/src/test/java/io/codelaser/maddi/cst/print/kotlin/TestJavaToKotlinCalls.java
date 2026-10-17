@@ -749,4 +749,34 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "java.lang.Enum.valueOf(enumClass, value)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's LocalCache and MapMakerInternalMap: this@LocalCache.get(key) and remove(key, value) with Object
+     * arguments call the class's own overrides of Map's lookups, which Kotlin declares with K and V.
+     */
+    @Test
+    public void ownLookupOverridesCastTheirArguments() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Cache<K, V> extends AbstractMap<K, V> {
+                    private final Map<K, V> map = new HashMap<>();
+                    @Override public V get(Object key) { return map.get(key); }
+                    @Override public boolean remove(Object key, Object value) { return map.remove(key, value); }
+                    @Override public Set<Entry<K, V>> entrySet() { return map.entrySet(); }
+                    final class Entries {
+                        boolean contains(Object o) {
+                            if (!(o instanceof Entry)) return false;
+                            Entry<?, ?> e = (Entry<?, ?>) o;
+                            Object key = e.getKey();
+                            V v = Cache.this.get(key);
+                            return v != null && Cache.this.remove(key, e.getValue());
+                        }
+                    }
+                }
+                """);
+        contains(kotlin, "this@Cache.get((key as K?))");
+        contains(kotlin, "this@Cache.remove((key as K?), (e.value as V?))");
+        compiles(kotlin);
+    }
 }
