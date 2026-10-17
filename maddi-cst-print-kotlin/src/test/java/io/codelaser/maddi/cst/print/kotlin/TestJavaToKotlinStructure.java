@@ -2191,4 +2191,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun toByte(): Byte = toInt().toByte()");
         compiles(kotlin);
     }
+
+    /**
+     * guava's AbstractMapBasedMultimap.AsMapEntries extends Maps.EntrySet<K, Collection<V>>, whose own K and V share
+     * the outer class's names: contains(o) overrides with the subclass's element, Entry<K, Collection<V>>.
+     */
+    @Test
+    public void elementOfAGenericSuperclassWithNamesakeParameters() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Multi<K, V> {
+                    abstract static class EntrySet<K, V> extends AbstractSet<Map.Entry<K, V>> {
+                        abstract Map<K, V> map();
+                        @Override public int size() { return map().size(); }
+                        @Override public boolean contains(Object o) { return map().entrySet().contains(o); }
+                    }
+                    final Map<K, Collection<V>> submap = new HashMap<>();
+                    class AsMapEntries extends EntrySet<K, Collection<V>> {
+                        @Override Map<K, Collection<V>> map() { return submap; }
+                        @Override public Iterator<Map.Entry<K, Collection<V>>> iterator() { return submap.entrySet().iterator(); }
+                        @Override public boolean contains(Object o) { return submap.entrySet().contains(o); }
+                    }
+                }
+                """);
+        contains(kotlin, "override fun contains(o: MutableMap.MutableEntry<K, MutableCollection<V>>): Boolean");
+        compiles(kotlin);
+    }
 }

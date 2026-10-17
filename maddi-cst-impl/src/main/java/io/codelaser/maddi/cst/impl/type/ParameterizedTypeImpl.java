@@ -632,7 +632,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             if (i < parentType.parameters().size()) {
                 ParameterizedType formalInParentType = parentType.parameters().get(i);
                 if (formalInParentType.typeInfo() != null) {
-                    result = formalInParentType;
+                    // EntrySet<K, V> extends AbstractSet<Entry<K, V>>, seen from EntrySet<String, List<Integer>>:
+                    // the type variables inside the argument are substituted too, Entry<String, List<Integer>>
+                    result = substituted(formalInParentType, map);
                 } else if (formalInParentType.typeParameter() != null) {
                     result = map.get(formalInParentType.typeParameter());
                     if (result == null && !bestOwnTypeParameter(formalInParentType.typeParameter())) {
@@ -655,6 +657,27 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             i++;
         }
         return new ParameterizedTypeImpl(parentType.typeInfo(), List.copyOf(newParameters));
+    }
+
+    /** {@code type} with the type variables the map knows replaced, at any depth of its type arguments. */
+    private static ParameterizedType substituted(ParameterizedType type, Map<NamedType, ParameterizedType> map) {
+        if (map.isEmpty() || type.parameters().isEmpty()) return type;
+        boolean changed = false;
+        List<ParameterizedType> parameters = new ArrayList<>(type.parameters().size());
+        for (ParameterizedType p : type.parameters()) {
+            ParameterizedType s = p;
+            if (p.typeParameter() != null && p.typeInfo() == null) {
+                ParameterizedType mapped = map.get(p.typeParameter());
+                if (mapped != null && p.arrays() == 0 && mapped.wildcard() == null) {
+                    s = p.wildcard() == null ? mapped : mapped.withWildcard(p.wildcard());
+                }
+            } else if (p.typeInfo() != null) {
+                s = substituted(p, map);
+            }
+            changed |= s != p;
+            parameters.add(s);
+        }
+        return changed ? type.withParameters(List.copyOf(parameters)) : type;
     }
 
     private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
