@@ -564,6 +564,11 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     private static Runnable captured(Integer[] values) {
                         return new Runnable() { @Override public void run() { sum(values); } };
                     }
+                    static class Wildcard {
+                        private final List<java.lang.reflect.Type> upperBounds;
+                        Wildcard(java.lang.reflect.Type[] upperBounds) { this.upperBounds = List.of(upperBounds); }
+                        int size() { return upperBounds.size(); }
+                    }
                     static class Combined {
                         private final Object[] hashers;
                         Combined(Object[] hashers) { this.hashers = hashers; }
@@ -579,6 +584,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "rest: Array<E>");
         // captured by an anonymous class that hands it on invariant
         contains(kotlin, "fun captured(values: Array<Int>)");
+        // a constructor's parameter that a list field of its name copies is only read
+        contains(kotlin, "(upperBounds: Array<out java.lang.reflect.Type>)");
         // a primary constructor's parameter is the property
         assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
         compiles(kotlin);

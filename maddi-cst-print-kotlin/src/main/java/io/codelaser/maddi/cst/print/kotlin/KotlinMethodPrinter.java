@@ -329,9 +329,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
             if (family == null || family.size() != 1) return false;
         }
-        // a primary constructor's parameter that names a field is that property: guava's CombinedHasher(hashers)
-        // keeps Hasher[] hashers, handed on as an invariant Array<Hasher>
-        if (m.isConstructor() && m.typeInfo().fields().stream().anyMatch(f -> f.name().equals(pi.name()))) return false;
+        // a primary constructor's parameter that names an array field is that property: guava's
+        // CombinedHasher(hashers) keeps Hasher[] hashers, handed on as an invariant Array<Hasher>. Not
+        // WildcardTypeImpl(lowerBounds, upperBounds), which keeps ImmutableLists of that name
+        if (m.isConstructor() && m.typeInfo().fields().stream()
+                .anyMatch(f -> f.name().equals(pi.name()) && f.type().arrays() > 0)) {
+            return false;
+        }
         ParameterizedType element = type.componentType();
         if (element.isPrimitiveExcludingVoid() || element.typeInfo() == null && element.typeParameter() == null) {
             return false;
