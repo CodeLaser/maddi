@@ -866,7 +866,11 @@ public class KotlinStatementPrinter {
         // LocalCache.Segment.expand(), e.getHash() in the loop); the local's non-null type is written
         boolean nonNullFromSmartCast = hasInitializer && !lvc.isFinal() && KotlinContext.reassigned(lv)
                 && !KotlinNullability.isNullable(type)
-                && KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression
+                // a local or parameter only: fernflower's ExitExprent, var ret = retType (a field asserted before),
+                // is assigned a nullable getter chain after
+                && KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ive
+                && (ive.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                    || ive.variable() instanceof io.codelaser.maddi.cst.api.info.ParameterInfo)
                 && KotlinNullability.isNullable(KotlinNullability.kotlinType(init))
                 && !KotlinNullability.nullableInKotlin(init);
         boolean writeType = !hasInitializer || nullableFromNonNull || nonNullFromSmartCast

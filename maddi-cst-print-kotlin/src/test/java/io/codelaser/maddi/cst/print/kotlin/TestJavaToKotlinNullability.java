@@ -1021,6 +1021,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * fernflower's ExitExprent.toJava(): {@code VarType ret = retType} of a nullable field asserted before, then
+     * assigned a getter's nullable result: Kotlin's own {@code var ret = retType}, no written non-null type.
+     */
+    @Test
+    public void varFromAnAssertedFieldStaysInferred() {
+        String kotlin = kotlin("""
+                package a;
+                class Exit {
+                    String retType;
+                    Exit info;
+                    String returnType() { return retType; }
+                    int length() {
+                        if (retType.length() > 0) {
+                            String ret = retType;
+                            if (info != null && info.returnType() != null) ret = info.returnType();
+                            return ret.length();
+                        }
+                        return 0;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("retType", "info", "returnType()")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("var ret: String = "), kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
