@@ -294,36 +294,110 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
-                : covariantArray(pi, type) ? "Array<out " + KotlinTypeName.of(type.componentType(), q) + ">"
-                                             + (KotlinNullability.isNullable(type) ? "?" : "")
+                : covariantArray(pi, type) ? outArray(type, q)
                 : KotlinTypeName.of(type, q);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
     }
 
+    /** {@code Array<out Any?>}: the parameter's own type, element states included, covariant. */
+    private static String outArray(ParameterizedType type, Qualification q) {
+        String printed = KotlinTypeName.of(type, q);
+        return printed.startsWith("Array<") ? "Array<out " + printed.substring("Array<".length()) : printed;
+    }
+
     /**
-     * Java's {@code Object[]} parameter takes any reference array; Kotlin's {@code Array<Any?>} is invariant and takes
-     * no {@code Array<Document?>}: {@code isNullOrEmpty(documents)}. {@code Array<out Any?>} does, where the method
-     * assigns no element. Not in an override, whose parameter types are the overridden member's.
+     * Java's arrays are covariant: an {@code Object[]} parameter takes any reference array, a {@code Type[]} one an
+     * array of any subtype's; Kotlin's {@code Array<T>} is invariant and takes no {@code Array<Document?>}
+     * ({@code isNullOrEmpty(documents)}), and ties the elements' states of caller and callee both ways (guava's
+     * {@code Joiner.join(@Nullable Object[] parts)} made TypeResolver's {@code upperBounds} nullable).
+     * {@code Array<out T>} does, where the method only reads the array: it assigns no element, and the array itself
+     * is not returned, stored, cloned, nor handed to a translated method's invariant array parameter. Not in an
+     * override, whose parameter types are the overridden member's.
      */
-    private static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
+    static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || type.arrays() != 1
             || !pi.methodInfo().overrides().isEmpty() || pi.methodInfo().methodBody() == null) {
             return false;
         }
         ParameterizedType element = type.componentType();
-        if (element.typeInfo() == null || !element.typeInfo().isJavaLangObject()) return false;
-        boolean[] assigned = {false};
+        if (element.isPrimitiveExcludingVoid() || element.typeInfo() == null && element.typeParameter() == null) {
+            return false;
+        }
+        java.util.Set<ParameterInfo> visiting = COVARIANT_IN_PROGRESS.get();
+        if (!visiting.add(pi)) return true; // a cycle: each one's other uses are checked where it is entered
+        try {
+            return onlyReadArray(pi);
+        } finally {
+            visiting.remove(pi);
+        }
+    }
+
+    private static final ThreadLocal<java.util.Set<ParameterInfo>> COVARIANT_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    private static boolean onlyReadArray(ParameterInfo pi) {
+        boolean[] escapes = {false};
         ((io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody()).visit(
                 (io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
-                && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
-                && pi.equals(dv.arrayVariable())) {
-                assigned[0] = true;
+            switch (e) {
+                case io.codelaser.maddi.cst.api.expression.Assignment a -> {
+                    if (a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
+                        && pi.equals(dv.arrayVariable()) || isPi(pi, a.value()) || pi.equals(a.variableTarget())) {
+                        escapes[0] = true;
+                    }
+                }
+                case io.codelaser.maddi.cst.api.statement.ReturnStatement rs when isPi(pi, rs.expression()) ->
+                        escapes[0] = true;
+                case io.codelaser.maddi.cst.api.statement.LocalVariableCreation lvc -> {
+                    if (lvc.localVariableStream().anyMatch(lv -> isPi(pi, lv.assignmentExpression()))) escapes[0] = true;
+                }
+                case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
+                    if (mc.object() != null && isPi(pi, mc.object()) && mc.methodInfo() != null
+                        && "clone".equals(mc.methodInfo().name())) {
+                        escapes[0] = true;
+                    }
+                    if (!acceptsOut(pi, mc.parameterExpressions(), mc.methodInfo())) escapes[0] = true;
+                }
+                case io.codelaser.maddi.cst.api.expression.ConstructorCall cc -> {
+                    if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
+                        escapes[0] = true;
+                    }
+                }
+                default -> {
+                }
             }
-            return !assigned[0];
+            return !escapes[0];
         });
-        return !assigned[0];
+        return !escapes[0];
+    }
+
+    private static boolean isPi(ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        return e != null && KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+               && pi.equals(ve.variable());
+    }
+
+    /**
+     * Each argument that is {@code pi} lands where an {@code Array<out T>} is accepted: a library method's array
+     * parameter (Kotlin's platform {@code Array<(out) T>!}), a vararg (spread), a type variable, or a translated
+     * method's array parameter that is itself printed covariant.
+     */
+    private static boolean acceptsOut(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
+                                      MethodInfo callee) {
+        for (int i = 0; i < args.size(); i++) {
+            if (!isPi(pi, args.get(i))) continue;
+            if (callee == null || callee.parameters().isEmpty()) return false;
+            ParameterInfo p = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+            if (p.isVarArgs()) continue;
+            if (!KotlinNullability.translated(callee.typeInfo())) continue;
+            ParameterizedType t = p.parameterizedType();
+            if (t.arrays() == 0 && (t.typeParameter() != null || t.typeInfo() != null && t.typeInfo().isJavaLangObject())) {
+                continue;
+            }
+            if (!covariantArray(p, KotlinNullability.parameterType(p))) return false;
+        }
+        return true;
     }
 
     /**

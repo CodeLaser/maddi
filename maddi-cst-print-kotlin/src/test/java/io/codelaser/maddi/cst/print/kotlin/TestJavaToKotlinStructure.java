@@ -1535,8 +1535,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
-        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "java.lang.reflect.Array\n            .newInstance(");
         contains(kotlin, "Array<Array<T");
+        contains(kotlin, "reference: Array<out T>");
         compiles(kotlin);
     }
 
