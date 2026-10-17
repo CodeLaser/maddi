@@ -338,7 +338,15 @@ public class KotlinExpressionPrinter {
             return KotlinNullability.asserted(object, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
         if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
-            return KotlinNullability.asserted(mc.parameterExpressions().getFirst(), q);
+            Expression checked = mc.parameterExpressions().getFirst();
+            if (KotlinNullability.declaredNullableVariable(checked)) {
+                // guava's ImmutableSortedMap.fromEntries: requireNonNull(e1) of a comparator lambda's Entry? parameter.
+                // The check is the assertion: a fact that holds because of it says nothing to Kotlin before it
+                KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, checked, KotlinContext.describe(checked));
+                KotlinSmartCasts.assertedAt(checked);
+                return receiver(checked, q).add(KotlinNullability.NOT_NULL);
+            }
+            return KotlinNullability.asserted(checked, q);
         }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || (t.explicitlyWriteType() != null && !mc.objectIsImplicit())) {
@@ -722,7 +730,8 @@ public class KotlinExpressionPrinter {
                 List<ParameterizedType> types = call == null || !hasParameter ? List.of()
                         : KotlinNullability.lambdaParameterTypes(call, method.parameters().get(i).parameterizedType());
                 List<ParameterInfo> params = l.parameters();
-                if (call != null && (sortsNullable(method) || optionalOfNullableValue(method, call))) {
+                if (call != null && (sortsNullable(method) || optionalOfNullableValue(method, call)
+                                     || sortsNullableArray(method, call))) {
                     // Kotlin infers the parameters nullable where Java hands over a value, or throws: `o!!.id`
                     types = params.stream().map(p -> p.parameterizedType().withNullable(
                             io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)).toList();
@@ -1170,6 +1179,21 @@ public class KotlinExpressionPrinter {
      * parameter from the list, {@code Collections.sort(sorted, …)} with a {@code MutableList<Statement?>}, and Java
      * throws where it dereferences the null.
      */
+    /**
+     * The comparator of {@code Arrays.sort(array, from, to, (e1, e2) -> …)} over an array whose elements Kotlin types
+     * nullable (guava's ImmutableSortedMap.fromEntries): its parameters are nullable too, and Java's requireNonNull(e1)
+     * in it is Kotlin's e1!!.
+     */
+    private static boolean sortsNullableArray(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call) {
+        if (method == null || !"java.util.Arrays".equals(method.typeInfo().fullyQualifiedName())
+            || !"sort".equals(method.name()) && !"parallelSort".equals(method.name())
+            || call.parameterExpressions().isEmpty()) {
+            return false;
+        }
+        ParameterizedType array = KotlinNullability.kotlinType(call.parameterExpressions().getFirst());
+        return array != null && array.arrays() == 1 && KotlinNullability.isNullable(array.componentType());
+    }
+
     private static boolean sortsNullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
         if (method == null || !"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
             || !method.name().startsWith("comparing") && !method.name().startsWith("thenComparing")) {

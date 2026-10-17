@@ -1107,6 +1107,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableSortedMap.fromEntries: {@code sort(entryArray, 0, size, (e1, e2) -> { requireNonNull(e1);
+     * requireNonNull(e2); return comparator.compare(e1.getKey(), e2.getKey()); })} over nullable elements: e1!!, e2!!.
+     */
+    @Test
+    public void requireNonNullOfANullableLambdaParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import static java.util.Objects.requireNonNull;
+                class S {
+                    static void sort(String[] entryArray, int size, Comparator<String> comparator) {
+                        Arrays.sort(entryArray, 0, size, (e1, e2) -> {
+                            requireNonNull(e1);
+                            requireNonNull(e2);
+                            return comparator.compare(e1.trim(), e2.trim());
+                        });
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("entryArray[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "e1!!");
+        contains(kotlin, "e2!!");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

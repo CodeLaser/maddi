@@ -47,7 +47,7 @@ import java.util.Set;
 final class KotlinNullability {
 
     /** {@code !!}, glued to its operand. */
-    private static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
+    static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
             new SymbolEnum("!!", SpaceEnum.NONE, SpaceEnum.NONE, null);
 
     /**
@@ -555,6 +555,22 @@ final class KotlinNullability {
     /** As {@link #knownNonNull(io.codelaser.maddi.cst.api.variable.Variable)}, used at {@code use}: also smart-cast by an earlier {@code !!}. */
     private static boolean knownNonNull(io.codelaser.maddi.cst.api.variable.Variable variable, Expression use) {
         return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable, use);
+    }
+
+    /**
+     * A local or parameter Kotlin types nullable, not already asserted by an earlier {@code !!} the printer wrote:
+     * whatever the facts say at {@code e} itself.
+     */
+    static boolean declaredNullableVariable(Expression e) {
+        if (!KotlinContext.translatingJava() || !(KotlinExpressionPrinter.unwrap(e) instanceof VariableExpression ve)) {
+            return false;
+        }
+        ParameterizedType type = switch (ve.variable()) {
+            case ParameterInfo pi -> parameterType(pi);
+            case LocalVariable lv -> KotlinContext.localType(lv.simpleName());
+            default -> null;
+        };
+        return type != null && isNullable(type) && !KotlinSmartCasts.asserted(ve.variable(), e);
     }
 
     static boolean nullableJdkResult(MethodInfo methodInfo) {
