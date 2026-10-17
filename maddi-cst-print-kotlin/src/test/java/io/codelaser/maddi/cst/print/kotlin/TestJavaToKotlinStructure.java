@@ -2114,4 +2114,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "as Array<TypeVariable<*>>");
         compiles(kotlin);
     }
+
+    /** guava's TypeToken.ClassSet: an inner class's serialVersionUID, where Kotlin allows no companion object. */
+    @Test
+    public void innerClassSerialVersionUid() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.Serializable;
+                class Outer implements Serializable {
+                    private static final long serialVersionUID = 1;
+                    final int n = 1;
+                    class Inner implements Serializable {
+                        private static final long serialVersionUID = 0;
+                        int get() { return n; }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class Inner");
+        contains(kotlin, "serialVersionUID: Long = 1");
+        assertFalse(kotlin.contains("serialVersionUID: Long = 0"), kotlin);
+        compiles(kotlin);
+    }
 }

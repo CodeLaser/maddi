@@ -499,7 +499,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private Stream<OutputBuilder> companionObject(FieldPrinterFactory fieldPrinterFactory,
                                                   MethodPrinterFactory methodPrinterFactory, Qualification q) {
         List<OutputBuilder> members = new ArrayList<>();
+        // an inner, local or anonymous class can have no companion: its serialVersionUID (all guava's statics there)
+        // goes, the class's stream id is then computed
+        boolean noCompanion = typeInfo.isInnerClass() || isLocal(typeInfo) || typeInfo.isAnonymous();
         typeInfo.fields().stream().filter(f -> !f.isSynthetic() && f.isStatic() && !isEnumConstant(f))
+                .filter(f -> !noCompanion || !"serialVersionUID".equals(f.name()))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.methods().stream().filter(m -> !m.isSynthetic() && (m.isStatic() || m.isStaticInitializer()))
                 .sorted(java.util.Comparator.comparing(MethodInfo::isStaticInitializer))
