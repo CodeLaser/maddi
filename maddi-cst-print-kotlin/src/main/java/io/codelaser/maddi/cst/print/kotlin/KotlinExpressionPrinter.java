@@ -2070,6 +2070,19 @@ public class KotlinExpressionPrinter {
         if (increment != null) return increment;
         String op = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         String binary = op.length() > 1 ? op.substring(0, op.length() - 1) : null;
+        Primitive narrow = primitive(a.variableTarget().parameterizedType());
+        if (binary != null && (narrow == Primitive.BYTE || narrow == Primitive.SHORT)
+            && (INFIX.containsKey(binary) || ARITHMETIC.contains(binary))) {
+            // array[i] ^= Byte.MAX_VALUE, resultBytes[i] += nextBytes[i]: Java computes in int and narrows back;
+            // Kotlin's Byte has no xor, its Byte + Byte is an Int
+            String function = INFIX.containsKey(binary) ? INFIX.get(binary) : null;
+            OutputBuilder computed = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(intOperand(variableAsExpression(a), q))
+                    .add(KotlinSymbols.binary(function != null ? function : binary)).add(intOperand(a.value(), q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
+                    .add(new TextImpl(narrow == Primitive.BYTE ? "toByte()" : "toShort()"));
+            return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment("=")).add(computed);
+        }
         if (binary != null && INFIX.containsKey(binary)) {
             // x &= y -> x = x and (y): Kotlin has no compound form of its infix operators; h ^= length with an int
             // length into a long h widens it, as Java's does
@@ -2295,6 +2308,15 @@ public class KotlinExpressionPrinter {
                .add(valueOperand(rhs, q));
     }
 
+    /** {@code e} as Java's int promotion has it: a byte or short {@code .toInt()}, a char {@code .code}. */
+    private static OutputBuilder intOperand(Expression e, Qualification q) {
+        Primitive p = primitive(e.parameterizedType());
+        if (unwrap(e) instanceof IntConstant) return valueOperand(e, q);
+        if (p == Primitive.BYTE || p == Primitive.SHORT) return receiver(e, q).add(SymbolEnum.DOT).add(new TextImpl("toInt()"));
+        if (p == Primitive.CHAR) return receiver(e, q).add(SymbolEnum.DOT).add(new TextImpl("code"));
+        return valueOperand(e, q);
+    }
+
     private static OutputBuilder bitOperand(Expression e, Primitive to, Qualification q) {
         Primitive from = primitive(e.parameterizedType());
         OutputBuilder operand = valueOperand(e, q);
@@ -2418,8 +2440,16 @@ public class KotlinExpressionPrinter {
         if ("!".equals(uo.operator().name()) && inner instanceof MethodCall mc && equality(mc) != null) {
             return equality(equality(mc), "!=", q); // !a.equals(b) -> a != b
         }
+        Primitive operand = primitive(uo.expression().parameterizedType());
+        boolean promoted = operand == Primitive.BYTE || operand == Primitive.SHORT || operand == Primitive.CHAR;
         if ("~".equals(uo.operator().name())) {
-            return receiver(uo.expression(), q).add(SymbolEnum.DOT).add(new TextImpl("inv()"));
+            // ~readShort(): Java promotes to int, Kotlin's Short and Byte have no inv()
+            return (promoted ? intOperand(uo.expression(), q) : receiver(uo.expression(), q))
+                    .add(SymbolEnum.DOT).add(new TextImpl("inv()"));
+        }
+        if ("-".equals(uo.operator().name()) && operand == Primitive.CHAR) {
+            // -c1: Java's int, Kotlin's Char has no unaryMinus
+            return new OutputBuilderImpl().add(new TextImpl("-")).add(intOperand(uo.expression(), q));
         }
         return new OutputBuilderImpl()
                 .add(SymbolEnum.plusPlusPrefix(uo.operator().name())).add(operand(uo.precedence(), uo.expression(), q));

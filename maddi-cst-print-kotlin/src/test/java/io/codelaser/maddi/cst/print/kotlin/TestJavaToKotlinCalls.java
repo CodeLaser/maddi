@@ -661,4 +661,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "object : MutableIterable<B> { override fun iterator(): MutableIterator<B> = run ");
         compiles(kotlin);
     }
+
+    /**
+     * Java promotes byte, short and char operands to int: ~s, -c, and compound assignments narrow back (guava's
+     * InetAddresses, UnicodeEscaper, UnsignedBytes, Hashing). Kotlin's Short has no inv(), Char no unaryMinus, Byte no xor.
+     */
+    @Test
+    public void narrowOperandsPromote() {
+        String kotlin = kotlin("""
+                package a;
+                class Ops {
+                    static int port(short s) { return ~s & 0xffff; }
+                    static int neg(char c) { return -c; }
+                    static void flip(byte[] array) { for (int i = 0; i < array.length; i++) array[i] ^= Byte.MAX_VALUE; }
+                    static void add(byte[] result, byte[] next) { for (int i = 0; i < next.length; i++) result[i] += next[i]; }
+                    static short mul(short s) { s *= 3; return s; }
+                }
+                """);
+        contains(kotlin, "s.toInt().inv()");
+        contains(kotlin, "Int = - c.code");
+        contains(kotlin, "array[i] = (array[i].toInt() xor java.lang.Byte.MAX_VALUE.toInt()).toByte()");
+        contains(kotlin, "result[i] = (result[i].toInt() + next[i].toInt()).toByte()");
+        contains(kotlin, "s = (s.toInt() * 3).toShort()");
+        compiles(kotlin);
+    }
 }

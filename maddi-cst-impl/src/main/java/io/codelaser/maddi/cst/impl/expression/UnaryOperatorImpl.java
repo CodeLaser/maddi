@@ -111,7 +111,22 @@ public class UnaryOperatorImpl extends ExpressionImpl implements UnaryOperator {
 
     @Override
     public ParameterizedType parameterizedType() {
-        return expression.parameterizedType();
+        ParameterizedType type = expression.parameterizedType();
+        // JLS 5.6.1, unary numeric promotion: -c, +b and ~s of a char, byte or short are ints, the operator's result
+        // (++ and -- keep their variable's type)
+        if (promoted(type) && operator.returnType() != null
+            && ("-".equals(operator.name()) || "+".equals(operator.name()) || "~".equals(operator.name()))) {
+            return operator.returnType();
+        }
+        return type;
+    }
+
+    private static boolean promoted(ParameterizedType type) {
+        if (type == null || type.arrays() > 0 || type.typeInfo() == null) return false;
+        return switch (type.typeInfo().fullyQualifiedName()) {
+            case "char", "byte", "short", "java.lang.Character", "java.lang.Byte", "java.lang.Short" -> true;
+            default -> false;
+        };
     }
 
     @Override
