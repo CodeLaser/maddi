@@ -309,6 +309,17 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 static void fill(Object[] a) { a[0] = "x"; }
                 static <T> T[] check(T[] a) { return a; }
                 @SafeVarargs static <T> T first(T... xs) { check(xs); return xs[0]; }
+                @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) @interface Nullable { }
+                final String join(@Nullable Object[] parts) {
+                    java.util.List<?> partsList = java.util.Arrays.<@Nullable Object>asList(parts);
+                    return partsList.toString();
+                }
+                static int count(java.lang.reflect.Type[] types) {
+                    int n = 0;
+                    for (java.lang.reflect.Type t : types) if (t != null) n++;
+                    return n + types.length + types[0].hashCode();
+                }
+                static String bounds(java.lang.reflect.Type[] upper) { return new U().join(upper) + count(upper); }
             }
             """;
 
@@ -320,6 +331,11 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "fun fill(a: Array<Any>)");
         // a vararg parameter is an Array<out T>: into an invariant Array<T> parameter, cast
         contains(kotlin, "check((xs as Array<T>))");
+        // guava's Joiner.join(Object[]) and an array only read, of any element type
+        contains(kotlin, "fun join(parts: Array<out Any");
+        contains(kotlin, "fun count(types: Array<out java.lang.reflect.Type>): Int");
+        contains(kotlin, "fun bounds(upper: Array<out java.lang.reflect.Type>)");
+        compiles(kotlin);
     }
 
     @Language("java")
