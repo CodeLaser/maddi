@@ -149,9 +149,15 @@
 # 2026-10-16, maddi 76cc8a338, 8e0fe3de3: a class extending Number extends JavaNumber, an IConvertible; an interface's
 # default close() of a Closeable implements IDisposable.Dispose explicitly: 1238 -> 1242 compiling files,
 # 1546 -> 1499 errors.
+# 2026-10-17, maddi a56ea13cd, 5e56fd4e8, b24b6ea8d: a class implementing Set itself extends JavaSet; contains,
+# remove, containsKey, get of an Object test its type (ContainsObject, ...): 1242 -> 1243 compiling files, 1499 -> 1425
+# errors, unmapped JDK uses 375 -> 364.
+# 2026-10-17, maddi 59f212617, 738946ca0: a switch statement's type-pattern arm is its case; java.time.temporal on
+# the BCL's structs (JavaTemporal, JavaChronoUnit, JavaPeriod): 1243 -> 1246 compiling files, 1425 -> 1323 errors, unmapped JDK
+# uses 364 -> 333.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1242
-unmappedJdkUses	375
+compilingFiles	1246
+unmappedJdkUses	333

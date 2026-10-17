@@ -1535,8 +1535,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
-        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "java.lang.reflect.Array\n            .newInstance(");
         contains(kotlin, "Array<Array<T");
+        contains(kotlin, "reference: Array<out T>");
         compiles(kotlin);
     }
 
@@ -2134,5 +2135,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "serialVersionUID: Long = 1");
         assertFalse(kotlin.contains("serialVersionUID: Long = 0"), kotlin);
         compiles(kotlin);
+    }
+
+    /**
+     * guava's MultimapBuilder: {@code new ListMultimapBuilder<K0, @Nullable Object>() {…}} keeps its supertype's
+     * type-use annotation (CodeLaser/maddi#144), so the object's supertype matches the declared return. Until that fix
+     * is merged, the front end drops the annotation and the supertype prints without it.
+     */
+    @Test
+    public void anonymousSupertypeKeepsNullableArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.ElementType;
+                import java.lang.annotation.Target;
+                import java.util.*;
+                class MB<K0> {
+                    @Target(ElementType.TYPE_USE) @interface Nullable { }
+                    abstract static class LB<K0, V0 extends @Nullable Object> {
+                        abstract <K extends K0, V extends V0> List<V> build();
+                    }
+                    LB<K0, @Nullable Object> arrayListValues() {
+                        return new LB<K0, @Nullable Object>() {
+                            @Override
+                            <K extends K0, V extends @Nullable Object> List<V> build() { return new ArrayList<>(); }
+                        };
+                    }
+                }
+                """);
+        // TODO "object : LB<K0, Any?>()" once maddi#144's front-end fix is merged (checked against it, cb6774ece); the
+        // declared return's Any? is the NullabilityPass's, not run here, so no kotlinc check
+        contains(kotlin, "object : LB<K0, Any");
     }
 }

@@ -352,8 +352,15 @@ public class KotlinExpressionPrinter {
             // would be an Array<String> where Java declares an Object[]
             ParameterizedType result = KotlinNullability.kotlinType(mc);
             ParameterizedType expected = expectedElement(mc);
+            ParameterizedType component = result == null || result.arrays() != 1 ? null : result.componentType();
+            if (expected == null && component != null && !KotlinNullability.isNullable(component)
+                && nullableElements(object)) {
+                // collection.toArray() of a Collection<out Number?> (guava's Ints.toArray): Kotlin's toTypedArray<T>
+                // wants a T the elements fit, Java's Object[] holds the nulls too
+                component = component.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+            }
             String element = expected != null ? KotlinTypeName.of(expected, q)
-                    : result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
+                    : component == null ? null : KotlinTypeName.of(component, q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
@@ -732,15 +739,32 @@ public class KotlinExpressionPrinter {
                                             && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
-                if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
+                if (hasParameter && covariantArrayArgument(method, i, args.get(i))) {
+                    KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            // a nullable parameter's `as Array<Any?>?` lets a null through, as Java does
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
                     // ensureNotEmpty(values, name) with a vararg values: Kotlin's is an Array<out T?>, and the
                     // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
                     ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    ParameterizedType castType = KotlinNullability.parameterType(vararg)
+                            .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+                    // ImmutableList.copyOf(futures) into copyOf(elements: Array<E?>): the elements' state is the
+                    // callee's, as Kotlin's Array is invariant (the cast checks no element)
+                    ParameterizedType into = KotlinNullability.parameterType(method.parameters().get(i));
+                    if (into.arrays() == 1 && castType.arrays() == 1
+                        && KotlinNullability.isNullable(into.componentType())
+                        && !KotlinNullability.isNullable(castType.componentType())) {
+                        castType = castType.withComponentType(castType.componentType()
+                                .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+                    }
                     argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
                             .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(vararg)
-                                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                            .add(new TextImpl(KotlinTypeName.of(castType, q)))
                             .add(SymbolEnum.RIGHT_PARENTHESIS);
                 } else if (hasParameter && castable(method, i) && nullabilityTiesOverload(method, i, args.get(i))) {
                     // Json.fromJson(String?, Class<T>) beside fromJson(String, Type), with a non-null String: each is
@@ -1532,10 +1556,30 @@ public class KotlinExpressionPrinter {
             return false;
         }
         ParameterizedType value = u.parameterizedType();
-        return value != null && value.arrays() == target.arrays() && value.typeInfo() != null
-               && target.typeInfo() != null && !value.isPrimitiveExcludingVoid() && value.typeParameter() == null
-               && target.typeParameter() == null && !sameUpToStates(value, target)
+        if (value == null || value.arrays() != target.arrays() || target.typeInfo() == null
+            || target.typeParameter() != null || value.isPrimitiveExcludingVoid()) {
+            return false;
+        }
+        // @Nullable Object[] unsoundlyCovariantArray = a, of a T[] (guava's toArray(T[] a) implementations)
+        if (value.typeParameter() != null) return target.typeInfo().isJavaLangObject();
+        return value.typeInfo() != null && !sameUpToStates(value, target)
                && !(value.typeInfo() == target.typeInfo() && value.parameters().isEmpty());
+    }
+
+    /**
+     * A reference array handed to a translated method's array parameter that is invariant ({@code Array<Any?>}, not
+     * printed {@code Array<out …>}) where Java's covariance accepts it: {@code copyIntoArray(other, 0)} of a T[].
+     */
+    private static boolean covariantArrayArgument(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                  Expression arg) {
+        if (!KotlinContext.translatingJava() || method == null || i >= method.parameters().size()
+            || !KotlinNullability.translated(method.typeInfo()) || !castable(method, i)) {
+            return false;
+        }
+        ParameterInfo p = method.parameters().get(i);
+        ParameterizedType type = KotlinNullability.parameterType(p);
+        return !p.isVarArgs() && type.arrays() == 1 && !KotlinMethodPrinter.covariantArray(p, type)
+               && covariantArray(arg, p.parameterizedType());
     }
 
     private static boolean vararg(Expression e) {
@@ -1689,8 +1733,18 @@ public class KotlinExpressionPrinter {
     }
 
     private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        // not a stream's: IntStream.toArray() is an IntArray already, Stream.toArray() an Array<Any?>
         return m != null && "toArray".equals(m.name()) && m.parameters().isEmpty()
-               && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+               && m.typeInfo().fullyQualifiedName().startsWith("java.util.")
+               && !m.typeInfo().fullyQualifiedName().startsWith("java.util.stream.");
+    }
+
+    /** The receiver's Kotlin element type admits null: a {@code Collection<out Number?>}, a {@code List<E?>}. */
+    private static boolean nullableElements(Expression receiver) {
+        ParameterizedType type = KotlinNullability.kotlinType(receiver);
+        if (type == null || type.parameters().size() != 1) return false;
+        ParameterizedType element = type.parameters().getFirst();
+        return KotlinNullability.isNullable(element);
     }
 
     private static boolean toArrayOf(io.codelaser.maddi.cst.api.info.MethodInfo m) {
@@ -1784,9 +1838,8 @@ public class KotlinExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
                 .add(SymbolEnum.COLON).add(SpaceEnum.ONE);
         ParameterizedType parent = anonymous.parentClass();
-        // the written supertype's type-use states, as a named class's header has them (KotlinTypePrinter):
-        // 'new UnmodifiableIterator<List<@Nullable T>>() {...}' is an UnmodifiableIterator<MutableList<T?>>, the type
-        // its own 'next(): MutableList<T?>' overrides (guava Iterators.partitionImpl, CodeLaser/maddi#144)
+        // new ListMultimapBuilder<K0, @Nullable Object>() {…}: the type arguments' type-use annotations, as a named
+        // class's header writes them (maddi#144 kept them on the anonymous class's supertype)
         if (parent != null && !parent.isJavaLangObject()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
                             : KotlinTypePrinter.declaredArguments(parent), q)))
@@ -1892,12 +1945,34 @@ public class KotlinExpressionPrinter {
         return lambda(lambda, true, q);
     }
 
+    private static final ThreadLocal<java.util.Set<Lambda>> ITERABLE_LAMBDAS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
     private static OutputBuilder lambda(Lambda lambda, boolean samConstructor, Qualification q) {
         return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, q);
     }
 
     /** As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none. */
     private static OutputBuilder lambda(Lambda lambda, String sam, Qualification q) {
+        ParameterizedType functional = lambda.concreteFunctionalType();
+        if (KotlinContext.translatingJava() && functional != null && functional.typeInfo() != null
+            && "java.lang.Iterable".equals(functional.typeInfo().fullyQualifiedName())
+            && lambda.methodInfo().returnType() != null && ITERABLE_LAMBDAS.get().add(lambda)) {
+            // return () -> new Iterator<B>() {…} into an Iterable<B> (guava's Converter.convertAll,
+            // Traverser.breadthFirst): Kotlin's Iterable is no fun interface, it takes no lambda
+            try {
+                ParameterizedType iterable = functional.parameters().stream().anyMatch(a -> a.wildcard() != null)
+                        ? null : functional;
+                if (iterable != null) {
+                    return new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE).add(SymbolEnum.COLON)
+                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(iterable, q) + " { override fun iterator(): "
+                                    + KotlinTypeName.of(lambda.methodInfo().returnType(), q) + " = run "))
+                            .add(lambda(lambda, (String) null, q)).add(new TextImpl(" }"));
+                }
+            } finally {
+                ITERABLE_LAMBDAS.get().remove(lambda);
+            }
+        }
         List<ParameterInfo> params = lambda.parameters();
         params.forEach(p -> KotlinContext.declared(p.name()));
         Block body = lambda.methodBody();

@@ -202,6 +202,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     }
                     return "large";
                 }
+                static String patterns(Object o) {
+                    switch (o) {
+                        case String s -> { return s; }
+                        case Integer i when i > 0 -> System.out.println(i);
+                        default -> { }
+                    }
+                    return "";
+                }
                 static int expression(String s) {
                     return switch (s) {
                         case "a", "b" -> 1;
@@ -222,6 +230,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "r = 3;\ngoto default;");
         contains(cs, "default:\nr--;\nbreak;");
         contains(cs, "case 1: case 2: return \"small\";");
+        // an arrow arm's type pattern
+        contains(cs, "case string s: return s;");
+        contains(cs, "case int i when (int) i > 0:");
         contains(cs, "\"a\" or \"b\" => 1,");
         contains(cs, "_ => throw new ArgumentException(s)");
     }

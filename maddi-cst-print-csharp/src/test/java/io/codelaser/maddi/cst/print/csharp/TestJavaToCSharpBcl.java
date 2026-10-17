@@ -575,6 +575,56 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String TEMPORALS = """
+            package org.example.temporals;
+            import java.time.*;
+            import java.time.temporal.*;
+            public class Temporals<T extends Temporal & Comparable<? super T>> {
+                private final T from;
+                private final TemporalUnit unit;
+                Temporals(T from, T to, TemporalUnit unit) {
+                    this.from = from;
+                    this.unit = unit;
+                    if (!from.isSupported(unit)) throw new IllegalArgumentException("unit " + unit);
+                    long space = from.until(to, unit);
+                    Temporal expected = from.plus(space, unit);
+                    try {
+                        expected = from.plus(space + 1, unit);
+                    } catch (DateTimeException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
+                @SuppressWarnings("unchecked")
+                T get(long index) { return (T) from.plus(index, unit); }
+                static Temporals<LocalDate> days(LocalDate from, LocalDate to) {
+                    return new Temporals<>(from, to, ChronoUnit.DAYS);
+                }
+                static Period total(Period a, Period b) { return a.plus(b).minus(Period.ZERO); }
+                static LocalDate later(LocalDate d, Period p) { return d.plus(p); }
+                static long weeks(LocalDate a, LocalDate b) { return ChronoUnit.WEEKS.between(a, b); }
+            }
+            """;
+
+    /** java.time.temporal: Temporal is IComparable, which JavaTemporal's Plus and Until take; a Period is JavaPeriod. */
+    @Test
+    public void temporals() {
+        String cs = translate("Temporals", TEMPORALS);
+        contains(cs, "where T : IComparable");
+        contains(cs, "private readonly JavaChronoUnit? unit;");
+        contains(cs, "if (!JavaTemporal.IsSupported(from, (JavaChronoUnit) unit))");
+        contains(cs, "long space = JavaTemporal.Until(from, to, (JavaChronoUnit) unit);");
+        contains(cs, "IComparable expected = JavaTemporal.Plus(from, space, (JavaChronoUnit) unit);");
+        contains(cs, "catch (ArgumentOutOfRangeException e)");
+        contains(cs, "(T) JavaTemporal.Plus(from, index, (JavaChronoUnit) unit)");
+        // a T created as a struct takes the value type
+        contains(cs, "new Temporals<DateOnly>(\n(DateOnly) from,");
+        contains(cs, "JavaChronoUnit.Days");
+        contains(cs, "((JavaPeriod) a).Plus(b).Minus(JavaPeriod.Zero);");
+        contains(cs, "JavaTemporal.Plus(((DateOnly) d), p)");
+        contains(cs, "JavaTemporal.Until(a, b, JavaChronoUnit.Weeks)");
+    }
+
+    @Language("java")
     private static final String DELEGATE_CLASSES = """
             package org.example.delegates;
             import java.util.Comparator;

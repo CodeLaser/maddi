@@ -707,6 +707,11 @@ from a map, a stream's collector.
   `DateTimeOffset` does:
   - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `OffsetDateTime` →
     `DateTimeOffset`, `Duration` → `TimeSpan`.
+  - Those structs share no interface for `java.time.temporal`'s arithmetic. A `Temporal` becomes `IComparable`, which
+    they all are, and `t.plus(n, unit)`, `t.until(end, unit)` and `t.isSupported(unit)` become the compatibility
+    library's `JavaTemporal.Plus`, `Until` and `IsSupported`, which dispatch on the value's type with Java's rules (a
+    month that is not complete does not count). A `TemporalUnit` or `ChronoUnit` becomes the enum `JavaChronoUnit`,
+    a `Period` the record struct `JavaPeriod`, a `DateTimeException` the BCL's `ArgumentOutOfRangeException`.
   - `Clock` → `TimeProvider`, so `LocalDateTime.now(clock)` becomes `clock.GetLocalNow().DateTime`.
   - A `DateTimeFormatter` becomes a custom format string. The ISO constants are .NET patterns
     (`ISO_LOCAL_DATE` → `"yyyy-MM-dd"`), and `parse(s, f)` becomes `ParseExact(s, f, CultureInfo.InvariantCulture)`.
