@@ -567,6 +567,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         ParameterizedType type = p.parameterizedType();
         if (type.typeParameter() != null) return type.arrays() == 0 && type.typeParameter().isMethodTypeParameter();
+        // guava's ObjectArrays.fillArray(Iterable<?> elements, …): a translated Iterable or Iterator parameter is always
+        // Kotlin's MutableIterable, MutableIterator, which no read-only Collection is
+        if (type.arrays() == 0 && type.typeInfo() != null && KotlinTypeName.mutableOnly(type.typeInfo().fullyQualifiedName())
+            && KotlinNullability.translated(callee.typeInfo())) {
+            return false;
+        }
         if (KotlinTypeName.readOnly(type, null).equals(KotlinTypeName.of(type, null))) return true; // not a collection
         return !KotlinNullability.translated(callee.typeInfo()) || readOnlyParameter(p);
     }

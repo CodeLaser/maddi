@@ -73,6 +73,11 @@ public class KotlinTypeName {
         return readOnly + printed.substring(mutable.length());
     }
 
+    /** A JDK type the printer always writes mutable: MutableIterable, MutableIterator, MutableMap.MutableEntry. */
+    static boolean mutableOnly(String fullyQualifiedName) {
+        return MUTABLE.containsKey(fullyQualifiedName) && !KOTLIN.containsKey(fullyQualifiedName);
+    }
+
     /** A JDK type Kotlin replaces by its own: never imported, and its static members are reached by its Java name. */
     public static boolean isMapped(String fullyQualifiedName) {
         return KOTLIN.containsKey(fullyQualifiedName) || MUTABLE.containsKey(fullyQualifiedName);

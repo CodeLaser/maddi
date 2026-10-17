@@ -546,6 +546,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ObjectArrays.toArrayImpl(Collection<?> c): c only read, but passed on to fillArray(Iterable<?>), whose
+     * translated parameter is a MutableIterable: c stays a MutableCollection.
+     */
+    @Test
+    public void readOnlyNotIntoATranslatedIterable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Arr {
+                    static int toArrayImpl(Collection<?> c) { return fillArray(c, c.size()); }
+                    private static int fillArray(Iterable<?> elements, int n) {
+                        for (Object element : elements) n += element.hashCode();
+                        return n;
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun toArrayImpl(c: MutableCollection<*>)");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */
