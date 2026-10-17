@@ -1000,6 +1000,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ForwardingSortedMap.unsafeCompare: {@code ((Comparable<@Nullable Object>) k1).compareTo(k2)} with a
+     * nullable k2: the cast is to Comparable<Any?>.
+     */
+    @Test
+    public void castKeepsTypeUseAnnotatedArguments() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                class F {
+                    @SuppressWarnings("unchecked")
+                    static int unsafeCompare(Object k1, Object k2) {
+                        return ((Comparable<@Nullable Object>) k1).compareTo(k2);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("k2")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as Comparable<Any?>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

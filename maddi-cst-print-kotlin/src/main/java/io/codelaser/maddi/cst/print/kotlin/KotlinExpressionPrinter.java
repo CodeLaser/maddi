@@ -2733,10 +2733,13 @@ public class KotlinExpressionPrinter {
                             io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                     .add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
+        // ((Comparable<@Nullable Object>) k1).compareTo(k2) (guava's ForwardingSortedMap): the type-use annotations of
+        // the cast's type arguments, as in a class header
+        ParameterizedType declared = KotlinTypePrinter.declaredArguments(castType);
         // Java's (String) map.get(k) lets null through, Kotlin's `as String` throws: as String?
         ParameterizedType type = nullable
-                ? castType.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
-                : castType;
+                ? declared.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
+                : declared;
         String typeName = rawComparable(cast.parameterizedType())
                 // ((Comparable) actual).compareTo(expected): Comparable<*> takes nothing, Comparable<Any?> anything,
                 // unchecked, as Java's raw type does
