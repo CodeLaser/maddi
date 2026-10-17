@@ -760,11 +760,11 @@ public class KotlinExpressionPrinter {
                 }
                 if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
                     // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
-                    // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin
-                    printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
-                            .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
-                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(declared, q)))
-                            .add(SymbolEnum.RIGHT_PARENTHESIS));
+                    // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin. The
+                    // parameter's name picks Java's, whatever state another compilation sees it with
+                    printed.add(new OutputBuilderImpl()
+                            .add(new TextImpl(KotlinNames.name(method.parameters().get(i).name()) + " ="))
+                            .add(SpaceEnum.ONE).add(print(args.get(i), q)));
                     continue;
                 }
                 if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null

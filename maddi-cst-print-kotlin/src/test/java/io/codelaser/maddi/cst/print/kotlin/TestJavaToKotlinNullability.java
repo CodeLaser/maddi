@@ -755,7 +755,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
     /**
      * guava's Ascii: toUpperCase(String string), nullable, beside toUpperCase(CharSequence chars). A String argument
-     * fits both in Kotlin, neither more specific: the cast to String? picks Java's.
+     * fits both in Kotlin, neither more specific: the parameter's name picks Java's.
      */
     @Test
     public void nullableOverloadBesideAWiderOne() {
@@ -767,7 +767,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     static String caller(String s) { return up(s); }
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("string")), KotlinPrintOptions.NullCheck.ASSERT));
-        contains(kotlin, "up((s as String?))");
+        contains(kotlin, "up(string = s)");
         compiles(kotlin);
     }
 
