@@ -176,6 +176,73 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ERASED_DIAMONDS = """
+            package org.example.erased;
+            import java.util.Comparator;
+            import java.util.function.Function;
+            class Erased {
+                interface Sorter<S, T> { }
+                static final class ComparingSorter<S, T> implements Sorter<S, T> {
+                    ComparingSorter(Comparator<T> comparator) { }
+                }
+                static final class Joiner<A, B> {
+                    private final Function<A, Object>[] mappings;
+                    @SuppressWarnings("unchecked")
+                    Joiner(Function<A, ?>[] mappings) { this.mappings = (Function<A, Object>[]) mappings; }
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Joiner<A, B> reordered() {
+                        var copy = new Function[mappings.length];
+                        for (int i = 0; i < copy.length; i++) copy[i] = mappings[mappings.length - 1 - i];
+                        return new Joiner<>(copy);
+                    }
+                }
+                static final class Holder<S> {
+                    private Sorter<S, Object> sorter;
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    void sortBy(Object instance) {
+                        var comparator = (Comparator) instance;
+                        sorter = new ComparingSorter<>(comparator);
+                    }
+                }
+            }
+            """;
+
+    /** A diamond of raw arguments: Java infers the raw type, C# creates it with the target's type arguments. */
+    @Test
+    public void erasedDiamonds() {
+        String cs = translate("Erased", ERASED_DIAMONDS);
+        // not of a raw array, Func<object, object>[], which C# does not pass as the Func<A, object>[] of Joiner<A, B>
+        contains(cs, "return new Joiner<object, object>(copy);");
+        contains(cs, "sorter = new ComparingSorter<S, object>(comparator);");
+    }
+
+    @Language("java")
+    private static final String LAMBDA_INFERENCE = """
+            package org.example.inference;
+            import java.util.List;
+            class Groups {
+                interface Lifecycle<T> { }
+                interface Constructor<T> { }
+                interface Builder<K, T> { Object build(K key, int index, Lifecycle<T> next); }
+                static final class Node<K, T> { Node(K key, int index, Lifecycle<T> next) { } }
+                static <K, T> Constructor<T> groupBy(K key, Builder<K, T> builder) { return null; }
+                static Constructor<List<String>> byReference(String key) { return groupBy(key, Node::new); }
+                static Constructor<List<String>> byLambda(String key) {
+                    return groupBy(key, (k, i, next) -> new Node<>(k, i, next));
+                }
+            }
+            """;
+
+    /** A type parameter only a lambda's or a method reference's parameters mention: C# does not infer it. */
+    @Test
+    public void lambdaInference() {
+        String cs = translate("Groups", LAMBDA_INFERENCE);
+        contains(cs, "GroupBy<string, List<string>>(\nkey,");
+        // a raw Node::new creates the type of the delegate's parameters
+        contains(cs, "(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

@@ -543,7 +543,10 @@ public final class CSharpExpressionPrinter {
     private static String inferredTypeArguments(MethodCall mc, Qualification q) {
         MethodInfo method = mc.methodInfo();
         List<TypeParameter> typeParameters = method.typeParameters();
-        if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo()) || !uninferable(method)) return "";
+        if (typeParameters.isEmpty() || !CSharpNames.translated(method.typeInfo())
+            || !uninferable(method) && !onlyThroughLambdas(mc)) {
+            return "";
+        }
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
         for (int i = 0; i < method.parameters().size() && i < mc.parameterExpressions().size(); i++) {
@@ -584,6 +587,28 @@ public final class CSharpExpressionPrinter {
             printed.add(CSharpTypeName.argument(t, q));
         }
         return "<" + String.join(", ", printed) + ">";
+    }
+
+    /**
+     * A type parameter of the called method that only parameters given a lambda or a method reference mention:
+     * {@code oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)}'s {@code Tuple_}, of the builder's
+     * {@code TupleLifecycle<Tuple_>} parameter. C# infers nothing from an implicitly typed lambda's parameters, and
+     * a method reference is a lambda in C# (CS0411); Java infers it from the call's target.
+     */
+    private static boolean onlyThroughLambdas(MethodCall mc) {
+        MethodInfo method = mc.methodInfo();
+        List<Expression> args = mc.parameterExpressions();
+        if (method.parameters().stream().anyMatch(ParameterInfo::isVarArgs)) return false;
+        return method.typeParameters().stream().anyMatch(tp -> {
+            boolean mentioned = false;
+            for (int i = 0; i < method.parameters().size() && i < args.size(); i++) {
+                if (!mentionsInCSharp(method.parameters().get(i).parameterizedType(), tp)) continue;
+                Expression arg = unwrap(args.get(i));
+                if (!(arg instanceof Lambda) && !(arg instanceof MethodReference)) return false;
+                mentioned = true;
+            }
+            return mentioned;
+        });
     }
 
     /** As {@link CstQueries#mentions}, but not through a {@code Class<T>}, which is C#'s {@code Type}, without arguments. */
@@ -889,6 +914,8 @@ public final class CSharpExpressionPrinter {
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
         // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
+        ParameterizedType fromTarget = erasedDiamond(inner, target);
+        if (fromTarget != null) return constructorCall((ConstructorCall) inner, fromTarget, q);
         // a type argument is the value type itself, List<int>: a K of a Dictionary<int, V> is an int
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
@@ -1098,8 +1125,65 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
+               || erasedDiamond(inner, target) != null
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
+    }
+
+    /**
+     * A diamond of raw arguments, {@code new DefaultBiJoiner<>(newLeftMappings, …)} of a {@code new Function[n]}: Java
+     * infers the raw type, which converts to the {@code DefaultBiJoiner<A, B>} returned unchecked; C# creates it with
+     * the target's type arguments, or those of the class that make it the target, an interface it implements. Null
+     * when the creation is not such a diamond, or the target does not determine them.
+     */
+    private static ParameterizedType erasedDiamond(Expression e, ParameterizedType target) {
+        if (!(e instanceof ConstructorCall cc) || cc.anonymousClass() != null || cc.diamond() == null
+            || !cc.diamond().isYes() || target.arrays() != 0 || target.typeInfo() == null) {
+            return null;
+        }
+        ParameterizedType type = cc.parameterizedType();
+        TypeInfo created = type.typeInfo();
+        if (created == null || type.arrays() != 0 || created.typeParameters().isEmpty()
+            || !type.parameters().stream().allMatch(ParameterizedType::isJavaLangObject)) {
+            return null;
+        }
+        List<TypeParameter> own = created.typeParameters();
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        if (created.equals(target.typeInfo())) {
+            match(created.asParameterizedType(), target, own, inferred);
+        } else {
+            List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
+            if (created.parentClass() != null) declared.add(created.parentClass());
+            declared.stream().filter(d -> target.typeInfo().equals(d.typeInfo())).findFirst()
+                    .ifPresent(d -> match(d, target, own, inferred));
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (TypeParameter tp : own) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, List.of())) return null;
+            arguments.add(t);
+        }
+        if (arguments.stream().allMatch(ParameterizedType::isJavaLangObject)) return null;
+        // a raw argument is C#'s of object, Func<object, object>[]: only where its parameter becomes one of object too,
+        // the Comparator<T> of a raw Comparator with T object, not the Function<A, ?>[] of a raw Function[]
+        Map<TypeParameter, ParameterizedType> bound = new HashMap<>();
+        for (int i = 0; i < own.size(); i++) bound.put(own.get(i), arguments.get(i));
+        List<ParameterInfo> parameters = cc.constructor() == null ? List.of() : cc.constructor().parameters();
+        for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
+            ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
+            if (!raw(argument)) continue;
+            ParameterizedType formal = CSharpHierarchy.substitute(parameters.get(i).parameterizedType(), bound);
+            if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
+                                                            && p.wildcard().isUnbound())) {
+                return null;
+            }
+        }
+        return type.withParameters(arguments);
+    }
+
+    /** A generic type without its type arguments, {@code Function[]}. */
+    private static boolean raw(ParameterizedType t) {
+        return t != null && t.typeInfo() != null && !t.typeInfo().typeParameters().isEmpty() && t.parameters().isEmpty();
     }
 
     private static boolean rawArray(Expression e, ParameterizedType target) {
@@ -1383,6 +1467,11 @@ public final class CSharpExpressionPrinter {
                 && result.parameters().stream().allMatch(a -> a.wildcard() == null)
                 && (type.typeInfo().equals(result.typeInfo()) || passesOwnParameters(type.typeInfo(), result.typeInfo()))) {
                 type = type.withParameters(result.parameters());
+            } else if (type.arrays() == 0 && type.parameters().isEmpty() && type.typeInfo() != null
+                       && !type.typeInfo().typeParameters().isEmpty()) {
+                // else from the delegate's parameters: Node::new as a Builder<String, List<String>>, whose
+                // (K key, int index, Lifecycle<T> next) are (string, int, ILifecycle<List<string>>)
+                type = fromParameters(type, method, mr.concreteParameterTypes());
             }
             String created = type.arrays() > 0
                     ? "new " + CSharpTypeName.element(type.copyWithoutArrays(), q) + "[" + parameters.getFirst() + "]"
@@ -1452,6 +1541,25 @@ public final class CSharpExpressionPrinter {
         MethodInfo sam = functional == null ? null : CSharpNames.singleAbstractMethod(functional);
         if (sam == null || !sam.returnType().isTypeParameter()) return null;
         return "(" + CSharpTypeName.argument(method.returnType(), q) + ") ";
+    }
+
+    /** A raw constructor reference's type, its type arguments from the delegate's parameter types; else as it is. */
+    private static ParameterizedType fromParameters(ParameterizedType type, MethodInfo constructor,
+                                                    List<ParameterizedType> concrete) {
+        List<TypeParameter> own = type.typeInfo().typeParameters();
+        if (concrete == null || concrete.size() != constructor.parameters().size()) return type;
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        for (int i = 0; i < concrete.size(); i++) {
+            if (constructor.parameters().get(i).isVarArgs()) return type;
+            match(constructor.parameters().get(i).parameterizedType(), concrete.get(i), own, inferred);
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (TypeParameter tp : own) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, List.of())) return type;
+            arguments.add(t);
+        }
+        return type.withParameters(arguments);
     }
 
     /** {@code created} declares {@code supertype} with its own type parameters, in order: {@code HashSet<E> : Set<E>}. */
