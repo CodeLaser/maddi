@@ -96,7 +96,18 @@ public class KotlinStatementPrinter {
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
                 CstQueries.mentions(mc.methodInfo().returnType(), tp)
-                && mc.methodInfo().parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)));
+                && mc.methodInfo().parameters().stream().noneMatch(p -> mentionsOutsideSuper(p.parameterizedType(), tp)));
+    }
+
+    /**
+     * {@code tp} in {@code type}, other than as a {@code ? super} bound: guava's {@code TopKSelector.least(k,
+     * Comparator<? super T>)} takes its T from the target, {@code TopKSelector<E> selector = least(k, this)} in an
+     * {@code Ordering<T>}, where Kotlin, without the local's type, takes the comparator's T.
+     */
+    private static boolean mentionsOutsideSuper(ParameterizedType type, TypeParameter tp) {
+        if (type.wildcard() != null && type.wildcard().isSuper()) return false;
+        if (type.isTypeParameter() && tp.equals(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(p -> mentionsOutsideSuper(p, tp));
     }
 
 

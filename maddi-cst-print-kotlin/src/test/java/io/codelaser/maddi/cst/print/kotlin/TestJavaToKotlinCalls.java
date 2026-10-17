@@ -786,4 +786,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "map.get(key)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Ordering.leastOf(): {@code TopKSelector<E> selector = TopKSelector.least(k, this)} takes E from the
+     * local; the comparator, a {@code Comparator<? super T>}, does not decide it. Kotlin needs the local's type.
+     */
+    @Test
+    public void typeArgumentFromTheLocalNotASuperBoundArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Ord<T> implements Comparator<T> {
+                    static final class Top<T> {
+                        static <T> Top<T> least(int k, Comparator<? super T> comparator) { return new Top<>(); }
+                        List<T> topK() { return new ArrayList<>(); }
+                    }
+                    <E extends T> List<E> leastOf(int k) {
+                        Top<E> selector = Top.least(k, this);
+                        return selector.topK();
+                    }
+                }
+                """);
+        contains(kotlin, "val selector: Top<E> =");
+        compiles(kotlin);
+    }
 }
