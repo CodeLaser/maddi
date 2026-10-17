@@ -732,7 +732,14 @@ public class KotlinExpressionPrinter {
                                             && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
-                if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
+                if (hasParameter && covariantArrayArgument(method, i, args.get(i))) {
+                    KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    argument = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(argument).add(SpaceEnum.ONE)
+                            .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            // a nullable parameter's `as Array<Any?>?` lets a null through, as Java does
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS);
+                } else if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
                     // ensureNotEmpty(values, name) with a vararg values: Kotlin's is an Array<out T?>, and the
                     // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
                     ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
@@ -1542,10 +1549,30 @@ public class KotlinExpressionPrinter {
             return false;
         }
         ParameterizedType value = u.parameterizedType();
-        return value != null && value.arrays() == target.arrays() && value.typeInfo() != null
-               && target.typeInfo() != null && !value.isPrimitiveExcludingVoid() && value.typeParameter() == null
-               && target.typeParameter() == null && !sameUpToStates(value, target)
+        if (value == null || value.arrays() != target.arrays() || target.typeInfo() == null
+            || target.typeParameter() != null || value.isPrimitiveExcludingVoid()) {
+            return false;
+        }
+        // @Nullable Object[] unsoundlyCovariantArray = a, of a T[] (guava's toArray(T[] a) implementations)
+        if (value.typeParameter() != null) return target.typeInfo().isJavaLangObject();
+        return value.typeInfo() != null && !sameUpToStates(value, target)
                && !(value.typeInfo() == target.typeInfo() && value.parameters().isEmpty());
+    }
+
+    /**
+     * A reference array handed to a translated method's array parameter that is invariant ({@code Array<Any?>}, not
+     * printed {@code Array<out …>}) where Java's covariance accepts it: {@code copyIntoArray(other, 0)} of a T[].
+     */
+    private static boolean covariantArrayArgument(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                  Expression arg) {
+        if (!KotlinContext.translatingJava() || method == null || i >= method.parameters().size()
+            || !KotlinNullability.translated(method.typeInfo()) || !castable(method, i)) {
+            return false;
+        }
+        ParameterInfo p = method.parameters().get(i);
+        ParameterizedType type = KotlinNullability.parameterType(p);
+        return !p.isVarArgs() && type.arrays() == 1 && !KotlinMethodPrinter.covariantArray(p, type)
+               && covariantArray(arg, p.parameterizedType());
     }
 
     private static boolean vararg(Expression e) {

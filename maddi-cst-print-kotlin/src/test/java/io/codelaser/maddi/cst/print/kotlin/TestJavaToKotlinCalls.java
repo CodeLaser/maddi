@@ -590,4 +590,30 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's toArray(T[] a) implementations: {@code Object[] unsoundlyCovariantArray = a} of a T[], and a T[] handed
+     * to {@code copyIntoArray(Object[] dst, int offset)}, which writes it: Java's covariance, Kotlin's unchecked cast.
+     */
+    @Test
+    public void typeVariableArraysIntoObjectArrays() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    Object[] items = new Object[] { "a" };
+                    int copyIntoArray(Object[] dst, int offset) { dst[offset] = items[0]; return offset + 1; }
+                    <T> T[] toArray(T[] a) {
+                        if (a.length > 1) {
+                            Object[] unsoundlyCovariantArray = a;
+                            unsoundlyCovariantArray[1] = "b";
+                        }
+                        copyIntoArray(a, 0);
+                        return a;
+                    }
+                }
+                """);
+        contains(kotlin, "= (a as Array<Any");
+        contains(kotlin, "copyIntoArray((a as Array<Any");
+        compiles(kotlin);
+    }
 }
