@@ -16,7 +16,7 @@ internal sealed class Erased {
         internal Joiner<A, B> Reordered() {
             var copy = new Func<object, object>[mappings.Length];
             for (int i = 0; i < copy.Length; i++) { copy[i] = mappings[mappings.Length - 1 - i]; }
-            return new Joiner<A, B>(copy);
+            return new Joiner<object, object>(copy);
         }
     }
     internal interface ISorter<S, T> { }

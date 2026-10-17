@@ -211,8 +211,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void erasedDiamonds() {
         String cs = translate("Erased", ERASED_DIAMONDS);
-        // the raw array itself stays Func<object, object>[], which C# does not pass as a Func<A, object>[]
-        contains(cs, "return new Joiner<A, B>(copy);");
+        // not of a raw array, Func<object, object>[], which C# does not pass as the Func<A, object>[] of Joiner<A, B>
+        contains(cs, "return new Joiner<object, object>(copy);");
         contains(cs, "sorter = new ComparingSorter<S, object>(comparator);");
     }
 

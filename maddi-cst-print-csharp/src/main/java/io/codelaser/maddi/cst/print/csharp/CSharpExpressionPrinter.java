@@ -1163,7 +1163,27 @@ public final class CSharpExpressionPrinter {
             if (t == null || !writable(t, List.of())) return null;
             arguments.add(t);
         }
-        return arguments.stream().allMatch(ParameterizedType::isJavaLangObject) ? null : type.withParameters(arguments);
+        if (arguments.stream().allMatch(ParameterizedType::isJavaLangObject)) return null;
+        // a raw argument is C#'s of object, Func<object, object>[]: only where its parameter becomes one of object too,
+        // the Comparator<T> of a raw Comparator with T object, not the Function<A, ?>[] of a raw Function[]
+        Map<TypeParameter, ParameterizedType> bound = new HashMap<>();
+        for (int i = 0; i < own.size(); i++) bound.put(own.get(i), arguments.get(i));
+        List<ParameterInfo> parameters = cc.constructor() == null ? List.of() : cc.constructor().parameters();
+        for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
+            ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
+            if (!raw(argument)) continue;
+            ParameterizedType formal = CSharpHierarchy.substitute(parameters.get(i).parameterizedType(), bound);
+            if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
+                                                            && p.wildcard().isUnbound())) {
+                return null;
+            }
+        }
+        return type.withParameters(arguments);
+    }
+
+    /** A generic type without its type arguments, {@code Function[]}. */
+    private static boolean raw(ParameterizedType t) {
+        return t != null && t.typeInfo() != null && !t.typeInfo().typeParameters().isEmpty() && t.parameters().isEmpty();
     }
 
     private static boolean rawArray(Expression e, ParameterizedType target) {

@@ -397,8 +397,9 @@ implements the interface.
   `new Function[n]`, is the raw type to Java, which converts unchecked to the `DefaultBiJoiner<A, B>` it is
   returned or assigned as. C# creates it with the target's type arguments, also through an interface the class
   implements: `sorter = new ComparatorSelectionSorter<>(comparator)` for a `SelectionSorter<Solution_, Object>` is
-  `new ComparatorSelectionSorter<Solution_, object>(comparator)`. A raw argument stays raw: an array of
-  `Func<object, object>` is no `Func<A, object>[]`.
+  `new ComparatorSelectionSorter<Solution_, object>(comparator)`. Only where each raw argument, which C# has of
+  `object`, still fits its parameter: not `new DefaultBiJoiner<>(newLeftMappings, …)` of a `new Function[n]`, whose
+  `Func<object, object>[]` is no `Func<A, object>[]`.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
