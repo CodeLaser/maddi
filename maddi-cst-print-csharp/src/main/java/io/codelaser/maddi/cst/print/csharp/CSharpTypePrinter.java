@@ -312,16 +312,37 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
                         .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.util.AbstractSet".equals(parent.typeInfo().fullyQualifiedName())) {
+                // C#'s ISet has no virtual methods: the compatibility library's JavaSet, whose Java methods are
+                // abstract (Iterator, Size) or virtual, and which is an ISet on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaSet<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                        .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.lang.Number".equals(parent.typeInfo().fullyQualifiedName())) {
+                // a Number is C#'s IConvertible, which has no intValue() to override: the compatibility library's
+                // JavaNumber, which has them abstract and implements IConvertible on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaNumber");
             } else {
                 supers.add(CSharpTypeName.of(parent, q));
             }
         }
+        // a class that implements Set itself: JavaSet, which is the ISet (CSharpBcl.directSet)
+        boolean directSet = CSharpBcl.directSet(typeInfo);
         // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in; a
         // delegate is sealed, and an instance becomes its method group where one is expected (implementationGroup)
         typeInfo.interfacesImplemented().stream()
                 .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName())
                              && !CSharpTypeName.libraryDelegate(i.typeInfo()))
-                .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
+                .forEach(i -> {
+                    if (directSet && "java.util.Set".equals(i.typeInfo().fullyQualifiedName())) {
+                        CSharpContext.using(CSharpCompat.NAMESPACE);
+                        supers.addFirst("JavaSet<" + i.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                                .collect(Collectors.joining(", ")) + ">");
+                    } else {
+                        supers.add(CSharpTypeName.of(i, q));
+                    }
+                });
         return supers;
     }
 

@@ -1638,6 +1638,197 @@ public class JavaEntry<K, V>
 /// not override add or remove. Java's methods are virtual here, under the names the translation calls them by. It is
 /// a List, but a call through a List-typed reference reaches List's method, not the subclass's override.
 /// </summary>
+/// <summary>
+/// java.lang.Number as a base class: Java's abstract values, and C#'s IConvertible on them, as a boxed number is one, so
+/// that Convert.ToInt32(n) reads a Number of the program as it does an Integer.
+/// </summary>
+public abstract class JavaNumber : IConvertible
+{
+    public abstract int IntValue();
+
+    public abstract long LongValue();
+
+    public abstract float FloatValue();
+
+    public abstract double DoubleValue();
+
+    public virtual short ShortValue() => (short) IntValue();
+
+    public virtual sbyte ByteValue() => (sbyte) IntValue();
+
+    TypeCode IConvertible.GetTypeCode() => TypeCode.Object;
+
+    bool IConvertible.ToBoolean(IFormatProvider? provider) => LongValue() != 0;
+
+    char IConvertible.ToChar(IFormatProvider? provider) => (char) IntValue();
+
+    sbyte IConvertible.ToSByte(IFormatProvider? provider) => ByteValue();
+
+    byte IConvertible.ToByte(IFormatProvider? provider) => (byte) IntValue();
+
+    short IConvertible.ToInt16(IFormatProvider? provider) => ShortValue();
+
+    ushort IConvertible.ToUInt16(IFormatProvider? provider) => (ushort) IntValue();
+
+    int IConvertible.ToInt32(IFormatProvider? provider) => IntValue();
+
+    uint IConvertible.ToUInt32(IFormatProvider? provider) => (uint) LongValue();
+
+    long IConvertible.ToInt64(IFormatProvider? provider) => LongValue();
+
+    ulong IConvertible.ToUInt64(IFormatProvider? provider) => (ulong) LongValue();
+
+    float IConvertible.ToSingle(IFormatProvider? provider) => FloatValue();
+
+    double IConvertible.ToDouble(IFormatProvider? provider) => DoubleValue();
+
+    decimal IConvertible.ToDecimal(IFormatProvider? provider) => (decimal) DoubleValue();
+
+    DateTime IConvertible.ToDateTime(IFormatProvider? provider) => throw new InvalidCastException("Number to DateTime");
+
+    string IConvertible.ToString(IFormatProvider? provider) => ToString() ?? "";
+
+    object IConvertible.ToType(Type conversionType, IFormatProvider? provider) =>
+        Convert.ChangeType(DoubleValue(), conversionType, provider);
+}
+
+/// <summary>
+/// java.util.AbstractSet as a base class: C#'s ISet has no virtual methods, so a class extending AbstractSet extends
+/// this, whose Java methods are abstract (Iterator, Size) or virtual, as AbstractSet and AbstractCollection have
+/// them, and which is C#'s ISet on them.
+/// </summary>
+public abstract class JavaSet<E> : ISet<E>, IReadOnlyCollection<E>
+{
+    public abstract IJavaIterator<E> Iterator();
+
+    public abstract int Size();
+
+    public virtual bool IsEmpty() => Size() == 0;
+
+    public virtual bool Contains(object o)
+    {
+        var it = Iterator();
+        while (it.HasNext())
+            if (Equals(it.Next(), o)) return true;
+        return false;
+    }
+
+    public virtual bool Add(E e) => throw new NotSupportedException("add");
+
+    public virtual bool Remove(object o)
+    {
+        var it = Iterator();
+        while (it.HasNext())
+        {
+            if (!Equals(it.Next(), o)) continue;
+            it.Remove();
+            return true;
+        }
+        return false;
+    }
+
+    public virtual void Clear()
+    {
+        var it = Iterator();
+        while (it.HasNext())
+        {
+            it.Next();
+            it.Remove();
+        }
+    }
+
+    public virtual bool ContainsAll(System.Collections.ICollection c) => c.Cast<object>().All(Contains);
+
+    public virtual bool AddAll(ICollection<E> c)
+    {
+        var changed = false;
+        foreach (var e in c) changed |= Add(e);
+        return changed;
+    }
+
+    public virtual bool RemoveAll(System.Collections.ICollection c)
+    {
+        var changed = false;
+        foreach (var o in c) changed |= Remove(o!);
+        return changed;
+    }
+
+    public virtual bool RetainAll(System.Collections.ICollection c)
+    {
+        var keep = c.Cast<object?>().ToList();
+        var changed = false;
+        var it = Iterator();
+        while (it.HasNext())
+        {
+            if (keep.Contains(it.Next())) continue;
+            it.Remove();
+            changed = true;
+        }
+        return changed;
+    }
+
+    public virtual object[] ToArray() => this.Select(e => (object) e!).ToArray();
+
+    public IEnumerator<E> GetEnumerator() => Iterator().AsEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    int ICollection<E>.Count => Size();
+
+    int IReadOnlyCollection<E>.Count => Size();
+
+    bool ICollection<E>.IsReadOnly => false;
+
+    void ICollection<E>.Add(E item) => Add(item);
+
+    bool ISet<E>.Add(E item) => Add(item);
+
+    bool ICollection<E>.Contains(E item) => Contains(item!);
+
+    bool ICollection<E>.Remove(E item) => Remove(item!);
+
+    void ICollection<E>.CopyTo(E[] array, int arrayIndex)
+    {
+        foreach (var e in this) array[arrayIndex++] = e;
+    }
+
+    void ISet<E>.UnionWith(IEnumerable<E> other)
+    {
+        foreach (var e in other) Add(e);
+    }
+
+    void ISet<E>.IntersectWith(IEnumerable<E> other)
+    {
+        var keep = new HashSet<E>(other);
+        var it = Iterator();
+        while (it.HasNext())
+            if (!keep.Contains(it.Next())) it.Remove();
+    }
+
+    void ISet<E>.ExceptWith(IEnumerable<E> other)
+    {
+        foreach (var e in other) Remove(e!);
+    }
+
+    void ISet<E>.SymmetricExceptWith(IEnumerable<E> other)
+    {
+        foreach (var e in new HashSet<E>(other))
+            if (!Remove(e!)) Add(e);
+    }
+
+    bool ISet<E>.IsSubsetOf(IEnumerable<E> other) => new HashSet<E>(this).IsSubsetOf(other);
+
+    bool ISet<E>.IsSupersetOf(IEnumerable<E> other) => new HashSet<E>(this).IsSupersetOf(other);
+
+    bool ISet<E>.IsProperSubsetOf(IEnumerable<E> other) => new HashSet<E>(this).IsProperSubsetOf(other);
+
+    bool ISet<E>.IsProperSupersetOf(IEnumerable<E> other) => new HashSet<E>(this).IsProperSupersetOf(other);
+
+    bool ISet<E>.Overlaps(IEnumerable<E> other) => other.Any(e => Contains(e!));
+
+    bool ISet<E>.SetEquals(IEnumerable<E> other) => new HashSet<E>(this).SetEquals(other);
+}
+
 public class JavaArrayList<E> : List<E>
 {
     public JavaArrayList()

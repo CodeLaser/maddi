@@ -213,7 +213,9 @@ implements the interface.
   - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
     method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
   - a default method that implements an inherited interface's method is an explicit implementation:
-    `Type IListener<string>.EventClass() => typeof(string);`;
+    `Type IListener<string>.EventClass() => typeof(string);`; so is one of a JDK interface's method that C# names
+    otherwise, `default void close()` of a `Closeable`: `void IDisposable.Dispose() { }`, which a `Dispose()` of its
+    own would hide;
   - an abstract class that leaves an interface's method to its subclasses redeclares it,
     `public abstract string Embed(string text);`, and the subclasses' implementations are `override`s; a
     compatibility interface's too, `Iterator`'s `public abstract bool HasNext();`, whose `S Next()` a
@@ -234,6 +236,15 @@ implements the interface.
   not used (`Remove(int)`, not `RemoveAt`). A call through a `List<E>`-typed reference reaches `List`'s method, not
   the override: `LIST_SUBCLASS`, a behaviour change. (Declaring Java's `List` as `IList<T>` would dispatch, but
   `IList<T>` is not an `IReadOnlyList<T>`, which the covariant `List<? extends T>` needs.)
+- **Subclasses of `AbstractSet`.** C#'s `ISet<T>` has no virtual methods. A class extending `AbstractSet` extends the
+  compatibility library's `JavaSet<E>`, whose `Iterator()` and `Size()` are abstract and whose `Contains`, `Add`,
+  `Remove`, `Clear`, `ContainsAll`, `AddAll`, `RemoveAll` and `RetainAll` are virtual, with `AbstractCollection`'s
+  defaults; it implements `ISet<E>` on them. A class implementing `Set` itself, without a superclass, extends it
+  too, and its methods of those names override them.
+- **Subclasses of `Number`.** A `Number` is C#'s `IConvertible`, which has no `intValue()` to override. A class
+  extending `Number` extends the compatibility library's `JavaNumber`, whose `IntValue()`, `LongValue()`,
+  `FloatValue()` and `DoubleValue()` are abstract and which implements `IConvertible` on them, so that
+  `Convert.ToInt64(n)` reads it as it reads an `Integer`.
 - **Iterables.** A class implementing Java's `Iterable` is C#'s `IEnumerable<T>`: it gets a `GetEnumerator()` that
   walks its `Iterator()`, so that `foreach` and LINQ work on it. An interface that extends `Iterable` declares
   `IJavaIterator<T> Iterator();` and is enumerable through default implementations over it

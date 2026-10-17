@@ -484,6 +484,41 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     return set;
                 }
                 static Object first(SequencedCollection<Object> c) { return c.getFirst(); }
+                static final class Counter extends Number {
+                    private int value;
+                    public int intValue() { return value; }
+                    public long longValue() { return value; }
+                    public float floatValue() { return value; }
+                    public double doubleValue() { return value; }
+                }
+                static long asLong(Number n) { return n.longValue(); }
+                interface Listener extends java.io.Closeable { void changed(); default void close() { } }
+                static final class Tracker implements Listener { public void changed() { } }
+                static void done(Listener l) throws java.io.IOException { l.close(); }
+                static final class Bag<V> extends AbstractSet<V> {
+                    private final List<V> items = new ArrayList<>();
+                    public Iterator<V> iterator() { return items.iterator(); }
+                    public int size() { return items.size(); }
+                    public boolean add(V v) { return !contains(v) && items.add(v); }
+                }
+                static int bagged(Set<String> s) { return s.size(); }
+                static int bag() { var b = new Bag<String>(); b.add("x"); return bagged(b); }
+                static final class Pair<E> implements Set<E> {
+                    private final List<E> items = new ArrayList<>();
+                    public int size() { return items.size(); }
+                    public boolean isEmpty() { return items.isEmpty(); }
+                    public boolean contains(Object o) { return items.contains(o); }
+                    public Iterator<E> iterator() { return items.iterator(); }
+                    public Object[] toArray() { return items.toArray(); }
+                    public <T> T[] toArray(T[] a) { return items.toArray(a); }
+                    public boolean add(E e) { if (items.contains(e)) return false; items.add(e); return true; }
+                    public boolean remove(Object o) { return items.remove(o); }
+                    public boolean containsAll(Collection<?> c) { return items.containsAll(c); }
+                    public boolean addAll(Collection<? extends E> c) { return false; }
+                    public boolean retainAll(Collection<?> c) { return false; }
+                    public boolean removeAll(Collection<?> c) { return false; }
+                    public void clear() { items.clear(); }
+                }
                 static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
                 static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
@@ -509,6 +544,18 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "c.First()");
         contains(cs, "l.Iterator(i)");
         contains(cs, "new Dictionary<object, string>()");
+        // a class extending Number: the compatibility library's JavaNumber, an IConvertible
+        contains(cs, "internal sealed class Counter : JavaNumber {");
+        contains(cs, "public override int IntValue() => value;");
+        // a default close() of a Closeable implements IDisposable's Dispose explicitly, which one named Dispose hides
+        contains(cs, "void IDisposable.Dispose() { }");
+        contains(cs, "l.Dispose();");
+        // a class extending AbstractSet: the compatibility library's JavaSet, an ISet on its Java methods
+        contains(cs, "internal sealed class Bag<V> : JavaSet<V> {");
+        contains(cs, "public override int Size() => items.Count;");
+        // one implementing Set itself likewise, overriding JavaSet's methods
+        contains(cs, "internal sealed class Pair<E> : JavaSet<E> {");
+        contains(cs, "public override bool Contains(object o) => items.Contains(o);");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");
