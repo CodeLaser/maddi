@@ -91,8 +91,13 @@ public class KotlinTypeName {
      * Kotlin type has none of its Java counterpart's statics.
      */
     public static String staticOwner(TypeInfo typeInfo, Qualification q) {
-        return isMapped(typeInfo.fullyQualifiedName()) ? typeInfo.fullyQualifiedName() : name(typeInfo, q);
+        // Enum.valueOf(enumClass, value) (guava's Enums): Kotlin's Enum is kotlin.Enum, which has no valueOf
+        return isMapped(typeInfo.fullyQualifiedName()) || STATICS_SHADOWED.contains(typeInfo.fullyQualifiedName())
+                ? typeInfo.fullyQualifiedName() : name(typeInfo, q);
     }
+
+    /** java.lang types Kotlin's default imports shadow by a type of the same simple name, whose statics it lacks. */
+    private static final java.util.Set<String> STATICS_SHADOWED = java.util.Set.of("java.lang.Enum");
 
     private static final Map<String, String> PRIMITIVE_ARRAY = Map.of("int", "IntArray", "long", "LongArray",
             "short", "ShortArray", "byte", "ByteArray", "char", "CharArray", "boolean", "BooleanArray",

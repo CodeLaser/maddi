@@ -734,4 +734,19 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "@Support(Support.Level.FULL)");
         compiles(kotlin);
     }
+
+    /** guava's Enums.StringConverter: Enum.valueOf is java.lang.Enum's; Kotlin's Enum has no valueOf. */
+    @Test
+    public void javaLangEnumStatic() {
+        String kotlin = kotlin("""
+                package a;
+                class Conv<T extends Enum<T>> {
+                    private final Class<T> enumClass;
+                    Conv(Class<T> enumClass) { this.enumClass = enumClass; }
+                    T forward(String value) { return Enum.valueOf(enumClass, value); }
+                }
+                """);
+        contains(kotlin, "java.lang.Enum.valueOf(enumClass, value)");
+        compiles(kotlin);
+    }
 }
