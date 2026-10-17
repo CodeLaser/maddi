@@ -768,6 +768,15 @@ public class KotlinExpressionPrinter {
                     }
                     argumentTranslated = false;
                 }
+                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
+                    // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
+                    // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin
+                    printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(declared, q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS));
+                    continue;
+                }
                 if (hasParameter && unwrap(args.get(i)) instanceof ConstructorCall cc && cc.arrayInitializer() != null
                     && cc.parameterizedType().arrays() == 1 && !cc.parameterizedType().componentType().isPrimitiveExcludingVoid()
                     && method.parameters().get(i).parameterizedType().typeParameter() != null
@@ -1231,6 +1240,28 @@ public class KotlinExpressionPrinter {
     private static boolean castable(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
         ParameterizedType p = method.parameters().get(i).parameterizedType();
         return method.typeParameters().stream().noneMatch(tp -> CstQueries.mentions(p, tp));
+    }
+
+    /**
+     * The callee's parameter is nullable in Kotlin, an overload of the same arity takes a non-null supertype there,
+     * and the argument is non-null: Kotlin finds neither more specific, Java takes the narrower one.
+     */
+    private static boolean nullableBesideWiderOverload(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                                       Expression argument) {
+        if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())
+            || i >= method.parameters().size() || method.parameters().get(i).isVarArgs()) return false;
+        ParameterInfo p = method.parameters().get(i);
+        ParameterizedType type = p.parameterizedType();
+        if (type.arrays() != 0 || type.typeInfo() == null || type.typeParameter() != null
+            || !KotlinNullability.isNullable(KotlinNullability.parameterType(p))
+            || KotlinNullability.nullableInKotlin(argument)) return false;
+        return method.typeInfo().methods().stream().anyMatch(o -> o != method && o.name().equals(method.name())
+                && o.parameters().size() == method.parameters().size() && !o.parameters().get(i).isVarArgs()
+                && o.parameters().get(i).parameterizedType().arrays() == 0
+                && o.parameters().get(i).parameterizedType().typeInfo() != null
+                && o.parameters().get(i).parameterizedType().typeInfo() != type.typeInfo()
+                && isSubtype(type.typeInfo(), o.parameters().get(i).parameterizedType().typeInfo(), new java.util.HashSet<>())
+                && !KotlinNullability.isNullable(KotlinNullability.parameterType(o.parameters().get(i))));
     }
 
     private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {

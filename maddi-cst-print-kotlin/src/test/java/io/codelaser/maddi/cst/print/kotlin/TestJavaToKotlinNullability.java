@@ -754,6 +754,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Ascii: toUpperCase(String string), nullable, beside toUpperCase(CharSequence chars). A String argument
+     * fits both in Kotlin, neither more specific: the cast to String? picks Java's.
+     */
+    @Test
+    public void nullableOverloadBesideAWiderOne() {
+        String kotlin = kotlin("""
+                package a;
+                final class Up {
+                    static String up(String string) { return string == null ? "" : string.toUpperCase(); }
+                    static String up(CharSequence chars) { return chars.toString(); }
+                    static String caller(String s) { return up(s); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("string")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "up((s as String?))");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
