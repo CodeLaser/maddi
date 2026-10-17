@@ -712,12 +712,17 @@ public class KotlinExpressionPrinter {
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
                            && KotlinNullability.nullableInKotlin(args.get(i))) {
                         // lst.remove(varassign) with a VarExprent? from a List<Exprent>: T is inferred from the
-                        // inputs only, so the argument is cast up to the element type
+                        // inputs only, so the argument is cast up to the element type. Into a translated override
+                        // whose Kotlin parameter is non-null (super.get(key) of guava's SynchronizedAsMap), to that
+                        boolean nonNullOverride = !method.typeInfo().fullyQualifiedName().startsWith("java.util.")
+                                && KotlinNullability.translated(method.typeInfo())
+                                && !KotlinNullability.isNullable(KotlinNullability.parameterType(method.parameters().get(i)));
                         printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                                 .add(operand(PrecedenceEnum.CAST, args.get(i), q))
                                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                                .add(new TextImpl(KotlinTypeName.of(lookedUp.withNullable(
-                                        io.codelaser.maddi.cst.api.type.NullableState.NULLABLE), q)))
+                                .add(new TextImpl(KotlinTypeName.of(lookedUp.withNullable(nonNullOverride
+                                        ? io.codelaser.maddi.cst.api.type.NullableState.NONNULL
+                                        : io.codelaser.maddi.cst.api.type.NullableState.NULLABLE), q)))
                                 .add(SymbolEnum.RIGHT_PARENTHESIS));
                         continue;
                     }

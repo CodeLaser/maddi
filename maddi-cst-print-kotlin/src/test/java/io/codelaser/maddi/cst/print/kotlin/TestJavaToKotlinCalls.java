@@ -764,7 +764,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     @Override public V get(Object key) { return map.get(key); }
                     @Override public boolean remove(Object key, Object value) { return map.remove(key, value); }
                     @Override public Set<Entry<K, V>> entrySet() { return map.entrySet(); }
-                    final class Entries {
+                    static final class Synced<K, V> extends Cache<K, V> {
+        @Override public V get(Object key) { return super.get(key); }
+    }
+    final class Entries {
                         boolean contains(Object o) {
                             if (!(o instanceof Entry)) return false;
                             Entry<?, ?> e = (Entry<?, ?>) o;
@@ -775,8 +778,12 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "this@Cache.get((key as K?))");
-        contains(kotlin, "this@Cache.remove((key as K?), (e.value as V?))");
+        // the overrides' Kotlin parameters are non-null here (no NullabilityPass): the casts are to K and V
+        contains(kotlin, "this@Cache.get((key as K))");
+        contains(kotlin, "super.get((key as K))");
+        contains(kotlin, "this@Cache.remove((key as K), (e.value as V))");
+        // into java.util's own lookup, nullable as ever
+        contains(kotlin, "map.get((key as K?))");
         compiles(kotlin);
     }
 }
