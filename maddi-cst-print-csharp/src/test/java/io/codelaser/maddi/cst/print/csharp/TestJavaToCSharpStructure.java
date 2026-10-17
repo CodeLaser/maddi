@@ -176,6 +176,47 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ERASED_DIAMONDS = """
+            package org.example.erased;
+            import java.util.Comparator;
+            import java.util.function.Function;
+            class Erased {
+                interface Sorter<S, T> { }
+                static final class ComparingSorter<S, T> implements Sorter<S, T> {
+                    ComparingSorter(Comparator<T> comparator) { }
+                }
+                static final class Joiner<A, B> {
+                    private final Function<A, Object>[] mappings;
+                    @SuppressWarnings("unchecked")
+                    Joiner(Function<A, ?>[] mappings) { this.mappings = (Function<A, Object>[]) mappings; }
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Joiner<A, B> reordered() {
+                        var copy = new Function[mappings.length];
+                        for (int i = 0; i < copy.length; i++) copy[i] = mappings[mappings.length - 1 - i];
+                        return new Joiner<>(copy);
+                    }
+                }
+                static final class Holder<S> {
+                    private Sorter<S, Object> sorter;
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    void sortBy(Object instance) {
+                        var comparator = (Comparator) instance;
+                        sorter = new ComparingSorter<>(comparator);
+                    }
+                }
+            }
+            """;
+
+    /** A diamond of raw arguments: Java infers the raw type, C# creates it with the target's type arguments. */
+    @Test
+    public void erasedDiamonds() {
+        String cs = translate("Erased", ERASED_DIAMONDS);
+        // the raw array itself stays Func<object, object>[], which C# does not pass as a Func<A, object>[]
+        contains(cs, "return new Joiner<A, B>(copy);");
+        contains(cs, "sorter = new ComparingSorter<S, object>(comparator);");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

@@ -889,6 +889,8 @@ public final class CSharpExpressionPrinter {
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
         // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
+        ParameterizedType fromTarget = erasedDiamond(inner, target);
+        if (fromTarget != null) return constructorCall((ConstructorCall) inner, fromTarget, q);
         // a type argument is the value type itself, List<int>: a K of a Dictionary<int, V> is an int
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
@@ -1098,8 +1100,45 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
+               || erasedDiamond(inner, target) != null
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
+    }
+
+    /**
+     * A diamond of raw arguments, {@code new DefaultBiJoiner<>(newLeftMappings, …)} of a {@code new Function[n]}: Java
+     * infers the raw type, which converts to the {@code DefaultBiJoiner<A, B>} returned unchecked; C# creates it with
+     * the target's type arguments, or those of the class that make it the target, an interface it implements. Null
+     * when the creation is not such a diamond, or the target does not determine them.
+     */
+    private static ParameterizedType erasedDiamond(Expression e, ParameterizedType target) {
+        if (!(e instanceof ConstructorCall cc) || cc.anonymousClass() != null || cc.diamond() == null
+            || !cc.diamond().isYes() || target.arrays() != 0 || target.typeInfo() == null) {
+            return null;
+        }
+        ParameterizedType type = cc.parameterizedType();
+        TypeInfo created = type.typeInfo();
+        if (created == null || type.arrays() != 0 || created.typeParameters().isEmpty()
+            || !type.parameters().stream().allMatch(ParameterizedType::isJavaLangObject)) {
+            return null;
+        }
+        List<TypeParameter> own = created.typeParameters();
+        Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
+        if (created.equals(target.typeInfo())) {
+            match(created.asParameterizedType(), target, own, inferred);
+        } else {
+            List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
+            if (created.parentClass() != null) declared.add(created.parentClass());
+            declared.stream().filter(d -> target.typeInfo().equals(d.typeInfo())).findFirst()
+                    .ifPresent(d -> match(d, target, own, inferred));
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (TypeParameter tp : own) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || !writable(t, List.of())) return null;
+            arguments.add(t);
+        }
+        return arguments.stream().allMatch(ParameterizedType::isJavaLangObject) ? null : type.withParameters(arguments);
     }
 
     private static boolean rawArray(Expression e, ParameterizedType target) {
