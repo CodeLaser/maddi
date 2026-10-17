@@ -278,6 +278,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         if (KotlinContext.translatingJava()) members.addAll(KotlinInheritedDefaults.overrides(typeInfo, insideType));
+        if (KotlinContext.translatingJava() && !typeInfo.isAbstract() && extendsNumber(typeInfo)) {
+            // Java's Number implements byteValue() and shortValue() from intValue(); Kotlin's declares toByte() and
+            // toShort() abstract (guava's UnsignedInteger, UnsignedLong, AtomicDouble)
+            if (!declaresInChain(typeInfo, "byteValue")) {
+                members.add(new OutputBuilderImpl().add(new TextImpl("override fun toByte(): Byte = toInt().toByte()")));
+            }
+            if (!declaresInChain(typeInfo, "shortValue")) {
+                members.add(new OutputBuilderImpl().add(new TextImpl("override fun toShort(): Short = toInt().toShort()")));
+            }
+        }
         if (typeInfo.isAnonymous() && typeInfo.interfacesImplemented().stream().anyMatch(this::readOnlyIterator)) {
             // new Iterator<B>() {…} without remove(): the object is a MutableIterator, as where it goes
             // (MutableIterable.iterator()) wants one, and takes Java's default remove
@@ -562,6 +572,22 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** The implicit no-arg, empty-body constructor a class gets by default (not written in Kotlin). */
     private static boolean isImplicitDefaultConstructor(MethodInfo c) {
         return c.parameters().isEmpty() && (c.methodBody() == null || c.methodBody().isEmpty());
+    }
+
+    private static boolean extendsNumber(TypeInfo t) {
+        for (ParameterizedType p = t.parentClass(); p != null && p.typeInfo() != null; p = p.typeInfo().parentClass()) {
+            if ("java.lang.Number".equals(p.typeInfo().fullyQualifiedName())) return true;
+        }
+        return false;
+    }
+
+    /** A zero-parameter method of that name in the class or a translated superclass (not java.lang.Number's own). */
+    private static boolean declaresInChain(TypeInfo t, String name) {
+        for (TypeInfo c = t; c != null && !"java.lang.Number".equals(c.fullyQualifiedName());
+             c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
+            if (c.methods().stream().anyMatch(m -> name.equals(m.name()) && m.parameters().isEmpty())) return true;
+        }
+        return false;
     }
 
     /** A data class exposes generated destructuring accessors {@code component1()}, {@code component2()}, … */

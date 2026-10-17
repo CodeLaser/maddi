@@ -97,7 +97,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // List.remove(int) is Kotlin's removeAt: there is no remove(index) to override
             boolean removeAt = !methodInfo.overrides().isEmpty() && KotlinMappedMembers.isRemoveAt(methodInfo)
                                && !KotlinTypePrinter.fromKotlinSource(typeInfo);
-            b.add(new TextImpl(removeAt ? "removeAt" : KotlinNames.name(methodInfo.name())));
+            // UnsignedInteger.intValue() overriding Number's: Kotlin's Number declares toInt()
+            String numberFunction = !methodInfo.overrides().isEmpty() && !KotlinTypePrinter.fromKotlinSource(typeInfo)
+                    ? KotlinMappedMembers.function(methodInfo) : null;
+            b.add(new TextImpl(removeAt ? "removeAt" : numberFunction != null ? numberFunction
+                    : KotlinNames.name(methodInfo.name())));
         }
 
         if (property == null) b.add(parameters(methodInfo, qualification));

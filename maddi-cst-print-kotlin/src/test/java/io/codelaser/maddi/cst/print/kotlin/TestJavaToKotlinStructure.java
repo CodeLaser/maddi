@@ -2166,4 +2166,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         // declared return's Any? is the NullabilityPass's, not run here, so no kotlinc check
         contains(kotlin, "object : LB<K0, Any");
     }
+
+    /**
+     * guava's UnsignedInteger, UnsignedLong, AtomicDouble extend Number: Kotlin's Number declares toInt() … toDouble()
+     * where Java's has intValue() …, and toByte(), toShort() abstract, which Java's implements.
+     */
+    @Test
+    public void numberSubclass() {
+        String kotlin = kotlin("""
+                package a;
+                final class Unsigned extends Number implements Comparable<Unsigned> {
+                    private final int value;
+                    Unsigned(int value) { this.value = value; }
+                    @Override public int intValue() { return value; }
+                    @Override public long longValue() { return value & 0xffffffffL; }
+                    @Override public float floatValue() { return (float) longValue(); }
+                    @Override public double doubleValue() { return (double) longValue(); }
+                    @Override public int compareTo(Unsigned other) { return Integer.compareUnsigned(value, other.value); }
+                    static long sum(Unsigned a, Number b) { return a.longValue() + b.longValue(); }
+                }
+                """);
+        contains(kotlin, "override fun toInt(): Int");
+        contains(kotlin, "override fun toDouble(): Double");
+        contains(kotlin, "override fun toByte(): Byte = toInt().toByte()");
+        compiles(kotlin);
+    }
 }
