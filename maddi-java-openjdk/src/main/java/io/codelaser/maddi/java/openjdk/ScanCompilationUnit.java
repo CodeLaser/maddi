@@ -3506,10 +3506,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // (convertTree(newClass.clazz, dsb)). convert(Type) alone works off the resolved type and never
                 // touches dsb, so an anonymous-class supertype FQN ('new p.Moved(){}') carried no detailed source --
                 // a dependent-side MoveType rewrite then found no token and left the FQN stale (ES carve
-                // StableApiWrappers: interface anon supertypes not retargeted). Keep convert(type) for the precise
-                // (resolved) return type used downstream; convertTree runs purely for its dsb side effect.
-                convertType.convertTree(newTypeExpression, dsb);
-                concreteReturnType = convertType.convert(newTypeExpression.type);
+                // StableApiWrappers: interface anon supertypes not retargeted).
+                // ⛔ THE TREE IS ALSO THE TYPE, as for a named class's extends/implements clause: javac's resolved
+                // type carries no type-use annotations, so convert(type) turned 'new It<List<@Nullable T>>() {}'
+                // into It<List<T>>, while the body's 'List<@Nullable T> next()' kept its annotation (maddi#144:
+                // the Kotlin header then disagreed with its own override). Only a diamond, 'new It<>() {}', has
+                // no type arguments in the tree: there the resolved (inferred) type is the only one there is.
+                ParameterizedType written = convertType.convertTree(newTypeExpression, dsb);
+                concreteReturnType = diamond == runtime.diamondYes()
+                        ? convertType.convert(newTypeExpression.type) : written;
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());
