@@ -72,7 +72,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         CSharpContext.pushType(typeInfo);
         try {
             if (CSharpAttributes.isAttribute(typeInfo)) {
-                return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType());
+                // an annotation's nested types, PlanningVariable.NullComparator, the default of an element
+                List<OutputBuilder> nested = typeInfo.subTypes().stream()
+                        .filter(st -> !st.isSynthetic() && !CSharpNames.hoisted(st))
+                        .map(st -> enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)).toList();
+                return CSharpAttributes.declaration(typeInfo, typeAccess(), importData.insideType(), nested);
             }
             if (typeInfo.typeNature().isAnnotation()) {
                 CSharpContext.message(CSharpPrintCode.ANNOTATION_TYPE, typeInfo, typeInfo.simpleName());
@@ -82,7 +86,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (CSharpContext.program().delegate(typeInfo)) return delegate(importData.insideType());
             OutputBuilder type = printType(importData, doTypeDeclaration, methodPrinterFactory, fieldPrinterFactory,
                     enclosedTypePrinterFactory);
-            if (doTypeDeclaration && CSharpNames.hasCompanion(typeInfo)) {
+            if (doTypeDeclaration && CSharpNames.hasCompanion(typeInfo) && !companionInWildcardInterface()) {
                 type.add(SpaceEnum.NEWLINE).add(companion(importData.insideType(), methodPrinterFactory,
                         fieldPrinterFactory));
             }
@@ -141,13 +145,16 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     .add(new TextImpl(CSharpNames.type(typeInfo) + typeParameters));
             if (record && canonical == null) {
                 FieldPrinterFactory componentPrinter = CSharpFieldPrinter::new;
-                out.add(components.stream().map(f -> componentPrinter.create(f, formatter2).print(q, true))
+                out.add(CSharpTypeName.inHeader(typeInfo, () -> components.stream()
+                        .map(f -> componentPrinter.create(f, formatter2).print(q, true))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
-                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
+                                SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()))));
             }
             List<String> supers = new ArrayList<>(superTypes(q));
             // the wildcard interface of a self-bounded type (CSharpWildcardInterfaces)
             if (CSharpWildcardInterfaces.has(typeInfo)) supers.add(CSharpWildcardInterfaces.selfReference(typeInfo));
+            // Java's enum is Comparable by its ordinal (enumInstances)
+            if (enumClass) supers.add("IComparable<" + CSharpNames.type(typeInfo) + ">");
             if (!supers.isEmpty()) {
                 out.add(SymbolEnum.COLON).add(new TextImpl(String.join(", ", supers)));
             }
@@ -216,9 +223,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
         CSharpLocalTypes.lifted(typeInfo)
                 .forEach(lt -> members.add(new CSharpTypePrinter(lt, formatter2).print(importData, true)));
+        if (CSharpNames.librarySingleAbstractMethod(typeInfo) != null) members.add(librarySingleAbstractMethod(q));
         if (CSharpNames.lambdaAdapter(typeInfo)) members.add(lambdaAdapter(q));
         members.addAll(enumerable(q));
         if (record) members.addAll(accessorImplementations(components, q));
+        if (record) members.addAll(recordHashCode(components));
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
@@ -228,7 +237,9 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (record && nonEmpty.isEmpty() && doTypeDeclaration) return out.add(SymbolEnum.SEMICOLON);
         out.add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(nonEmpty));
         if (doTypeDeclaration && CSharpWildcardInterfaces.has(typeInfo)) {
-            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q));
+            List<OutputBuilder> statics = companionInWildcardInterface()
+                    ? companionMembers(q, methodPrinterFactory, fieldPrinterFactory) : List.of();
+            out.add(SpaceEnum.NEWLINE).add(CSharpWildcardInterfaces.declaration(typeInfo, typeAccess(), q, statics));
         }
         return out;
     }
@@ -301,15 +312,61 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 supers.add("JavaArrayList<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
                         .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.util.AbstractSet".equals(parent.typeInfo().fullyQualifiedName())) {
+                // C#'s ISet has no virtual methods: the compatibility library's JavaSet, whose Java methods are
+                // abstract (Iterator, Size) or virtual, and which is an ISet on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaSet<" + parent.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                        .collect(Collectors.joining(", ")) + ">");
+            } else if ("java.lang.Number".equals(parent.typeInfo().fullyQualifiedName())) {
+                // a Number is C#'s IConvertible, which has no intValue() to override: the compatibility library's
+                // JavaNumber, which has them abstract and implements IConvertible on them
+                CSharpContext.using(CSharpCompat.NAMESPACE);
+                supers.add("JavaNumber");
             } else {
                 supers.add(CSharpTypeName.of(parent, q));
             }
         }
-        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in
+        // a class that implements Set itself: JavaSet, which is the ISet (CSharpBcl.directSet)
+        boolean directSet = CSharpBcl.directSet(typeInfo);
+        // Java's marker interfaces have no C# counterpart: cloning is MemberwiseClone, serialization is opt-in; a
+        // delegate is sealed, and an instance becomes its method group where one is expected (implementationGroup)
         typeInfo.interfacesImplemented().stream()
-                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName()))
-                .forEach(i -> supers.add(CSharpTypeName.of(i, q)));
+                .filter(i -> i.typeInfo() == null || !CSharpBcl.MARKERS.contains(i.typeInfo().fullyQualifiedName())
+                             && !CSharpTypeName.libraryDelegate(i.typeInfo()))
+                .forEach(i -> {
+                    if (directSet && "java.util.Set".equals(i.typeInfo().fullyQualifiedName())) {
+                        CSharpContext.using(CSharpCompat.NAMESPACE);
+                        supers.addFirst("JavaSet<" + i.parameters().stream().map(p -> CSharpTypeName.argument(p, q))
+                                .collect(Collectors.joining(", ")) + ">");
+                    } else {
+                        supers.add(CSharpTypeName.of(i, q));
+                    }
+                });
         return supers;
+    }
+
+    /**
+     * A record that declares equals(Object) but not hashCode(): Java's hashCode stays the components', and C# warns of
+     * an Equals(R?) without GetHashCode (CS8851): the components' hash, as the record's own would be.
+     */
+    private List<OutputBuilder> recordHashCode(List<FieldInfo> components) {
+        boolean equals = typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && !m.isSynthetic() && "equals".equals(m.name())
+                && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject());
+        boolean hashCode = typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && !m.isSynthetic()
+                && "hashCode".equals(m.name()) && m.parameters().isEmpty());
+        if (!equals || hashCode) return List.of();
+        CSharpContext.using("System");
+        String value = components.isEmpty() ? "0" : combined(components.stream().map(CSharpNames::field).toList());
+        return List.of(new OutputBuilderImpl()
+                .add(new TextImpl("public override int GetHashCode() => " + value + ";")));
+    }
+
+    /** {@code HashCode.Combine(a, b)}, nested beyond its eight arguments. */
+    private static String combined(List<String> values) {
+        if (values.size() <= 8) return "HashCode.Combine(" + String.join(", ", values) + ")";
+        return "HashCode.Combine(" + combined(values.subList(0, 7)) + ", " + combined(values.subList(7, values.size()))
+               + ")";
     }
 
     /**
@@ -356,7 +413,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /**
      * {@code public static readonly Color Red = new Color(255, 0, 0) { Name = "Red", Ordinal = 0 };} per constant,
-     * then Java's {@code name()}, {@code ordinal()}, {@code values()} and {@code valueOf(String)}.
+     * then Java's {@code name()}, {@code ordinal()}, {@code compareTo(E)}, {@code values()} and {@code valueOf(String)}.
      */
     private List<OutputBuilder> enumInstances(Qualification q) {
         String self = CSharpNames.type(typeInfo);
@@ -384,6 +441,10 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String notNull = CSharpContext.program().facts().nullabilityAnalysed() ? " = null!;" : "";
         out.add(new OutputBuilderImpl().add(new TextImpl("public string Name { get; private init; }" + notNull)));
         out.add(new OutputBuilderImpl().add(new TextImpl("public int Ordinal { get; private init; }")));
+        // Java's compareTo of null throws, as other!.Ordinal does
+        String other = CSharpContext.program().facts().nullabilityAnalysed() ? self + "? other) => Ordinal.CompareTo(other!.Ordinal);"
+                : self + " other) => Ordinal.CompareTo(other.Ordinal);";
+        out.add(new OutputBuilderImpl().add(new TextImpl("public int CompareTo(" + other)));
         if (typeInfo.methods().stream().noneMatch(m -> "toString".equals(m.name()) && m.parameters().isEmpty())) {
             out.add(new OutputBuilderImpl().add(new TextImpl("public override string ToString() => Name;")));
         }
@@ -414,6 +475,34 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             CSharpContext.using(CSharpCompat.NAMESPACE);
             out.add(new OutputBuilderImpl().add(new TextImpl("public abstract IJavaIterator<" + element + "> Iterator();")));
         }
+        if (iterable == null && CSharpHierarchy.ambiguousIterator(typeInfo)
+            && typeInfo.methods().stream().noneMatch(m -> "iterator".equals(m.name()) && m.parameters().isEmpty())) {
+            // two of its interfaces each declare Iterator() (CS0121 on a call through it): one, hiding both
+            ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
+            String element = seen == null || seen.parameters().isEmpty() ? "object"
+                    : CSharpTypeName.argument(seen.parameters().getFirst(), q);
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            out.add(new OutputBuilderImpl().add(new TextImpl("new IJavaIterator<" + element + "> Iterator();")));
+            return out;
+        }
+        if (iterable == null && CSharpHierarchy.ambiguousEnumerable(typeInfo)) {
+            // two of its interfaces each give default GetEnumerators (CS8705): its own, over its Iterator()
+            ParameterizedType seen = CSharpHierarchy.iterableAsSeen(typeInfo);
+            String element = seen == null || seen.parameters().isEmpty() ? "object"
+                    : CSharpTypeName.argument(seen.parameters().getFirst(), q);
+            MethodInfo iterator = CstQueries.classChain(typeInfo).stream().flatMap(t -> t.methods().stream())
+                    .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty())
+                    .findFirst().orElse(null);
+            String call = (iterator == null ? "Iterator" : CSharpNames.method(iterator)) + "()"
+                          + (iterator == null ? "" : CSharpNullability.resultForgiven(iterator));
+            CSharpContext.using(CSharpBcl.GENERIC);
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            out.add(new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
+                                                             + call + ".AsEnumerator();")));
+            out.add(new OutputBuilderImpl().add(new TextImpl(
+                    "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();")));
+            return out;
+        }
         if (iterable == null) return out;
         MethodInfo iterator = typeInfo.methods().stream()
                 .filter(m -> !m.isStatic() && "iterator".equals(m.name()) && m.parameters().isEmpty()).findFirst()
@@ -424,20 +513,22 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (typeInfo.isInterface()) {
             // an interface's implementations are enumerable through its default implementations, over its Iterator()
             String name = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+            String call = name + "()" + (iterator == null ? "" : CSharpNullability.resultForgiven(iterator));
             if (iterator == null) {
                 out.add(new OutputBuilderImpl().add(new TextImpl("IJavaIterator<" + element + "> Iterator();")));
             }
             out.add(new OutputBuilderImpl().add(new TextImpl("IEnumerator<" + element + "> IEnumerable<" + element
-                                                             + ">.GetEnumerator() => " + name + "().AsEnumerator();")));
+                                                             + ">.GetEnumerator() => " + call + ".AsEnumerator();")));
             out.add(new OutputBuilderImpl().add(new TextImpl("System.Collections.IEnumerator System.Collections.IEnumerable"
-                                                             + ".GetEnumerator() => " + name + "().AsEnumerator();")));
+                                                             + ".GetEnumerator() => " + call + ".AsEnumerator();")));
             return out;
         }
         if (iterator == null && !abstractIterator) return out;
-        String iteratorName = iterator == null ? "Iterator" : CSharpNames.method(iterator);
+        String iteratorCall = iterator == null ? "Iterator()"
+                : CSharpNames.method(iterator) + "()" + CSharpNullability.resultForgiven(iterator);
         out.addAll(List.of(
                 new OutputBuilderImpl().add(new TextImpl("public IEnumerator<" + element + "> GetEnumerator() => "
-                                                         + iteratorName + "().AsEnumerator();")),
+                                                         + iteratorCall + ".AsEnumerator();")),
                 new OutputBuilderImpl().add(new TextImpl(
                         "System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();"))));
         return out;
@@ -465,6 +556,41 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
         MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
+        Signature signature = signature(sam, q);
+        List<String> parameterTypes = signature.parameterTypes();
+        List<String> names = signature.names();
+        boolean isVoid = signature.result().isVoid();
+        List<String> delegateArguments = new ArrayList<>(parameterTypes);
+        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(signature.result(), q));
+        String delegate = (isVoid ? "Action" : "Func")
+                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
+        String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
+        String f = names.contains("f") ? "function" : "f";
+        CSharpContext.using("System");
+        // the delegate's type arguments are value types: a Kind? or an int? parameter goes in as its value
+        // with the analysis, ! as on any unboxing cast: C# thinks a Kind? may be null (CS8629), as Java may pass one
+        String forgiven = CSharpContext.program().facts().nullabilityAnalysed() ? "!" : "";
+        List<String> forwarded = IntStream.range(0, names.size())
+                .mapToObj(i -> CSharpTypeName.valueReference(signature.parameters().get(i))
+                        ? "(" + parameterTypes.get(i) + ") " + names.get(i) + forgiven : names.get(i)).toList();
+        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
+                + " { public " + CSharpTypeName.of(signature.result(), q) + " " + signature.member() + " => " + f + "("
+                + String.join(", ", forwarded) + "); }"));
+    }
+
+    /** {@code bool Test(Solution_ arg0, object arg1);}: the library's method the interface has as its own. */
+    private OutputBuilder librarySingleAbstractMethod(Qualification q) {
+        Signature signature = signature(CSharpNames.singleAbstractMethod(typeInfo), q);
+        return new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(signature.result(), q) + " "
+                                                        + signature.member() + ";"));
+    }
+
+    /** The one abstract method as the interface has it: its arguments substituted, its C# name. */
+    private record Signature(List<ParameterizedType> parameters, ParameterizedType result, List<String> parameterTypes,
+                             List<String> names, String member) {
+    }
+
+    private Signature signature(MethodInfo sam, Qualification q) {
         // a method of a generic super-interface, Listener<T>.onEvent(T), is the interface's with its arguments
         ParameterizedType asSeen = sam.typeInfo().equals(typeInfo) ? null
                 : CSharpHierarchy.implementedAs(typeInfo, sam.typeInfo());
@@ -473,24 +599,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .toList();
         ParameterizedType samReturn = CSharpHierarchy.substitute(sam.returnType(), map);
         List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
-        boolean isVoid = samReturn.isVoid();
-        List<String> delegateArguments = new ArrayList<>(parameterTypes);
-        if (!isVoid) delegateArguments.add(CSharpTypeName.argument(samReturn, q));
-        String delegate = (isVoid ? "Action" : "Func")
-                          + (delegateArguments.isEmpty() ? "" : "<" + String.join(", ", delegateArguments) + ">");
-        String self = CSharpNames.type(typeInfo) + CSharpNames.typeParameters(typeInfo.typeParameters());
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
-        String f = names.contains("f") ? "function" : "f";
         String parameters = IntStream.range(0, names.size())
                 .mapToObj(i -> CSharpTypeName.of(samParameters.get(i), q) + " " + names.get(i))
                 .collect(Collectors.joining(", "));
-        CSharpContext.using("System");
-        // a method that is a property is implemented as one
+        // a method that is a property is implemented as one; a library's, BiPredicate.test, is the interface's Test
         String property = CSharpContext.program().computedProperty(sam);
-        String member = property != null ? property : CSharpNames.method(sam) + "(" + parameters + ")";
-        return new OutputBuilderImpl().add(new TextImpl("public sealed class Lambda(" + delegate + " " + f + ") : " + self
-                + " { public " + CSharpTypeName.of(samReturn, q) + " " + member + " => " + f + "("
-                + String.join(", ", names) + "); }"));
+        String name = CSharpNames.translated(sam.typeInfo()) ? CSharpNames.method(sam) : CSharpNames.pascal(sam.name());
+        String member = property != null ? property : name + "(" + parameters + ")";
+        return new Signature(samParameters, samReturn, parameterTypes, names, member);
     }
 
     /** The record's canonical constructor, compact or not, when written; null when C#'s positional one serves. */
@@ -531,6 +648,15 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      */
     private OutputBuilder companion(Qualification q, MethodPrinterFactory methodPrinterFactory,
                                     FieldPrinterFactory fieldPrinterFactory) {
+        String access = typeAccess();
+        return new OutputBuilderImpl()
+                .add(new TextImpl((access == null ? "" : access + " ") + "static class " + CSharpNames.type(typeInfo)))
+                .add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(companionMembers(q, methodPrinterFactory,
+                        fieldPrinterFactory)));
+    }
+
+    private List<OutputBuilder> companionMembers(Qualification q, MethodPrinterFactory methodPrinterFactory,
+                                                 FieldPrinterFactory fieldPrinterFactory) {
         TypeInfo previous = CSharpContext.companion();
         CSharpContext.companion(typeInfo);
         try {
@@ -540,13 +666,19 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             Stream.concat(typeInfo.constructors().stream(), typeInfo.methods().stream())
                     .filter(CSharpNames::inCompanion)
                     .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(q)));
-            String access = typeAccess();
-            return new OutputBuilderImpl()
-                    .add(new TextImpl((access == null ? "" : access + " ") + "static class " + CSharpNames.type(typeInfo)))
-                    .add(SpaceEnum.ONE).add(CSharpStatementPrinter.braces(members.stream().filter(m -> !m.isEmpty()).toList()));
+            return members.stream().filter(m -> !m.isEmpty()).toList();
         } finally {
             CSharpContext.companion(previous);
         }
+    }
+
+    /**
+     * An interface's companion and its wildcard interface have the same name, {@code ITupleLifecycle}: one interface,
+     * which C# lets have static members, {@code ITupleLifecycle.OfLeft(…)} as the companion's.
+     */
+    private boolean companionInWildcardInterface() {
+        return typeInfo.isInterface() && CSharpNames.hasCompanion(typeInfo) && CSharpWildcardInterfaces.has(typeInfo)
+               && !CSharpWildcardInterfaces.companionOfSelfBounded(typeInfo);
     }
 
     /**
@@ -614,9 +746,13 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 }
                 continue;
             }
-            String name = CSharpNames.method(m);
-            StringBuilder sb = new StringBuilder("public abstract ")
-                    .append(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q)).append(' ')
+            // a compatibility interface's member is Java's name in PascalCase: IJavaIterator's HasNext()
+            String name = CSharpNames.translated(m.typeInfo()) ? CSharpNames.method(m) : CSharpNames.pascal(m.name());
+            // nullable where an override's result is (FamilyFacts): S? Next() of an iterator that may give null
+            ParameterizedType returned = CSharpHierarchy.substitute(m.returnType(), left.typeArguments());
+            String returnType = CSharpTypeName.withNullable(returned, CSharpTypeName.of(returned, q),
+                    CSharpContext.program().facts().nullable(m));
+            StringBuilder sb = new StringBuilder("public abstract ").append(returnType).append(' ')
                     .append(name).append('(');
             StringBuilder signature = new StringBuilder(name);
             for (int k = 0; k < m.parameters().size(); k++) {

@@ -294,7 +294,7 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                     .map(pt -> pt.print(qualification, false, DiamondEnum.SHOW_ALL))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_ANGLE_BRACKET,
                             SymbolEnum.RIGHT_ANGLE_BRACKET, GuideImpl.defaultGuideGenerator()))).toString();
-            methodName = ta + " " + methodInfo.name();
+            methodName = ta + methodInfo.name(); // `Collections.<T>emptyList()` (#49)
         } else {
             methodName = methodInfo.name();
         }

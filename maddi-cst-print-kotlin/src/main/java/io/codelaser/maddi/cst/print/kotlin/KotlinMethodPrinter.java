@@ -65,7 +65,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
         }
         visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
-        if (!methodInfo.overrides().isEmpty()) {
+        if (!methodInfo.overrides().isEmpty() && !interfaceOnlyToArray(methodInfo)) {
             // an abstract class re-declaring an interface method, to narrow its return type
             if (methodInfo.isAbstract() && !typeInfo.isInterface()) b.add(KeywordImpl.ABSTRACT).add(SpaceEnum.ONE);
             b.add(KotlinKeyword.OVERRIDE).add(SpaceEnum.ONE);
@@ -111,8 +111,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 rt = rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
             }
             if (rt != null && !rt.isVoidOrJavaLangVoid()) {
-                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinReadOnly.returns(methodInfo)
-                        ? KotlinTypeName.readOnly(rt, qualification) : KotlinTypeName.of(rt, qualification)));
+                String mapDefault = KotlinMappedMembers.mapDefaultResult(methodInfo, qualification);
+                b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(mapDefault != null ? mapDefault
+                        : KotlinReadOnly.returns(methodInfo) ? KotlinTypeName.readOnly(rt, qualification)
+                        : KotlinTypeName.of(rt, qualification)));
             }
         }
 
@@ -148,7 +150,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
                                 KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.widened(expressionBody, KotlinNullability.returnType(methodInfo),
+                                KotlinExpressionPrinter.assigned(expressionBody, KotlinNullability.returnType(methodInfo),
                                         qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
@@ -209,7 +211,20 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private boolean isOpen() {
         return !methodInfo.isFinal() && !methodInfo.isStatic() && !methodInfo.isConstructor()
                && !methodInfo.access().isPrivate() && !typeInfo.isInterface()
-               && KotlinTypePrinter.isOpen(typeInfo);
+               && (KotlinTypePrinter.isOpen(typeInfo) || overriddenByEnumConstant(typeInfo, methodInfo));
+    }
+
+    /**
+     * guava's CaseFormat: an enum's constants override its {@code convert} in their bodies. Kotlin's enum class is
+     * final, its members too unless they say {@code open}.
+     */
+    private static boolean overriddenByEnumConstant(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, MethodInfo methodInfo) {
+        if (!typeInfo.typeNature().isEnum()) return false;
+        return typeInfo.fields().stream()
+                .filter(f -> f.initializer() instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc
+                             && cc.anonymousClass() != null)
+                .map(f -> ((io.codelaser.maddi.cst.api.expression.ConstructorCall) f.initializer()).anonymousClass())
+                .anyMatch(body -> body.methods().stream().anyMatch(m -> m.overrides().contains(methodInfo)));
     }
 
     /** The expression of a single-`return` body (Kotlin `fun … = expr`), or {@code null} for a block body. */
@@ -228,11 +243,18 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** Kotlin's parameter type for an override of a mapped collection member: {@code E}, {@code Collection<E>}. */
     private static String mappedParameterType(MethodInfo methodInfo, ParameterInfo pi, Qualification q) {
+        String mapDefault = KotlinMappedMembers.mapDefaultParameter(methodInfo, pi.index(), q);
+        if (mapDefault != null) return mapDefault;
         ParameterizedType t = KotlinMappedMembers.overriddenParameterType(methodInfo, pi.index());
         if (t == null) return null;
         if (t.typeInfo() != null && "java.util.Collection".equals(t.typeInfo().fullyQualifiedName())) {
             // read-only, invariant: Kotlin's MutableCollection<E>.addAll(elements: Collection<E>)
             return "Collection<" + KotlinTypeName.of(t.parameters().getFirst(), q) + ">";
+        }
+        if (t.typeInfo() != null && "java.util.Map".equals(t.typeInfo().fullyQualifiedName())) {
+            // read-only, keys out-projected: Kotlin's MutableMap<K, V>.putAll(from: Map<out K, V>)
+            return "Map<out " + KotlinTypeName.of(t.parameters().get(0), q) + ", "
+                   + KotlinTypeName.of(t.parameters().get(1), q) + ">";
         }
         return KotlinTypeName.of(t, q);
     }
@@ -264,6 +286,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (KotlinNullability.verdicts().preconditionNonNull(pi) && !KotlinNullability.isNullable(declared)) {
             KotlinContext.message(KotlinPrintCode.PRECONDITION_NON_NULL, pi, "the NPE moves from "
                     + pi.methodInfo().name() + "'s body to the call");
+        }
+        if (KotlinNullability.verdicts().rejectsNull(pi) && !KotlinNullability.isNullable(declared)) {
+            KotlinContext.message(KotlinPrintCode.NULL_REJECTION_REPLACED, pi, "a Java caller's null meets the entry"
+                    + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
@@ -306,15 +332,47 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * which Kotlin's read-only {@code List<T>} allows too): Kotlin's read-only interface, covariant where MutableList
      * is invariant. {@code changeEverywhere(…, List<Statement> statements)} only iterates, and is called with a
      * {@code List<Statement?>} and with a {@code MutableList<Statement>}; only {@code List<Statement?>} takes both.
-     * Not without the analysis (unmodified is then false), and only for a method no other can override and that
-     * overrides none: Kotlin wants an override's parameter types exactly the overridden member's.
+     * Not without the analysis (unmodified is then false). For a method no other can override and that overrides
+     * none, its own verdict; for any other, its override family's in the {@link KotlinWorld} (maddi-mod#25): Kotlin
+     * wants an override's parameter types exactly the overridden member's.
      */
     private static boolean readOnlyParameter(ParameterInfo pi) {
         MethodInfo m = pi.methodInfo();
-        if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor() || !m.overrides().isEmpty()) return false;
+        if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
                          || m.typeInfo().isFinal();
-        if (!closed || !KotlinContext.options().modification().structurallyUnmodified(pi)) return false;
+        if (closed && m.overrides().isEmpty()) return readOnlyIn(pi);
+        // maddi-mod#25, the family rule: in the code translated together, the override family is complete, and the
+        // position is read-only for all of it when each member's parameter there is (Kotlin wants an override's
+        // parameter types exactly the overridden member's; callers pass a MutableList to a List either way)
+        java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+        if (family == null) return false;
+        KotlinWorld world = KotlinContext.options().world();
+        Boolean known = world.readOnly(pi);
+        if (known != null) return known;
+        // each member's own collection type there: an implementation of Handler<T>.handle(T t) as
+        // handle(List<X> xs) overrides it in a class that implements Handler<MutableList<X>>
+        boolean verdict = family.stream().allMatch(member -> member.parameters().size() > pi.index()
+                && !member.parameters().get(pi.index()).isVarArgs()
+                && member.parameters().get(pi.index()).parameterizedType().typeParameter() == null
+                && KotlinReadOnly.isCollection(member.parameters().get(pi.index()).parameterizedType())
+                && readOnlyIn(member.parameters().get(pi.index())));
+        if (READ_ONLY_IN_PROGRESS.get().isEmpty()) {
+            family.forEach(member -> world.readOnly(member.parameters().get(pi.index()), verdict));
+        }
+        return verdict;
+    }
+
+    /**
+     * One method's parameter: structurally unmodified, and only read in its body (a method without one, abstract, has
+     * the analysis' verdict folded over its implementations).
+     */
+    private static boolean readOnlyIn(ParameterInfo pi) {
+        if (!KotlinContext.options().modification().structurallyUnmodified(pi)) return false;
+        MethodInfo m = pi.methodInfo();
+        if (m.isAbstract() || m.methodBody() == null || m.methodBody().isEmpty() && m.typeInfo().isInterface()) {
+            return true;
+        }
         // a cycle (fromMap passes map to rawFallback, which passes it back) is assumed read-only: every parameter on it
         // is unmodified, and each one's other uses are checked where the cycle is entered
         java.util.Set<ParameterInfo> visiting = READ_ONLY_IN_PROGRESS.get();
@@ -364,8 +422,31 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
                 && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                && pi.equals(ve.variable())) {
+                && pi.equals(ve.variable()) && !VIEWS.contains(mc.methodInfo().name())) {
                 reads.add(ve);
+            }
+            // a view (map.entrySet(), list.iterator()) is a read where it is iterated or only read in turn: guava's
+            // Maps.removeAllKeys removes through map.entrySet().iterator(), which the analysis does not see
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall outer && outer.object() != null
+                && outer.methodInfo() != null && !VIEWS.contains(outer.methodInfo().name())
+                && KotlinContext.options().modification().structurallyNonModifying(outer.methodInfo())) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, outer.object());
+                if (viewed != null) reads.add(viewed);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, fe.expression());
+                if (viewed != null) reads.add(viewed);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+                        passedThrough(pi, KotlinExpressionPrinter.unwrap(mc.object()));
+                if (through != null) reads.add(through);
+            }
+            // ensureNotNull(map, "map"); as a statement: its result goes nowhere
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas && eas.expression() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+                        passedThrough(pi, KotlinExpressionPrinter.unwrap(eas.expression()));
+                if (through != null) reads.add(through);
             }
             if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null
                 && KotlinExpressionPrinter.unwrap(fe.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
@@ -375,6 +456,18 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // passed on to a parameter that takes a read-only collection: isRepresentable(map, KEYS), rawFallback(map)
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc) {
                 passedOn(pi, mc.parameterExpressions(), mc.methodInfo(), reads);
+            }
+            // guava's SetView.minSize(Set<?> set): set instanceof SetView ? ((SetView<?>) set).minSize() : set.size().
+            // A test or a cast compiles from the read-only type too; the analysis says nothing modifies the set
+            if (e instanceof io.codelaser.maddi.cst.api.expression.InstanceOf io
+                && KotlinExpressionPrinter.unwrap(io.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Cast c
+                && KotlinExpressionPrinter.unwrap(c.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable())) {
+                reads.add(ve);
             }
             if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.constructor() != null) {
                 passedOn(pi, cc.parameterExpressions(), cc.constructor(), reads);
@@ -387,14 +480,64 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return reads.size() == uses[0];
     }
 
+    /** Members whose result is a live view of the collection: modifying it modifies the collection. */
+    static final java.util.Set<String> VIEWS = java.util.Set.of("entrySet", "keySet", "values", "iterator",
+            "listIterator", "spliterator", "subList", "headSet", "tailSet", "subSet", "headMap", "tailMap", "subMap",
+            "descendingSet", "descendingMap", "navigableKeySet", "descendingKeySet", "descendingIterator");
+
+    /** {@code e} is a view call on {@code pi} ({@code map.entrySet()}): the parameter's use inside it. */
+    private static io.codelaser.maddi.cst.api.expression.VariableExpression viewOf(
+            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        if (!(KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)
+            || mc.object() == null || mc.methodInfo() == null || !VIEWS.contains(mc.methodInfo().name())) {
+            return null;
+        }
+        return KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+               && pi.equals(ve.variable()) ? ve : null;
+    }
+
     private static void passedOn(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
                                  MethodInfo callee, java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads) {
         for (int i = 0; i < args.size(); i++) {
-            if (KotlinExpressionPrinter.unwrap(args.get(i)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                && pi.equals(ve.variable()) && acceptsReadOnly(callee, i)) {
+            io.codelaser.maddi.cst.api.expression.Expression arg = KotlinExpressionPrinter.unwrap(args.get(i));
+            if (arg instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable()) && !passThrough(callee, i) && acceptsReadOnly(callee, i)) {
                 reads.add(ve);
             }
+            // checkNotNull(unfiltered) passed on: a read where the pass-through's result lands in one
+            io.codelaser.maddi.cst.api.expression.VariableExpression through = passedThrough(pi, arg);
+            if (through != null && acceptsReadOnly(callee, i)) reads.add(through);
+            // new ArrayList<>(map.keySet()): a view handed to a parameter that only reads it
+            io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, arg);
+            if (viewed != null && acceptsReadOnly(callee, i)) reads.add(viewed);
         }
+    }
+
+    /**
+     * {@code <T> T checkNotNull(T reference)}: the argument at {@code index} comes back as the result, so it is a read
+     * only where the result is one (guava's Collections2.filter hands checkNotNull(unfiltered) to a constructor that
+     * takes a MutableCollection).
+     */
+    private static boolean passThrough(MethodInfo callee, int index) {
+        if (callee == null || index >= callee.parameters().size()) return false;
+        ParameterizedType p = callee.parameters().get(index).parameterizedType();
+        ParameterizedType rt = callee.returnType();
+        return p.typeParameter() != null && p.arrays() == 0 && p.typeParameter().isMethodTypeParameter()
+               && rt != null && rt.typeParameter() == p.typeParameter() && rt.arrays() == 0;
+    }
+
+    /** {@code e} is a pass-through call of {@code pi}: the parameter's use inside it. */
+    private static io.codelaser.maddi.cst.api.expression.VariableExpression passedThrough(
+            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        if (!(e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)) return null;
+        List<io.codelaser.maddi.cst.api.expression.Expression> args = mc.parameterExpressions();
+        for (int k = 0; k < args.size(); k++) {
+            if (KotlinExpressionPrinter.unwrap(args.get(k)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable()) && passThrough(mc.methodInfo(), k)) {
+                return ve;
+            }
+        }
+        return null;
     }
     /**
      * The generic member a method without type parameters overrides: Java lets {@code Class<AiServiceCompletedEvent>
@@ -427,13 +570,29 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * T. Kotlin's unbounded {@code <T>} is {@code T : Any?}, so a nullable argument makes T nullable and the "non-null"
      * result with it: {@code this.metadata = ensureNotNull(metadata, "metadata")} did not type-check against a
      * {@code Metadata}. Bounded {@code T : Any}, T is the argument's non-null type and {@code T?} the parameter's.
-     * Only for an unbounded type parameter of a method that overrides nothing (an override cannot change bounds), and
+     * Only for an unbounded type parameter; an override takes the bound of what it overrides (it cannot change it), and
      * not when T is a type argument of a parameter: {@code <T> T getOrDefault(T value, Supplier<T> supplier)} returns
      * what the supplier gives, which a {@code Supplier<DocumentSplitter?>} makes nullable.
      */
+    /**
+     * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection
+     * declares no toArray to override, and a member {@code fun toArray(): Array<Any?>} is Java's toArray on the JVM.
+     * Through a Java class (AbstractCollection) it is visible, and overridden as usual.
+     */
+    static boolean interfaceOnlyToArray(MethodInfo methodInfo) {
+        return KotlinContext.translatingJava() && "toArray".equals(methodInfo.name())
+               && methodInfo.parameters().size() <= 1 && methodInfo.overrides().stream()
+                       .allMatch(o -> o.typeInfo().isInterface() && o.typeInfo().fullyQualifiedName().startsWith("java.util."));
+    }
+
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        if (!methodInfo.overrides().isEmpty() || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
-            return false;
+        if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
+        if (!methodInfo.overrides().isEmpty()) {
+            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds
+            int index = methodInfo.typeParameters().indexOf(tp);
+            return index >= 0 && methodInfo.overrides().stream().anyMatch(o -> KotlinNullability.translated(o.typeInfo())
+                    && index < o.typeParameters().size()
+                    && nonNullBound(o, o.typeParameters().get(index)));
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;

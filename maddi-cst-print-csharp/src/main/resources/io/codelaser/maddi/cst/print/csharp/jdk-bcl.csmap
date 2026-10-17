@@ -14,7 +14,8 @@ type java.util.AbstractList -> List using System.Collections.Generic
 type java.util.Deque -> List using System.Collections.Generic
 type java.util.ArrayDeque -> List using System.Collections.Generic
 type java.util.Queue -> List using System.Collections.Generic
-type java.util.SequencedCollection -> List using System.Collections.Generic
+# a SequencedCollection is a list's, a deque's or a LinkedHashSet's: C#'s ICollection, which List and HashSet are
+type java.util.SequencedCollection -> ICollection using System.Collections.Generic
 # Java's Map and Set are implemented by hash and tree collections alike: C#'s interfaces. A HashMap is C#'s
 # Dictionary; a LinkedHashMap keeps its insertion order, as OrderedDictionary does; an EnumMap iterates in
 # the order of its keys, as SortedDictionary does.
@@ -22,6 +23,8 @@ type java.util.Map -> IDictionary using System.Collections.Generic
 type java.util.AbstractMap -> IDictionary using System.Collections.Generic
 type java.util.HashMap -> Dictionary using System.Collections.Generic
 type java.util.IdentityHashMap -> Dictionary using System.Collections.Generic
+# a WeakHashMap's keys are weak, which a Dictionary's are not: a key stays until it is removed
+type java.util.WeakHashMap -> Dictionary using System.Collections.Generic
 type java.util.concurrent.ConcurrentHashMap -> Dictionary using System.Collections.Generic
 type java.util.LinkedHashMap -> OrderedDictionary using System.Collections.Generic
 type java.util.EnumMap -> SortedDictionary using System.Collections.Generic
@@ -61,6 +64,7 @@ type java.time.Instant -> DateTimeOffset using System
 type java.time.LocalDate -> DateOnly using System
 type java.time.LocalTime -> TimeOnly using System
 type java.time.LocalDateTime -> DateTime using System
+type java.time.OffsetDateTime -> DateTimeOffset using System
 type java.time.Duration -> TimeSpan using System
 type java.time.Clock -> TimeProvider using System
 # a formatter is a custom format string: the ISO ones are constants (FIELDS)
@@ -235,6 +239,7 @@ member java.util.Map.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
 member java.lang.Iterable.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.List.listIterator/1 -> $0.Iterator($1) using Maddi.JavaCompat
 member java.util.List.add/2 -> $0.Insert($1, $2)
 member java.util.List.remove(Object) -> $0.Remove($1)
 member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
@@ -245,8 +250,8 @@ member java.util.List.lastIndexOf/1 -> $0.LastIndexOf($1) using Maddi.JavaCompat
 member java.util.List.sort/1 -> JavaCollections.Sort($0, $1) using Maddi.JavaCompat
 member java.util.List.getFirst/0 -> $0[0]
 member java.util.List.getLast/0 -> $0[^1]
-member java.util.SequencedCollection.getFirst/0 -> $0[0]
-member java.util.SequencedCollection.getLast/0 -> $0[^1]
+member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
+member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
 member java.util.List.of/1 -> new List<{R0}> { $* }
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
@@ -259,18 +264,18 @@ member java.util.Deque.getLast/0 -> $0[^1]
 member java.util.LinkedList.getLast/0 -> $0[^1]
 member java.util.ArrayDeque.getLast/0 -> $0[^1]
 member java.util.Queue.getLast/0 -> $0[^1]
-member java.util.Deque.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.LinkedList.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.ArrayDeque.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.Queue.peekFirst/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.Deque.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
-member java.util.LinkedList.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
-member java.util.ArrayDeque.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
-member java.util.Queue.peekLast/0 -> $0.PeekLast() using Maddi.JavaCompat
-member java.util.Deque.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.LinkedList.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.ArrayDeque.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
-member java.util.Queue.peek/0 -> $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Deque.peekFirst/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.LinkedList.peekFirst/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.peekFirst/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Queue.peekFirst/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Deque.peekLast/0 ->? $0.PeekLast() using Maddi.JavaCompat
+member java.util.LinkedList.peekLast/0 ->? $0.PeekLast() using Maddi.JavaCompat
+member java.util.ArrayDeque.peekLast/0 ->? $0.PeekLast() using Maddi.JavaCompat
+member java.util.Queue.peekLast/0 ->? $0.PeekLast() using Maddi.JavaCompat
+member java.util.Deque.peek/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.LinkedList.peek/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.peek/0 ->? $0.PeekFirst() using Maddi.JavaCompat
+member java.util.Queue.peek/0 ->? $0.PeekFirst() using Maddi.JavaCompat
 member java.util.Deque.addFirst/1 -> $0.Insert(0, $1)
 member java.util.LinkedList.addFirst/1 -> $0.Insert(0, $1)
 member java.util.ArrayDeque.addFirst/1 -> $0.Insert(0, $1)
@@ -323,18 +328,18 @@ member java.util.ArrayDeque.removeLast/0 -> $0.RemoveLast() using Maddi.JavaComp
 statement java.util.ArrayDeque.removeLast/0 -> $0.RemoveAt($0.Count - 1)
 member java.util.Queue.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
 statement java.util.Queue.removeLast/0 -> $0.RemoveAt($0.Count - 1)
-member java.util.Deque.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.LinkedList.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.ArrayDeque.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.Queue.poll/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.Deque.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.LinkedList.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.ArrayDeque.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.Queue.pollFirst/0 -> $0.PollFirst() using Maddi.JavaCompat
-member java.util.Deque.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
-member java.util.LinkedList.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
-member java.util.ArrayDeque.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
-member java.util.Queue.pollLast/0 -> $0.PollLast() using Maddi.JavaCompat
+member java.util.Deque.poll/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.LinkedList.poll/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.poll/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.Queue.poll/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.Deque.pollFirst/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.LinkedList.pollFirst/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.ArrayDeque.pollFirst/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.Queue.pollFirst/0 ->? $0.PollFirst() using Maddi.JavaCompat
+member java.util.Deque.pollLast/0 ->? $0.PollLast() using Maddi.JavaCompat
+member java.util.LinkedList.pollLast/0 ->? $0.PollLast() using Maddi.JavaCompat
+member java.util.ArrayDeque.pollLast/0 ->? $0.PollLast() using Maddi.JavaCompat
+member java.util.Queue.pollLast/0 ->? $0.PollLast() using Maddi.JavaCompat
 member java.util.Deque.element/0 -> $0[0]
 member java.util.LinkedList.element/0 -> $0[0]
 member java.util.ArrayDeque.element/0 -> $0[0]
@@ -348,17 +353,17 @@ statement java.util.ArrayDeque.remove/0 -> $0.RemoveAt(0)
 member java.util.Queue.remove/0 -> $0.RemoveFirst() using Maddi.JavaCompat
 statement java.util.Queue.remove/0 -> $0.RemoveAt(0)
 # Map
-member java.util.Map.put/2 -> $0.Put($1, $2) using Maddi.JavaCompat
+member java.util.Map.put/2 ->? $0.Put($1, $2) using Maddi.JavaCompat
 statement java.util.Map.put/2 -> $0[$1] = $2
 member java.util.Map.containsKey/1 -> $0.ContainsKey($1)
 member java.util.Map.containsValue/1 -> $0.Values.Contains($1) using System.Linq
 member java.util.Map.entrySet/0 -> $0
 member java.util.Map.keySet/0 -> $0.Keys
 member java.util.Map.values/0 -> $0.Values
-member java.util.Map.remove/1 -> $0.RemoveAndGet($1) using Maddi.JavaCompat
+member java.util.Map.remove/1 ->? $0.RemoveAndGet($1) using Maddi.JavaCompat
 statement java.util.Map.remove/1 -> $0.Remove($1)
 member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
-member java.util.Map.putIfAbsent/2 -> $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
+member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
 statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
 member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
 member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
@@ -410,18 +415,18 @@ member java.util.Arrays.toString/1 -> JavaArrays.ToString($1) using Maddi.JavaCo
 member java.util.Arrays.fill/2 -> Array.Fill($1, $2) using System
 member java.util.Arrays.sort/1 -> Array.Sort($1) using System
 # navigation, by the compatibility library's extensions (JavaNavigable): an entry is a JavaEntry, null when none
-member java.util.NavigableMap.firstEntry/0 -> $0.FirstEntry() using Maddi.JavaCompat
-member java.util.NavigableMap.lastEntry/0 -> $0.LastEntry() using Maddi.JavaCompat
-member java.util.NavigableMap.pollFirstEntry/0 -> $0.PollFirstEntry() using Maddi.JavaCompat
-member java.util.NavigableMap.pollLastEntry/0 -> $0.PollLastEntry() using Maddi.JavaCompat
-member java.util.NavigableMap.floorEntry/1 -> $0.FloorEntry($1) using Maddi.JavaCompat
-member java.util.NavigableMap.lowerEntry/1 -> $0.LowerEntry($1) using Maddi.JavaCompat
-member java.util.NavigableMap.ceilingEntry/1 -> $0.CeilingEntry($1) using Maddi.JavaCompat
-member java.util.NavigableMap.higherEntry/1 -> $0.HigherEntry($1) using Maddi.JavaCompat
-member java.util.NavigableMap.floorKey/1 -> $0.FloorKey($1) using Maddi.JavaCompat
-member java.util.NavigableMap.lowerKey/1 -> $0.LowerKey($1) using Maddi.JavaCompat
-member java.util.NavigableMap.ceilingKey/1 -> $0.CeilingKey($1) using Maddi.JavaCompat
-member java.util.NavigableMap.higherKey/1 -> $0.HigherKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.firstEntry/0 ->? $0.FirstEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.lastEntry/0 ->? $0.LastEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.pollFirstEntry/0 ->? $0.PollFirstEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.pollLastEntry/0 ->? $0.PollLastEntry() using Maddi.JavaCompat
+member java.util.NavigableMap.floorEntry/1 ->? $0.FloorEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.lowerEntry/1 ->? $0.LowerEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.ceilingEntry/1 ->? $0.CeilingEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.higherEntry/1 ->? $0.HigherEntry($1) using Maddi.JavaCompat
+member java.util.NavigableMap.floorKey/1 ->? $0.FloorKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.lowerKey/1 ->? $0.LowerKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.ceilingKey/1 ->? $0.CeilingKey($1) using Maddi.JavaCompat
+member java.util.NavigableMap.higherKey/1 ->? $0.HigherKey($1) using Maddi.JavaCompat
 member java.util.SortedMap.firstKey/0 -> $0.Keys.First() using System.Linq
 member java.util.SortedMap.lastKey/0 -> $0.Keys.Last() using System.Linq
 member java.util.SortedMap.headMap/1 -> $0.HeadMap($1, false) using Maddi.JavaCompat
@@ -432,10 +437,10 @@ member java.util.NavigableMap.subMap/4 -> $0.SubMap($1, $2, $3, $4) using Maddi.
 member java.util.SortedSet.first/0 -> $0.Min
 member java.util.SortedSet.last/0 -> $0.Max
 member java.util.SortedSet.comparator/0 -> $0.Comparer
-member java.util.NavigableSet.floor/1 -> $0.Floor($1) using Maddi.JavaCompat
-member java.util.NavigableSet.lower/1 -> $0.Lower($1) using Maddi.JavaCompat
-member java.util.NavigableSet.ceiling/1 -> $0.Ceiling($1) using Maddi.JavaCompat
-member java.util.NavigableSet.higher/1 -> $0.Higher($1) using Maddi.JavaCompat
+member java.util.NavigableSet.floor/1 ->? $0.Floor($1) using Maddi.JavaCompat
+member java.util.NavigableSet.lower/1 ->? $0.Lower($1) using Maddi.JavaCompat
+member java.util.NavigableSet.ceiling/1 ->? $0.Ceiling($1) using Maddi.JavaCompat
+member java.util.NavigableSet.higher/1 ->? $0.Higher($1) using Maddi.JavaCompat
 member java.util.SequencedMap.sequencedValues/0 -> $0.Values
 member java.util.SequencedMap.sequencedKeySet/0 -> $0.Keys
 member java.util.EnumSet.noneOf/1 -> new HashSet<{R0}>()
@@ -703,7 +708,7 @@ member java.util.stream.Stream.toArray/0 -> $0.ToArray() using System.Linq
 # the generator, String[]::new, is the array's type, which C#'s ToArray knows
 member java.util.stream.Stream.toArray/1 -> $0.ToArray() using System.Linq
 member java.util.stream.Stream.max/1 -> $0.Max(Comparer<{R}>.Create($1)) using System.Linq
-member java.util.stream.Stream.reduce/1 -> $0.Reduce($1) using Maddi.JavaCompat
+member java.util.stream.Stream.reduce/1 ->? $0.Reduce($1) using Maddi.JavaCompat
 member java.util.stream.Stream.reduce/2 -> $0.Aggregate($1, $2) using System.Linq
 member java.util.stream.Stream.min/1 -> $0.Min(Comparer<{R}>.Create($1)) using System.Linq
 member java.util.stream.IntStream.range/2 -> Enumerable.Range(@1, @2 - @1) using System.Linq
@@ -720,7 +725,7 @@ member java.util.stream.IntStream.toArray/0 -> $0.ToArray() using System.Linq
 # Optional is the value itself, or null
 member java.util.Optional.isPresent/0 -> $0 != null
 member java.util.Optional.isEmpty/0 -> $0 == null
-member java.util.Optional.get/0 -> $0
+member java.util.Optional.get/0 ->? $0
 member java.util.Optional.orElseThrow/0 -> $0 ?? throw new InvalidOperationException() using System
 member java.util.Optional.orElseThrow/1 -> $0 ?? throw $1()
 member java.util.Optional.orElse/1 -> $0 ?? $1
@@ -729,8 +734,8 @@ member java.util.Optional.of/1 -> $1
 member java.util.Optional.ofNullable/1 -> $1
 member java.util.Optional.empty/0 -> null
 member java.util.Optional.ifPresent/1 -> $0.IfPresent($1) using Maddi.JavaCompat
-member java.util.Optional.map/1 -> $0.Map($1) using Maddi.JavaCompat
-member java.util.Optional.filter/1 -> $0.Filter($1) using Maddi.JavaCompat
+member java.util.Optional.map/1 ->? $0.Map($1) using Maddi.JavaCompat
+member java.util.Optional.filter/1 ->? $0.Filter($1) using Maddi.JavaCompat
 member java.util.function.Function.apply -> $0($*)
 member java.util.function.BiFunction.apply -> $0($*)
 member java.util.function.Supplier.get -> $0($*)
@@ -758,14 +763,16 @@ member java.util.Comparator.thenComparingInt/1 -> $0.ThenComparing($1) using Mad
 member java.util.Comparator.thenComparingLong/1 -> $0.ThenComparing($1) using Maddi.JavaCompat
 member java.util.Comparator.reversed/0 -> $0.Reversed() using Maddi.JavaCompat
 member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
+member java.util.Comparator.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
+member java.util.Collections.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 
 # ---------------------------------------------------------------- system
 member java.lang.System.arraycopy/5 -> Array.Copy($1, $2, $3, $4, $5) using System
 member java.lang.System.currentTimeMillis/0 -> DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() using System
 member java.lang.System.nanoTime/0 -> Stopwatch.GetTimestamp() * 1_000_000_000L / Stopwatch.Frequency using System.Diagnostics
 member java.lang.System.lineSeparator/0 -> Environment.NewLine using System
-member java.lang.System.getProperty/1 -> JavaSystem.GetProperty($1) using Maddi.JavaCompat
-member java.lang.System.getProperty/2 -> JavaSystem.GetProperty($1, $2) using Maddi.JavaCompat
+member java.lang.System.getProperty/1 ->? JavaSystem.GetProperty($1) using Maddi.JavaCompat
+member java.lang.System.getProperty/2 ->? JavaSystem.GetProperty($1, $2) using Maddi.JavaCompat
 member java.lang.System.exit/1 -> Environment.Exit($1) using System
 member java.lang.System.identityHashCode/1 -> RuntimeHelpers.GetHashCode($1) using System.Runtime.CompilerServices
 member java.io.PrintStream.println/1 -> $0.WriteLine($1)
@@ -782,9 +789,9 @@ member java.lang.Object.getClass/0 -> $0.GetType()
 member java.lang.Object.notifyAll/0 -> Monitor.PulseAll($0) using System.Threading
 member java.lang.Object.notify/0 -> Monitor.Pulse($0) using System.Threading
 member java.lang.Object.wait/0 -> Monitor.Wait($0) using System.Threading
-member java.lang.Class.getName/0 -> $0.FullName
+member java.lang.Class.getName/0 ->? $0.FullName
 member java.lang.Class.getSimpleName/0 -> $0.Name
-member java.lang.Class.getCanonicalName/0 -> JavaClass.CanonicalName($0) using Maddi.JavaCompat
+member java.lang.Class.getCanonicalName/0 ->? JavaClass.CanonicalName($0) using Maddi.JavaCompat
 member java.lang.Thread.currentThread/0 -> Thread.CurrentThread using System.Threading
 member java.lang.Runtime.availableProcessors/0 -> Environment.ProcessorCount using System
 member java.lang.Thread.sleep(long) -> Thread.Sleep(TimeSpan.FromMilliseconds($1)) using System.Threading, System
@@ -810,6 +817,9 @@ member java.io.BufferedReader.readLine/0 -> $0.ReadLine()
 # file streams: a java.io.File or a path
 # an EnumMap orders by its keys, as a SortedDictionary does; its Class argument is the key type's
 member java.util.EnumMap.new(Class) -> new {R}() using System.Collections.Generic
+# a sorted collection's Comparator is C#'s Comparison delegate; SortedDictionary and SortedSet take an IComparer
+member java.util.TreeMap.new(Comparator) -> new {R}(Comparer<{R0}>.Create($1)) using System.Collections.Generic
+member java.util.TreeSet.new(Comparator) -> new {R}(Comparer<{R0}>.Create($1)) using System.Collections.Generic
 member java.io.FileOutputStream.new/1 -> new FileStream($1.ToString(), FileMode.Create) using System.IO
 member java.io.FileOutputStream.new/2 -> new FileStream($1.ToString(), $2 ? FileMode.Append : FileMode.Create) using System.IO
 member java.io.FileInputStream.new/1 -> File.OpenRead($1.ToString()) using System.IO
@@ -988,12 +998,12 @@ member java.util.ServiceLoader.findFirst/0 -> $0.FirstOrDefault() using System.L
 member java.util.ServiceLoader.stream/0 -> $0
 member java.lang.Class.getClassLoader/0 -> $0.Assembly
 # resources are the assembly's embedded ones, found by their Java path (JavaResources)
-member java.lang.Class.getResource/1 -> JavaResources.GetResource($0, $1) using Maddi.JavaCompat
-member java.lang.Class.getResourceAsStream/1 -> JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
-member java.lang.ClassLoader.getResource/1 -> JavaResources.GetResource($0, $1) using Maddi.JavaCompat
-member java.lang.ClassLoader.getResourceAsStream/1 -> JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
-member java.lang.ClassLoader.getSystemResource/1 -> JavaResources.GetResource(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
-member java.lang.ClassLoader.getSystemResourceAsStream/1 -> JavaResources.GetResourceAsStream(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
+member java.lang.Class.getResource/1 ->? JavaResources.GetResource($0, $1) using Maddi.JavaCompat
+member java.lang.Class.getResourceAsStream/1 ->? JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getResource/1 ->? JavaResources.GetResource($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getResourceAsStream/1 ->? JavaResources.GetResourceAsStream($0, $1) using Maddi.JavaCompat
+member java.lang.ClassLoader.getSystemResource/1 ->? JavaResources.GetResource(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
+member java.lang.ClassLoader.getSystemResourceAsStream/1 ->? JavaResources.GetResourceAsStream(Assembly.GetEntryAssembly(), $1) using Maddi.JavaCompat, System.Reflection
 member java.net.URL.openStream/0 -> JavaResources.OpenStream($0) using Maddi.JavaCompat
 member java.net.URL.toExternalForm/0 -> $0.ToString()
 member java.net.URL.toURI/0 -> $0
@@ -1069,7 +1079,7 @@ member java.lang.Class.isArray/0 -> $0.IsArray
 member java.lang.Class.isEnum/0 -> $0.IsEnum
 member java.lang.Class.isInterface/0 -> $0.IsInterface
 member java.lang.Class.isPrimitive/0 -> $0.IsPrimitive
-member java.lang.Class.getSuperclass/0 -> $0.BaseType
+member java.lang.Class.getSuperclass/0 ->? $0.BaseType
 member java.lang.Class.getInterfaces/0 -> $0.GetInterfaces()
 member java.lang.Class.getComponentType/0 -> $0.GetElementType()
 member java.lang.Class.arrayType/0 -> $0.MakeArrayType()
@@ -1090,8 +1100,8 @@ member java.lang.reflect.Field.getName/0 -> $0.Name
 member java.lang.reflect.Parameter.getName/0 -> $0.Name
 member java.lang.reflect.Executable.getName/0 -> $0.Name
 member java.lang.reflect.Member.getName/0 -> $0.Name
-member java.lang.reflect.Method.getDeclaringClass/0 -> $0.DeclaringType
-member java.lang.reflect.Member.getDeclaringClass/0 -> $0.DeclaringType
+member java.lang.reflect.Method.getDeclaringClass/0 ->? $0.DeclaringType
+member java.lang.reflect.Member.getDeclaringClass/0 ->? $0.DeclaringType
 member java.lang.reflect.Method.getReturnType/0 -> $0.ReturnType
 member java.lang.reflect.Method.getGenericReturnType/0 -> $0.ReturnType
 member java.lang.reflect.Executable.getParameters/0 -> $0.GetParameters()

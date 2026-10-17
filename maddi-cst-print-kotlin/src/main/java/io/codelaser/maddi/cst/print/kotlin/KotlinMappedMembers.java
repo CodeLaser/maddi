@@ -14,6 +14,8 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
 import java.util.Map;
@@ -48,6 +50,8 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.lang.Throwable", "getCause", 0), "cause"),
             Map.entry(new Key("java.lang.Enum", "name", 0), "name"),
             Map.entry(new Key("java.lang.Enum", "ordinal", 0), "ordinal"),
+            // Kotlin's Enum has no getDeclaringClass(); kotlin.jvm's extension property gives Java's
+            Map.entry(new Key("java.lang.Enum", "getDeclaringClass", 0), "declaringJavaClass"),
             Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"));
 
     private static final Map<Key, String> FUNCTION = Map.ofEntries(
@@ -116,6 +120,18 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.util.Map", "get", 1), 0),
             Map.entry(new Key("java.util.Map", "remove", 1), 0));
 
+    /**
+     * As {@link #OBJECT_PARAMETER}, per parameter, for members with more than one: the owner's type parameter for
+     * each, -1 where the parameter keeps its own type ({@code Map.remove(Object, Object)} is
+     * {@code remove(key: K, value: V)}; {@code getOrDefault(Object, V)} is {@code getOrDefault(key: K, defaultValue: V)}).
+     */
+    private static final Map<Key, List<Integer>> OBJECT_PARAMETERS = Map.of(
+            new Key("java.util.Map", "remove", 2), List.of(0, 1),
+            new Key("java.util.Map", "getOrDefault", 2), List.of(0, -1));
+
+    /** {@code Map.putAll(Map<? extends K, ? extends V>)}, which Kotlin declares {@code putAll(from: Map<out K, V>)}. */
+    private static final Set<Key> MAP_PARAMETER = Set.of(new Key("java.util.Map", "putAll", 1));
+
     /** The {@code Collection<?>}/{@code Collection<? extends E>} parameters Kotlin declares {@code Collection<E>}. */
     private static final Set<Key> COLLECTION_PARAMETER = Set.of(
             new Key("java.util.Collection", "containsAll", 1), new Key("java.util.Collection", "addAll", 1),
@@ -147,9 +163,14 @@ final class KotlinMappedMembers {
         }
         for (MethodInfo m : methodInfo.overrides()) {
             Key key = new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size());
-            Integer index = OBJECT_PARAMETER.get(key);
+            List<Integer> perParameter = OBJECT_PARAMETERS.get(key);
+            Integer index = perParameter == null ? OBJECT_PARAMETER.get(key)
+                    : i < perParameter.size() && perParameter.get(i) >= 0 ? perParameter.get(i) : null;
             boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
-            if (index == null && !collection) continue;
+            boolean map = MAP_PARAMETER.contains(key);
+            Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
+            if (ownVariable != null) index = ownVariable;
+            if (index == null && !collection && !map) continue;
             ParameterizedType asOwner;
             try {
                 asOwner = methodInfo.typeInfo().asParameterizedType()
@@ -159,11 +180,92 @@ final class KotlinMappedMembers {
             }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
+            if (map) return asOwner.parameters().size() == 2 ? asOwner : null;
             ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
             return collectionType.typeInfo() == null ? null
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
         }
         return null;
+    }
+
+    /**
+     * Parameter {@code i} of a member of a type Kotlin maps to its own, declared as one of the owner's type parameters:
+     * that parameter's index, null otherwise. Kotlin declares it exactly so, non-null ({@code MutableCollection.add(
+     * element: E)}), and an override with a nullable verdict there overrides nothing (guava's ForwardingCollection
+     * printed {@code add(element: E?)}).
+     */
+    private static Integer ownTypeVariable(MethodInfo m, int i) {
+        if (i >= m.parameters().size() || !KotlinTypeName.isMapped(m.typeInfo().fullyQualifiedName())) return null;
+        ParameterizedType declared = m.parameters().get(i).parameterizedType();
+        if (declared.typeParameter() == null || declared.arrays() > 0) return null;
+        int index = m.typeInfo().typeParameters().indexOf(declared.typeParameter());
+        return index < 0 ? null : index;
+    }
+
+    /**
+     * Map's default methods as Kotlin sees the JDK's: definitely non-null value types where Java's nullness
+     * annotations say so, and a nullable result. {K}, {V} and {V!} (V & Any) stand for the owner's type arguments.
+     * An override printed with Java's types overrides nothing (guava's LocalCache, Maps, ForwardingMap).
+     */
+    private record DefaultSignature(List<String> parameters, String result) {
+    }
+
+    private static final Map<Key, DefaultSignature> MAP_DEFAULTS = Map.of(
+            new Key("java.util.Map", "computeIfPresent", 2),
+            new DefaultSignature(List.of("{K}", "BiFunction<in {K}, in {V!}, out {V}?>"), "{V}?"),
+            new Key("java.util.Map", "merge", 3),
+            new DefaultSignature(List.of("{K}", "{V!}", "BiFunction<in {V!}, in {V!}, out {V}?>"), "{V}?"),
+            new Key("java.util.Map", "compute", 2),
+            new DefaultSignature(List.of("{K}", "BiFunction<in {K}, in {V}?, out {V}?>"), "{V}?"));
+
+    /** Parameter {@code i}'s Kotlin type in an override of one of Map's default methods; null otherwise. */
+    static String mapDefaultParameter(MethodInfo methodInfo, int i, Qualification q) {
+        String[] kv = mapDefaultTypeArguments(methodInfo, q);
+        if (kv == null) return null;
+        DefaultSignature signature = mapDefault(methodInfo);
+        return i < signature.parameters().size() ? substitute(signature.parameters().get(i), kv) : null;
+    }
+
+    /** The result's Kotlin type in an override of one of Map's default methods; null otherwise. */
+    static String mapDefaultResult(MethodInfo methodInfo, Qualification q) {
+        String[] kv = mapDefaultTypeArguments(methodInfo, q);
+        return kv == null ? null : substitute(mapDefault(methodInfo).result(), kv);
+    }
+
+    private static DefaultSignature mapDefault(MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.overrides().isEmpty()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return null;
+        }
+        for (MethodInfo m : methodInfo.overrides()) {
+            DefaultSignature signature = MAP_DEFAULTS.get(new Key(m.typeInfo().fullyQualifiedName(), m.name(),
+                    m.parameters().size()));
+            if (signature != null) return signature;
+        }
+        return null;
+    }
+
+    /** K, V and V & Any for the method's class as a Map, printed; null when it is not one of Map's defaults. */
+    private static String[] mapDefaultTypeArguments(MethodInfo methodInfo, Qualification q) {
+        if (mapDefault(methodInfo) == null) return null;
+        TypeInfo map = methodInfo.overrides().stream().map(MethodInfo::typeInfo)
+                .filter(t -> "java.util.Map".equals(t.fullyQualifiedName())).findFirst().orElse(null);
+        if (map == null) return null;
+        ParameterizedType asMap;
+        try {
+            asMap = methodInfo.typeInfo().asParameterizedType().concreteSuperType(map.asParameterizedType());
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
+            return null;
+        }
+        if (asMap == null || asMap.parameters().size() != 2) return null;
+        ParameterizedType v = asMap.parameters().get(1);
+        String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+        return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
+                v.typeParameter() != null ? vName + " & Any" : vName};
+    }
+
+    private static String substitute(String template, String[] kv) {
+        return template.replace("{K}", kv[0]).replace("{V!}", kv[2]).replace("{V}", kv[1]);
     }
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
@@ -219,7 +321,7 @@ final class KotlinMappedMembers {
     static boolean isJavaStringOnly(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName())
                && java.util.Set.of("strip", "stripLeading", "stripTrailing", "stripIndent", "indent",
-                "translateEscapes").contains(methodInfo.name());
+                "translateEscapes", "getChars").contains(methodInfo.name());
     }
 
     /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */

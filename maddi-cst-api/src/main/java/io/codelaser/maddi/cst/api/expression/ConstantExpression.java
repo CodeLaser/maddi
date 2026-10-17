@@ -37,6 +37,24 @@ public interface ConstantExpression<T> extends Expression {
     T constant();
 
     /**
+     * How a literal was written in the source, when that is not how its value prints by default: {@code 0xFFFF},
+     * {@code 50_000}, {@code 0b1010}, a char written as a unicode escape, {@code 1e3}. Null otherwise, and for any
+     * constant not read from a literal. The Java printer writes it, so that re-rendered code keeps its literals as
+     * written (CodeLaser/maddi#49); a translator prints the value, since the spelling is Java's.
+     */
+    default String sourceSpelling() {
+        return null;
+    }
+
+    /**
+     * @return this constant, written as {@code sourceSpelling}; this instance when the constant does not keep a
+     * spelling. The caller guarantees that the spelling denotes the constant's value.
+     */
+    default ConstantExpression<T> withSourceSpelling(String sourceSpelling) {
+        return this;
+    }
+
+    /**
      * Constants are self-contained, so rewiring returns the same instance.
      */
     @Override

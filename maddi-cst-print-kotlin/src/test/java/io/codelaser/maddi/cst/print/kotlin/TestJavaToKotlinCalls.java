@@ -259,7 +259,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
         contains(kotlin, "{ java.util.List.of() })");
         contains(kotlin, "{ java.util.List.of(*it) })");
-        contains(kotlin, "getOrDefault(d, java.util.function.Supplier(::D))");
+        contains(kotlin, "getOrDefault(d, java.util.function.Supplier<D>(::D))");
         // into a non-null parameter the cast null stays as it was
         contains(kotlin, "pick(null as String)");
         contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
@@ -337,5 +337,181 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     public void castIntoTypeVariable() {
         String kotlin = kotlin(CAST_INTO_TYPE_VARIABLE);
         contains(kotlin, "as Class<G>");
+    }
+
+    @Language("java")
+    private static final String WIDENED_ARRAY_ELEMENTS = """
+            package a;
+            class W {
+                static double[] d() { return new double[]{1, 2}; }
+                static long[] l(int x) { long[] l = {1, x}; return l; }
+                static double[][] dd() { return new double[][]{{1}, {2.5, 3}}; }
+                static float[] f(char c) { return new float[]{c, 1}; }
+            }
+            """;
+
+    /** Java widens an array initializer's elements to the element type, Kotlin does not: doubleArrayOf(1, 2) fails. */
+    @Test
+    public void widenedArrayElements() {
+        String kotlin = kotlin(WIDENED_ARRAY_ELEMENTS);
+        contains(kotlin, "doubleArrayOf(1.toDouble(), 2.toDouble())");
+        contains(kotlin, "longArrayOf(1, x.toLong())");
+        contains(kotlin, "doubleArrayOf(2.5, 3.toDouble())");
+        contains(kotlin, "floatArrayOf(c.code.toFloat(), 1.toFloat())");
+        compiles(kotlin);
+    }
+
+    /** guava's views: {@code c.toArray()} on a Java collection, which Kotlin's collection types do not have. */
+    @Test
+    public void toArrayWithoutArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Snap {
+                    static Object[] snap(Map<String, Integer> m, List<String> l) {
+                        Object[] keys = m.keySet().toArray();
+                        return l.isEmpty() ? keys : l.toArray();
+                    }
+                }
+                """);
+        contains(kotlin, "m.keys.toTypedArray<Any>()");
+        contains(kotlin, "l.toTypedArray<Any>()");
+        compiles(kotlin);
+    }
+
+    /** guava's escapers: a char used as an array index, which Java widens to int and Kotlin does not. */
+    @Test
+    public void charIndexIsWidened() {
+        String kotlin = kotlin("""
+                package a;
+                class Esc {
+                    static char[] escape(char[][] replacements, char c, byte b) {
+                        replacements[c] = new char[0];
+                        return c < replacements.length ? replacements[c] : replacements[b];
+                    }
+                }
+                """);
+        contains(kotlin, "replacements[c.code] = CharArray(0)");
+        contains(kotlin, "replacements[c.code]");
+        contains(kotlin, "replacements[b.toInt()]");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's EnumMultiset, Platform, CycleDetectingLockFactory: Enum.getDeclaringClass() is Kotlin's declaringJavaClass;
+     * Strings.repeat, CharEscaper: String.getChars(…) is Java's only.
+     */
+    @Test
+    public void enumDeclaringClassAndGetChars() {
+        String kotlin = kotlin("""
+                package a;
+                class Names {
+                    enum Color { RED }
+                    static <E extends Enum<E>> Class<E> type(E e) { return e.getDeclaringClass(); }
+                    static String rank(Enum<?> rank) { return rank.getDeclaringClass().getSimpleName() + "." + rank.name(); }
+                    static char[] chars(String s) {
+                        char[] dest = new char[s.length()];
+                        s.getChars(0, s.length(), dest, 0);
+                        return dest;
+                    }
+                }
+                """);
+        contains(kotlin, "e.declaringJavaClass");
+        contains(kotlin, "(s as java.lang.String).getChars(");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ImmutableRangeMap: {@code SortedLists.binarySearch(ranges, Range::lowerBound, …)} beside an overload taking
+     * a T. The SAM constructor that keeps Java's overload carries the reference's type arguments, else Kotlin infers
+     * none for the lambda inside.
+     */
+    @Test
+    public void samConstructorTyped() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Fn<F, T> { T apply(F input); }
+                class Range<C> { C lower; C lowerBound() { return lower; } }
+                class Search {
+                    static <E, K> int search(List<? extends E> list, Fn<? super E, K> key, K target) { return 0; }
+                    static <E> int search(List<? extends E> list, E key, E target) { return 1; }
+                    static <C> int find(List<Range<C>> ranges, C c) { return search(ranges, Range::lowerBound, c); }
+                }
+                """);
+        contains(kotlin, "Fn<Range<C>, C>(");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Graphs.inducedSubgraph: {@code MutableGraph<N> subgraph = c ? b.build() : b.build()}, a builder whose
+     * {@code <N1 extends N> build()} only the target types. The local keeps its declared type.
+     */
+    @Test
+    public void conditionalOfTargetTypedCalls() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Builder<N> {
+                    <N1 extends N> List<N1> build() { return new ArrayList<>(); }
+                    static <N> List<N> sub(Builder<N> b, boolean big) {
+                        List<N> result = big ? b.build() : b.build();
+                        return result;
+                    }
+                }
+                """);
+        contains(kotlin, "val result: MutableList<N> = ");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's CollectCollectors and TableCollectors: Java types {@code Collector.of}'s accumulator from a generic
+     * reference, a cast to a functional interface, or a cast to the raw Collector; Kotlin infers none of them.
+     */
+    @Test
+    public void collectorOfGenericReferences() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                import java.util.stream.Collector;
+                class Bag<E> {
+                    static <E> Bag<E> create() { return new Bag<>(); }
+                    static <E> Bag<E> create(int n) { return new Bag<>(); }
+                    void add(E e) { }
+                    Bag<E> merge(Bag<E> other) { return this; }
+                    List<E> list() { return new ArrayList<>(); }
+                    static <E> List<E> copyOf(Collection<? extends E> c) { return new ArrayList<>(c); }
+                }
+                class Acc<R, V> {
+                    void put(R r, V v) { }
+                    Acc<R, V> combine(Acc<R, V> other) { return this; }
+                    Map<R, V> done() { return new HashMap<>(); }
+                }
+                class Collectors2 {
+                    private static final Collector<Object, ?, List<Object>> TO_LIST =
+                            Collector.of(ArrayList::new, (List<Object> l, Object o) -> l.add(o), (a, b) -> { a.addAll(b); return a; });
+                    @SuppressWarnings("unchecked")
+                    static <E> Collector<E, ?, List<E>> toList() { return (Collector) TO_LIST; }
+                    static <T, E> Collector<T, ?, List<E>> toBag(Function<? super T, ? extends E> f) {
+                        return Collector.of(Bag::create, (bag, t) -> bag.add(f.apply(t)), (b1, b2) -> b1.merge(b2), (Bag<E> b) -> b.list());
+                    }
+                    static <T, R, V> Collector<T, ?, Map<R, V>> toMap(Function<T, R> r, Function<T, V> v) {
+                        return Collector.of(Acc<R, V>::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
+                                (a1, a2) -> a1.combine(a2), acc -> acc.done());
+                    }
+                    static <G> List<G> varargs(G... gs) {
+                        return Optional.ofNullable(gs).map(List::of).orElse(List.of());
+                    }
+                    static <T, R, V> Collector<T, ?, Map<R, V>> toMap2(Function<T, R> r, Function<T, V> v) {
+                        return Collector.of((Supplier<Acc<R, V>>) Acc::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
+                                Acc::combine, Acc::done);
+                    }
+                }
+                """);
+        contains(kotlin, "TO_LIST as Collector<E, *, MutableList<E>>");
+        contains(kotlin, "Supplier<Bag<E>>(");
+        contains(kotlin, "Supplier<Acc<R, V>>(");
+        compiles(kotlin);
     }
 }

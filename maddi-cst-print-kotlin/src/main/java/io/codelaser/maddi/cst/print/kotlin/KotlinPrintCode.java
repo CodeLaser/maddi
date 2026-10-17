@@ -47,6 +47,11 @@ public enum KotlinPrintCode implements PrintMessage.Code {
      * that may pass null asserts the argument, so the NullPointerException moves from the method's body to the call.
      */
     PRECONDITION_NON_NULL(Severity.BEHAVIOUR_CHANGE),
+    /**
+     * A non-null parameter whose method answers null with its own exception (NullabilityFacts.rejectsNull): a Java
+     * caller's null meets Kotlin's entry check, a NullPointerException, instead (CodeLaser/maddi-mod#28).
+     */
+    NULL_REJECTION_REPLACED(Severity.BEHAVIOUR_CHANGE),
     /** {@code x?.m()} (NullCheck.SAFE_CALL): where Java throws a NullPointerException, Kotlin goes on with null. */
     SAFE_CALL(Severity.BEHAVIOUR_CHANGE),
     /** {@code x!!.m()}, {@code a!![i]}, {@code for (e in xs!!)}: Java dereferences, and throws, at the same point. */

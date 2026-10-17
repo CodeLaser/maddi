@@ -241,9 +241,14 @@ public class ParameterizedTypePrinter {
             taps.add(0, new TypeAndParameters(typeInfo, next == null, typesForTypeInfo));
             typeInfo = next;
         }
-        return taps.stream().map(tap -> singleType(qualification,
-                        tap.typeInfo, diamond, !tap.isPrimaryType, tap.typeParameters, printTypeBounds))
-                .collect(OutputBuilderImpl.joining(SymbolEnum.DOT));
+        // one name: no guide, whose split points put spaces around the dot (`Outer<C, H> . Inner<R>`, #49)
+        OutputBuilder result = new OutputBuilderImpl();
+        for (TypeAndParameters tap : taps) {
+            if (!result.isEmpty()) result.add(SymbolEnum.DOT);
+            result.add(singleType(qualification, tap.typeInfo, diamond, !tap.isPrimaryType, tap.typeParameters,
+                    printTypeBounds));
+        }
+        return result;
     }
 
     record TypeAndParameters(TypeInfo typeInfo, boolean isPrimaryType, List<ParameterizedType> typeParameters) {

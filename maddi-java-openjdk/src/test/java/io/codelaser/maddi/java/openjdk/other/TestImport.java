@@ -73,7 +73,7 @@ public class TestImport extends CommonTest {
             package org.e2immu.analyser.resolver.testexample;
             import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
             import io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel.Effective;
-            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + Effective.E1); } }
+            public class Import_0 { public void method() { System.out.println(RLevel.LEVEL + ": " + Effective.E1); } }
             """;
 
     @Language("java")
@@ -81,7 +81,7 @@ public class TestImport extends CommonTest {
             package org.e2immu.analyser.resolver.testexample;
             import io.codelaser.maddi.inspection.integration.java.importhelper.RLevel;
             import io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel;
-            public class Import_0 {public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
+            public class Import_0 { public void method() { System.out.println(RLevel.LEVEL + ": " + RMultiLevel.Effective.E1); } }
             """;
     public static final String RLEVEL_FQN = "io.codelaser.maddi.inspection.integration.java.importhelper.RLevel";
     public static final String RMULTILEVEL_FQN = "io.codelaser.maddi.inspection.integration.java.importhelper.RMultiLevel";

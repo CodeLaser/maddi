@@ -46,12 +46,7 @@ final class CSharpWildcards {
     }
 
     static Captured captured(MethodInfo method, Qualification q) {
-        if (method.isConstructor()) return Captured.NONE;
-        if (method.parameters().stream().noneMatch(p -> capturable(p.parameterizedType()))) return Captured.NONE;
-        for (MethodInfo m : overriddenAndSelf(method)) {
-            if (!CSharpNames.translated(m.typeInfo())) return Captured.NONE;
-            if (m.typeInfo().isInterface() && CSharpNames.singleAbstractMethod(m.typeInfo()) == m) return Captured.NONE;
-        }
+        if (!mayBeGeneric(method)) return Captured.NONE;
         Set<String> taken = new HashSet<>();
         for (TypeInfo t = method.typeInfo(); t != null; t = CstQueries.enclosing(t)) {
             t.typeParameters().forEach(tp -> taken.add(CSharpNames.typeParameter(tp)));
@@ -62,7 +57,10 @@ final class CSharpWildcards {
         List<String> constraints = new ArrayList<>();
         for (int i = 0; i < method.parameters().size(); i++) {
             ParameterizedType pt = method.parameters().get(i).parameterizedType();
-            if (!capturable(pt)) continue;
+            // a type whose wildcard interface the wildcard is: the parameter is that, which the code may pass (a
+            // List<AbstractDatasetInstance<Solution_, ?>>'s element); not beside an overload, which C# would find as
+            // specific as the generic one (CS0121), where Java picks the more specific wildcard
+            if (!capturable(pt) || CSharpWildcardInterfaces.isWildcardUse(pt) && !overloaded(method)) continue;
             TypeInfo generic = pt.typeInfo();
             List<String> forParameter = new ArrayList<>();
             List<String> forConstraints = new ArrayList<>();
@@ -78,15 +76,8 @@ final class CSharpWildcards {
                 for (int n = 2; taken.contains(unique); n++) unique = name + n;
                 taken.add(unique);
                 forParameter.add(unique);
-                List<ParameterizedType> bounds = a.wildcard().isExtends() && !a.isJavaLangObject()
-                        ? List.of(a.withWildcard(null))
-                        : declared.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
-                // a bound in the generic type's own type parameters (R extends Result<R>) is not expressible here
-                if (bounds.stream().anyMatch(CstQueries::mentionsTypeParameter)) ok = false;
-                // a constraint is an interface or a class C# can extend, not string, a delegate or a sealed class
-                if (bounds.stream().anyMatch(b -> b.typeInfo() == null || !CSharpNames.translated(b.typeInfo())
-                        || CSharpContext.program().delegate(b.typeInfo())
-                        || !b.typeInfo().isInterface() && !CSharpContext.program().open(b.typeInfo()))) ok = false;
+                List<ParameterizedType> bounds = bounds(declared, a);
+                if (!constrainable(bounds)) ok = false;
                 if (!bounds.isEmpty()) {
                     forConstraints.add("where " + unique + " : " + String.join(", ",
                             bounds.stream().map(b -> CSharpTypeName.of(b, q)).toList()));
@@ -98,6 +89,51 @@ final class CSharpWildcards {
             constraints.addAll(forConstraints);
         }
         return typeParameters.isEmpty() ? Captured.NONE : new Captured(typeParameters, names, constraints);
+    }
+
+    /**
+     * A method that may have type parameters of its own: not a constructor, a functional interface's method or an
+     * override of a library method, and with a capturable parameter.
+     */
+    private static boolean mayBeGeneric(MethodInfo method) {
+        if (method.isConstructor()) return false;
+        if (method.parameters().stream().noneMatch(p -> capturable(p.parameterizedType()))) return false;
+        for (MethodInfo m : overriddenAndSelf(method)) {
+            if (!CSharpNames.translated(m.typeInfo())) return false;
+            if (m.typeInfo().isInterface() && CSharpNames.singleAbstractMethod(m.typeInfo()) == m) return false;
+        }
+        return true;
+    }
+
+    private static boolean overloaded(MethodInfo method) {
+        return method.typeInfo().methods().stream().anyMatch(m -> m != method && m.name().equals(method.name())
+                                                                   && m.parameters().size() == method.parameters().size());
+    }
+
+    /** Whether {@link #captured} names the wildcards of the method's parameter: it prints no wildcard of its own. */
+    static boolean capturedParameter(MethodInfo method, int index) {
+        if (!mayBeGeneric(method)) return false;
+        ParameterizedType pt = method.parameters().get(index).parameterizedType();
+        if (!capturable(pt)) return false;
+        for (int k = 0; k < pt.parameters().size(); k++) {
+            ParameterizedType a = pt.parameters().get(k);
+            if (a.wildcard() != null && !constrainable(bounds(pt.typeInfo().typeParameters().get(k), a))) return false;
+        }
+        return true;
+    }
+
+    /** A captured wildcard's constraints: its own bound, else the type parameter's. */
+    private static List<ParameterizedType> bounds(TypeParameter declared, ParameterizedType a) {
+        return a.wildcard().isExtends() && !a.isJavaLangObject() ? List.of(a.withWildcard(null))
+                : declared.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+    }
+
+    private static boolean constrainable(List<ParameterizedType> bounds) {
+        // a bound in the generic type's own type parameters (R extends Result<R>) is not expressible here; a
+        // constraint is an interface or a class C# can extend, not string, a delegate or a sealed class
+        return bounds.stream().noneMatch(b -> CstQueries.mentionsTypeParameter(b) || b.typeInfo() == null
+                || !CSharpNames.translated(b.typeInfo()) || CSharpContext.program().delegate(b.typeInfo())
+                || !b.typeInfo().isInterface() && !CSharpContext.program().open(b.typeInfo()));
     }
 
     /** A parameter of the method may be captured: the explicit implementations leave such a method alone. */

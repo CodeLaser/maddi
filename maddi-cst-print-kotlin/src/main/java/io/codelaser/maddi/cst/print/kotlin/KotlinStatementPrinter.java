@@ -74,7 +74,24 @@ public class KotlinStatementPrinter {
      * {@code Collections.emptyList()}: a call whose type arguments only the target determines, no argument does. Java
      * infers them from the declaration; Kotlin's {@code val elements = emptyList()} has nothing to infer them from.
      */
+    /**
+     * guava's GeneralRangeTest: {@code GeneralRange<@Nullable Integer> range = GeneralRange.range(ORDERING, 2, …)}.
+     * Kotlin infers a generic call's type arguments from its arguments, non-null from {@code 2}; the local's own
+     * {@code GeneralRange<Int?>} is written, or a later {@code range.intersect(…)} with an {@code Int?} range fails.
+     */
+    private static boolean nullableArgumentOfGenericCall(ParameterizedType type, Expression init) {
+        if (type == null || type.arrays() > 0 || type.parameters().stream().noneMatch(KotlinNullability::isNullable)) {
+            return false;
+        }
+        return KotlinExpressionPrinter.unwrap(init) instanceof MethodCall mc && mc.methodInfo() != null
+               && !mc.methodInfo().typeParameters().isEmpty() && mc.typeArguments().isEmpty();
+    }
+
     static boolean onlyTargetTyped(Expression e) {
+        // guava's Graphs.inducedSubgraph: MutableGraph<N> subgraph = c ? builder.build() : builder.build()
+        if (KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+            return onlyTargetTyped(ic.ifTrue()) || onlyTargetTyped(ic.ifFalse());
+        }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
@@ -264,7 +281,7 @@ public class KotlinStatementPrinter {
                 ParameterizedType returnType = KotlinNullability.returnType(method);
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
-                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.widened(value, returnType, q), q);
+                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.assigned(value, returnType, q), q);
             } else {
                 printed = KotlinExpressionPrinter.print(value, q);
             }
@@ -835,13 +852,13 @@ public class KotlinStatementPrinter {
                            && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
         boolean writeType = !hasInitializer || nullableFromNonNull
                             || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
-                                                             || onlyTargetTyped(init));
+                                                             || onlyTargetTyped(init) || nullableArgumentOfGenericCall(type, init));
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,
             // and the uses that follow need no `!!` (kotlinc 2.4; the use-site facts assume the assignment's cast)
             OutputBuilder assignment = new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(lv.simpleName())))
-                    .add(KotlinSymbols.assignment("=")).add(KotlinExpressionPrinter.widened(init, type, q));
+                    .add(KotlinSymbols.assignment("=")).add(KotlinExpressionPrinter.assigned(init, type, q));
             return Stream.of(b, assignment).collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                     GuideImpl.generatorForBlock()));
         }
@@ -851,7 +868,7 @@ public class KotlinStatementPrinter {
                          ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
                                                             ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
                                                             : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
-                         : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.widened(init, type, q), q));
+                         : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.assigned(init, type, q), q));
             if (!writeType) {
                 // Kotlin infers an untyped local's type from its initializer, type arguments and element states
                 // included (val params = f.getLstOperands(): a List<Exprent?> whatever the local's verdict says);

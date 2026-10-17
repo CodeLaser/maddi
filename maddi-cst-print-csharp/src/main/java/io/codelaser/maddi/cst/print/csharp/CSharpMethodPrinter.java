@@ -83,7 +83,10 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         // C#'s interface members are public; a private one says so
         if (access != null) modifiers.append(access).append(' ');
         if (methodInfo.isStatic()) modifiers.append("static ");
-        String inheritance = CSharpModifiers.inheritance(methodInfo, typeInfo);
+        // a record's equals(Object) is C#'s Equals(R? other): a record synthesizes Equals(object) (CS0111), which
+        // calls it with the other record, or with null
+        boolean recordEquals = recordEquals(methodInfo);
+        String inheritance = recordEquals ? null : CSharpModifiers.inheritance(methodInfo, typeInfo);
         if (inheritance != null) modifiers.append(inheritance).append(' ');
 
         if (methodInfo.isConstructor()) {
@@ -107,14 +110,15 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(owner);
             b.add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
-                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + CSharpNames.method(overridden)));
+                    .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + (CSharpNames.translated(overridden.typeInfo())
+                            ? CSharpNames.method(overridden) : CSharpNames.method(methodInfo))));
         } else {
             String property = CSharpContext.program().computedProperty(methodInfo);
             if (property != null) return property(b, modifiers.toString(), property, q);
             b.add(new TextImpl(modifiers + returnType(q))).add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpNames.method(methodInfo) + typeParameters));
         }
-        b.add(parameters(methodInfo, captured, q));
+        b.add(recordEquals ? recordEqualsParameter(methodInfo, q) : parameters(methodInfo, captured, q));
         // an override and an explicit implementation inherit the constraints, and may not repeat them (CS0460)
         boolean inherited = overridden != null || inheritance != null && inheritance.contains("override");
         List<String> constraints = new ArrayList<>(erased || inherited ? List.of()
@@ -166,15 +170,37 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /**
-     * A boxed type where a method of the program it overrides has a type parameter of its class: the overridden method's
+     * A boxed type, an enum or a struct ({@link CSharpTypeName#valueReference}) where a method it overrides has a type
+     * parameter of its class: the overridden method's
      * {@code T Describe()} in {@code Holder<int>} is {@code int Describe()}, so {@code Integer describe()} is
      * {@code int Describe()}, not {@code int?} (CS0508), and a parameter likewise (CS0115).
      */
+    /** A library interface's method a superclass of the program declares abstract: S Next() of IJavaIterator<S>. */
+    private static boolean redeclaredAbove(MethodInfo o, TypeInfo owner) {
+        return CstQueries.superclasses(owner).stream().anyMatch(s -> CSharpHierarchy.leftAbstract(s).stream()
+                .anyMatch(l -> l.method().equals(o)));
+    }
+
+    /** {@code method}'s result is printed as the value type itself, an override of {@code T Get()}. */
+    static boolean plainResult(MethodInfo method) {
+        return boxedTypeArgument(method.returnType(), method, MethodInfo::returnType);
+    }
+
+    /** {@code method}'s parameter {@code i} is printed as the value type itself, an override of {@code Set(T t)}. */
+    static boolean plainParameter(MethodInfo method, int i) {
+        if (i >= method.parameters().size()) return false;
+        return boxedTypeArgument(method.parameters().get(i).parameterizedType(), method,
+                o -> o.parameters().size() > i ? o.parameters().get(i).parameterizedType() : null);
+    }
+
     private static boolean boxedTypeArgument(ParameterizedType pt, MethodInfo method,
                                              Function<MethodInfo, ParameterizedType> inOverridden) {
-        if (pt.arrays() != 0 || !pt.isBoxedExcludingVoid()) return false;
-        // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>)
-        return method.overrides().stream().filter(o -> o != method && CSharpNames.translated(o.typeInfo()))
+        if (!CSharpTypeName.valueReference(pt)) return false;
+        // a type of the program: a library's mapping may keep int? as the argument (IJavaEntry<int?, V>); an enum's
+        // or a struct's is the value type (IComparer<E>)
+        boolean boxed = pt.isBoxedExcludingVoid();
+        return method.overrides().stream().filter(o -> o != method && (!boxed || CSharpNames.translated(o.typeInfo())
+                                                                       || redeclaredAbove(o, method.typeInfo())))
                 .map(inOverridden)
                 .anyMatch(o -> o != null && o.arrays() == 0 && o.isTypeParameter() && o.typeParameter() != null
                                && !o.typeParameter().isMethodTypeParameter());
@@ -222,6 +248,22 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration()));
     }
 
+    private static boolean recordEquals(MethodInfo m) {
+        return m.typeInfo().typeNature().isRecord() && !m.isStatic() && "equals".equals(m.name())
+               && m.parameters().size() == 1 && m.parameters().getFirst().parameterizedType().isJavaLangObject();
+    }
+
+    /** {@code (R? o)}, the record's own type: {@code ?} in a nullable context. */
+    private static OutputBuilder recordEqualsParameter(MethodInfo m, Qualification q) {
+        TypeInfo record = m.typeInfo();
+        String type = CSharpNames.type(record) + (record.typeParameters().isEmpty() ? "" : "<" + String.join(", ",
+                record.typeParameters().stream().map(CSharpNames::typeParameter).toList()) + ">");
+        String nullable = CSharpContext.program().facts().nullabilityAnalysed() ? "?" : "";
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(new TextImpl(type + nullable + " " + CSharpContext.declare(m.parameters().getFirst().name())))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
     /** {@code (int a, params string[] rest)}. */
     static OutputBuilder parameters(MethodInfo methodInfo, Qualification q) {
         return parameters(methodInfo, CSharpWildcards.Captured.NONE, q);
@@ -263,7 +305,8 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         CSharpProgram program = CSharpContext.program();
         String type;
         if (wildcardNames != null) {
-            type = CSharpWildcards.type(p.parameterizedType(), wildcardNames, q);
+            type = CSharpTypeName.withNullable(p.parameterizedType(),
+                    CSharpWildcards.type(p.parameterizedType(), wildcardNames, q), program.facts().nullable(p));
         } else if (boxedTypeArgument(p.parameterizedType(), p.methodInfo(), o -> o.parameters().size() > p.index()
                 ? o.parameters().get(p.index()).parameterizedType() : null)) {
             type = CSharpTypeName.argument(p.parameterizedType(), q);

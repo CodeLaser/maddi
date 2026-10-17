@@ -66,9 +66,18 @@
 # & | % as template operators: 181 files compile; errors 50 -> 42.
 # 2026-10-11, a ClassLoader as the Assembly that holds the types (loadClass is GetType), Optional.stream:
 # 182 files compile; errors 42 -> 38.
+#
+# 2026-10-15, maddi 7717d7f4b, f9973dec2, f355bb80b: record patterns as property patterns, a record's equals as
+# Equals(R? o) with its components' hash where it has no hashCode, and a class that implements a functional interface
+# C# has as a delegate is the delegate's method group where one is expected: 182 -> 183 compiling files, 36 -> 35 errors.
+# 2026-10-15, maddi b37c5502b, dbcbb02b5, d168e2f81, dc5f6622b, 76269400f, 6ddef0e0a, 88609dc66, a0af43409: an Integer
+# into a template's own type parameter keeps its int?; an enum's or a struct's X? as an Integer's int? (Java's null
+# fits), cast where C# has the value type; a companion's protected member internal; a record header's nested types
+# qualified; an annotation's nested types printed; Class.getName()'s FullName a string?: 183 -> 184 compiling files,
+# 35 -> 34 errors.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	182
+compilingFiles	184
 unmappedJdkUses	15

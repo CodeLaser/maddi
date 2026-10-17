@@ -64,7 +64,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         if (isConst()) builder.add(new TextImpl("const")).add(SpaceEnum.ONE);
         builder.add(isVal ? KotlinKeyword.VAL : KotlinKeyword.VAR)
                 .add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinNames.name(fieldInfo.name())))
+                .add(new TextImpl(name(fieldInfo)))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
                 .add(new TextImpl(!asParameterInPrimaryConstructor && KotlinReadOnly.field(fieldInfo)
                         ? KotlinTypeName.readOnly(type, qualification) : KotlinTypeName.of(type, qualification)));
@@ -73,7 +73,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.toTarget(fieldInfo.initializer(), type,
                             KotlinNullability.translated(fieldInfo.owner()),
-                            KotlinExpressionPrinter.widened(fieldInfo.initializer(), type, qualification), qualification));
+                            KotlinExpressionPrinter.assigned(fieldInfo.initializer(), type, qualification), qualification));
         } else if (zero != null) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
@@ -85,6 +85,50 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         // checks that each secondary constructor that does not delegate to this(...) assigns it once
         return isFinal(fieldInfo)
                || hasInitializer && !asParameterInPrimaryConstructor && KotlinAssignments.neverReassigned(fieldInfo);
+    }
+
+    /** The getter names of Kotlin's mapped members that are properties there, which a class's field may not reuse. */
+    private static final java.util.Set<String> MAPPED_PROPERTIES = java.util.Set.of("size", "keys", "values", "entries",
+            "key", "value", "message", "cause");
+
+    /**
+     * The field is named as a property a mapped supertype declares ({@code size} of Collection, {@code key} of
+     * Map.Entry): renamed, and never a property of the primary constructor (guava's LocalCache.WriteThroughEntry).
+     */
+    static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
+        return KotlinContext.translatingJava() && !fieldInfo.isStatic() && MAPPED_PROPERTIES.contains(fieldInfo.name())
+               && fieldInfo.owner() != null && !fieldInfo.owner().typeNature().isEnum()
+               && !fieldInfo.owner().typeNature().isRecord()
+               && mappedProperty(fieldInfo.owner(), fieldInfo.name(), new java.util.HashSet<>());
+    }
+
+    /**
+     * The field's Kotlin name: Java's, unless a supertype Kotlin maps to its own declares a property of that name.
+     * guava's AbstractMapBasedMultiset has {@code private long size} and overrides {@code size()}, which is Kotlin's
+     * {@code override val size: Int}: two properties {@code size}, and each use of either is ambiguous. Such a field
+     * is {@code _size}.
+     */
+    static String name(FieldInfo fieldInfo) {
+        String name = KotlinNames.name(fieldInfo.name());
+        if (!clashesWithMappedProperty(fieldInfo)) return name;
+        String renamed = "_" + fieldInfo.name();
+        java.util.Set<String> taken = new java.util.HashSet<>();
+        fieldInfo.owner().fields().forEach(f -> taken.add(f.name()));
+        while (taken.contains(renamed)) renamed = "_" + renamed;
+        return renamed;
+    }
+
+    private static boolean mappedProperty(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name,
+                                          java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited) {
+        if (typeInfo == null || !visited.add(typeInfo)) return false;
+        if (typeInfo.methods().stream().anyMatch(m -> !m.isStatic() && m.parameters().isEmpty()
+                                                      && name.equals(KotlinMappedMembers.property(m)))) {
+            return true;
+        }
+        if (typeInfo.parentClass() != null && mappedProperty(typeInfo.parentClass().typeInfo(), name, visited)) {
+            return true;
+        }
+        return typeInfo.interfacesImplemented().stream().anyMatch(i -> mappedProperty(i.typeInfo(), name, visited));
     }
 
     /**

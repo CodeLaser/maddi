@@ -35,20 +35,28 @@ public class DoubleConstantImpl extends ConstantExpressionImpl<Double> implement
 
     private final double value;
     private final ParameterizedType parameterizedType;
+    // how the literal was written, when that is not how its value prints (#49); null otherwise
+    private final String sourceSpelling;
 
     public DoubleConstantImpl(Predefined predefined, double value) {
         this(List.of(), null, predefined.doubleParameterizedType(), value);
     }
 
     public DoubleConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, double value) {
+        this(comments, source, parameterizedType, value, null);
+    }
+
+    public DoubleConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, double value,
+                              String sourceSpelling) {
         super(comments, source, 0 == value ? 1 : 2);
         this.parameterizedType = parameterizedType;
         this.value = value;
+        this.sourceSpelling = sourceSpelling;
     }
 
     @Override
     public Expression withSource(Source source) {
-        return new DoubleConstantImpl(comments(), source, parameterizedType, value);
+        return new DoubleConstantImpl(comments(), source, parameterizedType, value, sourceSpelling);
     }
 
     @Override
@@ -66,7 +74,18 @@ public class DoubleConstantImpl extends ConstantExpressionImpl<Double> implement
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return new OutputBuilderImpl().add(new TextImpl(Double.toString(value)));
+        String text = sourceSpelling != null ? sourceSpelling : Double.toString(value);
+        return new OutputBuilderImpl().add(new TextImpl(text));
+    }
+
+    @Override
+    public String sourceSpelling() {
+        return sourceSpelling;
+    }
+
+    @Override
+    public DoubleConstantImpl withSourceSpelling(String sourceSpelling) {
+        return new DoubleConstantImpl(comments(), source(), parameterizedType, value, sourceSpelling);
     }
 
     @Override

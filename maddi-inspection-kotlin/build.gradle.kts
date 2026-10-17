@@ -56,6 +56,9 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // K2 and javac share this JVM: on Gradle's 512m default the module passed alone but ran out of heap in a full
+    // maddi test run, which then exited 1 with no failing test in the reports (CodeLaser/maddi#138)
+    maxHeapSize = "2G"
     // the openjdk (javac) Java front-end -- used by TestSharedJdkCore to share the JDK core -- reaches into
     // javac internals, so its test JVM needs the same --add-exports as the maddi-inspection-openjdk module.
     jvmArgs(

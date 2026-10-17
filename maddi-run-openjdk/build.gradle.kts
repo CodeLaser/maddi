@@ -112,6 +112,11 @@ tasks.withType<Test>().configureEach {
                "-Dmaddi.test.junitVintageClasspath=" + junitVintage.asPath)
     })
 }
+// J2K_COMPILE_ONLY=true: the J2K ratchets translate and compile, and run none of the corpus's tests (a working
+// cycle; see JavaToKotlinRatchet.COMPILE_ONLY)
+tasks.withType<Test>().configureEach {
+    systemProperty("maddi.j2k.compileOnly", System.getenv("J2K_COMPILE_ONLY") ?: "")
+}
 
 // TestJavaToCSharpFernflower: the judge of the C# printer's output is tools/csharp-check, a .NET tool on Roslyn that
 // JavaToCSharpRatchet builds with `dotnet build` (a .NET 10 SDK on the PATH). Its directory, as a system property.

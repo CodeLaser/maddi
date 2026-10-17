@@ -166,8 +166,58 @@ public class TestGeneratedClassOutput {
         assertTrue(warnings.getFirst().contains("neither a class file nor a source file"), warnings.getFirst());
         assertTrue(warnings.getFirst().contains(BASE_FQN), warnings.getFirst());
 
+        // the same warning, structured: no message matching needed
+        List<Summary.ClassOutputProblem> problems = summary.classOutputProblems();
+        assertEquals(1, problems.size(), "expected exactly one class-output problem, got " + problems);
+        Summary.ClassOutputProblem problem = problems.getFirst();
+        assertEquals("dependent", problem.sourceSet());
+        assertEquals("main", problem.dependency());
+        assertEquals(Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, problem.kind());
+        assertEquals(mainClasses.toUri(), problem.classDirectory());
+        assertEquals(1, problem.parsedTypes());
+        assertEquals(List.of(BASE_FQN), problem.missing());
+        assertEquals(List.of(), problem.stale());
+        assertNull(problem.newestClassFile(), "no class file at all");
+        assertNull(problem.oldestStaleSource());
+        assertSame(problem, summary.parseWarnings().stream()
+                .filter(w -> w.getMessage().contains("resolves its references into 'main'"))
+                .findFirst().orElseThrow().classOutputProblem(), "the WARN carries it");
+
         assertTrue(holds(summary, BASE_FQN), "main is parsed from source, so Base is there");
         assertFalse(holds(summary, USER_FQN), "User cannot resolve Base, so it is dropped");
+    }
+
+    @DisplayName("class output built and current: no class-output problem")
+    @Test
+    public void testFreshClassOutputIsNotReported() throws IOException {
+        setup(BASE, USER);
+        compile(List.of(mainSrc.resolve("Base.java")), mainClasses);
+        Path classFile = mainClasses.resolve("a/b/Base.class");
+        // the class file is newer than its source, as after a build
+        Files.setLastModifiedTime(mainSrc.resolve("Base.java"),
+                FileTime.fromMillis(Files.getLastModifiedTime(classFile).toMillis() - 10_000));
+
+        Summary summary = parse(null);
+
+        assertEquals(List.of(), classOutputWarnings(summary));
+        assertEquals(List.of(), summary.classOutputProblems());
+        assertTrue(holds(summary, USER_FQN), "User resolves Base through the class file");
+    }
+
+    @DisplayName("class output directory absent: NO_CLASS_OUTPUT, every parsed type listed as missing")
+    @Test
+    public void testAbsentClassOutputIsStructured() throws IOException {
+        setup(BASE, USER);
+        Files.delete(mainClasses);
+
+        Summary summary = parse(null);
+
+        List<Summary.ClassOutputProblem> problems = summary.classOutputProblems();
+        assertEquals(1, problems.size(), "expected exactly one class-output problem, got " + problems);
+        Summary.ClassOutputProblem problem = problems.getFirst();
+        assertEquals(Summary.ClassOutputProblem.Kind.NO_CLASS_OUTPUT, problem.kind());
+        assertEquals(List.of(BASE_FQN), problem.missing());
+        assertEquals(List.of(), problem.stale());
     }
 
     @DisplayName("class output never built, generation on: no warning, and the dependent type resolves")
@@ -179,6 +229,7 @@ public class TestGeneratedClassOutput {
         Summary summary = parse(generatedClasses);
 
         assertEquals(List.of(), classOutputWarnings(summary), "nothing to warn about: we compiled 'main' ourselves");
+        assertEquals(List.of(), summary.classOutputProblems());
         assertTrue(holds(summary, USER_FQN), "User resolves against the class files we generated");
         assertTrue(generated(generatedClasses, BASE_FQN), "Base.class must be under " + generatedClasses);
         assertTrue(generated(generatedClasses, USER_FQN), "the dependent source set is generated too");
@@ -257,7 +308,64 @@ public class TestGeneratedClassOutput {
         List<String> warnings = classOutputWarnings(summary);
         assertEquals(1, warnings.size(), "expected exactly one class-output warning, got " + warnings);
         assertTrue(warnings.getFirst().contains("older than their source"), warnings.getFirst());
+
+        List<Summary.ClassOutputProblem> problems = summary.classOutputProblems();
+        assertEquals(1, problems.size(), "expected exactly one class-output problem, got " + problems);
+        Summary.ClassOutputProblem problem = problems.getFirst();
+        assertEquals(Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, problem.kind());
+        assertEquals(List.of(), problem.missing());
+        assertEquals(List.of(BASE_FQN), problem.stale());
+        // millisecond precision, as File.lastModified reports it
+        assertEquals(Files.getLastModifiedTime(classFile).toMillis(), problem.newestClassFile().toEpochMilli());
+        assertEquals(Files.getLastModifiedTime(mainSrc.resolve("Base.java")).toMillis(),
+                problem.oldestStaleSource().toEpochMilli());
+
         assertFalse(holds(summary, USER_FQN), "User calls greet(), which the stale class file lacks");
+    }
+
+    @Language("java")
+    private static final String OTHER = """
+            package e.f;
+            public class Other {
+                public int n() { return 1; }
+            }
+            """;
+
+    @DisplayName("a re-parse that re-scans one set still reports another set's stale class output")
+    @Test
+    public void testReparseKeepsTheClassOutputProblemOfAKeptSet() throws IOException {
+        setup(BASE, USER);
+        compile(List.of(mainSrc.resolve("Base.java")), mainClasses);
+        Path classFile = mainClasses.resolve("a/b/Base.class");
+        Files.setLastModifiedTime(mainSrc.resolve("Base.java"),
+                FileTime.fromMillis(Files.getLastModifiedTime(classFile).toMillis() + 10_000));
+        Path otherSrc = Files.createDirectories(root.resolve("other-src/e/f"));
+        Files.writeString(otherSrc.resolve("Other.java"), OTHER);
+        SourceSet other = new SourceSetImpl.Builder().setName("other")
+                .setSourceDirectories(List.of(root.resolve("other-src")))
+                .setUri(root.resolve("other-classes").toUri())
+                .build();
+
+        JavaInspector javaInspector = new JavaInspectorImpl(true, false);
+        javaInspector.initialize(new InputConfigurationImpl.Builder()
+                .addSourceSets(main, dependent, other)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                .build());
+        Summary first = javaInspector.parse(Map.of(),
+                new JavaInspector.ParseOptions.Builder().setFailFast(false).build());
+        List<Summary.ClassOutputProblem> before = first.classOutputProblems();
+        assertEquals(1, before.size(), "expected one class-output problem, got " + before);
+        assertEquals("dependent", before.getFirst().sourceSet());
+        assertEquals(List.of(BASE_FQN), before.getFirst().stale());
+
+        // a write in 'other' only: it is re-scanned, 'main' and 'dependent' are kept
+        Summary second = javaInspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder().setFailFast(false)
+                .setInvalidated(ti -> other.equals(ti.compilationUnit().sourceSet())
+                        ? JavaInspector.InvalidationState.INVALID
+                        : JavaInspector.InvalidationState.UNCHANGED)
+                .build());
+        assertEquals(before, second.classOutputProblems(),
+                "the kept set's problem must be in the new summary, which replaces the old one");
     }
 
     @DisplayName("class output one edit behind, generation on: the dependent resolves against the current source")

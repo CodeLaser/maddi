@@ -101,8 +101,10 @@ public record SymbolEnum(String symbol, Space left, Space right, String constant
     public static final SymbolEnum DIAMOND = new SymbolEnum("<>", NONE, NONE, "DIAMOND");
     public static final Symbol UNDERSCORE = new SymbolEnum("_", ONE, ONE_IS_NICE_EASY_R, "UNDERSCORE");
 
+    // #49: no space of its own on the left, as UNARY_MINUS and UNARY_BOOLEAN_NOT: a nice space there won over the
+    // '(' in front of it, printing `if ( !x)`. The formatter keeps `a - -b` and `a + ++b` apart (ElementPrinter).
     public static Symbol plusPlusPrefix(String s) {
-        return new SymbolEnum(s, ONE_IS_NICE_EASY_SPLIT, NONE, null);
+        return new SymbolEnum(s, RELAXED_NO_SPACE_SPLIT_ALLOWED, NONE, null);
     }
 
     public static Symbol plusPlusSuffix(String s) {
@@ -164,6 +166,7 @@ public record SymbolEnum(String symbol, Space left, Space right, String constant
 
     @Override
     public boolean strongNoSpace() {
-        return this == COMMA || this == SEMICOLON || this == RIGHT_ANGLE_BRACKET || this == RIGHT_PARENTHESIS;
+        return this == COMMA || this == SEMICOLON || this == RIGHT_ANGLE_BRACKET || this == RIGHT_PARENTHESIS
+               || this == RIGHT_PARENTHESIS_AFTER_CAST; // #49: `(List<T>) o`, not `(List<T> ) o`
     }
 }

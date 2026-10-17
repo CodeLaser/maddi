@@ -15,12 +15,15 @@
 package io.codelaser.maddi.cst.impl.info;
 
 import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.impl.type.DiamondEnum;
 
@@ -70,7 +73,13 @@ public class FieldPrinterImpl implements FieldPrinter {
         } else {
             commentStream = fieldInfo.comments().stream();
         }
-        Stream<OutputBuilder> commentOBStream = commentStream.map(c -> c.print(qualification));
+        // 'int a; // why': the comment stays after the declaration (#137)
+        Source declaration = fieldInfo.source() == null || fieldInfo.source().detailedSources() == null ? null
+                : fieldInfo.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
+        List<Comment> after = ElementImpl.commentsAfterOnLastLine(fieldInfo.comments(), declaration);
+        after.forEach(c -> outputBuilder.add(SpaceEnum.ONE).add(c.print(qualification)));
+        Stream<OutputBuilder> commentOBStream = commentStream.filter(c -> !after.contains(c))
+                .map(c -> c.print(qualification));
         return Stream.concat(Stream.concat(commentOBStream, annotationStream), Stream.of(outputBuilder))
                 .collect(OutputBuilderImpl.joining(formatter2 ? SpaceEnum.NONE : SpaceEnum.ONE_IS_NICE_EASY_SPLIT,
                         GuideImpl.generatorForAnnotationList()));

@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.kotlin;
 
+import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -86,6 +87,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         }
     }
 
+    /**
+     * {@code boolean equals(Object)}, {@code int hashCode()} or {@code String toString()} redeclared abstract in an
+     * interface, for its documentation (guava's Predicate, Function, Equivalence): Java's classes keep Object's
+     * implementation, but in Kotlin the abstract override in the interface wins, and every class implementing it
+     * would have to implement the member again. Left out: the interface means the same without it.
+     */
+    private static boolean abstractObjectMethod(MethodInfo m) {
+        if (!m.typeInfo().isInterface() || !m.isAbstract() || m.isStatic()) return false;
+        return "equals".equals(m.name()) && m.parameters().size() == 1
+               && m.parameters().getFirst().parameterizedType().isJavaLangObject()
+               || ("hashCode".equals(m.name()) || "toString".equals(m.name())) && m.parameters().isEmpty();
+    }
+
     private OutputBuilder printType(CompilationUnitPrinter.ImportData importData, boolean doTypeDeclaration,
                                     MethodPrinterFactory methodPrinterFactory, FieldPrinterFactory fieldPrinterFactory,
                                     EnclosedTypePrinterFactory enclosedTypePrinterFactory) {
@@ -102,7 +116,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         MethodInfo primary = null;
         if (constructors.size() == 1) {
             MethodInfo c = constructors.getFirst();
-            if (!c.parameters().isEmpty() && c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name()))
+            if (!c.parameters().isEmpty() && c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name())
+                    && !KotlinFieldPrinter.clashesWithMappedProperty(fieldByName.get(p.name())))
                 && (!companion || onlyAssignsParameters(c))) {
                 primary = c;
             }
@@ -133,9 +148,13 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             if (!isLocal(typeInfo)) {
                 // a private nested type is visible in the whole Java file; Kotlin's private stops at its outer type
-                Optional<Keyword> visibility = companion && !typeInfo.isPrimaryType()
-                                               && typeInfo.access() != null && typeInfo.access().isPrivate()
-                        ? Optional.of(KotlinKeyword.INTERNAL) : KotlinModifiers.visibility(typeInfo.access(), typeInfo);
+                // ... and public where a class that is not private names it in its signatures (guava's
+                // MapMakerInternalMap: Java lets a package-private Segment take a private Entry, Kotlin exposes nothing)
+                boolean privateNested = companion && !typeInfo.isPrimaryType()
+                                        && typeInfo.access() != null && typeInfo.access().isPrivate();
+                Optional<Keyword> visibility = privateNested
+                        ? exposedBySignature(typeInfo) ? Optional.empty() : Optional.of(KotlinKeyword.INTERNAL)
+                        : KotlinModifiers.visibility(typeInfo.access(), typeInfo);
                 visibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
             }
             Set<TypeModifier> mods = typeInfo.typeModifiers();
@@ -170,7 +189,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (!typeInfo.typeParameters().isEmpty()) {
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 out.add(typeInfo.typeParameters().stream()
-                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, insideType))))
+                        .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp,
+                                new KotlinHeaderQualification(insideType, typeInfo)))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }
@@ -212,7 +232,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                            || constructors.stream().allMatch(KotlinTypePrinter::isImplicitDefaultConstructor)
                     ? new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS)
                     : initConstructor != null ? superArguments(initConstructor, insideType) : null;
-            List<OutputBuilder> supers = annotationType ? List.of() : superTypes(superArguments, insideType);
+            List<OutputBuilder> supers = annotationType ? List.of()
+                    : superTypes(superArguments, new KotlinHeaderQualification(insideType, typeInfo));
             if (!supers.isEmpty()) {
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
@@ -254,8 +275,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // getter stays a method, because its callers print as calls (prepwork marks it all the same)
                 .filter(m -> !m.isSynthetic() && (companion || !isAccessor(m)))
                 .filter(m -> !companion || !m.isStatic() && !m.isStaticInitializer())
-                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m))
+                .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
+        if (KotlinContext.translatingJava()) members.addAll(KotlinInheritedDefaults.overrides(typeInfo, insideType));
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
@@ -288,6 +310,39 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return found[0];
     }
 
+    /**
+     * A type of the same file that is not private names {@code nested} in a supertype, or in a member that is not
+     * private: Kotlin refuses a public declaration exposing an internal type.
+     */
+    private static boolean exposedBySignature(TypeInfo nested) {
+        return exposedIn(nested.primaryType(), nested);
+    }
+
+    private static boolean exposedIn(TypeInfo t, TypeInfo nested) {
+        if (t != nested && (t.access() == null || !t.access().isPrivate())) {
+            java.util.stream.Stream<ParameterizedType> supertypes = java.util.stream.Stream.concat(
+                    t.parentClass() == null ? java.util.stream.Stream.empty() : java.util.stream.Stream.of(t.parentClass()),
+                    t.interfacesImplemented().stream());
+            if (supertypes.anyMatch(st -> names(st, nested))) return true;
+            for (MethodInfo m : t.constructorAndMethodStream().toList()) {
+                if (m.access() != null && m.access().isPrivate() || m.isSynthetic()) continue;
+                if (m.returnType() != null && names(m.returnType(), nested)) return true;
+                if (m.parameters().stream().anyMatch(p -> names(p.parameterizedType(), nested))) return true;
+            }
+            for (FieldInfo f : t.fields()) {
+                if ((f.access() == null || !f.access().isPrivate()) && !f.isSynthetic() && names(f.type(), nested)) return true;
+            }
+        }
+        return t.subTypes().stream().anyMatch(st -> st != nested && exposedIn(st, nested));
+    }
+
+    private static boolean names(ParameterizedType type, TypeInfo nested) {
+        if (type == null) return false;
+        if (type.typeInfo() == nested) return true;
+        if (type.wildcard() != null && type.typeInfo() == null) return false;
+        return type.parameters().stream().anyMatch(p -> names(p, nested));
+    }
+
     /** {@code this.x = x; …} and nothing else: the parameters ARE the properties. */
     /**
      * The property a constructor parameter declares, when its constructor is printed as the primary constructor
@@ -300,7 +355,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         TypeInfo owner = c.typeInfo();
         FieldInfo field = owner.fields().stream().filter(f -> f.name().equals(parameter.name()) && !f.isStatic())
                 .findFirst().orElse(null);
-        if (field == null) return null;
+        if (field == null || KotlinFieldPrinter.clashesWithMappedProperty(field)) return null;
         boolean companion = !fromKotlinSource(owner);
         if (companion && owner.typeNature().isRecord()) return field;
         List<MethodInfo> constructors = owner.constructors().stream().filter(x -> !x.isSynthetic()).toList();
@@ -444,7 +499,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private Stream<OutputBuilder> companionObject(FieldPrinterFactory fieldPrinterFactory,
                                                   MethodPrinterFactory methodPrinterFactory, Qualification q) {
         List<OutputBuilder> members = new ArrayList<>();
+        // an inner, local or anonymous class can have no companion: its serialVersionUID (all guava's statics there)
+        // goes, the class's stream id is then computed
+        boolean noCompanion = typeInfo.isInnerClass() || isLocal(typeInfo) || typeInfo.isAnonymous();
         typeInfo.fields().stream().filter(f -> !f.isSynthetic() && f.isStatic() && !isEnumConstant(f))
+                .filter(f -> !noCompanion || !"serialVersionUID".equals(f.name()))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.methods().stream().filter(m -> !m.isSynthetic() && (m.isStatic() || m.isStaticInitializer()))
                 .sorted(java.util.Comparator.comparing(MethodInfo::isStaticInitializer))
@@ -508,15 +567,63 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * The supertypes after {@code :}. The superclass is called, {@code Super(args)}, only by a primary constructor (or
      * the implicit one); with secondary constructors only, each of those delegates, and the header names the type.
      */
+    /**
+     * {@code implements Iterator<E>} without a {@code remove()} of its own (in the class or a superclass): Java's
+     * default remove throws UnsupportedOperationException. Kotlin's MutableIterator declares remove abstract; its
+     * read-only Iterator does not, and Kotlin gives the class a remove that throws the same exception.
+     */
+    private boolean readOnlyIterator(ParameterizedType implemented) {
+        if (implemented.typeInfo() == null || !"java.util.Iterator".equals(implemented.typeInfo().fullyQualifiedName())
+            || !KotlinContext.translatingJava()) {
+            return false;
+        }
+        for (TypeInfo t = typeInfo; t != null && !t.isJavaLangObject();
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            if (t.methods().stream().anyMatch(m -> "remove".equals(m.name()) && m.parameters().isEmpty())) return false;
+        }
+        return true;
+    }
+
+    /**
+     * A supertype with the nullability its type arguments declare by a type-use annotation: guava's
+     * {@code Equivalence<T> implements BiPredicate<@Nullable T, @Nullable T>} is a {@code BiPredicate<T?, T?>}, and
+     * the overrides of {@code test} take the {@code T?} the clause says.
+     */
+    /** As {@link #declaredArguments}, the type itself included: {@code <S extends @Nullable T>}'s bound is {@code T?}. */
+    static ParameterizedType declared(ParameterizedType type) {
+        ParameterizedType withArguments = declaredArguments(type);
+        return type != null && type.wildcard() == null && type.annotations().stream()
+                .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))
+                ? withArguments.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : withArguments;
+    }
+
+    static ParameterizedType declaredArguments(ParameterizedType supertype) {
+        if (supertype == null || supertype.parameters().isEmpty()) return supertype;
+        boolean changed = false;
+        List<ParameterizedType> arguments = new ArrayList<>(supertype.parameters().size());
+        for (ParameterizedType a : supertype.parameters()) {
+            ParameterizedType inner = declaredArguments(a);
+            if (a.wildcard() == null && a.arrays() == 0 && inner.annotations().stream()
+                    .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
+                inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+            }
+            changed |= inner != a;
+            arguments.add(inner);
+        }
+        return changed ? supertype.withParameters(arguments) : supertype;
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
-            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(typeInfo.parentClass(), q)));
+            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
         typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(i, q)))));
+                supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
+                        ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
+                        : KotlinTypeName.of(declaredArguments(i), q)))));
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));

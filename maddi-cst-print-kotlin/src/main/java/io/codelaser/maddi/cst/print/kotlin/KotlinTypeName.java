@@ -203,13 +203,47 @@ public class KotlinTypeName {
                     tp.isMethodTypeParameter() ? KotlinContext.currentMethod() : null, tp.simpleName() + " extends "
                     + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(" & ")));
         }
-        return bounds.size() == 1 ? name + " : " + of(bounds.getFirst(), q) : name;
+        // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat
+        return bounds.size() == 1 ? name + " : " + of(KotlinTypePrinter.declared(bounds.getFirst()), q) : name;
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
+    /**
+     * Kotlin's own types the printer names by their simple name. A Java type of the same simple name is not imported
+     * and is written qualified: guava's {@code import java.lang.reflect.Array} would make each {@code Array<V?>} the
+     * reflection class, which takes no type arguments.
+     */
+    static final java.util.Set<String> KOTLIN_BUILT_IN_NAMES = java.util.Set.of("Array", "Any", "Unit", "Nothing");
+
+    /** A Java type whose simple name is one of {@link #KOTLIN_BUILT_IN_NAMES}: always written qualified. */
+    static boolean shadowsKotlinBuiltIn(String fullyQualifiedName) {
+        int dot = fullyQualifiedName.lastIndexOf('.');
+        return dot > 0 && KOTLIN_BUILT_IN_NAMES.contains(fullyQualifiedName.substring(dot + 1))
+               && !fullyQualifiedName.startsWith("kotlin.");
+    }
+
+    /**
+     * An inner class of a generic class, where the code printed is inside that class or a subclass of it (or a type
+     * nested there): by its simple name. Qualified, Kotlin wants the outer class's type arguments,
+     * {@code Maps.FilteredEntryMap<K, V>.KeySet}, which Java's {@code KeySet} does not spell out (guava's
+     * FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's KeySet).
+     */
+    private static boolean innerOfGenericInScope(TypeInfo typeInfo) {
+        if (!KotlinContext.translatingJava() || !typeInfo.isInnerClass()) return false;
+        TypeInfo outer = typeInfo.enclosingTypeStream().skip(1).findFirst().orElse(null);
+        if (outer == null || outer.enclosingTypeStream().allMatch(t -> t.typeParameters().isEmpty())) return false;
+        TypeInfo current = KotlinContext.currentType();
+        return current != null && current.enclosingTypeStream()
+                .anyMatch(t -> t.meAndMyRecursiveSuperTypeStream().anyMatch(s -> s == outer));
+    }
+
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
+        if (typeInfo.isPrimaryType() && shadowsKotlinBuiltIn(typeInfo.fullyQualifiedName())) {
+            return KotlinNames.dotted(typeInfo.fullyQualifiedName());
+        }
+        if (innerOfGenericInScope(typeInfo)) return KotlinNames.name(typeInfo.simpleName());
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
         String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
         TypeInfo primary = typeInfo.primaryType();

@@ -76,6 +76,7 @@ public class MaddiAnnotationsImpl {
     public final AnnotationExpression only = create(Only.class);
     public final AnnotationExpression singleton = create(Singleton.class);
     public final AnnotationExpression testMark = create(TestMark.class);
+    public final AnnotationExpression unmodifiableView = create(UnmodifiableView.class);
     public final AnnotationExpression utilityClass = create(UtilityClass.class);
 
     @ImmutableContainer // result of Map.copyOf
@@ -86,7 +87,7 @@ public class MaddiAnnotationsImpl {
         add(builder, allowsInterrupt, beforeMark, commutable, container, independent,
                 immutableContainer, extensionClass, finalFields, getSet, immutable,
                 effectivelyFinal, fluent, finalizer, identity, ignoreModifications, mark, modified);
-        add(builder, notModified, notNull, nullable, only, singleton, testMark, utilityClass);
+        add(builder, notModified, notNull, nullable, only, singleton, testMark, unmodifiableView, utilityClass);
         annotationTypes = Map.copyOf(builder);
     }
 

@@ -362,9 +362,9 @@ public class MethodInfoImpl extends InfoImpl implements MethodInfo {
     public Set<MethodInfo> topOfOverloadingHierarchy() {
         Set<MethodInfo> overrides = overrides();
         if (overrides.isEmpty()) return Set.of(this);
-        return overrides.stream()
+        return MethodInspectionImpl.inNameOrder(overrides.stream()
                 .flatMap(mi -> mi.topOfOverloadingHierarchy().stream())
-                .collect(Collectors.toUnmodifiableSet());
+                .collect(Collectors.toSet()));
     }
 
     @Override

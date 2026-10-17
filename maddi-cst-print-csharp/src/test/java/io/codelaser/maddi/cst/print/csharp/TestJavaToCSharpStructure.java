@@ -15,48 +15,21 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-
-import io.codelaser.maddi.cst.print.translate.PrintMessage;
+import java.util.Set;
 
 /**
- * The Java forms C# says differently. Each test writes its samples' translations to {@code build/csharp-samples/},
- * named after the test and the sample, to be looked at or compiled by hand ({@code tools/csharp-check}).
+ * The Java forms C# says differently: types and their members, statements and expressions, generics, inner
+ * and anonymous classes, functional interfaces as delegates. Each test writes its samples' translations to {@code build/csharp-samples/}.
  */
-public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
+public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
 
-    private String test;
-
-    @BeforeEach
-    public void testName(TestInfo info) {
-        test = info.getTestMethod().map(java.lang.reflect.Method::getName).orElseThrow();
-    }
-
-    /** {@code java}'s translation, written to {@code build/csharp-samples/<test>-<name>.cs}; its messages kept. */
-    private List<PrintMessage<CSharpPrintCode>> messages = List.of();
-
-    private String translate(String name, String java) {
-        Translation translation = translation(java);
-        messages = translation.messages();
-        String csharp = translation.csharp();
-        try {
-            Path dir = Path.of("build/csharp-samples");
-            Files.createDirectories(dir);
-            Files.writeString(dir.resolve(test + "-" + name + ".cs"), csharp);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        return csharp;
+    @Override
+    protected boolean golden() {
+        return true;
     }
 
     @Language("java")
@@ -185,6 +158,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     }
                 }
                 static Primary first() { return Primary.RED; }
+                static boolean later(Planet a, Planet b) { return a.compareTo(b) > 0; }
             }
             """;
 
@@ -192,10 +166,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     public void enums() {
         String cs = translate("Palette", ENUMS);
         contains(cs, "internal enum Primary { Red, Green, Blue }");
-        contains(cs, "internal sealed class Planet {");
+        // Java's enum is Comparable by its ordinal
+        contains(cs, "internal sealed class Planet : IComparable<Planet> {");
+        contains(cs, "public int CompareTo(Planet other) => Ordinal.CompareTo(other.Ordinal);");
+        contains(cs, "internal static bool Later(Planet a, Planet b) => a.CompareTo(b) > 0;");
         contains(cs, "public static readonly Planet Mercury = new Planet(3.303E23) { Name = \"MERCURY\", Ordinal = 0 };");
         contains(cs, "case Primary.Red:");
-        contains(cs, "internal static Primary First() => Primary.Red;");
+        contains(cs, "internal static Primary? First() => Primary.Red;");
     }
 
     @Language("java")
@@ -288,6 +265,178 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String CONDITIONAL_VARS = """
+            package org.example.nodes;
+            public class Nodes {
+                static abstract class Node<A> { abstract int size(); }
+                static final class Indexed<A> extends Node<A> { int size() { return 1; } }
+                static final class Unindexed<A> extends Node<A> { int size() { return 0; } }
+                static <A> int build(boolean joiners) {
+                    var node = joiners ? new Indexed<A>() : new Unindexed<A>();
+                    return node.size();
+                }
+                static String describe(Object bean) {
+                    var beanClass = bean == null ? "null" : bean.getClass();
+                    return "" + beanClass;
+                }
+                static int same(boolean b) {
+                    var n = b ? new Indexed<String>() : new Indexed<String>();
+                    return n.size();
+                }
+                static abstract class Exists<T, R> { abstract int size(); }
+                static final class IndexedExists<T, R> extends Exists<T, R> { int size() { return 1; } }
+                static final class UnindexedExists<T, R> extends Exists<T, R> { int size() { return 0; } }
+                static <A, B> int exists(boolean joiners) {
+                    var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, String>();
+                    return node.size();
+                }
+                interface Named { String name(); }
+                interface Sized { int size(); }
+                static final class Genuine implements Named, Sized {
+                    public String name() { return "g"; } public int size() { return 1; }
+                }
+                static final class Shadow implements Named, Sized {
+                    public String name() { return "s"; } public int size() { return 0; }
+                }
+                static String metaModel(boolean genuine) {
+                    var model = genuine ? new Genuine() : new Shadow();
+                    return model.name();
+                }
+            }
+            """;
+
+    /** Java's var of a conditional is its branches' common supertype; C#'s var needs one of them: declared. */
+    @Test
+    public void conditionalVars() {
+        String cs = translate("Nodes", CONDITIONAL_VARS);
+        contains(cs, "Node<A> node = joiners ? new Indexed<A>() : new Unindexed<A>();");
+        contains(cs, "object beanClass = bean == null ? \"null\" : bean.GetType();");
+        contains(cs, "var n = b ? new Indexed<string>() : new Indexed<string>();");
+        // not when C# cannot write Java's common type: with a wildcard, or an intersection of the program's types
+        contains(cs, "var node = joiners ? new IndexedExists<A, B>() : new UnindexedExists<A, string>();");
+        contains(cs, "var model = genuine ? new Genuine() : new Shadow();");
+    }
+
+    @Language("java")
+    private static final String TWO_ITERABLES = """
+            package org.example.iter;
+            import java.util.Iterator;
+            import java.util.List;
+            public class Selectors {
+                interface Selector<T> extends Iterable<T> { long size(); }
+                interface ListIterable<T> extends Iterable<T> { List<T> list(); }
+                static class FromList<T> implements Selector<T>, ListIterable<T> {
+                    private final List<T> items;
+                    FromList(List<T> items) { this.items = items; }
+                    public long size() { return items.size(); }
+                    public List<T> list() { return items; }
+                    public Iterator<T> iterator() { return items.iterator(); }
+                }
+                static final class Cached<T> extends FromList<T> {
+                    Cached(List<T> items) { super(items); }
+                }
+                interface EntitySelector<T> extends Selector<T>, ListIterable<T> { }
+                static abstract class Caching<T> implements EntitySelector<T> {
+                    public long size() { return 0; }
+                }
+                static <T> T first(EntitySelector<T> selector) { return selector.iterator().next(); }
+            }
+            """;
+
+    /**
+     * Two interfaces that are iterable each have default GetEnumerators; a class implementing both declares its own,
+     * which C# finds most specific (CS8705), and its subclasses inherit it.
+     */
+    @Test
+    public void twoIterables() {
+        String cs = translate("Selectors", TWO_ITERABLES);
+        contains(cs, "internal class FromList<T> : ISelector<T>, IListIterable<T> {");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();");
+        contains(cs, "internal sealed class Cached<T> : FromList<T> { internal Cached(List<T> items) : base(items) { } }");
+        // through an interface that extends both, which has no defaults of its own
+        contains(cs, "internal abstract class Caching<T> : IEntitySelector<T> {");
+        // a call through the interface that extends both: its own Iterator(), hiding theirs (CS0121)
+        contains(cs, "interface IEntitySelector<T> : ISelector<T>, IListIterable<T> { new IJavaIterator<T> Iterator(); }");
+        contains(cs, "public IEnumerator<T> GetEnumerator() => Iterator().AsEnumerator();\n    System.Collections");
+    }
+
+    @Language("java")
+    private static final String ABSTRACT_ITERATORS = """
+            package org.example.iterators;
+            import java.util.Iterator;
+            public class Iterators {
+                static abstract class SelectionIterator<S> implements Iterator<S> {
+                    @Override public void remove() { throw new UnsupportedOperationException(); }
+                }
+                static final class Countdown extends SelectionIterator<Integer> {
+                    private int left = 3;
+                    @Override public boolean hasNext() { return left > 0; }
+                    @Override public Integer next() { return left--; }
+                }
+            }
+            """;
+
+    /** An abstract class leaves a compatibility interface's methods, IJavaIterator's, to its subclasses: abstract. */
+    @Test
+    public void abstractIterators() {
+        String cs = translate("Iterators", ABSTRACT_ITERATORS);
+        contains(cs, "public abstract bool HasNext();");
+        contains(cs, "public abstract S Next();");
+        // the override of S Next() in a SelectionIterator<int> is the value type
+        contains(cs, "public override int Next() => left--;");
+    }
+
+    @Language("java")
+    private static final String MARKERS = """
+            package org.example.events;
+            import java.util.ArrayList;
+            import java.util.EventListener;
+            import java.util.List;
+            public class Events {
+                interface PhaseListener extends EventListener { void phaseStarted(); }
+                static abstract class Support<E extends EventListener> {
+                    protected final List<E> listeners = new ArrayList<>();
+                    void add(E listener) { listeners.add(listener); }
+                }
+                static final class PhaseSupport extends Support<PhaseListener> {
+                    void fire() { listeners.forEach(PhaseListener::phaseStarted); }
+                }
+            }
+            """;
+
+    /** A marker interface, EventListener, is no C# type: left out of the bases and of the constraints. */
+    @Test
+    public void markers() {
+        String cs = translate("Events", MARKERS);
+        contains(cs, "internal interface IPhaseListener {");
+        contains(cs, "internal abstract class Support<E> {");
+    }
+
+    @Language("java")
+    private static final String STATIC_SCOPES = """
+            package org.example.scopes;
+            public abstract class Move<T> {
+                protected static int size(Object o) { return 1; }
+                abstract T value();
+                public record Id(long key, Kind kind) {
+                    public enum Kind { NODE, INPUT }
+                    Id(long key) { this(key, Kind.NODE); }
+                }
+            }
+            """;
+
+    /**
+     * A generic class's protected static is its companion's, a static class, which has no protected members: internal.
+     * A positional record's parameter list does not see the record's nested types: qualified.
+     */
+    @Test
+    public void staticScopes() {
+        String cs = translate("Move", STATIC_SCOPES);
+        contains(cs, "public static class Move { internal static int Size(object o) => 1; }");
+        contains(cs, "public sealed record Id(long Key, Id.Kind? kind) {");
+    }
+
+    @Language("java")
     private static final String EXPRESSIONS = """
             package org.example.expr;
             class Expressions {
@@ -305,6 +454,14 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static int[] numbers() { return new int[] { 1, 2, 3 }; }
                 static long widen(int i) { return (long) i << 2; }
                 static char letter() { return '\\''; }
+                static final class Box<T> {
+                    T value;
+                    boolean holds(T other) { return value == other; }
+                    boolean lacks(T other) { return !(value == other); }
+                    boolean empty() { return value == null; }
+                    @Override public boolean equals(Object o) { return o instanceof Box<?> b && b.value == value; }
+                    @Override public int hashCode() { return 1; }
+                }
             }
             """;
 
@@ -318,6 +475,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "typeof(Expressions)");
         contains(cs, "new int[] { 1, 2, 3 }");
         contains(cs, "'\\''");
+        // == on a type parameter's value is Java's identity, which C#'s == does not allow
+        contains(cs, "internal bool Holds(T other) => object.ReferenceEquals(value, other);");
+        contains(cs, "internal bool Empty() => value == null;");
+        // a wildcard test of the class itself, in its equals: its own type parameters, not object
+        contains(cs, "public override bool Equals(object o) => o is Box<T> b && object.ReferenceEquals(b.value, value);");
     }
 
     @Language("java")
@@ -376,14 +538,44 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             record Point(int x, int y) {
                 Point scale(int f) { return new Point(x * f, y() * f); }
                 static Point origin() { return new Point(0, 0); }
+                @Override
+                public boolean equals(Object o) { return o instanceof Point(int px, var py) && px == x && py == y; }
+                @Override
+                public int hashCode() { return 31 * x + y; }
+            }
+            record Line(Point from, Point to) {
+                static int dx(Object o) {
+                    return switch (o) {
+                        case Line(Point(var x1, var y1), Point(int x2, int y2)) -> x2 - x1;
+                        default -> 0;
+                    };
+                }
+                static boolean vertical(Object o) {
+                    if (o instanceof Line(Point(var x1, var y1), Point to) && to.x() == x1) return true;
+                    return false;
+                }
+            }
+            record Id(String name, int n) {
+                @Override
+                public boolean equals(Object o) { return o instanceof Id id && id.name.equals(name); }
             }
             """;
 
+    /**
+     * A record is a positional record. Its equals(Object) is C#'s Equals(R other), as a record synthesizes
+     * Equals(object), and its hashCode stays the components' where it declares none; a record pattern is a property
+     * pattern.
+     */
     @Test
     public void record() {
         String cs = translate("Point", RECORD);
         contains(cs, "internal sealed record Point(int X, int Y) {");
         contains(cs, "internal Point Scale(int f) => new Point(X * f, Y * f);");
+        contains(cs, "public bool Equals(Point o) => o is Point { X: var px, Y: var py } && px == X && py == Y;");
+        contains(cs, "public override int GetHashCode()");
+        contains(cs, "Line { From: Point { X: var x1, Y: var y1 }, To: Point { X: var x2, Y: var y2 } }");
+        contains(cs, "o is Line { From: Point { X: var x1, Y: var y1 }, To: var to } && to.X == x1");
+        contains(cs, "public override int GetHashCode() => HashCode.Combine(Name, N);");
     }
 
     @Language("java")
@@ -529,6 +721,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "internal static T None<T>() => default;");
         contains(cs, "string name = names.Get((int) boxed);");
         contains(cs, "int i = (int) map.GetValueOrNull(key);");
+        // known-ugly: Java's own (Boolean) (Object) cast chain, kept as it is
         contains(cs, "if ((bool) ((object) true)) { return (int) boxed; }");
         contains(cs, "case '\\b': return");
         contains(cs, "internal static int OrZero(int? i, int? count) => i == null ? 0 : (int) i + (int) count;");
@@ -837,7 +1030,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                     String name() default "";
                     String[] value() default "";
                     boolean required() default true;
+                    Class<? extends Ranker> ranker() default NullRanker.class;
+                    interface Ranker { int rank(Method m); }
+                    interface NullRanker extends Ranker { }
                 }
+                static boolean ranked(Tool tool) { return tool.ranker() != Tool.NullRanker.class; }
                 @Tool(value = "Adds", name = "add")
                 int add(int a, int b) { return a + b; }
                 @Deprecated
@@ -862,6 +1059,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "[Tool(\"Adds\", Name = \"add\")]");
         contains(cs, "[Obsolete]");
         contains(cs, "internal static string NameOf(ToolAttribute tool) => tool.Name;");
+        // an annotation's nested types are the attribute's
+        contains(cs, "public Type Ranker { get; set; } = typeof(Tools.ToolAttribute.INullRanker);");
+        contains(cs, "public interface INullRanker : Tools.ToolAttribute.IRanker {");
     }
 
     @Language("java")
@@ -934,6 +1134,23 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             final class UpperModel extends AbstractModel {
                 public String embed(String text) { return text.toUpperCase(); }
             }
+            interface Stream {
+                String getSemantics();
+                boolean distinct();
+                int size();
+            }
+            abstract class BaseStream {
+                private final String semantics;
+                BaseStream(String semantics) { this.semantics = semantics; }
+                public String getSemantics() { return semantics; }
+                public boolean distinct() { return false; }
+            }
+            abstract class MiddleStream extends BaseStream implements Stream {
+                MiddleStream() { super("all"); }
+            }
+            final class LeafStream extends MiddleStream {
+                public int size() { return 0; }
+            }
             class Holder {
                 static final class SimpleFailure implements Failure {
                     public SimpleFailure withCode(int code) { return this; }
@@ -941,7 +1158,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
             }
             """;
 
-    /** C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. */
+    /**
+     * C#'s interface members implement others only explicitly, and an abstract class declares what it leaves. A
+     * superclass's method implements a subclass's interface in C# as in Java: it stays a method, and the abstract
+     * class in between does not declare it again.
+     */
     @Test
     public void interfaceImplementations() {
         String cs = translate("Listener", INTERFACES);
@@ -950,6 +1171,10 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "IFailure IFailure.WithCode(int code) => WithCode(code);");
         contains(cs, "public abstract string Embed(string text);");
         contains(cs, "public override string Embed(string text) => text.ToUpperInvariant();");
+        contains(cs, "public string GetSemantics() => semantics;");
+        contains(cs, "public abstract int Size { get; }");
+        assertFalse(cs.contains("abstract bool Distinct()"), cs);
+        assertFalse(cs.contains("abstract string GetSemantics()"), cs);
     }
 
     @Language("java")
@@ -974,7 +1199,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         String cs = translate("Match", MEMBER_NAMES);
         contains(cs, "internal sealed class Match<TEmbedded> {");
         contains(cs, "internal TEmbedded Embedded { get; }");
-        contains(cs, "internal Result ResultValue() => result;");
+        contains(cs, "internal Result? ResultValue() => result;");
     }
 
     @Language("java")
@@ -1071,349 +1296,6 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
-    private static final String VALUES = """
-            package org.example.values;
-            import java.math.BigDecimal;
-            import java.net.URI;
-            import java.time.Clock;
-            import java.time.Duration;
-            import java.time.LocalDate;
-            import java.time.LocalDateTime;
-            import java.util.Base64;
-            import java.util.Map;
-            import java.util.Random;
-            import java.util.UUID;
-            import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-            public class Values {
-                static String id() { return UUID.randomUUID().toString(); }
-                static UUID parse(String s) { return UUID.fromString(s); }
-                static URI uri(String s) { return URI.create(s); }
-                static String path(URI uri) { return uri.getPath(); }
-                static int compare(Object a, Object b) {
-                    return new BigDecimal(a.toString()).compareTo(BigDecimal.valueOf(3L));
-                }
-                static double number(Object o) { return o instanceof Number n ? n.doubleValue() : 0; }
-                static LocalDate date(String s) { return LocalDate.parse(s, ISO_LOCAL_DATE); }
-                static LocalDateTime now(Clock clock) { return LocalDateTime.now(clock); }
-                static Duration since(long before, long after) { return Duration.ofNanos(after - before); }
-                static int roll(Random random) { return random.nextInt(6); }
-                static String encode(byte[] bytes) { return Base64.getEncoder().encodeToString(bytes); }
-                static void print(Map<String, Integer> map) { map.forEach((k, v) -> System.out.println(k + v)); }
-            }
-            """;
-
-    /**
-     * The values of java.time, java.net and java.math are the BCL's structs; a Number is an IConvertible; a
-     * formatter is a format string; Base64 is Convert.
-     */
-    @Test
-    public void values() {
-        String cs = translate("Values", VALUES);
-        contains(cs, "internal static string Id() => Guid.NewGuid().ToString();");
-        contains(cs, "internal static Guid Parse(string s) => Guid.Parse(s);");
-        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
-        contains(cs, "internal static string Path(Uri uri) => uri.AbsolutePath;");
-        contains(cs, ".CompareTo((decimal) 3L)");
-        contains(cs, "o is IConvertible n ? Convert.ToDouble(n) : 0");
-        contains(cs, "DateOnly.ParseExact(s, \"yyyy-MM-dd\", CultureInfo.InvariantCulture)");
-        contains(cs, "internal static DateTime Now(TimeProvider clock) => clock.GetLocalNow().DateTime;");
-        contains(cs, "TimeSpan.FromTicks((after - before) / 100)");
-        contains(cs, "random.Next(6)");
-        contains(cs, "Convert.ToBase64String((byte[]) (object) bytes)");
-        contains(cs, "map.ForEach((k, v) => Console.Out.WriteLine(k + v))");
-    }
-
-    @Language("java")
-    private static final String CONCURRENCY = """
-            package org.example.concurrency;
-            import java.util.List;
-            import java.util.concurrent.CompletableFuture;
-            import java.util.concurrent.CountDownLatch;
-            import java.util.concurrent.Executor;
-            import java.util.concurrent.SynchronousQueue;
-            import java.util.concurrent.ThreadPoolExecutor;
-            import java.util.concurrent.TimeUnit;
-            import java.util.concurrent.atomic.AtomicBoolean;
-            import java.util.concurrent.locks.ReadWriteLock;
-            import java.util.concurrent.locks.ReentrantReadWriteLock;
-            public class Work {
-                private final Executor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 1, TimeUnit.SECONDS,
-                        new SynchronousQueue<>());
-                private final CountDownLatch latch = new CountDownLatch(1);
-                private final AtomicBoolean done = new AtomicBoolean(false);
-                private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
-                CompletableFuture<Integer> length(String s) {
-                    return CompletableFuture.supplyAsync(() -> s, executor).thenApply(String::length);
-                }
-                int total(List<CompletableFuture<Integer>> futures) {
-                    return futures.stream().mapToInt(CompletableFuture::join).sum();
-                }
-                void finish() throws InterruptedException {
-                    done.compareAndSet(false, true);
-                    latch.countDown();
-                    latch.await();
-                }
-                void guarded(Runnable r) {
-                    var writeLock = lock.writeLock();
-                    writeLock.lock();
-                    try { r.run(); } finally { writeLock.unlock(); }
-                }
-            }
-            """;
-
-    /**
-     * A future is a task, an executor its task scheduler (a thread pool executor the .NET thread pool), a latch a
-     * CountdownEvent; a read-write lock is a ReaderWriterLockSlim; continuations, lock halves and atomics are the
-     * compatibility library's.
-     */
-    @Test
-    public void concurrency() {
-        String cs = translate("Work", CONCURRENCY);
-        contains(cs, "private readonly TaskScheduler executor = TaskScheduler.Default;");
-        contains(cs, "private readonly CountdownEvent latch = new CountdownEvent(1);");
-        contains(cs, "private readonly AtomicBoolean done = new AtomicBoolean(false);");
-        contains(cs, "new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion)");
-        contains(cs, "Task.Factory.StartNew(() => s, CancellationToken.None, TaskCreationOptions");
-        contains(cs, ".ThenApply<string, int>(");
-        contains(cs, ".Result");
-        contains(cs, "done.CompareAndSet(false, true);");
-        contains(cs, "latch.Signal();");
-        contains(cs, "latch.Wait();");
-        contains(cs, "var writeLock = @lock.WriteLock();");
-        contains(cs, "writeLock.Lock();");
-    }
-
-    @Language("java")
-    private static final String REFLECTION = """
-            package org.example.reflection;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.reflect.Field;
-            import java.lang.reflect.GenericArrayType;
-            import java.lang.reflect.Method;
-            import java.lang.reflect.Modifier;
-            import java.lang.reflect.ParameterizedType;
-            import java.lang.reflect.Type;
-            import java.lang.reflect.WildcardType;
-            import java.util.ArrayList;
-            import java.util.List;
-            public class Mirror {
-                @Retention(RetentionPolicy.RUNTIME)
-                public @interface Tool { String value() default ""; }
-                static Class<?> raw(Type type) {
-                    if (type instanceof Class<?> clazz) return clazz;
-                    if (type instanceof ParameterizedType pt && pt.getRawType() instanceof Class<?> r) return r;
-                    if (type instanceof WildcardType w) return raw(w.getUpperBounds()[0]);
-                    if (type instanceof GenericArrayType g) return raw(g.getGenericComponentType()).arrayType();
-                    return Object.class;
-                }
-                static List<String> tools(Class<?> c) {
-                    List<String> names = new ArrayList<>();
-                    for (Method m : c.getDeclaredMethods()) {
-                        if (m.isBridge() || !m.isAnnotationPresent(Tool.class)) continue;
-                        names.add(m.getName() + m.getAnnotation(Tool.class).value());
-                    }
-                    return names;
-                }
-                static boolean instanceField(Field f) { return !Modifier.isStatic(f.getModifiers()); }
-                static final Type MAP_TYPE = new ParameterizedType() {
-                    @Override public Type[] getActualTypeArguments() { return new Type[] {String.class, Object.class}; }
-                    @Override public Type getRawType() { return java.util.Map.class; }
-                    @Override public Type getOwnerType() { return null; }
-                };
-            }
-            """;
-
-    /**
-     * Class is System.Type, the members of java.lang.reflect are System.Reflection's; the kinds of
-     * java.lang.reflect.Type are one System.Type, told apart by property patterns; annotations are attributes.
-     */
-    @Test
-    public void reflection() {
-        String cs = translate("Mirror", REFLECTION);
-        contains(cs, "if (type is Type { IsGenericParameter: false, IsConstructedGenericType: false } clazz)");
-        contains(cs, "type is Type { IsConstructedGenericType: true } pt &&");
-        contains(cs, "if (type is IJavaWildcardType w) { return Raw(w.GetUpperBounds()[0]); }");
-        contains(cs, "if (type is Type { IsArray: true } g) { return Raw(g.GetElementType()).MakeArrayType(); }");
-        contains(cs, "foreach (MethodInfo m in c.GetMethods(BindingFlags.DeclaredOnly");
-        contains(cs, "m.Name + m.GetCustomAttribute<ToolAttribute>().Value");
-        contains(cs, "!((JavaModifier.Of(f) & 0x0008) != 0)");
-        contains(cs, "if (false || !m.IsDefined(typeof(ToolAttribute), false))");
-        contains(cs, "internal static readonly Type MAP_TYPE = typeof(IDictionary<string, object>);");
-    }
-
-    @Language("java")
-    private static final String SERVICES = """
-            package org.example.services;
-            import java.io.IOException;
-            import java.nio.file.Files;
-            import java.nio.file.Path;
-            import java.util.ServiceLoader;
-            public class Services {
-                public interface Factory { String name(); int rank(); }
-                static Factory factory() {
-                    return ServiceLoader.load(Factory.class).findFirst().orElse(null);
-                }
-                static byte[] read(String dir, String file) throws IOException {
-                    return Files.readAllBytes(Path.of(dir, file));
-                }
-                static String type(Path path) { return path.getFileName().toString(); }
-                static String type(String path) { return type(Path.of(path)); }
-            }
-            """;
-
-    /**
-     * A service loader is the implementations in the loaded assemblies, an enumerable; a path a FileInfo (Java
-     * overloads on Path and String, which a string path would merge).
-     */
-    @Test
-    public void services() {
-        String cs = translate("Services", SERVICES);
-        contains(cs, "internal static IFactory Factory() => JavaServiceLoader.Load<IFactory>().FirstOrDefault()");
-        contains(cs, "File.ReadAllBytes(new FileInfo(System.IO");
-        contains(cs, "internal static string Type(FileInfo path) => (new FileInfo(path.Name)).ToString();");
-        contains(cs, "internal static string Type(string path) => Type(new FileInfo(path));");
-    }
-
-    /**
-     * A client's mapping in front of the JDK's overrides single rules: here a UUID is a string, randomUUID()
-     * Guid.NewGuid().ToString() and fromString(s) s; what it does not answer, URI, stays the JDK mapping's.
-     */
-    @Test
-    public void libraryOverride() {
-        LibraryMapping uuidAsString = new LibraryMapping() {
-            @Override
-            public String id() {
-                return "client:uuid-as-string";
-            }
-
-            @Override
-            public TypeMapping type(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
-                return "java.util.UUID".equals(typeInfo.fullyQualifiedName())
-                        ? new TypeMapping("string", null, false, false) : null;
-            }
-
-            @Override
-            public Rule call(io.codelaser.maddi.cst.api.info.MethodInfo method,
-                             io.codelaser.maddi.cst.api.expression.MethodCall call) {
-                if (!"java.util.UUID".equals(method.typeInfo().fullyQualifiedName())) return null;
-                return switch (method.name()) {
-                    case "randomUUID" -> new Rule("Guid.NewGuid().ToString()", null, java.util.List.of("System"));
-                    case "fromString" -> new Rule("$1", null, java.util.List.of());
-                    default -> null;
-                };
-            }
-        };
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(uuidAsString));
-        String cs = translate("ValuesOverridden", VALUES);
-        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
-        contains(cs, "internal static string Parse(string s) => s;");
-        contains(cs, "internal static Uri Uri(string s) => new Uri(s, UriKind.RelativeOrAbsolute);");
-    }
-
-    private static final String ACCESSORS = """
-            package org.example.accessors;
-            final class Generator {
-                static boolean supported() { return false; }
-                Object generate(String name) { return null; }
-            }
-            public class Accessors {
-                static String key(String name) { return name + "$Accessor"; }
-                static Object accessor(String name, boolean fast) {
-                    if (fast && Generator.supported()) return new Generator().generate(key(name));
-                    return name;
-                }
-            }
-            """;
-
-    private static final String NO_GENERATOR = """
-            mapping example:no-generator
-            exclude org.example.accessors.Generator
-            member org.example.accessors.Generator.supported/0 -> false
-            member org.example.accessors.Generator.generate/1 -> JavaUnsupported.Value<{R}>("the generator") using Maddi.JavaCompat
-            """;
-
-    /**
-     * A mapping leaves a program's own type out ({@code exclude}): it is not printed, and its uses go through the
-     * mapping's rules as a library's do; a call that cannot work in .NET throws, with the type the call has.
-     */
-    @Test
-    public void excludedTypes() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
-                .withFirst(CSharpMappingFile.parse(NO_GENERATOR, "no-generator.csmap")));
-        String cs = translate("Accessors", ACCESSORS);
-        assertFalse(cs.contains("class Generator"), cs);
-        contains(cs, "if (fast && false) { return JavaUnsupported.Value<object>(\"the generator\"); }");
-        contains(cs, "internal static string Key(string name) => name + \"$Accessor\";");
-    }
-
-    private static final String UUID_AS_STRING = """
-            # a client's overrides: a UUID is a string
-            mapping client:uuid-as-string
-            type java.util.UUID -> string
-            member java.util.UUID.randomUUID/0 -> Guid.NewGuid().ToString() using System
-            member java.util.UUID.fromString/1 -> $1
-            member java.util.Random.nextInt/1 ?receiver=java.util.Random -> $0.Next(0, $1)   # a guard
-            """;
-
-    /** The same override as a mapping file, the way a client writes it without Java; with a guarded rule. */
-    @Test
-    public void libraryOverrideFile() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT
-                .withFirst(CSharpMappingFile.parse(UUID_AS_STRING, "uuid.csmap")));
-        String cs = translate("ValuesOverriddenByFile", VALUES);
-        contains(cs, "internal static string Id() => Guid.NewGuid().ToString().ToString();");
-        contains(cs, "internal static string Parse(string s) => s;");
-        contains(cs, "internal static int Roll(Random random) => random.Next(0, 6);");
-        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CSharpMappingFile.parse("mapping x\nmember a.B.c/0 ?nope -> d", "bad.csmap"));
-        org.junit.jupiter.api.Assertions.assertEquals("bad.csmap:2: no guard ?nope", e.getMessage());
-    }
-
-    @Language("java")
-    private static final String PUTS = """
-            package org.example.puts;
-            import java.util.Map;
-            public class Registry {
-                void add(Map<String, Integer> counts, String key) { counts.put(key, 1); }
-                Integer replace(Map<String, Integer> counts, String key) { return counts.put(key, 2); }
-            }
-            """;
-
-    /** A statement template alone overrides the statement form; the JDK's mapping still has the value form. */
-    @Test
-    public void statementOnlyOverride() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(CSharpMappingFile.parse("""
-                mapping client:add-only
-                statement java.util.Map.put/2 -> $0.Add($1, $2)
-                """, "add-only.csmap")));
-        String cs = translate("Registry", PUTS);
-        contains(cs, "counts.Add(key, 1);");
-        contains(cs, "=> counts.Put(key, 2);");
-    }
-
-    @Language("java")
-    private static final String FIELD_NAMESPACES = """
-            package org.example.fields;
-            import java.math.BigInteger;
-            import java.math.RoundingMode;
-            public class Constants {
-                static boolean zero(Object x) { return BigInteger.ZERO.equals(x); }
-                static Object rounding() { return RoundingMode.HALF_UP; }
-            }
-            """;
-
-    /** A JDK field brings its own namespace, whatever else the file names. */
-    @Test
-    public void fieldNamespaces() {
-        String cs = translate("Constants", FIELD_NAMESPACES);
-        contains(cs, "using System;");
-        contains(cs, "using System.Numerics;");
-        contains(cs, "BigInteger.Zero.Equals(x)");
-        contains(cs, "MidpointRounding.AwayFromZero");
-    }
-
-    @Language("java")
     private static final String DELEGATE_CLASH = """
             package org.example.clash;
             public class Button {
@@ -1481,44 +1363,6 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
-    private static final String BEANS = """
-            package org.example.beans;
-            import jakarta.xml.bind.annotation.XmlElement;
-            import jakarta.xml.bind.annotation.XmlRootElement;
-            @XmlRootElement
-            public class Person {
-                private String name;
-                private int age;
-                private String nick;
-                public String getName() { return name; }
-                public void setName(String name) { this.name = name; }
-                @XmlElement(name = "years")
-                public int getAge() { return age; }
-                public void setAge(int age) { this.age = age; }
-                public String getNick() { return nick == null ? "" : nick; }
-                public void setNick(String nick) { this.nick = nick; }
-                @XmlElement
-                public String getGreeting() { return "hi " + name; }
-            }
-            """;
-
-    /**
-     * JAXB's default access binds public JavaBean properties: a plain one through its field, with its getter's
-     * annotations; a property that does more, or has no field, is reported, not dropped silently.
-     */
-    @Test
-    public void xmlProperties() {
-        String cs = translate("Person", BEANS);
-        contains(cs, "[XmlElement(\"name\")]");
-        contains(cs, "[XmlElement(\"years\")]");
-        List<String> unbound = messages.stream().filter(m -> m.code() == CSharpPrintCode.XML_UNBOUND)
-                .map(PrintMessage::detail).toList();
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(
-                "getNick(): a property whose getter or setter does more than access its field",
-                "getGreeting(): a property without a field of its name and type"), unbound);
-    }
-
-    @Language("java")
     private static final String HOISTED_SUPER = """
             package org.example.hoisted;
             import java.util.List;
@@ -1583,293 +1427,6 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     }
 
     @Language("java")
-    private static final String GEOMETRY = """
-            package org.example.geometry;
-            import java.util.Map;
-            public class Geometry {
-                static double up(double x) { return Math.ceil(x); }
-                static double radians(double degrees) { return Math.toRadians(degrees); }
-                static Object pair(String k, int v) { return Map.entry(k, v); }
-            }
-            """;
-
-    /** Math's methods by name and meaning, not by their PascalCase name; Map.entry has its namespace. */
-    @Test
-    public void mathAndEntries() {
-        String cs = translate("Geometry", GEOMETRY);
-        contains(cs, "Math.Ceiling(x)");
-        contains(cs, "degrees * (Math.PI / 180.0)");
-        contains(cs, "using System.Collections.Generic;");
-        contains(cs, "KeyValuePair.Create(k, v)");
-    }
-
-    /** A type or field mapping has one namespace: a second one is an error, not dropped. */
-    @Test
-    public void mappingFileOneNamespace() {
-        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CSharpMappingFile.parse("mapping x\ntype a.B -> B using A, C", "two.csmap"));
-        assertEquals("two.csmap:2: type takes one namespace, not A, C", e.getMessage());
-    }
-
-    @Language("java")
-    private static final String MARKS = """
-            package org.example.marks;
-            import com.fasterxml.jackson.annotation.JsonProperty;
-            public class Marks {
-                @JsonProperty(required = true) public String id;
-                @JsonProperty(value = "n", required = true) public String name;
-                public String strip(String s) { return s.trim(); }
-            }
-            """;
-
-    /**
-     * A mapping file's {@code #} inside a string is no comment; an annotation's rule applies when all its guards hold
-     * and the use has the elements it writes; a type mapped twice is an error.
-     */
-    @Test
-    public void mappingFileParsing() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.DEFAULT.withFirst(CSharpMappingFile.parse("""
-                mapping client:marks
-                member java.lang.String.trim/0 -> $0.Replace(" #", "")   # a comment, not the string's #
-                annotation com.fasterxml.jackson.annotation.JsonProperty ?value ?required=true -> JsonPropertyName($value) ][ JsonRequired
-                annotation com.fasterxml.jackson.annotation.JsonProperty -> JsonPropertyName($value)
-                annotation com.fasterxml.jackson.annotation.JsonProperty -> Marked
-                """, "marks.csmap")));
-        String cs = translate("Marks", MARKS);
-        contains(cs, "s.Replace(\" #\", \"\")");
-        contains(cs, "[JsonPropertyName(\"n\")] [JsonRequired]");
-        contains(cs, "[Marked]\n    public string id;");
-        assertFalse(cs.contains("$value"), cs);
-        IllegalArgumentException e = org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
-                () -> CSharpMappingFile.parse("mapping x\ntype a.B -> B\ntype a.B -> C", "twice.csmap"));
-        assertEquals("twice.csmap:3: a second type line for a.B", e.getMessage());
-    }
-
-    @Language("java")
-    private static final String HISTORY = """
-            package org.example.history;
-            import java.util.ArrayList;
-            import java.util.List;
-            public class History extends ArrayList<String> {
-                @Override
-                public String remove(int index) { return super.remove(index); }
-                void dropFirst() { remove(0); }
-                static void dropFirst(History history) { history.remove(0); }
-                static void dropFirst(List<String> list) { list.remove(0); }
-                static String clean(String s) { return s.replaceAll("\\\\s+", "\\\\$"); }
-            }
-            """;
-
-    /**
-     * A call on a class that extends ArrayList reaches its overrides, also as a statement, and super's is the removal
-     * itself; a plain list's statement is RemoveAt. replaceAll's replacement is in Java's syntax.
-     */
-    @Test
-    public void listSubclassAndReplacement() {
-        String cs = translate("History", HISTORY);
-        contains(cs, "public override string Remove(int index) => base.Remove(index);");
-        contains(cs, "internal static void DropFirst(History history) { history.Remove(0); }");
-        contains(cs, "list.RemoveAt(0);");
-        contains(cs, "JavaString.ReplaceAll(s, \"\\\\s+\", \"\\\\$\")");
-    }
-
-    /** A mapping's packages go into the translation's project file; the JDK's compatibility library is its source. */
-    @Test
-    public void libraryRequirements() {
-        CSharpLibraries libraries = CSharpLibraries.choose("slf4j=none,jackson=none,micrometer=none,jaxb=none").withFirst(CSharpMappingFile.parse("""
-                mapping slf4j:example
-                nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
-                type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
-                """, "example.csmap"));
-        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(
-                new LibraryMapping.NuGetPackage("Microsoft.Extensions.Logging.Abstractions", "10.0.0")),
-                libraries.requirements().packages());
-        org.junit.jupiter.api.Assertions.assertEquals(java.util.List.of(CSharpCompat.FILE_NAME),
-                libraries.requirements().sources().stream().map(LibraryMapping.Source::fileName).toList());
-        String project = libraries.projectFile("net10.0", false);
-        contains(project, "<PackageReference Include=\"Microsoft.Extensions.Logging.Abstractions\" Version=\"10.0.0\" />");
-        contains(project, "<!-- generated by maddi's Java -> C# translation; libraries: slf4j:example,jdk -->");
-    }
-
-    @Language("java")
-    private static final String LOGGING = """
-            package org.example.logging;
-            import org.slf4j.Logger;
-            import org.slf4j.LoggerFactory;
-            public class Worker {
-                private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
-                void work(String output, int count, Exception e) {
-                    LOG.debug("LLM output: {}", output);
-                    LOG.warn("{} of {} failed {", count, output.length());
-                    LOG.error("Ignored error", e);
-                    LOG.warn("Failed {}", output, e);
-                    if (LOG.isDebugEnabled()) LOG.info("done");
-                }
-            }
-            """;
-
-    /**
-     * slf4j as Microsoft.Extensions.Logging, the default: a message's {} holes are named after their arguments, a
-     * trailing exception is the first argument; as Serilog, the option.
-     */
-    @Test
-    public void logging() {
-        String cs = translate("Worker", LOGGING);
-        contains(cs, "private static readonly ILogger LOG = JavaLogging.GetLogger(typeof(Worker));");
-        contains(cs, "LOG.LogDebug(\"LLM output: {Output}\", output);");
-        contains(cs, "LOG.LogWarning(\"{Count} of {Length} failed {{\", count, output.Length);");
-        contains(cs, "LOG.LogError(e, \"Ignored error\");");
-        contains(cs, "LOG.LogWarning(e, \"Failed {Output}\", output);");
-        contains(cs, "if (LOG.IsEnabled(LogLevel.Debug)) { LOG.LogInformation(\"done\"); }");
-    }
-
-    @Test
-    public void loggingSerilog() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.choose("slf4j=serilog"));
-        String serilog = translate("WorkerSerilog", LOGGING);
-        contains(serilog, "using Serilog;");
-        contains(serilog, "private static readonly ILogger LOG = Log.ForContext(typeof(Worker));");
-        contains(serilog, "LOG.Warning(e, \"Failed {Output}\", output);");
-        contains(serilog, "if (LOG.IsEnabled(LogEventLevel.Debug)) { LOG.Information(\"done\"); }");
-    }
-
-    @Language("java")
-    private static final String JSON = """
-            package org.example.json;
-            import com.fasterxml.jackson.annotation.JsonInclude;
-            import com.fasterxml.jackson.annotation.JsonProperty;
-            import com.fasterxml.jackson.annotation.JsonSubTypes;
-            import com.fasterxml.jackson.annotation.JsonTypeInfo;
-            import com.fasterxml.jackson.core.JsonProcessingException;
-            import com.fasterxml.jackson.databind.JsonNode;
-            import com.fasterxml.jackson.databind.ObjectMapper;
-            public class Codec {
-                @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
-                @JsonSubTypes({@JsonSubTypes.Type(value = Text.class, name = "text"),
-                               @JsonSubTypes.Type(value = Image.class, name = "image")})
-                public static abstract class Content { }
-                @JsonInclude(JsonInclude.Include.NON_NULL)
-                public static class Text extends Content { @JsonProperty("body") public String text; }
-                public static class Image extends Content { }
-                private final ObjectMapper mapper = new ObjectMapper();
-                Content read(String json) throws JsonProcessingException { return mapper.readValue(json, Content.class); }
-                String write(Content c) throws JsonProcessingException { return mapper.writeValueAsString(c); }
-                int year(JsonNode node) { return node.isObject() ? node.get("year").asInt() : 0; }
-            }
-            """;
-
-    /** Jackson as System.Text.Json, the default; as Json.NET, the option. */
-    @Test
-    public void json() {
-        String cs = translate("Codec", JSON);
-        contains(cs, "[JsonPolymorphic(TypeDiscriminatorPropertyName = \"type\")]");
-        contains(cs, "[JsonDerivedType(typeof(Text), \"text\")] [JsonDerivedType(typeof(Image), \"image\")]");
-        contains(cs, "[JsonPropertyName(\"body\")]");
-        contains(cs, "private readonly JsonSerializerOptions mapper = new JsonSerializerOptions();");
-        contains(cs, "JsonSerializer.Deserialize<Content>(json, mapper)");
-        contains(cs, "JsonSerializer.Serialize(c, mapper)");
-        contains(cs, "(node is JsonObject) ? node[\"year\"].GetValue<int>() : 0");
-        contains(cs, "public sealed class Text : Content {");
-    }
-
-    @Language("java")
-    private static final String XML = """
-            package org.example.xml;
-            import jakarta.xml.bind.JAXBContext;
-            import jakarta.xml.bind.annotation.*;
-            import jakarta.xml.bind.annotation.adapters.XmlAdapter;
-            import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
-            import java.util.HashMap;
-            import java.util.List;
-            import java.util.Map;
-            import java.util.Set;
-            public class Settings {
-                public enum Mode { FAST, SAFE }
-                public interface Phase { }
-                public static class Search implements Phase { }
-                public static class Heuristic implements Phase { }
-                @XmlType(namespace = "urn:example")
-                public static class Adapted { @XmlElement(name = "property") private List<Entry> entries; }
-                @XmlType(namespace = "urn:example")
-                public static class Entry { @XmlAttribute private String name; @XmlAttribute private String value; }
-                public static class MapAdapter extends XmlAdapter<Adapted, Map<String, String>> {
-                    @Override public Map<String, String> unmarshal(Adapted a) { return new HashMap<>(); }
-                    @Override public Adapted marshal(Map<String, String> m) { return m == null ? null : new Adapted(); }
-                }
-                @XmlRootElement(name = "solver", namespace = "urn:example")
-                @XmlType(name = "solverConfig", namespace = "urn:example",
-                         propOrder = {"mode", "count", "classes", "phases", "properties", "wrapped", "tags"})
-                @XmlAccessorType(XmlAccessType.FIELD)
-                public static class Solver {
-                    @XmlTransient private Object clock;
-                    @XmlAttribute private String id;
-                    private Mode mode;
-                    private Integer count;
-                    @XmlElement(name = "entityClass") private List<String> classes;
-                    @XmlElements({@XmlElement(name = "search", type = Search.class),
-                                  @XmlElement(name = "heuristic", type = Heuristic.class)})
-                    private List<Phase> phases;
-                    @XmlJavaTypeAdapter(MapAdapter.class) private Map<String, String> properties;
-                    @XmlElementWrapper(name = "wraps") @XmlElement(name = "wrap") private List<String> wrapped;
-                    @XmlElement(name = "tag") private Set<String> tags;
-                    public Mode getMode() { return mode; }
-                    public void setMode(Mode mode) { this.mode = mode; }
-                }
-                static Solver read(java.io.Reader reader) throws Exception {
-                    var factory = javax.xml.parsers.DocumentBuilderFactory.newInstance();
-                    factory.setNamespaceAware(true);
-                    org.w3c.dom.Document document = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(reader));
-                    if (document.getDocumentElement().getNamespaceURI() == null) return null;
-                    JAXBContext context = JAXBContext.newInstance(Solver.class);
-                    return (Solver) context.createUnmarshaller().unmarshal(document);
-                }
-            }
-            """;
-
-    /**
-     * JAXB as XmlSerializer: a bound field is a public property with the attributes of its annotations, converted to
-     * what XmlSerializer writes; a public member that a getter made of a bound field is {@code [XmlIgnore]}.
-     */
-    @Test
-    public void xml() {
-        String cs = translate("Settings", XML);
-        contains(cs, "using System.Xml.Serialization;");
-        contains(cs, "[XmlRoot(\"solver\", Namespace = \"urn:example\")]\n[XmlType(\"solverConfig\", Namespace = \"urn:example\")]");
-        contains(cs, "[XmlAttribute(\"id\")]\npublic string XmlId { get => this.id; set => this.id = value; }");
-        contains(cs, "public enum Mode { [XmlEnum(\"FAST\")] Fast, [XmlEnum(\"SAFE\")] Safe }");
-        contains(cs, "[XmlElement(\"mode\", Order = 0)]\npublic Mode XmlMode { get => this.Mode; set => this.Mode = value; }");
-        contains(cs, "public int? XmlCount { get => this.count; set => this.count = value; }");
-        contains(cs, "public bool ShouldSerializeXmlCount() => this.count != null;");
-        contains(cs, "[XmlElement(\"entityClass\", Order = 2)]\npublic List<string> XmlClasses");
-        contains(cs, "[XmlElement(\"search\", typeof(Search), Order = 3)]\n[XmlElement(\"heuristic\", typeof(Heuristic), Order = 3)]");
-        contains(cs, "public object[] XmlPhases { get => this.phases?.ToArray(); set => this.phases = value == null ? null : new List<IPhase>(value.Select(e_ => (IPhase) e_)); }");
-        contains(cs, "public Adapted XmlProperties { get => new MapAdapter().Marshal(this.properties); set => this.properties = new MapAdapter().Unmarshal(value); }");
-        contains(cs, "[XmlArray(\"wraps\", Order = 5)]\n[XmlArrayItem(\"wrap\")]");
-        contains(cs, "[XmlElement(\"tag\", Order = 6)]\npublic string[] XmlTags { get => this.tags?.ToArray(); set => this.tags = value == null ? null : value.ToHashSet(); }");
-        contains(cs, "[XmlElement(\"property\")]\npublic List<Entry> XmlEntries");
-        contains(cs, "public sealed class MapAdapter : JavaXmlAdapter<Adapted, IDictionary<string, string>> {");
-        // the runtime: the compatibility library's JAXB, System.Xml's DOM
-        contains(cs, "var factory = JavaDocumentBuilderFactory.NewInstance();");
-        contains(cs, "XmlDocument document = factory.NewDocumentBuilder().Parse(new JavaInputSource(reader));");
-        contains(cs, "if (JavaDom.NamespaceUri(document.DocumentElement) == null) { return null; }");
-        contains(cs, "JavaJaxbContext context = JavaJaxbContext.NewInstance(typeof(Solver));");
-        contains(cs, "return (Solver) context.CreateUnmarshaller().Unmarshal(document);");
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("XmlClock"), cs);
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("@Xml"), cs);
-    }
-
-    @Test
-    public void jsonNewtonsoft() {
-        policy = CSharpProgram.Policy.DEFAULT.withLibraries(CSharpLibraries.choose("jackson=newtonsoft"));
-        String newtonsoft = translate("CodecNewtonsoft", JSON);
-        contains(newtonsoft, "private readonly JsonSerializerSettings mapper = new JsonSerializerSettings();");
-        contains(newtonsoft, "JsonConvert.DeserializeObject<Content>(json, mapper)");
-        contains(newtonsoft, "[JsonProperty(\"body\")]");
-        contains(newtonsoft, "[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]");
-        contains(newtonsoft, "(node.Type == JTokenType.Object) ? node[\"year\"].Value<int>() : 0");
-    }
-
-    @Language("java")
     private static final String PROPERTIES = """
             package org.example.properties;
             public class Person {
@@ -1925,6 +1482,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "Join(other, new IBiJoiner<A, B>[0])");
     }
 
+    @Language("java")
     private static final String MAPPINGS = """
             package org.example.mappings;
             import java.util.function.Function;
@@ -1952,6 +1510,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "(Func<string, int>) DefaultMapping()");
     }
 
+    @Language("java")
     private static final String PLACERS = """
             package org.example.placers;
             import java.util.Iterator;
@@ -1981,6 +1540,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "public override IJavaIterator<string> Iterator() => list.Iterator();");
     }
 
+    @Language("java")
     private static final String STREAMS = """
             package org.example.streams;
             import java.util.function.Function;
@@ -2049,10 +1609,13 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // an argument of a creation: the creation's own type arguments, as printed
         contains(cs, "new SortedDictionary<R, R>()");
         // an override inherits its constraints, and may not repeat them (CS0460)
-        contains(cs, "internal abstract S Build<S>(S s) where S : IStream<object>;");
+        // Stream<?>, a bound: the wildcard interface IStream, which every IStream<T> is
+        contains(cs, "internal abstract S Build<S>(S s) where S : IStream;");
+        contains(cs, "internal Bridge(IStreams parent)");
         contains(cs, "internal override S Build<S>(S s) => s;");
     }
 
+    @Language("java")
     private static final String SCORES = """
             package org.example.scores;
             import java.util.List;
@@ -2092,6 +1655,11 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
                 static <S> String describe(Director<S, ?> director, S solution) {
                     return director.calculate(solution).toShortString();
                 }
+                public record Inner<Score_ extends Score<Score_>>(Score_ raw, int unassigned)
+                        implements Comparable<Inner<Score_>> {
+                    public int compareTo(Inner<Score_> other) { return raw.compareTo(other.raw); }
+                }
+                static int compareInner(Inner<?> a, Inner<?> b) { return ((Inner) a).compareTo(b); }
             }
             """;
 
@@ -2106,6 +1674,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         // Comparable<Score_>: the companion is C#'s non-generic IComparable, which the type implements by a cast
         contains(cs, "public interface IScore : IComparable {");
         contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Score_) other!);");
+        // Comparable<Inner<Score_>>, of the type itself, likewise
+        contains(cs, "public interface IInner : IComparable {");
+        contains(cs, "int IComparable.CompareTo(object other) => CompareTo((Inner<Score_>) other!);");
         contains(cs, "IScore Negate();");
         // the bridges: every IScore<S> is an IScore
         contains(cs, "IScore IScore.Negate() => Negate();");
@@ -2119,6 +1690,198 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "MinCollector<A, P> that = (MinCollector<A, P>) o;");
     }
 
+    @Language("java")
+    private static final String LIBRARY_FUNCTIONAL = """
+            package org.example.filters;
+            import java.util.function.BiPredicate;
+            import java.util.function.ToIntFunction;
+            public class Filters {
+                interface Movable<S> extends BiPredicate<S, Object> {
+                    default Movable<S> and(Movable<S> other) { return (s, e) -> test(s, e) && other.test(s, e); }
+                }
+                interface PinReader extends ToIntFunction<Object> { }
+                static boolean movable(Movable<String> m, Object e) { return m.test("s", e); }
+                static int pin(PinReader r, Object e) { return r == null ? 0 : r.applyAsInt(e); }
+                static final class Always implements Movable<String> {
+                    public boolean test(String s, Object e) { return true; }
+                }
+            }
+            """;
+
+    /**
+     * A functional interface of the program that extends the library's, MovableFilter of BiPredicate: C# cannot extend
+     * the delegate, the interface declares the method itself, in PascalCase, and a call through it is no invocation.
+     */
+    @Test
+    public void libraryFunctionalInterfaces() {
+        String cs = translate("Filters", LIBRARY_FUNCTIONAL);
+        contains(cs, "bool Test(S ");
+        contains(cs, "Test(s, e) && other.Test(s, e)");
+        contains(cs, "m.Test(\"s\", e)");
+        contains(cs, "r.ApplyAsInt(e)");
+        contains(cs, "public bool Test(string s, object e) => true;");
+    }
+
+    @Language("java")
+    private static final String BOXED_REFERENCES = """
+            package org.example.boxedrefs;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            public class Counts {
+                static final class State {
+                    Long result() { return 1L; }
+                    static Long initial() { return 0L; }
+                    Long own() { return 2L; }
+                    Supplier<Long> mine() { return this::own; }
+                }
+                static Function<State, Long> finisher() { return State::result; }
+                static Supplier<Long> first() { return State::initial; }
+            }
+            """;
+
+    /**
+     * A method reference whose result is a Long, long?, into a functional interface whose result is a type parameter,
+     * C#'s long in Func<State, long>: a method group does not convert, a lambda unboxes.
+     */
+    @Test
+    public void boxedMethodReferences() {
+        String cs = translate("Counts", BOXED_REFERENCES);
+        contains(cs, "(State p0) => (long) p0.Result()");
+        contains(cs, "() => (long) State.Initial()");
+        contains(cs, "() => (long) this.Own()");
+    }
+
+    @Language("java")
+    private static final String LIFECYCLES = """
+            package org.example.lifecycles;
+            public class Lifecycles {
+                public interface Tuple { int size(); }
+                public record Pair(int size) implements Tuple {}
+                public interface ActivitySupport { boolean isActive(); }
+                public interface TupleLifecycle<Tuple_ extends Tuple> extends ActivitySupport {
+                    void insert(Tuple_ tuple);
+                    void afterAllFactsInserted(boolean canProduce);
+                    static <T extends Tuple> TupleLifecycle<T> same(TupleLifecycle<T> lifecycle) { return lifecycle; }
+                }
+                public abstract static class Node<Left_ extends Tuple> {
+                    private final TupleLifecycle<?> downstream;
+                    protected Node(TupleLifecycle<?> downstream) { this.downstream = downstream; }
+                    public boolean active() { return downstream.isActive(); }
+                    public void done() { downstream.afterAllFactsInserted(true); }
+                }
+                public static final class PairNode extends Node<Pair> {
+                    PairNode(TupleLifecycle<Pair> next) { super(TupleLifecycle.same(next)); }
+                }
+                public static class Box<T> {
+                    private final T value;
+                    Box(T value) { this.value = value; }
+                    public T get() { return value; }
+                    public int count() { return 1; }
+                    public void set(T t) { }
+                    public <M> M mapping() { return null; }
+                }
+                public static final class Named extends Box<String> {
+                    Named() { super("n"); }
+                    @Override public Object mapping() { return "m"; }
+                }
+                static int counted(Box<?> box) { return box.count(); }
+                static int sized(Box<?> box) { return box.count(); }
+                static int sized(Named named) { return 0; }
+                static int total(java.util.List<Box<?>> boxes) {
+                    int sum = 0;
+                    for (var box : boxes) sum += counted(box);
+                    return sum;
+                }
+                static Box<?> any(boolean b) { return b ? new Box<>("s") : new Box<>(1); }
+                public interface Grade<G extends Grade<G>> { }
+                public interface Impacter<G extends Grade<G>> {
+                    java.util.List<G> impacts();
+                    static <G extends Grade<G>> Impacter<G> none() { return null; }
+                }
+                static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
+                public abstract static class Base { }
+                public static final class Node2<T> extends Base { public int size() { return 0; } }
+                static Node2<?> node() { return new Node2<String>(); }
+                static int based(Base base) { return 1; }
+                static int nodes() { var n = node(); return based(n) + n.size(); }
+                static int countOf(boolean b) { return any(b).count(); }
+                static Object first(boolean b) { return any(b).get(); }
+                static int sum(java.util.List<? extends Box<?>> boxes) { return boxes.size(); }
+                public static class Holder<T> {
+                    final Object[] items = {};
+                    public T first() { return null; }
+                }
+                public static class Typed<A> {
+                    private final Class<A> type;
+                    Typed(Class<A> type) { this.type = type; }
+                    public Class<A> kind() { return type; }
+                }
+                public static class Counter<T> { int count; T last; }
+                public static final class Key<T extends Tuple> { final String name = "k"; }
+                static <T extends Tuple> T attribute(Key<T> key) { return null; }
+                static final Key<?>[] KEYS = {};
+                static int named() { int n = 0; for (Key<?> k : KEYS) { n += k.name.length(); attribute(k); } return n; }
+                static final class Uses {
+                    private Counter<?> counter;
+                    void bump() { counter.count = 1; }
+                    private Holder<?> holder;
+                    private Typed<?> typed;
+                    private Box<? extends Tuple> boxed;
+                    int items() { return holder.items.length; }
+                    String name() { return typed.kind().getSimpleName(); }
+                }
+            }
+            """;
+
+    /**
+     * A wildcard of any generic type the program declares a field, a constructor's parameter, a result, a local with
+     * has no C# type argument either, where a method's parameter would capture it: the type's wildcard interface,
+     * without the wildcarded type parameters, which every X<A> implements.
+     */
+    @Test
+    public void wildcardInterfaces() {
+        String cs = translate("Lifecycles", LIFECYCLES);
+        contains(cs, "public interface ITupleLifecycle : IActivitySupport {");
+        // its statics, the companion's, which has the wildcard interface's name: one interface
+        contains(cs, "public static ITupleLifecycle<T> Same<T>(ITupleLifecycle<T> lifecycle) where T : ITuple => lifecycle;");
+        contains(cs, "base(ITupleLifecycle.Same(next))");
+        assertFalse(cs.contains("static class ITupleLifecycle"), cs);
+        contains(cs, "void ITupleLifecycle.AfterAllFactsInserted(bool canProduce) => AfterAllFactsInserted(canProduce);");
+        contains(cs, "private readonly ITupleLifecycle downstream;");
+        contains(cs, "Node(ITupleLifecycle downstream)");
+        contains(cs, "public interface IBox {");
+        contains(cs, "internal static IBox Any(bool b)");
+        // a self-bounded interface with a companion keeps both, as before the companion became the wildcard interface
+        contains(cs, "public static class IImpacter {");
+        // the wildcard interface where its class's superclass is expected: a cast
+        contains(cs, "Based((Base) n)");
+        // a result of the wildcarded parameter is its bound, a parameter's keeps the member out
+        contains(cs, "object Get { get; }");
+        assertFalse(cs.contains("void Set(object"), cs);
+        assertFalse(cs.contains("ITupleLifecycle<ITuple>"), cs);
+        assertFalse(cs.contains("Box<object>"), cs);
+        // a parameter of a type with a wildcard interface is not captured: an element of a List<Box<?>> is passed
+        contains(cs, "internal static int Counted(IBox box)");
+        // beside an overload, captured: C# finds IBox as specific as a Named (CS0121)
+        contains(cs, "internal static int Sized<T>(Box<T> box)");
+        // a generic method C# prints erased is no wildcard interface's
+        assertFalse(cs.contains("IBox.Mapping"), cs);
+        // a field read through the wildcard is a property of the wildcard interface, of the field's name
+        contains(cs, "private IHolder holder;");
+        contains(cs, "internal object[] items { get; }");
+        contains(cs, "object[] IHolder.items => items;");
+        // a wildcard passed where the type is declared with arguments, Key<T>: no wildcard interface, which infers no T
+        contains(cs, "Key<ITuple>[] KEYS");
+        // one written through it is not: Counter keeps its bound
+        contains(cs, "private Counter<object> counter;");
+        // Class<A>, C#'s Type, needs no argument
+        contains(cs, "private ITyped typed;");
+        contains(cs, "public interface ITyped { Type Kind { get; } }");
+        // ? extends Tuple is its bound, what the code stores there
+        contains(cs, "private Box<ITuple> boxed;");
+    }
+
+    @Language("java")
     private static final String PHASE_SCOPES = """
             package org.example.phasescopes;
             public class PhaseScopes {
@@ -2171,8 +1934,9 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
     @Test
     public void resultOnlySelfBound() {
         String cs = translate("PhaseScopes", PHASE_SCOPES);
-        // a record has a companion too, with its components
-        contains(cs, "public interface IInner { IScore Raw { get; } }");
+        // a record has a companion too, with its components, and its package-private methods internal
+        contains(cs, "IScore Raw { get; }");
+        contains(cs, "internal bool Zero();");
         contains(cs, "IScore IInner.Raw => Raw;");
         contains(cs, "public IInner GetBest() => (IInner) (object) best;");
         contains(cs, "public IDirector<Solution_> GetDirector() => solverScope.GetDirector();");
@@ -2183,6 +1947,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "NewInstance<object>(null, \"a\", c)");
     }
 
+    @Language("java")
     private static final String NODES = """
             package org.example.nodes;
             public class Nodes {
@@ -2201,42 +1966,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         assertFalse(cs.contains("public class Hidden"), cs);
     }
 
-    private static final String NAVIGATION = """
-            package org.example.navigation;
-            import java.util.*;
-            public class Navigation {
-                static String floor(NavigableMap<Integer, String> map, int key) {
-                    Map.Entry<Integer, String> entry = map.floorEntry(key);
-                    return entry == null ? null : entry.getValue();
-                }
-                static Integer next(NavigableSet<Integer> set, int x) { return set.higher(x); }
-                static String values(SequencedMap<String, String> map) { return String.join(",", map.sequencedValues()); }
-                static void shake(List<String> list, Random random) {
-                    Collections.rotate(list, 1);
-                    Collections.swap(list, 0, 1);
-                    Collections.shuffle(list, random);
-                }
-                static boolean same(int[][] a, int[][] b) { return Arrays.deepEquals(a, b); }
-                static void blank(int[] a) { Arrays.fill(a, 1, 3, 0); }
-            }
-            """;
-
-    /** NavigableMap, NavigableSet and SequencedMap on C#'s sorted and ordered collections, by the compatibility library. */
-    @Test
-    public void navigation() {
-        String cs = translate("Navigation", NAVIGATION);
-        contains(cs, "SortedDictionary<int, string> map");
-        // a navigation's entry may be null: the local is the JavaEntry, not a KeyValuePair
-        contains(cs, "var entry = map.FloorEntry(key);");
-        contains(cs, "set.Higher(x)");
-        contains(cs, "map.Values");
-        contains(cs, "JavaCollections.Rotate(list, 1);");
-        contains(cs, "JavaCollections.Swap(list, 0, 1);");
-        contains(cs, "JavaCollections.Shuffle(list, random);");
-        contains(cs, "JavaArrays.DeepEquals(a, b)");
-        contains(cs, "Array.Fill(a, 0, 1, 3 - 1);");
-    }
-
+    @Language("java")
     private static final String MODES = """
             package org.example.modes;
             public class Modes {
@@ -2274,6 +2004,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "case_FULL_ASSERT: ;");
     }
 
+    @Language("java")
     private static final String STORE = """
             package org.example.store;
             import java.util.Objects;
@@ -2303,6 +2034,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "}))();");
     }
 
+    @Language("java")
     private static final String SELECTORS = """
             package org.example.selectors;
             import java.util.ArrayList;
@@ -2345,6 +2077,7 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "this.seen = new List<string>();");
     }
 
+    @Language("java")
     private static final String INNER = """
             package org.example.inner;
             import java.util.Iterator;
@@ -2396,278 +2129,5 @@ public class TestJavaToCSharpTranslation extends CommonJavaToCSharp {
         contains(cs, "p0 => new Stepped(this, p0)");
         // an inner class that does not use its enclosing instance does not take it
         contains(cs, "internal sealed class Plain { internal int One() => 1; }");
-    }
-
-    private static final String FACTS = """
-            package org.example.facts;
-            import java.util.ArrayList;
-            import java.util.HashMap;
-            import java.util.List;
-            import java.util.Map;
-            public class Catalog {
-                private final List<String> names = new ArrayList<>();
-                private String description;
-                private List<String> stored;
-                int score(List<String> items, Map<String, Integer> weights) {
-                    int n = 0;
-                    for (String s : items) {
-                        if (items.contains(s) && weights.get(s) != null) n += weights.get(s);
-                    }
-                    return n + items.indexOf("x");
-                }
-                void addAll(List<String> more) { names.addAll(more); }
-                void keep(List<String> list) { this.stored = list; }
-                String find(String key) {
-                    String d = description;
-                    return key.isEmpty() ? null : d;
-                }
-                int size(Map<String, Integer> table) { return table.size(); }
-                int sizeOf(Map<String, Integer> given) { return size(given); }
-                int width(Map<String, Integer> sized) { return sized.size(); }
-                int fresh() { return width(new HashMap<>()); }
-                int length() { return find("k").length() + description.length(); }
-                void collect(List<String> out) { out.add(find("k")); out.add(description); }
-                boolean has(List<String> l) { return l.contains(description) || l.contains(null); }
-                String[] pair() {
-                    String[] a = { description, null };
-                    a[1] = null;
-                    return a;
-                }
-                String either(boolean b) { return b ? description : null; }
-                Object cast() { return (CharSequence) find("k"); }
-                int unbox(Map<String, Integer> m, List<Integer> l, Integer boxed, Integer checked) {
-                    int a = m.get("k");
-                    int b = l.get(0);
-                    int c = boxed;
-                    return checked == null ? a : a + b + c + checked;
-                }
-                void put(Map<Integer, String> byId, Integer id) { byId.put(id, description); }
-                static <T> T ensure(T maybe) {
-                    if (maybe == null) throw new IllegalArgumentException();
-                    return maybe;
-                }
-                void over(String s) { }
-                void over(Integer i) { }
-                void callOver() { over((String) null); }
-                int printed(Object o) { return o.toString().length(); }
-                static class Holder<T> {
-                    T held;
-                    T held() { return held; }
-                }
-            }
-            """;
-
-    /** The analysis's verdicts as a client supplies them: these parameters unmodified, these declarations nullable. */
-    private static final CSharpFacts CATALOG_FACTS = new CSharpFacts() {
-        @Override
-        public boolean unmodified(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
-            return java.util.Set.of("items", "weights", "more", "list", "table", "sized").contains(parameter.name());
-        }
-
-        @Override
-        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
-            return "maybe".equals(parameter.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
-        }
-
-        @Override
-        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
-            return "description".equals(field.name()) || "held".equals(field.name())
-                    ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
-        }
-
-        @Override
-        public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
-            // Map.get as an annotated JDK has it
-            return "find".equals(method.name()) || "get".equals(method.name())
-                                                   && "java.util.Map".equals(method.typeInfo().fullyQualifiedName())
-                    ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                    : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
-        }
-    };
-
-    /**
-     * A collection parameter the method does not modify is read-only, when its uses allow (a stored one is not); the
-     * calls on it are a read-only collection's. A declaration that may be null is T?.
-     */
-    @Test
-    public void facts() {
-        policy = CSharpProgram.Policy.DEFAULT.withFacts(CATALOG_FACTS);
-        String cs = translate("Catalog", FACTS);
-        contains(cs, "using System.Linq;");
-        contains(cs, "private string? description;");
-        contains(cs, "internal int Score(IReadOnlyList<string> items, IReadOnlyDictionary<string, int> weights) {");
-        contains(cs, "if (items.Contains(s) && (weights.ContainsKey(s) ? weights[s] : (int?) null) != null)");
-        contains(cs, "return n + JavaCollections.IndexOf(items, \"x\");");
-        contains(cs, "internal void AddAll(IReadOnlyList<string> more)");
-        contains(cs, "internal void Keep(List<string> list) { this.stored = list; }");
-        contains(cs, "internal string? Find(string key)");
-        // a caller's IDictionary is no IReadOnlyDictionary; a Dictionary is
-        contains(cs, "internal int Size(IDictionary<string, int> table)");
-        contains(cs, "internal int Width(IReadOnlyDictionary<string, int> sized)");
-        contains(cs, "string d = description;");
-    }
-
-    @Language("java")
-    private static final String KEYS = """
-            package org.example.keys;
-            import java.util.HashMap;
-            import java.util.Map;
-            import java.util.TreeMap;
-            public class Index<K, V> {
-                private final Map<K, V> byKey = new HashMap<>();
-                public static <A extends Comparable<A>, B> TreeMap<A, B> sorted(Map<A, B> m) { return new TreeMap<>(m); }
-                public <C> Map<C, V> copy(C first) { Map<C, V> m = new HashMap<>(); return m; }
-                public <D> int size(Map<D, V> m) { return m.size(); }
-                static <E, F> Map<E, F> group(java.util.function.Function<? super F, ? extends E> key) {
-                    return keyed(key);
-                }
-                static <G, H> Map<G, H> keyed(java.util.function.Function<? super H, ? extends G> key) {
-                    return new HashMap<>();
-                }
-                static class Sub<S, U> extends Index<S, U> { }
-                static class Plain<P> { P value; }
-            }
-            """;
-
-    /**
-     * In a nullable context, a type parameter that is a dictionary's key is {@code where K : notnull}, as C#'s
-     * Dictionary wants (CS8714), and so is one passed where such a key is expected; IDictionary takes any key.
-     */
-    @Test
-    public void notNullKeys() {
-        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
-            @Override
-            public boolean nullabilityAnalysed() {
-                return true;
-            }
-        });
-        String cs = translate("Index", KEYS);
-        contains(cs, "public class Index<K, V> where K : notnull {");
-        contains(cs, "where A : notnull, IComparable<A>");
-        contains(cs, "Copy<C>(C first) where C : notnull");
-        contains(cs, "class Sub<S, U> : Index<S, U> where S : notnull {");
-        // through a wildcard: E is passed as ? extends G
-        contains(cs, "where E : notnull");
-        contains(cs, "where G : notnull");
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where D : notnull"), cs);
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where P : notnull"), cs);
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("where V : notnull"), cs);
-    }
-
-    @Language("java")
-    private static final String PRECONDITION = """
-            package org.example.pre;
-            class P {
-                interface Visitor { void visit(String n); }
-                static class Printer implements Visitor {
-                    public void visit(String n) { System.out.println(n.length()); }
-                }
-                static String find(String k) { return k.isEmpty() ? null : k; }
-                static void go(Visitor v, String k) {
-                    v.visit(find(k));
-                }
-            }
-            """;
-
-    /**
-     * CodeLaser/maddi#125: a parameter the analysis declares non-null as a precondition of its override family is
-     * non-nullable on the interface and the override alike; a caller that may pass null says {@code !}, which does
-     * not throw, so the method throws on the null as Java's does. An INFO message at each declaration; no
-     * {@code ArgumentNullException.ThrowIfNull}.
-     */
-    @Test
-    public void preconditionNonNull() {
-        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
-            @Override
-            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
-                return "find".equals(method.name()) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                        : io.codelaser.maddi.cst.api.type.NullableState.UNSPECIFIED;
-            }
-
-            @Override
-            public boolean preconditionNonNull(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
-                return "n".equals(parameter.name());
-            }
-
-            @Override
-            public boolean nullabilityAnalysed() {
-                return true;
-            }
-        });
-        Translation translation = translation(PRECONDITION);
-        String cs = translation.csharp();
-        contains(cs, "void Visit(string n);");
-        contains(cs, "public void Visit(string n)");
-        contains(cs, "v.Visit(Find(k)!);");
-        org.junit.jupiter.api.Assertions.assertFalse(cs.contains("ThrowIfNull"), cs);
-        List<PrintMessage<CSharpPrintCode>> preconditions = translation.messages().stream()
-                .filter(m -> m.code() == CSharpPrintCode.PRECONDITION_NON_NULL).toList();
-        org.junit.jupiter.api.Assertions.assertEquals(List.of(3, 5),
-                preconditions.stream().map(PrintMessage::line).distinct().sorted().toList(), translation.messages().toString());
-        org.junit.jupiter.api.Assertions.assertTrue(preconditions.stream()
-                .allMatch(m -> m.severity() == PrintMessage.Severity.INFO), preconditions.toString());
-    }
-
-    /**
-     * With the program's nullability analysed, C# checks it: a local's reference type is T?, as var's is, and a
-     * dereference of a value that may be null has a {@code !}.
-     */
-    @Test
-    public void nullabilityAnalysed() {
-        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
-            @Override
-            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.FieldInfo field) {
-                return CATALOG_FACTS.nullable(field);
-            }
-
-            @Override
-            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.MethodInfo method) {
-                return CATALOG_FACTS.nullable(method);
-            }
-
-            @Override
-            public io.codelaser.maddi.cst.api.type.NullableState nullable(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
-                return CATALOG_FACTS.nullable(parameter);
-            }
-
-            @Override
-            public boolean nullabilityAnalysed() {
-                return true;
-            }
-        });
-        String cs = translate("Catalog", FACTS);
-        contains(cs, "private string? description;");
-        contains(cs, "string? d = description;");
-        contains(cs, "int n = 0;");
-        // a dereference of a value that may be null: Java throws there, C# too, and ! says so
-        contains(cs, "Find(\"k\")!.Length + description!.Length");
-        // a value that may be null into a non-null parameter, a list's element here
-        contains(cs, "@out.Add(Find(\"k\")!);");
-        contains(cs, "@out.Add(description!);");
-        // Java's contains(Object) takes null, C#'s Contains(T) not: it is asserted whatever the hints
-        contains(cs, "l.Contains(description!) || l.Contains(null!)");
-        // an array's elements are not nullable in C#: the null they hold, as in Java, is asserted
-        contains(cs, "{ description!, null! }");
-        contains(cs, "a[1] = null!;");
-        // a method whose result the analysis does not find nullable
-        contains(cs, "(b ? description : null)!");
-        // a cast keeps the null of a value that may be null
-        contains(cs, "(string?) Find(\"k\")");
-        // unboxing throws on null, in C# as in Java: an Integer is C#'s int? whatever its declaration's verdict
-        contains(cs, "int a = (int) m.GetValueOrNull(\"k\")!;");
-        contains(cs, "int b = (int) l[0];");
-        contains(cs, "int c = (int) boxed!;");
-        // a boxed key is unboxed into Dictionary<int, string>'s K: its cast asserts it, once
-        contains(cs, "byId[(int) id!] = description!;");
-        // a nullable parameter of a type parameter's type: T is inferred without ?, the result is not null
-        contains(cs, "internal static T Ensure<T>(T? maybe) {");
-        // a cast of null, which picks an overload, keeps the null
-        contains(cs, "Over((string?) null);");
-        // C#'s object.ToString() is string?
-        contains(cs, "o.ToString()!.Length");
-        // a class's type parameter takes the ? of a nullable declaration
-        contains(cs, "internal T? Held { get; }");
     }
 }

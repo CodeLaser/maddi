@@ -49,7 +49,6 @@ public class TestVariousPrint2Issues extends CommonTest {
                  *
                  * @return a new char set
                  */
-
                 private static Charset getCharset() {
                     /* one */
                     System.out.println("*");
@@ -115,7 +114,7 @@ public class TestVariousPrint2Issues extends CommonTest {
     @Language("java")
     private static final String OUTPUT3 = """
             import java.io.File;
-            class AgentLauncher {private String method(File file) { return String.format("%s", file.getName()); } }
+            class AgentLauncher { private String method(File file) { return String.format("%s", file.getName()); } }
             """;
 
     @DisplayName("static import issue")

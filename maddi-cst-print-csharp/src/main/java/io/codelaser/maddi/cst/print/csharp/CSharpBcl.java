@@ -101,8 +101,26 @@ final class CSharpBcl implements LibraryMapping {
     /** Java's list classes, which a class of the program extends as the compatibility library's JavaArrayList. */
     static final Set<String> LIST_BASES = Set.of("java.util.ArrayList", "java.util.AbstractList", "java.util.LinkedList");
 
-    /** Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in. */
-    static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess");
+    /**
+     * Java's marker interfaces, which C# has no counterpart of: cloning is MemberwiseClone, serialization opt-in, an
+     * event listener any type. Left out of a type's bases and a type parameter's constraints.
+     */
+    /**
+     * A class that implements Java's {@code Set} itself, without a superclass: as one extending {@code AbstractSet}, it
+     * extends the compatibility library's {@code JavaSet}, whose Java methods it overrides ({@link #JAVA_SET_METHODS}).
+     */
+    static boolean directSet(TypeInfo t) {
+        if (t.isInterface() || t.parentClass() != null && !t.parentClass().isJavaLangObject()) return false;
+        return t.interfacesImplemented().stream()
+                .anyMatch(i -> i.typeInfo() != null && "java.util.Set".equals(i.typeInfo().fullyQualifiedName()));
+    }
+
+    /** The Java methods JavaSet declares, abstract or virtual: name/parameter count. */
+    static final Set<String> JAVA_SET_METHODS = Set.of("iterator/0", "size/0", "isEmpty/0", "contains/1", "add/1",
+            "remove/1", "clear/0", "containsAll/1", "addAll/1", "removeAll/1", "retainAll/1", "toArray/0");
+
+    static final Set<String> MARKERS = Set.of("java.lang.Cloneable", "java.io.Serializable", "java.util.RandomAccess",
+            "java.util.EventListener");
 
     private static final Set<String> OBJECT_OVERRIDABLE = Set.of("equals/1", "hashCode/0", "toString/0");
 
@@ -203,6 +221,11 @@ final class CSharpBcl implements LibraryMapping {
         return new Rule(value, null, List.of(namespaces));
     }
 
+    /** A rule whose C# member declares its result nullable, as the compatibility library's {@code Map.Get}. */
+    private static Rule nullable(String value, String... namespaces) {
+        return rule(value, namespaces).withNullableResult();
+    }
+
     static {
         // collections
         // a read-only collection (CSharpReadOnly) has LINQ's Contains
@@ -234,8 +257,8 @@ final class CSharpBcl implements LibraryMapping {
         // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
         chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
-                : valueType(call, 1) ? rule("$0.GetValueOrNull($1)", COMPAT)
-                : interfaceTyped(call) ? rule("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
+                : valueType(call, 1) ? nullable("$0.GetValueOrNull($1)", COMPAT)
+                : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));
@@ -361,13 +384,13 @@ final class CSharpBcl implements LibraryMapping {
 
     // ---------------------------------------------------------------- what the choosers ask of a call
 
-    /** The call's type argument {@code index} (of its return type) is a boxed primitive: a value type in C#. */
+    /** The call's type argument {@code index} (of its return type) is a value type in C#: a boxed primitive, an enum, a struct. */
     private static boolean valueType(MethodCall call, int index) {
         if (call == null || call.object() == null) return false;
         ParameterizedType receiver = call.object().parameterizedType();
         if (receiver == null || receiver.parameters().size() <= index) return false;
         ParameterizedType v = receiver.parameters().get(index);
-        return v.typeInfo() != null && v.arrays() == 0 && v.isBoxedExcludingVoid();
+        return CSharpTypeName.valueReference(v);
     }
 
     /** The receiver is a collection of {@code ?}, which C# has as a non-generic interface. */

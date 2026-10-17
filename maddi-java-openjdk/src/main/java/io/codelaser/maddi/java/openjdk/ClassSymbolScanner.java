@@ -275,6 +275,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
                 TypeInfo owner = convert(enclosedSymbol.type).typeInfo();
                 String simpleName = cs.getSimpleName().toString();
                 TypeInfo inMap = owner.findSubType(simpleName, false);
+                // #139: javac's error symbol for a name it could not resolve ('A.f()' where package 'a' is not on
+                // this source set's dependencies, so 'f' becomes an erroneous class owned by 'A'), while the owner
+                // is a COMMITTED type, parsed as source in another source set. It cannot be given a member type, and
+                // it is not one: an unresolved symbol, as when 'a.A' is not in the configuration at all.
+                if (inMap == null && owner.hasBeenInspected()
+                    && (cs.kind == Kinds.Kind.ERR || cs.type != null && cs.type.isErroneous())) {
+                    throw new UnresolvedSymbolException("Unresolved symbol '" + simpleName + "' in "
+                                                        + owner.fullyQualifiedName()
+                                                        + ", which is not on this source set's dependencies");
+                }
                 if (inMap == null) {
                     TypeInfo enclosed = runtime.newTypeInfo(owner, simpleName);
                     // a member type of an ANONYMOUS class can arrive here through a stub owner (the anonymous

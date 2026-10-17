@@ -163,8 +163,21 @@ final class KotlinNullability {
      */
     static boolean returnsNullForTypeVariable(MethodInfo methodInfo) {
         if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
+        if (kotlinNullableMapResult(methodInfo)) return false;
         return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
                 && !isNullable(declaredReturnType(m)));
+    }
+
+    /**
+     * Kotlin declares these members of its Map nullable, {@code get(key: K): V?}, {@code replace(key, value): V?},
+     * {@code compute(…): V?}: an override may return {@code V?} (guava's Maps, ForwardingConcurrentMap, LocalCache).
+     */
+    private static final Set<String> KOTLIN_NULLABLE_MAP_RESULTS = Set.of("get", "put", "remove", "putIfAbsent",
+            "replace", "compute", "computeIfPresent", "merge");
+
+    private static boolean kotlinNullableMapResult(MethodInfo methodInfo) {
+        return methodInfo.overrides().stream().anyMatch(m -> "java.util.Map".equals(m.typeInfo().fullyQualifiedName())
+                && KOTLIN_NULLABLE_MAP_RESULTS.contains(m.name()));
     }
 
     /** A translated method's return verdict; a library's or a Kotlin source's return type as declared. */
@@ -173,11 +186,15 @@ final class KotlinNullability {
         return verdict != null ? verdict : m.returnType();
     }
 
-    /** {@code (value) as E}, for a return from a method {@link #returnsNullForTypeVariable}; null otherwise. */
+    /**
+     * {@code (value) as E}, for a return from a method {@link #returnsNullForTypeVariable}; null otherwise. Whether the
+     * verdict is nullable (the override keeps E all the same) or the pass holds it non-null for Kotlin's member
+     * (maddi-mod a8cac5ca): Java returns the null, and so does the cast, where {@code !!} would throw.
+     */
     static OutputBuilder typeVariableReturn(MethodInfo methodInfo, Expression value, Qualification q) {
         if (!(value instanceof NullConstant) && !nullableInKotlin(value)) return null;
         ParameterizedType verdict = verdicts().returnType(methodInfo);
-        if (verdict == null || !isNullable(verdict) || !returnsNullForTypeVariable(methodInfo)) return null;
+        if (verdict == null || !returnsNullForTypeVariable(methodInfo)) return null;
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
@@ -201,13 +218,14 @@ final class KotlinNullability {
         if (type.arrays() > 0) return type.componentType();
         TypeInfo iterableType = supertype(type.typeInfo(), "java.lang.Iterable", new java.util.HashSet<>());
         if (iterableType == null) return null;
+        // concreteSuperType walks the hierarchy recursively: a deep or cyclic one overflows, as caught across maddi
         try {
             ParameterizedType asIterable = type.typeInfo() == iterableType ? type
                     : type.concreteSuperType(iterableType.asParameterizedType());
             if (asIterable == null || asIterable.parameters().size() != 1) return null;
             ParameterizedType element = asIterable.parameters().getFirst();
             return element == null || element.wildcard() != null ? null : element;
-        } catch (RuntimeException | AssertionError e) {
+        } catch (RuntimeException | AssertionError | StackOverflowError e) {
             return null;
         }
     }
@@ -312,6 +330,8 @@ final class KotlinNullability {
                 }
                 default -> false;
             };
+            case InlineConditional ic when KotlinNullCheckShapes.elvis(ic) != null ->
+                    nullableInKotlin(KotlinNullCheckShapes.elvis(ic).otherwise());
             case InlineConditional ic -> nullableInKotlin(ic.ifTrue()) || nullableInKotlin(ic.ifFalse());
             default -> false;
         };
@@ -408,7 +428,7 @@ final class KotlinNullability {
             // an inherited member (ArrayList<E> calling Collection.add(E)): the receiver as its declaring type
             try {
                 receiver = receiver.concreteSuperType(declaring.asParameterizedType());
-            } catch (RuntimeException | AssertionError e) {
+            } catch (RuntimeException | AssertionError | StackOverflowError e) {
                 return declared;
             }
             if (receiver == null || receiver.typeInfo() != declaring) return declared;
@@ -423,6 +443,20 @@ final class KotlinNullability {
      */
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver) {
         return substitute(declared, receiver, false);
+    }
+
+    /**
+     * A member's type {@code declared} in {@code declaring}, as a supertype {@code receiver} of a class sees it:
+     * Collection's {@code spliterator(): Spliterator<E>} through a {@code Set<V>} is a {@code Spliterator<V>}.
+     */
+    static ParameterizedType seenThrough(ParameterizedType declared, TypeInfo declaring, ParameterizedType receiver) {
+        ParameterizedType seen;
+        try {
+            seen = receiver.typeInfo() == declaring ? receiver : receiver.concreteSuperType(declaring.asParameterizedType());
+        } catch (RuntimeException | AssertionError e) {
+            seen = null;
+        }
+        return seen == null || seen.typeInfo() == null ? declared : substitute(declared, seen);
     }
 
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver, boolean input) {
@@ -471,7 +505,16 @@ final class KotlinNullability {
      */
     static List<ParameterizedType> lambdaParameterTypes(MethodCall call, ParameterizedType functional) {
         ParameterizedType seen = throughReceiver(functional, call);
-        if (seen == null || seen == functional || seen.typeInfo() == null || seen.arrays() > 0) return List.of();
+        if (seen == null || seen == functional) return List.of();
+        return samParameterTypes(seen);
+    }
+
+    /**
+     * The parameter types of a functional type's single abstract method, seen through its type arguments
+     * ({@code BinaryOperator<Acc<Object>>} takes two {@code Acc<Object>}). Empty when not known.
+     */
+    static List<ParameterizedType> samParameterTypes(ParameterizedType seen) {
+        if (seen == null || seen.typeInfo() == null || seen.arrays() > 0) return List.of();
         MethodInfo sam;
         try {
             sam = seen.typeInfo().singleAbstractMethod();
@@ -504,6 +547,20 @@ final class KotlinNullability {
                         .contains(m.name()));
     }
 
+    /** The code being printed is a test: its nulls into non-null parameters are there to be rejected. */
+    private static boolean inTestSource() {
+        MethodInfo method = KotlinContext.currentMethod();
+        return method != null && method.typeInfo().compilationUnit() != null
+               && method.typeInfo().compilationUnit().sourceSet() != null
+               && method.typeInfo().compilationUnit().sourceSet().test();
+    }
+
+    /** No type variable in it: a parameter's type at the call names none the caller does not know. */
+    private static boolean writable(ParameterizedType type) {
+        if (type.typeParameter() != null) return false;
+        return type.parameters().stream().allMatch(p -> p.wildcard() != null && p.typeInfo() == null || writable(p));
+    }
+
     /** Declared by the code being translated, so Kotlin will hold a value for it to its (non-)nullability. */
     static boolean translated(TypeInfo owner) {
         return !owner.compilationUnit().externalLibrary() && !KotlinTypePrinter.fromKotlinSource(owner);
@@ -515,6 +572,37 @@ final class KotlinNullability {
         // a library's int parameter is Kotlin's Int all the same: Java unboxes an Integer into it (Math.min(map.get(k), 1))
         boolean unboxed = target != null && target.arrays() == 0 && target.isPrimitiveExcludingVoid()
                           && KotlinExpressionPrinter.primitive(target) == KotlinExpressionPrinter.primitive(value.parameterizedType());
+        if (targetTranslated && target != null && value instanceof NullConstant && target.arrays() == 0
+            && !isNullable(target) && unboundTypeVariable(target)) {
+            // lstKeys.add(null) into a MutableList<K>: null stops at a type-variable slot (maddi-mod 77674c0c), and
+            // the null passes as in Java: an unchecked cast, erased
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (targetTranslated && target != null && !isNullable(target) && typeVariableArgument(target)
+            && nullableLambdaResultInChain(value)) {
+            // results.stream().filter(…).map { it.response() }.toList() into a List<T>: Kotlin infers List<T?> from the
+            // nullable response(), where null stops at the declaration's type-variable slot; Java's list holds the
+            // nulls all the same: an unchecked cast, erased
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if (targetTranslated && target != null && value instanceof NullConstant && !isNullable(target)
+            && !target.isPrimitiveExcludingVoid() && inTestSource() && writable(target)) {
+            // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
+            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type.
+            // Not into a type variable's slot, which the call may instantiate nullable (guava's GeneralRangeTest
+            // passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw)
+            KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target.withNullable(NullableState.NULLABLE), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS).add(NOT_NULL);
+        }
         if (!targetTranslated && !unboxed || target == null || isNullable(target) || value instanceof NullConstant
             || !nullableInKotlin(value) && !nullableTypeVariable(value, target)) {
             return printed;
@@ -578,6 +666,42 @@ final class KotlinNullability {
     }
 
     /** A type variable whose upper bound is Kotlin's {@code Any?}: no {@code T : Any} printed for it. */
+    /** A type argument of {@code type}, at the top level, is an unbound type variable printed non-null. */
+    private static boolean typeVariableArgument(ParameterizedType type) {
+        return type.arrays() == 0 && type.parameters().stream()
+                .anyMatch(a -> a != null && a.arrays() == 0 && unboundTypeVariable(a) && !isNullable(a));
+    }
+
+    /**
+     * {@code value} is a chain of calls on a stream, one of which takes a lambda or method reference whose result
+     * Kotlin types nullable ({@code map(BatchItemResult::response)} with a nullable response()): Kotlin infers the
+     * elements nullable from it.
+     */
+    private static boolean nullableLambdaResultInChain(Expression value) {
+        Expression e = KotlinExpressionPrinter.unwrap(value);
+        while (e instanceof MethodCall mc) {
+            if (mc.methodInfo() != null && "java.util.stream.Stream".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+                for (Expression a : mc.parameterExpressions()) {
+                    Expression u = KotlinExpressionPrinter.unwrap(a);
+                    if (u instanceof io.codelaser.maddi.cst.api.expression.Lambda l && lambdaResultNullable(l)
+                        || u instanceof MethodReference mr && mr.methodInfo() != null && !mr.methodInfo().isConstructor()
+                           && isNullable(returnType(mr.methodInfo()))) {
+                        return true;
+                    }
+                }
+            }
+            e = mc.object() == null ? null : KotlinExpressionPrinter.unwrap(mc.object());
+        }
+        return false;
+    }
+
+    private static boolean lambdaResultNullable(io.codelaser.maddi.cst.api.expression.Lambda l) {
+        io.codelaser.maddi.cst.api.statement.Block body = l.methodInfo().methodBody();
+        if (body == null || body.statements().size() != 1) return false;
+        return body.statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
+               && rs.expression() != null && nullableInKotlin(rs.expression());
+    }
+
     private static boolean unboundTypeVariable(ParameterizedType type) {
         if (!type.isTypeParameter() || type.wildcard() != null) return false;
         io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
@@ -612,7 +736,32 @@ final class KotlinNullability {
     }
 
     /** A receiver: {@code x!!.} or {@code x?.} when Kotlin types it nullable, else {@code x.}. */
+    // the receiver of a call that KotlinNullCheckShapes prints as x?.m(); set while that call is printed
+    private static final ThreadLocal<Expression[]> SAFE_RECEIVER = new ThreadLocal<>();
+
+    /**
+     * Print a call with {@code ?.} after {@code receiver}; null when the call does not print its receiver through
+     * {@link #receiverWithDot} (a member Kotlin writes otherwise), so that the caller prints the conditional instead.
+     */
+    static OutputBuilder withSafeReceiver(Expression receiver, java.util.function.Supplier<OutputBuilder> call) {
+        Expression[] previous = SAFE_RECEIVER.get();
+        Expression[] slot = {KotlinExpressionPrinter.unwrap(receiver), null};
+        SAFE_RECEIVER.set(slot);
+        try {
+            OutputBuilder printed = call.get();
+            return slot[1] != null ? printed : null;
+        } finally {
+            SAFE_RECEIVER.set(previous);
+        }
+    }
+
     static OutputBuilder receiverWithDot(Expression object, Qualification q) {
+        Expression[] safe = SAFE_RECEIVER.get();
+        if (safe != null && safe[1] == null && KotlinExpressionPrinter.unwrap(object) == safe[0]) {
+            safe[1] = object; // consumed: once
+            return KotlinExpressionPrinter.receiver(object, q)
+                    .add(new SymbolEnum("?.", SpaceEnum.NO_SPACE_SPLIT_ALLOWED, SpaceEnum.NONE, null));
+        }
         OutputBuilder receiver = KotlinExpressionPrinter.receiver(object, q);
         if (!nullableInKotlin(object) || object instanceof NullConstant) return receiver.add(SymbolEnum.DOT);
         if (KotlinContext.options().nullCheck() == KotlinPrintOptions.NullCheck.SAFE_CALL) {

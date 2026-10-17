@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.element;
 
 import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SingleLineComment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
@@ -30,6 +31,22 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public abstract class ElementImpl implements Element {
+
+    /**
+     * The '//' comments written after an element, on its last line: {@code a(); // why}. They belong to it
+     * (CodeLaser/maddi#128), and the printer writes them after it rather than above it (#137).
+     *
+     * @param written the source of the whole element as written
+     */
+    public static List<Comment> commentsAfterOnLastLine(List<Comment> comments, Source written) {
+        if (comments.isEmpty() || written == null || written.endLine() <= 0) return List.of();
+        return comments.stream().filter(c -> c instanceof SingleLineComment && c.source() != null
+                                             && c.source().beginLine() == written.endLine()
+                                             && c.source().beginLine() > 0
+                                             && (c.source().beginLine() > written.beginLine()
+                                                 || c.source().beginPos() > written.beginPos())
+                                             && c.source().beginPos() > written.endPos()).toList();
+    }
 
     public record TypeReference(TypeInfo typeInfo, TypeReferenceNature typeReferenceNature, TypeInfo typeToImport)
             implements Element.TypeReference {

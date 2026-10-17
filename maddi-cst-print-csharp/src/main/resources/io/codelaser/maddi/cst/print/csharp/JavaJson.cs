@@ -1,5 +1,7 @@
 // Maddi.JavaCompat: what code translated from Java with a Jackson mapping needs beside its JSON library.
 
+#nullable enable
+
 using System;
 
 namespace Maddi.JavaCompat;

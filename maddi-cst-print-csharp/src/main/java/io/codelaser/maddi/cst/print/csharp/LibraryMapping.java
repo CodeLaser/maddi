@@ -72,7 +72,7 @@ public interface LibraryMapping {
         }
 
         /** The template's type name, without its arguments and the {@code System} namespace. */
-        private String name() {
+        String name() {
             int angle = template.indexOf('<');
             String name = angle < 0 ? template : template.substring(0, angle);
             return name.startsWith("System.") ? name.substring("System.".length()) : name;
@@ -120,6 +120,11 @@ public interface LibraryMapping {
                                                   || statement != null && COLLECTION.matcher(statement).find())) {
                 namespaces = Stream.concat(namespaces.stream(), Stream.of(GENERIC)).toList();
             }
+        }
+
+        /** This rule, its value nullable: a mapping file's {@code ->?}, a member the compatibility library declares {@code T?}. */
+        public Rule withNullableResult() {
+            return new Rule(value, statement, namespaces, true);
         }
 
         public String template(boolean asStatement) {

@@ -624,11 +624,12 @@ public final class SourceCodeScan {
 
     private void scanCodeBlock(Node cb) {
         LOGGER.debug("Scan {}: {}", cb.getClass(), limit(cb.getSource()));
+        List<CodeBlock> blocks = new ArrayList<>();
         visit(cb, child -> {
             if (child instanceof Statement st) {
-                addComments(st, true);
+                addStatementComments(st);
                 if (st instanceof CodeBlock sub && !sub.isEmpty()) {
-                    addTrailingComments(source(sub), sub.getLastChild());
+                    blocks.add(sub);
                 }
             }
             if (child instanceof TypeDeclaration td) {
@@ -651,6 +652,43 @@ public final class SourceCodeScan {
             }
             return true;
         });
+        // ⚠ AFTER the statements: the comment after a block's last statement, on its line, sits in front of the
+        // block's '}' and belongs to that statement (#128); the statements have claimed theirs by now
+        blocks.forEach(sub -> addTrailingComments(source(sub), sub.getLastChild()));
+    }
+
+    /*
+    #128: the single-line comment after a statement, on its last line, belongs to the statement it follows. It is
+    found in front of the token AFTER the statement, which need not be the statement's next sibling: the statement may
+    be the last of its block (in front of the '}'), or the body of a braceless 'if', 'for', 'while' or 'else' (in
+    front of whatever follows the owning statement). Two refinements:
+    - a statement whose last child is a braceless statement leaves the comment to that statement: in
+      'if (c) return true; // found' it belongs to the 'return', not to the 'if';
+    - a block that is the body of a statement gives the comment after its '}' to that statement: in
+      '} // found' followed by 'else', it belongs to the 'if', not to the then-block (where it would be read as
+      the block's LEADING comment).
+     */
+    private void addStatementComments(Statement st) {
+        Node.TerminalNode last = lastTerminal(st);
+        Node after = last == null ? null : last.getNext();
+        if (st.getLastChild() instanceof Statement body && !(body instanceof CodeBlock)) {
+            after = null;
+        }
+        if (st instanceof CodeBlock && st.getParent() instanceof Statement owner && !(owner instanceof CodeBlock)) {
+            addComments(st, null);
+            addLookaheadComments(source(owner), source(st).endLine(), after);
+        } else {
+            addComments(st, after);
+        }
+    }
+
+    private Node.TerminalNode lastTerminal(Node node) {
+        if (node instanceof Node.TerminalNode tn) return tn;
+        for (int i = node.size() - 1; i >= 0; i--) {
+            Node.TerminalNode tn = lastTerminal(node.get(i));
+            if (tn != null) return tn;
+        }
+        return null;
     }
 
     private void scanCall(Node child) {
@@ -727,22 +765,27 @@ public final class SourceCodeScan {
      */
     private void addComments(Node node, @Nullable Node nextSibling) {
         Source source = source(node);
-        if (nextSibling != null) {
-            List<Comment> comments = comments(nextSibling)
-                    .filter(c -> c.source().endLine() == c.source().beginLine()
-                                 && c.source().beginLine() == source.endLine())
-                    .filter(c -> seen.add(c.source()))
-                    .toList();
-            if (!comments.isEmpty()) {
-                List<Comment> prev = this.comments.put(source, comments);
-                assert prev == null;
-            }
-        }
+        addLookaheadComments(source, source.endLine(), nextSibling);
         List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();
         if (!comments.isEmpty()) {
             this.comments.merge(source, comments,
                     // note the order: the current one is the lookahead, it must come last
                     (c1, c2) -> Stream.concat(c2.stream(), c1.stream()).toList());
+        }
+    }
+
+    /**
+     * The single-line comments in front of {@code nextSibling} that sit on {@code line}, after the code that ends
+     * there, recorded for {@code owner} after whatever it already holds.
+     */
+    private void addLookaheadComments(Source owner, int line, @Nullable Node nextSibling) {
+        if (nextSibling == null) return;
+        List<Comment> comments = comments(nextSibling)
+                .filter(c -> c.source().endLine() == c.source().beginLine() && c.source().beginLine() == line)
+                .filter(c -> seen.add(c.source()))
+                .toList();
+        if (!comments.isEmpty()) {
+            this.comments.merge(owner, comments, (c1, c2) -> Stream.concat(c1.stream(), c2.stream()).toList());
         }
     }
 

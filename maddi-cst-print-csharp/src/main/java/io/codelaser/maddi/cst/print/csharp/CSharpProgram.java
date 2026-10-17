@@ -151,6 +151,7 @@ public final class CSharpProgram {
     private final Map<String, TypeInfo> packageInfos;
     private final List<TypeInfo> types;
     private final Set<TypeParameter> notNullKeys;
+    private final CSharpWildcardInterfaces.Uses wildcardUses;
     private final Memo memo = new Memo();
 
     /** The decisions as the analyses make them, one after the other; what none has made yet is the NONE program's. */
@@ -172,6 +173,7 @@ public final class CSharpProgram {
         Map<String, TypeInfo> packageInfos = Map.of();
         List<TypeInfo> types = List.of();
         Set<TypeParameter> notNullKeys = Set.of();
+        CSharpWildcardInterfaces.Uses wildcardUses = CSharpWildcardInterfaces.Uses.NONE;
 
         CSharpProgram build() {
             return new CSharpProgram(this);
@@ -203,6 +205,7 @@ public final class CSharpProgram {
         packageInfos = b.packageInfos;
         types = b.types;
         notNullKeys = b.notNullKeys;
+        wildcardUses = b.wildcardUses;
     }
 
     @SuppressWarnings("unused") // kept: the analysis under the default policy, for callers outside --translate
@@ -234,6 +237,8 @@ public final class CSharpProgram {
         CSharpContext.program(b.build());
         List<TypeInfo> all = new ArrayList<>();
         primaryTypes.forEach(t -> collect(t, all));
+        // a method's result is nullable where an override's is (FamilyFacts)
+        b.facts = FamilyFacts.of(b.facts, all);
         CSharpProgramIndex index = CSharpProgramIndex.of(all);
         Set<TypeInfo> candidates = new HashSet<>();
         Set<TypeInfo> implemented = new HashSet<>();
@@ -263,7 +268,10 @@ public final class CSharpProgram {
         b.extended = Set.copyOf(extended);
         b.overridden = Set.copyOf(overridden);
         if (policy.accessors() == Accessors.PROPERTIES) {
-            b.properties = CSharpProperties.analyze(index, overridden, delegates);
+            // a superclass's method that implements a subclass's interface is a method there too
+            Set<MethodInfo> implementing = new HashSet<>(overridden);
+            all.forEach(t -> implementing.addAll(CSharpHierarchy.inheritedImplementations(t)));
+            b.properties = CSharpProperties.analyze(index, implementing, delegates);
         }
         b.readOnly = CSharpReadOnly.analyze(index, policy.facts(), delegates);
         b.erasedGenerics = erasedGenerics(index);
@@ -275,6 +283,9 @@ public final class CSharpProgram {
         b.types = List.copyOf(all);
         // only C#'s nullable context checks a dictionary's key (CS8714)
         if (policy.facts().nullabilityAnalysed()) b.notNullKeys = CSharpNotNullKeys.analyze(all);
+        // which wildcards are a wildcard interface: the capture of a method's parameter asks which classes are open
+        CSharpContext.program(b.build());
+        b.wildcardUses = CSharpWildcardInterfaces.wildcarded(all);
         return b.build();
     }
 
@@ -625,6 +636,16 @@ public final class CSharpProgram {
     }
 
     /** {@code typeInfo} is printed as a C# delegate. */
+    /** The type parameters of a program type that the program declares with a wildcard ({@link CSharpWildcardInterfaces#wildcarded}). */
+    Set<TypeParameter> wildcarded(TypeInfo typeInfo) {
+        return wildcardUses.wildcarded().getOrDefault(typeInfo, Set.of());
+    }
+
+    /** The members the code reaches through a wildcard of the type: a method called, a field read. */
+    Set<Object> reachedThroughWildcard(TypeInfo typeInfo) {
+        return wildcardUses.reached().getOrDefault(typeInfo, Set.of());
+    }
+
     public boolean delegate(TypeInfo typeInfo) {
         return delegates.contains(typeInfo);
     }

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -67,6 +68,10 @@ public final class CSharpTypeName {
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
             "KeyValuePair", "ValueTuple");
 
+    /** The structs a Java reference type maps to, {@link #valueReference}. */
+    private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
+            "DateTimeOffset", "TimeSpan");
+
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
             "java.util.List", "IList",
@@ -83,6 +88,61 @@ public final class CSharpTypeName {
             "java.util.Set", "IReadOnlyCollection",
             "java.lang.Iterable", "IEnumerable");
 
+    private static final ThreadLocal<Boolean> EXPRESSION = ThreadLocal.withInitial(() -> false);
+
+    /** The record whose positional parameter list is printed ({@link #inHeader}); null otherwise. */
+    private static final ThreadLocal<TypeInfo> HEADER = new ThreadLocal<>();
+
+    /** {@code header}'s positional parameter list, printed by {@code print}: its own nested types qualified. */
+    static <T> T inHeader(TypeInfo header, Supplier<T> print) {
+        TypeInfo outer = HEADER.get();
+        HEADER.set(header);
+        try {
+            return print.get();
+        } finally {
+            HEADER.set(outer);
+        }
+    }
+
+    private static boolean nestedInHeader(TypeInfo typeInfo) {
+        TypeInfo header = HEADER.get();
+        if (header == null || !CSharpNames.translated(typeInfo)) return false;
+        for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) {
+            if (t.equals(header)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * A type as an expression, {@code Kind.Filter}, {@code Owner.Method}: without {@code ?}, and qualified where a
+     * member hides it, a property too ({@link #shadowedByMember}); in a declaration C# looks for a type only.
+     */
+    static String inExpression(ParameterizedType pt, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return of(pt, q, true);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** {@link #inExpression} of a type's name. */
+    static String nameInExpression(TypeInfo typeInfo, Qualification q) {
+        boolean outer = EXPRESSION.get();
+        EXPRESSION.set(true);
+        try {
+            return name(typeInfo, q);
+        } finally {
+            EXPRESSION.set(outer);
+        }
+    }
+
+    /** An array's element type: an enum's or a struct's is the value type itself, an Integer's int? (Integer[]). */
+    static String element(ParameterizedType element, Qualification q) {
+        return of(element, q, !element.isBoxedExcludingVoid());
+    }
+
     /** The C# type reference, no leading or trailing space. */
     public static String of(ParameterizedType pt, Qualification q) {
         return of(pt, q, false);
@@ -94,6 +154,8 @@ public final class CSharpTypeName {
      */
     static String declared(ParameterizedType pt, boolean readOnly, NullableState nullable,
                            Qualification q) {
+        // an empty Optional is null: Optional<T> is T? whatever the analysis says of the Optional itself
+        if (optional(pt)) nullable = NullableState.NULLABLE;
         String type;
         String readOnlyName = readOnly ? CSharpReadOnly.readOnlyName(pt) : null;
         if (readOnlyName != null) {
@@ -102,11 +164,23 @@ public final class CSharpTypeName {
         } else {
             type = of(pt, q);
         }
+        return withNullable(pt, type, nullable);
+    }
+
+    /** {@code type}, printed for {@code pt}, as {@code type?} when it is a reference type that may be null. */
+    static String withNullable(ParameterizedType pt, String type, NullableState nullable) {
         // a method's own type parameter only where its method's signature allows (CSharpMethodPrinter)
         boolean reference = pt.arrays() > 0 || !pt.isPrimitiveExcludingVoid() && !type.endsWith("?") && !pt.isVoid()
                                                && !(pt.isTypeParameter() && pt.typeParameter().isMethodTypeParameter());
         return nullable == NullableState.NULLABLE && reference && valueTypeFree(pt, type)
                && !unmapped(pt) ? type + "?" : type;
+    }
+
+    /** A type whose mapping is its type argument, {@code {0?}}: Optional's, whose empty value is null. */
+    static boolean optional(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.typeInfo() == null) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(pt.typeInfo());
+        return bcl != null && bcl.ofArgument();
     }
 
     /**
@@ -149,13 +223,25 @@ public final class CSharpTypeName {
             if (pattern.namespace() != null) CSharpContext.using(pattern.namespace());
             return pattern.value();
         }
-        return of(pt, q, true);
+        return of(ownTypeArguments(pt), q, true);
+    }
+
+    /**
+     * {@code o instanceof Pair<?, ?>} in Pair itself (its equals) as {@code o is Pair<A, B>}: C# cannot test against
+     * an open generic type, and {@code Pair<object, object>} would not match a {@code Pair<string, int>}. Inside the
+     * class its own type parameters are in scope; other types keep the wildcards as {@code object}.
+     */
+    private static ParameterizedType ownTypeArguments(ParameterizedType pt) {
+        TypeInfo current = CSharpContext.currentType();
+        if (current == null || pt.arrays() > 0 || !current.equals(pt.typeInfo()) || pt.parameters().isEmpty()
+            || !pt.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard)) return pt;
+        return current.asParameterizedType();
     }
 
     private static String of(ParameterizedType pt, Qualification q, boolean typeArgument) {
         if (pt.arrays() > 0) {
             ParameterizedType element = pt.copyWithoutArrays();
-            return of(element, q, false) + "[]".repeat(pt.arrays());
+            return element(element, q) + "[]".repeat(pt.arrays());
         }
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound() || pt.typeInfo() == null && pt.typeParameter() == null) {
@@ -222,9 +308,34 @@ public final class CSharpTypeName {
             printed.add(unbound ? rawArgument(typeInfo.typeParameters().get(i), q) : of(a, q, true));
         }
         LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
-        if (bcl != null) return bcl(bcl, printed, arguments, q);
-        String name = name(typeInfo, q);
-        return printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        String name = bcl != null ? bcl(bcl, printed, arguments, q) : name(typeInfo, q);
+        String type = bcl != null || printed.isEmpty() ? name : name + "<" + String.join(", ", printed) + ">";
+        return !typeArgument && valueReference(pt) ? type + "?" : type;
+    }
+
+    /** A library type C# prints without its type arguments: {@code Class<A>}'s {@code Type}. */
+    static boolean dropsArguments(TypeInfo t) {
+        String fqn = t.fullyQualifiedName();
+        if (PRIMITIVE.containsKey(fqn) || BOXED.containsKey(fqn) || MAPPED.containsKey(fqn)) return true;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(t);
+        return bcl != null && !bcl.template().contains("{") && (bcl.template().contains("<") || bcl.dropArguments());
+    }
+
+    /**
+     * A Java reference type that is a C# value type, which Java's null makes {@code X?} as it makes an
+     * {@code Integer} {@code int?}: a boxed primitive, a simple enum (a C# enum), a library type mapped to a struct
+     * ({@code Duration}'s {@code TimeSpan}). Not {@code Map.Entry}'s {@code KeyValuePair}: an entry is its map's,
+     * and {@code KeyValuePair<K, V>?} would cast every {@code e.Key} of a for-each over the map. A type argument
+     * and an array's element are the value type itself: {@code List<E>}, {@code Enum.GetValues<E>()}'s {@code E[]}.
+     */
+    static boolean valueReference(ParameterizedType pt) {
+        if (pt == null || pt.arrays() != 0 || pt.isTypeParameter() || pt.typeInfo() == null) return false;
+        if (pt.isBoxedExcludingVoid()) return true;
+        TypeInfo typeInfo = pt.typeInfo();
+        if (typeInfo.typeNature().isEnum()) return CSharpNames.translated(typeInfo) && CSharpNames.simpleEnum(typeInfo);
+        if (CSharpNames.translated(typeInfo)) return false;
+        LibraryMapping.TypeMapping bcl = CSharpContext.libraries().type(typeInfo);
+        return bcl != null && !bcl.ofArgument() && STRUCTS.contains(bcl.name());
     }
 
     /**
@@ -283,6 +394,11 @@ public final class CSharpTypeName {
             String fromPrimary = fromPrimaryType(typeInfo);
             return namespace.isEmpty() ? fromPrimary : namespace + "." + fromPrimary;
         }
+        if (nestedInHeader(typeInfo)) {
+            // a positional record's parameter list does not see the record's own nested types: R(R.Kind? Kind)
+            if (typeInfo.primaryType() != null) CSharpContext.referenced(CSharpNames.topLevel(typeInfo));
+            return fromPrimaryType(typeInfo);
+        }
         if (q == null) {
             CSharpContext.referenced(typeInfo);
             return CSharpNames.type(typeInfo);
@@ -314,16 +430,25 @@ public final class CSharpTypeName {
 
     /**
      * A member of the type being printed, of a type it is nested in, or of their superclasses, has the type's simple
-     * C# name: in C#, the member hides the type.
+     * C# name: in C#, the member hides the type. In an expression a property too, a getter's {@code StreamKind}: C#
+     * lets a property of the type itself be read as the type ("Color Color"), not one of its {@code StreamKind?}.
      */
     private static boolean shadowedByMember(TypeInfo typeInfo) {
         if (!CSharpNames.translated(typeInfo) || typeInfo.isAnonymous()) return false;
-        String name = CSharpNames.type(CSharpNames.topLevel(typeInfo));
+        // the name printed first: the top-level type's; in an expression, the type's own too, where it is in scope by
+        // its simple name, and a property's
+        boolean expression = EXPRESSION.get();
+        List<String> names = expression
+                ? List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)), CSharpNames.type(typeInfo))
+                : List.of(CSharpNames.type(CSharpNames.topLevel(typeInfo)));
+        CSharpProgram program = CSharpContext.program();
         for (TypeInfo t = CSharpContext.currentType(); t != null; t = CstQueries.enclosing(t)) {
             for (TypeInfo c : CstQueries.classChain(t)) {
                 if (!CSharpNames.translated(c)) break;
-                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && name.equals(CSharpNames.method(m)))
-                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && name.equals(CSharpNames.field(f)))) {
+                if (c.methods().stream().anyMatch(m -> !m.isSynthetic() && (names.contains(CSharpNames.method(m))
+                                                                             || expression && program.propertyRead(m) != null
+                                                                                && names.contains(program.propertyRead(m))))
+                    || c.typeNature().isRecord() && c.fields().stream().anyMatch(f -> !f.isStatic() && names.contains(CSharpNames.field(f)))) {
                     return true;
                 }
             }
@@ -367,11 +492,31 @@ public final class CSharpTypeName {
         return of(pt, q, true);
     }
 
+    /** A library's functional interface that C# has as a delegate: {@code Comparator<T>} as {@code Comparison<T>}. */
+    static boolean libraryDelegate(TypeInfo typeInfo) {
+        LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(typeInfo);
+        return mapping != null && mapping.delegate() && !CSharpNames.translated(typeInfo);
+    }
+
+    /**
+     * A type parameter C# leaves unconstrained ({@link #constraints}): its argument may be {@code string?}, so that C#
+     * takes its values to be ones that may be null where they go into {@code object} (CS8604).
+     */
+    static boolean unconstrained(ParameterizedType pt) {
+        if (pt == null || pt.arrays() > 0 || !pt.isTypeParameter()) return false;
+        TypeParameter tp = pt.typeParameter();
+        return tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+               && !CSharpContext.program().notNullKey(tp);
+    }
+
     /** The constraints of type parameters: {@code where T : IComparable<T>}; empty when they have no bounds. */
     static List<String> constraints(List<TypeParameter> typeParameters, Qualification q) {
         List<String> constraints = new ArrayList<>();
         for (TypeParameter tp : typeParameters) {
-            List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+            // a marker interface, E extends EventListener, is no C# type: no constraint
+            List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()
+                    && !(b.typeInfo() != null && b.arrays() == 0
+                         && CSharpBcl.MARKERS.contains(b.typeInfo().fullyQualifiedName()))).toList();
             // a dictionary's key (CSharpNotNullKeys), unless a class bound says it already
             boolean notNull = CSharpContext.program().notNullKey(tp)
                               && bounds.stream().noneMatch(b -> b.typeInfo() != null && !b.isTypeParameter()

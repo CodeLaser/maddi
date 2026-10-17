@@ -740,7 +740,8 @@ public class JavaUtilStream {
         <R, A> R collect(@NotNull Collector<? super T, A, R> collector) { return null; }
 
         //frequency 92
-        @NotNull @Finalizer
+        // the JDK specifies an unmodifiable List; its elements are the stream's, shared (maddi#141)
+        @ImmutableContainer(hc = true) @NotNull @Finalizer
         List<T> toList() { return null; }
 
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]

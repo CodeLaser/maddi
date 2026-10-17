@@ -635,6 +635,13 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                     result = formalInParentType;
                 } else if (formalInParentType.typeParameter() != null) {
                     result = map.get(formalInParentType.typeParameter());
+                    if (result == null && !bestOwnTypeParameter(formalInParentType.typeParameter())) {
+                        // not this type's own: an enclosing type's (KeySet extends ForwardingSet<K> inside
+                        // AbstractBiMap<K, V>) or a method's, which means the same here. Kept as it is: the formal
+                        // parameter of the supertype (Collection's E) means nothing here (guava's J2K translation,
+                        // `contains(o: E)`). This type's own unmapped parameter is a raw use: as before
+                        result = formalInParentType;
+                    }
                 } else {
                     result = param;
                 }
@@ -648,6 +655,12 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             i++;
         }
         return new ParameterizedTypeImpl(parentType.typeInfo(), List.copyOf(newParameters));
+    }
+
+    private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+        TypeInfo best = bestTypeInfo();
+        return best != null && typeParameter.getOwner() != null && typeParameter.getOwner().isLeft()
+               && typeParameter.getOwner().getLeft() == best;
     }
 
     @Override

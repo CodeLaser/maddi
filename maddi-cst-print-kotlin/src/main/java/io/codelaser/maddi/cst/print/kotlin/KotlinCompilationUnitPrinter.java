@@ -76,7 +76,8 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         }
         // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
         List<String> imports = new ArrayList<>(importData.imports().stream().map(i -> i.importString())
-                .filter(i -> !KotlinTypeName.isMapped(i)).map(i -> i.replaceFirst("^static\\s+", "")).toList());
+                .filter(i -> !KotlinTypeName.isMapped(i) && !KotlinTypeName.shadowsKotlinBuiltIn(i))
+                .map(i -> i.replaceFirst("^static\\s+", "")).toList());
         imports.addAll(missingImports(KotlinContext.takeReferencedTypes(), imports));
         imports.forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(i)))
                 .add(SpaceEnum.NEWLINE));

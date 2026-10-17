@@ -493,11 +493,14 @@ public class Main {
      * instruction, and it also wins over {@code sourceRelease} at parse time (see
      * {@link InputConfiguration#sourceRelease()}).
      */
-    /*
-     A configuration derived from a compile log declares its build files, hashed now: the globs of --build-files,
-     else nothing ("none"). Any other configuration is written as it was read.
+    /**
+     * A configuration derived from a compile log declares its build files, hashed now: the globs of --build-files,
+     * else nothing ("none"). Any other configuration is written as it was read.
+     * <p>
+     * Every driver that writes {@code --write-input-configuration} calls this, the mixed Java+Kotlin CLI included;
+     * a driver that wrote {@code inputConfiguration()} directly would accept {@code --build-files} and drop it.
      */
-    static InputConfiguration withBuildFiles(CommandLine cmd, InputConfiguration ic) {
+    public static InputConfiguration withBuildFiles(CommandLine cmd, InputConfiguration ic) {
         if (cmd.getOptionValue(COMPILE_LOG) == null) return ic;
         String[] globs = cmd.getOptionValues(BUILD_FILES);
         Path root = ic.workingDirectory() == null ? Path.of(".") : ic.workingDirectory();

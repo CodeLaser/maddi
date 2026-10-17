@@ -16,10 +16,14 @@ package io.codelaser.maddi.cst.print.formatter2;
 
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.Guide;
+import io.codelaser.maddi.cst.api.output.element.Keyword;
+import io.codelaser.maddi.cst.api.output.element.Symbol;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -146,13 +150,18 @@ public class BlockPrinter {
         // annotation/comment groups). It must NOT appear inside the inline decomposition of a single
         // construct — a method chain, argument list or parameter list (prioritySplit=false, tabs>=1) —
         // where a blank line in the middle of the expression is wrong. See baseSplitLevel.
-        boolean guideWantsBreathingSpace = block.guide().prioritySplit() || block.guide().tabs() == 0;
+        // with blank lines from the source, the formatter writes none of its own (#49)
+        boolean guideWantsBreathingSpace = !options.blankLinesFromSource()
+                                           && (block.guide().prioritySplit() || block.guide().tabs() == 0);
         for (OutputElement element : block.elements()) {
             if (!(element instanceof Formatter2Impl.Block sub)) throw new UnsupportedOperationException();
             Output output = write(sub, options);
             boolean currentHasNestedGuide = containsNestedGuideBlock(sub);
             SplitLevel splitLevel = baseSplitLevel(prevOutput, output, guideWantsBreathingSpace);
             splitLevel = isolateNestedGuide(splitLevel, prevHasNestedGuide, currentHasNestedGuide);
+            if (options.blankLinesFromSource() && prevOutput != null && sub.elements().getFirst() instanceof BlankLine) {
+                splitLevel = SplitLevel.DOUBLE_NEWLINE;
+            }
             if (splitLevel == SplitLevel.SINGLE_NEWLINE && output.spaceLevel().isNewLine()) {
                 // TODO is this a hack? to ensure that the NEWLINE of '//' passes
                 hasBeenSplit = true;
@@ -192,7 +201,8 @@ public class BlockPrinter {
      */
     private static SplitLevel baseSplitLevel(Output prevOutput, Output output, boolean guideWantsBreathingSpace) {
         if (guideWantsBreathingSpace
-                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit) {
+                && prevOutput != null && prevOutput.hasBeenSplit && output.hasBeenSplit
+                && !endsInComment(prevOutput.string)) {
             return SplitLevel.DOUBLE_NEWLINE;
         }
         if (output.spaceLevel().isNoSpace()) {
@@ -207,6 +217,16 @@ public class BlockPrinter {
             return prevWantsSpace ? SplitLevel.SINGLE_NEWLINE : SplitLevel.NONE_IF_COMPACT;
         }
         return SplitLevel.SINGLE_NEWLINE;
+    }
+
+    /*
+    A comment belongs to what follows it: no blank line after it (#49: a method's javadoc was printed a blank line
+    above the method, both being split over several lines)
+     */
+    private static boolean endsInComment(String output) {
+        String stripped = output.stripTrailing();
+        int lastLine = stripped.lastIndexOf('\n');
+        return stripped.endsWith("*/") || stripped.substring(lastLine + 1).stripLeading().startsWith("//");
     }
 
     /*
@@ -256,8 +276,14 @@ public class BlockPrinter {
         int i = 0;
         int n = block.elements().size();
         boolean protectSpaces = false;
-        for (OutputElement element : block.elements()) {
+        List<OutputElement> elements = block.elements();
+        for (OutputElement element : elements) {
             assert !(element instanceof Guide) : "Should have been filtered out";
+            if (options.bracesOnOwnLine() && isSymbol(element, "LEFT_BRACE") && i + 1 < n
+                && isPriorityBlock(elements.get(i + 1))) {
+                // Allman: the body's '{' on a line of its own, at the indentation of what it belongs to
+                line.mergeSpace(Line.SpaceLevel.NEWLINE);
+            }
             if (element instanceof Formatter2Impl.Block sub) {
                 boolean blockHasBeenSplit = handleBlock(line, options, sub);
                 hasBeenSplit |= blockHasBeenSplit;
@@ -272,11 +298,31 @@ public class BlockPrinter {
                         element, lastElement, protectSpaces);
                 if (element.isLeftBlockComment()) protectSpaces = true;
                 if (element.isRightBlockComment()) protectSpaces = false;
+                if (options.bracesOnOwnLine() && isSymbol(element, "RIGHT_BRACE") && i > 0 && i + 1 < n
+                    && isPriorityBlock(elements.get(i - 1)) && continuesStatement(elements.get(i + 1))) {
+                    // Allman: '}' and 'else' (catch, finally, the while of a do) on lines of their own
+                    line.setSpace(Line.SpaceLevel.NEWLINE);
+                }
             }
             ++i;
         }
         String string = line.toString();
         return new Output(string, hasBeenSplit, splitInfo, line.spaceLevel());
+    }
+
+    private static boolean isSymbol(OutputElement element, String constant) {
+        return element instanceof Symbol symbol && constant.equals(symbol.constant());
+    }
+
+    private static boolean isPriorityBlock(OutputElement element) {
+        return element instanceof Formatter2Impl.Block b && b.guide() != null && b.guide().prioritySplit();
+    }
+
+    private static boolean continuesStatement(OutputElement element) {
+        return element instanceof Keyword keyword && switch (keyword.minimal()) {
+            case "else", "catch", "finally", "while" -> true;
+            default -> false;
+        };
     }
 
     /*
@@ -295,7 +341,7 @@ public class BlockPrinter {
         // When requested, a priority guide block (class/method body, other generatorForBlock
         // structures) is always broken onto its own lines, even if it would fit — conventional
         // "brace on its own line" layout rather than the compact single-line-if-it-fits default.
-        boolean forcePriorityBreak = options.alwaysBreakPriorityBlocks()
+        boolean forcePriorityBreak = (options.alwaysBreakPriorityBlocks() || options.bracesOnOwnLine())
                 && sub.guide() != null && sub.guide().prioritySplit();
         // A block whose last element is a '//' comment ends in a NEWLINE space level (see
         // SingleLineCommentImpl.print). Inlining drops that -- the space level of an inlined output is never
@@ -307,6 +353,7 @@ public class BlockPrinter {
             splitOutputOfBlock(line, output, indent, splits, options);
             return true;
         }
+        ElementPrinter.glueAfterTypeArguments(line, output.string);
         Line.SpaceLevel spaceLevel = line.spaceLevel();
 
         // TODO is this a hack? see ElementPrinter.handleNonSpaceNonSymbol TODO
@@ -314,6 +361,11 @@ public class BlockPrinter {
         else if(spaceLevel == Line.SpaceLevel.NEWLINE) line.appendNewLine(line.indent);
         boolean doFirst = !spaceLevel.isNoSpace();
         appendAndInsertSpaceSplits(line, output, splits, doFirst);
+        // the pending space was IN FRONT of the block, and has been written: left pending, it was merged into the
+        // first symbol after the block, where a plain space outranks that symbol's own "no space" (#49:
+        // `int a = 1, b = 2 ;`, after the joined declarators)
+        line.setSpace(Line.SpaceLevel.EMPTY);
+        line.setAfterTypeArguments(false);
         return false;
     }
 

@@ -98,7 +98,9 @@ final class CSharpModifiers {
         }
         return switch (declared) {
             case PUBLIC -> "public";
-            case PROTECTED -> "protected internal";
+            // a static class has no protected members (CS1057): a generic class's companion's protected static,
+            // which Java's subclasses reach, is the program's
+            case PROTECTED -> owner != null && owner.equals(CSharpContext.companion()) ? "internal" : "protected internal";
             case PRIVATE -> "private";
             case PACKAGE -> "internal";
         };
@@ -112,6 +114,11 @@ final class CSharpModifiers {
                 && !("java.lang.Object".equals(o.typeInfo().fullyQualifiedName()) && !CSharpBcl.objectOverridable(o)));
         // or an interface's method that an abstract superclass redeclares abstract
         if (!overridesClassMethod) overridesClassMethod = redeclaredAbove(m, owner);
+        // a method of a class that implements Set itself, which JavaSet declares (CSharpBcl.directSet)
+        if (!overridesClassMethod && CSharpBcl.directSet(owner)) {
+            overridesClassMethod = CSharpBcl.JAVA_SET_METHODS.contains(m.name() + "/" + m.parameters().size())
+                                   && m.typeParameters().isEmpty();
+        }
         CSharpProgram program = CSharpContext.program();
         if (overridesClassMethod) {
             if (m.isAbstract()) return "abstract override";

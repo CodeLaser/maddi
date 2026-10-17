@@ -51,4 +51,27 @@ public interface FormattingOptions {
      * Default false, preserving the historical compact behaviour.
      */
     boolean alwaysBreakPriorityBlocks();
+
+    /**
+     * Brace placement. When true (Allman style), the '{' of a class, method or statement body goes on a line of its
+     * own, aligned with the declaration or statement it belongs to, and the body is always broken onto its own
+     * lines; 'else', 'catch', 'finally' and the 'while' of a do-while start the line after a '}'. An array
+     * initializer, a lambda's or an empty body keep their brace. Default false: the brace ends the line (K&R).
+     * A consumer that inferred a project's style maps "braces not at end of line" to this
+     * (CodeLaser/maddi#49).
+     */
+    default boolean bracesOnOwnLine() {
+        return false;
+    }
+
+    /**
+     * Blank lines. When true, a blank line is written where the source has one, between statements, between
+     * members, after the package declaration and after the imports, and nowhere else; the formatter's own blank
+     * lines, around statements and members that span several lines, are not written. Code that a tool moves then
+     * keeps the vertical layout its authors gave it. An element without a source has no blank line in front of it.
+     * Default false: the formatter's own blank lines (CodeLaser/maddi#49).
+     */
+    default boolean blankLinesFromSource() {
+        return false;
+    }
 }

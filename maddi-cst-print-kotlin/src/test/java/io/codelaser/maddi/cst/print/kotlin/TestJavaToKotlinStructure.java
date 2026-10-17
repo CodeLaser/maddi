@@ -1049,6 +1049,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             type.methods().stream().filter(m -> m.name().equals("same"))
                     .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IDENTITY_METHOD,
                             io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+            notModified(type, "size", "getOrDefault");
         });
         contains(kotlin, "private val names: List<String>");
         contains(kotlin, "private val counts: Map<String, Int>");
@@ -1098,6 +1099,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     private static void unmodifiedFields(TypeInfo type) {
         type.fields().forEach(f -> f.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
                 io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+        notModified(type, "size");
     }
 
     /**
@@ -1190,5 +1192,947 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "n += r.length");
         contains(kotlin, "if (o is Int) o else 0");
         contains(kotlin, "n + (o as String).length");
+    }
+
+    @Language("java")
+    private static final String BORN_IMMUTABLE = """
+            package a;
+            import java.util.*;
+            final class Born {
+                private final List<String> names;
+                private final Map<String, Integer> counts = Map.of("a", 1, "b", 2);
+                private final Set<String> none = Set.of();
+                private final Map<Integer, Integer[]> pairs = Map.of(1, new Integer[]{2, null});
+                private final List<String> grown = new ArrayList<>();
+                Born(List<String> names) { this.names = List.copyOf(names); }
+                List<String> names() { return names; }
+                static List<String> letters() { return List.of("a", "b"); }
+                List<String> grown() { return grown; }
+                int size() { return names.size() + counts.size() + none.size() + pairs.size(); }
+            }
+            """;
+
+    /**
+     * maddi#141: a field or result only ever given an immutable value is read-only without the analysis'
+     * structural verdict, and List.of prints as listOf where it lands read-only. The archive's
+     * {@code @ImmutableContainer} on List.of, copyOf, Set.of and Map.of is set here as the stored property it becomes.
+     */
+    @Test
+    public void bornImmutable() {
+        String kotlin = kotlin(BORN_IMMUTABLE, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(kotlin, "private val names: List<String>");
+        contains(kotlin, "private val counts: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)");
+        contains(kotlin, "private val none: Set<String> = emptySet()");
+        contains(kotlin, "fun names(): List<String> = names");
+        contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
+        // in mapOf(k to v) the pair hides the field's type from the array: Java's call stays
+        contains(kotlin, "= java.util.Map.of(1, arrayOf(2, null))");
+        // copyOf keeps Java's call: listOf has no copying form
+        contains(kotlin, "this.names = java.util.List.copyOf(names)");
+        // a new ArrayList is no immutable value, and nothing proves it unmodified
+        contains(kotlin, "private val grown: MutableList<String>");
+    }
+
+    @Language("java")
+    private static final String UNMODIFIABLE_VIEW = """
+            package a;
+            import java.util.*;
+            final class Viewed {
+                private final List<String> names;
+                private final Map<String, Integer> counts;
+                private final List<String> grown = new ArrayList<>();
+                Viewed(List<String> names, Map<String, Integer> counts) {
+                    this.names = Collections.unmodifiableList(names);
+                    this.counts = Collections.unmodifiableMap(counts);
+                }
+                List<String> names() { return names; }
+                Map<String, Integer> counts() { return counts; }
+                static List<String> wrap(List<String> xs) { return Collections.unmodifiableList(xs); }
+                List<String> grown() { return grown; }
+                int size() { return names.size() + counts.size() + grown.size(); }
+            }
+            """;
+
+    /**
+     * CodeLaser/maddi-mod#52: an unmodifiable view is not immutable (whoever holds the list it wraps can change it),
+     * but nothing is added to or removed from it through this reference, which is all a read-only type says. The
+     * archive's {@code @UnmodifiableView} on Collections.unmodifiable* is set here as the stored property it becomes.
+     */
+    @Test
+    public void unmodifiableView() {
+        String kotlin = kotlin(UNMODIFIABLE_VIEW, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && "java.util.Collections".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
+                    && mc.methodInfo().name().startsWith("unmodifiable")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIABLE_VIEW_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(kotlin, "private val names: List<String>");
+        contains(kotlin, "private val counts: Map<String, Int>");
+        contains(kotlin, "fun names(): List<String> = names");
+        contains(kotlin, "fun counts(): Map<String, Int> = counts");
+        contains(kotlin, "fun wrap(xs: MutableList<String>): List<String>");
+        // a view is not an immutable value: no listOf, Java's call stays
+        contains(kotlin, "Collections.unmodifiableList(names)");
+        contains(kotlin, "private val grown: MutableList<String>");
+    }
+
+    @Language("java")
+    private static final String FAMILY = """
+            package a;
+            import java.util.*;
+            class Family {
+                interface Counter { int count(List<String> names); }
+                static class Plain implements Counter {
+                    public int count(List<String> names) { return names.size(); }
+                }
+                static class Twice extends Plain {
+                    @Override public int count(List<String> names) { return 2 * names.size(); }
+                }
+                interface Sink { void put(List<String> names); }
+                static class Filler implements Sink {
+                    public void put(List<String> names) { names.add("x"); }
+                }
+                static class Reader implements Sink {
+                    public void put(List<String> names) { System.out.println(names.size()); }
+                }
+                interface Viewer { int view(List<String> names); }
+                static Viewer viewer() { return names -> names.size(); }
+                static class Shown implements Viewer {
+                    public int view(List<String> names) { return names.size(); }
+                }
+            }
+            """;
+
+    /**
+     * maddi-mod#25, the family rule: in the code translated together an open method's collection parameter is
+     * read-only when it is in every member of its override family (Kotlin wants an override's parameter types exactly
+     * the overridden member's). One member that adds keeps the whole family mutable; so does a lambda implementing
+     * it, whose parameter Kotlin types from the interface.
+     */
+    @Test
+    public void familyRule() {
+        String world = kotlinInWorld(FAMILY, KotlinPrintOptions.DEFAULT, type -> {
+            type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p -> {
+                boolean adds = m.name().equals("put");
+                p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.from(!adds));
+            }));
+            type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
+        });
+        contains(world, "fun count(names: List<String>): Int");
+        contains(world, "override fun count(names: List<String>): Int = names.size");
+        contains(world, "override fun count(names: List<String>): Int = 2 * names.size");
+        contains(world, "fun put(names: MutableList<String>)");
+        contains(world, "fun view(names: MutableList<String>): Int");
+
+        String alone = kotlin(FAMILY.replace("class Family", "class Alone"), KotlinPrintOptions.DEFAULT, type -> {
+            type.recursiveSubTypeStream().flatMap(TypeInfo::methodStream).forEach(m -> m.parameters().forEach(p ->
+                    p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+            type.recursiveSubTypeStream().forEach(t -> notModified(t, "size"));
+        });
+        // the printer alone sees no family: open methods keep Java's mutable type
+        contains(alone, "fun count(names: MutableList<String>): Int");
+    }
+
+    @Language("java")
+    private static final String FAMILY_RESULTS = """
+            package a;
+            import java.util.*;
+            class Results {
+                interface Source { List<String> names(); }
+                static class Fixed implements Source {
+                    public List<String> names() { return List.of("a", "b"); }
+                }
+                static class Grower implements Source {
+                    private final List<String> grown = new ArrayList<>();
+                    public List<String> names() { return grown; }
+                }
+                interface Bag { List<String> items(); }
+                static class Held implements Bag {
+                    public List<String> items() { return List.of("c"); }
+                }
+                static int count(Source s) { return s.names().size(); }
+                static void fill(Bag b) { b.items().add("d"); }
+                interface Memory { List<String> messages(); }
+                static class Window implements Memory {
+                    private final List<String> kept = new ArrayList<>();
+                    public List<String> messages() { return List.copyOf(kept); }
+                }
+                static void grow(Memory m) {
+                    var l = Optional.ofNullable(m).map(Memory::messages).orElseGet(ArrayList::new);
+                    l.add("e");
+                }
+            }
+            """;
+
+    /**
+     * maddi-mod#25, the result side: in the code translated together an abstract method returns a read-only
+     * collection when each call of it only reads, and an override may then return one too, or keep a
+     * MutableList (Kotlin's results are covariant). A caller that adds keeps the whole line mutable.
+     */
+    @Test
+    public void familyResults() {
+        String world = kotlinInWorld(FAMILY_RESULTS, KotlinPrintOptions.DEFAULT, type -> {
+            KotlinReadOnlyTestAccess.forEachBody(type, body -> body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.methodInfo().isStatic()
+                    && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.")
+                    && !mc.methodInfo().analysis().haveAnalyzedValueFor(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD)) {
+                    mc.methodInfo().analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.IMMUTABLE_METHOD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+                }
+                return true;
+            }));
+            notModified(type, "size");
+        });
+        contains(world, "fun names(): List<String>\n");
+        contains(world, "override fun names(): List<String> = listOf(\"a\", \"b\")");
+        contains(world, "override fun names(): MutableList<String> = grown");
+        contains(world, "fun items(): MutableList<String>\n");
+        contains(world, "override fun items(): MutableList<String>");
+        // a method reference may hand the result on to anything: Memory::messages, then add
+        contains(world, "fun messages(): MutableList<String>\n");
+
+        String alone = kotlin(FAMILY_RESULTS.replace("class Results", "class Alone"), type -> notModified(type, "size"));
+        // the printer alone sees no world: abstract and overriding methods keep Java's mutable type
+        contains(alone, "fun names(): MutableList<String>\n");
+        compiles(world);
+    }
+
+    /**
+     * maddi-mod#50: guava's printing did not finish. Each field's reads are assignments to the next two, so deciding
+     * the first asked for every later one along each path to it: Fibonacci-many decisions of 40 fields, as nothing
+     * decided inside an open chain was remembered.
+     */
+    @Test
+    public void chainOfFieldsDecidedOnce() {
+        int n = 40;
+        StringBuilder source = new StringBuilder("package a;\nimport java.util.*;\nclass Chain {\n");
+        for (int i = 0; i < n; i++) source.append("    private List<String> f").append(i).append(" = new ArrayList<>();\n");
+        source.append("    void link() {\n");
+        for (int i = 0; i + 1 < n; i++) {
+            source.append("        f").append(i + 1).append(" = f").append(i).append(";\n");
+            if (i + 2 < n) source.append("        f").append(i + 2).append(" = f").append(i).append(";\n");
+        }
+        source.append("    }\n    int size() { return f").append(n - 1).append(".size(); }\n}\n");
+        String kotlin = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(60),
+                () -> kotlinInWorld(source.toString(), KotlinPrintOptions.DEFAULT, type -> {
+                    type.fields().forEach(f -> f.analysis().set(
+                            io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                            io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+                    notModified(type, "size");
+                }));
+        contains(kotlin, "private val f0: List<String>");
+        contains(kotlin, "private var f" + (n - 1) + ": List<String>");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's AbstractBiMap.KeySet: an inner class's collection override takes Kotlin's parameter type through the
+     * supertype chain, where the outer class's type variable stays itself ({@code contains(o: K)}). It used to fall
+     * back to the supertype's formal parameter, {@code contains(o: E)}, which names nothing there.
+     */
+    @Test
+    public void innerCollectionOverrideKeepsOuterTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class BiMap<K, V> {
+                    private final Set<K> keys = new HashSet<>();
+                    abstract static class Forwarding<E> extends AbstractSet<E> { }
+                    class KeySet extends Forwarding<K> {
+                        @Override public boolean contains(Object o) { return keys.contains(o); }
+                        @Override public boolean remove(Object o) { return keys.remove(o); }
+                        @Override public Iterator<K> iterator() { return keys.iterator(); }
+                        @Override public int size() { return keys.size(); }
+                    }
+                }
+                """);
+        contains(kotlin, "override fun contains(o: K): Boolean");
+        contains(kotlin, "override fun remove(o: K): Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's maps: Java's Map.remove(Object, Object), getOrDefault(Object, V) and putAll(Map<? extends K, ? extends V>)
+     * are Kotlin's remove(key: K, value: V), getOrDefault(key: K, defaultValue: V) and putAll(from: Map<out K, V>).
+     */
+    @Test
+    public void mapOverridesTakeKotlinsParameterTypes() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Forwarding<K, V> extends AbstractMap<K, V> {
+                    private final Map<K, V> delegate = new HashMap<>();
+                    @Override public Set<Map.Entry<K, V>> entrySet() { return delegate.entrySet(); }
+                    @Override public boolean remove(Object key, Object value) { return delegate.remove(key, value); }
+                    @Override public V getOrDefault(Object key, V defaultValue) { return delegate.getOrDefault(key, defaultValue); }
+                    @Override public void putAll(Map<? extends K, ? extends V> map) { delegate.putAll(map); }
+                }
+                """);
+        contains(kotlin, "override fun remove(key: K, value: V): Boolean");
+        contains(kotlin, "override fun getOrDefault(key: K, defaultValue: V");
+        contains(kotlin, "override fun putAll(map: Map<out K, V>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's AbstractMapBasedMultiset: a field named as a property a mapped supertype declares ({@code size} of
+     * Kotlin's Collection) is renamed, else Kotlin has two properties {@code size} and each use is ambiguous.
+     */
+    @Test
+    public void fieldClashingWithMappedPropertyIsRenamed() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Counted<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    private long size;
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public boolean add(E e) { size++; return items.add(e); }
+                    @Override public int size() { return (int) size; }
+                }
+                """);
+        contains(kotlin, "private var _size: Long");
+        contains(kotlin, "override val size: Int");
+        contains(kotlin, "_size++");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ArrayTable and ObjectArrays import java.lang.reflect.Array: imported, it shadows Kotlin's Array, and each
+     * {@code Array<V?>} is the reflection class, which takes no type arguments. It is written qualified instead.
+     */
+    @Test
+    public void reflectArrayDoesNotShadowKotlinsArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.Array;
+                class Arrays2<T> {
+                    static <T> int count(T[][] rows) { return rows.length; }
+                    @SuppressWarnings("unchecked")
+                    static <T> T[] newArray(T[] reference, int length) {
+                        return (T[]) Array.newInstance(reference.getClass().getComponentType(), length);
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
+        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "Array<Array<T");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's multimaps: {@code new Values()} of an inner class of a superclass, its outer instance implicit, is
+     * {@code Values()}; qualified, {@code Base.Values()}, Kotlin finds no receiver for it.
+     */
+    @Test
+    public void innerClassOfSuperclassConstructedBySimpleName() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Base {
+                    class Values { }
+                    class Wrapped { class It { } It it() { return new It(); } }
+                    static class Sub extends Base {
+                        Object values() { return new Values(); }
+                    }
+                }
+                """);
+        contains(kotlin, "= Values()");
+        contains(kotlin, "= It()");
+        assertFalse(kotlin.contains("Base.Values()"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's MapMakerInternalMap: a class's type parameter bounded by one of its own nested types. Kotlin resolves
+     * the header outside the class's scope, so the nested type is named from the class.
+     */
+    @Test
+    public void headerNamesOwnNestedTypesQualified() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Internal<K, E extends Internal.Entry<K, E>> implements Comparator<Internal.Entry<K, E>> {
+                    interface Entry<K, E extends Entry<K, E>> { K key(); }
+                    public int compare(Entry<K, E> a, Entry<K, E> b) { return 0; }
+                }
+                """);
+        contains(kotlin, "class Internal<K, E : Internal.Entry<K, E>>");
+        contains(kotlin, "Comparator<Internal.Entry<K, E>>");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Predicate redeclares equals(Object) abstract, for its documentation. In Kotlin that abstract override would
+     * oblige each implementing class to implement equals again; it is left out.
+     */
+    @Test
+    public void interfaceRedeclaringEqualsLeavesItOut() {
+        String kotlin = kotlin("""
+                package a;
+                interface Pred<T> {
+                    boolean apply(T input);
+                    @Override boolean equals(Object obj);
+                    @Override int hashCode();
+                }
+                """);
+        assertFalse(kotlin.contains("fun equals"), kotlin);
+        assertFalse(kotlin.contains("fun hashCode"), kotlin);
+        contains(kotlin, "fun apply(input: T): Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's {@code @Immutable(containerOf = "B")}: Java allows a single value for a named array element; Kotlin, for a
+     * Java annotation, only for the positional {@code value}, which is a vararg. A named one is {@code ["B"]}.
+     */
+    @Test
+    public void namedArrayElementOfJavaAnnotationIsAnArray() {
+        String kotlin = kotlin("""
+                package a;
+                @javax.annotation.processing.Generated(value = "gen", comments = "c")
+                class Old {
+                    @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)
+                    @interface Marker { }
+                }
+                """);
+        contains(kotlin, "value = [\"gen\"], comments = \"c\"");
+        // the positional value of a Java annotation stays a vararg
+        contains(kotlin, "@java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE)");
+    }
+
+    /**
+     * guava's Forwarding collections: {@code removeAll(Collection<?> c)} is Kotlin's {@code removeAll(elements:
+     * Collection<E>)}, read-only, and hands c to a translated method that takes a mutable collection. Cast, as the
+     * same java.util.Collection is passed at runtime.
+     */
+    @Test
+    public void forcedReadOnlyOverrideParameterIntoMutableIsCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> extends AbstractCollection<E> {
+                    protected boolean standardRemoveAll(Collection<?> collection) { collection.clear(); return true; }
+                    @Override public boolean removeAll(Collection<?> c) { return standardRemoveAll(c); }
+                }
+                """);
+        contains(kotlin, "override fun removeAll(c: Collection<E>): Boolean");
+        contains(kotlin, "standardRemoveAll((c as MutableCollection<E>))");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's LocalCache and Maps: overrides of Map's default methods. Kotlin sees the JDK's merge and
+     * computeIfPresent with definitely non-null value types ({@code V & Any}); an override printed with Java's types
+     * overrides nothing.
+     */
+    @Test
+    public void mapDefaultMethodOverrides() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                abstract class Cache<K, V> extends AbstractMap<K, V> {
+                    @Override public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> f) { return null; }
+                    @Override public V compute(K key, BiFunction<? super K, ? super V, ? extends V> f) { return null; }
+                    @Override public V computeIfAbsent(K key, Function<? super K, ? extends V> f) { return f.apply(key); }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
+     * superclass is an inner class of a generic superclass of its outer class.
+     */
+    @Test
+    public void innerClassExtendingInheritedInnerClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Outer {
+                    static class Base<K> {
+                        K last;
+                        class Inner { K get() { return last; } }
+                    }
+                    static class Sub<K> extends Base<K> {
+                        class SubInner extends Inner { }
+                        Inner make() { return new SubInner(); }
+                    }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Ordering.onResultOf(Entry::getValue): the method's type parameter F is fixed only by the method
+     * reference's receiver. As a lambda, {@code { it.value }}, Kotlin has nothing to infer F from.
+     */
+    @Test
+    public void typeParameterFixedByMethodReferenceOnly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Ord<T> implements Comparator<T> {
+                    interface Fn<F, T> { T apply(F f); }
+                    public int compare(T a, T b) { return 0; }
+                    <F> Ord<F> onResultOf(Fn<F, ? extends T> f) { return new Ord<>(); }
+                    static <E> void sort(E[] a, Comparator<? super E> c) { }
+                    static void sortByValue(Map.Entry<String, Integer>[] entries, Ord<Integer> ord) {
+                        sort(entries, ord.onResultOf(Map.Entry::getValue));
+                    }
+                }
+                """);
+        contains(kotlin, "ord.onResultOf<");
+        // toMap's K and U are the lambdas' results: Kotlin infers them, with the expected type's states (langchain4j)
+        String toMap = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.*;
+                class Collect {
+                    static Map<String, Integer> invert(Map<Integer, String> m) {
+                        return m.entrySet().stream().collect(Collectors.toMap(e -> e.getValue(), e -> e.getKey()));
+                    }
+                }
+                """);
+        contains(toMap, "Collectors.toMap(");
+        compiles(toMap);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's multimaps: {@code map.remove(key)} with an {@code Object} key into a {@code Map<K, V>}. Kotlin's member
+     * takes K, its stdlib extension infers K from the inputs alone, so the argument is cast to {@code K?}: unchecked,
+     * as Java's lookup is, and a null key finds nothing instead of {@code !!} throwing.
+     */
+    @Test
+    public void objectLookupIntoTypeVariableIsCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Multi<K, V> {
+                    private final Map<K, Collection<V>> map = new HashMap<>();
+                    private final Set<V> values = new HashSet<>();
+                    int removeAll(Object key) {
+                        Collection<V> collection = map.remove(key);
+                        return collection == null ? 0 : collection.size();
+                    }
+                    boolean has(Object key, Object value) {
+                        return map.containsKey(key) && map.get(key) != null && values.contains(value);
+                    }
+                }
+                """);
+        contains(kotlin, "map.remove((key as K?))");
+        contains(kotlin, "values.contains((value as V?))");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's collectors: {@code Collector.of(Acc::create, Acc::add, Acc::combine, Acc::result)} on a generic class
+     * of ours. Kotlin wants the receiver's type arguments on an unbound reference ({@code Acc<T>::add}, from the
+     * functional type's first parameter), and finds a static in the companion ({@code Acc.Companion::create}).
+     */
+    @Test
+    public void referencesIntoGenericClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.*;
+                class Acc<T> {
+                    private final List<T> items = new ArrayList<>();
+                    static <T> Acc<T> create() { return new Acc<>(); }
+                    void add(T t) { items.add(t); }
+                    Acc<T> combine(Acc<T> other) { items.addAll(other.items); return this; }
+                    List<T> result() { return items; }
+                    static Collector<Object, ?, List<Object>> all() {
+                        return Collector.of(Acc::create, Acc::add, Acc::combine, Acc::result);
+                    }
+                }
+                """);
+        contains(kotlin, "Acc.Companion ::create");
+        contains(kotlin, "Acc<Any> ::add");
+        contains(kotlin, "Acc<Any> ::combine");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's primitives: Java narrows an int constant into a char, byte or short implicitly
+     * ({@code char MIN = 0}, {@code byte MAX_POWER_OF_TWO = 1 << 6}) and widens a char where an int goes in, and an
+     * int assigned inside a condition into a long ({@code (read = in.read(buf)) != -1}). Kotlin converts explicitly.
+     */
+    @Test
+    public void implicitPrimitiveConversions() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.*;
+                import java.util.BitSet;
+                class Prim {
+                    static final char MIN = 0;
+                    static final char CASE_MASK = 0x20;
+                    static final byte MAX_POWER_OF_TWO = 1 << 6;
+                    static final short SHORT_POWER = 1 << (Short.SIZE - 2);
+                    private char safeMax;
+                    void reset() { safeMax = 0; }
+                    static String hex(char ch) { return Integer.toHexString(ch); }
+                    static void mark(BitSet table, char c) { table.set(c); }
+                    static long copy(InputStream in, byte[] buf) throws IOException {
+                        long total = 0;
+                        long read;
+                        while ((read = in.read(buf)) != -1) { total += read; }
+                        return total;
+                    }
+                    static long mix(long h, int length) { h ^= length; return h ^ length; }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's {@code Maps.transformValues(map, fn)} beside its SortedMap overload: a cast that keeps Java's overload
+     * choice cannot name the callee's own type parameters ({@code Function<in V1, V2>}), which only it knows.
+     */
+    @Test
+    public void overloadCastNamesNoCalleeTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Fn<F, T> { T apply(F input); }
+                class Maps2 {
+                    static <K, V1, V2> Map<K, V2> transformValues(Map<K, V1> from, Fn<? super V1, V2> f) {
+                        Map<K, V2> result = new HashMap<>();
+                        for (Map.Entry<K, V1> e : from.entrySet()) result.put(e.getKey(), f.apply(e.getValue()));
+                        return result;
+                    }
+                    static <K, V1, V2> SortedMap<K, V2> transformValues(SortedMap<K, V1> from, Fn<? super V1, V2> f) {
+                        return new TreeMap<>(transformValues((Map<K, V1>) from, f));
+                    }
+                    static Map<String, Integer> lengths(Map<String, String> m) { return transformValues(m, String::length); }
+                    static Map<String, Set<Integer>> copies(Map<String, List<Integer>> m) {
+                        return transformValues(m, HashSet::new);
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("as Fn<"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's {@code WrappedSet extends WrappedCollection implements Set<V>}: spliterator() comes twice,
+     * WrappedCollection's own and Set's default. Java takes the class's; Kotlin wants it written.
+     */
+    @Test
+    public void inheritedDefaultsChosenExplicitly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Wrapped<V> extends AbstractCollection<V> {
+                    final List<V> delegate = new ArrayList<>();
+                    @Override public Iterator<V> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                    @Override public Spliterator<V> spliterator() { return delegate.spliterator(); }
+                }
+                class WrappedSet<V> extends Wrapped<V> implements Set<V> { }
+                """);
+        contains(kotlin, "override fun spliterator(): Spliterator<V> = super<Wrapped>.spliterator()");
+        compiles(kotlin);
+        // without a method of the superclass's own: Set's default overrides Collection's, which Kotlin sees
+        String defaults = kotlin("""
+                package a;
+                import java.util.*;
+                class Plain<V> extends AbstractCollection<V> {
+                    final List<V> delegate = new ArrayList<>();
+                    @Override public Iterator<V> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                }
+                class PlainSet<V> extends Plain<V> implements Set<V> { }
+                """);
+        compiles(defaults);
+        // langchain4j's DefaultInputGuardrailExecutedEvent: a superclass's own method beside an interface's default,
+        // which Kotlin accepts as Java does; no override written
+        String own = kotlin("""
+                package a;
+                interface Named { default String name() { return "named"; } }
+                interface Event extends Named { }
+                class Base implements Named { public String name() { return "base"; } }
+                class Sub extends Base implements Event { }
+                """);
+        assertFalse(own.contains("super<"), own);
+        compiles(own);
+    }
+
+    /**
+     * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection has no
+     * toArray to override, so the members are declared plainly (Java's toArray on the JVM); toArray(T[]) with a T[]
+     * calls Java's, which fills and returns the array it is handed.
+     */
+    @Test
+    public void toArrayInInterfaceOnlyCollection() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> implements Collection<E> {
+                    abstract Collection<E> delegate();
+                    @Override public Iterator<E> iterator() { return delegate().iterator(); }
+                    @Override public int size() { return delegate().size(); }
+                    @Override public Object[] toArray() { return delegate().toArray(); }
+                    @Override public <T> T[] toArray(T[] array) { return delegate().toArray(array); }
+                }
+                """);
+        assertFalse(kotlin.contains("override fun toArray"), kotlin);
+        contains(kotlin, "(delegate() as java.util.Collection<*>).toArray(array)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Optional.toJavaUtil(), AbstractValueGraph.edgeValue: java.util.Optional.ofNullable(t) into an
+     * Optional<T>. Kotlin's Optional bounds its T non-null, so the call is an Optional<T & Any>; the cast is unchecked.
+     */
+    @Test
+    public void optionalOfTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                class Box<T> {
+                    private T value;
+                    Optional<T> toJavaUtil() { return Optional.ofNullable(value); }
+                }
+                """);
+        contains(kotlin, "(Optional.ofNullable(value) as Optional<T>)");
+        compiles(kotlin);
+    }
+
+    /** guava's CaseFormat: constants override a non-abstract method of their enum, which Kotlin wants open. */
+    @Test
+    public void enumConstantOverridesOpenMethod() {
+        String kotlin = kotlin("""
+                package a;
+                enum Format {
+                    LOWER { @Override String convert(String s) { return s.toLowerCase(); } },
+                    PLAIN;
+                    String convert(String s) { return s; }
+                }
+                """);
+        contains(kotlin, "open fun convert(s: String): String");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's LocalCache.WriteThroughEntry: fields key and value, set by the only constructor, in a Map.Entry. As a
+     * primary constructor's properties they clash with Kotlin's {@code key} and {@code value}; renamed, they are not.
+     */
+    @Test
+    public void entryFieldsNotConstructorProperties() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Map;
+                class WriteThrough<K, V> implements Map.Entry<K, V> {
+                    final K key;
+                    V value;
+                    WriteThrough(K key, V value) { this.key = key; this.value = value; }
+                    @Override public K getKey() { return key; }
+                    @Override public V getValue() { return value; }
+                    @Override public V setValue(V newValue) { V old = value; value = newValue; return old; }
+                }
+                """);
+        contains(kotlin, "_key");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's LocalCache serialization proxies, nested classes with {@code private void readObject(ObjectInputStream)}
+     * in a class and its subclass: private, as serialization requires; internal, the subclass's "hid" the other's.
+     */
+    @Test
+    public void serializationHooksStayPrivate() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.*;
+                class Outer {
+                    static class Proxy implements Serializable {
+                        private void readObject(ObjectInputStream in) throws IOException { }
+                        private Object readResolve() { return this; }
+                    }
+                    static class LoadingProxy extends Proxy {
+                        private void readObject(ObjectInputStream in) throws IOException { }
+                        private Object readResolve() { return this; }
+                    }
+                }
+                """);
+        contains(kotlin, "private fun readObject(");
+        assertFalse(kotlin.contains("internal fun readObject"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's MapMakerInternalMap: a package-private Segment takes a private nested Entry in its signatures. Kotlin's
+     * internal Entry would be exposed by the public Segment, so the Entry prints public.
+     */
+    @Test
+    public void privateNestedTypeExposedBySignature() {
+        String kotlin = kotlin("""
+                package a;
+                class Map2 {
+                    private static class Entry { int hash; }
+                    private static class Hidden { }
+                    static class Segment {
+                        Entry first(Entry e) { return e; }
+                        private Hidden hidden() { return new Hidden(); }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("internal open class Entry"), kotlin);
+        contains(kotlin, "internal open class Hidden");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Collections2.filter: {@code new Filtered<>(checkNotNull(unfiltered))} into a constructor that keeps a
+     * Collection: the pass-through's result is not read only, so neither is the parameter. A discarded
+     * {@code checkNotNull(map)} and a receiver {@code checkNotNull(c).size()} are reads.
+     */
+    @Test
+    public void passThroughReadsOnlyWhereItsResultIs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Coll {
+                    static <T> T checkNotNull(T t) { if (t == null) throw new NullPointerException(); return t; }
+                    static class Filtered<E> {
+                        final Collection<E> unfiltered;
+                        Filtered(Collection<E> unfiltered) { this.unfiltered = unfiltered; }
+                        void clear() { unfiltered.clear(); }
+                    }
+                    static <E> Filtered<E> filter(Collection<E> unfiltered) {
+                        if (unfiltered instanceof Filtered) return null;
+                        return new Filtered<>(checkNotNull(unfiltered));
+                    }
+                    static int size(Collection<String> c) { checkNotNull(c); return checkNotNull(c).size(); }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun <E> filter(unfiltered: MutableCollection<E>)");
+        contains(kotlin, "fun size(c: Collection<String>): Int");
+    }
+
+    /**
+     * guava's Maps.removeAllKeys removes through {@code map.entrySet().iterator()}, which the modification analysis
+     * misses: a view is a read only where it is iterated or read in turn. A for-each over {@code map.values()} and
+     * {@code new ArrayList<>(map.keySet())} are (and {@code map.keySet().contains(k)}, with the JDK's facts loaded).
+     */
+    @Test
+    public void viewReadsOnlyWhereReadInTurn() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Views {
+                    static boolean removeAll(Map<String, Integer> map, Collection<?> keys) {
+                        Iterator<Map.Entry<String, Integer>> it = map.entrySet().iterator();
+                        boolean result = false;
+                        while (it.hasNext()) { if (keys.contains(it.next().getKey())) { it.remove(); result = true; } }
+                        return result;
+                    }
+                    static int count(Map<String, Integer> map, String k) {
+                        int n = k.length();
+                        for (Integer v : map.values()) n += v;
+                        return n + new ArrayList<>(map.keySet()).size();
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun removeAll(map: MutableMap<String, Int>");
+        contains(kotlin, "fun count(map: Map<String, Int>, k: String): Int");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.FilteredMapValues removes through {@code unfiltered.entrySet().iterator()}: the field is no
+     * read-only Map, whatever the analysis says (maddi-mod#54); a guard only here, where without the JDK's facts
+     * entrySet() is no read anyway. Java's arrays are covariant, Kotlin's are not:
+     * {@code getTypeParameters()} into a {@code TypeVariable<?>[]}, a vararg returned as an {@code Object[]}.
+     */
+    @Test
+    public void fieldViewsAndCovariantArrays() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.TypeVariable;
+                import java.util.*;
+                class Arr<T> {
+                    private final Map<String, Integer> unfiltered;
+                    Arr(Map<String, Integer> filtered, Map<String, Integer> unfiltered) {
+                    this.filtered = filtered;
+                    this.unfiltered = unfiltered;
+                }
+                private final Map<String, Integer> filtered;
+                    boolean removeValue(Integer v) {
+                        Iterator<Map.Entry<String, Integer>> it = unfiltered.entrySet().iterator();
+                        while (it.hasNext()) {
+                            Map.Entry<String, Integer> e = it.next();
+                            if (e.getValue().equals(v)) { it.remove(); return true; }
+                        }
+                        return false;
+                    }
+                    int size() { return unfiltered.size(); }
+                    static TypeVariable<?>[] params(Class<?> c) {
+                        TypeVariable<?>[] ps = c.getTypeParameters();
+                        return ps;
+                    }
+                    static Object[] check(Object... array) {
+                        for (Object o : array) Objects.requireNonNull(o);
+                        return array;
+                    }
+                    static Object[] copy(Object... array) {
+                        Object[] copied = array.clone();
+                        return copied;
+                    }
+                }
+                """, type -> type.fields().forEach(f -> f.analysis().set(
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+        contains(kotlin, "MutableMap<String, Int>");
+        contains(kotlin, "unfiltered: MutableMap<String, Int>");
+        contains(kotlin, "as Array<TypeVariable<*>>");
+        compiles(kotlin);
+    }
+
+    /** guava's TypeToken.ClassSet: an inner class's serialVersionUID, where Kotlin allows no companion object. */
+    @Test
+    public void innerClassSerialVersionUid() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.Serializable;
+                class Outer implements Serializable {
+                    private static final long serialVersionUID = 1;
+                    final int n = 1;
+                    class Inner implements Serializable {
+                        private static final long serialVersionUID = 0;
+                        int get() { return n; }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class Inner");
+        contains(kotlin, "serialVersionUID: Long = 1");
+        assertFalse(kotlin.contains("serialVersionUID: Long = 0"), kotlin);
+        compiles(kotlin);
     }
 }

@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.formatter2;
 
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputElement;
+import io.codelaser.maddi.cst.api.output.element.BlankLine;
 import io.codelaser.maddi.cst.api.output.element.Space;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
 import io.codelaser.maddi.cst.api.output.element.Text;
@@ -40,6 +41,14 @@ public class ElementPrinter {
                                  boolean lastElement,
                                  boolean protectSpaces) {
 
+        if (element instanceof BlankLine) {
+            // at the start of a guide's element, the guide writes it (BlockPrinter.handleGuideBlock); elsewhere, here
+            if (options.blankLinesFromSource() && !line.stringBuilder.isEmpty()) {
+                line.setSpace(Line.SpaceLevel.NEWLINE);
+                line.setBlankLine();
+            }
+            return false;
+        }
         if (element instanceof Space space) {
             return handleSpace(line, splitInfo, options, space, lastElement);
         }
@@ -62,6 +71,8 @@ public class ElementPrinter {
         }
         Line.SpaceLevel left = computeSpaceLevel(options, symbol.left(), symbol, true);
         line.mergeSpace(left);
+        keepSignsApart(line, symbol.symbol());
+        glueAfterTypeArguments(line, symbol.symbol());
         boolean newLine = line.writeSpace(options.compact(), block.tab() * options.spacesInTab());
         if (newLine && !splitInfo.map().isEmpty()) {
             int pos = line.stringBuilder.lastIndexOf("\n");
@@ -72,6 +83,7 @@ public class ElementPrinter {
         boolean atLineStart = line.length() == 0;
         String string = symbol.symbol();
         line.appendNoNewLine(string);
+        line.setAfterTypeArguments(TYPE_ARGUMENTS_CLOSE.equals(symbol.constant()));
         if (atLineStart && symbol.isSingleLineComment()) {
             line.markSingleLineComment();
         }
@@ -134,9 +146,17 @@ public class ElementPrinter {
                                                    Formatter2Impl.Block block,
                                                    FormattingOptions options,
                                                    OutputElement element) {
-        line.writeSpace(options.compact(), block.tab() * options.spacesInTab());
         String string = write(element, options, block);
+        keepSignsApart(line, string);
+        glueAfterTypeArguments(line, string);
+        // two words are separated by a space nobody asked for (EMPTY); an array suffix is not a word: `double[][]`,
+        // not `double [][]` (#49). A space asked for -- after a dimension annotation -- stays.
+        if (line.spaceLevel() == Line.SpaceLevel.EMPTY && (string.startsWith("[") || string.startsWith("..."))) {
+            line.setSpace(Line.SpaceLevel.NO_SPACE);
+        }
+        line.writeSpace(options.compact(), block.tab() * options.spacesInTab());
         line.appendBeforeSplit(string);
+        line.setAfterTypeArguments(false);
         boolean multiLine = line.computeAvailable();
         if (line.available() < 0 && !splitInfo.map().isEmpty()) {
             int indent = block.tab() * options.spacesInTab();
@@ -156,6 +176,33 @@ public class ElementPrinter {
             updateForSplit(splitInfo, pos);
         }
         return multiLine;
+    }
+
+    /*
+    '-' followed by '-', or '+' by '+', is a different token when the two touch: `a - -b` written `a --b` decrements.
+    A prefix operator has no space of its own on the left (#49), and compact mode drops the nice ones, so this is
+    where the space is guaranteed.
+     */
+    private static void keepSignsApart(Line line, String next) {
+        if (next.isEmpty() || line.stringBuilder.isEmpty() || line.spaceLevel().isNewLine()) return;
+        char first = next.charAt(0);
+        if ((first == '-' || first == '+') && line.lastCharacter() == first) {
+            line.mergeSpace(Line.SpaceLevel.SPACE);
+        }
+    }
+
+    private static final String TYPE_ARGUMENTS_CLOSE = "RIGHT_ANGLE_BRACKET";
+
+    /*
+    The '>' closing type arguments wants a space after it where a name follows (`List<T> list`), but not in front of
+    an argument list, an array suffix, varargs or a member: `new ArrayList<T>(c)`, `List<T>[]`, `List<T>... ls`,
+    `ArrayList<T>::new` (#49). Only the nice space goes; one the printer asked for explicitly stays.
+     */
+    static void glueAfterTypeArguments(Line line, String next) {
+        if (line.afterTypeArguments() && line.spaceLevel() == Line.SpaceLevel.SPACE_IS_NICE && !next.isEmpty()
+            && (next.charAt(0) == '(' || next.charAt(0) == '[' || next.charAt(0) == '.' || next.startsWith("::"))) {
+            line.setSpace(Line.SpaceLevel.NO_SPACE);
+        }
     }
 
     private static String write(OutputElement element, FormattingOptions options, Formatter2Impl.Block block) {

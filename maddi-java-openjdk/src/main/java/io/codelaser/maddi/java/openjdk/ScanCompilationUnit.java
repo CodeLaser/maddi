@@ -1508,6 +1508,18 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         return statement instanceof ExplicitConstructorInvocation && statement.isSynthetic();
     }
 
+    /*
+    The body of an if, else, for, while or do. A body written without braces is marked BRACELESS (#49), so that the
+    printer writes it as it was written; javac's tree gives the statement, which parseBlock wraps in a block.
+     */
+    private Block bodyBlock(String blockIndex, StatementTree body) {
+        Block block = parseBlock(blockIndex, body);
+        if (body == null || body instanceof JCTree.JCBlock || block.statements().size() != 1) return block;
+        Source source = block.source();
+        return (Block) block.withSource(source.mergeDetailedSources(runtime.newDetailedSourcesBuilder()
+                .put(DetailedSources.BRACELESS, source).build()));
+    }
+
     private Block parseBlock(String blockIndex, Tree node, LocalVariable... variablesToAdd) {
         return parseBlock(blockIndex, node, 0, false, variablesToAdd);
     }
@@ -1536,8 +1548,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
             default -> throw new UnsupportedOperationException(unexpected("block node", node));
         }
+        // a braceless body ('if (c) return x; // why') is wrapped in a block with the statement's own source: the
+        // comments found there are the statement's, and the block taking them too would print them twice
+        List<Comment> comments = node instanceof JCTree.JCBlock ? commentsForNode(source) : List.of();
         return parseBlock(blockIndex, statements, addToStatementsSize, blockAsStatement,
-                statementLabels.get(node), source, commentsForNode(source), variablesToAdd);
+                statementLabels.get(node), source, comments, null, variablesToAdd);
     }
 
     /**
@@ -1548,6 +1563,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
      *                 leading comment, and the block took it -- so the switch had none, and the comment then
      *                 vanished on output, the old-style switch printer not printing its block's comments. That
      *                 caller passes an empty list and the switch keeps its own; see TestCommentBeforeSwitch.
+     * @param positions null, or an array of {@code statements.size() + 1} filled with the position in the block of
+     *                  each javac statement, and then the block's size. Not the javac index: the declarators of
+     *                  {@code int a = 1, b = 2;} are two javac statements and one LocalVariableCreation. The
+     *                  old-style switch places its labels with these (CodeLaser/maddi#135).
      */
     private Block parseBlock(String blockIndex,
                              List<JCTree.JCStatement> statements,
@@ -1556,6 +1575,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                              String label,
                              Source source,
                              List<Comment> comments,
+                             int[] positions,
                              LocalVariable... variablesToAdd) {
         Map<String, Element> localVariableMap = elementStack.push();
         for (LocalVariable lv : variablesToAdd) {
@@ -1565,7 +1585,9 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         String i = blockIndex.isEmpty() ? "" : statementIndex() + "." + blockIndex;
         blockBuilders.addLast(new BlockData(runtime.newBlockBuilder(), i, n));
 
+        int k = 0;
         for (JCTree.JCStatement statement : statements) {
+            if (positions != null) positions[k++] = blockBuilders.getLast().blockBuilder.statements().size();
             if (statement instanceof JCTree.JCBlock subBlock) {
                 // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
                 Block parsedSub = parseBlock("0", subBlock, 0, true);
@@ -1577,6 +1599,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 scan(statement, null);
             }
         }
+        if (positions != null) positions[k] = blockBuilders.getLast().blockBuilder.statements().size();
 
         elementStack.pop();
 
@@ -1716,7 +1739,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
 
     @Override
     public Void visitDoWhileLoop(DoWhileLoopTree node, Void unused) {
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
@@ -1776,7 +1799,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             lvc = continueLocalVariableCreation(variableDecl, name, type, dsb, annotations);
         } else throw new UnsupportedOperationException(unexpected("for-each loop variable", node.getVariable()));
 
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         Source source = statementSourceForNode(node);
         addStatement(runtime.newForEachBuilder()
                 .setLabel(statementLabels.get(node))
@@ -1836,7 +1859,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
         }
 
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         elementStack.pop();
         Source source = statementSourceForNode(node);
         addStatement(forBuilder
@@ -1854,8 +1877,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
 
-        Block block = parseBlock("0", node.getThenStatement());
-        Block elseBlock = parseBlock("1", node.getElseStatement());
+        Block block = bodyBlock("0", node.getThenStatement());
+        Block elseBlock = bodyBlock("1", node.getElseStatement());
 
         Source source = statementSourceForNode(node);
         addStatement(runtime.newIfElseBuilder()
@@ -1927,7 +1950,12 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .addSwitchEntries(switchEntries)
                     .build();
         } else {
-            List<SwitchStatementOldStyle.SwitchLabel> switchLabels = new ArrayList<>();
+            // a label's position is known only once the block is parsed: the declarators of 'int a = 1, b = 2;' are
+            // two javac statements and one LocalVariableCreation (CodeLaser/maddi#135)
+            record PendingLabel(Expression expression, int javacIndex, RecordPattern patternVariable,
+                                Expression whenExpression) {
+            }
+            List<PendingLabel> pendingLabels = new ArrayList<>();
             int statementCount = 0;
             List<JCTree.JCStatement> statementsToParse = new ArrayList<>();
             for (JCTree.JCCase jcCase : jcSwitch.cases) {
@@ -1961,17 +1989,20 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     scan(jcCase.getGuard(), null);
                     Expression whenExpression = currentExpression;
 
-                    SwitchStatementOldStyle.SwitchLabel switchLabel = runtime.newSwitchLabelOldStyle
-                            (expression, statementCount, patternVariable, whenExpression);
-                    switchLabels.add(switchLabel);
+                    pendingLabels.add(new PendingLabel(expression, statementCount, patternVariable, whenExpression));
                 }
                 statementsToParse.addAll(jcCase.stats);
                 statementCount += jcCase.stats.size();
             }
             // no comments for the synthesised block: at the switch's own source, the lookup would answer with the
             // SWITCH's leading comment, and then the switch has none -- see the parseBlock parameter's javadoc
+            int[] positions = new int[statementsToParse.size() + 1];
             Block block = parseBlock("0", statementsToParse, 0, false,
-                    null, sourceForNode(node), List.of());
+                    null, sourceForNode(node), List.of(), positions);
+            List<SwitchStatementOldStyle.SwitchLabel> switchLabels = pendingLabels.stream()
+                    .map(pl -> runtime.newSwitchLabelOldStyle(pl.expression, positions[pl.javacIndex],
+                            pl.patternVariable, pl.whenExpression))
+                    .toList();
             s = runtime.newSwitchStatementOldStyleBuilder()
                     .setLabel(statementLabels.get(node))
                     .setSelector(selector)
@@ -2427,7 +2458,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         currentExpression = null;
         scan(node.getCondition(), unused);
         Expression condition = currentExpression;
-        Block block = parseBlock("0", node.getStatement());
+        Block block = bodyBlock("0", node.getStatement());
         Source source = statementSourceForNode(node);
         addStatement(runtime.newWhileBuilder()
                 .setLabel(statementLabels.get(node))
@@ -2850,7 +2881,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                     .setSource(sourceForNode(lambda.body))
                     .addStatement(returnStatement).build();
         } else if (lambda.getBodyKind() == LambdaExpressionTree.BodyKind.STATEMENT) {
-            methodBody = parseBlock("", lambda.body);
+            Block block = parseBlock("", lambda.body);
+            Source blockSource = block.source();
+            methodBody = blockSource == null ? block
+                    : (Block) block.withSource(blockSource.mergeDetailedSources(runtime.newDetailedSourcesBuilder()
+                    .put(DetailedSources.BLOCK_BODY, blockSource).build()));
         } else {
             throw new UnsupportedOperationException("Unexpected lambda body kind: " + lambda.getBodyKind());
         }
@@ -2881,6 +2916,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 .setOutputVariants(outputVariants)
                 .build();
         return null;
+    }
+
+    // the literal as written; null when its position or the unit's text is not available
+    private String sourceText(JCTree.JCLiteral literal) {
+        long startPos = sourcePositions.getStartPosition(compilationUnitTree, literal);
+        long endPos = sourcePositions.getEndPosition(compilationUnitTree, literal);
+        if (startPos == Diagnostic.NOPOS || endPos == Diagnostic.NOPOS || endPos <= startPos) return null;
+        String text = scanJavaDoc.sourceText().get();
+        return text == null || endPos > text.length() ? null : text.substring((int) startPos, (int) endPos);
     }
 
     private String getRawTextBlock(JCTree.JCLiteral literal) throws IOException {
@@ -2926,7 +2970,10 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             case BOT -> runtime.newNullConstant(comments, source);
             default -> throw new UnsupportedOperationException();
         };
-
+        if (currentExpression instanceof ConstantExpression<?> constant && !(constant instanceof StringConstant)) {
+            String spelling = LiteralSpelling.spelling(constant, sourceText(literal));
+            if (spelling != null) currentExpression = constant.withSourceSpelling(spelling);
+        }
         return super.visitLiteral(node, unused);
     }
 
@@ -3018,6 +3065,22 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         currentExpression = null;
         scan(mr.getQualifierExpression(), unused);
         Expression evaluatedScope = currentExpression;
+        // CodeLaser/maddi#136: scanning 'ArrayList<String>' visits its identifiers one by one and leaves the LAST
+        // one, the type argument 'String', as the current expression; 'ArrayList<String>::new' printed as
+        // 'String::new'. A parameterized qualifier is converted as one type instead.
+        Tree qualifier = mr.getQualifierExpression();
+        Tree unannotated = qualifier instanceof JCTree.JCAnnotatedType at ? at.getUnderlyingType() : qualifier;
+        if (unannotated instanceof JCTree.JCTypeApply) {
+            DetailedSources.Builder qdsb = runtime.newDetailedSourcesBuilder();
+            List<AnnotationExpression> annots = new ArrayList<>();
+            ParameterizedType type = convertTypeWithAnnotations(qualifier, qdsb, annots::add);
+            evaluatedScope = runtime.newTypeExpressionBuilder()
+                    .addAnnotations(annots)
+                    .setSource(sourceForNode(qualifier, qdsb))
+                    .setDiamond(runtime.diamondShowAll())
+                    .setParameterizedType(type)
+                    .build();
+        }
         MethodInfo method;
         ParameterizedType concreteFunctionalType;
         ParameterizedType concreteReturnType;
@@ -3032,13 +3095,11 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             // invisible to the refactoring levers too, so their edits silently skip its call sites.
             boolean arrayOwner = "Array".equals(ms.owner.getQualifiedName().toString());
             if (ms.isConstructor() && arrayOwner) {
-                // array construction. For a primitive component ('byte[]::new', elasticsearch zstd) the
-                // qualifier scan yields no expression: derive the array type from javac's own type instead.
-                if (evaluatedScope == null) {
-                    concreteReturnType = convertType.convert(((JCTree) mr.getQualifierExpression()).type);
-                } else {
-                    concreteReturnType = evaluatedScope.parameterizedType().copyWithArrays(1);
-                }
+                // array construction
+                // javac's own type: the scanned expression is the element type, and adding one dimension to it
+                // made 'String[][]::new' a 'String[]' constructor. A primitive component ('byte[]::new',
+                // elasticsearch zstd) yields no expression at all.
+                concreteReturnType = convertType.convert(((JCTree) qualifier).type);
                 scope = runtime.newTypeExpressionBuilder().setDiamond(runtime.diamondNo())
                         .setSource(evaluatedScope == null ? sourceForNode(node, dsb) : evaluatedScope.source())
                         .addComments(evaluatedScope == null ? List.of() : evaluatedScope.comments())

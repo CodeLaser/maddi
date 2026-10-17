@@ -70,13 +70,16 @@ final class CSharpNullability {
     }
 
     /**
-     * A local's initializer, {@code printed}: with {@code !} when the analysis asserts the local at its declaration
-     * ({@link CSharpFacts#assertedAtDeclaration}) and the value may be null.
+     * A local's initializer, {@code printed}: with {@code !} when the value may be null and the analysis asserts the
+     * local at its declaration ({@link CSharpFacts#assertedAtDeclaration}), or finds it not null there: Java's
+     * {@code if (map.containsKey(k)) { V v = map.get(k); v.m(); }}, where C# has only the declared {@code V?}.
      */
     static OutputBuilder initializer(Element declaration, LocalVariable variable, Expression init, OutputBuilder printed) {
         MethodInfo method = CSharpContext.currentMethod();
-        if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init)
-            || !facts().assertedAtDeclaration(method, declaration, variable)) {
+        // a primitive local unboxes its initializer, which asserts it there (unboxed)
+        if (method == null || !facts().nullabilityAnalysed() || !mayBeNull(init) || valueType(variable.parameterizedType())
+            || !facts().assertedAtDeclaration(method, declaration, variable)
+               && facts().nullable(method, declaration, variable) != NullableState.NONNULL) {
             return printed;
         }
         return asserted(init, printed);
@@ -88,21 +91,32 @@ final class CSharpNullability {
      * A library's parameter is nullable only when the analysis's hints say so; a type argument C# prints is not
      * nullable either ({@code List<Exprent>}), so that {@code list.Add(x!)} is the write the analysis asserts. A
      * collection's element or key ({@code elementOrKey}: Java's {@code contains(Object)}, C#'s {@code Contains(T)})
-     * is not nullable whatever the hints, and there even a {@code null} is {@code null!}.
+     * is not nullable whatever the hints, and there even a {@code null} is {@code null!}. A value of an unconstrained
+     * type parameter is one C# takes to be possibly null where it goes into a reference type that is not a type
+     * parameter, {@code Marshal(root!)}, whatever the analysis knows of it.
      */
     static OutputBuilder intoParameter(Expression value, MethodInfo method, int i, boolean elementOrKey,
                                        OutputBuilder printed) {
         if (method == null || method.parameters().isEmpty() || !facts().nullabilityAnalysed()) return printed;
         boolean nullConstant = CSharpExpressionPrinter.unwrap(value) instanceof NullConstant;
-        if (nullConstant ? !elementOrKey : !mayBeNull(value)) return printed;
         ParameterInfo parameter =
                 method.parameters().get(Math.min(i, method.parameters().size() - 1));
         ParameterizedType type = parameter.parameterizedType();
+        boolean open = !nullConstant && !elementOrKey && CSharpTypeName.unconstrained(value.parameterizedType())
+                       && type.arrays() == 0 && !type.isTypeParameter() && !type.isPrimitiveExcludingVoid();
+        // a decimal? into an IConvertible or an object boxes what C# thinks may be null, whatever the analysis says
+        // of its declaration (as an unboxing cast's, unboxed): only a use-site fact makes it non-null
+        Expression inner = CSharpExpressionPrinter.unwrap(value);
+        boolean boxing = !nullConstant && CSharpExpressionPrinter.unboxed(inner) && type.arrays() == 0
+                         && !CSharpTypeName.valueReference(type) && !type.isPrimitiveExcludingVoid()
+                         && !type.isTypeParameter()
+                         && !(inner instanceof VariableExpression ve && knownNonNull(ve.variable()));
+        if (nullConstant ? !elementOrKey : !mayBeNull(value) && !open && !boxing) return printed;
         ParameterizedType valueType = value.parameterizedType();
         // a boxed value is unboxed into a primitive or a type parameter (Dictionary<int, V>'s K): its cast asserts it
-        boolean unboxed = valueType != null && valueType.arrays() == 0 && valueType.isBoxedExcludingVoid()
+        boolean unboxed = CSharpTypeName.valueReference(valueType)
                           && type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isTypeParameter());
-        if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0
+        if (unboxed || type.isPrimitiveExcludingVoid() && type.arrays() == 0 || CSharpTypeName.optional(type)
             || !elementOrKey && facts().nullable(parameter) == NullableState.NULLABLE) {
             return printed;
         }
@@ -125,7 +139,10 @@ final class CSharpNullability {
             return printed;
         }
         boolean lambda = method.typeInfo().isAnonymous();
-        if (!lambda && facts().nullable(method) == NullableState.NULLABLE) return printed;
+        if (!lambda && (facts().nullable(method) == NullableState.NULLABLE
+                        || CSharpTypeName.optional(method.returnType()))) {
+            return printed;
+        }
         return asserted(value, printed);
     }
 
@@ -141,7 +158,8 @@ final class CSharpNullability {
         }
         boolean nonNull = switch (target) {
             case DependentVariable dv -> true;
-            case FieldReference fr -> facts().nullable(fr.fieldInfo()) != NullableState.NULLABLE;
+            case FieldReference fr -> facts().nullable(fr.fieldInfo()) != NullableState.NULLABLE
+                                      && !CSharpTypeName.optional(fr.fieldInfo().type());
             default -> false;
         };
         return nonNull ? asserted(value, printed) : printed;
@@ -163,10 +181,10 @@ final class CSharpNullability {
         if (!facts().nullabilityAnalysed()) return printed;
         Expression x = CSharpExpressionPrinter.unwrap(operand);
         ParameterizedType type = x.parameterizedType();
-        boolean boxed = type != null && type.arrays() == 0 && type.isBoxedExcludingVoid();
+        boolean boxed = CSharpTypeName.valueReference(type);
         boolean mayBe = !boxed ? mayBeNull(x) : switch (x) {
             // a method of Integer is C#'s int?; one of a type parameter its argument, List<int>'s int, unless nullable
-            case MethodCall mc -> mc.methodInfo().returnType().isBoxedExcludingVoid() || mayBeNull(mc);
+            case MethodCall mc -> CSharpTypeName.valueReference(mc.methodInfo().returnType()) || mayBeNull(mc);
             case VariableExpression ve -> !knownNonNull(ve.variable());
             case Cast c -> !(CSharpExpressionPrinter.unwrap(c.expression()).parameterizedType() instanceof
                     ParameterizedType t && t.isPrimitiveExcludingVoid());
@@ -181,12 +199,20 @@ final class CSharpNullability {
 
     /** A primitive or a boxed type, C#'s value type or its {@code T?}: no {@code !} there. */
     private static boolean valueType(ParameterizedType type) {
-        return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid()
-                                                      || type.isBoxedExcludingVoid());
+        return type == null || type.arrays() == 0 && (type.isPrimitiveExcludingVoid() || type.isVoid())
+               || CSharpTypeName.valueReference(type);
+    }
+
+    /**
+     * {@code !} when the analysis finds that {@code method} may return null, for its result where the printer writes
+     * the call itself: {@code Iterator()!.AsEnumerator()}, Java's for-each, which throws there too.
+     */
+    static String resultForgiven(MethodInfo method) {
+        return facts().nullabilityAnalysed() && facts().nullable(method) == NullableState.NULLABLE ? "!" : "";
     }
 
     /** {@code printed!}, in parentheses unless it is a call, a variable or null. */
-    private static OutputBuilder asserted(Expression value, OutputBuilder printed) {
+    static OutputBuilder asserted(Expression value, OutputBuilder printed) {
         Expression x = CSharpExpressionPrinter.unwrap(value);
         if (x instanceof MethodCall || x instanceof VariableExpression || x instanceof NullConstant) {
             return printed.add(NULL_FORGIVING);
@@ -197,6 +223,12 @@ final class CSharpNullability {
 
     /** The receiver of {@code .member}, {@code [i]} or a {@code foreach}: with {@code !} when it may be null. */
     static OutputBuilder dereferenced(Expression e, Qualification q) {
+        // a member of TimeSpan, of an enum, of int is not one of its X?: of the value, cast as Java unboxes it
+        if (CSharpExpressionPrinter.unboxed(CSharpExpressionPrinter.unwrap(e))) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(CSharpExpressionPrinter.unboxCast(CSharpTypeName.argument(e.parameterizedType(), q), e, q))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         OutputBuilder receiver = CSharpExpressionPrinter.receiver(e, q);
         if (!mayBeNull(e)) return receiver;
         return receiver.add(NULL_FORGIVING);
@@ -223,9 +255,16 @@ final class CSharpNullability {
                 default -> false;
             };
             case InlineConditional ic -> branchMayBeNull(ic.ifTrue()) || branchMayBeNull(ic.ifFalse());
-            case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && mayBeNull(c.expression());
+            case Cast c -> !c.parameterizedType().isPrimitiveExcludingVoid() && !toMethodTypeParameter(c)
+                           && mayBeNull(c.expression());
             default -> false;
         };
+    }
+
+    /** A cast to a method's own type parameter, which C# cannot write {@code T?}: its operand is asserted, {@code (T) x!}. */
+    static boolean toMethodTypeParameter(Cast cast) {
+        ParameterizedType to = cast.parameterizedType();
+        return to.arrays() == 0 && to.isTypeParameter() && to.typeParameter().isMethodTypeParameter();
     }
 
     /** A branch of a conditional: its null makes the conditional's value one that may be null. */

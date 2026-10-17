@@ -100,13 +100,14 @@ public class Main {
             Configuration configuration = parseConfiguration(cmd, options, PROGRAM_NAME, MIXED_COMPILE_LOG);
 
             // terminal, as in the Java CLI: write the derived configuration and exit, no analysis. Combined
-            // with --compile-log this is how a Kotlin corpus's checked-in inputConfiguration.json is produced.
+            // with --compile-log this is how a Kotlin corpus's checked-in inputConfiguration.json is produced,
+            // declaring its build files exactly as the Java CLI does (--build-files, else "none").
             String writeInputConfiguration = cmd.getOptionValue(WRITE_INPUT_CONFIGURATION);
             if (writeInputConfiguration != null) {
                 File file = new File(writeInputConfiguration);
                 LOGGER.info("Writing input configuration to {} and exiting (no analysis)", file);
                 JsonStreaming.objectMapper().writerWithDefaultPrettyPrinter()
-                        .writeValue(file, configuration.inputConfiguration());
+                        .writeValue(file, withBuildFiles(cmd, configuration.inputConfiguration()));
                 return EXIT_OK;
             }
 

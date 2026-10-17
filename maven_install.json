@@ -11,11 +11,13 @@
     "com.google.guava:guava": -249069712,
     "com.google.j2objc:j2objc-annotations": 2003271689,
     "commons-cli:commons-cli": -743428100,
+    "commons-io:commons-io": 604617248,
     "io.vavr:vavr": 1916644082,
     "org.apiguardian:apiguardian-api": 524259585,
     "org.assertj:assertj-core": -1145412507,
     "org.eclipse.collections:eclipse-collections": 1213017543,
     "org.eclipse.collections:eclipse-collections-api": -857274598,
+    "org.hamcrest:hamcrest": -270434432,
     "org.jetbrains.kotlin:kotlin-stdlib": -803356699,
     "org.jetbrains:annotations": -828182130,
     "org.jgrapht:jgrapht-core": 1073457316,
@@ -23,8 +25,10 @@
     "org.jspecify:jspecify": -382205121,
     "org.junit.jupiter:junit-jupiter-api": 1722875219,
     "org.junit.jupiter:junit-jupiter-engine": -1700093257,
+    "org.junit.jupiter:junit-jupiter-params": -613891341,
     "org.junit.platform:junit-platform-console": 850130404,
     "org.junit.platform:junit-platform-launcher": -2090614771,
+    "org.mockito:mockito-core": 1330163800,
     "org.ow2.asm:asm": -1147174173,
     "org.projectlombok:lombok": -1238622139,
     "org.slf4j:slf4j-api": -197708565,
@@ -46,17 +50,20 @@
     "com.google.guava:listenablefuture": 1079558157,
     "com.google.j2objc:j2objc-annotations": 248818742,
     "commons-cli:commons-cli": -1828624061,
+    "commons-io:commons-io": -515402013,
     "io.vavr:vavr": 540433606,
     "io.vavr:vavr-match": -1048884228,
-    "net.bytebuddy:byte-buddy": -1575917241,
+    "net.bytebuddy:byte-buddy": -1278241167,
+    "net.bytebuddy:byte-buddy-agent": 1099087346,
     "org.antlr:antlr4-runtime": 2056223550,
     "org.apache.commons:commons-lang3": -1070155819,
     "org.apache.commons:commons-text": 898551206,
     "org.apfloat:apfloat": -608607028,
     "org.apiguardian:apiguardian-api": 1279798469,
-    "org.assertj:assertj-core": -313838767,
+    "org.assertj:assertj-core": -1465207868,
     "org.eclipse.collections:eclipse-collections": -1626587144,
     "org.eclipse.collections:eclipse-collections-api": 1450644748,
+    "org.hamcrest:hamcrest": -820511133,
     "org.jetbrains.kotlin:kotlin-stdlib": 1060814923,
     "org.jetbrains:annotations": 1790698553,
     "org.jgrapht:jgrapht-core": -71586270,
@@ -65,11 +72,14 @@
     "org.jspecify:jspecify": 117231129,
     "org.junit.jupiter:junit-jupiter-api": -274657825,
     "org.junit.jupiter:junit-jupiter-engine": -1892887988,
+    "org.junit.jupiter:junit-jupiter-params": 242136796,
     "org.junit.platform:junit-platform-commons": 1650839238,
     "org.junit.platform:junit-platform-console": -986080825,
     "org.junit.platform:junit-platform-engine": -2284421,
     "org.junit.platform:junit-platform-launcher": -2078294020,
     "org.junit.platform:junit-platform-reporting": -200810685,
+    "org.mockito:mockito-core": -343816595,
+    "org.objenesis:objenesis": 1798216877,
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": 1411247467,
     "org.opentest4j:opentest4j": -1711174392,
     "org.ow2.asm:asm": -153858314,
@@ -158,6 +168,12 @@
       },
       "version": "1.10.0"
     },
+    "commons-io:commons-io": {
+      "shasums": {
+        "jar": "df90bba0fe3cb586b7f164e78fe8f8f4da3f2dd5c27fa645f888100ccc25dd72"
+      },
+      "version": "2.20.0"
+    },
     "io.vavr:vavr": {
       "shasums": {
         "jar": "f9ea1043ad66dbd8e0c4dd7b7a9cdce5bf2d86fab1ce33aace1ad4d56bd1270b"
@@ -172,9 +188,15 @@
     },
     "net.bytebuddy:byte-buddy": {
       "shasums": {
-        "jar": "d78396e3c5bce3f2865c9186647481e5589d34cacc632484715b686108d17c66"
+        "jar": "3575dcb8a98faf943d3c1595c47a16047c4fce8a83ebbb26262f1a2f67546357"
       },
-      "version": "1.18.3"
+      "version": "1.17.7"
+    },
+    "net.bytebuddy:byte-buddy-agent": {
+      "shasums": {
+        "jar": "a9ba887dca252ad61b7d5153294f34e6f3bdf4b2736b04373d13615a695fc0ff"
+      },
+      "version": "1.17.7"
     },
     "org.antlr:antlr4-runtime": {
       "shasums": {
@@ -224,6 +246,12 @@
       },
       "version": "13.0.0"
     },
+    "org.hamcrest:hamcrest": {
+      "shasums": {
+        "jar": "5e62846a89f05cd78cd9c1a553f340d002458380c320455dd1f8fc5497a8a1c1"
+      },
+      "version": "2.2"
+    },
     "org.jetbrains.kotlin:kotlin-stdlib": {
       "shasums": {
         "jar": "ccb14ff83fabcb11458b798dbc9824748ccdffeec79c9aba789e6ed1cda86b1c"
@@ -272,6 +300,12 @@
       },
       "version": "5.13.0"
     },
+    "org.junit.jupiter:junit-jupiter-params": {
+      "shasums": {
+        "jar": "909b1279900b72ad35a07f5862faecf1bb728e4429469e10d99a4c37247d8e3d"
+      },
+      "version": "5.13.0"
+    },
     "org.junit.platform:junit-platform-commons": {
       "shasums": {
         "jar": "ec451e45ae8a6c41f12bc56f6b2ed5dd74349ef5eb86e818c6ccebb97753b7da"
@@ -301,6 +335,18 @@
         "jar": "4d5f0ab4f40d91dab66c58801de79aa8c1f25579021cc88d92b8f138557e22ba"
       },
       "version": "1.13.0"
+    },
+    "org.mockito:mockito-core": {
+      "shasums": {
+        "jar": "ae295bebd5d11fab97ab297815dc7617188b86003cbce3dfd5c0d5c3a6cc4a0c"
+      },
+      "version": "5.23.0"
+    },
+    "org.objenesis:objenesis": {
+      "shasums": {
+        "jar": "02dfd0b0439a5591e35b708ed2f5474eb0948f53abf74637e959b8e4ef69bfeb"
+      },
+      "version": "3.3"
     },
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": {
       "shasums": {
@@ -350,6 +396,9 @@
       },
       "version": "6.1.19"
     }
+  },
+  "conflict_resolution": {
+    "net.bytebuddy:byte-buddy:1.18.3": "net.bytebuddy:byte-buddy:1.17.7"
   },
   "dependencies": {
     "ch.qos.logback:logback-classic": [
@@ -402,6 +451,10 @@
       "org.junit.jupiter:junit-jupiter-api",
       "org.junit.platform:junit-platform-engine"
     ],
+    "org.junit.jupiter:junit-jupiter-params": [
+      "org.apiguardian:apiguardian-api",
+      "org.junit.jupiter:junit-jupiter-api"
+    ],
     "org.junit.platform:junit-platform-commons": [
       "org.apiguardian:apiguardian-api"
     ],
@@ -422,6 +475,11 @@
       "org.apiguardian:apiguardian-api",
       "org.junit.platform:junit-platform-launcher",
       "org.opentest4j.reporting:open-test-reporting-tooling-spi"
+    ],
+    "org.mockito:mockito-core": [
+      "net.bytebuddy:byte-buddy",
+      "net.bytebuddy:byte-buddy-agent",
+      "org.objenesis:objenesis"
     ],
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": [
       "org.apiguardian:apiguardian-api"
@@ -600,6 +658,23 @@
       "org.apache.commons.cli",
       "org.apache.commons.cli.help"
     ],
+    "commons-io:commons-io": [
+      "org.apache.commons.io",
+      "org.apache.commons.io.build",
+      "org.apache.commons.io.channels",
+      "org.apache.commons.io.charset",
+      "org.apache.commons.io.comparator",
+      "org.apache.commons.io.file",
+      "org.apache.commons.io.file.attribute",
+      "org.apache.commons.io.file.spi",
+      "org.apache.commons.io.filefilter",
+      "org.apache.commons.io.function",
+      "org.apache.commons.io.input",
+      "org.apache.commons.io.input.buffer",
+      "org.apache.commons.io.monitor",
+      "org.apache.commons.io.output",
+      "org.apache.commons.io.serialization"
+    ],
     "io.vavr:vavr": [
       "io.vavr",
       "io.vavr.collection",
@@ -620,7 +695,6 @@
       "net.bytebuddy.description.field",
       "net.bytebuddy.description.method",
       "net.bytebuddy.description.modifier",
-      "net.bytebuddy.description.module",
       "net.bytebuddy.description.type",
       "net.bytebuddy.dynamic",
       "net.bytebuddy.dynamic.loading",
@@ -650,6 +724,10 @@
       "net.bytebuddy.utility.nullability",
       "net.bytebuddy.utility.privilege",
       "net.bytebuddy.utility.visitor"
+    ],
+    "net.bytebuddy:byte-buddy-agent": [
+      "net.bytebuddy.agent",
+      "net.bytebuddy.agent.utility.nullability"
     ],
     "org.antlr:antlr4-runtime": [
       "org.antlr.v4.runtime",
@@ -905,6 +983,19 @@
       "org.eclipse.collections.api.tuple",
       "org.eclipse.collections.api.tuple.primitive"
     ],
+    "org.hamcrest:hamcrest": [
+      "org.hamcrest",
+      "org.hamcrest.beans",
+      "org.hamcrest.collection",
+      "org.hamcrest.comparator",
+      "org.hamcrest.core",
+      "org.hamcrest.internal",
+      "org.hamcrest.io",
+      "org.hamcrest.number",
+      "org.hamcrest.object",
+      "org.hamcrest.text",
+      "org.hamcrest.xml"
+    ],
     "org.jetbrains.kotlin:kotlin-stdlib": [
       "kotlin",
       "kotlin.annotation",
@@ -1045,6 +1136,29 @@
       "org.junit.jupiter.engine.extension",
       "org.junit.jupiter.engine.support"
     ],
+    "org.junit.jupiter:junit-jupiter-params": [
+      "org.junit.jupiter.params",
+      "org.junit.jupiter.params.aggregator",
+      "org.junit.jupiter.params.converter",
+      "org.junit.jupiter.params.provider",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.annotations",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.annotations.helpers",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.beans",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.fields",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.input",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.input.concurrent",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.iterators",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.processor",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.processor.core",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.record",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.common.routine",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.conversions",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.csv",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.fixed",
+      "org.junit.jupiter.params.shadow.com.univocity.parsers.tsv",
+      "org.junit.jupiter.params.support"
+    ],
     "org.junit.platform:junit-platform-commons": [
       "org.junit.platform.commons",
       "org.junit.platform.commons.annotation",
@@ -1090,6 +1204,85 @@
       "org.junit.platform.reporting.shadow.org.opentest4j.reporting.events.java",
       "org.junit.platform.reporting.shadow.org.opentest4j.reporting.events.root",
       "org.junit.platform.reporting.shadow.org.opentest4j.reporting.schema"
+    ],
+    "org.mockito:mockito-core": [
+      "org.mockito",
+      "org.mockito.configuration",
+      "org.mockito.creation.instance",
+      "org.mockito.exceptions.base",
+      "org.mockito.exceptions.misusing",
+      "org.mockito.exceptions.stacktrace",
+      "org.mockito.exceptions.verification",
+      "org.mockito.exceptions.verification.junit",
+      "org.mockito.exceptions.verification.opentest4j",
+      "org.mockito.hamcrest",
+      "org.mockito.internal",
+      "org.mockito.internal.configuration",
+      "org.mockito.internal.configuration.injection",
+      "org.mockito.internal.configuration.injection.filter",
+      "org.mockito.internal.configuration.injection.scanner",
+      "org.mockito.internal.configuration.plugins",
+      "org.mockito.internal.creation",
+      "org.mockito.internal.creation.bytebuddy",
+      "org.mockito.internal.creation.bytebuddy.access",
+      "org.mockito.internal.creation.bytebuddy.codegen",
+      "org.mockito.internal.creation.instance",
+      "org.mockito.internal.creation.proxy",
+      "org.mockito.internal.creation.settings",
+      "org.mockito.internal.creation.util",
+      "org.mockito.internal.debugging",
+      "org.mockito.internal.exceptions",
+      "org.mockito.internal.exceptions.stacktrace",
+      "org.mockito.internal.exceptions.util",
+      "org.mockito.internal.framework",
+      "org.mockito.internal.hamcrest",
+      "org.mockito.internal.handler",
+      "org.mockito.internal.invocation",
+      "org.mockito.internal.invocation.finder",
+      "org.mockito.internal.invocation.mockref",
+      "org.mockito.internal.junit",
+      "org.mockito.internal.listeners",
+      "org.mockito.internal.matchers",
+      "org.mockito.internal.matchers.apachecommons",
+      "org.mockito.internal.matchers.text",
+      "org.mockito.internal.progress",
+      "org.mockito.internal.reporting",
+      "org.mockito.internal.runners",
+      "org.mockito.internal.runners.util",
+      "org.mockito.internal.session",
+      "org.mockito.internal.stubbing",
+      "org.mockito.internal.stubbing.answers",
+      "org.mockito.internal.stubbing.defaultanswers",
+      "org.mockito.internal.util",
+      "org.mockito.internal.util.collections",
+      "org.mockito.internal.util.concurrent",
+      "org.mockito.internal.util.io",
+      "org.mockito.internal.util.reflection",
+      "org.mockito.internal.verification",
+      "org.mockito.internal.verification.api",
+      "org.mockito.internal.verification.argumentmatching",
+      "org.mockito.internal.verification.checkers",
+      "org.mockito.invocation",
+      "org.mockito.junit",
+      "org.mockito.listeners",
+      "org.mockito.mock",
+      "org.mockito.plugins",
+      "org.mockito.quality",
+      "org.mockito.session",
+      "org.mockito.stubbing",
+      "org.mockito.verification"
+    ],
+    "org.objenesis:objenesis": [
+      "org.objenesis",
+      "org.objenesis.instantiator",
+      "org.objenesis.instantiator.android",
+      "org.objenesis.instantiator.annotations",
+      "org.objenesis.instantiator.basic",
+      "org.objenesis.instantiator.gcj",
+      "org.objenesis.instantiator.perc",
+      "org.objenesis.instantiator.sun",
+      "org.objenesis.instantiator.util",
+      "org.objenesis.strategy"
     ],
     "org.opentest4j.reporting:open-test-reporting-tooling-spi": [
       "org.opentest4j.reporting.tooling.spi.htmlreport"
@@ -1246,9 +1439,11 @@
       "com.google.guava:listenablefuture",
       "com.google.j2objc:j2objc-annotations",
       "commons-cli:commons-cli",
+      "commons-io:commons-io",
       "io.vavr:vavr",
       "io.vavr:vavr-match",
       "net.bytebuddy:byte-buddy",
+      "net.bytebuddy:byte-buddy-agent",
       "org.antlr:antlr4-runtime",
       "org.apache.commons:commons-lang3",
       "org.apache.commons:commons-text",
@@ -1257,6 +1452,7 @@
       "org.assertj:assertj-core",
       "org.eclipse.collections:eclipse-collections",
       "org.eclipse.collections:eclipse-collections-api",
+      "org.hamcrest:hamcrest",
       "org.jetbrains.kotlin:kotlin-stdlib",
       "org.jetbrains:annotations",
       "org.jgrapht:jgrapht-core",
@@ -1265,11 +1461,14 @@
       "org.jspecify:jspecify",
       "org.junit.jupiter:junit-jupiter-api",
       "org.junit.jupiter:junit-jupiter-engine",
+      "org.junit.jupiter:junit-jupiter-params",
       "org.junit.platform:junit-platform-commons",
       "org.junit.platform:junit-platform-console",
       "org.junit.platform:junit-platform-engine",
       "org.junit.platform:junit-platform-launcher",
       "org.junit.platform:junit-platform-reporting",
+      "org.mockito:mockito-core",
+      "org.objenesis:objenesis",
       "org.opentest4j.reporting:open-test-reporting-tooling-spi",
       "org.opentest4j:opentest4j",
       "org.ow2.asm:asm",

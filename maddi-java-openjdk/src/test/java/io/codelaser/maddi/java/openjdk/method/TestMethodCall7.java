@@ -198,7 +198,7 @@ public class TestMethodCall7 extends CommonTest {
         Expression arg1 = nfs.parameterExpressions().get(1);
         if(arg1 instanceof MethodCall mc) {
             assertEquals(2, mc.typeArguments().size());
-            assertEquals("Collections.<String,Object> emptyMap()", arg1.toString());
+            assertEquals("Collections.<String,Object>emptyMap()", arg1.toString());
         }
     }
 

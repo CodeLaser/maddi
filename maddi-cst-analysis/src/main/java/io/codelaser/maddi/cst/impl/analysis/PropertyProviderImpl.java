@@ -84,6 +84,8 @@ public class PropertyProviderImpl {
                 STRUCTURALLY_NON_MODIFYING_METHOD,
                 STRUCTURALLY_UNMODIFIED_FIELD,
                 STRUCTURALLY_UNMODIFIED_PARAMETER,
+                UNMODIFIABLE_TYPE,
+                UNMODIFIABLE_VIEW_METHOD,
                 UNMODIFIED_FIELD,
                 UNMODIFIED_PARAMETER,
                 UTILITY_CLASS

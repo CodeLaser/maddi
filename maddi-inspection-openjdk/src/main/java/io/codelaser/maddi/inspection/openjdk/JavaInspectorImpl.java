@@ -114,6 +114,8 @@ public class JavaInspectorImpl implements JavaInspector {
     // Recorded for ALL of them, not just the last: a compiled type has to be resolved against the class path of the
     // source set that ASKED for it, and only the requesting set's own task carries that class path.
     private final Map<SourceSet, LoaderSpec> loaderSpecBySourceSet = new LinkedHashMap<>();
+    // the compilation units handed to javac, per source set: each must end as types or as a reported failure (#133)
+    private final Map<SourceSet, List<URI>> unitsHandedToJavac = new LinkedHashMap<>();
     // per-source-set loader tasks, built on demand from loaderSpecBySourceSet and cached for the run. A source-free
     // task holds a file manager and a class path, no AST, so this stays cheap next to a retained scan.
     private final Map<SourceSet, ScanCompilationUnits> loaderUnitsBySourceSet = new LinkedHashMap<>();
@@ -658,6 +660,11 @@ public class JavaInspectorImpl implements JavaInspector {
      * <p>
      * The linearization guarantees that a source set is handled after everything it depends on, so by the time a set
      * is rewired, the objects it must point at already exist.
+     * <p>
+     * <b>Every set's class output is checked, kept and rewired ones too</b> ({@link #validateClassOutput}): each
+     * re-parse returns a new {@link Summary}, and a consumer replaces its diagnostics with that summary's. Checking
+     * only the re-scanned sets made a kept set's class-output problem vanish after an unrelated write, reading as
+     * fresh when it was not. The check is one file stat per parsed type.
      */
     private void reparse(Summary summary,
                          Map<String, String> sourcesByFqn,
@@ -682,10 +689,12 @@ public class JavaInspectorImpl implements JavaInspector {
                 }
                 case REWIRE -> {
                     summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
+                    validateClassOutput(summary, sourceSet);
                     toRewire.addAll(types);
                 }
                 case KEEP -> {
                     summary.ensureSourceSet(sourceSet);
+                    validateClassOutput(summary, sourceSet);
                     types.forEach(summary::addType);
                 }
             }
@@ -1033,6 +1042,7 @@ public class JavaInspectorImpl implements JavaInspector {
                         f.detail(), f.cause()));
             }
         }
+        reportUnaccountedUnits(summary, sourceSet, scanned);
         // Surface javac ERROR diagnostics as Summary *warnings* (not fatal errors): maddi runs javac on a
         // deliberately partial classpath, so unresolved references ("package x.y does not exist", "cannot find
         // symbol") are expected noise, not failures. Previously these were only logged (at INFO) in
@@ -1118,6 +1128,40 @@ public class JavaInspectorImpl implements JavaInspector {
      * grouping by URI. A re-parse overwrites the entry: {@link SourceFile} hashes on (uri, source set) only, so the
      * key stays stable even though the fingerprint changed.
      */
+    /*
+    ⛔ A FILE OF THE SOURCE SET MUST END AS TYPES OR AS A REPORTED FAILURE. CodeLaser/maddi#133: on the gate's audit
+    project two files of a source set whose captured dependencies lacked a library they imported produced no type and
+    no diagnostic at all; dead-code analysis then reported the whole chain behind them as dead, and the run looked
+    complete. Whatever the cause, every unit handed to javac is accounted for here, and one that is neither in a
+    type's compilation unit nor among the failures is reported as a dropped unit (a warning: the run is weakened, as
+    for a tolerable drop). module-info.java, package-info.java and a file of comments declare no type.
+     */
+    private void reportUnaccountedUnits(Summary summary, SourceSet sourceSet, ScanCompilationUnits.Result scanned) {
+        for (URI uri : unaccounted(unitsHandedToJavac.get(sourceSet), scanned)) {
+            String detail = "no type was produced from this file, and no failure was reported, in source set "
+                            + sourceSet.name();
+            LOGGER.warn("Dropping compilation unit {} (unaccounted): {}", uri, detail);
+            summary.addParseWarning(new Summary.ParseException(uri, "compilation unit", detail, null,
+                    Message.Severity.WARN));
+        }
+    }
+
+    // the units handed to javac that are neither in a type's compilation unit, nor a failure, nor typeless
+    static List<URI> unaccounted(List<URI> handed, ScanCompilationUnits.Result scanned) {
+        if (handed == null || handed.isEmpty()) return List.of();
+        Set<String> accounted = new HashSet<>();
+        for (TypeInfo typeInfo : scanned.primaryTypes()) accounted.add(typeInfo.compilationUnit().uri().toString());
+        for (ScanCompilationUnits.CompilationUnitFailure f : scanned.failures()) {
+            if (f.uri() != null) accounted.add(f.uri().toString());
+        }
+        scanned.typeless().forEach(uri -> accounted.add(uri.toString()));
+        return handed.stream().filter(uri -> {
+            String path = uri.getPath() == null ? uri.toString() : uri.getPath();
+            return !path.endsWith("module-info.java") && !path.endsWith("package-info.java")
+                   && !accounted.contains(uri.toString());
+        }).toList();
+    }
+
     private void recordSourceFiles(SourceSet sourceSet, List<TypeInfo> primaryTypes) {
         Map<URI, List<TypeInfo>> byUri = new LinkedHashMap<>();
         for (TypeInfo typeInfo : primaryTypes) {
@@ -1295,10 +1339,13 @@ public class JavaInspectorImpl implements JavaInspector {
                     : inputConfiguration.workingDirectory(), ignoreModule, sources, sourcesByClassName, fm);
             boolean hasModuleInfo = false;
             boolean haveSources = false;
+            List<URI> handed = new ArrayList<>();
             for (JavaFileObject jfo : allCompilationUnits) {
                 if (jfo.toUri().getPath().endsWith("module-info.java")) hasModuleInfo = true;
                 haveSources = true;
+                handed.add(jfo.toUri());
             }
+            if (!loaderOnly) unitsHandedToJavac.put(sourceSet, handed);
             // "no sources" is the normal state of a loader task, and the whole point of it
             if (!haveSources && !loaderOnly) return null;
 
@@ -1591,28 +1638,33 @@ public class JavaInspectorImpl implements JavaInspector {
                                        SourceSet dependency,
                                        List<TypeInfo> parsed,
                                        Map<TypeInfo, Long> sourceModified) {
+        // ⛔ A PACKAGE-INFO IS NEVER THE TARGET OF A REFERENCE, so it never has to resolve through a class file —
+        // and javac writes none for a package-info without annotations, nor for a unit that declares no type
+        // (which the parse models as a package-info too). Counted, it claimed dropped units that were not:
+        // Apache Ignite's commented-out GridTcpCommunicationBenchmark.java warned 22 dependent source sets.
+        // By name, not typeNature(): '-' cannot occur in a Java identifier, and the name holds before commit.
+        List<TypeInfo> primary = parsed.stream().filter(t -> !"package-info".equals(t.simpleName())).toList();
         File dir = classOutputOf(dependency);
         if (dir == null) {
             reportClassOutputProblem(summary, sourceSet, dependency, dependency.uri(),
                     parsed.size() + " type(s) were parsed from it, but its URI (" + dependency.uri()
-                    + ") is not a usable class-path entry, so javac has no class files for any of them");
+                    + ") is not a usable class-path entry, so javac has no class files for any of them",
+                    Summary.ClassOutputProblem.Kind.UNUSABLE_URI, parsed.size(), fullyQualifiedNames(primary),
+                    List.of(), null, null);
             return;
         }
         if (!dir.isDirectory()) {
             reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(),
                     parsed.size() + " type(s) were parsed from it, but its class output " + dir
-                    + " does not exist");
+                    + " does not exist", Summary.ClassOutputProblem.Kind.NO_CLASS_OUTPUT, parsed.size(),
+                    fullyQualifiedNames(primary), List.of(), null, null);
             return;
         }
         List<String> missing = new ArrayList<>();
         List<String> stale = new ArrayList<>();
-        for (TypeInfo typeInfo : parsed) {
-            // ⛔ A PACKAGE-INFO IS NEVER THE TARGET OF A REFERENCE, so it never has to resolve through a class file —
-            // and javac writes none for a package-info without annotations, nor for a unit that declares no type
-            // (which the parse models as a package-info too). Counted, it claimed dropped units that were not:
-            // Apache Ignite's commented-out GridTcpCommunicationBenchmark.java warned 22 dependent source sets.
-            // By name, not typeNature(): '-' cannot occur in a Java identifier, and the name holds before commit.
-            if ("package-info".equals(typeInfo.simpleName())) continue;
+        long newestClassFile = 0L;
+        long oldestStaleSource = Long.MAX_VALUE;
+        for (TypeInfo typeInfo : primary) {
             // a primary type is top-level, so its class file sits at the package path under the output directory
             String path = typeInfo.fullyQualifiedName().replace('.', '/');
             File classFile = new File(dir, path + ".class");
@@ -1624,9 +1676,11 @@ public class JavaInspectorImpl implements JavaInspector {
                 // Miss this and every plugin user gets a warning about a set-up that is in fact fine.
                 if (!new File(dir, path + ".java").isFile()) missing.add(typeInfo.fullyQualifiedName());
             } else {
+                newestClassFile = Math.max(newestClassFile, lastModified);
                 Long source = sourceModified.get(typeInfo);
                 if (source != null && source > 0L && lastModified + STALE_GRACE_MILLIS < source) {
                     stale.add(typeInfo.fullyQualifiedName());
+                    oldestStaleSource = Math.min(oldestStaleSource, source);
                 }
             }
         }
@@ -1640,19 +1694,30 @@ public class JavaInspectorImpl implements JavaInspector {
                 .append(Stream.concat(missing.stream(), stale.stream()).limit(REPORTED_EXAMPLES)
                         .collect(Collectors.joining(", ")))
                 .append(")");
-        reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString());
+        reportClassOutputProblem(summary, sourceSet, dependency, dir.toURI(), problem.toString(),
+                Summary.ClassOutputProblem.Kind.MISSING_OR_STALE, parsed.size(), missing.stream().sorted().toList(),
+                stale.stream().sorted().toList(),
+                newestClassFile == 0L ? null : java.time.Instant.ofEpochMilli(newestClassFile),
+                stale.isEmpty() ? null : java.time.Instant.ofEpochMilli(oldestStaleSource));
+    }
+
+    private static List<String> fullyQualifiedNames(List<TypeInfo> types) {
+        return types.stream().map(TypeInfo::fullyQualifiedName).sorted().toList();
     }
 
     private void reportClassOutputProblem(Summary summary, SourceSet sourceSet, SourceSet dependency, URI uri,
-                                          String problem) {
+                                          String problem, Summary.ClassOutputProblem.Kind kind, int parsedTypes,
+                                          List<String> missing, List<String> stale,
+                                          java.time.Instant newestClassFile, java.time.Instant oldestStaleSource) {
         String detail = "Source set '" + sourceSet.name() + "' resolves its references into '" + dependency.name()
                         + "' through class files, and " + problem
                         + ". Those references will not resolve, and the compilation units holding them are dropped."
                         + " Rebuild '" + dependency.name() + "' before analysing, or have maddi compile it itself"
                         + " (JavaInspector.setGeneratedClassesDirectory).";
         LOGGER.warn(detail);
-        summary.addParseWarning(new Summary.ParseException(uri, dependency.name(), detail, null,
-                Message.Severity.WARN));
+        Summary.ClassOutputProblem structured = new Summary.ClassOutputProblem(sourceSet.name(), dependency.name(),
+                kind, uri, parsedTypes, missing, stale, newestClassFile, oldestStaleSource);
+        summary.addParseWarning(Summary.ParseException.classOutput(uri, dependency.name(), detail, structured));
     }
 
     /**

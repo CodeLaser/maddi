@@ -34,20 +34,28 @@ public class FloatConstantImpl extends ConstantExpressionImpl<Float> implements 
 
     private final float value;
     private final ParameterizedType parameterizedType;
+    // how the literal was written, when that is not how its value prints (#49); null otherwise
+    private final String sourceSpelling;
 
     public FloatConstantImpl(Predefined predefined, float value) {
         this(List.of(), null, predefined.floatParameterizedType(), value);
     }
 
     public FloatConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, float value) {
+        this(comments, source, parameterizedType, value, null);
+    }
+
+    public FloatConstantImpl(List<Comment> comments, Source source, ParameterizedType parameterizedType, float value,
+                             String sourceSpelling) {
         super(comments, source, value != 0 ? 2 : 1);
         this.parameterizedType = parameterizedType;
         this.value = value;
+        this.sourceSpelling = sourceSpelling;
     }
 
     @Override
     public Expression withSource(Source source) {
-        return new FloatConstantImpl(comments(), source, parameterizedType, value);
+        return new FloatConstantImpl(comments(), source, parameterizedType, value, sourceSpelling);
     }
 
     @Override
@@ -65,7 +73,18 @@ public class FloatConstantImpl extends ConstantExpressionImpl<Float> implements 
 
     @Override
     public OutputBuilder print(Qualification qualification) {
-        return new OutputBuilderImpl().add(new TextImpl(value + "F"));
+        String text = sourceSpelling != null ? sourceSpelling : value + "F";
+        return new OutputBuilderImpl().add(new TextImpl(text));
+    }
+
+    @Override
+    public String sourceSpelling() {
+        return sourceSpelling;
+    }
+
+    @Override
+    public FloatConstantImpl withSourceSpelling(String sourceSpelling) {
+        return new FloatConstantImpl(comments(), source(), parameterizedType, value, sourceSpelling);
     }
 
     @Override

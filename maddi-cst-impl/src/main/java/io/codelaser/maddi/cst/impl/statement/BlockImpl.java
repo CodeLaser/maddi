@@ -16,7 +16,9 @@ package io.codelaser.maddi.cst.impl.statement;
 
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.SingleLineComment;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.element.Visitor;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -29,6 +31,7 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.output.BlankLineImpl;
 import io.codelaser.maddi.cst.impl.output.GuideImpl;
 import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
@@ -38,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class BlockImpl extends StatementImpl implements Block {
@@ -101,12 +105,58 @@ public class BlockImpl extends StatementImpl implements Block {
 
     @Override
     public OutputBuilder print(Qualification qualification) {
+        if (printsWithoutBraces()) {
+            // the one statement, laid out as a braced block's statements are: on its own indented line when the
+            // block does not fit, or when priority blocks always break
+            // the space a brace would have had in front of it: `if (c) x = 1;`, not `if (c)x = 1;`
+            return new OutputBuilderImpl().add(SpaceEnum.ONE_IS_NICE_EASY_SPLIT)
+                    .add(Stream.of(statements.getFirst().print(qualification))
+                    .collect(OutputBuilderImpl.joining(SpaceEnum.NONE, GuideImpl.generatorForBlock())));
+        }
+        return printWithBraces(qualification);
+    }
+
+    /**
+     * A body written without braces ({@link DetailedSources#BRACELESS}) prints without them while it still holds the
+     * one statement it was written with, and nothing a brace would have to enclose (CodeLaser/maddi#49).
+     */
+    public boolean printsWithoutBraces() {
+        Source source = source();
+        return source != null && source.detailedSources() != null
+               && source.detailedSources().detail(DetailedSources.BRACELESS) != null
+               && statements.size() == 1 && !statements.getFirst().isSynthetic()
+               && trailingComments.isEmpty() && comments().isEmpty() && annotations().isEmpty() && label() == null;
+    }
+
+    /**
+     * The block as the body of a statement whose header ends on {@code headerEndLine}: a '//' comment of the block
+     * written on that line, after the header ({@code if (c) // why}, the brace on the next line), is printed there,
+     * in front of the brace it preceded, rather than on a line of its own between the two (CodeLaser/maddi#49).
+     */
+    public OutputBuilder printAsBody(Qualification qualification, Source header, boolean withBraces) {
+        List<Comment> onHeaderLine = header == null || header.endLine() <= 0 ? List.of() : comments().stream()
+                .takeWhile(c -> c instanceof SingleLineComment && c.source() != null
+                                && c.source().beginLine() == header.endLine())
+                .toList();
+        if (onHeaderLine.isEmpty()) return withBraces ? printWithBraces(qualification) : print(qualification);
+        BlockImpl rest = new BlockImpl(comments().subList(onHeaderLine.size(), comments().size()), source(),
+                annotations(), label(), statements, trailingComments);
+        OutputBuilder ob = new OutputBuilderImpl();
+        onHeaderLine.forEach(c -> ob.add(SpaceEnum.ONE).add(c.print(qualification)));
+        return ob.add(withBraces ? rest.printWithBraces(qualification) : rest.print(qualification));
+    }
+
+    public OutputBuilder printWithBraces(Qualification qualification) {
         OutputBuilder outputBuilder = outputBuilder(qualification);
         outputBuilder.add(SymbolEnum.LEFT_BRACE);
         if (!statements.isEmpty() || !trailingComments.isEmpty()) {
-            Stream<OutputBuilder> stream1 = statements.stream()
-                    .filter(s -> !s.isSynthetic())
-                    .map(s -> s.print(qualification));
+            List<Statement> printed = statements.stream().filter(s -> !s.isSynthetic()).toList();
+            // a blank line in the source between two statements, for FormattingOptions.blankLinesFromSource (#49)
+            Stream<OutputBuilder> stream1 = IntStream.range(0, printed.size()).mapToObj(i -> {
+                OutputBuilder ob = printed.get(i).print(qualification);
+                return i > 0 && BlankLineImpl.between(printed.get(i - 1), printed.get(i))
+                        ? new OutputBuilderImpl().add(BlankLineImpl.INSTANCE).add(ob) : ob;
+            });
             Stream<OutputBuilder> stream2 = trailingComments.stream()
                     .map(c -> c.print(qualification));
             outputBuilder.add(Stream.concat(stream1, stream2)
