@@ -1407,6 +1407,13 @@ public class KotlinExpressionPrinter {
             // invariant, so the SAM constructor takes the type arguments of what it initializes, states included
             return lambda(l, KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q), q);
         }
+        if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
+            && c.parameterizedType().arrays() == target.arrays() && sameUpToStates(c.parameterizedType(), target)) {
+            // guava's ImmutableMap.SerializedForm: V[] values = (V[]) this.values into an Array<V?>: Kotlin's arrays are
+            // invariant, and the cast checks no element; it takes the element state of what it initializes
+            ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
             // String factory = (String) properties.get(key): Java's cast lets the null through
             return cast(c, true, q);

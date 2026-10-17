@@ -822,6 +822,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableMap.SerializedForm.legacyReadResolve(): {@code V[] values = (V[]) this.values} into a local
+     * the verdicts make an {@code Array<V?>}: the cast takes the local's element state.
+     */
+    @Test
+    public void arrayCastTakesTheTargetsElementState() {
+        String kotlin = kotlin("""
+                package a;
+                class Form<V> {
+                    private final Object stored;
+                    Form(Object stored) { this.stored = stored; }
+                    int count() {
+                        V[] values = (V[]) this.stored;
+                        int n = 0;
+                        for (V v : values) if (v != null) n++;
+                        return n;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("values", "values[]", "stored")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as Array<V?>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
