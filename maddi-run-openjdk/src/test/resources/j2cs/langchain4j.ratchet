@@ -86,9 +86,11 @@
 # 2026-10-16, maddi f8701687b, 19081f381: a wildcard interface declares the fields read through it, as properties;
 # none for a wildcard passed where its type is declared with arguments (getAttribute(Key<T>)): 297 -> 298 compiling
 # files, 219 -> 201 errors.
+# 2026-10-17, maddi a56ea13cd, 5e56fd4e8, b24b6ea8d: a class implementing Set itself extends JavaSet; contains,
+# remove, containsKey, get of an Object test its type (ContainsObject, ...): unmapped JDK uses 153 -> 152.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
 compilingFiles	298
-unmappedJdkUses	153
+unmappedJdkUses	152
