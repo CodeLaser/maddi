@@ -251,6 +251,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (mapDefault != null) return mapDefault;
         ParameterizedType t = KotlinMappedMembers.overriddenParameterType(methodInfo, pi.index());
         if (t == null) return null;
+        if (!KotlinMappedMembers.overriddenCollectionParameter(methodInfo, pi.index())) return KotlinTypeName.of(t, q);
         if (t.typeInfo() != null && "java.util.Collection".equals(t.typeInfo().fullyQualifiedName())) {
             // read-only, invariant: Kotlin's MutableCollection<E>.addAll(elements: Collection<E>)
             return "Collection<" + KotlinTypeName.of(t.parameters().getFirst(), q) + ">";

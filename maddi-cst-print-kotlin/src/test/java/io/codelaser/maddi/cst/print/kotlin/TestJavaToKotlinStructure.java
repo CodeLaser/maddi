@@ -540,6 +540,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's FilteredEntryMultimap.AsMap, an AbstractMap<K, Collection<V>>: remove(Object key) and containsValue's
+     * Object take the type argument as it is, MutableCollection<V>, not addAll's read-only Collection<E>; ArrayTable's
+     * ColumnMap.put(key, value: V) with V a Map takes MutableMap.
+     */
+    @Test
+    public void mappedOverrideOfACollectionTypeArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class AsMap<K, V> extends AbstractMap<K, Collection<V>> {
+                    public Set<Map.Entry<K, Collection<V>>> entrySet() { return new HashSet<>(); }
+                    public boolean containsValue(Object value) { return false; }
+                    public Collection<V> put(K key, Collection<V> value) { throw new UnsupportedOperationException(); }
+                }
+                """);
+        contains(kotlin, "override fun containsValue(value: MutableCollection<V>): Boolean");
+        contains(kotlin, "override fun put(key: K, value: MutableCollection<V>)");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */

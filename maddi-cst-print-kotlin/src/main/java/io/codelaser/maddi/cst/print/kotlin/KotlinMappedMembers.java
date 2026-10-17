@@ -156,6 +156,32 @@ final class KotlinMappedMembers {
      * Java's: {@code remove(element: E)} for {@code remove(Object)}, {@code addAll(elements: Collection<E>)} for
      * {@code addAll(Collection<? extends E>)}. Null when the parameter keeps its own type.
      */
+    /**
+     * The parameter {@link #overriddenParameterType} found is a member's collection or map parameter
+     * ({@code addAll(elements: Collection<E>)}, {@code putAll(from: Map<out K, V>)}), not one of the owner's type
+     * arguments: guava's {@code Map<K, Collection<V>>.remove(key)} or ArrayTable's {@code put(key, value: V)} with a
+     * V that is a {@code Map<R, V?>} itself takes the type argument as it is.
+     */
+    static boolean overriddenCollectionParameter(MethodInfo methodInfo, int i) {
+        if (methodInfo.overrides().isEmpty() || methodInfo.isStatic()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return false;
+        }
+        for (MethodInfo m : methodInfo.overrides()) {
+            Key key = new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size());
+            List<Integer> perParameter = OBJECT_PARAMETERS.get(key);
+            Integer index = perParameter == null ? OBJECT_PARAMETER.get(key)
+                    : i < perParameter.size() && perParameter.get(i) >= 0 ? perParameter.get(i) : null;
+            boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
+            boolean map = MAP_PARAMETER.contains(key);
+            Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
+            if (ownVariable != null) index = ownVariable;
+            if (index == null && !collection && !map) continue;
+            return index == null;
+        }
+        return false;
+    }
+
     static ParameterizedType overriddenParameterType(MethodInfo methodInfo, int i) {
         if (methodInfo.overrides().isEmpty() || methodInfo.isStatic()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
