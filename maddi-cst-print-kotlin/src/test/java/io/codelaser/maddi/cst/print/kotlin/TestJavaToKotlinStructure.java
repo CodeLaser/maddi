@@ -2033,4 +2033,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun <E> filter(unfiltered: MutableCollection<E>)");
         contains(kotlin, "fun size(c: Collection<String>): Int");
     }
+
+    /**
+     * guava's Maps.removeAllKeys removes through {@code map.entrySet().iterator()}, which the modification analysis
+     * misses: a view is a read only where it is iterated or read in turn. A for-each over {@code map.values()} and
+     * {@code new ArrayList<>(map.keySet())} are (and {@code map.keySet().contains(k)}, with the JDK's facts loaded).
+     */
+    @Test
+    public void viewReadsOnlyWhereReadInTurn() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Views {
+                    static boolean removeAll(Map<String, Integer> map, Collection<?> keys) {
+                        Iterator<Map.Entry<String, Integer>> it = map.entrySet().iterator();
+                        boolean result = false;
+                        while (it.hasNext()) { if (keys.contains(it.next().getKey())) { it.remove(); result = true; } }
+                        return result;
+                    }
+                    static int count(Map<String, Integer> map, String k) {
+                        int n = k.length();
+                        for (Integer v : map.values()) n += v;
+                        return n + new ArrayList<>(map.keySet()).size();
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun removeAll(map: MutableMap<String, Int>");
+        contains(kotlin, "fun count(map: Map<String, Int>, k: String): Int");
+        compiles(kotlin);
+    }
 }

@@ -422,8 +422,20 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
                 && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                && pi.equals(ve.variable())) {
+                && pi.equals(ve.variable()) && !VIEWS.contains(mc.methodInfo().name())) {
                 reads.add(ve);
+            }
+            // a view (map.entrySet(), list.iterator()) is a read where it is iterated or only read in turn: guava's
+            // Maps.removeAllKeys removes through map.entrySet().iterator(), which the analysis does not see
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall outer && outer.object() != null
+                && outer.methodInfo() != null && !VIEWS.contains(outer.methodInfo().name())
+                && KotlinContext.options().modification().structurallyNonModifying(outer.methodInfo())) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, outer.object());
+                if (viewed != null) reads.add(viewed);
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, fe.expression());
+                if (viewed != null) reads.add(viewed);
             }
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null) {
                 io.codelaser.maddi.cst.api.expression.VariableExpression through =
@@ -468,6 +480,22 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         return reads.size() == uses[0];
     }
 
+    /** Members whose result is a live view of the collection: modifying it modifies the collection. */
+    private static final java.util.Set<String> VIEWS = java.util.Set.of("entrySet", "keySet", "values", "iterator",
+            "listIterator", "spliterator", "subList", "headSet", "tailSet", "subSet", "headMap", "tailMap", "subMap",
+            "descendingSet", "descendingMap", "navigableKeySet", "descendingKeySet", "descendingIterator");
+
+    /** {@code e} is a view call on {@code pi} ({@code map.entrySet()}): the parameter's use inside it. */
+    private static io.codelaser.maddi.cst.api.expression.VariableExpression viewOf(
+            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        if (!(KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)
+            || mc.object() == null || mc.methodInfo() == null || !VIEWS.contains(mc.methodInfo().name())) {
+            return null;
+        }
+        return KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+               && pi.equals(ve.variable()) ? ve : null;
+    }
+
     private static void passedOn(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
                                  MethodInfo callee, java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads) {
         for (int i = 0; i < args.size(); i++) {
@@ -479,6 +507,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // checkNotNull(unfiltered) passed on: a read where the pass-through's result lands in one
             io.codelaser.maddi.cst.api.expression.VariableExpression through = passedThrough(pi, arg);
             if (through != null && acceptsReadOnly(callee, i)) reads.add(through);
+            // new ArrayList<>(map.keySet()): a view handed to a parameter that only reads it
+            io.codelaser.maddi.cst.api.expression.VariableExpression viewed = viewOf(pi, arg);
+            if (viewed != null && acceptsReadOnly(callee, i)) reads.add(viewed);
         }
     }
 
