@@ -685,4 +685,33 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "s = (s.toInt() * 3).toShort()");
         compiles(kotlin);
     }
+
+    /** guava's Splitter: an anonymous class's method inside a lambda returns for itself, no return@lambda. */
+    @Test
+    public void anonymousMethodInsideLambdaReturnsItself() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.Supplier;
+                class Lab {
+                    interface Strategy { int find(String s, int start); }
+                    static Supplier<Strategy> on(String separator) {
+                        return () -> new Strategy() {
+                            @Override public int find(String s, int start) {
+                                positions:
+                                for (int p = start; p < s.length(); p++) {
+                                    for (int i = 0; i < separator.length(); i++) {
+                                        if (s.charAt(p + i) != separator.charAt(i)) continue positions;
+                                    }
+                                    return p;
+                                }
+                                return -1;
+                            }
+                        };
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("return@lambda"), kotlin);
+        contains(kotlin, "return p");
+        compiles(kotlin);
+    }
 }

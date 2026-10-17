@@ -75,7 +75,9 @@ final class KotlinContext {
         }
     }
 
-    enum Kind {LOOP, SWITCH, LAMBDA}
+    // METHOD: an anonymous class's method body, which no break, continue or labelled return of an enclosing lambda
+    // or loop reaches
+    enum Kind {LOOP, SWITCH, LAMBDA, METHOD}
 
     static final String LAMBDA_LABEL = "lambda";
 
@@ -108,7 +110,7 @@ final class KotlinContext {
     /** The innermost loop or switch, which an unlabelled {@code break} leaves; null outside both. */
     static Frame breakTarget() {
         for (Frame f : FRAMES.get()) {
-            return f.kind == Kind.LAMBDA ? null : f;
+            return f.kind == Kind.LAMBDA || f.kind == Kind.METHOD ? null : f;
         }
         return null;
     }
@@ -116,7 +118,7 @@ final class KotlinContext {
     /** The enclosing loop, switch or block with this label, not looking past a lambda; null when there is none. */
     static Frame frameLabelled(String label) {
         for (Frame f : FRAMES.get()) {
-            if (f.kind == Kind.LAMBDA) return null;
+            if (f.kind == Kind.LAMBDA || f.kind == Kind.METHOD) return null;
             if (label.equals(f.label)) return f;
         }
         return null;
@@ -126,6 +128,7 @@ final class KotlinContext {
     static boolean inLambda() {
         for (Frame f : FRAMES.get()) {
             if (f.kind == Kind.LAMBDA) return true;
+            if (f.kind == Kind.METHOD) return false;
         }
         return false;
     }

@@ -1851,7 +1851,14 @@ public class KotlinExpressionPrinter {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
         CompilationUnitPrinterImpl.ImportDataImpl importData = new CompilationUnitPrinterImpl.ImportDataImpl(List.of(), q, q);
-        OutputBuilder body = new KotlinTypePrinter(anonymous, true).print(importData, false);
+        // its methods' returns are their own, also inside a lambda: no return@lambda (guava's Optional, Splitter)
+        KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.METHOD, null));
+        OutputBuilder body;
+        try {
+            body = new KotlinTypePrinter(anonymous, true).print(importData, false);
+        } finally {
+            KotlinContext.pop();
+        }
         if (body.isEmpty()) return b.add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         return b.add(body);
     }
