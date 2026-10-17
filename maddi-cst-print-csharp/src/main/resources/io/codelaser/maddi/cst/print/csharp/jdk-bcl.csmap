@@ -1110,7 +1110,9 @@ member java.lang.Class.getDeclaredFields/0 -> $0.GetFields(BindingFlags.Declared
 member java.lang.Class.getMethods/0 -> $0.GetMethods()
 member java.lang.Class.getFields/0 -> $0.GetFields()
 member java.lang.Class.getModifiers/0 -> JavaModifier.Of($0) using Maddi.JavaCompat
-member java.lang.Class.getDeclaredField/1 -> $0.GetField($1, BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static) using System.Reflection
+# Java throws where GetMethod and GetField are null: the compatibility library's, which throw too
+member java.lang.Class.getDeclaredMethod/2 -> JavaClass.DeclaredMethod($0, $*) using Maddi.JavaCompat
+member java.lang.Class.getDeclaredField/1 -> JavaClass.DeclaredField($0, $1) using Maddi.JavaCompat
 member java.lang.Class.getField/1 -> $0.GetField($1)
 member java.lang.Class.isRecord/0 -> JavaClass.IsRecord($0) using Maddi.JavaCompat
 member java.lang.Class.isMemberClass/0 -> $0.IsNested

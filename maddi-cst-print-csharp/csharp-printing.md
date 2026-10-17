@@ -745,8 +745,10 @@ from a map, a stream's collector.
   `System.Reflection`'s: `Method` → `MethodInfo`, `Field` → `FieldInfo`, `Parameter` → `ParameterInfo`.
   - Annotations are attributes: `getAnnotation(Tool.class)` becomes `GetCustomAttribute<ToolAttribute>()`, and
     `isAnnotationPresent` becomes `IsDefined`.
-  - `getDeclaredMethods()` becomes `GetMethods` with `DeclaredOnly` and every visibility; so do
-    `getDeclaredMethod(name, types…)` and `getDeclaredField(name)`, as `GetMethod` and `GetField`.
+  - `getDeclaredMethods()` becomes `GetMethods` with `DeclaredOnly` and every visibility.
+    `getDeclaredMethod(name, types…)` and `getDeclaredField(name)` become the compatibility library's
+    `JavaClass.DeclaredMethod` and `DeclaredField`, which look the same way and throw `MissingMethodException`
+    and `MissingFieldException` where Java throws and `GetMethod` and `GetField` are null.
   - `setAccessible` does nothing: .NET's reflection reaches a member that is not public. `f.getInt(o)` and the other
     primitive getters are `Convert.ToInt32(f.GetValue(o))`, which widens as Java's do. `isRecord` and
     `isSynthetic` are the compatibility library's `JavaClass.IsRecord` (the record's clone method) and
@@ -811,7 +813,7 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
   `remove`), `IJavaListIterator<T>` (a `ListIterator`, which `JavaIterator<T>` is over a list: `previous`, `set`,
-  `add`, and `remove` of the element last returned either way), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
+  `add`, and `remove` of the element last returned either way; `Set` and `Add` are optional, they throw by default), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`

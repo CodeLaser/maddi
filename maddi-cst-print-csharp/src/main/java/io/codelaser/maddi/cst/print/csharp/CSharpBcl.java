@@ -319,13 +319,6 @@ final class CSharpBcl implements LibraryMapping {
         // the parameter types are varargs: none, or an array
         chooser("java.lang.Class.getMethod/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
                 ? "$0.GetMethod($1, Type.EmptyTypes)" : "$0.GetMethod($*)", SYSTEM));
-        // the declared methods: public or not, the class's own; the parameter types as getMethod's
-        chooser("java.lang.Class.getDeclaredMethod/2", (method, call) -> rule("$0.GetMethod($1, BindingFlags.DeclaredOnly"
-                + " | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static, "
-                + (call == null || call.parameterExpressions().size() == 1 ? "Type.EmptyTypes"
-                   : call.parameterExpressions().size() == 2 && call.parameterExpressions().get(1).parameterizedType() != null
-                     && call.parameterExpressions().get(1).parameterizedType().arrays() > 0 ? "$2" : "new Type[] { $+ }")
-                + ")", REFLECTION, SYSTEM));
         chooser("java.lang.Class.getDeclaredConstructor/1", (method, call) -> rule("$0.GetConstructor("
                 + "BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, "
                 + (call != null && call.parameterExpressions().isEmpty() ? "Type.EmptyTypes" : "$*") + ")",

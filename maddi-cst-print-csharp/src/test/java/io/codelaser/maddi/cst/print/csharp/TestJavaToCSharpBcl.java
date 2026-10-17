@@ -666,10 +666,10 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "JavaClass.SetAccessible(f, true);");
         contains(cs, "JavaClass.IsSynthetic(f) ? 0 : Convert.ToInt32(f.GetValue(o))");
         contains(cs, "f.SetValue(o, 1L);");
-        contains(cs, "c.GetMethod(\"run\", BindingFlags.DeclaredOnly | BindingFlags");
-        contains(cs, "BindingFlags.Static, Type.EmptyTypes)");
-        contains(cs, "BindingFlags.Static, new Type[]{ p, typeof(int) })");
-        contains(cs, "c.GetField(\"x\", BindingFlags.DeclaredOnly");
+        // Java throws where GetMethod is null: the compatibility library's, which throws too
+        contains(cs, "JavaClass.DeclaredMethod(c, \"run\")");
+        contains(cs, "JavaClass.DeclaredMethod(c, \"apply\", p, typeof(int))");
+        contains(cs, "JavaClass.DeclaredField(c, \"x\")");
         contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
         contains(cs, "s.TrimEnd() + s.TrimStart()");
         contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");

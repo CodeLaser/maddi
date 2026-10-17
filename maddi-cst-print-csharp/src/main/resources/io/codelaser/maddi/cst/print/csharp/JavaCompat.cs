@@ -1008,6 +1008,17 @@ public static class JavaClass
     {
     }
 
+    private const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic
+                                          | BindingFlags.Instance | BindingFlags.Static;
+
+    /// <summary>Class.getDeclaredMethod: the class's own, public or not; throws where Java does, GetMethod is null.</summary>
+    public static MethodInfo DeclaredMethod(Type t, string name, params Type[] parameterTypes) =>
+        t.GetMethod(name, Declared, parameterTypes) ?? throw new MissingMethodException(t.FullName, name);
+
+    /// <summary>Class.getDeclaredField: the class's own, public or not; throws where Java does.</summary>
+    public static FieldInfo DeclaredField(Type t, string name) =>
+        t.GetField(name, Declared) ?? throw new MissingFieldException(t.FullName, name);
+
     /// <summary>Class.isRecord: a C# record class, which has the compiler's clone method.</summary>
     public static bool IsRecord(Type t) => t.GetMethod("<Clone>$") != null;
 
@@ -1390,9 +1401,10 @@ public interface IJavaListIterator<T> : IJavaIterator<T>
 
     int PreviousIndex();
 
-    void Set(T e);
+    // optional operations, as Java's: a list iterator that does not support them inherits these
+    void Set(T e) => throw new NotSupportedException("set");
 
-    void Add(T e);
+    void Add(T e) => throw new NotSupportedException("add");
 }
 
 public static class JavaIterators
