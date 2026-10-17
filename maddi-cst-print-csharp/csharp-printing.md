@@ -241,6 +241,11 @@ implements the interface.
   `Remove`, `Clear`, `ContainsAll`, `AddAll`, `RemoveAll` and `RetainAll` are virtual, with `AbstractCollection`'s
   defaults; it implements `ISet<E>` on them. A class implementing `Set` itself, without a superclass, extends it
   too, and its methods of those names override them.
+- **An `Object` where the element or key type is expected.** Java's `contains(Object)`, `remove(Object)`,
+  `containsKey(Object)` and `get(Object)` take any object; C#'s take the element's or the key's type. Given an
+  `Object` where the collection's first type argument is not `Object`, the call is the compatibility library's
+  `ContainsObject`, `RemoveObject`, `ContainsKeyObject`, `GetObject` or `RemoveKeyObject`, which test the object's
+  type: one of another type is not there, as in Java. (Not a `get` of a value-type value, nor on a read-only receiver.)
 - **Subclasses of `Number`.** A `Number` is C#'s `IConvertible`, which has no `intValue()` to override. A class
   extending `Number` extends the compatibility library's `JavaNumber`, whose `IntValue()`, `LongValue()`,
   `FloatValue()` and `DoubleValue()` are abstract and which implements `IConvertible` on them, so that

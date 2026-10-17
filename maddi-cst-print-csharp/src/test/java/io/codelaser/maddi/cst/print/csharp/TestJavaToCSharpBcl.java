@@ -522,6 +522,12 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
                 static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
+                static String lookup(Map<String, String> m, Object k) {
+                    if (!m.containsKey(k)) return null;
+                    m.remove(k);
+                    return m.get(k);
+                }
+                static String drop(Map<String, String> m, Object k) { return m.remove(k); }
             }
             """;
 
@@ -555,7 +561,13 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "public override int Size() => items.Count;");
         // one implementing Set itself likewise, overriding JavaSet's methods
         contains(cs, "internal sealed class Pair<E> : JavaSet<E> {");
-        contains(cs, "public override bool Contains(object o) => items.Contains(o);");
+        // contains(Object), remove(Object) of a List<E>: the compatibility library's, which tests the object's type
+        contains(cs, "public override bool Contains(object o) => items.ContainsObject(o);");
+        contains(cs, "public override bool Remove(object o) => items.RemoveObject(o);");
+        contains(cs, "if (!m.ContainsKeyObject(k)) { return null; }");
+        contains(cs, "m.RemoveKeyObject(k);");
+        contains(cs, "return m.GetObject(k);");
+        contains(cs, "=> m.RemoveKeyObject(k);");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");

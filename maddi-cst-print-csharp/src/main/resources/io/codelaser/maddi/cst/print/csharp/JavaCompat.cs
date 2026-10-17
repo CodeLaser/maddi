@@ -91,6 +91,33 @@ public static class JavaCollections
         return old;
     }
 
+    // Java's contains(Object), remove(Object), containsKey(Object), get(Object) take any object, which is not there
+    // when it is not of the element's or the key's type; C#'s take that type.
+
+    private static bool AsElement<T>(object? o, out T t)
+    {
+        if (o is T v)
+        {
+            t = v;
+            return true;
+        }
+        t = default!;
+        // a null is an element of a collection of references, as in Java
+        return o is null && default(T) is null;
+    }
+
+    public static bool ContainsObject<T>(this ICollection<T> c, object? o) => AsElement(o, out T t) && c.Contains(t);
+
+    public static bool RemoveObject<T>(this ICollection<T> c, object? o) => AsElement(o, out T t) && c.Remove(t);
+
+    // a Dictionary has no null key
+    public static bool ContainsKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k && d.ContainsKey(k);
+
+    public static V? GetObject<K, V>(this IDictionary<K, V> d, object? o) =>
+        o is K k && d.TryGetValue(k, out var v) ? v : default;
+
+    public static V? RemoveKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k ? d.RemoveAndGet(k) : default;
+
     public static void PutAll<K, V>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K, V>> other)
     {
         foreach (var (k, v) in other.ToList()) d[k] = v;

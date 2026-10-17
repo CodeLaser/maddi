@@ -224,7 +224,6 @@ member java.util.Map.size/0 -> $0.Count
 member java.util.Collection.isEmpty/0 -> $0.Count == 0
 member java.util.Map.isEmpty/0 -> $0.Count == 0
 member java.util.Collection.add/1 -> $0.Add($1)
-member java.util.Collection.remove/1 -> $0.Remove($1)
 member java.util.Collection.clear/0 -> $0.Clear()
 member java.util.Map.clear/0 -> $0.Clear()
 member java.util.Collection.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
@@ -241,7 +240,6 @@ member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/1 -> $0.Iterator($1) using Maddi.JavaCompat
 member java.util.List.add/2 -> $0.Insert($1, $2)
-member java.util.List.remove(Object) -> $0.Remove($1)
 member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
 statement java.util.List.addAll/1 -> $0.AddRange($1)
 member java.util.List.addAll/2 -> $0.InsertAll($1, $2) using Maddi.JavaCompat
@@ -355,13 +353,10 @@ statement java.util.Queue.remove/0 -> $0.RemoveAt(0)
 # Map
 member java.util.Map.put/2 ->? $0.Put($1, $2) using Maddi.JavaCompat
 statement java.util.Map.put/2 -> $0[$1] = $2
-member java.util.Map.containsKey/1 -> $0.ContainsKey($1)
 member java.util.Map.containsValue/1 -> $0.Values.Contains($1) using System.Linq
 member java.util.Map.entrySet/0 -> $0
 member java.util.Map.keySet/0 -> $0.Keys
 member java.util.Map.values/0 -> $0.Values
-member java.util.Map.remove/1 ->? $0.RemoveAndGet($1) using Maddi.JavaCompat
-statement java.util.Map.remove/1 -> $0.Remove($1)
 member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
 member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
 statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)

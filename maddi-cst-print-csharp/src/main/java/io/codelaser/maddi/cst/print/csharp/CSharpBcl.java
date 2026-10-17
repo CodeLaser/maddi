@@ -228,9 +228,20 @@ final class CSharpBcl implements LibraryMapping {
 
     static {
         // collections
+        // Java's contains(Object), remove(Object), containsKey(Object), get(Object) of an Object where the collection's
+        // C# method takes its element or key type: the compatibility library's, which tests the object's type;
         // a read-only collection (CSharpReadOnly) has LINQ's Contains
-        chooser("java.util.Collection.contains/1", (method, call) -> readOnlyReceiver(call)
+        chooser("java.util.Collection.contains/1", (method, call) -> objectArgument(call) && !readOnlyReceiver(call)
+                ? rule("$0.ContainsObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule("$0.Contains($1)", LINQ) : rule("$0.Contains($1)"));
+        Chooser remove = (method, call) -> objectArgument(call) ? rule("$0.RemoveObject($1)", COMPAT) : rule("$0.Remove($1)");
+        chooser("java.util.Collection.remove/1", remove);
+        chooser("java.util.List.remove(Object)", remove);
+        chooser("java.util.Map.containsKey/1", (method, call) -> objectArgument(call)
+                ? rule("$0.ContainsKeyObject($1)", COMPAT) : rule("$0.ContainsKey($1)"));
+        chooser("java.util.Map.remove/1", (method, call) -> objectArgument(call)
+                ? new Rule("$0.RemoveKeyObject($1)", "$0.RemoveKeyObject($1)", List.of(COMPAT)).withNullableResult()
+                : new Rule("$0.RemoveAndGet($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult());
         // a collection of ? is non-generic in C#: LINQ needs its elements as objects
         chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
                 : rule("$0"));
@@ -255,7 +266,8 @@ final class CSharpBcl implements LibraryMapping {
         // a value-type value is null when absent, as Java's Integer; the BCL's GetValueOrDefault is for a concrete
         // dictionary, which is also read-only one; an IDictionary has the compatibility library's Get
         // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
-        chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
+        chooser("java.util.Map.get/1", (method, call) -> objectArgument(call) && !valueType(call, 1) && !readOnlyReceiver(call)
+                ? nullable("$0.GetObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
                 : valueType(call, 1) ? nullable("$0.GetValueOrNull($1)", COMPAT)
                 : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
@@ -385,6 +397,21 @@ final class CSharpBcl implements LibraryMapping {
     // ---------------------------------------------------------------- what the choosers ask of a call
 
     /** The call's type argument {@code index} (of its return type) is a value type in C#: a boxed primitive, an enum, a struct. */
+    /**
+     * The call's argument is an Object where the receiver's element or key type, its first type argument, is not:
+     * {@code set.contains(o)} of a {@code Set<V>}.
+     */
+    private static boolean objectArgument(MethodCall call) {
+        if (call == null || call.object() == null || call.parameterExpressions().size() != 1) return false;
+        ParameterizedType receiver = call.object().parameterizedType();
+        ParameterizedType argument = call.parameterExpressions().getFirst().parameterizedType();
+        if (receiver == null || receiver.parameters().isEmpty() || argument == null || !argument.isJavaLangObject()) {
+            return false;
+        }
+        ParameterizedType element = receiver.parameters().getFirst();
+        return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
+    }
+
     private static boolean valueType(MethodCall call, int index) {
         if (call == null || call.object() == null) return false;
         ParameterizedType receiver = call.object().parameterizedType();
