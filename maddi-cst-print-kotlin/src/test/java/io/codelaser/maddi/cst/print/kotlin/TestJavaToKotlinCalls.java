@@ -259,7 +259,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, ".toTypedArray<CompletableFuture<*>>())");
         contains(kotlin, "{ java.util.List.of() })");
         contains(kotlin, "{ java.util.List.of(*it) })");
-        contains(kotlin, "getOrDefault(d, java.util.function.Supplier(::D))");
+        contains(kotlin, "getOrDefault(d, java.util.function.Supplier<D>(::D))");
         // into a non-null parameter the cast null stays as it was
         contains(kotlin, "pick(null as String)");
         contains(kotlin, "Comparator.comparingDouble<Any>( { scores.get(it)!! }).reversed()");
@@ -418,6 +418,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "e.declaringJavaClass");
         contains(kotlin, "(s as java.lang.String).getChars(");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ImmutableRangeMap: {@code SortedLists.binarySearch(ranges, Range::lowerBound, …)} beside an overload taking
+     * a T. The SAM constructor that keeps Java's overload carries the reference's type arguments, else Kotlin infers
+     * none for the lambda inside.
+     */
+    @Test
+    public void samConstructorTyped() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Fn<F, T> { T apply(F input); }
+                class Range<C> { C lower; C lowerBound() { return lower; } }
+                class Search {
+                    static <E, K> int search(List<? extends E> list, Fn<? super E, K> key, K target) { return 0; }
+                    static <E> int search(List<? extends E> list, E key, E target) { return 1; }
+                    static <C> int find(List<Range<C>> ranges, C c) { return search(ranges, Range::lowerBound, c); }
+                }
+                """);
+        contains(kotlin, "Fn<Range<C>, C>(");
         compiles(kotlin);
     }
 }

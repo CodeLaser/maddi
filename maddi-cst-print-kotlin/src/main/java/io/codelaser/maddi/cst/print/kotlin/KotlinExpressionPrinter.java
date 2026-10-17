@@ -622,9 +622,17 @@ public class KotlinExpressionPrinter {
                     continue;
                 }
             }
-            if (hasParameter && unwrap(args.get(i)) instanceof MethodReference && besideTypeParameter(method, i)) {
-                printed.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.name(
-                                method.parameters().get(i).parameterizedType().typeInfo(), q)))
+            if (hasParameter && unwrap(args.get(i)) instanceof MethodReference mr && besideTypeParameter(method, i)) {
+                // Function<Range<K>, Cut<K>>({ it.lowerBound() }): the reference's own type arguments, or Kotlin infers
+                // none for a SAM constructor around a lambda (guava's ImmutableRangeMap)
+                ParameterizedType functional = mr.parameterizedType();
+                TypeInfo samType = method.parameters().get(i).parameterizedType().typeInfo();
+                boolean typed = functional != null && functional.typeInfo() == samType && functional.arrays() == 0
+                                && !functional.parameters().isEmpty()
+                                && functional.parameters().stream().allMatch(p -> p.wildcard() == null);
+                printed.add(new OutputBuilderImpl().add(new TextImpl(typed
+                                ? KotlinTypeName.of(functional.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)
+                                : KotlinTypeName.name(samType, q)))
                         .add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
                 continue;
             }
