@@ -297,11 +297,11 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
-        String printed = typeOverride != null ? typeOverride
+        String printed = typeOverride != null ? typeOverride : KotlinTypeName.inSignature(() ->
                 // before the read-only collection rule, which leaves an array invariant
-                : covariantArray(pi, type) ? outArray(type, q)
+                covariantArray(pi, type) ? outArray(type, q)
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
-                : KotlinTypeName.of(type, q);
+                : KotlinTypeName.of(type, q));
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
     }

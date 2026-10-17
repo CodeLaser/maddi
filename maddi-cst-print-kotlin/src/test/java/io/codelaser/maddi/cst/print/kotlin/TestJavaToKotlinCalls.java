@@ -919,4 +919,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "toArray(emptyArray<String>())");
         compiles(kotlin);
     }
+
+    /**
+     * guava's ClassToInstanceMap: {@code <T extends @NonNull B> T getInstance(Class<T> type)}, {@code putInstance(
+     * Class<@NonNull T> type, T value)}, implemented without the annotation: the bound and the parameter type stay
+     * as the override says them, which Kotlin wants exactly.
+     */
+    @Test
+    public void nonNullTypeVariableNotInSignatures() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                @Target(ElementType.TYPE_USE) @interface NonNull { }
+                interface ToInstance<B extends @Nullable Object> {
+                    <T extends @NonNull B> T getInstance(Class<T> type);
+                    <T extends B> T putInstance(Class<@NonNull T> type, T value);
+                }
+                final class Impl<B> implements ToInstance<B> {
+                    public <T extends B> T getInstance(Class<T> type) { return null; }
+                    public <T extends B> T putInstance(Class<T> type, T value) { return value; }
+                }
+                """);
+        assertFalse(kotlin.contains("& Any"), kotlin);
+    }
 }

@@ -127,8 +127,23 @@ public class KotlinTypeName {
      * {@code <S extends @Nullable T> … ordering.<T>reverse().<@NonNull S>nullsLast()}, where nullsLast's S is a T;
      * FluentIterable's {@code Optional<@NonNull E> firstMatch(…)}.
      */
+    // printing a parameter's type or a type parameter's bound: an override must repeat those exactly, and guava's
+    // implementations of ClassToInstanceMap's <T extends @NonNull B> getInstance(Class<T>) do not say @NonNull
+    private static final ThreadLocal<Boolean> IN_SIGNATURE = ThreadLocal.withInitial(() -> false);
+
+    /** {@code print}, without {@code E & Any}: a parameter's type, a type parameter's bound. */
+    static String inSignature(java.util.function.Supplier<String> print) {
+        boolean previous = IN_SIGNATURE.get();
+        IN_SIGNATURE.set(true);
+        try {
+            return print.get();
+        } finally {
+            IN_SIGNATURE.set(previous);
+        }
+    }
+
     static boolean definitelyNonNull(ParameterizedType t) {
-        return KotlinContext.translatingJava() && t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null
+        return KotlinContext.translatingJava() && !IN_SIGNATURE.get() && t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null
                && t.nullable() != NullableState.NULLABLE && t.annotations().stream()
                        .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL
                                .contains(ae.typeInfo().simpleName()))
@@ -237,7 +252,8 @@ public class KotlinTypeName {
                     + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(" & ")));
         }
         // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat
-        return bounds.size() == 1 ? name + " : " + of(KotlinTypePrinter.declared(bounds.getFirst()), q) : name;
+        return bounds.size() == 1 ? name + " : " + inSignature(() -> of(KotlinTypePrinter.declared(bounds.getFirst()), q))
+                : name;
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */
