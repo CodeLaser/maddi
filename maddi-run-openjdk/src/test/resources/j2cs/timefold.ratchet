@@ -149,9 +149,12 @@
 # 2026-10-16, maddi 76cc8a338, 8e0fe3de3: a class extending Number extends JavaNumber, an IConvertible; an interface's
 # default close() of a Closeable implements IDisposable.Dispose explicitly: 1238 -> 1242 compiling files,
 # 1546 -> 1499 errors.
+# 2026-10-17, maddi a56ea13cd, 5e56fd4e8, b24b6ea8d: a class implementing Set itself extends JavaSet; contains,
+# remove, containsKey, get of an Object test its type (ContainsObject, ...): 1242 -> 1243 compiling files, 1499 -> 1425
+# errors, unmapped JDK uses 375 -> 364.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1242
-unmappedJdkUses	375
+compilingFiles	1243
+unmappedJdkUses	364
