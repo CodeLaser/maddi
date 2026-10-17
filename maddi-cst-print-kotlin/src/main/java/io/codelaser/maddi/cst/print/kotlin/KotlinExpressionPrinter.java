@@ -1515,7 +1515,8 @@ public class KotlinExpressionPrinter {
      */
     private static ParameterizedType withTargetStates(ParameterizedType constructed, ParameterizedType target) {
         if (constructed.arrays() > 0 || target.arrays() > 0 || constructed.parameters().isEmpty()
-            || constructed.parameters().size() != target.parameters().size()) {
+            || constructed.parameters().size() != target.parameters().size()
+            || !passesParametersOn(constructed.typeInfo(), target.typeInfo())) {
             return null;
         }
         boolean changed = false;
@@ -1533,6 +1534,32 @@ public class KotlinExpressionPrinter {
             arguments.add(theirs);
         }
         return changed ? constructed.withParameters(arguments) : null;
+    }
+
+    /**
+     * {@code sub}'s type parameters are {@code sup}'s arguments as they are, in order: ArrayList<E> a List<E>. Not
+     * guava's NullsFirstOrdering<T>, an Ordering<@Nullable T>: the target's Ordering<S?> is its S, not its S?.
+     */
+    private static boolean passesParametersOn(TypeInfo sub, TypeInfo sup) {
+        if (sub == null || sup == null) return false;
+        if (sub == sup) return true;
+        ParameterizedType formal = sub.asParameterizedType();
+        ParameterizedType seen;
+        try {
+            seen = formal.concreteSuperType(sup.asParameterizedType());
+        } catch (RuntimeException | AssertionError e) {
+            return false;
+        }
+        if (seen == null || seen.parameters().size() != formal.parameters().size()) return false;
+        for (int i = 0; i < formal.parameters().size(); i++) {
+            if (seen.parameters().get(i).typeParameter() != formal.parameters().get(i).typeParameter()) return false;
+        }
+        // a direct supertype that annotates an argument @Nullable passes it on as T?
+        java.util.stream.Stream<ParameterizedType> direct = java.util.stream.Stream.concat(
+                sub.parentClass() == null ? java.util.stream.Stream.empty() : java.util.stream.Stream.of(sub.parentClass()),
+                sub.interfacesImplemented().stream());
+        return direct.filter(d -> d.typeInfo() == sup).noneMatch(d -> KotlinTypePrinter.declaredArguments(d).parameters()
+                .stream().anyMatch(KotlinNullability::isNullable));
     }
 
     /** The same type, ignoring the nullable states of it and its arguments; a wildcard is never the same. */
