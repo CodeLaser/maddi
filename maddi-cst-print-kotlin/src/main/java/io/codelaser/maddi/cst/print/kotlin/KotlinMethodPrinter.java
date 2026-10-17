@@ -293,8 +293,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         String printed = typeOverride != null ? typeOverride
-                : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
+                // before the read-only collection rule, which leaves an array invariant
                 : covariantArray(pi, type) ? outArray(type, q)
+                : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
                 : KotlinTypeName.of(type, q);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
@@ -316,9 +317,17 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * override, whose parameter types are the overridden member's.
      */
     static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
+        MethodInfo m = pi.methodInfo();
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || type.arrays() != 1
-            || !pi.methodInfo().overrides().isEmpty() || pi.methodInfo().methodBody() == null) {
+            || !m.overrides().isEmpty() || m.methodBody() == null) {
             return false;
+        }
+        // nor where an override may take it invariant: guava's Hashing.makeHash, overridden in ConcatenatedHashFunction
+        boolean closed = m.isConstructor() || m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
+                         || m.typeInfo().isFinal();
+        if (!closed) {
+            java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+            if (family == null || family.size() != 1) return false;
         }
         ParameterizedType element = type.componentType();
         if (element.isPrimitiveExcludingVoid() || element.typeInfo() == null && element.typeParameter() == null) {
@@ -389,6 +398,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (!isPi(pi, args.get(i))) continue;
             if (callee == null || callee.parameters().isEmpty()) return false;
             ParameterInfo p = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+            // this.rest = checkNotNull(rest): the array comes back, as what the call returns
+            if (passThrough(callee, Math.min(i, callee.parameters().size() - 1))) return false;
             if (p.isVarArgs()) continue;
             if (!KotlinNullability.translated(callee.typeInfo())) continue;
             ParameterizedType t = p.parameterizedType();

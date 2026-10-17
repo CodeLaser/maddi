@@ -530,4 +530,43 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "Supplier<Acc<R, V>>(");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Joiner.join(Object[]) and Types.disallowPrimitiveType(Type[]): with the analysis's unmodified verdicts,
+     * an array only read is still Array<out T> (the read-only collection rule left it invariant). Not where an
+     * override may take it (Hashing.makeHash), nor where a pass-through hands it back (Lists' checkNotNull(rest)).
+     */
+    @Test
+    public void covariantArraysWithVerdicts() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class J {
+                    static <T> T checkNotNull(T t) { if (t == null) throw new NullPointerException(); return t; }
+                    final String join(Object[] parts) {
+                        List<?> partsList = Arrays.<Object>asList(parts);
+                        return partsList.toString();
+                    }
+                    private static void disallow(java.lang.reflect.Type[] types) {
+                        for (java.lang.reflect.Type t : types) if (t instanceof Class<?> c && c.isPrimitive()) throw new IllegalArgumentException();
+                    }
+                    int makeHash(Object[] hashes) { return hashes.length; }
+                    static class Concat extends J {
+                        @Override int makeHash(Object[] hashes) { return 1; }
+                    }
+                    static class Rest<E> {
+                        final E[] rest;
+                        Rest(E[] rest) { this.rest = checkNotNull(rest); }
+                    }
+                    static String all(java.lang.reflect.Type[] upper) { disallow(upper); return new J().join(upper); }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun join(parts: Array<out Any>)");
+        contains(kotlin, "fun disallow(types: Array<out java.lang.reflect.Type>)");
+        contains(kotlin, "fun makeHash(hashes: Array<Any>)");
+        contains(kotlin, "rest: Array<E>");
+        compiles(kotlin);
+    }
 }
