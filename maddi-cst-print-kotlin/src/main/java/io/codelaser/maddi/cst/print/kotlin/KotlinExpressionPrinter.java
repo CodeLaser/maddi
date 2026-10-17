@@ -707,6 +707,12 @@ public class KotlinExpressionPrinter {
                 // set.contains(x), map.get(k) with a nullable x or k: Java's take an Object, and null finds nothing;
                 // Kotlin's stdlib extensions take any supertype of the element or key, so no `!!` (which throws)
                 ParameterizedType lookedUp = hasParameter && call != null ? nullableLookup(method, call, args.get(i), i) : null;
+                // get(key: K) overriding Map.get: its key is a K already in Kotlin, whatever Java's Object says
+                if (lookedUp != null && unwrap(args.get(i)) instanceof VariableExpression mappedVe
+                    && mappedVe.variable() instanceof ParameterInfo mappedPi
+                    && KotlinMappedMembers.overriddenParameterType(mappedPi.methodInfo(), mappedPi.index()) != null) {
+                    lookedUp = null;
+                }
                 if (lookedUp != null) {
                     if (lookedUp.typeParameter() != null
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()

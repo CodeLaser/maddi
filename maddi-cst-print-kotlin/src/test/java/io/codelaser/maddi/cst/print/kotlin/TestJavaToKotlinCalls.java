@@ -780,10 +780,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 """);
         // the overrides' Kotlin parameters are non-null here (no NullabilityPass): the casts are to K and V
         contains(kotlin, "this@Cache.get((key as K))");
-        contains(kotlin, "super.get((key as K))");
         contains(kotlin, "this@Cache.remove((key as K), (e.value as V))");
-        // into java.util's own lookup, nullable as ever
-        contains(kotlin, "map.get((key as K?))");
+        // the override's own key is a K in Kotlin already (get(key: K) overriding Map.get): no cast
+        contains(kotlin, "super.get(key)");
+        contains(kotlin, "map.get(key)");
         compiles(kotlin);
     }
 }
