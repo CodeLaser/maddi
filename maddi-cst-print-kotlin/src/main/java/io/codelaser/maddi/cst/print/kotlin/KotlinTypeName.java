@@ -237,6 +237,34 @@ public class KotlinTypeName {
                 .anyMatch(t -> t.meAndMyRecursiveSuperTypeStream().anyMatch(s -> s == outer));
     }
 
+    /** A nested type whose simple name Kotlin does not resolve where the printer is: outside its outer types. */
+    private static boolean notInKotlinScope(TypeInfo typeInfo) {
+        if (typeInfo.isPrimaryType() || typeInfo.enclosingMethod() != null || !KotlinContext.translatingJava()) {
+            return false;
+        }
+        TypeInfo outer = outer(typeInfo);
+        if (outer == null) return false;
+        for (TypeInfo t = KotlinContext.currentType(); t != null; t = outer(t)) {
+            if (t == outer || t == typeInfo || inherits(t, outer, new java.util.HashSet<>())) return false;
+        }
+        return true;
+    }
+
+    /** The type {@code nested} is declared in; null for a primary type. */
+    private static TypeInfo outer(TypeInfo nested) {
+        if (nested.isPrimaryType() || nested.primaryType() == null) return null;
+        TypeInfo primary = nested.primaryType();
+        if (primary.subTypes().contains(nested)) return primary;
+        return primary.recursiveSubTypeStream().filter(t -> t.subTypes().contains(nested)).findFirst().orElse(null);
+    }
+
+    private static boolean inherits(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+        if (sub == null || !visited.add(sub)) return false;
+        if (sub == sup) return true;
+        if (sub.parentClass() != null && inherits(sub.parentClass().typeInfo(), sup, visited)) return true;
+        return sub.interfacesImplemented().stream().anyMatch(i -> inherits(i.typeInfo(), sup, visited));
+    }
+
     public static String name(TypeInfo typeInfo, Qualification q) {
         String mapped = mapped(typeInfo.fullyQualifiedName());
         if (mapped != null) return mapped;
@@ -246,6 +274,12 @@ public class KotlinTypeName {
         if (innerOfGenericInScope(typeInfo)) return KotlinNames.name(typeInfo.simpleName());
         if (q == null) return KotlinNames.name(typeInfo.simpleName());
         String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
+        if (minimal.indexOf('.') < 0 && notInKotlinScope(typeInfo)) {
+            // @ReflectionSupport(ReflectionSupport.Level.FULL) on guava's AbstractFuture: Java's simple name, where
+            // Kotlin sees a nested type only inside its outer types (and their subtypes); outside, the outer's name
+            minimal = name(outer(typeInfo), q) + "." + typeInfo.simpleName();
+            return KotlinNames.dotted(minimal);
+        }
         TypeInfo primary = typeInfo.primaryType();
         if (primary != null && (minimal.equals(primary.simpleName()) || minimal.startsWith(primary.simpleName() + "."))) {
             KotlinContext.referencedType(primary);

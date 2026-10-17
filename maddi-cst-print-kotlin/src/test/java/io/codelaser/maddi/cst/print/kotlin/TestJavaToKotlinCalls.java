@@ -714,4 +714,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "return p");
         compiles(kotlin);
     }
+
+    /**
+     * guava's AbstractFuture: {@code @ReflectionSupport(ReflectionSupport.Level.FULL)} beside a static import of
+     * java.util.logging.Level.SEVERE, which Kotlin imports as {@code Level}: the nested enum keeps its outer name.
+     */
+    @Test
+    public void nestedTypeBesideImportedNamesake() {
+        String kotlin = kotlin("""
+                package a;
+                import static java.util.logging.Level.SEVERE;
+                import java.util.logging.Logger;
+                @interface Support { enum Level { NONE, FULL } Level value(); }
+                @Support(Support.Level.FULL)
+                class X {
+                    static void log(Logger logger) { logger.log(SEVERE, "x"); }
+                }
+                """);
+        contains(kotlin, "@Support(Support.Level.FULL)");
+        compiles(kotlin);
+    }
 }
