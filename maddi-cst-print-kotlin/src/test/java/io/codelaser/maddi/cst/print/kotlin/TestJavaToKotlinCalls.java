@@ -810,4 +810,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "val selector: Top<E> =");
         compiles(kotlin);
     }
+
+    /**
+     * guava's NullsFirstOrdering.reverse(): {@code <@NonNull S>nullsLast()} with {@code S extends @Nullable T}, where
+     * nullsLast wants a T: Kotlin's {@code S & Any}.
+     */
+    @Test
+    public void nonNullTypeArgumentOfANullableBoundedVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                abstract class Ord<T> {
+                    @Target(ElementType.TYPE_USE) @interface Nullable { }
+                    @Target(ElementType.TYPE_USE) @interface NonNull { }
+                    abstract <S extends T> Ord<S> firstOf();
+                    <S extends @Nullable T> Ord<?> wider() { return this.<@NonNull S>firstOf(); }
+                }
+                """);
+        contains(kotlin, "firstOf<S & Any>()");
+        compiles(kotlin);
+    }
 }
