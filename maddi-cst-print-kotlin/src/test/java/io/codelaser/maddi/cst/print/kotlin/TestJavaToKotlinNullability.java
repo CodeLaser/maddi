@@ -772,6 +772,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ThreadFactoryBuilder.doBuild(): {@code requireNonNull(count)} inside the anonymous ThreadFactory, of the
+     * enclosing method's {@code AtomicLong count = nameFormat != null ? new AtomicLong(0) : null}: count!!.
+     */
+    @Test
+    public void capturedNullableLocalInAnAnonymousClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.atomic.AtomicLong;
+                import java.util.function.Supplier;
+                import static java.util.Objects.requireNonNull;
+                class Factory {
+                    static Supplier<String> build(String nameFormat) {
+                        AtomicLong count = (nameFormat != null) ? new AtomicLong(0) : null;
+                        return new Supplier<String>() {
+                            @Override public String get() {
+                                if (nameFormat != null) return nameFormat + requireNonNull(count).getAndIncrement();
+                                return "";
+                            }
+                        };
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("nameFormat", "count")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "count!!.getAndIncrement()");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

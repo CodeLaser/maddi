@@ -304,7 +304,10 @@ final class KotlinContext {
         MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()),
                 KotlinSmartCasts.enterMethod());
         PATTERNS.get().clear();
-        LOCAL_TYPES.get().clear();
+        // a method of an anonymous or local class sees the enclosing method's locals it captures, with their types
+        // (guava's ThreadFactoryBuilder: requireNonNull(count) of an AtomicLong? local is count!!); one declared
+        // of the same name drops it (declared)
+        if (currentMethod() == null) LOCAL_TYPES.get().clear();
         STATE.get().pushMethod(methodInfo);
         pushScope(methodInfo.methodBody());
         return saved;
