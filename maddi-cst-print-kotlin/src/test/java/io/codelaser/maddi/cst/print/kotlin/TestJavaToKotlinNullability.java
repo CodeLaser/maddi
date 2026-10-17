@@ -799,6 +799,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * langchain4j's Utils.firstNotNull: {@code <T> @NonNull T firstNotNull(String name, T... values)}, nullable
+     * elements, whose T the printer bounds by Any: T, not T & Any, which Kotlin allows only for a nullable bound.
+     */
+    @Test
+    public void nonNullTypeVariableBoundedByAny() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface NonNull { }
+                final class U {
+                    @SafeVarargs
+                    static <T> @NonNull T firstNotNull(String name, T... values) {
+                        for (T v : values) if (v != null) return v;
+                        throw new IllegalArgumentException(name);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("values[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun <T : Any> firstNotNull(");
+        assertFalse(kotlin.contains("& Any"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

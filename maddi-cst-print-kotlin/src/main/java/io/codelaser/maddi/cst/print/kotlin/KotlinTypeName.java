@@ -45,8 +45,7 @@ public class KotlinTypeName {
             // Kotlin reads Java's Annotation as its own: imported, Java's would be another type
             Map.entry("java.lang.annotation.Annotation", "Annotation"),
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
-            Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"),
-            Map.entry("java.lang.Iterable", "Iterable"));
+            Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
 
     /**
      * Java's collection interfaces are mutable; Kotlin's {@code List} is read-only, and {@code ArrayList} is not one.
@@ -138,6 +137,12 @@ public class KotlinTypeName {
 
     private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        // langchain4j's Utils.firstNotNull: the printer bounds its own <T> by Any (KotlinMethodPrinter.nonNullBound)
+        io.codelaser.maddi.cst.api.info.MethodInfo current = KotlinContext.currentMethod();
+        if (bounds.isEmpty() && current != null && current.typeParameters().contains(tp)
+            && KotlinMethodPrinter.nonNullBound(current, tp)) {
+            return false;
+        }
         if (bounds.isEmpty()) return true;
         if (bounds.size() > 1 || depth > 8) return false;
         ParameterizedType bound = KotlinTypePrinter.declared(bounds.getFirst());

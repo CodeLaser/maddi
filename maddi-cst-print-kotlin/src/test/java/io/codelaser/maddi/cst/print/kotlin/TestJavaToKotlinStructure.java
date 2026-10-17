@@ -524,21 +524,6 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
-    /** An unmodified Iterable parameter is Kotlin's read-only Iterable, as a List one is a List. */
-    @Test
-    public void readOnlyIterable() {
-        String kotlin = kotlin("""
-                package a;
-                final class S {
-                    static int sum(Iterable<Integer> values) { int n = 0; for (Integer v : values) n += v; return n; }
-                }
-                """, type -> type.methods().forEach(m -> m.parameters().forEach(
-                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
-        contains(kotlin, "fun sum(values: Iterable<Int>): Int");
-        compiles(kotlin);
-    }
-
     /**
      * guava's FilteredEntryMultimap.AsMap, an AbstractMap<K, Collection<V>>: remove(Object key) and containsValue's
      * Object take the type argument as it is, MutableCollection<V>, not addAll's read-only Collection<E>; ArrayTable's
