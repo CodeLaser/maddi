@@ -74,6 +74,19 @@ public class KotlinStatementPrinter {
      * {@code Collections.emptyList()}: a call whose type arguments only the target determines, no argument does. Java
      * infers them from the declaration; Kotlin's {@code val elements = emptyList()} has nothing to infer them from.
      */
+    /**
+     * guava's GeneralRangeTest: {@code GeneralRange<@Nullable Integer> range = GeneralRange.range(ORDERING, 2, …)}.
+     * Kotlin infers a generic call's type arguments from its arguments, non-null from {@code 2}; the local's own
+     * {@code GeneralRange<Int?>} is written, or a later {@code range.intersect(…)} with an {@code Int?} range fails.
+     */
+    private static boolean nullableArgumentOfGenericCall(ParameterizedType type, Expression init) {
+        if (type == null || type.arrays() > 0 || type.parameters().stream().noneMatch(KotlinNullability::isNullable)) {
+            return false;
+        }
+        return KotlinExpressionPrinter.unwrap(init) instanceof MethodCall mc && mc.methodInfo() != null
+               && !mc.methodInfo().typeParameters().isEmpty() && mc.typeArguments().isEmpty();
+    }
+
     static boolean onlyTargetTyped(Expression e) {
         // guava's Graphs.inducedSubgraph: MutableGraph<N> subgraph = c ? builder.build() : builder.build()
         if (KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
@@ -839,7 +852,7 @@ public class KotlinStatementPrinter {
                            && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
         boolean writeType = !hasInitializer || nullableFromNonNull
                             || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
-                                                             || onlyTargetTyped(init));
+                                                             || onlyTargetTyped(init) || nullableArgumentOfGenericCall(type, init));
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,

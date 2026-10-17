@@ -1484,4 +1484,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "getNext<String?>(");
         compiles(kotlin);
     }
+
+    /**
+     * guava's GeneralRangeTest: a local whose type argument is nullable, from a generic call whose arguments make
+     * Kotlin infer it non-null. The local's type is written, so that a later Int? range fits it.
+     */
+    @Test
+    public void localTypedWhereGenericCallInfersNonNull() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("r<>")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Ranges {
+                    static <T> List<T> range(T lower, T upper) { List<T> l = new ArrayList<>(); l.add(lower); l.add(upper); return l; }
+                    static int size() {
+                        List<Integer> r = range(2, 4);
+                        return r.size();
+                    }
+                }
+                """, options);
+        contains(kotlin, "val r: MutableList<Int?>");
+        compiles(kotlin);
+    }
 }
