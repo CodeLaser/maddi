@@ -123,6 +123,28 @@ public class KotlinTypeName {
         return PRIMITIVE_ARRAY.get(elementType.typeInfo().fullyQualifiedName());
     }
 
+    /**
+     * {@code @NonNull E} for a type variable Kotlin bounds nullable: {@code E & Any}. guava's NullsFirstOrdering,
+     * {@code <S extends @Nullable T> … ordering.<T>reverse().<@NonNull S>nullsLast()}, where nullsLast's S is a T;
+     * FluentIterable's {@code Optional<@NonNull E> firstMatch(…)}.
+     */
+    static boolean definitelyNonNull(ParameterizedType t) {
+        return KotlinContext.translatingJava() && t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null
+               && t.nullable() != NullableState.NULLABLE && t.annotations().stream()
+                       .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL
+                               .contains(ae.typeInfo().simpleName()))
+               && nullableBound(t.typeParameter(), 0);
+    }
+
+    private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
+        java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        if (bounds.isEmpty()) return true;
+        if (bounds.size() > 1 || depth > 8) return false;
+        ParameterizedType bound = KotlinTypePrinter.declared(bounds.getFirst());
+        return bound.nullable() == NullableState.NULLABLE
+               || bound.isTypeParameter() && bound.arrays() == 0 && nullableBound(bound.typeParameter(), depth + 1);
+    }
+
     private static String nullable(ParameterizedType pt, String s) {
         // the Kotlin front-end records NULLABLE on the parameterized type; the (Java-oriented) default is UNSPECIFIED
         return pt.nullable() == NullableState.NULLABLE ? s + "?" : s;
@@ -141,7 +163,7 @@ public class KotlinTypeName {
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {
-            return pt.typeParameter().simpleName();
+            return definitelyNonNull(pt) ? pt.typeParameter().simpleName() + " & Any" : pt.typeParameter().simpleName();
         }
         if (pt.typeInfo() == null) {
             return "Any"; // no type

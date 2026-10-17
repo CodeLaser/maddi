@@ -23,8 +23,6 @@ import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.info.TypeParameter;
-import io.codelaser.maddi.cst.impl.analysis.NullAnnotations;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.output.element.Symbol;
@@ -408,21 +406,10 @@ public class KotlinExpressionPrinter {
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
         String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
-                .map(t -> definitelyNonNull(t) ? KotlinNames.name(t.typeParameter().simpleName()) + " & Any"
-                        : KotlinTypeName.of(KotlinTypePrinter.declared(t), q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
+                .map(t -> KotlinTypeName.of(KotlinTypePrinter.declared(t), q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
                 : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyOrLambdaOnly(mc, q);
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
-    }
-
-    /**
-     * {@code <@NonNull S>} for a type variable Kotlin bounds nullable: {@code S & Any}. guava's NullsFirstOrdering,
-     * {@code <S extends @Nullable T> … ordering.<T>reverse().<@NonNull S>nullsLast()}, where nullsLast's S is a T.
-     */
-    private static boolean definitelyNonNull(ParameterizedType t) {
-        return t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null && t.annotations().stream()
-                .anyMatch(ae -> NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName()))
-               && nullableBound(t.typeParameter(), 0);
     }
 
     /** The method returns a type whose type arguments Kotlin types nullable: {@code Ordering<@Nullable S>}. */
@@ -431,15 +418,6 @@ public class KotlinExpressionPrinter {
         ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
         return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
-    }
-
-    private static boolean nullableBound(TypeParameter tp, int depth) {
-        List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
-        if (bounds.isEmpty()) return true;
-        if (bounds.size() > 1 || depth > 8) return false;
-        ParameterizedType bound = KotlinTypePrinter.declared(bounds.getFirst());
-        return KotlinNullability.isNullable(bound)
-               || bound.isTypeParameter() && bound.arrays() == 0 && nullableBound(bound.typeParameter(), depth + 1);
     }
 
     private static String resultOnlyOrLambdaOnly(MethodCall mc, Qualification q) {
@@ -1389,7 +1367,7 @@ public class KotlinExpressionPrinter {
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
         if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodCall mc && target != null
-            && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinExpressionPrinter::definitelyNonNull)
+            && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinTypeName::definitelyNonNull)
             && sameUpToStates(mc.parameterizedType(), target) && nullableArgument(mc.methodInfo())) {
             // guava's NullsFirstOrdering.reverse(): ….<@NonNull S>nullsLast(), an Ordering<@Nullable S>, returned as an
             // Ordering<S> whose S may be null itself: Java's nullness is unchecked, Kotlin's invariant generics cast

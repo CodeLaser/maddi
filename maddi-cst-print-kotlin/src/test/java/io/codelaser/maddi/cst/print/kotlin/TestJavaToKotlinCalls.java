@@ -875,4 +875,30 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, " as Cut<String>?)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's FluentIterable.firstMatch(): {@code Optional<@NonNull E>} returned from
+     * {@code Iterables.<@NonNull E>tryFind((Iterable<@NonNull E>) getDelegate(), predicate)}: E & Any in the return
+     * type and the cast as in the type argument.
+     */
+    @Test
+    public void nonNullTypeVariableInReturnAndCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                import java.util.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                @Target(ElementType.TYPE_USE) @interface NonNull { }
+                abstract class Fluent<E extends @Nullable Object> implements Iterable<E> {
+                    static <T> Optional<T> tryFind(Iterable<T> iterable) { throw new UnsupportedOperationException(); }
+                    Iterable<E> delegate() { return this; }
+                    final Optional<@NonNull E> firstMatch() {
+                        return Fluent.<@NonNull E>tryFind((Iterable<@NonNull E>) delegate());
+                    }
+                }
+                """);
+        contains(kotlin, "fun firstMatch(): Optional<E & Any>");
+        contains(kotlin, "tryFind<E & Any>(");
+        compiles(kotlin);
+    }
 }
