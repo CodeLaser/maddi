@@ -144,6 +144,20 @@ public class InfoByFqn {
         return ss == null ? sourceSet == null : ss.equals(sourceSet);
     }
 
+    /**
+     * The primary source types registered for one source set, whatever registered them: those a scan recorded for
+     * its compilation units, and those a compilation unit the scan then DROPPED left behind. The second group is
+     * what a re-scan of the set must forget too, or it finds and reuses the stale, partly committed objects.
+     */
+    public synchronized Set<TypeInfo> primarySourceTypesOf(SourceSet sourceSet) {
+        Set<TypeInfo> result = new LinkedHashSet<>();
+        Stream.concat(singleTypeByFqn.values().stream(), multiTypeByFqn.values().stream().flatMap(List::stream))
+                .filter(ti -> isSourceType(ti) && sourceSet.equals(ti.compilationUnit().sourceSet()))
+                .map(TypeInfo::primaryType)
+                .forEach(result::add);
+        return result;
+    }
+
     private static boolean isSourceType(TypeInfo ti) {
         return ti.compilationUnit().sourceSet() != null && !ti.compilationUnit().sourceSet().externalLibrary();
     }
