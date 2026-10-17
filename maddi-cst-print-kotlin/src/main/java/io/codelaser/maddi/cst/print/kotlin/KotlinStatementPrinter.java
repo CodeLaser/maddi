@@ -132,8 +132,9 @@ public class KotlinStatementPrinter {
             case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
             case LocalVariableCreation lvc -> localVariables(lvc, q);
             case IfElseStatement ife -> ifElse(ife, q);
+            // throw e.getCause(): Java throws an NPE for a null, Kotlin's throw takes a non-null Throwable
             case ThrowStatement ts -> new OutputBuilderImpl().add(KotlinKeyword.THROW).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(ts.expression(), q));
+                    .add(KotlinNullability.asserted(ts.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q));
             case WhileStatement ws -> loop(ws, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)

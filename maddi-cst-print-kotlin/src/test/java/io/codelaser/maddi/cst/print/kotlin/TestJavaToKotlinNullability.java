@@ -986,6 +986,19 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    /** guava's Types: {@code throw e.getCause()}, a nullable Throwable: Kotlin's throw wants it non-null. */
+    @Test
+    public void throwANullableThrowable() {
+        String kotlin = kotlin("""
+                package a;
+                class T {
+                    static void rethrow(Exception e) throws Throwable { throw e.getCause(); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "throw e.cause!!");
+        compiles(kotlin);
+    }
+
     /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
