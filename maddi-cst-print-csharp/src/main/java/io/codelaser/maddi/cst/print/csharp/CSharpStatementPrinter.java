@@ -513,6 +513,10 @@ public final class CSharpStatementPrinter {
 
     private static List<OutputBuilder> entryLabels(SwitchEntry entry, Qualification q) {
         List<Expression> conditions = entry.conditions();
+        // a pattern's arm, case Field field ->, has no condition
+        if (entry.patternVariable() != null) {
+            return List.of(caseLabel(null, entry.patternVariable(), entry.whenExpression(), q));
+        }
         if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
             return List.of(new OutputBuilderImpl().add(KeywordImpl.DEFAULT).add(SymbolEnum.COLON_LABEL));
         }
@@ -534,7 +538,8 @@ public final class CSharpStatementPrinter {
 
     private static OutputBuilder pattern(RecordPattern pattern, Qualification q) {
         if (pattern.localVariable() != null) {
-            return text(CSharpTypeName.of(pattern.localVariable().parameterizedType(), q) + " "
+            // a type pattern is of the underlying type, int, not int?
+            return text(CSharpTypeName.pattern(pattern.localVariable().parameterizedType(), q) + " "
                         + CSharpContext.declare(pattern.localVariable().simpleName()));
         }
         String deconstructed = CSharpExpressionPrinter.recordPattern(pattern, null, q);
