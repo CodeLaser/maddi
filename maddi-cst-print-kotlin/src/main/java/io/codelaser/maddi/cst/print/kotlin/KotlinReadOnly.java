@@ -341,7 +341,9 @@ final class KotlinReadOnly {
                         // what a read-only type allows: a call the analysis, or the library's contract, says adds
                         // and removes nothing (#141; a list of mutator names before)
                         if (mc.object() != null && mc.methodInfo() != null && carriers.contains(unwrapped(mc.object()))
-                            && KotlinContext.options().modification().structurallyNonModifying(mc.methodInfo())) {
+                            && (KotlinContext.options().modification().structurallyNonModifying(mc.methodInfo())
+                                || view(mc))) {
+                            // a view's own uses decide, it is a carrier
                             accept(carriers, mc.object(), accepted);
                         }
                         if (identity(mc) && carriers.contains(mc)) {
@@ -384,6 +386,7 @@ final class KotlinReadOnly {
     private static Set<Expression> carriers(Object member, Element body) {
         Set<Expression> carriers = Collections.newSetFromMap(new IdentityHashMap<>());
         List<MethodCall> identityCalls = new java.util.ArrayList<>();
+        List<MethodCall> viewCalls = new java.util.ArrayList<>();
         body.visit((Element e) -> {
             if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
                 && fr.fieldInfo() == member
@@ -392,6 +395,7 @@ final class KotlinReadOnly {
                 carriers.add((Expression) e);
             }
             if (e instanceof MethodCall mc && identity(mc)) identityCalls.add(mc);
+            if (e instanceof MethodCall mc && view(mc)) viewCalls.add(mc);
             return true;
         });
         boolean changed = true;
@@ -403,8 +407,21 @@ final class KotlinReadOnly {
                     changed = true;
                 }
             }
+            // unfiltered.entrySet().iterator(), then remove(): a view is the collection, its uses must be reads too
+            // (maddi-mod#54: the analysis's verdict misses removal through a view)
+            for (MethodCall mc : viewCalls) {
+                if (!carriers.contains(mc) && carriers.contains(unwrapped(mc.object()))) {
+                    carriers.add(mc);
+                    changed = true;
+                }
+            }
         }
         return carriers;
+    }
+
+    private static boolean view(MethodCall mc) {
+        return mc.object() != null && mc.methodInfo() != null && !mc.methodInfo().isStatic()
+               && KotlinMethodPrinter.VIEWS.contains(mc.methodInfo().name());
     }
 
     private static boolean identity(MethodCall mc) {

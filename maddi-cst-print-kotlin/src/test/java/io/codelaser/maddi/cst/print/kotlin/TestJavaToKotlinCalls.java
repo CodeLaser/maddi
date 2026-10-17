@@ -500,6 +500,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                         return Collector.of(Acc<R, V>::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
                                 (a1, a2) -> a1.combine(a2), acc -> acc.done());
                     }
+                    static <G> List<G> varargs(G... gs) {
+                        return Optional.ofNullable(gs).map(List::of).orElse(List.of());
+                    }
                     static <T, R, V> Collector<T, ?, Map<R, V>> toMap2(Function<T, R> r, Function<T, V> v) {
                         return Collector.of((Supplier<Acc<R, V>>) Acc::new, (acc, t) -> acc.put(r.apply(t), v.apply(t)),
                                 Acc::combine, Acc::done);

@@ -1134,8 +1134,8 @@ public class KotlinExpressionPrinter {
      */
     /**
      * A reference to a generic constructor or static method, whose type arguments only the target gives, passed where
-     * the callee's own type parameters are inferred: {@code Collector.of(LinkedHashMultiset::create, …)}. Only with the
-     * reference's functional type fully known.
+     * the callee's own type parameters are inferred: {@code Collector.of(LinkedHashMultiset::create, …)}. Only a
+     * supplier, with the reference's functional type fully known.
      */
     private static boolean genericReferenceTyping(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
                                                   MethodReference mr) {
@@ -1145,7 +1145,10 @@ public class KotlinExpressionPrinter {
                 : referenced.isStatic() && !referenced.typeParameters().isEmpty();
         ParameterizedType functional = mr.parameterizedType();
         TypeInfo samType = method.parameters().get(i).parameterizedType().typeInfo();
-        return generic && functional != null && samType != null && functional.typeInfo() == samType
+        // a supplier only: a reference that takes values (Optional.map(List::of)) gets them typed by the receiver
+        boolean supplier = samType != null && samType.singleAbstractMethod() != null
+                           && samType.singleAbstractMethod().parameters().isEmpty();
+        return generic && supplier && functional != null && functional.typeInfo() == samType
                && functional.arrays() == 0 && !functional.parameters().isEmpty()
                && functional.parameters().stream().allMatch(p -> p.wildcard() == null && !CstQueries.mentionsAny(p,
                         method.typeParameters()));
@@ -1270,6 +1273,21 @@ public class KotlinExpressionPrinter {
         ParameterizedType type = args.get(i).parameterizedType();
         return varargs.isVarArgs() && type != null && !(unwrap(args.get(i)) instanceof NullConstant)
                && type.arrays() == varargs.parameterizedType().arrays();
+    }
+
+    /**
+     * As {@link #widened}, for a value that is returned or initializes a variable (not an argument, whose own paths
+     * convert it): a reference array Java's covariance accepts gets the unchecked cast Kotlin needs.
+     * {@code TypeVariable<?>[] params = cls.getTypeParameters()}, {@code return array} of a vararg: Kotlin's are an
+     * {@code Array<out TypeVariable<Class<T>>>}, an {@code Array<out Any?>}. Erased, the cast checks only that it is
+     * an array.
+     */
+    static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (!KotlinContext.translatingJava() || !covariantArray(e, target)) return widened(e, target, q);
+        KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /**
@@ -1489,6 +1507,39 @@ public class KotlinExpressionPrinter {
             if (!sameUpToStates(a.parameters().get(i), b.parameters().get(i))) return false;
         }
         return true;
+    }
+
+    /**
+     * A reference array value Kotlin types otherwise than the array it lands in: a vararg parameter (or its clone),
+     * Kotlin's {@code Array<out T>}; or a value whose Java element type is another than the target's, which only
+     * Java's covariance accepts. Not where Java casts, creates or converts the array itself.
+     */
+    private static boolean covariantArray(Expression e, ParameterizedType target) {
+        if (target == null || target.arrays() == 0 || KotlinTypeName.primitiveArray(target.componentType()) != null
+            || target.componentType().isPrimitiveExcludingVoid()
+            // a raw array target (Box[][] g = grid) is typed from its value
+            || target.typeInfo() != null && !target.typeInfo().typeParameters().isEmpty() && target.parameters().isEmpty()) {
+            return false;
+        }
+        Expression u = unwrap(e);
+        if (u instanceof MethodCall mc && "clone".equals(mc.methodInfo() == null ? null : mc.methodInfo().name())
+            && mc.object() != null && vararg(mc.object())) {
+            return true;
+        }
+        if (vararg(u)) return true;
+        if (!(u instanceof MethodCall mc && !toArray(mc.methodInfo()) && !toArrayOf(mc.methodInfo())
+              || u instanceof VariableExpression)) {
+            return false;
+        }
+        ParameterizedType value = u.parameterizedType();
+        return value != null && value.arrays() == target.arrays() && value.typeInfo() != null
+               && target.typeInfo() != null && !value.isPrimitiveExcludingVoid() && value.typeParameter() == null
+               && target.typeParameter() == null && !sameUpToStates(value, target)
+               && !(value.typeInfo() == target.typeInfo() && value.parameters().isEmpty());
+    }
+
+    private static boolean vararg(Expression e) {
+        return unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi && pi.isVarArgs();
     }
 
     /** An array of references whose elements the declaration says are non-null: arrayOfNulls would make them X?. */
@@ -1951,7 +2002,7 @@ public class KotlinExpressionPrinter {
         boolean translated = !(a.variableTarget() instanceof FieldReference fr) || KotlinNullability.translated(fr.fieldInfo().owner());
         return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
                 .add(KotlinNullability.toTarget(a.value(), targetType, translated,
-                        widened(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q));
+                        assigned(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q));
     }
 
     /** The type a variable was declared with in Kotlin: the nullability verdict's, where there is one. */
@@ -1996,10 +2047,10 @@ public class KotlinExpressionPrinter {
         if ("=".equals(op) && unwrap(a.value()) instanceof ConstructorCall cc && cc.anonymousClass() == null
             && cc.parameterizedType().arrays() == 0) {
             // ArrayList<Int?>().also { lst = it }: the constructed type takes the target's states, as an assignment's
-            value = widened(a.value(), declaredType(a.variableTarget()), q);
+            value = assigned(a.value(), declaredType(a.variableTarget()), q);
         } else if ("=".equals(op) && widens(a.value(), a.variableTarget().parameterizedType())) {
             // (read = in.read(buf)) != -1 with a long read: in.read(buf).toLong().also { read = it }
-            value = widened(a.value(), a.variableTarget().parameterizedType(), q);
+            value = assigned(a.value(), a.variableTarget().parameterizedType(), q);
         } else if ("=".equals(op)) {
             value = receiver(a.value(), q);
         } else {

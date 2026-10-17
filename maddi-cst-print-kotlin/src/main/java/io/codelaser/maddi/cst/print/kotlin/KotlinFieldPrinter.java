@@ -73,7 +73,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.toTarget(fieldInfo.initializer(), type,
                             KotlinNullability.translated(fieldInfo.owner()),
-                            KotlinExpressionPrinter.widened(fieldInfo.initializer(), type, qualification), qualification));
+                            KotlinExpressionPrinter.assigned(fieldInfo.initializer(), type, qualification), qualification));
         } else if (zero != null) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }

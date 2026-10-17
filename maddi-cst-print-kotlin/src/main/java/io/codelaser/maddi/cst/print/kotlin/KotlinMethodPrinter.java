@@ -150,7 +150,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
                                 KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.widened(expressionBody, KotlinNullability.returnType(methodInfo),
+                                KotlinExpressionPrinter.assigned(expressionBody, KotlinNullability.returnType(methodInfo),
                                         qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
@@ -481,7 +481,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     }
 
     /** Members whose result is a live view of the collection: modifying it modifies the collection. */
-    private static final java.util.Set<String> VIEWS = java.util.Set.of("entrySet", "keySet", "values", "iterator",
+    static final java.util.Set<String> VIEWS = java.util.Set.of("entrySet", "keySet", "values", "iterator",
             "listIterator", "spliterator", "subList", "headSet", "tailSet", "subSet", "headMap", "tailMap", "subMap",
             "descendingSet", "descendingMap", "navigableKeySet", "descendingKeySet", "descendingIterator");
 

@@ -2064,4 +2064,54 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun count(map: Map<String, Int>, k: String): Int");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Maps.FilteredMapValues removes through {@code unfiltered.entrySet().iterator()}: the field is no
+     * read-only Map, whatever the analysis says (maddi-mod#54); a guard only here, where without the JDK's facts
+     * entrySet() is no read anyway. Java's arrays are covariant, Kotlin's are not:
+     * {@code getTypeParameters()} into a {@code TypeVariable<?>[]}, a vararg returned as an {@code Object[]}.
+     */
+    @Test
+    public void fieldViewsAndCovariantArrays() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.TypeVariable;
+                import java.util.*;
+                class Arr<T> {
+                    private final Map<String, Integer> unfiltered;
+                    Arr(Map<String, Integer> filtered, Map<String, Integer> unfiltered) {
+                    this.filtered = filtered;
+                    this.unfiltered = unfiltered;
+                }
+                private final Map<String, Integer> filtered;
+                    boolean removeValue(Integer v) {
+                        Iterator<Map.Entry<String, Integer>> it = unfiltered.entrySet().iterator();
+                        while (it.hasNext()) {
+                            Map.Entry<String, Integer> e = it.next();
+                            if (e.getValue().equals(v)) { it.remove(); return true; }
+                        }
+                        return false;
+                    }
+                    int size() { return unfiltered.size(); }
+                    static TypeVariable<?>[] params(Class<?> c) {
+                        TypeVariable<?>[] ps = c.getTypeParameters();
+                        return ps;
+                    }
+                    static Object[] check(Object... array) {
+                        for (Object o : array) Objects.requireNonNull(o);
+                        return array;
+                    }
+                    static Object[] copy(Object... array) {
+                        Object[] copied = array.clone();
+                        return copied;
+                    }
+                }
+                """, type -> type.fields().forEach(f -> f.analysis().set(
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_FIELD,
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+        contains(kotlin, "MutableMap<String, Int>");
+        contains(kotlin, "unfiltered: MutableMap<String, Int>");
+        contains(kotlin, "as Array<TypeVariable<*>>");
+        compiles(kotlin);
+    }
 }
