@@ -714,6 +714,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableSortedSet.lower(): NavigableSet is no Kotlin type, its {@code lower(e): E!} is a platform type,
+     * and the override returns E? as the verdict says.
+     */
+    @Test
+    public void nullForATypeVariableOfAJavaLibraryType() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.Callable;
+                class Last<E> implements Callable<E> {
+                    E last;
+                    public E call() { return last; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("call()", "last")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun call(): E?");
+        assertFalse(kotlin.contains(" as E"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

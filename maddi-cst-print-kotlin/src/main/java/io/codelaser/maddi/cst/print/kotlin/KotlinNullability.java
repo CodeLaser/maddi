@@ -165,7 +165,20 @@ final class KotlinNullability {
         if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
         if (kotlinNullableMapResult(methodInfo)) return false;
         return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
-                && !isNullable(declaredReturnType(m)));
+                && declaredInKotlin(m.typeInfo()) && !isNullable(declaredReturnType(m)));
+    }
+
+    /**
+     * Kotlin sees the type's members as declared: a mapped type ({@code Iterator<E>.next(): E}) or one translated or
+     * compiled from Kotlin. A Java library type's are platform types, which an override may make nullable: guava's
+     * {@code ImmutableSortedSet.lower(e): E?} overrides {@code NavigableSet<E>.lower(e): E!}. Except where kotlinc
+     * enhances the JDK's own: {@code Supplier<T>.get(): T}.
+     */
+    private static boolean declaredInKotlin(TypeInfo owner) {
+        String fqn = owner.fullyQualifiedName();
+        return !owner.compilationUnit().externalLibrary() || KotlinTypeName.isMapped(fqn)
+               || KotlinTypePrinter.fromKotlinSource(owner)
+               || fqn.startsWith("java.util.function.") || "java.util.Optional".equals(fqn);
     }
 
     /**
