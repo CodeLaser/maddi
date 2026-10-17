@@ -906,6 +906,35 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's RateLimiter.mutex(): {@code mutexDoNotUseDirectly = mutex = new Object()} as two assignments, the local
+     * first: Kotlin smart-casts it for {@code return mutex}, which it does not for one assigned in an also { } lambda.
+     */
+    @Test
+    public void chainedAssignmentToALocalFirst() {
+        String kotlin = kotlin("""
+                package a;
+                class Limiter {
+                    private volatile Object mutexDoNotUseDirectly;
+                    private Object mutex() {
+                        Object mutex = mutexDoNotUseDirectly;
+                        if (mutex == null) {
+                            synchronized (this) {
+                                mutex = mutexDoNotUseDirectly;
+                                if (mutex == null) {
+                                    mutexDoNotUseDirectly = mutex = new Object();
+                                }
+                            }
+                        }
+                        return mutex;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("mutexDoNotUseDirectly", "mutex")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "mutex = Any()");
+        contains(kotlin, "mutexDoNotUseDirectly = mutex");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

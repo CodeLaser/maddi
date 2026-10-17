@@ -141,6 +141,21 @@ public class KotlinExpressionPrinter {
 
     /** An expression whose value is discarded: an expression statement, a for-loop update, a lambda body. */
     public static OutputBuilder printStatement(Expression e, Qualification q) {
+        if (e instanceof Assignment a && chainedToLocal(a) != null) {
+            // guava's RateLimiter.mutex(): mutexDoNotUseDirectly = mutex = new Object() as mutex = Any(), then
+            // mutexDoNotUseDirectly = mutex. As Any().also { mutex = it }, a local a lambda assigns gets no smart casts
+            // anywhere (return mutex, where it is an Any?)
+            Assignment inner = chainedToLocal(a);
+            List<OutputBuilder> lines = new ArrayList<>();
+            lines.add(assignmentAsStatement(inner, q));
+            HOISTED.get().add(inner);
+            try {
+                lines.add(assignmentAsStatement(a, q));
+            } finally {
+                HOISTED.get().remove(inner);
+            }
+            return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+        }
         if (e instanceof Assignment a) return assignmentAsStatement(a, q);
         if (e instanceof EnclosedExpression ee) return printStatement(ee.inner(), q);
         if (e instanceof MethodCall mc) {
@@ -148,6 +163,27 @@ public class KotlinExpressionPrinter {
             if (!hoisted.isEmpty()) return hoisted(mc, hoisted, q);
         }
         return print(e, q);
+    }
+
+    /**
+     * {@code target = local = value} as a statement, where the target's own evaluation has no effect (a local, a
+     * field of this or a static one): the inner assignment, to a local, can go first. Null otherwise.
+     */
+    private static Assignment chainedToLocal(Assignment a) {
+        if (!KotlinContext.translatingJava() || !plainAssignment(a)) return null;
+        if (!(unwrap(a.value()) instanceof Assignment inner) || !plainAssignment(inner)
+            || !(inner.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable)) {
+            return null;
+        }
+        boolean pureTarget = a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                || a.variableTarget() instanceof FieldReference fr && (fr.scope() == null || fr.fieldInfo().isStatic()
+                        || unwrap(fr.scope()) instanceof VariableExpression s && s.variable() instanceof This);
+        return pureTarget ? inner : null;
+    }
+
+    private static boolean plainAssignment(Assignment a) {
+        return a.prefixPrimitiveOperator() == null
+               && (a.assignmentOperator() == null || "=".equals(a.assignmentOperator().name()));
     }
 
     // assignments printed before the statement they are an argument of; in it, they are their target
