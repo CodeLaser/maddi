@@ -751,6 +751,229 @@ public static class JavaMath
 }
 
 /// <summary>java.util.function's default methods on C#'s delegates.</summary>
+/// <summary>java.time.temporal.ChronoUnit, which is what a TemporalUnit is; ToString is Java's, "Days".</summary>
+public enum JavaChronoUnit
+{
+    Nanos, Micros, Millis, Seconds, Minutes, Hours, HalfDays, Days, Weeks, Months, Years, Decades, Centuries,
+    Millennia, Eras, Forever
+}
+
+/// <summary>
+/// java.time.temporal.Temporal's plus, until and isSupported on the BCL's dates and times, which share no interface
+/// for them: DateOnly is a LocalDate, TimeOnly a LocalTime, DateTime a LocalDateTime, DateTimeOffset an Instant or an
+/// OffsetDateTime. A unit a value does not support throws, as Java's UnsupportedTemporalTypeException.
+/// </summary>
+public static class JavaTemporal
+{
+    private static long Ticks(JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Micros => 10,
+        JavaChronoUnit.Millis => TimeSpan.TicksPerMillisecond,
+        JavaChronoUnit.Seconds => TimeSpan.TicksPerSecond,
+        JavaChronoUnit.Minutes => TimeSpan.TicksPerMinute,
+        JavaChronoUnit.Hours => TimeSpan.TicksPerHour,
+        JavaChronoUnit.HalfDays => TimeSpan.TicksPerHour * 12,
+        _ => throw Unsupported(unit)
+    };
+
+    private static int MonthsOf(JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Months => 1,
+        JavaChronoUnit.Years => 12,
+        JavaChronoUnit.Decades => 120,
+        JavaChronoUnit.Centuries => 1200,
+        JavaChronoUnit.Millennia => 12000,
+        _ => throw Unsupported(unit)
+    };
+
+    private static bool TimeBased(JavaChronoUnit unit) => unit <= JavaChronoUnit.HalfDays;
+
+    private static bool DateBased(JavaChronoUnit unit) => unit >= JavaChronoUnit.Days && unit <= JavaChronoUnit.Millennia;
+
+    private static ArgumentOutOfRangeException Unsupported(JavaChronoUnit unit) =>
+        new(nameof(unit), "Unsupported unit: " + unit);
+
+    public static bool IsSupported(object? temporal, JavaChronoUnit unit) => temporal switch
+    {
+        DateOnly => DateBased(unit),
+        TimeOnly => TimeBased(unit),
+        DateTime or DateTimeOffset => TimeBased(unit) || DateBased(unit),
+        _ => false
+    };
+
+    // a time-based amount in ticks: a nanosecond is a hundredth of one
+    private static long AmountTicks(long amount, JavaChronoUnit unit) =>
+        unit == JavaChronoUnit.Nanos ? amount / 100 : checked(amount * Ticks(unit));
+
+    private static DateTime Plus(DateTime t, long amount, JavaChronoUnit unit) => unit switch
+    {
+        _ when TimeBased(unit) => t.AddTicks(AmountTicks(amount, unit)),
+        JavaChronoUnit.Days => t.AddDays(amount),
+        JavaChronoUnit.Weeks => t.AddDays(checked(amount * 7)),
+        _ when DateBased(unit) => t.AddMonths(checked((int)(amount * MonthsOf(unit)))),
+        _ => throw Unsupported(unit)
+    };
+
+    public static T Plus<T>(T temporal, long amount, JavaChronoUnit unit)
+    {
+        object result = temporal switch
+        {
+            DateOnly d when DateBased(unit) => DateOnly.FromDateTime(Plus(d.ToDateTime(TimeOnly.MinValue), amount, unit)),
+            TimeOnly t when TimeBased(unit) => t.Add(TimeSpan.FromTicks(AmountTicks(amount, unit) % TimeSpan.TicksPerDay)),
+            DateTime t => Plus(t, amount, unit),
+            DateTimeOffset t => new DateTimeOffset(Plus(t.DateTime, amount, unit), t.Offset),
+            _ => throw Unsupported(unit)
+        };
+        return (T)result;
+    }
+
+    public static T Minus<T>(T temporal, long amount, JavaChronoUnit unit) =>
+        amount == long.MinValue ? Plus(Plus(temporal, long.MaxValue, unit), 1, unit) : Plus(temporal, -amount, unit);
+
+    /// <summary>Temporal.plus(TemporalAmount): a Duration, TimeSpan, or a Period.</summary>
+    public static T Plus<T>(T temporal, object amount) => amount switch
+    {
+        TimeSpan span => Plus(temporal, span.Ticks * 100, JavaChronoUnit.Nanos),
+        JavaPeriod p => Plus(Plus(temporal, p.ToTotalMonths(), JavaChronoUnit.Months), p.Days, JavaChronoUnit.Days),
+        _ => throw new ArgumentException("Unsupported amount: " + amount)
+    };
+
+    public static T Minus<T>(T temporal, object amount) => amount switch
+    {
+        TimeSpan span => Plus(temporal, -span.Ticks * 100, JavaChronoUnit.Nanos),
+        JavaPeriod p => Plus(temporal, p.Negated()),
+        _ => throw new ArgumentException("Unsupported amount: " + amount)
+    };
+
+    // whole months from one date to another, Java's: a month that is not complete does not count
+    private static long Months(DateOnly from, DateOnly to)
+    {
+        long months = (to.Year - from.Year) * 12L + to.Month - from.Month;
+        int days = to.Day - from.Day;
+        if (months > 0 && days < 0) months--;
+        else if (months < 0 && days > 0) months++;
+        return months;
+    }
+
+    private static long Until(DateOnly from, DateOnly to, JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Days => to.DayNumber - from.DayNumber,
+        JavaChronoUnit.Weeks => (to.DayNumber - from.DayNumber) / 7,
+        _ when DateBased(unit) => Months(from, to) / MonthsOf(unit),
+        _ => throw Unsupported(unit)
+    };
+
+    private static long Until(DateTime from, DateTime to, JavaChronoUnit unit)
+    {
+        if (TimeBased(unit))
+        {
+            long ticks = (to - from).Ticks;
+            return unit == JavaChronoUnit.Nanos ? checked(ticks * 100) : ticks / Ticks(unit);
+        }
+        // the end's date, a day nearer when its time of day has not reached the start's, as Java's
+        var end = DateOnly.FromDateTime(to);
+        var start = DateOnly.FromDateTime(from);
+        if (end > start && to.TimeOfDay < from.TimeOfDay) end = end.AddDays(-1);
+        else if (end < start && to.TimeOfDay > from.TimeOfDay) end = end.AddDays(1);
+        return Until(start, end, unit);
+    }
+
+    public static long Until<T>(T from, T to, JavaChronoUnit unit) => (object?)from switch
+    {
+        DateOnly d when DateBased(unit) => Until(d, (DateOnly)(object)to!, unit),
+        TimeOnly t when TimeBased(unit) => Until(DateTime.MinValue + t.ToTimeSpan(),
+            DateTime.MinValue + ((TimeOnly)(object)to!).ToTimeSpan(), unit),
+        DateTime t => Until(t, (DateTime)(object)to!, unit),
+        DateTimeOffset t => Until(t.DateTime, ((DateTimeOffset)(object)to!).ToOffset(t.Offset).DateTime, unit),
+        _ => throw Unsupported(unit)
+    };
+}
+
+/// <summary>java.time.Period: years, months and days, each kept as given; ToString is Java's, P1Y2M3D.</summary>
+public readonly record struct JavaPeriod(int Years, int Months, int Days)
+{
+    public static readonly JavaPeriod Zero = new(0, 0, 0);
+
+    public static JavaPeriod Of(int years, int months, int days) => new(years, months, days);
+
+    public static JavaPeriod OfYears(int years) => new(years, 0, 0);
+
+    public static JavaPeriod OfMonths(int months) => new(0, months, 0);
+
+    public static JavaPeriod OfWeeks(int weeks) => new(0, 0, checked(weeks * 7));
+
+    public static JavaPeriod OfDays(int days) => new(0, 0, days);
+
+    public static JavaPeriod Between(DateOnly start, DateOnly end)
+    {
+        long totalMonths = (end.Year - start.Year) * 12L + end.Month - start.Month;
+        int days = end.Day - start.Day;
+        if (totalMonths > 0 && days < 0)
+        {
+            totalMonths--;
+            days = end.DayNumber - start.AddMonths((int)totalMonths).DayNumber;
+        }
+        else if (totalMonths < 0 && days > 0)
+        {
+            totalMonths++;
+            days -= DateTime.DaysInMonth(end.Year, end.Month);
+        }
+        return new((int)(totalMonths / 12), (int)(totalMonths % 12), days);
+    }
+
+    public int GetYears() => Years;
+
+    public int GetMonths() => Months;
+
+    public int GetDays() => Days;
+
+    public bool IsZero() => this == Zero;
+
+    public bool IsNegative() => Years < 0 || Months < 0 || Days < 0;
+
+    public long ToTotalMonths() => Years * 12L + Months;
+
+    // Java's take a TemporalAmount, a reference: here a Period that may be null, as Java's, which throws
+    public JavaPeriod Plus(JavaPeriod? amount)
+    {
+        var p = amount ?? throw new NullReferenceException();
+        return new(checked(Years + p.Years), checked(Months + p.Months), checked(Days + p.Days));
+    }
+
+    public JavaPeriod Minus(JavaPeriod? amount)
+    {
+        var p = amount ?? throw new NullReferenceException();
+        return new(checked(Years - p.Years), checked(Months - p.Months), checked(Days - p.Days));
+    }
+
+    public JavaPeriod PlusYears(long years) => this with { Years = checked((int)(Years + years)) };
+
+    public JavaPeriod PlusMonths(long months) => this with { Months = checked((int)(Months + months)) };
+
+    public JavaPeriod PlusDays(long days) => this with { Days = checked((int)(Days + days)) };
+
+    public JavaPeriod MultipliedBy(int scalar) =>
+        new(checked(Years * scalar), checked(Months * scalar), checked(Days * scalar));
+
+    public JavaPeriod Negated() => MultipliedBy(-1);
+
+    public JavaPeriod Normalized()
+    {
+        long total = ToTotalMonths();
+        return new(checked((int)(total / 12)), (int)(total % 12), Days);
+    }
+
+    public override string ToString()
+    {
+        if (IsZero()) return "P0D";
+        var sb = new StringBuilder("P");
+        if (Years != 0) sb.Append(Years).Append('Y');
+        if (Months != 0) sb.Append(Months).Append('M');
+        if (Days != 0) sb.Append(Days).Append('D');
+        return sb.ToString();
+    }
+}
+
 public static class JavaFunctions
 {
     public static Action<T> AndThen<T>(this Action<T> first, Action<T> then) => x =>

@@ -67,6 +67,13 @@ type java.time.LocalDateTime -> DateTime using System
 type java.time.OffsetDateTime -> DateTimeOffset using System
 type java.time.Duration -> TimeSpan using System
 type java.time.Clock -> TimeProvider using System
+# a Temporal is one of those structs, which share IComparable but no plus or until: JavaTemporal's take any; a
+# TemporalUnit is a ChronoUnit, an enum; a Period the compatibility library's record struct
+type java.time.temporal.Temporal -> IComparable using System
+type java.time.temporal.TemporalUnit -> JavaChronoUnit using Maddi.JavaCompat
+type java.time.temporal.ChronoUnit -> JavaChronoUnit using Maddi.JavaCompat
+pascal java.time.Period -> JavaPeriod using Maddi.JavaCompat
+type java.time.DateTimeException -> ArgumentOutOfRangeException using System
 # a formatter is a custom format string: the ISO ones are constants (FIELDS)
 type java.time.format.DateTimeFormatter -> string
 type java.net.URI -> Uri using System
@@ -912,6 +919,13 @@ member java.time.Duration.plus/1 -> @0 + @1
 member java.time.Duration.minus/1 -> @0 - @1
 member java.time.Duration.getNano/0 -> JavaMath.Nano($0) using Maddi.JavaCompat
 member java.time.Duration.toString/0 -> XmlConvert.ToString($0) using System.Xml
+member java.time.temporal.Temporal.plus/2 -> JavaTemporal.Plus($0, $1, $2) using Maddi.JavaCompat
+member java.time.temporal.Temporal.minus/2 -> JavaTemporal.Minus($0, $1, $2) using Maddi.JavaCompat
+member java.time.temporal.Temporal.plus/1 -> JavaTemporal.Plus($0, $1) using Maddi.JavaCompat
+member java.time.temporal.Temporal.minus/1 -> JavaTemporal.Minus($0, $1) using Maddi.JavaCompat
+member java.time.temporal.Temporal.until/2 -> JavaTemporal.Until($0, $1, $2) using Maddi.JavaCompat
+member java.time.temporal.Temporal.isSupported(TemporalUnit) -> JavaTemporal.IsSupported($0, $1) using Maddi.JavaCompat
+member java.time.temporal.TemporalUnit.between/2 -> JavaTemporal.Until($1, $2, $0) using Maddi.JavaCompat
 member java.util.Locale.forLanguageTag/1 -> CultureInfo.GetCultureInfo($1) using System.Globalization
 member java.util.Locale.toLanguageTag/0 -> $0.Name
 member java.time.Clock.systemDefaultZone/0 -> TimeProvider.System using System
@@ -1176,6 +1190,23 @@ field java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME -> "yyyy-MM-dd'T'HH
 field java.lang.Boolean.FALSE -> false
 field java.lang.Math.PI -> Math.PI using System
 field java.time.Duration.ZERO -> TimeSpan.Zero using System
+field java.time.Period.ZERO -> JavaPeriod.Zero using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.NANOS -> JavaChronoUnit.Nanos using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.MICROS -> JavaChronoUnit.Micros using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.MILLIS -> JavaChronoUnit.Millis using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.SECONDS -> JavaChronoUnit.Seconds using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.MINUTES -> JavaChronoUnit.Minutes using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.HOURS -> JavaChronoUnit.Hours using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.HALF_DAYS -> JavaChronoUnit.HalfDays using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.DAYS -> JavaChronoUnit.Days using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.WEEKS -> JavaChronoUnit.Weeks using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.MONTHS -> JavaChronoUnit.Months using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.YEARS -> JavaChronoUnit.Years using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.DECADES -> JavaChronoUnit.Decades using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.CENTURIES -> JavaChronoUnit.Centuries using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.MILLENNIA -> JavaChronoUnit.Millennia using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.ERAS -> JavaChronoUnit.Eras using Maddi.JavaCompat
+field java.time.temporal.ChronoUnit.FOREVER -> JavaChronoUnit.Forever using Maddi.JavaCompat
 field java.lang.Math.E -> Math.E using System
 field java.util.Locale.ENGLISH -> CultureInfo.InvariantCulture using System.Globalization
 field java.util.Locale.ROOT -> CultureInfo.InvariantCulture using System.Globalization
