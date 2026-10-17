@@ -830,4 +830,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "firstOf<S & Any>()");
         compiles(kotlin);
     }
+
+    /**
+     * guava's NullsFirstOrdering.reverse() in full: {@code <@NonNull S>nullsLast()} is an {@code Ord<@Nullable S>},
+     * returned as an {@code Ord<S>} whose S may be null: Kotlin's invariant generics need the unchecked cast.
+     */
+    @Test
+    public void nonNullTypeArgumentResultCastToTheReturnType() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                abstract class Ord<T> {
+                    @Target(ElementType.TYPE_USE) @interface Nullable { }
+                    @Target(ElementType.TYPE_USE) @interface NonNull { }
+                    abstract <S extends T> Ord<@Nullable S> nullsLast();
+                    <S extends @Nullable T> Ord<S> reverse() { return this.<@NonNull S>nullsLast(); }
+                }
+                """);
+        contains(kotlin, "(nullsLast<S & Any>() as Ord<S>)");
+        compiles(kotlin);
+    }
 }

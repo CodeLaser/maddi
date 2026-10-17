@@ -425,6 +425,14 @@ public class KotlinExpressionPrinter {
                && nullableBound(t.typeParameter(), 0);
     }
 
+    /** The method returns a type whose type arguments Kotlin types nullable: {@code Ordering<@Nullable S>}. */
+    private static boolean nullableArgument(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
+        ParameterizedType verdict = KotlinNullability.returnType(methodInfo);
+        ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
+        return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
+                && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
+    }
+
     private static boolean nullableBound(TypeParameter tp, int depth) {
         List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         if (bounds.isEmpty()) return true;
@@ -1345,6 +1353,16 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodCall mc && target != null
+            && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinExpressionPrinter::definitelyNonNull)
+            && sameUpToStates(mc.parameterizedType(), target) && nullableArgument(mc.methodInfo())) {
+            // guava's NullsFirstOrdering.reverse(): ….<@NonNull S>nullsLast(), an Ordering<@Nullable S>, returned as an
+            // Ordering<S> whose S may be null itself: Java's nullness is unchecked, Kotlin's invariant generics cast
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (!KotlinContext.translatingJava() || !covariantArray(e, target)) return widened(e, target, q);
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
