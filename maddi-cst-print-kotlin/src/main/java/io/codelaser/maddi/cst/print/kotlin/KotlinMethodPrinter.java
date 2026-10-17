@@ -350,8 +350,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     private static boolean onlyReadArray(ParameterInfo pi) {
         boolean[] escapes = {false};
-        ((io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody()).visit(
-                (io.codelaser.maddi.cst.api.element.Element e) -> {
+        escapes(pi, (io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody(), escapes);
+        return !escapes[0];
+    }
+
+    /** The uses of {@code pi} in {@code body}, and in the bodies of the anonymous classes there, which capture it. */
+    private static void escapes(ParameterInfo pi, io.codelaser.maddi.cst.api.element.Element body, boolean[] escapes) {
+        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
             switch (e) {
                 case io.codelaser.maddi.cst.api.expression.Assignment a -> {
                     if (a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
@@ -376,13 +381,19 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
                         escapes[0] = true;
                     }
+                    // guava's fromHashers(hashers): new Hasher() { … makeHash(hashers) … }
+                    if (cc.anonymousClass() != null) {
+                        cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null).forEach(am -> escapes(
+                                pi, (io.codelaser.maddi.cst.api.element.Element) am.methodBody(), escapes));
+                        cc.anonymousClass().fields().stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
+                                .forEach(f -> escapes(pi, f.initializer(), escapes));
+                    }
                 }
                 default -> {
                 }
             }
             return !escapes[0];
         });
-        return !escapes[0];
     }
 
     private static boolean isPi(ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {

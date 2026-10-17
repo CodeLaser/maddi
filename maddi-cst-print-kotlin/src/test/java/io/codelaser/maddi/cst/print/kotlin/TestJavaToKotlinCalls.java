@@ -560,6 +560,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                         Rest(E[] rest) { this.rest = checkNotNull(rest); }
                     }
                     static String all(java.lang.reflect.Type[] upper) { disallow(upper); return new J().join(upper); }
+                    static int sum(Integer[] xs) { int n = 0; for (Integer x : xs) n += x; xs[0] = n; return n; }
+                    private static Runnable captured(Integer[] values) {
+                        return new Runnable() { @Override public void run() { sum(values); } };
+                    }
                     static class Combined {
                         private final Object[] hashers;
                         Combined(Object[] hashers) { this.hashers = hashers; }
@@ -573,6 +577,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "fun disallow(types: Array<out java.lang.reflect.Type>)");
         contains(kotlin, "fun makeHash(hashes: Array<Any>)");
         contains(kotlin, "rest: Array<E>");
+        // captured by an anonymous class that hands it on invariant
+        contains(kotlin, "fun captured(values: Array<Int>)");
         // a primary constructor's parameter is the property
         assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
         compiles(kotlin);
