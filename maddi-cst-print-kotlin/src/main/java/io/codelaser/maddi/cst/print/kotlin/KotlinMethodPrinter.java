@@ -467,6 +467,37 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * wants an override's parameter types exactly the overridden member's.
      */
     private static boolean readOnlyParameter(ParameterInfo pi) {
+        return readOnlyOwn(pi) && widerOverloadsReadOnly(pi);
+    }
+
+    /**
+     * guava's ImmutableIntArray.Builder: {@code addAll(Iterable<Integer>)} passes its argument on in a cast, and stays
+     * a MutableIterable; {@code addAll(Collection<Integer>)} would be read-only. Kotlin's Collection is no
+     * MutableIterable, so a MutableCollection argument fits both and neither is more specific: an overload's
+     * collection parameter is read-only only when the overload taking a supertype there is too.
+     */
+    private static boolean widerOverloadsReadOnly(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        TypeInfo own = pi.parameterizedType().typeInfo();
+        if (own == null || pi.parameterizedType().arrays() != 0) return true;
+        return m.typeInfo().methods().stream().filter(o -> o != m && o.name().equals(m.name())
+                        && o.parameters().size() == m.parameters().size() && o.isStatic() == m.isStatic())
+                .map(o -> o.parameters().get(pi.index()))
+                .filter(op -> op.parameterizedType().arrays() == 0 && op.parameterizedType().typeInfo() != null
+                        && op.parameterizedType().typeInfo() != own
+                        && KotlinTypeName.isMapped(op.parameterizedType().typeInfo().fullyQualifiedName())
+                        && isSubtype(own, op.parameterizedType().typeInfo(), new java.util.HashSet<>()))
+                .allMatch(KotlinMethodPrinter::readOnlyParameter);
+    }
+
+    private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+        if (sub == null || !visited.add(sub)) return false;
+        if (sub == sup) return true;
+        if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
+        return sub.interfacesImplemented().stream().anyMatch(i -> isSubtype(i.typeInfo(), sup, visited));
+    }
+
+    private static boolean readOnlyOwn(ParameterInfo pi) {
         MethodInfo m = pi.methodInfo();
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()

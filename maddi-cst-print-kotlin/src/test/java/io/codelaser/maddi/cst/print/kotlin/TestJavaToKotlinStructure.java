@@ -498,6 +498,48 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableIntArray.Builder: addAll(Iterable), where it is modified, stays mutable; the addAll(Collection)
+     * it calls then stays mutable too, or a MutableCollection argument fits both, neither more specific in Kotlin.
+     */
+    @Test
+    public void overloadReadOnlyOnlyWithTheWiderOne() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class B {
+                    int n;
+                    B addAll(Iterable<Integer> values) {
+                        if (values instanceof Collection) return addAll((Collection<Integer>) values);
+                        Iterator<Integer> it = values.iterator();
+                        while (it.hasNext()) { n += it.next(); it.remove(); }
+                        return this;
+                    }
+                    B addAll(Collection<Integer> values) { n += values.size(); return this; }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().stream()
+                .filter(p -> p.parameterizedType().typeInfo().simpleName().equals("Collection"))
+                .forEach(p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
+        compiles(kotlin);
+    }
+
+    /** An unmodified Iterable parameter is Kotlin's read-only Iterable, as a List one is a List. */
+    @Test
+    public void readOnlyIterable() {
+        String kotlin = kotlin("""
+                package a;
+                final class S {
+                    static int sum(Iterable<Integer> values) { int n = 0; for (Integer v : values) n += v; return n; }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun sum(values: Iterable<Int>): Int");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */

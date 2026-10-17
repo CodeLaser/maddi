@@ -45,7 +45,8 @@ public class KotlinTypeName {
             // Kotlin reads Java's Annotation as its own: imported, Java's would be another type
             Map.entry("java.lang.annotation.Annotation", "Annotation"),
             Map.entry("java.util.List", "List"), Map.entry("java.util.Map", "Map"),
-            Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"));
+            Map.entry("java.util.Set", "Set"), Map.entry("java.util.Collection", "Collection"),
+            Map.entry("java.lang.Iterable", "Iterable"));
 
     /**
      * Java's collection interfaces are mutable; Kotlin's {@code List} is read-only, and {@code ArrayList} is not one.
