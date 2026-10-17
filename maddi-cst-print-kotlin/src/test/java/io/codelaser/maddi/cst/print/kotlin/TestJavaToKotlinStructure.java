@@ -1956,4 +1956,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "_key");
         compiles(kotlin);
     }
+
+    /**
+     * guava's LocalCache serialization proxies, nested classes with {@code private void readObject(ObjectInputStream)}
+     * in a class and its subclass: private, as serialization requires; internal, the subclass's "hid" the other's.
+     */
+    @Test
+    public void serializationHooksStayPrivate() {
+        String kotlin = kotlin("""
+                package a;
+                import java.io.*;
+                class Outer {
+                    static class Proxy implements Serializable {
+                        private void readObject(ObjectInputStream in) throws IOException { }
+                        private Object readResolve() { return this; }
+                    }
+                    static class LoadingProxy extends Proxy {
+                        private void readObject(ObjectInputStream in) throws IOException { }
+                        private Object readResolve() { return this; }
+                    }
+                }
+                """);
+        contains(kotlin, "private fun readObject(");
+        assertFalse(kotlin.contains("internal fun readObject"), kotlin);
+        compiles(kotlin);
+    }
 }

@@ -53,7 +53,20 @@ public class KotlinModifiers {
             // a Kotlin override without a modifier inherits the member's visibility: Cloneable.clone() is protected
             return Optional.of(KeywordImpl.PUBLIC);
         }
+        if (methodInfo.access() != null && methodInfo.access().isPrivate() && serializationHook(methodInfo)) {
+            // private void readObject(ObjectInputStream in): serialization calls it only when it is private, and an
+            // internal one in a nested class "hides" its superclass's (guava's LocalCache serialization proxies)
+            return Optional.of(KeywordImpl.PRIVATE);
+        }
         return visibility(methodInfo.access(), owner, methodInfo);
+    }
+
+    private static final java.util.Set<String> SERIALIZATION_HOOKS = java.util.Set.of("readObject", "writeObject",
+            "readObjectNoData", "readResolve", "writeReplace");
+
+    private static boolean serializationHook(MethodInfo methodInfo) {
+        return !methodInfo.isStatic() && SERIALIZATION_HOOKS.contains(methodInfo.name())
+               && methodInfo.parameters().size() <= 1;
     }
 
     /**
