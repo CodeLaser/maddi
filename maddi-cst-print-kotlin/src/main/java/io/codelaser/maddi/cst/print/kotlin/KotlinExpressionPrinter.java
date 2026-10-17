@@ -1408,7 +1408,12 @@ public class KotlinExpressionPrinter {
             return lambda(l, KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q), q);
         }
         if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
-            && c.parameterizedType().arrays() == target.arrays() && sameUpToStates(c.parameterizedType(), target)) {
+            && c.parameterizedType().arrays() == target.arrays() && (sameUpToStates(c.parameterizedType(), target)
+                || target.arrays() == 1 && java.util.Objects.equals(
+                        c.parameterizedType().componentType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL),
+                        target.componentType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL)))) {
+            // Futures.gwtCompatibleToArray: (ListenableFuture<? extends T>[]) c.toArray(…) into an
+            // Array<ListenableFuture<out T>?>, the element's wildcards as they are
             // guava's ImmutableMap.SerializedForm: V[] values = (V[]) this.values into an Array<V?>: Kotlin's arrays are
             // invariant, and the cast checks no element; it takes the element state of what it initializes
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());

@@ -845,6 +845,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Futures.gwtCompatibleToArray(): {@code (Future<? extends T>[]) c.toArray(new Future<?>[0])} returned as
+     * the verdict's {@code Array<Future<out T>?>}: the cast takes the element state, the wildcard as it is.
+     */
+    @Test
+    public void wildcardArrayCastTakesTheReturnsElementState() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.concurrent.Future;
+                class Futures {
+                    static <T> Future<? extends T>[] toArray(Collection<Future<? extends T>> c) {
+                        return (Future<? extends T>[]) c.toArray(new Future<?>[0]);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("toArray()[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as Array<Future<out T>?>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
