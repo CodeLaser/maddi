@@ -1466,4 +1466,22 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "<S : T?>");
         compiles(kotlin);
     }
+
+    /** guava's AbstractNavigableMap: {@code Iterators.<@Nullable Entry<K, V>>getNext(it, null)} keeps the annotation. */
+    @Test
+    public void explicitTypeArgumentDeclaredNullable() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("first()")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                class Its {
+                    static <T> T getNext(Iterator<? extends T> it, T defaultValue) { return it.hasNext() ? it.next() : defaultValue; }
+                    static String first(List<String> list) { return Its.<@Nullable String>getNext(list.iterator(), null); }
+                }
+                """, options);
+        contains(kotlin, "getNext<String?>(");
+        compiles(kotlin);
+    }
 }
