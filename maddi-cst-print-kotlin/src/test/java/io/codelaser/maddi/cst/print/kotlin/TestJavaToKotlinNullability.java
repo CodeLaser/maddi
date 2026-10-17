@@ -733,6 +733,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ThreadFactoryBuilder.doBuild(): {@code builder.backingThreadFactory != null ? builder.backingThreadFactory
+     * : defaultThreadFactory()}, another object's var field, which Kotlin does not smart-cast: the elvis reads it once.
+     */
+    @Test
+    public void elvisOnAnotherObjectsField() {
+        String kotlin = kotlin("""
+                package a;
+                class Builder {
+                    Runnable backing;
+                    Builder backing(Runnable r) { this.backing = r; return this; }
+                    static Runnable build(Builder builder) {
+                        Runnable backing = builder.backing != null ? builder.backing : () -> { };
+                        return backing;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("backing")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "builder.backing ?: ");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

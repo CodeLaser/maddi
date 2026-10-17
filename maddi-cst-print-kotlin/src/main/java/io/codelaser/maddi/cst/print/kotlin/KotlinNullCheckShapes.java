@@ -99,11 +99,15 @@ final class KotlinNullCheckShapes {
         return new Tested(ve, nullWhenTrue ? ic.ifTrue() : ic.ifFalse(), nullWhenTrue ? ic.ifFalse() : ic.ifTrue());
     }
 
+    // a field of another object read through a local or parameter too: guava's ThreadFactoryBuilder,
+    // builder.backingThreadFactory != null ? builder.backingThreadFactory : …, which Kotlin cannot smart-cast (a var)
     private static boolean plainRead(Variable variable) {
         return variable instanceof LocalVariable || variable instanceof ParameterInfo
                || variable instanceof FieldReference fr && (fr.scope() == null || fr.fieldInfo().isStatic()
                                                             || unwrap(fr.scope()) instanceof VariableExpression s
-                                                               && s.variable() instanceof This);
+                                                               && (s.variable() instanceof This
+                                                                   || s.variable() instanceof LocalVariable
+                                                                   || s.variable() instanceof ParameterInfo));
     }
 
     private static Expression unwrap(Expression e) {
