@@ -564,6 +564,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     private static Runnable captured(Integer[] values) {
                         return new Runnable() { @Override public void run() { sum(values); } };
                     }
+                    @SafeVarargs
+                    static <E> List<E> construct(E... es) { return Arrays.asList(es); }
+                    static <E> List<E> copyOf(E[] elements) { return construct(elements.clone()); }
+                    static <E> E[] copied(E[] elements) { return elements.clone(); }
                     static class Wildcard {
                         private final List<java.lang.reflect.Type> upperBounds;
                         Wildcard(java.lang.reflect.Type[] upperBounds) { this.upperBounds = List.of(upperBounds); }
@@ -586,6 +590,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "fun captured(values: Array<Int>)");
         // a constructor's parameter that a list field of its name copies is only read
         contains(kotlin, "(upperBounds: Array<out java.lang.reflect.Type>)");
+        // a clone spread into a vararg is a copy again; a clone returned is the array
+        contains(kotlin, "fun <E> copyOf(elements: Array<out E>)");
+        contains(kotlin, "fun <E> copied(elements: Array<E>)");
         // a primary constructor's parameter is the property
         assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
         compiles(kotlin);

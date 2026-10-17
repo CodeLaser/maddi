@@ -360,7 +360,16 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
     /** The uses of {@code pi} in {@code body}, and in the bodies of the anonymous classes there, which capture it. */
     private static void escapes(ParameterInfo pi, io.codelaser.maddi.cst.api.element.Element body, boolean[] escapes) {
+        // elements.clone() spread into a vararg (guava's ImmutableList.copyOf: construct(elements.clone())): the copy
+        // goes where an Array<out T> goes; the call is visited before its arguments
+        java.util.Set<io.codelaser.maddi.cst.api.expression.Expression> spreadClones =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall call) {
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.methodInfo()));
+            } else if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall call) {
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.constructor()));
+            }
             switch (e) {
                 case io.codelaser.maddi.cst.api.expression.Assignment a -> {
                     if (a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
@@ -374,10 +383,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     if (lvc.localVariableStream().anyMatch(lv -> isPi(pi, lv.assignmentExpression()))) escapes[0] = true;
                 }
                 case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
-                    if (mc.object() != null && isPi(pi, mc.object()) && mc.methodInfo() != null
-                        && "clone".equals(mc.methodInfo().name())) {
-                        escapes[0] = true;
-                    }
+                    if (cloneOf(pi, mc) && !spreadClones.contains(mc)) escapes[0] = true;
                     if (!acceptsOut(pi, mc.parameterExpressions(), mc.methodInfo())) escapes[0] = true;
                 }
                 case io.codelaser.maddi.cst.api.expression.ConstructorCall cc -> {
@@ -398,6 +404,23 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
             return !escapes[0];
         });
+    }
+
+    private static boolean cloneOf(ParameterInfo pi, io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+        return mc.object() != null && isPi(pi, mc.object()) && mc.methodInfo() != null
+               && "clone".equals(mc.methodInfo().name()) && mc.parameterExpressions().isEmpty();
+    }
+
+    /** The {@code pi.clone()} arguments that are a call's whole vararg array: printed spread, a copy again. */
+    private static List<io.codelaser.maddi.cst.api.expression.Expression> clonesIntoVarargs(
+            ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args, MethodInfo callee) {
+        if (callee == null || callee.parameters().isEmpty() || args.size() != callee.parameters().size()
+            || !callee.parameters().getLast().isVarArgs()) {
+            return List.of();
+        }
+        io.codelaser.maddi.cst.api.expression.Expression last = KotlinExpressionPrinter.unwrap(args.getLast());
+        return last instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && cloneOf(pi, mc)
+               ? List.of(mc) : List.of();
     }
 
     private static boolean isPi(ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
