@@ -225,7 +225,9 @@ implements the interface.
 
   A generic interface method (Java may implement `<T> Class<T> eventClass()` raw) is left as it is.
 - **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
-  the interface, `((IResult) this).Failed()`.
+  the interface, `((IResult) this).Failed()`. A C# interface's member never implements an inherited interface's
+  implicitly: a default method that overrides one implements it explicitly, also a generic one, with its own type
+  parameters and the constraints it inherits: `ITriConstraintStream<A, B, C> IBiConstraintStream<A, B>.Join<C>(…)`.
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
   `Cloneable`, `Serializable`, `RandomAccess` and `EventListener` are dropped, from a type parameter's constraints

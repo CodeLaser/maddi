@@ -47,15 +47,16 @@ final class CSharpHierarchy {
      * needs it implemented explicitly: a C# interface's member never implements another's implicitly.
      */
     static MethodInfo interfaceMethodDefaulted(TypeInfo iface, MethodInfo m) {
-        if (!iface.isInterface() || m.isStatic() || m.isAbstract() || m.methodBody() == null
-            || !m.typeParameters().isEmpty() || m.isConstructor() || CSharpWildcards.mayCapture(m)) return null;
+        if (!iface.isInterface() || m.isStatic() || m.isAbstract() || m.methodBody() == null || m.isConstructor()
+            || CSharpWildcards.mayCapture(m) || CSharpContext.program().erasedGeneric(m)) return null;
         // a library's interface method that C# names otherwise, Closeable's close() IDisposable's Dispose(): a
         // default method of the same name would hide it, not implement it
         boolean renamed = CSharpContext.libraries().overrideName(m) != null;
         return m.overrides().stream()
                 .filter(o -> o != m && o.typeInfo() != iface && o.typeInfo().isInterface()
                              && (CSharpNames.translated(o.typeInfo()) || renamed) && o.isAbstract()
-                             && o.typeParameters().isEmpty())
+                             && o.typeParameters().size() == m.typeParameters().size()
+                             && !CSharpContext.program().erasedGeneric(o))
                 .filter(o -> implementedAs(iface, o.typeInfo()) != null)
                 .findFirst().orElse(null);
     }
