@@ -211,7 +211,20 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private boolean isOpen() {
         return !methodInfo.isFinal() && !methodInfo.isStatic() && !methodInfo.isConstructor()
                && !methodInfo.access().isPrivate() && !typeInfo.isInterface()
-               && KotlinTypePrinter.isOpen(typeInfo);
+               && (KotlinTypePrinter.isOpen(typeInfo) || overriddenByEnumConstant(typeInfo, methodInfo));
+    }
+
+    /**
+     * guava's CaseFormat: an enum's constants override its {@code convert} in their bodies. Kotlin's enum class is
+     * final, its members too unless they say {@code open}.
+     */
+    private static boolean overriddenByEnumConstant(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, MethodInfo methodInfo) {
+        if (!typeInfo.typeNature().isEnum()) return false;
+        return typeInfo.fields().stream()
+                .filter(f -> f.initializer() instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc
+                             && cc.anonymousClass() != null)
+                .map(f -> ((io.codelaser.maddi.cst.api.expression.ConstructorCall) f.initializer()).anonymousClass())
+                .anyMatch(body -> body.methods().stream().anyMatch(m -> m.overrides().contains(methodInfo)));
     }
 
     /** The expression of a single-`return` body (Kotlin `fun … = expr`), or {@code null} for a block body. */

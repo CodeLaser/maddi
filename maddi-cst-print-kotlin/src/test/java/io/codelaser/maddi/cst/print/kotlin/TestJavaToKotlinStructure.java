@@ -1919,4 +1919,19 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "(Optional.ofNullable(value) as Optional<T>)");
         compiles(kotlin);
     }
+
+    /** guava's CaseFormat: constants override a non-abstract method of their enum, which Kotlin wants open. */
+    @Test
+    public void enumConstantOverridesOpenMethod() {
+        String kotlin = kotlin("""
+                package a;
+                enum Format {
+                    LOWER { @Override String convert(String s) { return s.toLowerCase(); } },
+                    PLAIN;
+                    String convert(String s) { return s; }
+                }
+                """);
+        contains(kotlin, "open fun convert(s: String): String");
+        compiles(kotlin);
+    }
 }
