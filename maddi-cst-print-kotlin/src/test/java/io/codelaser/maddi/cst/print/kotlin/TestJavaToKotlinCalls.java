@@ -850,4 +850,29 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "(nullsLast<S & Any>() as Ord<S>)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Multimaps.MapMultimap.containsEntry: {@code map.entrySet().contains(Maps.immutableEntry(key, value))}
+     * with Object key and value into a {@code Set<Entry<K, V>>}; and TreeRangeSet's {@code containsKey(Cut.belowAll())}.
+     * Kotlin's lookup infers its T from the inputs alone: the argument is cast to the element type, unchecked.
+     */
+    @Test
+    public void lookupOfAParameterizedElement() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class M<K, V> {
+                    static final class Cut<C> { static <C> Cut<C> belowAll() { return new Cut<>(); } }
+                    final Map<K, V> map = new HashMap<>();
+                    final Map<Cut<String>, V> byCut = new HashMap<>();
+                    boolean containsEntry(Object key, Object value) {
+                        return map.entrySet().contains(new AbstractMap.SimpleEntry<>(key, value));
+                    }
+                    boolean below() { return byCut.containsKey(Cut.<Comparable<?>>belowAll()); }
+                }
+                """);
+        contains(kotlin, " as MutableMap.MutableEntry<K, V>");
+        contains(kotlin, " as Cut<String>?)");
+        compiles(kotlin);
+    }
 }

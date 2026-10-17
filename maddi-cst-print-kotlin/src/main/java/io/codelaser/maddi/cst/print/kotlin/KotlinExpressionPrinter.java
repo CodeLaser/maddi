@@ -746,7 +746,11 @@ public class KotlinExpressionPrinter {
                 if (lookedUp != null) {
                     if (lookedUp.typeParameter() != null
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
-                           && KotlinNullability.nullableInKotlin(args.get(i))) {
+                           && KotlinNullability.nullableInKotlin(args.get(i))
+                        // map.entries.contains(immutableEntry(key, value)) into a Set<Entry<K, V>>: the extension's
+                        // T is an Entry<Any?, Any?> or an Entry<K, V>, never both; the cast checks only the class
+                        || !lookedUp.parameters().isEmpty()
+                           && !java.util.Objects.equals(unwrap(args.get(i)).parameterizedType(), lookedUp)) {
                         // lst.remove(varassign) with a VarExprent? from a List<Exprent>: T is inferred from the
                         // inputs only, so the argument is cast up to the element type. Into a translated override
                         // whose Kotlin parameter is non-null (super.get(key) of guava's SynchronizedAsMap), to that
@@ -1182,7 +1186,7 @@ public class KotlinExpressionPrinter {
         boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
                         && element.wildcard() == null && element.typeInfo() != null
                         && (element.typeInfo() == argumentType.typeInfo()
-                            || element.arrays() == 0 && element.parameters().isEmpty()
+                            || element.arrays() == 0
                                && isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>()));
         return found ? element : null;
     }
