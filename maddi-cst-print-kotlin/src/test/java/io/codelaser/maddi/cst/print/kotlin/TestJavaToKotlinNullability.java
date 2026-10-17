@@ -962,6 +962,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's LocalCache.Segment.expand(): {@code ReferenceEntry e = head} inside {@code if (head != null)}, then
+     * reassigned in the loop: Kotlin types {@code var e = head} as head is declared, nullable; the type is written.
+     */
+    @Test
+    public void varFromASmartCastVariable() {
+        String kotlin = kotlin("""
+                package a;
+                class Node {
+                    Node next;
+                    int hash;
+                    static int walk(Node[] table, Node tail) {
+                        int n = 0;
+                        Node head = table[0];
+                        if (head != null) {
+                            for (Node e = head; e != tail; e = e.next) n += e.hash;
+                        }
+                        return n;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("head", "next", "table[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "var e: Node = head");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

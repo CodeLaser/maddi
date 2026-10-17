@@ -861,7 +861,14 @@ public class KotlinStatementPrinter {
         // a raw Java local (FastSparseSet[][] m = map.elements) takes its initializer's arguments: Kotlin has no raw types
         boolean rawLocal = hasInitializer && !nullableFromNonNull
                            && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
-        boolean writeType = !hasInitializer || nullableFromNonNull
+        // var e = head, a smart-cast head: Kotlin types a var as its initializer is declared, ReferenceEntry? (guava's
+        // LocalCache.Segment.expand(), e.getHash() in the loop); the local's non-null type is written
+        boolean nonNullFromSmartCast = hasInitializer && !lvc.isFinal() && KotlinContext.reassigned(lv)
+                && !KotlinNullability.isNullable(type)
+                && KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression
+                && KotlinNullability.isNullable(KotlinNullability.kotlinType(init))
+                && !KotlinNullability.nullableInKotlin(init);
+        boolean writeType = !hasInitializer || nullableFromNonNull || nonNullFromSmartCast
                             || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
                                                              || onlyTargetTyped(init) || nullableArgumentOfGenericCall(type, init));
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
