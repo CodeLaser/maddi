@@ -225,7 +225,9 @@ implements the interface.
 
   A generic interface method (Java may implement `<T> Class<T> eventClass()` raw) is left as it is.
 - **Default methods.** A C# class does not inherit its interfaces' default methods: a call on a class goes through
-  the interface, `((IResult) this).Failed()`.
+  the interface, `((IResult) this).Failed()`. A C# interface's member never implements an inherited interface's
+  implicitly: a default method that overrides one implements it explicitly, also a generic one, with its own type
+  parameters and the constraints it inherits: `ITriConstraintStream<A, B, C> IBiConstraintStream<A, B>.Join<C>(…)`.
 - **Java's object protocol.** C#'s `object` has `ToString`, `Equals` and `GetHashCode` to override, not `clone`:
   Java's `clone()` is a method of its own, and `super.clone()` is `MemberwiseClone()`. The marker interfaces
   `Cloneable`, `Serializable`, `RandomAccess` and `EventListener` are dropped, from a type parameter's constraints
@@ -746,6 +748,13 @@ from a map, a stream's collector.
   - Annotations are attributes: `getAnnotation(Tool.class)` becomes `GetCustomAttribute<ToolAttribute>()`, and
     `isAnnotationPresent` becomes `IsDefined`.
   - `getDeclaredMethods()` becomes `GetMethods` with `DeclaredOnly` and every visibility.
+    `getDeclaredMethod(name, types…)` and `getDeclaredField(name)` become the compatibility library's
+    `JavaClass.DeclaredMethod` and `DeclaredField`, which look the same way and throw `MissingMethodException`
+    and `MissingFieldException` where Java throws and `GetMethod` and `GetField` are null.
+  - `setAccessible` does nothing: .NET's reflection reaches a member that is not public. `f.getInt(o)` and the other
+    primitive getters are `Convert.ToInt32(f.GetValue(o))`, which widens as Java's do. `isRecord` and
+    `isSynthetic` are the compatibility library's `JavaClass.IsRecord` (the record's clone method) and
+    `IsSynthetic` (the compiler's attribute).
   - `getModifiers()` gives Java's bits, from the compatibility library's `JavaModifier`, so `Modifier.isStatic(m)`
     stays a bit test.
   - The kinds of `java.lang.reflect.Type` are one `System.Type`. A type test against a kind is a property pattern:
@@ -805,7 +814,8 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
   empty strings, and `String.format`'s conversions differ from .NET's.
 - The classes the BCL lacks: `DataInputStream` (big-endian), `BitSet`, the byte-array streams, `IJavaIterator<T>`
   (Java's `Iterator`, which the program's iterators implement; `JavaIterator<T>` walks a C# collection, with
-  `remove`), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
+  `remove`), `IJavaListIterator<T>` (a `ListIterator`, which `JavaIterator<T>` is over a list: `previous`, `set`,
+  `add`, and `remove` of the element last returned either way; `Set` and `Add` are optional, they throw by default), `JavaFile` (`java.io.File`), `JavaMatcher` (a `Regex` applied step by
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`

@@ -158,9 +158,12 @@
 # 2026-10-17, maddi 95b05eb13, 11a78d8b7, 13862f88a: an erased diamond takes its target's type arguments where its
 # raw arguments fit; a call whose type parameter only lambdas' parameters mention gets its type arguments: 1246 ->
 # 1255 compiling files, 1323 -> 1221 errors.
+# 2026-10-17, maddi 1798df741, 114195d54, 42976fa84: ListIterator, reflection's declared members, String strips,
+# List's first/last; a generic default method implements the inherited interface's explicitly: 1255 -> 1267
+# compiling files, 1221 -> 1123 errors, unmapped JDK uses 333 -> 292.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1255
-unmappedJdkUses	333
+compilingFiles	1267
+unmappedJdkUses	292

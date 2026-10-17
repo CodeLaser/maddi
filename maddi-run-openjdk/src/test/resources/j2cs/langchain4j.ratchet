@@ -88,9 +88,12 @@
 # files, 219 -> 201 errors.
 # 2026-10-17, maddi a56ea13cd, 5e56fd4e8, b24b6ea8d: a class implementing Set itself extends JavaSet; contains,
 # remove, containsKey, get of an Object test its type (ContainsObject, ...): unmapped JDK uses 153 -> 152.
+# 2026-10-17, maddi 1798df741, 114195d54, 42976fa84: ListIterator, reflection's declared members, String strips,
+# List's first/last; a generic default method implements the inherited interface's explicitly: 298 -> 299
+# compiling files.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	298
+compilingFiles	299
 unmappedJdkUses	152

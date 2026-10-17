@@ -1002,6 +1002,29 @@ public static class JavaClass
 {
     /// <summary>getCanonicalName: a nested type's FullName has a '+' where Java's has a '.'.</summary>
     public static string? CanonicalName(Type t) => t.FullName?.Replace('+', '.');
+
+    /// <summary>AccessibleObject.setAccessible: nothing, .NET's reflection reaches a member that is not public.</summary>
+    public static void SetAccessible(MemberInfo member, bool flag)
+    {
+    }
+
+    private const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic
+                                          | BindingFlags.Instance | BindingFlags.Static;
+
+    /// <summary>Class.getDeclaredMethod: the class's own, public or not; throws where Java does, GetMethod is null.</summary>
+    public static MethodInfo DeclaredMethod(Type t, string name, params Type[] parameterTypes) =>
+        t.GetMethod(name, Declared, parameterTypes) ?? throw new MissingMethodException(t.FullName, name);
+
+    /// <summary>Class.getDeclaredField: the class's own, public or not; throws where Java does.</summary>
+    public static FieldInfo DeclaredField(Type t, string name) =>
+        t.GetField(name, Declared) ?? throw new MissingFieldException(t.FullName, name);
+
+    /// <summary>Class.isRecord: a C# record class, which has the compiler's clone method.</summary>
+    public static bool IsRecord(Type t) => t.GetMethod("<Clone>$") != null;
+
+    /// <summary>Member.isSynthetic: one the compiler made.</summary>
+    public static bool IsSynthetic(MemberInfo member) =>
+        member.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false);
 }
 
 public static class JavaArrays
@@ -1367,6 +1390,23 @@ public interface IJavaIterator<T>
     }
 }
 
+/// <summary>java.util.ListIterator: an iterator over a list both ways, which sets and adds where it is.</summary>
+public interface IJavaListIterator<T> : IJavaIterator<T>
+{
+    bool HasPrevious();
+
+    T Previous();
+
+    int NextIndex();
+
+    int PreviousIndex();
+
+    // optional operations, as Java's: a list iterator that does not support them inherits these
+    void Set(T e) => throw new NotSupportedException("set");
+
+    void Add(T e) => throw new NotSupportedException("add");
+}
+
 public static class JavaIterators
 {
     /// <summary>A Java iterator as C#'s enumerator: a class with iterator() is an IEnumerable.</summary>
@@ -1376,12 +1416,14 @@ public static class JavaIterators
     }
 }
 
-public class JavaIterator<T> : IJavaIterator<T>
+public class JavaIterator<T> : IJavaListIterator<T>
 {
     private readonly IList<T>? list;
     private readonly ICollection<T>? collection;
     private readonly IEnumerator<T>? enumerator;
     private int index;
+    // a list's element that Next or Previous returned last, which Remove and Set change; -1: none
+    private int lastIndex = -1;
     private bool hasPeeked;
     private bool peeked;
     private T? last;
@@ -1417,16 +1459,53 @@ public class JavaIterator<T> : IJavaIterator<T>
     public T Next()
     {
         if (!HasNext()) throw new InvalidOperationException("no next element");
-        if (list != null) return last = list[index++];
+        if (list != null)
+        {
+            lastIndex = index;
+            return last = list[index++];
+        }
         hasPeeked = false;
         return last = enumerator!.Current;
     }
 
     public void Remove()
     {
-        if (list != null) list.RemoveAt(--index);
+        if (list != null)
+        {
+            if (lastIndex < 0) throw new InvalidOperationException("no element to remove");
+            list.RemoveAt(lastIndex);
+            if (lastIndex < index) index--;
+            lastIndex = -1;
+        }
         else if (collection != null) collection.Remove(last!);
         else throw new NotSupportedException("remove");
+    }
+
+    private IList<T> List => list ?? throw new NotSupportedException("not a list iterator");
+
+    public bool HasPrevious() => index > 0 && list != null;
+
+    public T Previous()
+    {
+        if (index <= 0) throw new InvalidOperationException("no previous element");
+        lastIndex = --index;
+        return last = List[index];
+    }
+
+    public int NextIndex() => index;
+
+    public int PreviousIndex() => index - 1;
+
+    public void Set(T e)
+    {
+        if (lastIndex < 0) throw new InvalidOperationException("no element to set");
+        List[lastIndex] = e;
+    }
+
+    public void Add(T e)
+    {
+        List.Insert(index++, e);
+        lastIndex = -1;
     }
 
     public void ForEachRemaining(Action<T> action)

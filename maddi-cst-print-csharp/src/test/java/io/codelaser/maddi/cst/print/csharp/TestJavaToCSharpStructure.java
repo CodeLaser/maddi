@@ -243,6 +243,31 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String GENERIC_DEFAULTS = """
+            package org.example.defaults;
+            import java.util.List;
+            class Streams {
+                interface Stream<A> {
+                    <C> List<C> join(Class<C> other, String... joiners);
+                    <S extends Comparable<S>> S penalize(S weight, long match);
+                }
+                interface InnerStream<A> extends Stream<A> {
+                    default <C> List<C> join(Class<C> other, String... joiners) { return List.of(); }
+                    default <S extends Comparable<S>> S penalize(S weight, long match) { return weight; }
+                }
+                static final class Concrete implements InnerStream<String> { }
+            }
+            """;
+
+    /** A generic default method of a sub-interface implements the inherited one explicitly, with its type parameters. */
+    @Test
+    public void genericDefaults() {
+        String cs = translate("Streams", GENERIC_DEFAULTS);
+        contains(cs, "List<C> IStream<A>.Join<C>(params string[] joiners) => new List<C>();");
+        contains(cs, "S IStream<A>.Penalize<S>(S weight, long match) => weight;");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {
