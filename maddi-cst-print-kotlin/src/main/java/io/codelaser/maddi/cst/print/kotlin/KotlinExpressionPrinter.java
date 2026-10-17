@@ -1663,7 +1663,7 @@ public class KotlinExpressionPrinter {
                 arguments.add(mine);
                 continue;
             }
-            if (!sameUpToStates(mine, theirs)) return null;
+            if (!sameUpToStatesAndWildcards(mine, theirs)) return null;
             changed |= !mine.equals(theirs);
             arguments.add(theirs);
         }
@@ -1697,6 +1697,23 @@ public class KotlinExpressionPrinter {
     }
 
     /** The same type, ignoring the nullable states of it and its arguments; a wildcard is never the same. */
+    /**
+     * As {@link #sameUpToStates}, where a wildcard matches the same wildcard: guava's Striped.SmallLazyStriped,
+     * {@code new AtomicReferenceArray<>(size)} into an {@code AtomicReferenceArray<@Nullable ArrayReference<? extends L>>}.
+     */
+    private static boolean sameUpToStatesAndWildcards(ParameterizedType a, ParameterizedType b) {
+        if (a == null || b == null || !java.util.Objects.equals(a.wildcard(), b.wildcard())
+            || !java.util.Objects.equals(a.typeInfo(), b.typeInfo()) || a.arrays() != b.arrays()
+            || !java.util.Objects.equals(a.typeParameter(), b.typeParameter())
+            || a.parameters().size() != b.parameters().size()) {
+            return false;
+        }
+        for (int i = 0; i < a.parameters().size(); i++) {
+            if (!sameUpToStatesAndWildcards(a.parameters().get(i), b.parameters().get(i))) return false;
+        }
+        return true;
+    }
+
     private static boolean sameUpToStates(ParameterizedType a, ParameterizedType b) {
         if (a == null || b == null || a.wildcard() != null || b.wildcard() != null
             || !java.util.Objects.equals(a.typeInfo(), b.typeInfo()) || a.arrays() != b.arrays()

@@ -1069,6 +1069,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Striped.SmallLazyStriped: {@code this.locks = new AtomicReferenceArray<>(size)} into a field
+     * {@code AtomicReferenceArray<@Nullable Ref<? extends L>>}: the diamond takes the field's states, wildcard and all.
+     */
+    @Test
+    public void diamondTakesTheTargetsStatesThroughAWildcard() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.atomic.AtomicReferenceArray;
+                final class Lazy<L> {
+                    static final class Ref<T> { }
+                    final AtomicReferenceArray<Ref<? extends L>> locks;
+                    Lazy(int size) { this.locks = new AtomicReferenceArray<>(size); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("locks<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "AtomicReferenceArray<Ref<out L>?>(size)");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
