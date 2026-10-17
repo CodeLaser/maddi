@@ -885,6 +885,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's FinalizableWeakReference: {@code super(referent, queue.queue); queue.cleanUp();} with a nullable queue:
+     * the supertype call's queue!! does not smart-cast queue in the init block, which asserts it again.
+     */
+    @Test
+    public void assertionInTheSupertypeCallDoesNotReachInit() {
+        String kotlin = kotlin("""
+                package a;
+                class Queue { final Object queue = new Object(); void cleanUp() { } }
+                class Base { Base(Object o) { } }
+                class Ref extends Base {
+                    Ref(Queue queue) {
+                        super(queue.queue);
+                        queue.cleanUp();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("queue")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "queue!!.cleanUp()");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
