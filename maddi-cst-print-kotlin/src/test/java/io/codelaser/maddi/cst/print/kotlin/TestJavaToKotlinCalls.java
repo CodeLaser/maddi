@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -559,6 +560,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                         Rest(E[] rest) { this.rest = checkNotNull(rest); }
                     }
                     static String all(java.lang.reflect.Type[] upper) { disallow(upper); return new J().join(upper); }
+                    static int sum(Integer[] xs) { int n = 0; for (Integer x : xs) n += x; xs[0] = n; return n; }
+                    private static Runnable captured(Integer[] values) {
+                        return new Runnable() { @Override public void run() { sum(values); } };
+                    }
+                    @SafeVarargs
+                    static <E> List<E> construct(E... es) { return Arrays.asList(es); }
+                    static <E> List<E> copyOf(E[] elements) { return construct(elements.clone()); }
+                    static <E> E[] copied(E[] elements) { return elements.clone(); }
+                    static class Wildcard {
+                        private final List<java.lang.reflect.Type> upperBounds;
+                        Wildcard(java.lang.reflect.Type[] upperBounds) { this.upperBounds = List.of(upperBounds); }
+                        int size() { return upperBounds.size(); }
+                    }
+                    static class Combined {
+                        private final Object[] hashers;
+                        Combined(Object[] hashers) { this.hashers = hashers; }
+                        Object[] hashers() { return hashers; }
+                    }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
                 p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
@@ -567,6 +586,79 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "fun disallow(types: Array<out java.lang.reflect.Type>)");
         contains(kotlin, "fun makeHash(hashes: Array<Any>)");
         contains(kotlin, "rest: Array<E>");
+        // captured by an anonymous class that hands it on invariant
+        contains(kotlin, "fun captured(values: Array<Int>)");
+        // a constructor's parameter that a list field of its name copies is only read
+        contains(kotlin, "(upperBounds: Array<out java.lang.reflect.Type>)");
+        // a clone spread into a vararg is a copy again; a clone returned is the array
+        contains(kotlin, "fun <E> copyOf(elements: Array<out E>)");
+        contains(kotlin, "fun <E> copied(elements: Array<E>)");
+        // a primary constructor's parameter is the property
+        assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's toArray(T[] a) implementations: {@code Object[] unsoundlyCovariantArray = a} of a T[], and a T[] handed
+     * to {@code copyIntoArray(Object[] dst, int offset)}, which writes it: Java's covariance, Kotlin's unchecked cast.
+     */
+    @Test
+    public void typeVariableArraysIntoObjectArrays() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    Object[] items = new Object[] { "a" };
+                    int copyIntoArray(Object[] dst, int offset) { dst[offset] = items[0]; return offset + 1; }
+                    <T> T[] toArray(T[] a) {
+                        if (a.length > 1) {
+                            Object[] unsoundlyCovariantArray = a;
+                            unsoundlyCovariantArray[1] = "b";
+                        }
+                        copyIntoArray(a, 0);
+                        return a;
+                    }
+                }
+                """);
+        contains(kotlin, "= (a as Array<Any");
+        contains(kotlin, "copyIntoArray((a as Array<Any");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's primitives and Converter.convertAll: Collection.toArray() is toTypedArray, IntStream.toArray() stays an
+     * IntArray; a lambda into an Iterable is an object, as Kotlin's Iterable is no fun interface.
+     */
+    @Test
+    public void toArrayShapesAndIterableLambdas() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Function;
+                import java.util.stream.IntStream;
+                class P {
+                    @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) @interface Nullable { }
+                    static int[] toArray(Collection<? extends Number> collection) {
+                        Object[] boxedArray = collection.toArray();
+                        int[] array = new int[boxedArray.length];
+                        for (int i = 0; i < boxedArray.length; i++) array[i] = ((Number) Objects.requireNonNull(boxedArray[i])).intValue();
+                        return array;
+                    }
+                    static int[] copyOf(IntStream stream) {
+                        int[] array = stream.toArray();
+                        return array;
+                    }
+                    static <A, B> Iterable<B> convertAll(Iterable<? extends A> from, Function<A, B> f) {
+                        return () -> new Iterator<B>() {
+                            private final Iterator<? extends A> it = from.iterator();
+                            @Override public boolean hasNext() { return it.hasNext(); }
+                            @Override public B next() { return f.apply(it.next()); }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "collection.toTypedArray<");
+        contains(kotlin, "stream.toArray()");
+        contains(kotlin, "object : MutableIterable<B> { override fun iterator(): MutableIterator<B> = run ");
         compiles(kotlin);
     }
 }
