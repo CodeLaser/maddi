@@ -815,7 +815,9 @@ public class KotlinExpressionPrinter {
                 // a constructor call takes the target's states (Kotlin's generics are invariant); so does (AiMessage)
                 // null, which picks an overload: `null as AiMessage?` into a nullable parameter (`as AiMessage` throws)
                 ParameterizedType widenTo = (unwrap(args.get(i)) instanceof ConstructorCall
-                                             || unwrap(args.get(i)) instanceof Cast c && unwrap(c.expression()) instanceof NullConstant)
+                                             || unwrap(args.get(i)) instanceof Cast c && unwrap(c.expression()) instanceof NullConstant
+                                             // (Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY into an Array<Entry?>
+                                             || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1)
                                             && declared != null ? declared : target;
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
                         widened(args.get(i), widenTo, q), q);
@@ -1459,6 +1461,19 @@ public class KotlinExpressionPrinter {
             // guava's ImmutableMap.SerializedForm: V[] values = (V[]) this.values into an Array<V?>: Kotlin's arrays are
             // invariant, and the cast checks no element; it takes the element state of what it initializes
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
+        if (unwrap(e) instanceof Cast c && target != null && target.arrays() == 1
+            && c.parameterizedType().arrays() == 1 && c.parameterizedType().componentType().typeInfo() != null
+            && c.parameterizedType().componentType().typeInfo() == target.componentType().typeInfo()
+            && KotlinNullability.isNullable(target.componentType())
+            && !KotlinNullability.isNullable(c.parameterizedType().componentType())) {
+            // guava's RegularImmutableMap.EMPTY: new RegularImmutableMap<>((Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY,
+            // …) into entries: Array<Entry<K, V>?>, the class's own K and V: the cast keeps its own type arguments,
+            // and takes the element state of the parameter
+            ParameterizedType own = c.parameterizedType();
+            ParameterizedType castType = own.withComponentType(own.componentType()
+                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {

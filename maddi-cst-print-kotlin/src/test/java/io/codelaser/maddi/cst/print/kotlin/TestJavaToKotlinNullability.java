@@ -1046,6 +1046,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's RegularImmutableMap.EMPTY: {@code new RegularImmutableMap<>((Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY,
+     * 0)} into a constructor parameter {@code Entry<K, V>[] entries} whose elements are nullable: the cast keeps
+     * Entry<Any, Any> and takes the element state, Array<Entry<Any, Any>?>.
+     */
+    @Test
+    public void arrayCastArgumentTakesTheParametersElementState() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Map.Entry;
+                final class RMap<K, V> {
+                    static final Entry<?, ?>[] EMPTY_ENTRY_ARRAY = new Entry<?, ?>[0];
+                    @SuppressWarnings("unchecked")
+                    static final RMap<Object, Object> EMPTY = new RMap<>((Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY, 0);
+                    final Entry<K, V>[] entries;
+                    final int size;
+                    RMap(Entry<K, V>[] entries, int size) { this.entries = entries; this.size = size; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("entries[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as Array<MutableMap.MutableEntry<Any, Any>?>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
