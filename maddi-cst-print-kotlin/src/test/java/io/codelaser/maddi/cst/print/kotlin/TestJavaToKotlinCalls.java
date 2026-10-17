@@ -616,4 +616,42 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "copyIntoArray((a as Array<Any");
         compiles(kotlin);
     }
+
+    /**
+     * guava's primitives and Converter.convertAll: Collection.toArray() is toTypedArray, IntStream.toArray() stays an
+     * IntArray; a lambda into an Iterable is an object, as Kotlin's Iterable is no fun interface.
+     */
+    @Test
+    public void toArrayShapesAndIterableLambdas() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Function;
+                import java.util.stream.IntStream;
+                class P {
+                    @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) @interface Nullable { }
+                    static int[] toArray(Collection<? extends Number> collection) {
+                        Object[] boxedArray = collection.toArray();
+                        int[] array = new int[boxedArray.length];
+                        for (int i = 0; i < boxedArray.length; i++) array[i] = ((Number) Objects.requireNonNull(boxedArray[i])).intValue();
+                        return array;
+                    }
+                    static int[] copyOf(IntStream stream) {
+                        int[] array = stream.toArray();
+                        return array;
+                    }
+                    static <A, B> Iterable<B> convertAll(Iterable<? extends A> from, Function<A, B> f) {
+                        return () -> new Iterator<B>() {
+                            private final Iterator<? extends A> it = from.iterator();
+                            @Override public boolean hasNext() { return it.hasNext(); }
+                            @Override public B next() { return f.apply(it.next()); }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "collection.toTypedArray<");
+        contains(kotlin, "stream.toArray()");
+        contains(kotlin, "object : MutableIterable<B> { override fun iterator(): MutableIterator<B> = run ");
+        compiles(kotlin);
+    }
 }

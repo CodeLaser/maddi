@@ -352,8 +352,15 @@ public class KotlinExpressionPrinter {
             // would be an Array<String> where Java declares an Object[]
             ParameterizedType result = KotlinNullability.kotlinType(mc);
             ParameterizedType expected = expectedElement(mc);
+            ParameterizedType component = result == null || result.arrays() != 1 ? null : result.componentType();
+            if (expected == null && component != null && !KotlinNullability.isNullable(component)
+                && nullableElements(object)) {
+                // collection.toArray() of a Collection<out Number?> (guava's Ints.toArray): Kotlin's toTypedArray<T>
+                // wants a T the elements fit, Java's Object[] holds the nulls too
+                component = component.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+            }
             String element = expected != null ? KotlinTypeName.of(expected, q)
-                    : result == null || result.arrays() != 1 ? null : KotlinTypeName.of(result.componentType(), q);
+                    : component == null ? null : KotlinTypeName.of(component, q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         String mapped = KotlinMappedMembers.property(mc.methodInfo());
@@ -1726,8 +1733,18 @@ public class KotlinExpressionPrinter {
     }
 
     private static boolean toArray(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        // not a stream's: IntStream.toArray() is an IntArray already, Stream.toArray() an Array<Any?>
         return m != null && "toArray".equals(m.name()) && m.parameters().isEmpty()
-               && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+               && m.typeInfo().fullyQualifiedName().startsWith("java.util.")
+               && !m.typeInfo().fullyQualifiedName().startsWith("java.util.stream.");
+    }
+
+    /** The receiver's Kotlin element type admits null: a {@code Collection<out Number?>}, a {@code List<E?>}. */
+    private static boolean nullableElements(Expression receiver) {
+        ParameterizedType type = KotlinNullability.kotlinType(receiver);
+        if (type == null || type.parameters().size() != 1) return false;
+        ParameterizedType element = type.parameters().getFirst();
+        return KotlinNullability.isNullable(element);
     }
 
     private static boolean toArrayOf(io.codelaser.maddi.cst.api.info.MethodInfo m) {
@@ -1928,12 +1945,34 @@ public class KotlinExpressionPrinter {
         return lambda(lambda, true, q);
     }
 
+    private static final ThreadLocal<java.util.Set<Lambda>> ITERABLE_LAMBDAS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
     private static OutputBuilder lambda(Lambda lambda, boolean samConstructor, Qualification q) {
         return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, q);
     }
 
     /** As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none. */
     private static OutputBuilder lambda(Lambda lambda, String sam, Qualification q) {
+        ParameterizedType functional = lambda.concreteFunctionalType();
+        if (KotlinContext.translatingJava() && functional != null && functional.typeInfo() != null
+            && "java.lang.Iterable".equals(functional.typeInfo().fullyQualifiedName())
+            && lambda.methodInfo().returnType() != null && ITERABLE_LAMBDAS.get().add(lambda)) {
+            // return () -> new Iterator<B>() {…} into an Iterable<B> (guava's Converter.convertAll,
+            // Traverser.breadthFirst): Kotlin's Iterable is no fun interface, it takes no lambda
+            try {
+                ParameterizedType iterable = functional.parameters().stream().anyMatch(a -> a.wildcard() != null)
+                        ? null : functional;
+                if (iterable != null) {
+                    return new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE).add(SymbolEnum.COLON)
+                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(iterable, q) + " { override fun iterator(): "
+                                    + KotlinTypeName.of(lambda.methodInfo().returnType(), q) + " = run "))
+                            .add(lambda(lambda, (String) null, q)).add(new TextImpl(" }"));
+                }
+            } finally {
+                ITERABLE_LAMBDAS.get().remove(lambda);
+            }
+        }
         List<ParameterInfo> params = lambda.parameters();
         params.forEach(p -> KotlinContext.declared(p.name()));
         Block body = lambda.methodBody();

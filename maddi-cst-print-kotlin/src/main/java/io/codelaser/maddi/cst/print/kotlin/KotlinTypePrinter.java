@@ -278,6 +278,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         if (KotlinContext.translatingJava()) members.addAll(KotlinInheritedDefaults.overrides(typeInfo, insideType));
+        if (typeInfo.isAnonymous() && typeInfo.interfacesImplemented().stream().anyMatch(this::readOnlyIterator)) {
+            // new Iterator<B>() {…} without remove(): the object is a MutableIterator, as where it goes
+            // (MutableIterable.iterator()) wants one, and takes Java's default remove
+            members.add(new OutputBuilderImpl().add(new TextImpl(
+                    "override fun remove() { throw UnsupportedOperationException(\"remove\") }")));
+        }
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
