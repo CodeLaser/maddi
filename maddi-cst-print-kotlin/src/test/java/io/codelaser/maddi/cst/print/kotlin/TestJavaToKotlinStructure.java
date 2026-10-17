@@ -1934,4 +1934,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "open fun convert(s: String): String");
         compiles(kotlin);
     }
+
+    /**
+     * guava's LocalCache.WriteThroughEntry: fields key and value, set by the only constructor, in a Map.Entry. As a
+     * primary constructor's properties they clash with Kotlin's {@code key} and {@code value}; renamed, they are not.
+     */
+    @Test
+    public void entryFieldsNotConstructorProperties() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Map;
+                class WriteThrough<K, V> implements Map.Entry<K, V> {
+                    final K key;
+                    V value;
+                    WriteThrough(K key, V value) { this.key = key; this.value = value; }
+                    @Override public K getKey() { return key; }
+                    @Override public V getValue() { return value; }
+                    @Override public V setValue(V newValue) { V old = value; value = newValue; return old; }
+                }
+                """);
+        contains(kotlin, "_key");
+        compiles(kotlin);
+    }
 }

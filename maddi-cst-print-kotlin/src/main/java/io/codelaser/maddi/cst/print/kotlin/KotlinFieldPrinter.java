@@ -92,20 +92,25 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             "key", "value", "message", "cause");
 
     /**
+     * The field is named as a property a mapped supertype declares ({@code size} of Collection, {@code key} of
+     * Map.Entry): renamed, and never a property of the primary constructor (guava's LocalCache.WriteThroughEntry).
+     */
+    static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
+        return KotlinContext.translatingJava() && !fieldInfo.isStatic() && MAPPED_PROPERTIES.contains(fieldInfo.name())
+               && fieldInfo.owner() != null && !fieldInfo.owner().typeNature().isEnum()
+               && !fieldInfo.owner().typeNature().isRecord()
+               && mappedProperty(fieldInfo.owner(), fieldInfo.name(), new java.util.HashSet<>());
+    }
+
+    /**
      * The field's Kotlin name: Java's, unless a supertype Kotlin maps to its own declares a property of that name.
      * guava's AbstractMapBasedMultiset has {@code private long size} and overrides {@code size()}, which is Kotlin's
      * {@code override val size: Int}: two properties {@code size}, and each use of either is ambiguous. Such a field
-     * is {@code _size}. A property of the primary constructor keeps its name: the constructor's parameter declares it.
+     * is {@code _size}.
      */
     static String name(FieldInfo fieldInfo) {
         String name = KotlinNames.name(fieldInfo.name());
-        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || !MAPPED_PROPERTIES.contains(fieldInfo.name())
-            || fieldInfo.owner() == null || fieldInfo.owner().typeNature().isEnum() || fieldInfo.owner().typeNature().isRecord()
-            || !mappedProperty(fieldInfo.owner(), fieldInfo.name(), new java.util.HashSet<>())
-            || fieldInfo.owner().constructors().stream().flatMap(c -> c.parameters().stream())
-                    .anyMatch(p -> KotlinTypePrinter.propertyOf(p) == fieldInfo)) {
-            return name;
-        }
+        if (!clashesWithMappedProperty(fieldInfo)) return name;
         String renamed = "_" + fieldInfo.name();
         java.util.Set<String> taken = new java.util.HashSet<>();
         fieldInfo.owner().fields().forEach(f -> taken.add(f.name()));
