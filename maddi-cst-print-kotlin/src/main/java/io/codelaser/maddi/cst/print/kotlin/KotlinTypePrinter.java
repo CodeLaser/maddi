@@ -148,9 +148,13 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             }
             if (!isLocal(typeInfo)) {
                 // a private nested type is visible in the whole Java file; Kotlin's private stops at its outer type
-                Optional<Keyword> visibility = companion && !typeInfo.isPrimaryType()
-                                               && typeInfo.access() != null && typeInfo.access().isPrivate()
-                        ? Optional.of(KotlinKeyword.INTERNAL) : KotlinModifiers.visibility(typeInfo.access(), typeInfo);
+                // ... and public where a class that is not private names it in its signatures (guava's
+                // MapMakerInternalMap: Java lets a package-private Segment take a private Entry, Kotlin exposes nothing)
+                boolean privateNested = companion && !typeInfo.isPrimaryType()
+                                        && typeInfo.access() != null && typeInfo.access().isPrivate();
+                Optional<Keyword> visibility = privateNested
+                        ? exposedBySignature(typeInfo) ? Optional.empty() : Optional.of(KotlinKeyword.INTERNAL)
+                        : KotlinModifiers.visibility(typeInfo.access(), typeInfo);
                 visibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
             }
             Set<TypeModifier> mods = typeInfo.typeModifiers();
@@ -304,6 +308,39 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             return !found[0];
         });
         return found[0];
+    }
+
+    /**
+     * A type of the same file that is not private names {@code nested} in a supertype, or in a member that is not
+     * private: Kotlin refuses a public declaration exposing an internal type.
+     */
+    private static boolean exposedBySignature(TypeInfo nested) {
+        return exposedIn(nested.primaryType(), nested);
+    }
+
+    private static boolean exposedIn(TypeInfo t, TypeInfo nested) {
+        if (t != nested && (t.access() == null || !t.access().isPrivate())) {
+            java.util.stream.Stream<ParameterizedType> supertypes = java.util.stream.Stream.concat(
+                    t.parentClass() == null ? java.util.stream.Stream.empty() : java.util.stream.Stream.of(t.parentClass()),
+                    t.interfacesImplemented().stream());
+            if (supertypes.anyMatch(st -> names(st, nested))) return true;
+            for (MethodInfo m : t.constructorAndMethodStream().toList()) {
+                if (m.access() != null && m.access().isPrivate() || m.isSynthetic()) continue;
+                if (m.returnType() != null && names(m.returnType(), nested)) return true;
+                if (m.parameters().stream().anyMatch(p -> names(p.parameterizedType(), nested))) return true;
+            }
+            for (FieldInfo f : t.fields()) {
+                if ((f.access() == null || !f.access().isPrivate()) && !f.isSynthetic() && names(f.type(), nested)) return true;
+            }
+        }
+        return t.subTypes().stream().anyMatch(st -> st != nested && exposedIn(st, nested));
+    }
+
+    private static boolean names(ParameterizedType type, TypeInfo nested) {
+        if (type == null) return false;
+        if (type.typeInfo() == nested) return true;
+        if (type.wildcard() != null && type.typeInfo() == null) return false;
+        return type.parameters().stream().anyMatch(p -> names(p, nested));
     }
 
     /** {@code this.x = x; …} and nothing else: the parameters ARE the properties. */

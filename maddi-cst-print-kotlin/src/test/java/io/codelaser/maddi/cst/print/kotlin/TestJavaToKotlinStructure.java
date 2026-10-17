@@ -1981,4 +1981,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("internal fun readObject"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's MapMakerInternalMap: a package-private Segment takes a private nested Entry in its signatures. Kotlin's
+     * internal Entry would be exposed by the public Segment, so the Entry prints public.
+     */
+    @Test
+    public void privateNestedTypeExposedBySignature() {
+        String kotlin = kotlin("""
+                package a;
+                class Map2 {
+                    private static class Entry { int hash; }
+                    private static class Hidden { }
+                    static class Segment {
+                        Entry first(Entry e) { return e; }
+                        private Hidden hidden() { return new Hidden(); }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("internal open class Entry"), kotlin);
+        contains(kotlin, "internal open class Hidden");
+        compiles(kotlin);
+    }
 }
