@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -559,6 +560,11 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                         Rest(E[] rest) { this.rest = checkNotNull(rest); }
                     }
                     static String all(java.lang.reflect.Type[] upper) { disallow(upper); return new J().join(upper); }
+                    static class Combined {
+                        private final Object[] hashers;
+                        Combined(Object[] hashers) { this.hashers = hashers; }
+                        Object[] hashers() { return hashers; }
+                    }
                 }
                 """, type -> type.methods().forEach(m -> m.parameters().forEach(
                 p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
@@ -567,6 +573,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "fun disallow(types: Array<out java.lang.reflect.Type>)");
         contains(kotlin, "fun makeHash(hashes: Array<Any>)");
         contains(kotlin, "rest: Array<E>");
+        // a primary constructor's parameter is the property
+        assertFalse(kotlin.contains("hashers: Array<out"), kotlin);
         compiles(kotlin);
     }
 }

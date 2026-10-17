@@ -1784,12 +1784,15 @@ public class KotlinExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
                 .add(SymbolEnum.COLON).add(SpaceEnum.ONE);
         ParameterizedType parent = anonymous.parentClass();
+        // new ListMultimapBuilder<K0, @Nullable Object>() {…}: the type arguments' type-use annotations, as a named
+        // class's header writes them (maddi#144 kept them on the anonymous class's supertype)
         if (parent != null && !parent.isJavaLangObject()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype : parent, q)))
+            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
+                            : KotlinTypePrinter.declaredArguments(parent), q)))
                     .add(arguments(cc.parameterExpressions(), q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
-                    : anonymous.interfacesImplemented().getFirst(), q)));
+                    : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
         } else {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
