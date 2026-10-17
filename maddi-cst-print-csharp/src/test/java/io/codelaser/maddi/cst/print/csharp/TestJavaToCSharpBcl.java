@@ -625,6 +625,64 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String MEMBERS = """
+            package org.example.members;
+            import java.lang.reflect.Field;
+            import java.lang.reflect.Method;
+            import java.util.*;
+            public class Members {
+                static int read(Field f, Object o) throws IllegalAccessException {
+                    f.setAccessible(true);
+                    return f.isSynthetic() ? 0 : f.getInt(o);
+                }
+                static void write(Field f, Object o) throws IllegalAccessException { f.setLong(o, 1L); }
+                static Method find(Class<?> c) throws NoSuchMethodException { return c.getDeclaredMethod("run"); }
+                static Method find(Class<?> c, Class<?> p) throws NoSuchMethodException {
+                    return c.getDeclaredMethod("apply", p, int.class);
+                }
+                static Field field(Class<?> c) throws NoSuchFieldException { return c.getDeclaredField("x"); }
+                static String describe(Class<?> c) { return c.isRecord() + " " + c.isMemberClass() + " " + c.getTypeName(); }
+                static String trimmed(String s) { return s.stripTrailing() + s.stripLeading(); }
+                static String last(List<String> list) {
+                    ListIterator<String> it = list.listIterator(list.size());
+                    while (it.hasPrevious()) {
+                        int at = it.previousIndex();
+                        String s = it.previous();
+                        if (s.isEmpty()) it.remove();
+                        else if (at == 0) it.set(s.trim());
+                    }
+                    list.addFirst("first");
+                    list.removeFirst();
+                    return it.hasNext() ? it.next() : null;
+                }
+                static void sized(ArrayList<String> list) { list.ensureCapacity(10); list.trimToSize(); }
+            }
+            """;
+
+    /** Reflection's members, a String's strips, a List's SequencedCollection methods and its ListIterator. */
+    @Test
+    public void members() {
+        String cs = translate("Members", MEMBERS);
+        contains(cs, "JavaClass.SetAccessible(f, true);");
+        contains(cs, "JavaClass.IsSynthetic(f) ? 0 : Convert.ToInt32(f.GetValue(o))");
+        contains(cs, "f.SetValue(o, 1L);");
+        contains(cs, "c.GetMethod(\"run\", BindingFlags.DeclaredOnly | BindingFlags");
+        contains(cs, "BindingFlags.Static, Type.EmptyTypes)");
+        contains(cs, "BindingFlags.Static, new Type[]{ p, typeof(int) })");
+        contains(cs, "c.GetField(\"x\", BindingFlags.DeclaredOnly");
+        contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
+        contains(cs, "s.TrimEnd() + s.TrimStart()");
+        contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");
+        contains(cs, "while (it.HasPrevious())");
+        contains(cs, "int at = it.PreviousIndex();");
+        contains(cs, "it.Set(s.Trim());");
+        contains(cs, "list.Insert(0, \"first\");");
+        contains(cs, "list.RemoveAt(0);");
+        contains(cs, "list.EnsureCapacity(10);");
+        contains(cs, "list.TrimExcess();");
+    }
+
+    @Language("java")
     private static final String DELEGATE_CLASSES = """
             package org.example.delegates;
             import java.util.Comparator;

@@ -213,7 +213,7 @@ pascal java.io.ByteArrayOutputStream -> ByteArrayOutputStream using Maddi.JavaCo
 pascal java.util.BitSet -> BitSet using Maddi.JavaCompat
 # an interface, which the program's iterators implement
 pascal java.util.Iterator -> IJavaIterator using Maddi.JavaCompat
-pascal java.util.ListIterator -> IJavaIterator using Maddi.JavaCompat
+pascal java.util.ListIterator -> IJavaListIterator using Maddi.JavaCompat
 pascal java.io.File -> JavaFile using Maddi.JavaCompat
 pascal java.util.Enumeration -> JavaEnumeration using Maddi.JavaCompat
 pascal java.util.zip.ZipFile -> JavaZipFile using Maddi.JavaCompat
@@ -247,6 +247,14 @@ member java.util.Collection.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/0 -> $0.Iterator() using Maddi.JavaCompat
 member java.util.List.listIterator/1 -> $0.Iterator($1) using Maddi.JavaCompat
 member java.util.List.add/2 -> $0.Insert($1, $2)
+# a List's SequencedCollection methods, as a Deque's
+member java.util.List.addFirst/1 -> $0.Insert(0, $1)
+member java.util.List.addLast/1 -> $0.Add($1)
+member java.util.List.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+statement java.util.List.removeFirst/0 -> $0.RemoveAt(0)
+member java.util.List.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+member java.util.ArrayList.ensureCapacity/1 -> $0.EnsureCapacity($1)
+member java.util.ArrayList.trimToSize/0 -> $0.TrimExcess()
 member java.util.List.addAll/1 -> $0.AddAll($1) using Maddi.JavaCompat
 statement java.util.List.addAll/1 -> $0.AddRange($1)
 member java.util.List.addAll/2 -> $0.InsertAll($1, $2) using Maddi.JavaCompat
@@ -502,6 +510,8 @@ member java.lang.String.toUpperCase/0 -> $0.ToUpperInvariant()
 member java.lang.String.toUpperCase/1 -> $0.ToUpperInvariant()
 member java.lang.String.trim/0 -> $0.Trim()
 member java.lang.String.strip/0 -> $0.Trim()
+member java.lang.String.stripLeading/0 -> $0.TrimStart()
+member java.lang.String.stripTrailing/0 -> $0.TrimEnd()
 # the replacement in Java's syntax: \$ and \\ are literal, as .NET's are not
 member java.lang.String.replaceAll/2 -> JavaString.ReplaceAll($0, $1, $2) using Maddi.JavaCompat
 member java.lang.String.replaceFirst/2 -> JavaString.ReplaceFirst($0, $1, $2) using Maddi.JavaCompat
@@ -1100,6 +1110,12 @@ member java.lang.Class.getDeclaredFields/0 -> $0.GetFields(BindingFlags.Declared
 member java.lang.Class.getMethods/0 -> $0.GetMethods()
 member java.lang.Class.getFields/0 -> $0.GetFields()
 member java.lang.Class.getModifiers/0 -> JavaModifier.Of($0) using Maddi.JavaCompat
+member java.lang.Class.getDeclaredField/1 -> $0.GetField($1, BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static) using System.Reflection
+member java.lang.Class.getField/1 -> $0.GetField($1)
+member java.lang.Class.isRecord/0 -> JavaClass.IsRecord($0) using Maddi.JavaCompat
+member java.lang.Class.isMemberClass/0 -> $0.IsNested
+# java.lang.String, int[]: Type's ToString writes the generic arguments and the array's brackets as Java does
+member java.lang.Class.getTypeName/0 -> $0.ToString()
 # annotations are attributes
 member java.lang.reflect.AnnotatedElement.getAnnotation/1 -> $0.GetCustomAttribute<{R}>() using System.Reflection
 member java.lang.reflect.AnnotatedElement.isAnnotationPresent/1 -> $0.IsDefined($1, false)
@@ -1128,6 +1144,28 @@ member java.lang.reflect.Field.getType/0 -> $0.FieldType
 member java.lang.reflect.Field.getGenericType/0 -> $0.FieldType
 member java.lang.reflect.Field.get/1 -> $0.GetValue($1)
 member java.lang.reflect.Field.set/2 -> $0.SetValue($1, $2)
+# Java's getInt widens, a byte field's value too; .NET's GetValue boxes the field's own type: Convert widens it
+member java.lang.reflect.Field.getInt/1 -> Convert.ToInt32($0.GetValue($1)) using System
+member java.lang.reflect.Field.setInt/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getLong/1 -> Convert.ToInt64($0.GetValue($1)) using System
+member java.lang.reflect.Field.setLong/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getShort/1 -> Convert.ToInt16($0.GetValue($1)) using System
+member java.lang.reflect.Field.setShort/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getByte/1 -> Convert.ToSByte($0.GetValue($1)) using System
+member java.lang.reflect.Field.setByte/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getChar/1 -> Convert.ToChar($0.GetValue($1)) using System
+member java.lang.reflect.Field.setChar/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getBoolean/1 -> Convert.ToBoolean($0.GetValue($1)) using System
+member java.lang.reflect.Field.setBoolean/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getFloat/1 -> Convert.ToSingle($0.GetValue($1)) using System
+member java.lang.reflect.Field.setFloat/2 -> $0.SetValue($1, $2)
+member java.lang.reflect.Field.getDouble/1 -> Convert.ToDouble($0.GetValue($1)) using System
+member java.lang.reflect.Field.setDouble/2 -> $0.SetValue($1, $2)
+# .NET's reflection reaches a member that is not public without being asked
+member java.lang.reflect.AccessibleObject.setAccessible/1 -> JavaClass.SetAccessible($0, $1) using Maddi.JavaCompat
+member java.lang.reflect.Field.isSynthetic/0 -> JavaClass.IsSynthetic($0) using Maddi.JavaCompat
+member java.lang.reflect.Method.isSynthetic/0 -> JavaClass.IsSynthetic($0) using Maddi.JavaCompat
+member java.lang.reflect.Method.getGenericParameterTypes/0 -> $0.GetParameters().Select(p => p.ParameterType).ToArray() using System.Linq
 member java.lang.reflect.Parameter.getType/0 -> $0.ParameterType
 member java.lang.reflect.Parameter.getParameterizedType/0 -> $0.ParameterType
 member java.lang.reflect.ParameterizedType.getRawType/0 -> $0.GetGenericTypeDefinition()
