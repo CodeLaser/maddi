@@ -585,6 +585,14 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * {@code Equivalence<T> implements BiPredicate<@Nullable T, @Nullable T>} is a {@code BiPredicate<T?, T?>}, and
      * the overrides of {@code test} take the {@code T?} the clause says.
      */
+    /** As {@link #declaredArguments}, the type itself included: {@code <S extends @Nullable T>}'s bound is {@code T?}. */
+    static ParameterizedType declared(ParameterizedType type) {
+        ParameterizedType withArguments = declaredArguments(type);
+        return type != null && type.wildcard() == null && type.annotations().stream()
+                .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))
+                ? withArguments.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : withArguments;
+    }
+
     static ParameterizedType declaredArguments(ParameterizedType supertype) {
         if (supertype == null || supertype.parameters().isEmpty()) return supertype;
         boolean changed = false;

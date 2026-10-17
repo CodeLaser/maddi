@@ -203,7 +203,8 @@ public class KotlinTypeName {
                     tp.isMethodTypeParameter() ? KotlinContext.currentMethod() : null, tp.simpleName() + " extends "
                     + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(" & ")));
         }
-        return bounds.size() == 1 ? name + " : " + of(bounds.getFirst(), q) : name;
+        // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat
+        return bounds.size() == 1 ? name + " : " + of(KotlinTypePrinter.declared(bounds.getFirst()), q) : name;
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */

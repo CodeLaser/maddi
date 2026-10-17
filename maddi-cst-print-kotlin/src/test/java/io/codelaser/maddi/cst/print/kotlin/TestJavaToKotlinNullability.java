@@ -1444,4 +1444,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "override fun get(key: K): MutableSet<V>?");
         compiles(kotlin);
     }
+
+    /**
+     * guava's NullsFirstOrdering extends Ordering<@Nullable T> and overrides {@code <S extends @Nullable T> reverse()}:
+     * the bound's type-use annotation prints ({@code S : T?}), else the override's bound differs from the overridden's.
+     */
+    @Test
+    public void typeParameterBoundDeclaredNullable() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                abstract class Ord<T> {
+                    <S extends T> Ord<S> reverse() { throw new UnsupportedOperationException(); }
+                }
+                class NullsFirst<T> extends Ord<@Nullable T> {
+                    @Override <S extends @Nullable T> Ord<S> reverse() { throw new UnsupportedOperationException(); }
+                }
+                """, options);
+        contains(kotlin, "<S : T?>");
+        compiles(kotlin);
+    }
 }
