@@ -66,4 +66,44 @@ public class TestRescanAfterDroppedUnit {
                 .build()));
         assertNotNull(second.parseResult().findType("a.Broken"), "the fixed unit is a type after the rescan");
     }
+
+    /**
+     * The open question of the report: the set is re-scanned while the dropped unit is STILL broken. The re-scan must
+     * not crash; the unit is dropped again (JDK 26) or kept as before (JDK 27), and the edited type is rebuilt.
+     */
+    @Test
+    public void aDroppedUnitStillBrokenIsDroppedAgainByTheRescan() throws Exception {
+        Path pkg = Files.createDirectories(root.resolve("a"));
+        Path a = Files.writeString(pkg.resolve("A.java"), "package a; public class A { public int x() { return 1; } }");
+        Files.writeString(pkg.resolve("Broken.java"),
+                "package a; import does.not.Exist; public class Broken { Exist e; }");
+        SourceSet main = new SourceSetImpl.Builder().setName("main").setSourceDirectories(List.of(root))
+                .setUri(root.toUri()).build();
+        InputConfiguration configuration = new InputConfigurationImpl.Builder().addSourceSets(main)
+                .addClassPath(InputConfigurationImpl.DEFAULT_MODULES).build();
+        JavaInspector inspector = new JavaInspectorImpl(true, false);
+        inspector.initialize(configuration);
+
+        Summary first = inspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder().setFailFast(false)
+                .setDetailedSources(true).build());
+        boolean droppedFirst = first.parseResultIgnoringErrors().findType("a.Broken") == null;
+
+        Files.writeString(a, "// edited\npackage a; public class A { public int x() { return 2; } }");
+        Set<TypeInfo> changed = inspector.reloadSources(configuration, Map.of()).sourceHasChanged();
+        TypeInfo aType = first.parseResultIgnoringErrors().findType("a.A");
+        assertTrue(changed.contains(aType), changed.toString());
+
+        Summary second = assertDoesNotThrow(() -> inspector.parse(Map.of(), new JavaInspector.ParseOptions.Builder()
+                .setFailFast(false).setDetailedSources(true)
+                .setInvalidated(ti -> changed.contains(ti) ? JavaInspector.InvalidationState.INVALID
+                        : JavaInspector.InvalidationState.UNCHANGED)
+                .build()));
+        TypeInfo aAfter = second.parseResultIgnoringErrors().findType("a.A");
+        assertNotNull(aAfter, "the edited type is rebuilt");
+        assertNotSame(aType, aAfter);
+        boolean droppedSecond = second.parseResultIgnoringErrors().findType("a.Broken") == null;
+        System.out.println("java.version=" + System.getProperty("java.version") + "; a.Broken dropped by the first "
+                           + "parse: " + droppedFirst + ", by the re-scan: " + droppedSecond);
+        assertEquals(droppedFirst, droppedSecond, "the still-broken unit fares as it did the first time");
+    }
 }

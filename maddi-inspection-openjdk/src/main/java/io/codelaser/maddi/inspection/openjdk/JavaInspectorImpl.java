@@ -684,6 +684,15 @@ public class JavaInspectorImpl implements JavaInspector {
             switch (action) {
                 case RESCAN -> {
                     types.forEach(compiledTypesManager::invalidate);
+                    // ⛔ AND WHAT A DROPPED COMPILATION UNIT LEFT BEHIND. 'types' comes from sourceFiles, where a unit
+                    // the previous scan dropped never arrives; its TypeInfo (registered, some members committed) is
+                    // still reachable by name, and the re-scan reused it: UnsupportedOperationException at
+                    // MethodInfoImpl.builder on its implicit <init> (JDK 26, javac drops a unit with an unresolved
+                    // import; TestRescanAfterDroppedUnit). Forget every source type registered for this set.
+                    Set<TypeInfo> known = new HashSet<>(types);
+                    infoByFqn.primarySourceTypesOf(sourceSet).stream()
+                            .filter(t -> !known.contains(t))
+                            .forEach(compiledTypesManager::invalidate);
                     scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
                     rescanned.add(sourceSet);
                 }
