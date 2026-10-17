@@ -1015,7 +1015,15 @@ public final class CSharpExpressionPrinter {
         if (method != null && unboxedValue(value) && CSharpMethodPrinter.plainParameter(method, i)) {
             return unboxCast(CSharpTypeName.argument(value.parameterizedType(), q), value, q);
         }
-        return CSharpNullability.intoParameter(value, method, i, converted(value, argumentTarget(value, method, i), q));
+        ParameterizedType target = argumentTarget(value, method, i);
+        // a constructor's T created as a struct, new Range<DateOnly>(from): the value type, as a type argument is
+        ParameterizedType declared = parameterType(method, i);
+        if (declared != null && declared.isTypeParameter() && declared.arrays() == 0 && target != null
+            && !target.isTypeParameter() && CSharpTypeName.valueReference(target) && unboxed(unwrap(value))) {
+            return CSharpNullability.intoParameter(value, method, i,
+                    unboxCast(CSharpTypeName.argument(unwrap(value).parameterizedType(), q), value, q));
+        }
+        return CSharpNullability.intoParameter(value, method, i, converted(value, target, q));
     }
 
     /**
