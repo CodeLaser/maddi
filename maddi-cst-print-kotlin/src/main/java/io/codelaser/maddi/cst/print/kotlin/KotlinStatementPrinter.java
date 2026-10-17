@@ -75,6 +75,10 @@ public class KotlinStatementPrinter {
      * infers them from the declaration; Kotlin's {@code val elements = emptyList()} has nothing to infer them from.
      */
     static boolean onlyTargetTyped(Expression e) {
+        // guava's Graphs.inducedSubgraph: MutableGraph<N> subgraph = c ? builder.build() : builder.build()
+        if (KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+            return onlyTargetTyped(ic.ifTrue()) || onlyTargetTyped(ic.ifFalse());
+        }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->

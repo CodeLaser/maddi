@@ -442,4 +442,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "Fn<Range<C>, C>(");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Graphs.inducedSubgraph: {@code MutableGraph<N> subgraph = c ? b.build() : b.build()}, a builder whose
+     * {@code <N1 extends N> build()} only the target types. The local keeps its declared type.
+     */
+    @Test
+    public void conditionalOfTargetTypedCalls() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Builder<N> {
+                    <N1 extends N> List<N1> build() { return new ArrayList<>(); }
+                    static <N> List<N> sub(Builder<N> b, boolean big) {
+                        List<N> result = big ? b.build() : b.build();
+                        return result;
+                    }
+                }
+                """);
+        contains(kotlin, "val result: MutableList<N> = ");
+        compiles(kotlin);
+    }
 }
