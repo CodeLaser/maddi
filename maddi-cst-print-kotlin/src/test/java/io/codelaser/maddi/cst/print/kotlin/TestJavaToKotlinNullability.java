@@ -1088,6 +1088,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's CompactHashMap.MapEntry.setValue: {@code return unsafeNull();} into a V that Kotlin's member declares
+     * non-null: the unchecked cast's operand states its T, {@code (unsafeNull<V>()) as V}.
+     */
+    @Test
+    public void resultOnlyCallInsideTheReturnCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class It<E> implements Iterator<E> {
+                    static <T> T unsafeNull() { return null; }
+                    public boolean hasNext() { return true; }
+                    public E next() { return unsafeNull(); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("next()", "unsafeNull()")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "unsafeNull<E>()");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

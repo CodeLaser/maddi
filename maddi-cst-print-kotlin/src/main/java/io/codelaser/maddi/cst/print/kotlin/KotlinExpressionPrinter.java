@@ -573,7 +573,23 @@ public class KotlinExpressionPrinter {
      * The call is a receiver, or an argument into an Object or into a type parameter of the callee's type
      * ({@code map.put(k, v)}): Kotlin has nothing to infer its type arguments from.
      */
+    // calls printed as the operand of an unchecked cast the printer adds: no expected type
+    private static final ThreadLocal<java.util.Set<Expression>> NO_EXPECTED_TYPE =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /** {@code print}, with {@code value} known to have no expected type (the operand of a cast). */
+    static OutputBuilder withoutExpectedType(Expression value, java.util.function.Supplier<OutputBuilder> print) {
+        Expression unwrapped = unwrap(value);
+        boolean added = NO_EXPECTED_TYPE.get().add(unwrapped);
+        try {
+            return print.get();
+        } finally {
+            if (added) NO_EXPECTED_TYPE.get().remove(unwrapped);
+        }
+    }
+
     private static boolean noExpectedType(MethodCall mc) {
+        if (NO_EXPECTED_TYPE.get().contains(mc)) return true;
         if (!(KotlinContext.enclosingCall() instanceof MethodCall outer)) return false;
         if (outer.object() != null && unwrap(outer.object()) == mc) return true;
         List<Expression> args = outer.parameterExpressions();

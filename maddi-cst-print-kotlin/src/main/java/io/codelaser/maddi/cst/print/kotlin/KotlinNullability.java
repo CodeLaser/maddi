@@ -209,7 +209,11 @@ final class KotlinNullability {
         ParameterizedType verdict = verdicts().returnType(methodInfo);
         if (verdict == null || !returnsNullForTypeVariable(methodInfo)) return null;
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
-        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
+        // the cast's operand has no expected type of its own: guava's CompactHashMap, return unsafeNull() with T
+        // inferred V, is (unsafeNull<V>()) as V; without, kotlinc takes the cast's V and the call's T? clashes
+        OutputBuilder printed = KotlinExpressionPrinter.withoutExpectedType(value,
+                () -> KotlinExpressionPrinter.print(value, q));
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed)
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinTypeName.of(methodInfo.returnType(), q)));
     }
