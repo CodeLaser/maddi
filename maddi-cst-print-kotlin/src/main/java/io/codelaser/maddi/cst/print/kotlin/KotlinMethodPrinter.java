@@ -425,6 +425,17 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 && pi.equals(ve.variable())) {
                 reads.add(ve);
             }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+                        passedThrough(pi, KotlinExpressionPrinter.unwrap(mc.object()));
+                if (through != null) reads.add(through);
+            }
+            // ensureNotNull(map, "map"); as a statement: its result goes nowhere
+            if (e instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas && eas.expression() != null) {
+                io.codelaser.maddi.cst.api.expression.VariableExpression through =
+                        passedThrough(pi, KotlinExpressionPrinter.unwrap(eas.expression()));
+                if (through != null) reads.add(through);
+            }
             if (e instanceof io.codelaser.maddi.cst.api.statement.ForEachStatement fe && fe.expression() != null
                 && KotlinExpressionPrinter.unwrap(fe.expression()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
                 && pi.equals(ve.variable())) {
@@ -460,11 +471,42 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     private static void passedOn(ParameterInfo pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
                                  MethodInfo callee, java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads) {
         for (int i = 0; i < args.size(); i++) {
-            if (KotlinExpressionPrinter.unwrap(args.get(i)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                && pi.equals(ve.variable()) && acceptsReadOnly(callee, i)) {
+            io.codelaser.maddi.cst.api.expression.Expression arg = KotlinExpressionPrinter.unwrap(args.get(i));
+            if (arg instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable()) && !passThrough(callee, i) && acceptsReadOnly(callee, i)) {
                 reads.add(ve);
             }
+            // checkNotNull(unfiltered) passed on: a read where the pass-through's result lands in one
+            io.codelaser.maddi.cst.api.expression.VariableExpression through = passedThrough(pi, arg);
+            if (through != null && acceptsReadOnly(callee, i)) reads.add(through);
         }
+    }
+
+    /**
+     * {@code <T> T checkNotNull(T reference)}: the argument at {@code index} comes back as the result, so it is a read
+     * only where the result is one (guava's Collections2.filter hands checkNotNull(unfiltered) to a constructor that
+     * takes a MutableCollection).
+     */
+    private static boolean passThrough(MethodInfo callee, int index) {
+        if (callee == null || index >= callee.parameters().size()) return false;
+        ParameterizedType p = callee.parameters().get(index).parameterizedType();
+        ParameterizedType rt = callee.returnType();
+        return p.typeParameter() != null && p.arrays() == 0 && p.typeParameter().isMethodTypeParameter()
+               && rt != null && rt.typeParameter() == p.typeParameter() && rt.arrays() == 0;
+    }
+
+    /** {@code e} is a pass-through call of {@code pi}: the parameter's use inside it. */
+    private static io.codelaser.maddi.cst.api.expression.VariableExpression passedThrough(
+            ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        if (!(e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc)) return null;
+        List<io.codelaser.maddi.cst.api.expression.Expression> args = mc.parameterExpressions();
+        for (int k = 0; k < args.size(); k++) {
+            if (KotlinExpressionPrinter.unwrap(args.get(k)) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && pi.equals(ve.variable()) && passThrough(mc.methodInfo(), k)) {
+                return ve;
+            }
+        }
+        return null;
     }
     /**
      * The generic member a method without type parameters overrides: Java lets {@code Class<AiServiceCompletedEvent>

@@ -2003,4 +2003,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "internal open class Hidden");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Collections2.filter: {@code new Filtered<>(checkNotNull(unfiltered))} into a constructor that keeps a
+     * Collection: the pass-through's result is not read only, so neither is the parameter. A discarded
+     * {@code checkNotNull(map)} and a receiver {@code checkNotNull(c).size()} are reads.
+     */
+    @Test
+    public void passThroughReadsOnlyWhereItsResultIs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Coll {
+                    static <T> T checkNotNull(T t) { if (t == null) throw new NullPointerException(); return t; }
+                    static class Filtered<E> {
+                        final Collection<E> unfiltered;
+                        Filtered(Collection<E> unfiltered) { this.unfiltered = unfiltered; }
+                        void clear() { unfiltered.clear(); }
+                    }
+                    static <E> Filtered<E> filter(Collection<E> unfiltered) {
+                        if (unfiltered instanceof Filtered) return null;
+                        return new Filtered<>(checkNotNull(unfiltered));
+                    }
+                    static int size(Collection<String> c) { checkNotNull(c); return checkNotNull(c).size(); }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun <E> filter(unfiltered: MutableCollection<E>)");
+        contains(kotlin, "fun size(c: Collection<String>): Int");
+    }
 }
