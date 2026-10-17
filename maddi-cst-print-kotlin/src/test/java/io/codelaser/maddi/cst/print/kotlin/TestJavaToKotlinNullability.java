@@ -935,6 +935,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ListenerCallQueue.PerListenerQueue.run(): {@code nextToRun} assigned and null-checked inside
+     * {@code synchronized}, a lambda in Kotlin, then called after it: nextToRun!!.
+     */
+    @Test
+    public void localCheckedInsideSynchronized() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Q {
+                    final Queue<Runnable> waitQueue = new ArrayDeque<>();
+                    void run() {
+                        while (true) {
+                            Runnable nextToRun;
+                            synchronized (this) {
+                                nextToRun = waitQueue.poll();
+                                if (nextToRun == null) break;
+                            }
+                            nextToRun.run();
+                        }
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("nextToRun")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "nextToRun!!.run()");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
