@@ -1168,6 +1168,28 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Equivalence.equals(): {@code return Equals.INSTANCE}, whose class extends Equivalence<Object>, as the
+     * Equivalence<Any?> a caller's null makes the result. Kotlin's generics are invariant: an unchecked cast (Equals
+     * itself handles null before doEquivalent).
+     */
+    @Test
+    public void constantOfAFixedSupertypeReturnedWithNullableArguments() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Eq<T> {
+                    abstract boolean same(T a, T b);
+                    static final class Equals extends Eq<Object> {
+                        static final Equals INSTANCE = new Equals();
+                        @Override boolean same(Object a, Object b) { return a.equals(b); }
+                    }
+                    static Eq<Object> natural() { return Equals.INSTANCE; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("natural()<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(Equals.INSTANCE as Eq<Any?>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Synchronized.SynchronizedCollection: {@code toArray(T[] a)} overrides Collection's, whose Kotlin
      * signature is Array<T>, and hands it to ObjectArrays.toArrayImpl's Array<T?> (which writes a null after the
      * elements). Arrays are invariant: the argument and the result are cast.

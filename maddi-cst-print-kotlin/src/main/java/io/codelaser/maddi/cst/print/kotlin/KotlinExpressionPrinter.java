@@ -1555,6 +1555,15 @@ public class KotlinExpressionPrinter {
                         .add(SymbolEnum.RIGHT_PARENTHESIS);
             }
         }
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && target.typeInfo() != null
+            && !target.parameters().isEmpty() && fixedSupertypeWithNonNullArgument(e, target)) {
+            // guava's Equivalence.equals(): return Equals.INSTANCE, whose class extends Equivalence<Object>, as the
+            // Equivalence<Any?> a caller's null makes the result: Kotlin's invariant generics cast, unchecked
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodCall mc && target != null
             && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinTypeName::definitelyNonNull)
             && sameUpToStates(mc.parameterizedType(), target) && nullableArgument(mc.methodInfo())) {
@@ -2292,6 +2301,35 @@ public class KotlinExpressionPrinter {
      * inside it would return from the enclosing FUNCTION in Kotlin, so the lambda gets the label {@code lambda@}
      * and those returns print as {@code return@lambda} (KotlinStatementPrinter, through {@link KotlinContext}).
      */
+    /**
+     * {@code e} is of a class without type arguments of its own whose supertype {@code target}'s class fixes them,
+     * as the target has them up to states, one of them non-null (Equivalence<Object>) where the target's is nullable.
+     */
+    private static boolean fixedSupertypeWithNonNullArgument(Expression e, ParameterizedType target) {
+        // a constant or a call's result: not a lambda, whose own class implements the interface it is given
+        if (!(unwrap(e) instanceof VariableExpression) && !(unwrap(e) instanceof MethodCall)) return false;
+        ParameterizedType value = unwrap(e).parameterizedType();
+        if (value == null || value.typeInfo() == null || value.typeInfo() == target.typeInfo() || value.arrays() != 0
+            || !value.parameters().isEmpty() || !value.typeInfo().typeParameters().isEmpty()) {
+            return false;
+        }
+        ParameterizedType sup;
+        try {
+            sup = value.concreteSuperType(target.typeInfo().asParameterizedType());
+        } catch (RuntimeException | AssertionError ex) {
+            return false;
+        }
+        if (sup == null || sup.parameters().size() != target.parameters().size() || !sameUpToStates(sup, target)) return false;
+        for (int i = 0; i < sup.parameters().size(); i++) {
+            ParameterizedType fixed = sup.parameters().get(i);
+            if (fixed != null && fixed.typeInfo() != null && fixed.wildcard() == null && !KotlinNullability.isNullable(fixed)
+                && KotlinNullability.isNullable(target.parameters().get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** {@code type} is {@code T[]} of one of {@code method}'s own type parameters. */
     private static boolean ownTypeVariableArray(io.codelaser.maddi.cst.api.info.MethodInfo method, ParameterizedType type) {
         return type != null && type.arrays() == 1 && type.componentType().typeParameter() != null
