@@ -523,6 +523,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    /** guava's TempFileCreator: java.nio's FileAttribute declares name(), a library's function, overridden as one. */
+    @Test
+    public void libraryInterfaceNameStaysAFunction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.nio.file.attribute.FileAttribute;
+                class Temp {
+                    static FileAttribute<String> attribute() {
+                        return new FileAttribute<String>() {
+                            @Override public String name() { return "acl:acl"; }
+                            @Override public String value() { return "x"; }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "override fun name(): String");
+        compiles(kotlin);
+    }
+
     /**
      * {@code get(type)} of a translated Forwarding<K, V> superclass, into a B: the unchecked cast is to B, as the
      * superclass's V is out of scope.

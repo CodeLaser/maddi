@@ -336,8 +336,9 @@ final class KotlinMappedMembers {
     static boolean enumProperty(MethodInfo methodInfo) {
         if (methodInfo.isStatic() || methodInfo.isConstructor() || !methodInfo.parameters().isEmpty()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) return false;
+        // an interface being translated: a library's (java.nio's FileAttribute.name()) keeps its function
         return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream()).anyMatch(m -> m.typeInfo().isInterface()
-                && m.parameters().isEmpty()
+                && KotlinNullability.translated(m.typeInfo()) && m.parameters().isEmpty()
                 && ("ordinal".equals(m.name()) && m.returnType().isInt()
                     || "name".equals(m.name()) && m.returnType().typeInfo() != null && m.returnType().arrays() == 0
                        && "java.lang.String".equals(m.returnType().typeInfo().fullyQualifiedName())));
