@@ -639,6 +639,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ObjectArrays.newArray(T[] reference, int length): {@code T[] empty = reference.length == 0 ? reference :
+     * Arrays.copyOf(reference, 0)}, the local only handed to Arrays.copyOf: reference stays Array<out T>.
+     */
+    @Test
+    public void arrayParameterThroughAReadOnlyLocal() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Arrays;
+                final class O {
+                    static <T> T[] newArray(T[] reference, int length) {
+                        T[] empty = reference.length == 0 ? reference : Arrays.copyOf(reference, 0);
+                        return Arrays.copyOf(empty, length);
+                    }
+                }
+                """);
+        contains(kotlin, "reference: Array<out T>");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */
