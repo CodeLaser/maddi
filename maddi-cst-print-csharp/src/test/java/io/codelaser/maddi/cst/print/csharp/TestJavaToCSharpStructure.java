@@ -326,6 +326,44 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String LONG_TYPE_ARGUMENTS = """
+            package org.example.longtypes;
+            import java.util.*;
+            class Notifiables {
+                interface ChangeEventOfAVeryLongName<T> { }
+                interface ListenerOfAnEvenLongerNameStill<S, T> { boolean requiresUniqueEntityEvents(); }
+                interface NotificationWithALongName<S, E, L> { }
+                static final class OrderedSetOfSomeLength<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<S> {
+                    Notifiable(Object scoreDirector, ListenerOfAnEvenLongerNameStill<S, Object> listener,
+                               Collection<NotificationWithALongName<S, ChangeEventOfAVeryLongName<Object>,
+                                       ListenerOfAnEvenLongerNameStill<S, Object>>> queue, int globalOrder) { }
+                }
+                @SuppressWarnings("unchecked")
+                static <S> Notifiable<S> build(Object scoreDirector, Object variableListener, int globalOrder) {
+                    if (variableListener instanceof ListenerOfAnEvenLongerNameStill<?, ?> basicVariableListener) {
+                        return new Notifiable<>(
+                                scoreDirector,
+                                (ListenerOfAnEvenLongerNameStill<S, Object>) basicVariableListener,
+                                basicVariableListener.requiresUniqueEntityEvents() ? new OrderedSetOfSomeLength<>() : new ArrayDeque<>(),
+                                globalOrder);
+                    }
+                    return null;
+                }
+            }
+            """;
+
+    /** A line the formatter cannot fit: a type argument longer than the line splits between tokens, not in one. */
+    @Test
+    public void longTypeArguments() {
+        String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
+        contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {
