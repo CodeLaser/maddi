@@ -304,8 +304,33 @@ final class KotlinNullability {
         ParameterizedType verdict = method == null ? null
                 : NullabilityFacts.decided(verdicts().local(method, declaration, variable));
         ParameterizedType type = verdict != null ? verdict : variable.parameterizedType();
+        // ListenableFuture<List<@Nullable V>> nullable = new ListFuture<V>(…) (guava's Futures.allAsList): the
+        // declaration's type-use annotations on its arguments, as in a class header
+        type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(variable.parameterizedType()));
         KotlinContext.localType(variable.simpleName(), type);
         return type;
+    }
+
+    /** {@code type}, with each type argument nullable that {@code declared}, of the same shape, makes nullable. */
+    private static ParameterizedType withDeclaredArgumentStates(ParameterizedType type, ParameterizedType declared) {
+        if (type == null || declared == null || type.parameters().isEmpty()
+            || type.parameters().size() != declared.parameters().size()
+            || !java.util.Objects.equals(type.typeInfo(), declared.typeInfo()) || type.arrays() != declared.arrays()) {
+            return type;
+        }
+        boolean changed = false;
+        java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(type.parameters().size());
+        for (int i = 0; i < type.parameters().size(); i++) {
+            ParameterizedType mine = type.parameters().get(i);
+            ParameterizedType theirs = declared.parameters().get(i);
+            ParameterizedType merged = withDeclaredArgumentStates(mine, theirs);
+            if (theirs != null && theirs.wildcard() == null && isNullable(theirs) && !isNullable(merged)) {
+                merged = merged.withNullable(NullableState.NULLABLE);
+            }
+            changed |= merged != mine;
+            arguments.add(merged);
+        }
+        return changed ? type.withParameters(arguments) : type;
     }
 
     /** The pass asserts this local at its declaration: see {@link NullabilityFacts#assertedAtDeclaration}. */

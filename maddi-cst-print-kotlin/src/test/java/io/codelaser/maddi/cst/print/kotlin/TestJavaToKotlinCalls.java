@@ -959,4 +959,33 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("return null"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's Futures.allAsList: {@code ListenableFuture<List<@Nullable V>> nullable = new ListFuture<V>(…)}, then
+     * {@code @SuppressWarnings("nullness") ListenableFuture<List<V>> nonNull = nullable}: the local keeps its declared
+     * List<V?>, and the second assignment is Kotlin's unchecked cast.
+     */
+    @Test
+    public void localDeclaredNullableArgumentAndItsUncheckedConversion() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                import java.util.*;
+                import java.util.function.Supplier;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                final class F {
+                    static final class ListSupplier<V> implements Supplier<List<@Nullable V>> {
+                        public List<@Nullable V> get() { return new ArrayList<>(); }
+                    }
+                    static <V> Supplier<List<V>> allAsList() {
+                        Supplier<List<@Nullable V>> nullable = new ListSupplier<V>();
+                        @SuppressWarnings("nullness")
+                        Supplier<List<V>> nonNull = (Supplier) nullable;
+                        return nonNull;
+                    }
+                }
+                """);
+        contains(kotlin, "val nullable: Supplier<MutableList<V?>>");
+        contains(kotlin, "nullable as Supplier<MutableList<V>>");
+    }
 }

@@ -1516,6 +1516,21 @@ public class KotlinExpressionPrinter {
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && !target.parameters().isEmpty()
+            && unwrap(e) instanceof VariableExpression ve && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                                                               || ve.variable() instanceof ParameterInfo)) {
+            ParameterizedType value = KotlinNullability.kotlinType(e);
+            if (value != null && value.arrays() == 0 && sameUpToStatesAndWildcards(value, target)
+                && !sameArgumentStates(value, target)) {
+                // guava's Futures.allAsList: @SuppressWarnings("nullness") ListenableFuture<List<V>> nonNull = nullable,
+                // a ListenableFuture<List<@Nullable V>>: Java's unchecked nullness, Kotlin's invariant generics' cast
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl(KotlinTypeName.of(target.withNullable(value.nullable()), q)))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+        }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
             // String factory = (String) properties.get(key): Java's cast lets the null through
             return cast(c, true, q);
@@ -1741,6 +1756,18 @@ public class KotlinExpressionPrinter {
      * As {@link #sameUpToStates}, where a wildcard matches the same wildcard: guava's Striped.SmallLazyStriped,
      * {@code new AtomicReferenceArray<>(size)} into an {@code AtomicReferenceArray<@Nullable ArrayReference<? extends L>>}.
      */
+    /** The type arguments' states agree at every depth (the types themselves compared elsewhere). */
+    private static boolean sameArgumentStates(ParameterizedType a, ParameterizedType b) {
+        for (int i = 0; i < a.parameters().size() && i < b.parameters().size(); i++) {
+            ParameterizedType x = a.parameters().get(i);
+            ParameterizedType y = b.parameters().get(i);
+            if (KotlinNullability.isNullable(x) != KotlinNullability.isNullable(y) || !sameArgumentStates(x, y)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static boolean sameUpToStatesAndWildcards(ParameterizedType a, ParameterizedType b) {
         if (a == null || b == null || !java.util.Objects.equals(a.wildcard(), b.wildcard())
             || !java.util.Objects.equals(a.typeInfo(), b.typeInfo()) || a.arrays() != b.arrays()
