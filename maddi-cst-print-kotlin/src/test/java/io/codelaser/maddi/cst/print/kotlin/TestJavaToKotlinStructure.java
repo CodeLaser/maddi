@@ -1819,6 +1819,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * A V looked up in a Set<V> or a Map<V, String>: Java's contains and get take an Object, and a null V finds
+     * nothing (false, null). Kotlin's member takes the V itself, which may be null: no `!!`, which would throw.
+     */
+    @Test
+    public void sameTypeVariableLookupNotAsserted() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Look<V> {
+                    private final Set<V> values = new HashSet<>();
+                    private final Map<V, String> names = new HashMap<>();
+                    boolean hasValue(V v) { return values.contains(v); }
+                    boolean named(V v) { return names.get(v) != null; }
+                    boolean add(V v) { return values.add(v); }
+                }
+                """);
+        contains(kotlin, "values.contains(v)");
+        contains(kotlin, "names.get(v) != null");
+        contains(kotlin, "values.add(v)");
+        assertFalse(kotlin.contains("v!!"), () -> "a null v finds nothing in Java; the printed Kotlin asserts it non-null:\n" + kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * guava's collectors: {@code Collector.of(Acc::create, Acc::add, Acc::combine, Acc::result)} on a generic class
      * of ours. Kotlin wants the receiver's type arguments on an unbound reference ({@code Acc<T>::add}, from the
      * functional type's first parameter), and finds a static in the companion ({@code Acc.Companion::create}).

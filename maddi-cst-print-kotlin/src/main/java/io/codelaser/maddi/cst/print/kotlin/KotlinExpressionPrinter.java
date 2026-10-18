@@ -783,7 +783,7 @@ public class KotlinExpressionPrinter {
                     lookedUp = null;
                 }
                 if (lookedUp != null) {
-                    if (lookedUp.typeParameter() != null
+                    if (lookedUp.typeParameter() != null && lookedUp.typeParameter() != args.get(i).parameterizedType().typeParameter()
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
                            && KotlinNullability.nullableInKotlin(args.get(i))
                         // map.entries.contains(immutableEntry(key, value)) into a Set<Entry<K, V>>: the extension's
@@ -1261,6 +1261,12 @@ public class KotlinExpressionPrinter {
         }
         ParameterizedType argumentType = argument.parameterizedType();
         if (typeVariableLookup(element, argumentType)) return element;
+        if (element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
+            && element.wildcard() == null && argumentType.arrays() == 0
+            && argumentType.typeParameter() == element.typeParameter()) {
+            // values.contains(v) with a V into a Set<V>: Kotlin's member takes the V as it is, null included
+            return element;
+        }
         boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
                         && element.wildcard() == null && element.typeInfo() != null
                         && (element.typeInfo() == argumentType.typeInfo()
