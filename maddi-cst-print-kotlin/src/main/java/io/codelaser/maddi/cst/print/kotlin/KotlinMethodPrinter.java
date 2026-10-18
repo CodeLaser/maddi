@@ -310,11 +310,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
             }
         }
-        String printed = typeOverride != null ? typeOverride : KotlinTypeName.inSignature(() ->
+        java.util.function.Supplier<String> print = () ->
                 // before the read-only collection rule, which leaves an array invariant
                 covariantArray(pi, type) ? outArray(type, q)
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
-                : KotlinTypeName.of(type, q));
+                : KotlinTypeName.of(type, q);
+        // a constructor's E & Any stays: no override repeats it (guava's Equivalence.Wrapper takes an
+        // Equivalence<? super @NonNull T>, which wrap's Equivalence<T> is for an S extends @Nullable T)
+        String printed = typeOverride != null ? typeOverride
+                : pi.methodInfo().isConstructor() ? print.get() : KotlinTypeName.inSignature(print);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
     }

@@ -461,6 +461,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Equivalence.wrap: {@code new Wrapper<S>(this, reference)} for an {@code S extends @Nullable T}, into
+     * Wrapper's {@code Equivalence<? super @NonNull T>}: an {@code Equivalence<in S & Any>}, which an Equivalence<T>
+     * is.
+     */
+    @Test
+    public void nonNullWildcardBoundOfAConstructorParameter() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import org.jspecify.annotations.NonNull;
+                import org.jspecify.annotations.Nullable;
+                abstract class Equivalence<T> {
+                    final <S extends @Nullable T> Wrapper<S> wrap(S reference) { return new Wrapper<S>(this, reference); }
+                    static final class Wrapper<T extends @Nullable Object> {
+                        private final Equivalence<? super @NonNull T> equivalence;
+                        private final T reference;
+                        private Wrapper(Equivalence<? super @NonNull T> equivalence, T reference) {
+                            this.equivalence = equivalence;
+                            this.reference = reference;
+                        }
+                    }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "Equivalence<in T & Any>");
+    }
+
+    /**
      * guava's Ordering.ARBITRARY_ORDERING: a field of {@code Ordering<@Nullable Object>}, which a method returns as
      * one; the field's declared type argument is an Any? too.
      */

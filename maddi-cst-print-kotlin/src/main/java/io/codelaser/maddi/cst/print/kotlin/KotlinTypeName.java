@@ -191,6 +191,8 @@ public class KotlinTypeName {
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound()) return "*";
             String bound = pt.typeInfo() == null && !pt.isTypeParameter() ? "Any" : withoutWildcard(pt, q);
+            // ? super @NonNull T, of a nullable-bounded T
+            if (pt.isTypeParameter() && definitelyNonNull(pt.withWildcard(null))) bound += " & Any";
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {
