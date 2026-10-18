@@ -589,6 +589,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Sets.union: {@code Iterator<? extends E> itr1 = set1.iterator()} in an anonymous AbstractIterator, set1
+     * a read-only Set, the field only advanced: Kotlin's read-only Iterator.
+     */
+    @Test
+    public void advancedOnlyIteratorField() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class U {
+                    static <E> Iterator<E> union(Set<? extends E> set1) {
+                        return new Iterator<E>() {
+                            final Iterator<? extends E> itr1 = set1.iterator();
+                            public boolean hasNext() { return itr1.hasNext(); }
+                            public E next() { return itr1.next(); }
+                        };
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "union(set1: Set<out E>)");
+        contains(kotlin, "val itr1: Iterator<out E> = set1.iterator()");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */

@@ -470,6 +470,35 @@ final class KotlinReadOnly {
      * Every body of the compilation unit, with its method (null for a field initializer): the types, nested, anonymous
      * and local ones too, which {@code visit} does not enter.
      */
+    /**
+     * A private {@code Iterator} field only ever advanced ({@code hasNext()}, {@code next()}): Kotlin's read-only
+     * Iterator, which a read-only collection's iterator() is (guava's Sets.union, {@code itr1 = set1.iterator()} of a
+     * read-only Set). Calling next() is no modification Kotlin's types speak of.
+     */
+    static boolean advancedOnlyIterator(FieldInfo fieldInfo) {
+        ParameterizedType type = fieldInfo.type();
+        if (!KotlinContext.translatingJava() || type.arrays() != 0 || type.typeInfo() == null
+            || !"java.util.Iterator".equals(type.typeInfo().fullyQualifiedName())
+            || fieldInfo.access() == null || !fieldInfo.access().isPrivate() && !fieldInfo.owner().isAnonymous()) {
+            return false;
+        }
+        Set<Expression> advanced = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<Expression> uses = new java.util.ArrayList<>();
+        forEachBody(fieldInfo.owner(), (m, body) -> body.visit((Element e) -> {
+            if (e instanceof MethodCall mc && mc.object() != null && mc.parameterExpressions().isEmpty()
+                && ("hasNext".equals(mc.methodInfo().name()) || "next".equals(mc.methodInfo().name()))) {
+                advanced.add(KotlinExpressionPrinter.unwrap(mc.object()));
+            }
+            if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
+                && fr.fieldInfo() == fieldInfo) {
+                uses.add(ve);
+            }
+            return true;
+        }));
+        return !uses.isEmpty() && uses.stream().allMatch(advanced::contains);
+    }
+
     static void forEachBody(TypeInfo typeInfo, BiConsumer<MethodInfo, Element> consumer) {
         typeInfo.constructorAndMethodStream().forEach(m -> {
             if (m.methodBody() != null) bodyAndItsTypes(m, (Element) m.methodBody(), consumer);
