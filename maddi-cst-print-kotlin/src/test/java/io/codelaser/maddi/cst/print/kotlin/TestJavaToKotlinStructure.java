@@ -1975,6 +1975,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * A subclass of AbstractCollection, a Java class: Kotlin sees its toArray() and toArray(T[]) as members, so
+     * {@code super.toArray()} stays a call to the superclass's member. Kotlin's {@code super} is no value: it can be
+     * neither cast ({@code (super as java.util.Collection<*>)}) nor the receiver of the extension toTypedArray.
+     */
+    @Test
+    public void toArrayOnSuper() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bag<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public int size() { return items.size(); }
+                    @Override public Object[] toArray() { return super.toArray(); }
+                    @Override public <T> T[] toArray(T[] array) { return super.toArray(array); }
+                }
+                """);
+        contains(kotlin, "super.toArray()");
+        contains(kotlin, "super.toArray(array)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Optional.toJavaUtil(), AbstractValueGraph.edgeValue: java.util.Optional.ofNullable(t) into an
      * Optional<T>. Kotlin's Optional bounds its T non-null, so the call is an Optional<T & Any>; the cast is unchecked.
      */

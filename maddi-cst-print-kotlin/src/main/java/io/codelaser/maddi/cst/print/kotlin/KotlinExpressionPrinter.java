@@ -313,7 +313,10 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
-        if (object != null && !mc.objectIsImplicit() && expectedElement(mc) == null && (toArrayOf(mc.methodInfo())
+        // super.toArray() in a subclass of a Java collection class (AbstractCollection): Kotlin sees Java's toArray as
+        // the superclass's member, and `super` is no value to cast or to call an extension on
+        boolean onSuper = object instanceof VariableExpression sv && sv.variable() instanceof This st && st.writeSuper();
+        if (object != null && !mc.objectIsImplicit() && !onSuper && expectedElement(mc) == null && (toArrayOf(mc.methodInfo())
                 && mc.parameterExpressions().getFirst().parameterizedType() != null
                 && mc.parameterExpressions().getFirst().parameterizedType().arrays() == 1
                 && mc.parameterExpressions().getFirst().parameterizedType().componentType().typeParameter() != null
@@ -379,7 +382,7 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
             return b.add(new TextImpl("removeAt")).add(arguments(mc.parameterExpressions(), q));
         }
-        if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+        if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit() && !onSuper) {
             // c.toArray(new X[0]): Kotlin's collections have no toArray(T[]); toTypedArray<X>() types the array as
             // Java's argument does (Kotlin's arrays are invariant, its Collection<out E> is not), with the element
             // state of what it initializes
@@ -390,7 +393,7 @@ public class KotlinExpressionPrinter {
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
-        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit() && !onSuper) {
             // c.toArray(): Kotlin's collections have no toArray() either. toTypedArray<Any?>() or <Any>(), as Java's
             // Object[] prints here (a Collection<out E> is a Collection of either): typed by the collection, a local
             // would be an Array<String> where Java declares an Object[]
