@@ -1216,6 +1216,23 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("=targets")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "var targets: Collection<");
         compiles(kotlin);
+        // ImmutableEnumSet.containsAll: without a nullable verdict, the copy still takes Java's Collection<?>
+        String enumSet = kotlin("""
+                package a;
+                import java.util.*;
+                final class EnumBox<E extends Enum<E>> extends AbstractSet<E> {
+                    final EnumSet<E> delegate;
+                    EnumBox(EnumSet<E> delegate) { this.delegate = delegate; }
+                    @Override public Iterator<E> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                    @Override public boolean containsAll(Collection<?> collection) {
+                        if (collection instanceof EnumBox<?>) collection = ((EnumBox<?>) collection).delegate;
+                        return delegate.containsAll(collection);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(enumSet, "var collection: Collection<*> = collection");
+        compiles(enumSet);
     }
 
     /**

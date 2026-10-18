@@ -256,6 +256,11 @@ public class KotlinStatementPrinter {
                     b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(readOnly ? KotlinTypeName.readOnly(type, q)
                             : KotlinTypeName.of(type, q)));
                     KotlinContext.localType(p.name(), type);
+                } else if (own != null && KotlinMappedMembers.overriddenCollectionParameter(p.methodInfo(), p.index())) {
+                    // guava's ImmutableEnumSet.containsAll(Collection<?> collection) assigns it another Collection<?>:
+                    // the copy takes Java's own type, not the mapped member's Collection<E> Kotlin would infer
+                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.readOnly(own, q)));
+                    KotlinContext.localType(p.name(), own);
                 }
                 result.add(b.add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));
             }
