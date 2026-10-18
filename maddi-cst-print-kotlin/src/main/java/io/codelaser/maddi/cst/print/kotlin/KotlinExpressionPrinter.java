@@ -336,6 +336,17 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl("toArray"))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
+        if (object != null && !mc.objectIsImplicit() && "compareTo".equals(mc.methodInfo().name())
+            && mc.parameterExpressions().size() == 1 && !(unwrap(object) instanceof Cast)
+            && rawComparableReceiver(object.parameterizedType())) {
+            // guava's Range.compareOrThrow(Comparable left, Comparable right): left.compareTo(right) on a raw
+            // Comparable, or a C extends Comparable (RegularContiguousSet), which Kotlin's Comparable<*> refuses
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, object, KotlinContext.describe(object));
+            return b.add(SymbolEnum.LEFT_PARENTHESIS).add(print(object, q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl("Comparable<Any?>")).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(SymbolEnum.DOT).add(new TextImpl("compareTo"))
+                    .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
+        }
         if (KotlinMappedMembers.isJavaStringOnly(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             // s.stripTrailing() -> (s as java.lang.String).stripTrailing()
             return b.add(SymbolEnum.LEFT_PARENTHESIS)
@@ -2210,6 +2221,13 @@ public class KotlinExpressionPrinter {
         return m != null && "toArray".equals(m.name()) && m.parameters().size() == 1
                && m.parameters().getFirst().parameterizedType().arrays() == 1
                && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+    }
+
+    /** A raw Comparable, or a type variable whose bound is one. */
+    private static boolean rawComparableReceiver(ParameterizedType type) {
+        if (type == null || type.arrays() != 0) return false;
+        if (rawComparable(type)) return true;
+        return type.typeParameter() != null && type.typeParameter().typeBounds().stream().anyMatch(b -> rawComparable(b));
     }
 
     private static boolean rawComparable(ParameterizedType type) {

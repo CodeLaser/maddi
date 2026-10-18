@@ -461,6 +461,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Range.compareOrThrow(Comparable left, Comparable right) and RegularContiguousSet<C extends Comparable>:
+     * compareTo on a raw Comparable, which Kotlin's Comparable<*> refuses: an unchecked Comparable<Any?>.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void compareToOnARawComparable() {
+        String kotlin = kotlin("""
+                package a;
+                class Range<C extends Comparable> {
+                    @SuppressWarnings("unchecked")
+                    static int compareOrThrow(Comparable left, Comparable right) { return left.compareTo(right); }
+                    @SuppressWarnings("unchecked")
+                    boolean same(C a, C b) { return a.compareTo(b) == 0; }
+                }
+                """);
+        contains(kotlin, "(a as Comparable<Any?>).compareTo(b)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's LittleEndianByteArray: {@code (long) HANDLE.get(array, offset)}, a VarHandle's signature-polymorphic
      * get, whose result Kotlin types Any: the cast stays.
      */
