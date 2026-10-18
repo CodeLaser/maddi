@@ -249,7 +249,12 @@ public class KotlinStatementPrinter {
                 if (shadow != null && KotlinNullability.isNullable(shadow) && own != null
                     && !KotlinNullability.isNullable(own) && !own.isPrimitiveExcludingVoid()) {
                     ParameterizedType type = own.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
-                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+                    // guava's RegularImmutableSortedSet.containsAll(targets): the parameter is the mapped member's
+                    // read-only Collection, and so is the var that copies it
+                    boolean readOnly = KotlinMethodPrinter.readOnlyParameter(p)
+                                       || KotlinMappedMembers.overriddenCollectionParameter(p.methodInfo(), p.index());
+                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(readOnly ? KotlinTypeName.readOnly(type, q)
+                            : KotlinTypeName.of(type, q)));
                     KotlinContext.localType(p.name(), type);
                 }
                 result.add(b.add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));

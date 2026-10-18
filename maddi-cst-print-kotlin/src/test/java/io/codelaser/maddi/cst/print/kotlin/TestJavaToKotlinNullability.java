@@ -108,6 +108,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(parameterInfo.name(), parameterInfo.parameterizedType());
         }
 
+        /** {@code "=x"} in checked: what the body assigns to parameter x may be null. */
+        @Override
+        public ParameterizedType reassignedParameter(ParameterInfo parameterInfo) {
+            return checked.contains("=" + parameterInfo.name())
+                    ? parameterInfo.parameterizedType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)
+                    : null;
+        }
+
         /** {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one). */
         @Override
         public ParameterizedType returnType(MethodInfo methodInfo) {
@@ -1164,6 +1172,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("map<,>", "raw<,>")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "rawFallback(map)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's RegularImmutableSortedSet.containsAll(Collection<?> targets) reassigns targets, a value that may be null
+     * by its verdict: the var copying the parameter, the mapped member's read-only Collection, is read-only too.
+     */
+    @Test
+    public void reassignedReadOnlyParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Sorted<E> extends AbstractSet<E> {
+                    final Set<E> delegate = new HashSet<>();
+                    @Override public Iterator<E> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                    @Override public boolean containsAll(Collection<?> targets) {
+                        if (targets instanceof SortedSet) targets = new ArrayList<>(targets);
+                        return delegate.containsAll(targets);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("=targets")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "var targets: Collection<");
         compiles(kotlin);
     }
 
