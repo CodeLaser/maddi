@@ -461,6 +461,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Lists.cartesianProduct: the varargs overload calls the List one with {@code Arrays.asList(lists)}, which
+     * Kotlin also finds a single vararg element of: the call takes Java's inferred type argument.
+     */
+    @Test
+    public void callBesideAVarargsOverload() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Product {
+                    static <B> List<List<B>> product(List<? extends List<? extends B>> lists) { return new ArrayList<>(); }
+                    @SafeVarargs
+                    static <B> List<List<B>> product(List<? extends B>... lists) { return product(Arrays.asList(lists)); }
+                }
+                """);
+        contains(kotlin, "= product<B>(Arrays");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's BloomFilter.Strategy declares {@code int ordinal()}, which the BloomFilterStrategies enum implements by
      * java.lang.Enum's: a property in Kotlin, which Kotlin's Enum implements, and read as one.
      */

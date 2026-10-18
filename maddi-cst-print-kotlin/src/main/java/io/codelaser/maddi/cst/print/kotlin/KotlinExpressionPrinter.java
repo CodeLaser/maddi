@@ -504,7 +504,34 @@ public class KotlinExpressionPrinter {
 
     private static String resultOnlyOrLambdaOnly(MethodCall mc, Qualification q) {
         String resultOnly = resultOnlyTypeArguments(mc, q);
-        return resultOnly != null ? resultOnly : lambdaOnlyTypeArguments(mc, q);
+        if (resultOnly != null) return resultOnly;
+        String lambdaOnly = lambdaOnlyTypeArguments(mc, q);
+        return lambdaOnly != null ? lambdaOnly : besideVarargsOverload(mc, q);
+    }
+
+    /**
+     * guava's Lists: {@code cartesianProduct(List<? extends B>... lists)} calls {@code cartesianProduct(Arrays.asList(lists))},
+     * its {@code List<? extends List<? extends B>>} overload, which Java picks before trying varargs. Kotlin finds
+     * both applicable, a free B making the list one vararg element, and neither more specific: Java's inferred type
+     * arguments leave only the one Java called.
+     */
+    private static String besideVarargsOverload(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (!KotlinContext.translatingJava() || m.typeParameters().isEmpty() || m.isVarargs()
+            || mc.concreteReturnType() == null || m.returnType() == null) return null;
+        boolean varargsOverload = m.typeInfo().methodStream().anyMatch(o -> o != m && o.name().equals(m.name())
+                && o.isVarargs() && !o.typeParameters().isEmpty() && o.parameters().size() == m.parameters().size());
+        if (!varargsOverload) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete =
+                m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : m.typeParameters()) {
+            ParameterizedType c = concrete.get(tp);
+            if (c == null || c.wildcard() != null || c.typeParameter() == tp
+                || c.typeParameter() != null && !KotlinContext.typeParameterInScope(c.typeParameter())) return null;
+            printed.add(KotlinTypeName.of(c, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
 
     /**
