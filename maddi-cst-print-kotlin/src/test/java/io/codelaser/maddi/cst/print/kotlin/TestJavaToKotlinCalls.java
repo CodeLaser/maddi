@@ -461,6 +461,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's LittleEndianByteArray: {@code (long) HANDLE.get(array, offset)}, a VarHandle's signature-polymorphic
+     * get, whose result Kotlin types Any: the cast stays.
+     */
+    @Test
+    public void castOfASignaturePolymorphicResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.invoke.*;
+                import java.nio.ByteOrder;
+                class Bytes {
+                    static final VarHandle HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+                    static long get(byte[] array, int offset) { return (long) HANDLE.get(array, offset); }
+                }
+                """);
+        contains(kotlin, "(HANDLE.get(array, offset) as Long)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Escaper: {@code private final Function<String, String> asFunction = this::escape;}. Kotlin converts a
      * reference to a Java interface only as an argument: the SAM constructor around it.
      */

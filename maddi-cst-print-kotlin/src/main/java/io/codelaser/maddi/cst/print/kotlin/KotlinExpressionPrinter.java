@@ -2464,6 +2464,14 @@ public class KotlinExpressionPrinter {
         return type.parameters().stream().anyMatch(p -> p != null && (p.wildcard() != null || hasWildcard(p)));
     }
 
+    /** A call of a signature-polymorphic method: VarHandle's accessors, MethodHandle's invoke and invokeExact. */
+    private static boolean signaturePolymorphic(Expression e) {
+        if (!(unwrap(e) instanceof MethodCall mc) || mc.methodInfo() == null) return false;
+        String owner = mc.methodInfo().typeInfo().fullyQualifiedName();
+        return ("java.lang.invoke.VarHandle".equals(owner) || "java.lang.invoke.MethodHandle".equals(owner))
+               && mc.methodInfo().parameters().size() == 1 && mc.methodInfo().parameters().getFirst().isVarArgs();
+    }
+
     /** {@code type} is {@code T[]} of one of {@code method}'s own type parameters. */
     private static boolean ownTypeVariableArray(io.codelaser.maddi.cst.api.info.MethodInfo method, ParameterizedType type) {
         return type != null && type.arrays() == 1 && type.componentType().typeParameter() != null
@@ -3079,6 +3087,13 @@ public class KotlinExpressionPrinter {
         if (smartCast(cast)) return print(cast.expression(), q);
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
+        if (to != null && cast.parameterizedType().isPrimitiveExcludingVoid() && signaturePolymorphic(cast.expression())) {
+            // guava's LittleEndianByteArray: (long) HANDLE.get(array, offset). Java types a VarHandle's or
+            // MethodHandle's call by its cast; Kotlin's is an Any: unboxed by `as Long`
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(cast.parameterizedType(), q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (to != null && from != null && cast.parameterizedType().isPrimitiveExcludingVoid()) {
             String conversion = conversion(from, to);
             OutputBuilder receiver = receiver(cast.expression(), q);
