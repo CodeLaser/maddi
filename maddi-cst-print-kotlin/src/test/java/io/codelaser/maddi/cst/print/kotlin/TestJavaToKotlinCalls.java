@@ -988,4 +988,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "val nullable: Supplier<MutableList<V?>>");
         contains(kotlin, "nullable as Supplier<MutableList<V>>");
     }
+
+    /**
+     * guava's MoreExecutors.ScheduledListeningDecorator: a {@code Task<@Nullable Void>} where a {@code Future<Void>}
+     * is expected: both are Kotlin's Unit argument.
+     */
+    @Test
+    public void nullableVoidTypeArgumentIsUnit() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                import java.util.function.Supplier;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                final class M {
+                    static final class Task<V> implements Supplier<V> { public V get() { return null; } }
+                    static Supplier<Void> schedule() {
+                        Task<@Nullable Void> task = new Task<>();
+                        return task;
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("Unit?>"), kotlin);
+    }
 }

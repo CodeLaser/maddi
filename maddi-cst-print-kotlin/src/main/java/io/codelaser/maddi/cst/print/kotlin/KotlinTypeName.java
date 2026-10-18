@@ -200,7 +200,15 @@ public class KotlinTypeName {
         StringBuilder sb = new StringBuilder(base).append('<');
         for (int i = 0; i < pt.parameters().size(); i++) {
             if (i > 0) sb.append(", ");
-            sb.append(of(pt.parameters().get(i), q));
+            ParameterizedType argument = pt.parameters().get(i);
+            // ListenableFuture<@Nullable Void> is Kotlin's ListenableFuture<Unit>, as the unannotated one is: a Unit?
+            // argument makes the two different types (guava's MoreExecutors, TrustedListenableFutureTask<@Nullable
+            // Void> into a ListenableFuture<Void>), and a Java Void is null either way
+            if (argument.arrays() == 0 && argument.wildcard() == null && argument.typeInfo() != null
+                && "java.lang.Void".equals(argument.typeInfo().fullyQualifiedName())) {
+                argument = argument.withNullable(NullableState.NONNULL);
+            }
+            sb.append(of(argument, q));
         }
         return sb.append('>').toString();
     }
