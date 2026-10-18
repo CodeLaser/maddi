@@ -448,6 +448,12 @@ public class KotlinStatementPrinter {
         return found[0];
     }
 
+    private static boolean isChar(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        return t != null && t.arrays() == 0 && t.typeInfo() != null
+               && ("char".equals(t.typeInfo().fullyQualifiedName()) || "java.lang.Character".equals(t.typeInfo().fullyQualifiedName()));
+    }
+
     private static boolean isLong(Expression e) {
         ParameterizedType t = e.parameterizedType();
         return t != null && (t.isLong() || t.typeInfo() != null && "java.lang.Long".equals(t.typeInfo().fullyQualifiedName()));
@@ -485,13 +491,19 @@ public class KotlinStatementPrinter {
         // an int counter against a long bound: Kotlin's range would be a LongRange, its variable a Long
         if (type.isInt() && (longFrom || longBound)) return null;
 
-        OutputBuilder bound = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
+        // guava's CharMatcher.setBits: for (int c = Character.MAX_VALUE; c >= Character.MIN_VALUE; c--), char bounds
+        // that Kotlin's range would make a CharRange: each converted to the counter's type
+        boolean charBound = isChar(cmp.rhs());
+        OutputBuilder bound = charBound ? KotlinExpressionPrinter.widened(cmp.rhs(), type, q)
+                : KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 cmp.rhs(), q);
         if (">".equals(op)) bound = new OutputBuilderImpl().add(bound).add(KotlinSymbols.binary("+"))
                 .add(new TextImpl("1"));
         OutputBuilder from = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 v.assignmentExpression(), q);
-        if (type.isLong() && !longFrom && !longBound) {
+        if (isChar(v.assignmentExpression())) {
+            from = KotlinExpressionPrinter.widened(v.assignmentExpression(), type, q);
+        } else if (type.isLong() && !longFrom && !longBound) {
             // guava's BigIntegerMath.factorial: for (long num = startingNumber; num <= n; num++) of two ints, which
             // Kotlin's range would make an Int
             from = v.assignmentExpression() instanceof IntConstant ic ? new OutputBuilderImpl().add(new TextImpl(ic.constant() + "L"))

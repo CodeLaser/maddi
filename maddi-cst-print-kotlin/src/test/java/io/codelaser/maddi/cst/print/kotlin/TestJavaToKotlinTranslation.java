@@ -187,7 +187,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
 
     /**
      * guava's BigIntegerMath.factorial: a long counter between two ints is a LongRange in Kotlin only from a Long; an
-     * int counter against a long bound stays a while loop, where a range would make it a Long.
+     * int counter against a long bound stays a while loop, where a range would make it a Long. CharMatcher.setBits:
+     * an int counter between chars, which a range would make a Char.
      */
     @Test
     public void longCounterBetweenInts() {
@@ -199,6 +200,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                         for (long num = from; num <= n; num++) { s += num & 1L; }
                         for (long k = 0; k < n; k++) { s += k; }
                         for (int i = 0; i < big; i++) { s += i; }
+                        java.util.BitSet bits = new java.util.BitSet();
+                        for (int c = Character.MAX_VALUE; c >= Character.MIN_VALUE; c--) { bits.set(c); }
                         return s;
                     }
                 }
@@ -206,6 +209,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "for (num in from.toLong() .. n) {");
         contains(kotlin, "for (k in 0L until n) {");
         contains(kotlin, "while (i < big) {");
+        contains(kotlin, "bits.set(c)");
+        assertFalse(kotlin.contains("c.toChar()") && kotlin.contains("set(c.toChar())"), kotlin);
         compiles(kotlin);
     }
 
