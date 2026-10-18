@@ -1734,6 +1734,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * An inner class of a generic class named outside it, {@code G<String>.In}: Kotlin's type has the outer class's
+     * type argument on the outer class too. {@code G.In} lacks it ("one type argument expected").
+     */
+    @Test
+    public void innerOfGenericClassNamedOutsideIt() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class C {
+                        String pass(G<String>.In x) { return x.get(); }
+                    }
+                }
+                """);
+        contains(kotlin, "x: G<String>.In");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
      * superclass is an inner class of a generic superclass of its outer class.
      */

@@ -197,12 +197,38 @@ public class KotlinTypeName {
         String base = mapped(fqn);
         if (base == null) base = name(pt.typeInfo(), q);
         if (pt.parameters().isEmpty()) return base + starProjections(pt.typeInfo());
+        String inner = innerWithOuterArguments(pt, q);
+        if (inner != null) return inner;
         StringBuilder sb = new StringBuilder(base).append('<');
         for (int i = 0; i < pt.parameters().size(); i++) {
             if (i > 0) sb.append(", ");
             sb.append(of(pt.parameters().get(i), q));
         }
         return sb.append('>').toString();
+    }
+
+    /**
+     * {@code G<String>.In}: an inner class whose {@code parameters()} start with its outer classes' type arguments,
+     * each written on its own class, as Java's printer distributes them. Null when the type has only its own.
+     */
+    private static String innerWithOuterArguments(ParameterizedType pt, Qualification q) {
+        TypeInfo t = pt.typeInfo();
+        int end = pt.parameters().size();
+        if (!t.isInnerClass() || end <= t.typeParameters().size()) return null;
+        java.util.List<String> segments = new java.util.ArrayList<>();
+        while (true) {
+            int own = t.typeParameters().size();
+            if (own > end) return null;
+            java.util.List<ParameterizedType> args = pt.parameters().subList(end - own, end);
+            end -= own;
+            TypeInfo outer = t.enclosingTypeStream().skip(1).findFirst().orElse(null);
+            boolean first = end == 0 || !t.isInnerClass() || outer == null;
+            String head = first ? name(t, q) : KotlinNames.name(t.simpleName());
+            segments.addFirst(args.isEmpty() ? head
+                    : head + args.stream().map(a -> of(a, q)).collect(Collectors.joining(", ", "<", ">")));
+            if (first) return end == 0 ? String.join(".", segments) : null;
+            t = outer;
+        }
     }
 
     private static String withoutWildcard(ParameterizedType pt, Qualification q) {
