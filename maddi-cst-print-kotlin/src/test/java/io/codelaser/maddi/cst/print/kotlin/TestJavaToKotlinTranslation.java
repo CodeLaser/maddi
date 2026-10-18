@@ -163,6 +163,30 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Joiner.useForNull: {@code return new Joiner(this) { … };}. In an object expression's supertype call,
+     * Kotlin's this is not the enclosing instance: this@Joiner.
+     */
+    @Test
+    public void thisInAnAnonymousClassesSuperArguments() {
+        String kotlin = kotlin("""
+                package a;
+                class Joiner {
+                    final String separator;
+                    Joiner(String separator) { this.separator = separator; }
+                    Joiner(Joiner prototype) { this.separator = prototype.separator; }
+                    String part(Object o) { return String.valueOf(o); }
+                    Joiner useForNull(String nullText) {
+                        return new Joiner(this) {
+                            @Override String part(Object o) { return o == null ? nullText : Joiner.this.part(o); }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "object : Joiner(this@Joiner)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ImmutableSortedSet.spliterator(): new Spliterators.AbstractSpliterator<E>(size(), …) { … }, an int into
      * the anonymous class's superclass constructor's long: Kotlin widens nothing by itself.
      */

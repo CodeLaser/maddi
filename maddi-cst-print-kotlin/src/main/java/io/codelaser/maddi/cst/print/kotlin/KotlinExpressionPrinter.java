@@ -264,8 +264,15 @@ public class KotlinExpressionPrinter {
     private static String thisOrSuper(This t) {
         TypeInfo explicit = t.explicitlyWriteType();
         if (t.writeSuper()) return explicit == null ? "super" : "super<" + explicit.simpleName() + ">";
+        if (explicit == null && IN_ANONYMOUS_SUPER_ARGUMENTS.get() && t.typeInfo() != null && !t.typeInfo().isAnonymous()) {
+            // guava's Joiner.useForNull: new Joiner(this) { … }. In an object expression's supertype call, Kotlin's
+            // this is not the enclosing instance
+            return "this@" + t.typeInfo().simpleName();
+        }
         return explicit == null ? "this" : "this@" + explicit.simpleName();
     }
+
+    private static final ThreadLocal<Boolean> IN_ANONYMOUS_SUPER_ARGUMENTS = ThreadLocal.withInitial(() -> false);
 
     private static OutputBuilder fieldReference(FieldReference fr, Qualification q) {
         String name = KotlinFieldPrinter.name(fr.fieldInfo());
@@ -2310,6 +2317,16 @@ public class KotlinExpressionPrinter {
     }
 
     /** {@code supertype}: the class or interface to write, null for the anonymous class's own. */
+    private static OutputBuilder anonymousSuperArguments(ConstructorCall cc, ParameterizedType parent, Qualification q) {
+        boolean outer = IN_ANONYMOUS_SUPER_ARGUMENTS.get();
+        IN_ANONYMOUS_SUPER_ARGUMENTS.set(true);
+        try {
+            return arguments(cc.parameterExpressions(), superConstructor(cc, parent), q);
+        } finally {
+            IN_ANONYMOUS_SUPER_ARGUMENTS.set(outer);
+        }
+    }
+
     /** The superclass constructor an anonymous class's arguments go to: the only one taking that many, else none. */
     private static io.codelaser.maddi.cst.api.info.MethodInfo superConstructor(ConstructorCall cc, ParameterizedType parent) {
         if (cc.constructor() != null || parent.typeInfo() == null) return cc.constructor();
@@ -2332,7 +2349,7 @@ public class KotlinExpressionPrinter {
                             : KotlinTypePrinter.declaredArguments(parent), q)))
                     // guava's ImmutableSortedSet: AbstractSpliterator<E>(size(), …) widens the int to the superclass
                     // constructor's long, as a named class's constructor call does
-                    .add(arguments(cc.parameterExpressions(), superConstructor(cc, parent), q));
+                    .add(anonymousSuperArguments(cc, parent, q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
                     : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
