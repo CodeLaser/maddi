@@ -18,6 +18,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 
@@ -1982,6 +1983,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "public interface ITyped { Type Kind { get; } }");
         // ? extends Tuple is its bound, what the code stores there
         contains(cs, "private Box<ITuple> boxed;");
+    }
+
+    /**
+     * A method of Object the code reaches through the wildcard is no obstacle to the wildcard interface, also where the
+     * type overrides it and javac resolves the call to the override: every C# object has ToString.
+     */
+    @Test
+    public void wildcardInterfaceObjectOverrideReached() {
+        String cs = translate("Tags", """
+                package org.example.tags;
+                public class Tags {
+                    public static class Tag<T> {
+                        @Override public String toString() { return "t"; }
+                        public T first() { return null; }
+                        public int size() { return 0; }
+                    }
+                    static final class Uses {
+                        private Tag<?> tag = new Tag<String>();
+                        int c() { return tag.size() + tag.toString().length(); }
+                    }
+                }
+                """);
+        // Tag<object> would not compile: C# classes are invariant, a Tag<string> is no Tag<object> (CS0029)
+        contains(cs, "private ITag tag = new Tag<string>();");
+        int start = cs.indexOf("public interface ITag");
+        assertTrue(start >= 0, "no wildcard interface ITag printed\n" + cs);
+        String iface = cs.substring(start, cs.indexOf('}', start) + 1);
+        assertFalse(iface.contains("ToString"), "ITag must not declare Object's ToString; printed: " + iface + "\n" + cs);
     }
 
     @Language("java")
