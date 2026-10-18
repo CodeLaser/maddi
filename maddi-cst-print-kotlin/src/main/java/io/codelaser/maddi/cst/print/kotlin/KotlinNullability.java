@@ -588,6 +588,18 @@ final class KotlinNullability {
                && method.typeInfo().compilationUnit().sourceSet().test();
     }
 
+    /**
+     * A test's bare null into a non-null parameter, which the test expects to throw: asserted. Not into a type
+     * variable's own slot, {@code <T> range(T lower)}, which the call may instantiate nullable (guava's
+     * GeneralRangeTest passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw); a type that only
+     * names a type variable, {@code List<X>}, is non-null whatever X is.
+     */
+    static boolean testNullAsserted(Expression value, ParameterizedType target) {
+        return target != null && value instanceof NullConstant && !isNullable(target)
+               && !target.isPrimitiveExcludingVoid() && !(target.typeParameter() != null && target.arrays() == 0)
+               && inTestSource();
+    }
+
     /** No type variable in it: a parameter's type at the call names none the caller does not know. */
     private static boolean writable(ParameterizedType type) {
         if (type.typeParameter() != null) return false;
@@ -624,13 +636,13 @@ final class KotlinNullability {
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        if (targetTranslated && target != null && value instanceof NullConstant && !isNullable(target)
-            && !target.isPrimitiveExcludingVoid() && inTestSource() && writable(target)) {
+        if (targetTranslated && testNullAsserted(value, target)) {
             // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
-            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type.
-            // Not into a type variable's slot, which the call may instantiate nullable (guava's GeneralRangeTest
-            // passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw)
+            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type,
+            // or Nothing where that type names the callee's type variables (the call then writes the type arguments
+            // Kotlin cannot infer from a Nothing: KotlinExpressionPrinter.nullOnlyTypeArguments)
             KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, value, KotlinContext.describe(value));
+            if (!writable(target)) return new OutputBuilderImpl().add(printed).add(NOT_NULL);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target.withNullable(NullableState.NULLABLE), q)))

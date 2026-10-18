@@ -1961,4 +1961,35 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "val r: MutableList<Int?>");
         compiles(kotlin);
     }
+
+    /**
+     * A test's bare null into a non-null parameter is asserted, as the test expects the throw (guava's
+     * {@code assertThrows(NullPointerException.class, …)}). A parameter that is the callee's own type variable,
+     * {@code <X> one(X x)}, takes the null plain: the call may instantiate X nullable (guava's GeneralRangeTest).
+     * {@code <X> all(List<X> xs)} cannot: a List is never null whatever X is, so the null is asserted. Kotlin cannot
+     * infer X from {@code null!!}, a Nothing, and nothing else fixes it: the call writes Java's X, Object.
+     */
+    @Test
+    public void testSourceNullIntoTypeVariableSlotAndGenericType() throws java.io.IOException {
+        javaInspector = new io.codelaser.maddi.inspection.openjdk.JavaInspectorImpl();
+        io.codelaser.maddi.cst.api.element.SourceSet testSourceSet = new io.codelaser.maddi.inspection.resource.SourceSetImpl.Builder()
+                .setName(io.codelaser.maddi.inspection.api.integration.JavaInspector.TEST_PROTOCOL)
+                .setUri(java.net.URI.create("file:/")).setTest(true).build();
+        javaInspector.initialize(new io.codelaser.maddi.inspection.resource.InputConfigurationImpl.Builder()
+                .addSourceSets(testSourceSet).addClassPath("jmod:java.base").build());
+        javaInspector.onlyPreload();
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Gen {
+                    <X> void all(List<X> xs) { }
+                    <X> void one(X x) { }
+                    static void run(Gen g) { g.all(null); g.one(null); }
+                }
+                """, options);
+        contains(kotlin, "g.all<Any>(null!!)");
+        contains(kotlin, "g.one(null)");
+        compiles(kotlin);
+    }
 }
