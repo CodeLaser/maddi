@@ -586,7 +586,57 @@ public class KotlinExpressionPrinter {
         String resultOnly = resultOnlyTypeArguments(mc, q);
         if (resultOnly != null) return resultOnly;
         String lambdaOnly = lambdaOnlyTypeArguments(mc, q);
-        return lambdaOnly != null ? lambdaOnly : besideVarargsOverload(mc, q);
+        if (lambdaOnly != null) return lambdaOnly;
+        String besideVarargs = besideVarargsOverload(mc, q);
+        return besideVarargs != null ? besideVarargs : nullOnlyTypeArguments(mc, q);
+    }
+
+    /**
+     * Type arguments Kotlin cannot infer from a test's asserted null ({@link KotlinNullability#testNullAsserted}):
+     * {@code g.all(null)} into {@code <X> all(List<X> xs)} is {@code g.all(null!!)}, whose Nothing fixes no X. Where
+     * a type parameter is mentioned only by parameters that take such a null, each type parameter takes Java's
+     * inferred argument, read off the call's concrete result, or else its bound, or Object:
+     * {@code g.all<Any>(null!!)}. Null when there is no such type parameter, or one of the others is not known.
+     */
+    private static String nullOnlyTypeArguments(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
+        if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null
+            || !KotlinNullability.translated(m.typeInfo())) {
+            return null;
+        }
+        List<Expression> args = mc.parameterExpressions();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> nullOnly = typeParameters.stream().filter(tp -> {
+            boolean mentioned = false;
+            for (int i = 0; i < m.parameters().size(); i++) {
+                ParameterInfo p = m.parameters().get(i);
+                if (!CstQueries.mentions(p.parameterizedType(), tp)) continue;
+                if (p.isVarArgs() || i >= args.size()
+                    || !KotlinNullability.testNullAsserted(args.get(i), KotlinNullability.parameterType(p))) {
+                    return false;
+                }
+                mentioned = true;
+            }
+            return mentioned;
+        }).toList();
+        if (nullOnly.isEmpty()) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
+                ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType t = concrete.get(tp);
+            if (t == null || t.wildcard() != null || CstQueries.mentionsAny(t, typeParameters)) {
+                if (!nullOnly.contains(tp)) return null;
+                t = bound(tp);
+                if (t == null) {
+                    printed.add("Any");
+                    continue;
+                }
+            }
+            if (t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) return null;
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
 
     /**
