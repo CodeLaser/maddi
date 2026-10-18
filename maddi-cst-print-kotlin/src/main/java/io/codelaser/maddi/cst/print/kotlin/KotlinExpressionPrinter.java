@@ -1774,9 +1774,9 @@ public class KotlinExpressionPrinter {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
             return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
-                    .add(branch(ic.ifTrue(), () -> widened(ic.ifTrue(), target, q), q)).add(SpaceEnum.ONE)
+                    .add(branch(ic.ifTrue(), () -> arrayBranch(ic.ifTrue(), target, q), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
-                    .add(branch(ic.ifFalse(), () -> widened(ic.ifFalse(), target, q), q));
+                    .add(branch(ic.ifFalse(), () -> arrayBranch(ic.ifFalse(), target, q), q));
         }
         if (unwrap(e) instanceof ConstructorCall cc && target != null && cc.anonymousClass() == null) {
             ParameterizedType withStates = withTargetStates(cc.parameterizedType(), target);
@@ -2462,6 +2462,29 @@ public class KotlinExpressionPrinter {
 
     private static boolean hasWildcard(ParameterizedType type) {
         return type.parameters().stream().anyMatch(p -> p != null && (p.wildcard() != null || hasWildcard(p)));
+    }
+
+    /**
+     * A conditional's branch converted to the target. guava's ImmutableSet.construct: {@code distinct == n ? deduped
+     * : Arrays.copyOf(deduped, distinct)} into an Object[]: Kotlin types the library's {@code <T> T[]} result
+     * Array<(out) T>!, which the if joins with the other branch to an Array<out Any?>; cast, unchecked, to the
+     * target's array.
+     */
+    private static OutputBuilder arrayBranch(Expression branch, ParameterizedType target, Qualification q) {
+        if (target.arrays() == 1 && KotlinTypeName.primitiveArray(target.componentType()) == null
+            && !target.componentType().isPrimitiveExcludingVoid()
+            && unwrap(branch) instanceof MethodCall mc && mc.methodInfo() != null
+            && !KotlinNullability.translated(mc.methodInfo().typeInfo())
+            && mc.methodInfo().returnType().arrays() == 1
+            && mc.methodInfo().returnType().componentType().typeParameter() != null
+            && mc.methodInfo().typeParameters().contains(mc.methodInfo().returnType().componentType().typeParameter())) {
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, branch, KotlinContext.describe(branch));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(branch, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(
+                            target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        return widened(branch, target, q);
     }
 
     /** A call of a signature-polymorphic method: VarHandle's accessors, MethodHandle's invoke and invokeExact. */

@@ -1168,6 +1168,28 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableSet.construct: {@code Object[] elements = distinct == n ? deduped : Arrays.copyOf(deduped,
+     * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>.
+     */
+    @Test
+    public void genericLibraryArrayInAConditional() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Arrays;
+                class Construct {
+                    static int construct(int n, int distinct) {
+                        Object[] deduped = new Object[n];
+                        deduped[0] = "x";
+                        Object[] elements = distinct == deduped.length ? deduped : Arrays.copyOf(deduped, distinct);
+                        return elements.length;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("deduped[]", "elements[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as Array<Any?>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's JdkBackedImmutableMultiset.create: {@code entries.toArray((Entry<E>[]) new Entry<?>[0])} on a
      * {@code Collection<? extends Entry<? extends E>>}. Java's cast is unchecked; the receiver's is too.
      */
