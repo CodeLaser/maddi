@@ -598,7 +598,9 @@ public class KotlinExpressionPrinter {
                 t = bound(tp);
                 if (t == null) {
                     if (!noExpectedType) return null;
-                    printed.add("Any");
+                    // guava's CollectCollectors.TO_IMMUTABLE_ENUM_SET: (Collector) toImmutableEnumSetGeneric(), whose
+                    // E extends Enum<E> no Any satisfies; Nothing satisfies every bound, and the cast checks nothing
+                    printed.add(tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()) ? "Nothing" : "Any");
                     continue;
                 }
             }

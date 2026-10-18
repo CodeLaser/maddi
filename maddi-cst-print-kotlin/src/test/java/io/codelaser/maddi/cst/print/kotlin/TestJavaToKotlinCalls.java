@@ -461,6 +461,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's CollectCollectors.TO_IMMUTABLE_ENUM_SET: {@code (Collector) toImmutableEnumSetGeneric()}, a raw cast of a
+     * call whose E extends Enum<E> only the target would give: Nothing, which satisfies the bound.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawCastOfACallWithASelfBoundedResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Collect {
+                    @SuppressWarnings({"rawtypes", "unchecked"})
+                    static final List<Enum<?>> ALL = (List) generic();
+                    static <E extends Enum<E>> List<E> generic() { return new ArrayList<>(); }
+                }
+                """);
+        contains(kotlin, "generic<Nothing>()");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Streams.findLast: {@code return java.util.Optional.empty();} into an Optional<T> whose T may be null: cast,
      * and the operand of the cast has no expected type to infer empty's T from.
      */
