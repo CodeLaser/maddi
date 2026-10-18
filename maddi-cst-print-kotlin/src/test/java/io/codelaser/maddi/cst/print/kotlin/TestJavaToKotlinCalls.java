@@ -461,6 +461,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Stats.of(IntStream): {@code values.collect(Acc::new, Acc::add, Acc::addAll)}, an ObjIntConsumer whose
+     * int Java widens to add(double); Kotlin's reference does not widen.
+     */
+    @Test
+    public void referenceWhoseParameterJavaWidens() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.stream.IntStream;
+                class Acc {
+                    double sum;
+                    void add(double v) { sum += v; }
+                    void addAll(Acc other) { sum += other.sum; }
+                    static double of(IntStream values) { return values.collect(Acc::new, Acc::add, Acc::addAll).sum; }
+                }
+                """);
+        contains(kotlin, "{ p0, p1 -> p0.add(p1.toDouble()) }");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ImmutableRangeMap again: the SAM constructor names com.google.common.base.Function, which Java never
      * wrote, in a file that imports java.util.function.Function. The simple name would mean the imported one.
      */

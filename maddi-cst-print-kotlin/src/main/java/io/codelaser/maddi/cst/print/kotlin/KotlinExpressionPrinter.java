@@ -737,6 +737,13 @@ public class KotlinExpressionPrinter {
                     continue;
                 }
             }
+            if (hasParameter && unwrap(args.get(i)) instanceof MethodReference mr) {
+                OutputBuilder widening = wideningReference(mr, method.parameters().get(i).parameterizedType(), q);
+                if (widening != null) {
+                    printed.add(widening);
+                    continue;
+                }
+            }
             if (hasParameter && unwrap(args.get(i)) instanceof MethodReference mr && genericReferenceTyping(method, i, mr)) {
                 // Collector.of(LinkedHashMultiset::create, …): Java infers create's E, and so Collector.of's A, from
                 // the target; Kotlin infers neither from a bare reference. A SAM constructor of the reference's
@@ -1079,6 +1086,45 @@ public class KotlinExpressionPrinter {
             return "<Any>";
         }
         return "<" + KotlinTypeName.of(t, q) + ">";
+    }
+
+    /**
+     * guava's Stats.of(IntStream): {@code values.collect(StatsAccumulator::new, StatsAccumulator::add, …)}, an
+     * ObjIntConsumer whose int Java widens to add(double). A Kotlin reference converts nothing: a lambda that does,
+     * {@code { r, v -> r.add(v.toDouble()) }}. Null when no parameter needs it.
+     */
+    private static OutputBuilder wideningReference(MethodReference mr, ParameterizedType functional, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (m == null || m.isConstructor() || m.parameters().stream().anyMatch(ParameterInfo::isVarArgs)) return null;
+        // the functional method's parameters as the reference instantiates them; a library interface's methods may
+        // not be loaded (ObjIntConsumer)
+        List<ParameterizedType> sam = mr.concreteParameterTypes() != null && !mr.concreteParameterTypes().isEmpty()
+                ? mr.concreteParameterTypes() : KotlinNullability.samParameterTypes(functional);
+        boolean unbound = !m.isStatic() && unwrap(mr.scope()) instanceof TypeExpression;
+        int offset = unbound ? 1 : 0;
+        if (sam.size() != m.parameters().size() + offset) return null;
+        List<String> names = new ArrayList<>();
+        for (int j = 0; j < sam.size(); j++) names.add("p" + j);
+        List<String> arguments = new ArrayList<>();
+        boolean widens = false;
+        for (int j = 0; j < m.parameters().size(); j++) {
+            ParameterizedType from = sam.get(j + offset);
+            Primitive source = from != null && from.isPrimitiveExcludingVoid() ? primitive(from) : null;
+            Primitive target = primitive(m.parameters().get(j).parameterizedType());
+            String conversion = source != null && target != null && m.parameters().get(j).parameterizedType()
+                    .isPrimitiveExcludingVoid() ? conversion(source, target) : "";
+            widens |= !conversion.isEmpty();
+            arguments.add(names.get(j + offset) + conversion);
+        }
+        if (!widens) return null;
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
+                .add(new TextImpl(String.join(", ", names) + " ->")).add(SpaceEnum.ONE);
+        if (m.isStatic()) b.add(new TextImpl(KotlinTypeName.staticOwner(m.typeInfo(), q)));
+        else if (unbound) b.add(new TextImpl(names.getFirst()));
+        else b.add(receiver(mr.scope(), q));
+        b.add(SymbolEnum.DOT);
+        return b.add(new TextImpl(KotlinNames.name(m.name()) + "(" + String.join(", ", arguments) + ")"))
+                .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
     private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
