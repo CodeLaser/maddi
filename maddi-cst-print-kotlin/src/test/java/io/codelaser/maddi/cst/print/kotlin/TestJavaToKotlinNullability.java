@@ -1168,6 +1168,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Synchronized.SynchronizedCollection: {@code toArray(T[] a)} overrides Collection's, whose Kotlin
+     * signature is Array<T>, and hands it to ObjectArrays.toArrayImpl's Array<T?> (which writes a null after the
+     * elements). Arrays are invariant: the argument and the result are cast.
+     */
+    @Test
+    public void typeVariableArrayIntoANullableElementParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Arr {
+                    static <T> T[] fill(Collection<?> c, T[] array) {
+                        if (array.length > c.size()) array[c.size()] = null;
+                        return array;
+                    }
+                }
+                abstract class Sync<E> extends AbstractCollection<E> {
+                    @Override public <T> T[] toArray(T[] a) { return Arr.fill(this, a); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("fill()[]", "array[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(Arr.fill(this, (a as Array<T?>)) as Array<T>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ForwardingCollection: {@code <T> T[] toArray(T[] array) { return delegate().toArray(array); }}, whose
      * result is Array<T?>. toTypedArray<T?>() wants a reified T and drops the array: Java's own toArray instead.
      */

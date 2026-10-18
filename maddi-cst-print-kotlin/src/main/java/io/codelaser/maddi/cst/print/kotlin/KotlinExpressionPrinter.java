@@ -852,6 +852,23 @@ public class KotlinExpressionPrinter {
                             .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q) + ">()"));
                     continue;
                 }
+                if (hasParameter && ownTypeVariableArray(method, method.parameters().get(i).parameterizedType())
+                    && KotlinNullability.translated(method.typeInfo())
+                    && KotlinNullability.isNullable(KotlinNullability.parameterType(method.parameters().get(i)).componentType())) {
+                    ParameterizedType argument = KotlinNullability.kotlinType(args.get(i));
+                    if (argument != null && argument.arrays() == 1 && argument.componentType().typeParameter() != null
+                        && !KotlinNullability.isNullable(argument.componentType())) {
+                        // guava's Synchronized: ObjectArrays.toArrayImpl(delegate(), array) of an Array<T> (Collection's
+                        // toArray) into an Array<T?>: Kotlin's arrays are invariant; erased, the cast checks nothing
+                        KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                        printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                                .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(argument.withComponentType(
+                                        argument.componentType().withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE)), q)))
+                                .add(SymbolEnum.RIGHT_PARENTHESIS));
+                        continue;
+                    }
+                }
                 if (hasParameter && "java.util.Optional".equals(method.typeInfo().fullyQualifiedName())
                     && "of".equals(method.name()) && args.size() == 1
                     && KotlinTypeName.nullableTypeVariable(KotlinNullability.kotlinType(args.get(i)))) {
@@ -1506,15 +1523,17 @@ public class KotlinExpressionPrinter {
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
         // only where a value is assigned or returned: an argument's target is Java's parameter type, not Kotlin's
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
-            && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null && "toArray".equals(tc.methodInfo().name())
-            && tc.parameterExpressions().size() == 1
+            && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null
+            && ("toArray".equals(tc.methodInfo().name()) && tc.parameterExpressions().size() == 1
+                || ownTypeVariableArray(tc.methodInfo(), tc.methodInfo().returnType()))
             && KotlinNullability.translated(tc.methodInfo().typeInfo())
             && !KotlinNullability.isNullable(target.componentType())) {
             ParameterizedType result = KotlinNullability.kotlinType(e);
             if (result != null && result.arrays() == 1 && KotlinNullability.isNullable(result.componentType())) {
                 // guava's Parameter.getDeclaredAnnotations(): annotations.toArray(new Annotation[0]), guava's own
                 // <T> toArray(other: Array<T?>): Array<T?>, into an Array<Annotation>: Java's array is filled; erased,
-                // the cast checks nothing
+                // the cast checks nothing. As Synchronized's ObjectArrays.toArrayImpl(delegate(), array), a T[] of
+                // the method's own T
                 KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
                 return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
                         .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
@@ -2273,6 +2292,12 @@ public class KotlinExpressionPrinter {
      * inside it would return from the enclosing FUNCTION in Kotlin, so the lambda gets the label {@code lambda@}
      * and those returns print as {@code return@lambda} (KotlinStatementPrinter, through {@link KotlinContext}).
      */
+    /** {@code type} is {@code T[]} of one of {@code method}'s own type parameters. */
+    private static boolean ownTypeVariableArray(io.codelaser.maddi.cst.api.info.MethodInfo method, ParameterizedType type) {
+        return type != null && type.arrays() == 1 && type.componentType().typeParameter() != null
+               && method.typeParameters().contains(type.componentType().typeParameter());
+    }
+
     /** No element type for toTypedArray, or a type variable, which it cannot take: it wants a reified one. */
     private static boolean notReifiable(ParameterizedType element) {
         return element == null || element.typeParameter() != null && element.arrays() == 0;
