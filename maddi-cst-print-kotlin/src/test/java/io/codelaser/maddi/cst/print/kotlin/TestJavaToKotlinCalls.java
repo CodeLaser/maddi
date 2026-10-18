@@ -461,6 +461,29 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's BloomFilter.Strategy declares {@code int ordinal()}, which the BloomFilterStrategies enum implements by
+     * java.lang.Enum's: a property in Kotlin, which Kotlin's Enum implements, and read as one.
+     */
+    @Test
+    public void interfaceOrdinalImplementedByAnEnum() {
+        String kotlin = kotlin("""
+                package a;
+                class Bloom {
+                    interface Strategy { int ordinal(); String name(); }
+                    enum Strategies implements Strategy { MURMUR, OTHER }
+                    static final class Custom implements Strategy {
+                        @Override public int ordinal() { return -1; }
+                        @Override public String name() { return "custom"; }
+                    }
+                    static int write(Strategy strategy) { return strategy.ordinal() + strategy.name().length(); }
+                }
+                """);
+        contains(kotlin, "val ordinal: Int");
+        contains(kotlin, "strategy.ordinal + strategy.name.length");
+        compiles(kotlin);
+    }
+
+    /**
      * {@code get(type)} of a translated Forwarding<K, V> superclass, into a B: the unchecked cast is to B, as the
      * superclass's V is out of scope.
      */

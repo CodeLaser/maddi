@@ -143,6 +143,7 @@ final class KotlinMappedMembers {
      * ArrayList subclass is {@code override val size: Int}); null otherwise. Kotlin has no {@code size()} to override.
      */
     static String overriddenProperty(MethodInfo methodInfo) {
+        if (enumProperty(methodInfo)) return methodInfo.name();
         if (methodInfo.overrides().isEmpty() || !methodInfo.parameters().isEmpty() || methodInfo.isStatic()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
             return null;
@@ -322,7 +323,24 @@ final class KotlinMappedMembers {
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
     static String property(MethodInfo methodInfo) {
-        return lookup(PROPERTY, methodInfo);
+        String property = lookup(PROPERTY, methodInfo);
+        return property != null ? property : enumProperty(methodInfo) ? methodInfo.name() : null;
+    }
+
+    /**
+     * An interface's {@code int ordinal()} or {@code String name()}, which an enum implements by java.lang.Enum's
+     * (guava's BloomFilter.Strategy, implemented by the BloomFilterStrategies enum): Kotlin's Enum has the properties,
+     * and a {@code fun ordinal()} in the enum would clash with them on the JVM. A property in the interface too, which
+     * Enum's implements; an override of it is one.
+     */
+    static boolean enumProperty(MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.isConstructor() || !methodInfo.parameters().isEmpty()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) return false;
+        return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream()).anyMatch(m -> m.typeInfo().isInterface()
+                && m.parameters().isEmpty()
+                && ("ordinal".equals(m.name()) && m.returnType().isInt()
+                    || "name".equals(m.name()) && m.returnType().typeInfo() != null && m.returnType().arrays() == 0
+                       && "java.lang.String".equals(m.returnType().typeInfo().fullyQualifiedName())));
     }
 
     /** The Kotlin function that replaces this call, called without arguments ({@code intValue()} -> {@code toInt()}). */
