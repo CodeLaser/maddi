@@ -419,7 +419,8 @@ implements the interface.
   that C# converts with the boxing, `x0_ => leftMapping(x0_)`, a parameter that differs cast,
   `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call. So is one
   passed to a generic constructor's `Function<A, Property_>`, which C#, without generic constructors, declares
-  `Func<A, object>`.
+  `Func<A, object>`. With the analysis's facts the lambda's result, of a type parameter, is asserted,
+  `x0_ => leftMapping(x0_)!`, as a method reference's is.
 - **Casts to type parameters.** C# casts to a type parameter only from `object`, an interface or another type
   parameter: `(T) this` in a self-typed builder is `(T) (object) this`.
 

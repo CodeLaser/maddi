@@ -1012,8 +1012,15 @@ public final class CSharpExpressionPrinter {
         }
         String parameters = names.size() == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
         OutputBuilder b = new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q));
-        if (arguments.isEmpty()) return b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        return b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        if (arguments.isEmpty()) b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        else b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        // the result of a type parameter, which may be null, as the delegate's object, which the analysis has not
+        // (CS8603): as a method reference's unboxing has it
+        if (!sam.isVoid() && sam.returnType().isTypeParameter()
+            && CSharpContext.program().facts().nullabilityAnalysed()) {
+            b.add(CSharpNullability.NULL_FORGIVING);
+        }
+        return b;
     }
 
     /** A generic constructor's own type parameter, which C# erases to object: it has no generic constructors. */
