@@ -782,7 +782,9 @@ public class KotlinExpressionPrinter {
                 // Collector.of(LinkedHashMultiset::create, …): Java infers create's E, and so Collector.of's A, from
                 // the target; Kotlin infers neither from a bare reference. A SAM constructor of the reference's
                 // functional type gives both
-                printed.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(mr.parameterizedType()
+                ParameterizedType functional = mr.methodInfo().isConstructor()
+                        ? withoutBoundedWildcards(mr.parameterizedType()) : mr.parameterizedType();
+                printed.add(new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(functional
                                 .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                         .add(SymbolEnum.LEFT_PARENTHESIS).add(print(args.get(i), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
                 continue;
@@ -1469,6 +1471,22 @@ public class KotlinExpressionPrinter {
                && functional.arrays() == 0 && !functional.parameters().isEmpty()
                && functional.parameters().stream().allMatch(p -> p.wildcard() == null && !CstQueries.mentionsAny(p,
                         method.typeParameters()));
+    }
+
+    /**
+     * A constructor reference's type with its captured arguments' bounds in their place: guava's
+     * {@code toMap(keyFunction, …, LinkedHashMap::new)} with a {@code Function<? super T, ? extends K>} key function
+     * types the reference {@code Supplier<LinkedHashMap<? extends K, V>>}, whose {@code out K} no map Kotlin infers
+     * for toMap's {@code M : Map<K, U>} matches; the object constructed has plain arguments.
+     */
+    private static ParameterizedType withoutBoundedWildcards(ParameterizedType pt) {
+        if (pt.parameters().isEmpty()) return pt;
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (ParameterizedType a : pt.parameters()) {
+            ParameterizedType plain = a.wildcard() == null || a.wildcard().isUnbound() ? a : a.withWildcard(null);
+            arguments.add(withoutBoundedWildcards(plain));
+        }
+        return pt.withParameters(arguments);
     }
 
     private static boolean castable(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {

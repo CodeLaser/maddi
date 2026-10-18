@@ -461,6 +461,31 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's CollectCollectors.toImmutableMap: {@code toMap(keyFunction, valueFunction, mergeFunction,
+     * LinkedHashMap::new)} handed to a copy of a {@code Map<? extends K, ? extends V>}: the map constructed is a
+     * LinkedHashMap<K, V>.
+     */
+    @Test
+    public void constructorReferenceBesideCapturedKeys() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                import java.util.stream.*;
+                class Collect {
+                    static <T, K, V> Collector<T, ?, Map<K, V>> toLinkedMap(Function<? super T, ? extends K> keyFunction,
+                            Function<? super T, ? extends V> valueFunction, BinaryOperator<V> mergeFunction) {
+                        return Collectors.collectingAndThen(
+                                Collectors.toMap(keyFunction, valueFunction, mergeFunction, LinkedHashMap::new), Collect::copy);
+                    }
+                    static <K, V> Map<K, V> copy(Map<? extends K, ? extends V> map) { return new HashMap<>(map); }
+                }
+                """);
+        contains(kotlin, "Supplier<LinkedHashMap<K, V>>(::LinkedHashMap)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's CollectCollectors.TO_IMMUTABLE_ENUM_SET: {@code (Collector) toImmutableEnumSetGeneric()}, a raw cast of a
      * call whose E extends Enum<E> only the target would give: Nothing, which satisfies the bound.
      */
