@@ -3394,8 +3394,10 @@ public class KotlinExpressionPrinter {
             // (Supplier<ImmutableTable.Builder<R, C, V>>) ImmutableTable.Builder::new: the cast is what types the
             // reference for Java; Kotlin's `{ ImmutableTable.Builder() } as Supplier<…>` infers nothing from it, a SAM
             // constructor does
-            return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(castType.withNullable(
-                            io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+            String sam = KotlinTypeName.of(castType.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            // a lambda prints its own SAM constructor: this one instead, not a second around it
+            if (unwrap(cast.expression()) instanceof Lambda l) return lambda(l, sam, q);
+            return new OutputBuilderImpl().add(new TextImpl(sam))
                     .add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // ((Comparable<@Nullable Object>) k1).compareTo(k2) (guava's ForwardingSortedMap): the type-use annotations of
