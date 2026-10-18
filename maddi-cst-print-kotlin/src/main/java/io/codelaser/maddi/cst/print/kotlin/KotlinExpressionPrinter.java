@@ -823,6 +823,7 @@ public class KotlinExpressionPrinter {
                 if (hasParameter && "toArray".equals(method.name()) && method.parameters().size() == 1
                     && KotlinNullability.translated(method.typeInfo())
                     // not into guava's own toArray(other: Array<T?>), whose T an Array<Annotation> does not give
+                    && KotlinNullability.parameterType(method.parameters().getFirst()).arrays() == 1
                     && !KotlinNullability.isNullable(KotlinNullability.parameterType(method.parameters().getFirst()).componentType())
                     && unwrap(args.get(i)) instanceof ConstructorCall ec
                     && ec.arrayInitializer() == null && ec.parameterizedType().arrays() == 1

@@ -1052,4 +1052,22 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "Holder(cancelled<Any>())");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Doubles.toArray(Collection), called as {@code toArray(new ArrayList<>())}: a translated toArray whose one
+     * parameter is no array (5bd6109f7 asked for its element type and crashed the printer).
+     */
+    @Test
+    public void translatedToArrayOfACollection() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class D {
+                    static double[] toArray(Collection<? extends Number> collection) { return new double[collection.size()]; }
+                    static double[] empty() { return toArray(new ArrayList<Double>()); }
+                }
+                """);
+        contains(kotlin, "toArray(ArrayList<Double>())");
+        compiles(kotlin);
+    }
 }
