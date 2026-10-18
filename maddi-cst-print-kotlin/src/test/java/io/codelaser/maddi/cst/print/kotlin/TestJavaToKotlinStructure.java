@@ -2068,6 +2068,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ClosingFuture.DeferredCloser: a public class whose private constructor takes a private nested type
+     * into a private field, both internal in Kotlin, which the outer class must reach. A public constructor or
+     * property may not expose the internal type: the header keeps the visibilities.
+     */
+    @Test
+    public void constructorOfAPrivateNestedType() {
+        String kotlin = kotlin("""
+                package a;
+                public final class Outer {
+                    private static final class Inner { }
+                    public static final class Closer {
+                        private final Inner list;
+                        private Closer(Inner list) { this.list = list; }
+                        boolean has() { return list != null; }
+                    }
+                    Closer closer() { return new Closer(new Inner()); }
+                }
+                """);
+        contains(kotlin, "class Closer internal constructor(internal val list: Inner)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Types.JavaVersion: {@code static final JavaVersion CURRENT;}, assigned one of the constants in a static
      * block, is a property of the companion, not an entry.
      */

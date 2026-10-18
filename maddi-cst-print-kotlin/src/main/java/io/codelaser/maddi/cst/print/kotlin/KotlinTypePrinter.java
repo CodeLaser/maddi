@@ -195,8 +195,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }
             if (primary != null) {
+                // guava's ClosingFuture.DeferredCloser: private DeferredCloser(CloseableList list) into a private field,
+                // CloseableList a private nested class (internal): the header keeps both visibilities, or its public
+                // constructor and property expose the internal type
+                Optional<Keyword> constructorVisibility = typeInfo.typeNature().isEnum() ? Optional.empty()
+                        : KotlinModifiers.visibility(primary.access(), typeInfo, primary);
+                constructorVisibility.ifPresent(v -> out.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.CONSTRUCTOR));
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
+                                .add(propertyVisibility(fieldByName.get(p.name())))
                                 // a record's component is read through its accessor, x(): a data class property
                                 .add(!typeInfo.typeNature().isRecord()
                                      && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
@@ -387,6 +395,13 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
                                && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
                                && ve.variable() instanceof ParameterInfo);
+    }
+
+    /** A header property's visibility: its field's, nothing for a public one. */
+    private static OutputBuilder propertyVisibility(FieldInfo field) {
+        OutputBuilder b = new OutputBuilderImpl();
+        KotlinModifiers.visibility(field.access(), field.owner(), field).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        return b;
     }
 
     /** {@code private constructor(x: Int)}, or just {@code (x: Int)}. */
