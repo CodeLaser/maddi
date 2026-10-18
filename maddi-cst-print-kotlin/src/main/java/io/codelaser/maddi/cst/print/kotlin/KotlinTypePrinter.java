@@ -117,7 +117,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (constructors.size() == 1) {
             MethodInfo c = constructors.getFirst();
             if (!c.parameters().isEmpty() && c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name())
-                    && !KotlinFieldPrinter.clashesWithMappedProperty(fieldByName.get(p.name())))
+                    && !KotlinFieldPrinter.renamed(fieldByName.get(p.name())))
                 && (!companion || onlyAssignsParameters(c))) {
                 primary = c;
             }
@@ -379,7 +379,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         TypeInfo owner = c.typeInfo();
         FieldInfo field = owner.fields().stream().filter(f -> f.name().equals(parameter.name()) && !f.isStatic())
                 .findFirst().orElse(null);
-        if (field == null || KotlinFieldPrinter.clashesWithMappedProperty(field)) return null;
+        if (field == null || KotlinFieldPrinter.renamed(field)) return null;
         boolean companion = !fromKotlinSource(owner);
         if (companion && owner.typeNature().isRecord()) return field;
         List<MethodInfo> constructors = owner.constructors().stream().filter(x -> !x.isSynthetic()).toList();

@@ -95,10 +95,32 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
             "key", "value", "message", "cause", "length");
 
     /**
-     * The field is named as a property a mapped supertype declares ({@code size} of Collection, {@code key} of
-     * Map.Entry): renamed, and never a property of the primary constructor (guava's LocalCache.WriteThroughEntry).
+     * The field is renamed, and never a property of the primary constructor: it is named as a property a mapped
+     * supertype declares ({@code size} of Collection, {@code key} of Map.Entry; guava's LocalCache.WriteThroughEntry),
+     * or as a field of a superclass that Kotlin lets it see (guava's MoreExecutors.ScheduledListeningDecorator's
+     * private delegate beside ListeningDecorator's, both internal): Java's field shadows, Kotlin's property hides.
      */
-    static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
+    static boolean renamed(FieldInfo fieldInfo) {
+        return clashesWithMappedProperty(fieldInfo) || hidesSuperclassField(fieldInfo);
+    }
+
+    private static boolean hidesSuperclassField(FieldInfo fieldInfo) {
+        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.owner() == null) return false;
+        java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited = new java.util.HashSet<>();
+        for (var s = fieldInfo.owner().parentClass(); s != null && s.typeInfo() != null && !s.isJavaLangObject()
+                                                      && visited.add(s.typeInfo()); s = s.typeInfo().parentClass()) {
+            if (!KotlinNullability.translated(s.typeInfo())) return false;
+            for (FieldInfo f : s.typeInfo().fields()) {
+                if (!f.isStatic() && f.name().equals(fieldInfo.name()) && !KotlinModifiers.visibility(f.access(), f.owner())
+                        .equals(java.util.Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
         return KotlinContext.translatingJava() && !fieldInfo.isStatic() && MAPPED_PROPERTIES.contains(fieldInfo.name())
                && fieldInfo.owner() != null && !fieldInfo.owner().typeNature().isEnum()
                && !fieldInfo.owner().typeNature().isRecord()
@@ -113,7 +135,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
      */
     static String name(FieldInfo fieldInfo) {
         String name = KotlinNames.name(fieldInfo.name());
-        if (!clashesWithMappedProperty(fieldInfo)) return name;
+        if (!renamed(fieldInfo)) return name;
         String renamed = "_" + fieldInfo.name();
         java.util.Set<String> taken = new java.util.HashSet<>();
         fieldInfo.owner().fields().forEach(f -> taken.add(f.name()));

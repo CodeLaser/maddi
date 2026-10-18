@@ -2068,6 +2068,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's MoreExecutors.ScheduledListeningDecorator: its private delegate shadows ListeningDecorator's in Java; in
+     * Kotlin both are internal (private members of nested classes), and the subclass's would hide the other: renamed.
+     */
+    @Test
+    public void fieldShadowingASuperclassField() {
+        String kotlin = kotlin("""
+                package a;
+                final class Executors {
+                    private static class Decorator {
+                        private final Runnable delegate;
+                        Decorator(Runnable delegate) { this.delegate = delegate; }
+                        void run() { delegate.run(); }
+                    }
+                    private static final class Scheduled extends Decorator {
+                        private final Runnable delegate;
+                        Scheduled(Runnable delegate) { super(delegate); this.delegate = delegate; }
+                        void again() { delegate.run(); }
+                    }
+                }
+                """);
+        contains(kotlin, "_delegate");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ClosingFuture.DeferredCloser: a public class whose private constructor takes a private nested type
      * into a private field, both internal in Kotlin, which the outer class must reach. A public constructor or
      * property may not expose the internal type: the header keeps the visibilities.
