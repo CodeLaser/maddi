@@ -569,6 +569,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow: {@code Entry[] entries = n == entryArray.length
+     * ? entryArray : new Entry[n]}, an invariant local: entryArray escapes through the conditional, and stays invariant.
+     */
+    @Test
+    public void arrayParameterEscapingThroughAConditional() {
+        String kotlin = kotlin("""
+                package a;
+                final class R {
+                    static int fill(int n, String[] entryArray) {
+                        String[] entries = n == entryArray.length ? entryArray : new String[n];
+                        entries[0] = "x";
+                        return entries.length;
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("Array<out"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */

@@ -428,9 +428,15 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                ? List.of(mc) : List.of();
     }
 
+    // the value is pi, also as a branch of a conditional: guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow,
+    // entries = n == entryArray.length ? entryArray : createEntryArray(n), an invariant local
     private static boolean isPi(ParameterInfo pi, io.codelaser.maddi.cst.api.expression.Expression e) {
-        return e != null && KotlinExpressionPrinter.unwrap(e) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-               && pi.equals(ve.variable());
+        if (e == null) return false;
+        io.codelaser.maddi.cst.api.expression.Expression x = KotlinExpressionPrinter.unwrap(e);
+        if (x instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+            return isPi(pi, ic.ifTrue()) || isPi(pi, ic.ifFalse());
+        }
+        return x instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable());
     }
 
     /**
