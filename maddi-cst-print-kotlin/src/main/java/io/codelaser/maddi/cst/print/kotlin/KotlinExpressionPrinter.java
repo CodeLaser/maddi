@@ -1544,7 +1544,21 @@ public class KotlinExpressionPrinter {
             // Optional.ofNullable(element) into an Optional<T>: Kotlin's Optional bounds its T non-null, so the call
             // is an Optional<T & Any>, which the invariant Optional<T> is not. Erased, the cast checks nothing
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+            OutputBuilder call = print(e, q);
+            String owner = KotlinTypeName.staticOwner(mc.methodInfo().typeInfo(), q);
+            if ("empty".equals(mc.methodInfo().name()) && mc.typeArguments().isEmpty()) {
+                // the cast gives Kotlin nothing to infer empty's T from: Optional<T>'s own
+                call = text(owner + ".empty<" + KotlinTypeName.of(target.parameters().getFirst(), q) + ">()");
+            } else if ("of".equals(mc.methodInfo().name()) && mc.parameterExpressions().size() == 1
+                       && unwrap(mc.parameterExpressions().getFirst()).parameterizedType().typeParameter() != null) {
+                // Optional.of(value) with a value of type T: Kotlin's of takes a T & Any; Java's throws on null too
+                Expression value = mc.parameterExpressions().getFirst();
+                KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, value, KotlinContext.describe(value));
+                call = new OutputBuilderImpl().add(new TextImpl(owner)).add(SymbolEnum.DOT).add(new TextImpl("of"))
+                        .add(SymbolEnum.LEFT_PARENTHESIS).add(receiver(value, q)).add(KotlinNullability.NOT_NULL)
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(call).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);

@@ -1992,6 +1992,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    /**
+     * Optional.empty() and Optional.of(value) into an Optional<T>, beside ofNullable above: the cast to Optional<T>
+     * gives Kotlin nothing to infer the call's own T from.
+     */
+    @Test
+    public void optionalEmptyAndOfIntoTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                class Opt<T> {
+                    private final T value;
+                    Opt(T value) { this.value = value; }
+                    Optional<T> none() { return Optional.empty(); }
+                    Optional<T> some() { return Optional.of(value); }
+                }
+                """);
+        // empty's T from Optional<T>; of's value asserted, as Kotlin's of takes a T & Any (Java's of throws on null too)
+        contains(kotlin, "(Optional.empty<T>() as Optional<T>)");
+        contains(kotlin, "(Optional.of(value!!) as Optional<T>)");
+        compiles(kotlin);
+    }
+
     /** guava's CaseFormat: constants override a non-abstract method of their enum, which Kotlin wants open. */
     @Test
     public void enumConstantOverridesOpenMethod() {
