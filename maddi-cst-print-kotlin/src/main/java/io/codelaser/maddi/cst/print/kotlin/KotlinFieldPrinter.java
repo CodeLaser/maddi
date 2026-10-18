@@ -92,7 +92,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** The getter names of Kotlin's mapped members that are properties there, which a class's field may not reuse. */
     private static final java.util.Set<String> MAPPED_PROPERTIES = java.util.Set.of("size", "keys", "values", "entries",
-            "key", "value", "message", "cause");
+            "key", "value", "message", "cause", "length");
 
     /**
      * The field is named as a property a mapped supertype declares ({@code size} of Collection, {@code key} of

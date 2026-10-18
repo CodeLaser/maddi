@@ -100,7 +100,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // UnsignedInteger.intValue() overriding Number's: Kotlin's Number declares toInt()
             String numberFunction = !methodInfo.overrides().isEmpty() && !KotlinTypePrinter.fromKotlinSource(typeInfo)
                     ? KotlinMappedMembers.function(methodInfo) : null;
-            b.add(new TextImpl(removeAt ? "removeAt" : numberFunction != null ? numberFunction
+            // guava's ChunksCharSequence.charAt(index) overriding CharSequence's: Kotlin's is the operator get
+            boolean indexGet = !methodInfo.overrides().isEmpty() && KotlinMappedMembers.isIndexGet(methodInfo)
+                               && !KotlinTypePrinter.fromKotlinSource(typeInfo);
+            b.add(new TextImpl(removeAt ? "removeAt" : indexGet ? "get" : numberFunction != null ? numberFunction
                     : KotlinNames.name(methodInfo.name())));
         }
 

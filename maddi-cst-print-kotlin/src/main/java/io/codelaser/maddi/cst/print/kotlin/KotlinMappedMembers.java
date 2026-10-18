@@ -104,7 +104,7 @@ final class KotlinMappedMembers {
 
     /** The mapped getters a class can override: as Kotlin properties ({@code override val size: Int get() = …}). */
     private static final Set<String> OVERRIDABLE_PROPERTIES = Set.of("size", "keys", "values", "entries", "key", "value",
-            "message", "cause");
+            "message", "cause", "length");
 
     /**
      * The parameters Java declares as {@code Object} where Kotlin's mapped member takes a type parameter of its owner:

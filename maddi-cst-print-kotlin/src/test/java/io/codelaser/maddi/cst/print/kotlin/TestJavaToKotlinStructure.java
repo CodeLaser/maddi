@@ -2068,6 +2068,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's PublicSuffixTrie.ChunksCharSequence implements CharSequence: Kotlin's length is a property and charAt
+     * the operator get, which the overrides declare; its field length is renamed, as AbstractMapBasedMultiset's size.
+     */
+    @Test
+    public void charSequenceImplementation() {
+        String kotlin = kotlin("""
+                package a;
+                final class Chunks implements CharSequence {
+                    private final String text;
+                    private final int length;
+                    Chunks(String text) { this.text = text; this.length = text.length(); }
+                    @Override public int length() { return length; }
+                    @Override public char charAt(int index) { return text.charAt(index); }
+                    @Override public CharSequence subSequence(int start, int end) { return text.subSequence(start, end); }
+                    @Override public String toString() { return text; }
+                    char first() { return charAt(0); }
+                }
+                """);
+        contains(kotlin, "override val length: Int");
+        contains(kotlin, "override fun get(index: Int): Char");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #inheritedDefaultsChosenExplicitly}, for methods with parameters: guava's FlatMapSpliteratorOfDouble
      * inherits forEachRemaining(Consumer) from FlatMapSpliterator and as Spliterator's default; SynchronizedMultiset
      * forEach(Consumer) from SynchronizedCollection and as Multiset's default.
