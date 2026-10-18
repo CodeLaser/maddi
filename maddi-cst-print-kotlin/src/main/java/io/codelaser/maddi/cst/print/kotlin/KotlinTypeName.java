@@ -251,9 +251,7 @@ public class KotlinTypeName {
     }
 
     private static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
-        return tp.isMethodTypeParameter() ? method != null && method.typeParameters().contains(tp)
-                : KotlinContext.typeParameterInScope(tp);
+        return KotlinContext.typeParameterInScope(tp);
     }
 
     private static String withoutNullable(String s) {

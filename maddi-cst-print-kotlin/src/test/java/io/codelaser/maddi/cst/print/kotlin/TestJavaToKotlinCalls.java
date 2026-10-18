@@ -461,6 +461,29 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's MultimapBuilder.enumKeys: {@code new EnumMap<K0, Collection<V>>(keyClass)} in the createMap of the
+     * anonymous class it returns, K0 the enclosing method's: the type arguments stay, or Kotlin infers no V.
+     */
+    @Test
+    public void enclosingMethodsTypeArgumentsOfAConstructorCall() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Builder {
+                    interface Factory { <V> Map<?, Collection<V>> create(); }
+                    static <K0 extends Enum<K0>> Factory enumKeys(Class<K0> keyClass) {
+                        return new Factory() {
+                            @Override
+                            public <V> Map<?, Collection<V>> create() { return new EnumMap<K0, Collection<V>>(keyClass); }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "EnumMap<K0, MutableCollection<V>>(keyClass)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Equivalence.wrap: {@code new Wrapper<S>(this, reference)} for an {@code S extends @Nullable T}, into
      * Wrapper's {@code Equivalence<? super @NonNull T>}: an {@code Equivalence<in S & Any>}, which an Equivalence<T>
      * is.
