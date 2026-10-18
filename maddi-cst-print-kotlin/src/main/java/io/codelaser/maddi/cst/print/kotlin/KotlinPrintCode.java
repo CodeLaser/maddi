@@ -62,8 +62,6 @@ public enum KotlinPrintCode implements PrintMessage.Code {
     UNCHECKED_CAST(Severity.INFO),
     /** protected printed without a modifier, public: Java's protected also grants the package access. */
     PROTECTED_AS_PUBLIC(Severity.INFO),
-    /** A type parameter with more than one bound is printed without them: Kotlin needs a {@code where} clause. */
-    BOUNDS_DROPPED(Severity.LOSS),
     /** A statement or expression form the printer does not know, printed as Java. */
     JAVA_FALLBACK(Severity.ERROR);
 

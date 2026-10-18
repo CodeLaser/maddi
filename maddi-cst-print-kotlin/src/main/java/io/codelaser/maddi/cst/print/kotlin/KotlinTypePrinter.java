@@ -246,6 +246,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
             }
+            String where = KotlinTypeName.whereClause(typeInfo.typeParameters(),
+                    new KotlinHeaderQualification(insideType, typeInfo));
+            if (!where.isEmpty()) out.add(SpaceEnum.ONE).add(new TextImpl(where));
         }
 
         List<OutputBuilder> members = new ArrayList<>();

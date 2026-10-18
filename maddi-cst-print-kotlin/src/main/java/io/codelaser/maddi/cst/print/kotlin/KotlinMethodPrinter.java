@@ -123,6 +123,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         : KotlinReadOnly.returns(methodInfo) ? KotlinTypeName.readOnly(rt, qualification)
                         : KotlinTypeName.of(rt, qualification)));
             }
+            MethodInfo boundsFrom = genericOverridden(methodInfo);
+            String where = KotlinTypeName.whereClause(boundsFrom != null ? boundsFrom.typeParameters()
+                    : methodInfo.typeParameters(), qualification);
+            if (!where.isEmpty()) b.add(SpaceEnum.ONE).add(new TextImpl(where));
         }
 
         if (property != null && !methodInfo.isAbstract()) b.add(SpaceEnum.ONE).add(new TextImpl("get()"));

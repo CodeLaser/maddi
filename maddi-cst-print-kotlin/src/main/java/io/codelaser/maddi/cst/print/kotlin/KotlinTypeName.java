@@ -265,14 +265,28 @@ public class KotlinTypeName {
     static String typeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp, Qualification q) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         String name = KotlinNames.name(tp.simpleName());
-        if (bounds.size() > 1) {
-            KotlinContext.message(KotlinPrintCode.BOUNDS_DROPPED,
-                    tp.isMethodTypeParameter() ? KotlinContext.currentMethod() : null, tp.simpleName() + " extends "
-                    + bounds.stream().map(b -> of(b, q)).collect(Collectors.joining(" & ")));
-        }
-        // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat
+        // <S extends @Nullable T> S reverse(): the bound's type-use annotation, which an override must repeat; more
+        // than one bound goes to the where clause
         return bounds.size() == 1 ? name + " : " + inSignature(() -> of(KotlinTypePrinter.declared(bounds.getFirst()), q))
                 : name;
+    }
+
+    /**
+     * guava's ToDoubleRounder<X extends Number & Comparable<X>>: {@code where X : Number, X : Comparable<X>}, after a
+     * class's supertypes or a function's result, for the type parameters with more than one bound; empty if none has.
+     */
+    static String whereClause(java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters,
+                              Qualification q) {
+        java.util.List<String> constraints = new java.util.ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+            if (bounds.size() < 2) continue;
+            for (ParameterizedType b : bounds) {
+                constraints.add(KotlinNames.name(tp.simpleName()) + " : "
+                                + inSignature(() -> of(KotlinTypePrinter.declared(b), q)));
+            }
+        }
+        return constraints.isEmpty() ? "" : "where " + String.join(", ", constraints);
     }
 
     /** A type's name, without type arguments: as the Java printer would qualify it, segments escaped. */

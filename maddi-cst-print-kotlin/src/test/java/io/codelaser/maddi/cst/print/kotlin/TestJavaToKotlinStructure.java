@@ -2068,6 +2068,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ToDoubleRounder<X extends Number & Comparable<X>>, and a method's {@code <T extends Number &
+     * Comparable<T>>}: Kotlin's where clause, after the supertypes or the result.
+     */
+    @Test
+    public void typeParametersWithTwoBounds() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Rounder<X extends Number & Comparable<X>> {
+                    abstract X toX(double d);
+                    int compare(X x, double d) { return x.compareTo(toX(d)); }
+                    static <T extends Number & Comparable<T>> T max(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }
+                }
+                """);
+        contains(kotlin, "abstract class Rounder<X> where X : Number, X : Comparable<X>");
+        contains(kotlin, "fun <T> max(a: T, b: T): T where T : Number, T : Comparable<T>");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass's simple name is
      * the class's own, which inside it means itself in Kotlin. Qualified by the superclass's outer, with its type
      * arguments.
