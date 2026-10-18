@@ -1168,6 +1168,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableCollection.writeReplace(): {@code new SerializedForm(toArray())}, an Array<Any?> into a
+     * parameter whose elements are nullable: no cast (5bd6109f7 cast it to Java's Object[], Array<Any>).
+     */
+    @Test
+    public void toArrayResultAsAnArgumentIsNotCast() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Coll {
+                    abstract Object[] toArray();
+                    static final class Form { final Object[] array; Form(Object[] array) { this.array = array; } }
+                    Object writeReplace() { return new Form(toArray()); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("toArray()[]", "array[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "Form(toArray())");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

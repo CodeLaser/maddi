@@ -1503,6 +1503,22 @@ public class KotlinExpressionPrinter {
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
         // only where a value is assigned or returned: an argument's target is Java's parameter type, not Kotlin's
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
+            && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null && "toArray".equals(tc.methodInfo().name())
+            && tc.parameterExpressions().size() == 1
+            && KotlinNullability.translated(tc.methodInfo().typeInfo())
+            && !KotlinNullability.isNullable(target.componentType())) {
+            ParameterizedType result = KotlinNullability.kotlinType(e);
+            if (result != null && result.arrays() == 1 && KotlinNullability.isNullable(result.componentType())) {
+                // guava's Parameter.getDeclaredAnnotations(): annotations.toArray(new Annotation[0]), guava's own
+                // <T> toArray(other: Array<T?>): Array<T?>, into an Array<Annotation>: Java's array is filled; erased,
+                // the cast checks nothing
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+        }
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && !target.parameters().isEmpty()
             && unwrap(e) instanceof VariableExpression ve && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
                                                                || ve.variable() instanceof ParameterInfo)) {
@@ -1571,21 +1587,6 @@ public class KotlinExpressionPrinter {
             ParameterizedType castType = own.withComponentType(own.componentType()
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
-        }
-        if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
-            && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null && "toArray".equals(tc.methodInfo().name())
-            && KotlinNullability.translated(tc.methodInfo().typeInfo())
-            && !KotlinNullability.isNullable(target.componentType())) {
-            ParameterizedType result = KotlinNullability.kotlinType(e);
-            if (result != null && result.arrays() == 1 && KotlinNullability.isNullable(result.componentType())) {
-                // guava's Parameter.getDeclaredAnnotations(): annotations.toArray(new Annotation[0]), guava's own
-                // <T> toArray(other: Array<T?>): Array<T?>, into an Array<Annotation>: Java's array is filled; erased,
-                // the cast checks nothing
-                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
-                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
-                        .add(SymbolEnum.RIGHT_PARENTHESIS);
-            }
         }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
             // String factory = (String) properties.get(key): Java's cast lets the null through
