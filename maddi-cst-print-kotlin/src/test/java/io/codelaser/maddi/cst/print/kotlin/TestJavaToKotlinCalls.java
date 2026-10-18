@@ -1033,4 +1033,23 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "as MutableSet<E>");
         compiles(kotlin);
     }
+
+    /**
+     * guava's AbstractScheduledService: {@code new FutureAsCancellable(Futures.immediateCancelledFuture())} into a
+     * {@code Future<?>}: the star fixes no V, the call states one.
+     */
+    @Test
+    public void resultOnlyCallIntoAStarProjectedConstructorParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.*;
+                final class S {
+                    static final class Holder { final Future<?> f; Holder(Future<?> f) { this.f = f; } }
+                    static <V> Future<V> cancelled() { return new CompletableFuture<>(); }
+                    static Holder make() { return new Holder(cancelled()); }
+                }
+                """);
+        contains(kotlin, "Holder(cancelled<Any>())");
+        compiles(kotlin);
+    }
 }

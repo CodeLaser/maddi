@@ -598,14 +598,27 @@ public class KotlinExpressionPrinter {
 
     private static boolean noExpectedType(MethodCall mc) {
         if (NO_EXPECTED_TYPE.get().contains(mc)) return true;
-        if (!(KotlinContext.enclosingCall() instanceof MethodCall outer)) return false;
-        if (outer.object() != null && unwrap(outer.object()) == mc) return true;
-        List<Expression> args = outer.parameterExpressions();
-        List<ParameterInfo> params = outer.methodInfo().parameters();
+        List<Expression> args;
+        List<ParameterInfo> params;
+        if (KotlinContext.enclosingCall() instanceof MethodCall outer) {
+            if (outer.object() != null && unwrap(outer.object()) == mc) return true;
+            args = outer.parameterExpressions();
+            params = outer.methodInfo().parameters();
+        } else if (KotlinContext.enclosingCall() instanceof ConstructorCall outer && outer.constructor() != null) {
+            // guava's AbstractScheduledService: new FutureAsCancellable(Futures.immediateCancelledFuture())
+            args = outer.parameterExpressions();
+            params = outer.constructor().parameters();
+        } else {
+            return false;
+        }
         for (int i = 0; i < args.size() && i < params.size(); i++) {
             if (unwrap(args.get(i)) != mc || params.get(i).isVarArgs()) continue;
             ParameterizedType target = params.get(i).parameterizedType();
-            return target.isJavaLangObject() || target.typeParameter() != null && !target.typeParameter().isMethodTypeParameter();
+            // a Future<?>: the star fixes no type argument
+            boolean starsOnly = target.arrays() == 0 && !target.parameters().isEmpty()
+                                && target.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard);
+            return target.isJavaLangObject() || starsOnly
+                   || target.typeParameter() != null && !target.typeParameter().isMethodTypeParameter();
         }
         return false;
     }
