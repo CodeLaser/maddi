@@ -376,6 +376,12 @@ final class KotlinContext {
         return scope == null || scope.isEmpty() || KotlinAssignments.assignedIn(scope.get(), local);
     }
 
+    /** A local of the current body is assigned inside an expression, which prints as {@code .also { x = it }}. */
+    static boolean assignedAsValue(Variable local) {
+        var scope = SCOPES.get().peek();
+        return scope != null && scope.isPresent() && KotlinAssignments.assignedAsValue(scope.get(), local);
+    }
+
     /** A local of the current body declared without a value, which each path assigns at most once: a val. */
     static boolean assignedOnce(io.codelaser.maddi.cst.api.statement.Statement declaration, Variable local) {
         var scope = SCOPES.get().peek();

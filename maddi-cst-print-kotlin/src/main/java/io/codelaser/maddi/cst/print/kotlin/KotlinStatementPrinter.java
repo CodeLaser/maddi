@@ -926,6 +926,12 @@ public class KotlinStatementPrinter {
             return Stream.of(b, assignment).collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                     GuideImpl.generatorForBlock()));
         }
+        if (!hasInitializer && !val && KotlinNullability.isNullable(type) && KotlinContext.assignedAsValue(lv)) {
+            // guava's ExecutionSequencer: while ((queuedTask = q.nextTask) != null && (queuedExecutor = q.nextExecutor)
+            // != null): the second .also { queuedExecutor = it } runs only after the first, which Kotlin's definite
+            // assignment does not follow into the lambda
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl("null"));
+        }
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                     .add(KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)

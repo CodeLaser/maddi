@@ -1168,6 +1168,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ExecutionSequencer.TaskNonReentrantExecutor.run: two locals assigned in one loop condition, the second
+     * after {@code &&}. Each assignment is an {@code .also { x = it }}, and Kotlin's definite assignment does not see
+     * the second as made before the body reads it: the nullable local starts as null.
+     */
+    @Test
+    public void localAssignedInAConditionAfterAnd() {
+        String kotlin = kotlin("""
+                package a;
+                class Q {
+                    Runnable nextTask;
+                    java.util.concurrent.Executor nextExecutor;
+                    void drain() {
+                        Runnable task;
+                        java.util.concurrent.Executor executor;
+                        while ((task = nextTask) != null && (executor = nextExecutor) != null) {
+                            nextTask = null;
+                            executor.execute(task);
+                        }
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("nextTask", "nextExecutor", "task", "executor")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "var executor: java.util.concurrent.Executor? = null");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Equivalence.equals(): {@code return Equals.INSTANCE}, whose class extends Equivalence<Object>, as the
      * Equivalence<Any?> a caller's null makes the result. Kotlin's generics are invariant: an unchecked cast (Equals
      * itself handles null before doEquivalent).
