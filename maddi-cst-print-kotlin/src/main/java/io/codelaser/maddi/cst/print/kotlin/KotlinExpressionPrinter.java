@@ -1462,6 +1462,15 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodReference && target != null
+            && target.typeInfo() != null && target.typeInfo().isFunctionalInterface() && target.arrays() == 0
+            && target.parameters().stream().allMatch(p -> p.wildcard() == null)) {
+            // return Util::parse into a Function<String, Int>: Kotlin types a bare reference as its own KFunction1,
+            // which is no Function; an argument converts by itself, a returned or assigned value needs the SAM constructor
+            return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(target.withNullable(
+                            io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodCall mc && target != null
             && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinTypeName::definitelyNonNull)
             && sameUpToStates(mc.parameterizedType(), target) && nullableArgument(mc.methodInfo())) {
