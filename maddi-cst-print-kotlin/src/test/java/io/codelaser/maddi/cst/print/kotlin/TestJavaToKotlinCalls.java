@@ -461,6 +461,23 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Invokable.invoke: {@code invokeInternal(receiver, checkNotNull(args))} with a vararg args, Kotlin's
+     * Array<out Any?>, into an Object[]: cast as the bare vararg is.
+     */
+    @Test
+    public void checkedVarargsIntoAnArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Objects;
+                abstract class Invoker {
+                    Object invoke(Object receiver, Object... args) { return invokeInternal(receiver, Objects.requireNonNull(args)); }
+                    abstract Object invokeInternal(Object receiver, Object[] args);
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Invokable: {@code <M extends AccessibleObject & Member> Invokable(M member)}, a generic constructor, which
      * Kotlin has none of: the parameter is M's erasure, and its use as the other bound casts.
      */

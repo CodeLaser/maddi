@@ -1014,7 +1014,7 @@ public class KotlinExpressionPrinter {
                 } else if (hasParameter && varargsIntoArray(method, i, args.get(i))) {
                     // ensureNotEmpty(values, name) with a vararg values: Kotlin's is an Array<out T?>, and the
                     // parameter's Array<T?> is invariant; erased, the cast checks nothing, as Java's arrays are covariant
-                    ParameterInfo vararg = (ParameterInfo) ((VariableExpression) unwrap(args.get(i))).variable();
+                    ParameterInfo vararg = varargsParameter(args.get(i));
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
                     ParameterizedType castType = KotlinNullability.parameterType(vararg)
                             .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
@@ -1222,13 +1222,27 @@ public class KotlinExpressionPrinter {
      */
     private static boolean varargsIntoArray(io.codelaser.maddi.cst.api.info.MethodInfo method, int i, Expression arg) {
         if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())) return false;
-        if (!(unwrap(arg) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)
-            || !pi.isVarArgs()) {
-            return false;
-        }
+        ParameterInfo pi = varargsParameter(arg);
+        if (pi == null) return false;
         ParameterizedType target = method.parameters().get(i).parameterizedType();
         return target.arrays() == 1 && !target.componentType().isPrimitiveExcludingVoid()
                && !pi.parameterizedType().componentType().isPrimitiveExcludingVoid();
+    }
+
+    /**
+     * The varargs parameter the argument is, directly or through a null check that returns it (guava's Invokable:
+     * {@code invokeInternal(receiver, checkNotNull(args))}); null otherwise.
+     */
+    private static ParameterInfo varargsParameter(Expression arg) {
+        Expression e = unwrap(arg);
+        if (e instanceof MethodCall mc && mc.parameterExpressions().size() == 1 && mc.methodInfo() != null
+            && mc.methodInfo().isStatic() && (("checkNotNull".equals(mc.methodInfo().name())
+                && "com.google.common.base.Preconditions".equals(mc.methodInfo().typeInfo().fullyQualifiedName()))
+                || "requireNonNull".equals(mc.methodInfo().name())
+                   && "java.util.Objects".equals(mc.methodInfo().typeInfo().fullyQualifiedName()))) {
+            e = unwrap(mc.parameterExpressions().getFirst());
+        }
+        return e instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi && pi.isVarArgs() ? pi : null;
     }
 
     /** The receiver's Java type has a {@code ?} argument: {@code Map<String, ?>}, Kotlin's {@code Map<String, *>}. */
