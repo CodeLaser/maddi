@@ -191,8 +191,12 @@ public class KotlinTypeName {
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound()) return "*";
             String bound = pt.typeInfo() == null && !pt.isTypeParameter() ? "Any" : withoutWildcard(pt, q);
-            // ? super @NonNull T, of a nullable-bounded T
-            if (pt.isTypeParameter() && definitelyNonNull(pt.withWildcard(null))) bound += " & Any";
+            // ? super @NonNull T, of a nullable-bounded T (guava's Equivalence.Wrapper). Not ? extends @NonNull B:
+            // MutableClassToInstanceMap's ForwardingMap<Class<? extends @NonNull B>, B> header would take it, and its
+            // overrides' parameters, printed without, would not match
+            if (pt.isTypeParameter() && pt.wildcard().isSuper() && definitelyNonNull(pt.withWildcard(null))) {
+                bound += " & Any";
+            }
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {

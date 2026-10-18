@@ -555,6 +555,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's MutableClassToInstanceMap extends ForwardingMap<Class<? extends @NonNull B>, B>: {@code out B}, as its
+     * overrides' parameters say, or the header's MutableMap<K, V> takes two different K.
+     */
+    @Test
+    public void nonNullExtendsWildcardStaysOutB() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.NonNull;
+                import org.jspecify.annotations.Nullable;
+                class Instances<B extends @Nullable Object> extends HashMap<Class<? extends @NonNull B>, B> {
+                    @Override public B put(Class<? extends @NonNull B> key, B value) { return super.put(key, value); }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "HashMap<Class<out B>, B>()");
+    }
+
+    /**
      * guava's Ordering.ARBITRARY_ORDERING: a field of {@code Ordering<@Nullable Object>}, which a method returns as
      * one; the field's declared type argument is an Any? too.
      */
