@@ -959,4 +959,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("return null"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * A lambda cast to a functional interface becomes its SAM constructor, once: returned, assigned to a local, and
+     * passed as an argument. Twice, {@code Supplier<…>(Supplier<…> { … })}, kotlinc rejects.
+     */
+    @Test
+    public void lambdaCastToFunctionalInterface() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                class Casts {
+                    static Object make() { return (Supplier<List<String>>) () -> new ArrayList<>(); }
+                    static Object local() {
+                        Object o = (Supplier<List<String>>) () -> new ArrayList<>();
+                        return o;
+                    }
+                    static Object take(Object o) { return o; }
+                    static Object argument() { return take((Supplier<List<String>>) () -> new ArrayList<>()); }
+                }
+                """);
+        assertFalse(kotlin.contains("Supplier<MutableList<String>>(Supplier"),
+                () -> "the SAM constructor is printed around a second one:\n" + kotlin);
+        contains(kotlin, "fun make(): Any = Supplier<MutableList<String>> { ArrayList() }");
+        contains(kotlin, "val o: Any = Supplier<MutableList<String>> { ArrayList() }");
+        contains(kotlin, "take(Supplier<MutableList<String>> { ArrayList() })");
+        compiles(kotlin);
+    }
 }
