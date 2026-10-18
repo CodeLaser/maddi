@@ -2232,6 +2232,20 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "class Closer internal constructor(internal val list: Inner)");
         compiles(kotlin);
+        // fernflower's ExceptionTable: a private field with a Java getter is a private property, without the
+        // @JvmField a public one takes against the accessor clash
+        String getter = kotlin("""
+                package a;
+                import java.util.*;
+                public class Table {
+                    private final List<String> handlers;
+                    public Table(List<String> handlers) { this.handlers = handlers; }
+                    public List<String> getHandlers() { return handlers; }
+                }
+                """);
+        contains(getter, "class Table(private val handlers: ");
+        assertFalse(getter.contains("@JvmField"), getter);
+        compiles(getter);
     }
 
     /**

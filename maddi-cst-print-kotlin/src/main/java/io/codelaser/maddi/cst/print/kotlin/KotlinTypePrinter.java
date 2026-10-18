@@ -208,10 +208,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
                                 .add(propertyVisibility(fieldByName.get(p.name())))
-                                // a record's component is read through its accessor, x(): a data class property
-                                .add(!typeInfo.typeNature().isRecord()
+                                // a record's component is read through its accessor, x(): a data class property. A
+                                // private property has no accessors, and @JvmField none to replace
+                                .add(!privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
                                      && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
-                                     || !typeInfo.typeNature().isRecord() && !hasComponentMethods(typeInfo)
+                                     || !privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
+                                        && !hasComponentMethods(typeInfo)
                                         && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
                                                 fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))
                                         ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
@@ -401,6 +403,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
                                && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
                                && ve.variable() instanceof ParameterInfo);
+    }
+
+    private static boolean privateProperty(FieldInfo field) {
+        return KotlinModifiers.visibility(field.access(), field.owner(), null)
+                .equals(Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE));
     }
 
     /** A header property's visibility: its field's, nothing for a public one. */
