@@ -499,6 +499,27 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Futures.submit: {@code TrustedListenableFutureTask.create(runnable, null)} into a task of
+     * {@code <@Nullable Void>}, Kotlin's Unit, create's result a plain V: create<Unit?>, cast to the Unit task.
+     */
+    @Test
+    public void nullIntoAVoidInstantiatedTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                class Task<V> {
+                    V result;
+                    static <V> Task<V> create(Runnable runnable, V result) { Task<V> t = new Task<>(); t.result = result; return t; }
+                    static Task<Void> submit(Runnable runnable) {
+                        Task<Void> task = Task.create(runnable, null);
+                        return task;
+                    }
+                }
+                """);
+        contains(kotlin, "create<Unit?>(runnable, null) as Task<Unit>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Lists.cartesianProduct: the varargs overload calls the List one with {@code Arrays.asList(lists)}, which
      * Kotlin also finds a single vararg element of: the call takes Java's inferred type argument.
      */

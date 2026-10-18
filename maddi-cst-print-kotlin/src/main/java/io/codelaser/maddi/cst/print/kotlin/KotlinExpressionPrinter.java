@@ -490,6 +490,20 @@ public class KotlinExpressionPrinter {
         String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
                 .map(t -> KotlinTypeName.of(KotlinTypePrinter.declared(t), q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
                 : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyOrLambdaOnly(mc, q);
+        String voidNull = typeArguments == null ? nullIntoVoid(mc, q) : null;
+        if (voidNull != null) {
+            // guava's Futures.submit: TrustedListenableFutureTask.create(runnable, null) into a <@Nullable Void>
+            // task, create's result a plain V. Kotlin's Void is Unit, which takes no null: the call takes Unit?, and
+            // its result is cast to the Unit one, unchecked and erased; get() still returns Java's null
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, mc, KotlinContext.describe(mc));
+            b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + voidNull))
+                    .add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(b).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(mc.concreteReturnType()
+                            .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
     }
@@ -500,6 +514,39 @@ public class KotlinExpressionPrinter {
         ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
         return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
+    }
+
+    /**
+     * The call's type arguments, a {@code Unit?} for each the call instantiates {@code Void}, when a null literal goes
+     * into a parameter typed by that type variable, which the verdicts hold non-null; null otherwise. See the caller.
+     */
+    private static String nullIntoVoid(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (!KotlinContext.translatingJava() || m.typeParameters().isEmpty() || m.returnType() == null
+            || mc.concreteReturnType() == null || !KotlinNullability.translated(m.typeInfo())) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete =
+                m.returnType().formalToConcrete(mc.concreteReturnType());
+        boolean found = false;
+        List<Expression> args = mc.parameterExpressions();
+        for (int i = 0; i < m.parameters().size() && i < args.size(); i++) {
+            ParameterizedType p = m.parameters().get(i).parameterizedType();
+            if (!(unwrap(args.get(i)) instanceof NullConstant) || p.typeParameter() == null || p.arrays() > 0
+                || !m.typeParameters().contains(p.typeParameter())
+                || KotlinNullability.isNullable(KotlinNullability.parameterType(m.parameters().get(i)))) continue;
+            ParameterizedType c = concrete.get(p.typeParameter());
+            if (c != null && c.arrays() == 0 && c.typeInfo() != null
+                && "java.lang.Void".equals(c.typeInfo().fullyQualifiedName())) found = true;
+        }
+        if (!found) return null;
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : m.typeParameters()) {
+            ParameterizedType c = concrete.get(tp);
+            if (c == null || c.wildcard() != null || c.typeParameter() == tp) return null;
+            boolean isVoid = c.arrays() == 0 && c.typeInfo() != null
+                             && "java.lang.Void".equals(c.typeInfo().fullyQualifiedName());
+            printed.add(isVoid ? "Unit?" : KotlinTypeName.of(c, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
 
     private static String resultOnlyOrLambdaOnly(MethodCall mc, Qualification q) {
