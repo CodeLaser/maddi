@@ -121,6 +121,29 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
             """;
 
     /**
+     * guava's ImmutableSortedSet.spliterator(): new Spliterators.AbstractSpliterator<E>(size(), …) { … }, an int into
+     * the anonymous class's superclass constructor's long: Kotlin widens nothing by itself.
+     */
+    @Test
+    public void anonymousSuperConstructorArgumentWidened() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Consumer;
+                class C<E> {
+                    int size() { return 0; }
+                    Spliterator<E> spliterator() {
+                        return new Spliterators.AbstractSpliterator<E>(size(), Spliterator.SIZED) {
+                            @Override public boolean tryAdvance(Consumer<? super E> action) { return false; }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "size().toLong()");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's BigIntegerMath.factorial: a long counter between two ints is a LongRange in Kotlin only from a Long; an
      * int counter against a long bound stays a while loop, where a range would make it a Long.
      */

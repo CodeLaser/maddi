@@ -2204,6 +2204,16 @@ public class KotlinExpressionPrinter {
     }
 
     /** {@code supertype}: the class or interface to write, null for the anonymous class's own. */
+    /** The superclass constructor an anonymous class's arguments go to: the only one taking that many, else none. */
+    private static io.codelaser.maddi.cst.api.info.MethodInfo superConstructor(ConstructorCall cc, ParameterizedType parent) {
+        if (cc.constructor() != null || parent.typeInfo() == null) return cc.constructor();
+        int n = cc.parameterExpressions().size();
+        List<io.codelaser.maddi.cst.api.info.MethodInfo> candidates = parent.typeInfo().constructors().stream()
+                .filter(c -> c.parameters().size() == n && c.parameters().stream().noneMatch(p -> p.isVarArgs()))
+                .toList();
+        return candidates.size() == 1 ? candidates.getFirst() : null;
+    }
+
     private static OutputBuilder anonymousClass(ConstructorCall cc, ParameterizedType supertype, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
@@ -2214,7 +2224,9 @@ public class KotlinExpressionPrinter {
         if (parent != null && !parent.isJavaLangObject()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
                             : KotlinTypePrinter.declaredArguments(parent), q)))
-                    .add(arguments(cc.parameterExpressions(), q));
+                    // guava's ImmutableSortedSet: AbstractSpliterator<E>(size(), …) widens the int to the superclass
+                    // constructor's long, as a named class's constructor call does
+                    .add(arguments(cc.parameterExpressions(), superConstructor(cc, parent), q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
             b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
                     : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
