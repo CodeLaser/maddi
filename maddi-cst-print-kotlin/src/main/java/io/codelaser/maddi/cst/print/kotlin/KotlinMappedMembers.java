@@ -314,7 +314,8 @@ final class KotlinMappedMembers {
         ParameterizedType v = asMap.parameters().get(1);
         String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
         return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
-                v.typeParameter() != null ? vName + " & Any" : vName};
+                // V & Any only of a nullable-bounded V: a V : Any (a null-marked LocalCache's) takes no intersection
+                KotlinTypeName.nullableTypeVariable(v) ? vName + " & Any" : vName};
     }
 
     private static String substitute(String template, String[] kv) {

@@ -212,6 +212,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    /**
+     * guava's LocalCache<K : Any, V : Any> overrides Map's merge and computeIfPresent: their V & Any is just V, as
+     * Kotlin takes an intersection only of a nullable-bounded type variable.
+     */
+    @Test
+    public void mapDefaultsOfANonNullTypeParameter() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                class Cache<K, V> extends AbstractMap<K, V> {
+                    final Map<K, V> map = new HashMap<>();
+                    @Override public Set<Entry<K, V>> entrySet() { return map.entrySet(); }
+                    @Override public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> function) {
+                        return map.merge(key, value, function);
+                    }
+                }
+                """, options);
+        assertFalse(kotlin.contains("V & Any"), kotlin);
+        compiles(kotlin);
+    }
+
     @Test
     public void assertedAtDeclaration() {
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("find()"), Set.of("!s")),
