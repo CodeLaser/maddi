@@ -1168,6 +1168,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ForwardingCollection: {@code <T> T[] toArray(T[] array) { return delegate().toArray(array); }}, whose
+     * result is Array<T?>. toTypedArray<T?>() wants a reified T and drops the array: Java's own toArray instead.
+     */
+    @Test
+    public void toArrayIntoATypeVariableArray() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Fwd<E> {
+                    abstract Collection<E> delegate();
+                    <T> T[] toArray(T[] array) { return delegate().toArray(array); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("toArray()[]", "array[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(delegate() as java.util.Collection<*>).toArray(array)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ImmutableCollection.writeReplace(): {@code new SerializedForm(toArray())}, an Array<Any?> into a
      * parameter whose elements are nullable: no cast (5bd6109f7 cast it to Java's Object[], Array<Any>).
      */

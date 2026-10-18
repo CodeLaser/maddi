@@ -313,13 +313,15 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
-        if (object != null && !mc.objectIsImplicit() && expectedElement(mc) == null && (toArrayOf(mc.methodInfo())
+        if (object != null && !mc.objectIsImplicit() && notReifiable(expectedElement(mc)) && (toArrayOf(mc.methodInfo())
                 && mc.parameterExpressions().getFirst().parameterizedType() != null
                 && mc.parameterExpressions().getFirst().parameterizedType().arrays() == 1
                 && mc.parameterExpressions().getFirst().parameterizedType().componentType().typeParameter() != null
             || toArray(mc.methodInfo()) && typeVariableElement(object, mc.methodInfo().typeInfo()))) {
             // delegate().toArray(array) with a T[]: toTypedArray<T>() wants a reified T, and Java fills and returns the
-            // array it is handed (guava-testlib checks it). delegate().toArray() on a Collection<E>: no Collection<Any>
+            // array it is handed (guava-testlib checks it); also where the expected element is a type variable
+            // (ForwardingCollection's T[] toArray(T[]), whose result is Array<T?>). delegate().toArray() on a
+            // Collection<E>: no Collection<Any>
             // where E may be nullable. Java's own toArray, through java.util.Collection, whose platform array fits
             return b.add(SymbolEnum.LEFT_PARENTHESIS).add(print(object, q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
                     .add(SpaceEnum.ONE).add(new TextImpl("java.util.Collection<*>")).add(SymbolEnum.RIGHT_PARENTHESIS)
@@ -2271,6 +2273,11 @@ public class KotlinExpressionPrinter {
      * inside it would return from the enclosing FUNCTION in Kotlin, so the lambda gets the label {@code lambda@}
      * and those returns print as {@code return@lambda} (KotlinStatementPrinter, through {@link KotlinContext}).
      */
+    /** No element type for toTypedArray, or a type variable, which it cannot take: it wants a reified one. */
+    private static boolean notReifiable(ParameterizedType element) {
+        return element == null || element.typeParameter() != null && element.arrays() == 0;
+    }
+
     /**
      * The interface a Java lambda implements, as a SAM constructor in front of it: {@code Runnable { … }}, where the
      * lambda is not an argument. Kotlin converts a lambda argument to the parameter's Java interface or
