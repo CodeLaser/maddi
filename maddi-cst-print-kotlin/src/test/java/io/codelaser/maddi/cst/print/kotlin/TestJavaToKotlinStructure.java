@@ -2117,6 +2117,38 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's DirectedGraphConnections.removeSuccessor(Object node) overrides GraphConnections' removeSuccessor(N node):
+     * Java's override by erasure, Kotlin's takes the overridden parameter, N.
+     */
+    @Test
+    public void overrideByErasure() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Connections<N, V> { V removeSuccessor(N node); }
+                final class Directed<N, V> implements Connections<N, V> {
+                    final Map<N, V> map = new HashMap<>();
+                    @Override public V removeSuccessor(Object node) { return map.remove(node); }
+                }
+                """);
+        contains(kotlin, "override fun removeSuccessor(node: N)");
+        compiles(kotlin);
+        // TreeRangeMap's EMPTY_SUB_RANGE_MAP: putAll(RangeMap<Comparable<?>, ?>) overriding putAll(RangeMap<K, ?
+        // extends V>) of a RangeMap<Comparable<?>, Object>
+        String wildcard = kotlin("""
+                package a;
+                interface RangeMap<K, V> { void putAll(RangeMap<K, ? extends V> rangeMap); }
+                final class Tree {
+                    static final RangeMap<Comparable<?>, Object> EMPTY = new RangeMap<Comparable<?>, Object>() {
+                        @Override public void putAll(RangeMap<Comparable<?>, ?> rangeMap) { }
+                    };
+                }
+                """);
+        contains(wildcard, "putAll(rangeMap: RangeMap<Comparable<*>, out Any");
+        compiles(wildcard);
+    }
+
+    /**
      * guava's ToDoubleRounder<X extends Number & Comparable<X>>, and a method's {@code <T extends Number &
      * Comparable<T>>}: Kotlin's where clause, after the supertypes or the result.
      */

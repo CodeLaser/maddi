@@ -304,6 +304,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
+        if (typeOverride == null) {
+            ParameterizedType overridden = erasureOverride(pi);
+            if (overridden != null) {
+                typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
+            }
+        }
         String printed = typeOverride != null ? typeOverride : KotlinTypeName.inSignature(() ->
                 // before the read-only collection rule, which leaves an array invariant
                 covariantArray(pi, type) ? outArray(type, q)
@@ -311,6 +317,54 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 : KotlinTypeName.of(type, q));
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
+    }
+
+    /**
+     * The overridden member's parameter type, seen through the class, where Java's override declares a looser one
+     * that erases the same: guava's DirectedGraphConnections.removeSuccessor(Object node) overriding
+     * removeSuccessor(N node), TreeRangeMap's putAll(RangeMap<Comparable<?>, ?>) overriding putAll(RangeMap<K, ?
+     * extends V>). Kotlin's override takes the overridden signature. Null otherwise.
+     */
+    static ParameterizedType erasureOverride(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        if (!KotlinContext.translatingJava() || m.overrides().isEmpty() || pi.isVarArgs()) return null;
+        ParameterizedType own = pi.parameterizedType();
+        for (MethodInfo o : m.overrides()) {
+            if (!KotlinNullability.translated(o.typeInfo()) || o.parameters().size() <= pi.index()) continue;
+            ParameterizedType theirs = o.parameters().get(pi.index()).parameterizedType();
+            boolean objectForVariable = own.isJavaLangObject() && own.arrays() == 0 && theirs.typeParameter() != null
+                                        && theirs.arrays() == 0 && !theirs.typeParameter().isMethodTypeParameter();
+            boolean looserWildcard = own.typeInfo() != null && own.typeInfo() == theirs.typeInfo()
+                                     && looserWildcards(own, theirs);
+            if (!objectForVariable && !looserWildcard) continue;
+            ParameterizedType seen;
+            try {
+                seen = KotlinInheritedDefaults.seenThrough(theirs, o.typeInfo(), m.typeInfo().asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                continue;
+            }
+            if (seen != null && seen != theirs && (seen.typeParameter() == null
+                                                   || KotlinContext.typeParameterInScope(seen.typeParameter()))) {
+                return seen;
+            }
+        }
+        return null;
+    }
+
+    /** Same type arguments, but {@code ?} in {@code own} where {@code theirs} has a bounded wildcard. */
+    private static boolean looserWildcards(ParameterizedType own, ParameterizedType theirs) {
+        if (own.parameters().size() != theirs.parameters().size() || own.parameters().isEmpty()) return false;
+        boolean looser = false;
+        for (int i = 0; i < own.parameters().size(); i++) {
+            ParameterizedType a = own.parameters().get(i);
+            ParameterizedType b = theirs.parameters().get(i);
+            if (a == null || b == null) return false;
+            if (a.isUnboundWildcard() && b.wildcard() != null && !b.isUnboundWildcard()) looser = true;
+            else if (a.isUnboundWildcard() != b.isUnboundWildcard()) {
+                if (!(b.isTypeParameter() || a.typeInfo() == b.typeInfo())) return false;
+            }
+        }
+        return looser;
     }
 
     /** {@code Array<out Any?>}: the parameter's own type, element states included, covariant. */
