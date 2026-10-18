@@ -536,10 +536,14 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return uri != null && (uri.toString().endsWith(".kt") || uri.toString().endsWith(".kts"));
     }
 
-    /** An enum constant: a static final field of the enum's own type (initialized by a constructor call). */
+    /**
+     * An enum constant: a static final field of the enum's own type, initialized by a constructor call. Not guava's
+     * Types.JavaVersion.CURRENT, a static final field of the enum's type that a static block assigns one of the
+     * constants.
+     */
     private boolean isEnumConstant(FieldInfo f) {
         return typeInfo.typeNature().isEnum() && f.isStatic() && f.isFinal()
-                && f.type().typeInfo() == typeInfo;
+                && f.type().typeInfo() == typeInfo && f.initializer() instanceof ConstructorCall;
     }
 
     private List<FieldInfo> enumConstants() {

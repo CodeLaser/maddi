@@ -2068,6 +2068,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Types.JavaVersion: {@code static final JavaVersion CURRENT;}, assigned one of the constants in a static
+     * block, is a property of the companion, not an entry.
+     */
+    @Test
+    public void enumFieldOfItsOwnTypeIsNoEntry() {
+        String kotlin = kotlin("""
+                package a;
+                enum Version {
+                    OLD { @Override int level() { return 1; } },
+                    NEW { @Override int level() { return 2; } };
+                    abstract int level();
+                    static final Version CURRENT;
+                    static {
+                        if (System.getProperty("old") != null) CURRENT = OLD; else CURRENT = NEW;
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("CURRENT;"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * guava's PublicSuffixTrie.ChunksCharSequence implements CharSequence: Kotlin's length is a property and charAt
      * the operator get, which the overrides declare; its field length is renamed, as AbstractMapBasedMultiset's size.
      */
