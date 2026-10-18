@@ -461,6 +461,27 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Invokable: {@code <M extends AccessibleObject & Member> Invokable(M member)}, a generic constructor, which
+     * Kotlin has none of: the parameter is M's erasure, and its use as the other bound casts.
+     */
+    @Test
+    public void genericConstructor() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.reflect.*;
+                abstract class Invokable {
+                    private final AccessibleObject accessibleObject;
+                    private final Member member;
+                    <M extends AccessibleObject & Member> Invokable(M member) {
+                        this.accessibleObject = member;
+                        this.member = member;
+                    }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Lists.cartesianProduct: the varargs overload calls the List one with {@code Arrays.asList(lists)}, which
      * Kotlin also finds a single vararg element of: the call takes Java's inferred type argument.
      */

@@ -200,6 +200,8 @@ public class KotlinTypeName {
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {
+            ParameterizedType erasure = constructorTypeParameterErasure(pt);
+            if (erasure != null) return of(erasure, q);
             return definitelyNonNull(pt) ? pt.typeParameter().simpleName() + " & Any" : pt.typeParameter().simpleName();
         }
         if (pt.typeInfo() == null) {
@@ -223,6 +225,28 @@ public class KotlinTypeName {
             sb.append(of(argument, q));
         }
         return sb.append('>').toString();
+    }
+
+    /**
+     * A constructor's own type parameter, which Kotlin's constructors cannot declare: its erasure, as Java's bytecode
+     * has it (guava's {@code <M extends AccessibleObject & Member> Invokable(M member)} takes an AccessibleObject; a
+     * use as another bound casts). Null for any other type.
+     */
+    static ParameterizedType constructorTypeParameterErasure(ParameterizedType pt) {
+        if (pt == null || !KotlinContext.translatingJava() || !pt.isTypeParameter() || pt.wildcard() != null
+            || !pt.typeParameter().isMethodTypeParameter()) {
+            return null;
+        }
+        // its constructor is one of the type being printed, where alone its parameter's type is written
+        TypeInfo current = KotlinContext.currentType();
+        if (current == null || current.constructors().stream().noneMatch(c -> c.typeParameters().contains(pt.typeParameter()))) {
+            return null;
+        }
+        ParameterizedType bound = pt.typeParameter().typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst()
+                .orElse(null);
+        if (bound == null || bound.isTypeParameter()) return null;
+        ParameterizedType erased = bound.withNullable(pt.nullable());
+        return pt.arrays() == 0 ? erased : erased.copyWithArrays(pt.arrays());
     }
 
     private static String withoutWildcard(ParameterizedType pt, Qualification q) {

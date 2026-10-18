@@ -1674,6 +1674,19 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && target.typeInfo() != null
+            && unwrap(e) instanceof VariableExpression ve) {
+            ParameterizedType erasure = KotlinTypeName.constructorTypeParameterErasure(ve.parameterizedType());
+            if (erasure != null && erasure.arrays() == 0 && erasure.typeInfo() != null
+                && erasure.typeInfo() != target.typeInfo()
+                && !isSubtype(erasure.typeInfo(), target.typeInfo(), new java.util.HashSet<>())) {
+                // guava's Invokable: this.member = member, an <M extends AccessibleObject & Member> printed as its
+                // erasure, AccessibleObject; the other bound is checked, as Java's bytecode does
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+        }
         if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodReference && target != null
             && target.arrays() == 0 && target.typeInfo() != null && target.typeInfo().isInterface()
             && !KotlinTypeName.isMapped(target.typeInfo().fullyQualifiedName())

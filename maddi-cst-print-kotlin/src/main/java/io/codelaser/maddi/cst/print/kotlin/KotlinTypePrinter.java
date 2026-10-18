@@ -397,12 +397,17 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return allFields && (!companion || onlyAssignsParameters(c)) ? field : null;
     }
 
+    /**
+     * Each statement assigns a parameter to the field of its name. Not to another field: guava's Invokable assigns
+     * its member to accessibleObject and member, and the header property took the second, the first assignment lost.
+     */
     private static boolean onlyAssignsParameters(MethodInfo c) {
         return c.methodBody() != null && c.methodBody().statements().stream().filter(s -> !s.isSynthetic())
                 .allMatch(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
                                && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
                                && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                               && ve.variable() instanceof ParameterInfo);
+                               && ve.variable() instanceof ParameterInfo pi
+                               && a.variableTarget() != null && pi.name().equals(a.variableTarget().simpleName()));
     }
 
     private static boolean privateProperty(FieldInfo field) {
