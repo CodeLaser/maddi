@@ -1176,6 +1176,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ArrayTable.ColumnMap, an AbstractMap<C, Map<R, @Nullable V>>: put(C key, Map<R, @Nullable V> value)
+     * keeps its parameter's type-use @Nullable argument with a verdict, or overrides nothing.
+     */
+    @Test
+    public void parameterKeepsDeclaredNullableArguments() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.Nullable;
+                final class Columns<R, V> extends AbstractMap<String, Map<R, @Nullable V>> {
+                    @Override public Set<Map.Entry<String, Map<R, @Nullable V>>> entrySet() { return Collections.emptySet(); }
+                    @Override public Map<R, @Nullable V> put(String key, Map<R, @Nullable V> value) {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("put()")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "put(key: String, value: MutableMap<R, V?>)");
+    }
+
+    /**
      * guava's RegularImmutableSortedSet.containsAll(Collection<?> targets) reassigns targets, a value that may be null
      * by its verdict: the var copying the parameter, the mapped member's read-only Collection, is read-only too.
      */

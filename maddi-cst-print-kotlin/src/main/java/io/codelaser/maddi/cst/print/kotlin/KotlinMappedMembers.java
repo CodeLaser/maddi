@@ -197,12 +197,14 @@ final class KotlinMappedMembers {
             Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
             if (ownVariable != null) index = ownVariable;
             if (index == null && !collection && !map) continue;
-            ParameterizedType asOwner;
-            try {
-                asOwner = methodInfo.typeInfo().asParameterizedType()
-                        .concreteSuperType(m.typeInfo().asParameterizedType());
-            } catch (RuntimeException e) {
-                return null;
+            ParameterizedType asOwner = declaredSupertype(methodInfo.typeInfo(), m.typeInfo());
+            if (asOwner == null) {
+                try {
+                    asOwner = methodInfo.typeInfo().asParameterizedType()
+                            .concreteSuperType(m.typeInfo().asParameterizedType());
+                } catch (RuntimeException e) {
+                    return null;
+                }
             }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
@@ -210,6 +212,30 @@ final class KotlinMappedMembers {
             ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
             return collectionType.typeInfo() == null ? null
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
+        }
+        return null;
+    }
+
+    /**
+     * {@code owner}, seen from {@code typeInfo}'s declared supertypes, with their type arguments'
+     * type-use annotations: guava's ArrayTable.ColumnMap extends ArrayMap<C, Map<R, @Nullable V>>, whose put(key,
+     * value) takes a Map<R, V?>, as the class header writes it. Null when no direct supertype leads there.
+     */
+    private static ParameterizedType declaredSupertype(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo,
+                                                       io.codelaser.maddi.cst.api.info.TypeInfo owner) {
+        List<ParameterizedType> direct = new java.util.ArrayList<>();
+        if (typeInfo.parentClass() != null) direct.add(typeInfo.parentClass());
+        direct.addAll(typeInfo.interfacesImplemented());
+        for (ParameterizedType st : direct) {
+            if (st == null || st.typeInfo() == null) continue;
+            ParameterizedType declared = KotlinTypePrinter.declaredArguments(st);
+            if (declared.typeInfo() == owner) return declared;
+            try {
+                ParameterizedType seen = declared.concreteSuperType(owner.asParameterizedType());
+                if (seen != null) return seen;
+            } catch (RuntimeException | AssertionError e) {
+                // not this one
+            }
         }
         return null;
     }
