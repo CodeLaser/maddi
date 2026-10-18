@@ -461,6 +461,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Ordering.ARBITRARY_ORDERING: a field of {@code Ordering<@Nullable Object>}, which a method returns as
+     * one; the field's declared type argument is an Any? too.
+     */
+    @Test
+    public void fieldKeepsDeclaredNullableArguments() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.Nullable;
+                class Holder {
+                    static final List<@Nullable Object> ALL = new ArrayList<>();
+                    static List<@Nullable Object> all() { return ALL; }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "ALL: MutableList<Any?>");
+    }
+
+    /**
      * guava's ImmediateFuture.NULL: {@code new ImmediateFuture<@Nullable Object>(null)} in a static field, where the
      * class's V is out of scope: the null goes into the call's own type argument.
      */

@@ -71,7 +71,10 @@ final class KotlinNullability {
 
     static ParameterizedType fieldType(FieldInfo fieldInfo) {
         ParameterizedType verdict = verdicts().field(fieldInfo);
-        return verdict != null ? verdict : fieldInfo.type();
+        ParameterizedType type = verdict != null ? verdict : fieldInfo.type();
+        // guava's Ordering.ARBITRARY_ORDERING: an Ordering<@Nullable Object>, which arbitrary() returns as one
+        return KotlinContext.translatingJava()
+                ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(fieldInfo.type())) : type;
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {
