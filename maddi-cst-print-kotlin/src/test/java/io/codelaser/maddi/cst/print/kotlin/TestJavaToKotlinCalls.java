@@ -461,6 +461,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Escaper: {@code private final Function<String, String> asFunction = this::escape;}. Kotlin converts a
+     * reference to a Java interface only as an argument: the SAM constructor around it.
+     */
+    @Test
+    public void referenceIntoAFunctionalField() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.Function;
+                abstract class Escaper {
+                    private final Function<String, String> asFunction = this::escape;
+                    abstract String escape(String s);
+                    Function<String, String> asFunction() { return asFunction; }
+                    static Function<String, Integer> length() { return String::length; }
+                }
+                """);
+        contains(kotlin, "Function<String, String>(this ::escape)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Stats.of(IntStream): {@code values.collect(Acc::new, Acc::add, Acc::addAll)}, an ObjIntConsumer whose
      * int Java widens to add(double); Kotlin's reference does not widen.
      */

@@ -1599,6 +1599,16 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodReference && target != null
+            && target.arrays() == 0 && target.typeInfo() != null && target.typeInfo().isInterface()
+            && !KotlinTypeName.isMapped(target.typeInfo().fullyQualifiedName())
+            && target.parameters().stream().allMatch(p -> p != null && p.wildcard() == null)) {
+            // guava's Escaper: Function<String, String> asFunction = this::escape. Kotlin converts a reference to a
+            // Java interface only as an argument; anywhere else the SAM constructor does
+            return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(
+                            target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         // only where a value is assigned or returned: an argument's target is Java's parameter type, not Kotlin's
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
             && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null
