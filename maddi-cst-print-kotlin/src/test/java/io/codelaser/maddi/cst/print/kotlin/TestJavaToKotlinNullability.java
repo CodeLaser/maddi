@@ -131,6 +131,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return checked.contains("!" + variable.simpleName());
         }
 
+        /** {@code "<K>"} in checked: class type parameter K is non-null. */
+        @Override
+        public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+            return checked.contains("<" + typeParameter.simpleName() + ">");
+        }
+
         /** {@code "^x"} in checked: parameter x is declared non-null as its method's precondition. */
         @Override
         public boolean preconditionNonNull(ParameterInfo parameterInfo) {
@@ -180,6 +186,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * A local the pass asserts at its declaration, because Java dereferences it unconditionally further on: the `!!`
      * is the declaration's, a behaviour change of its own (the null no longer reaches `seen`), and reported as such.
      */
+    /**
+     * guava's LocalCache<K, V>, null-marked: the verdicts hold K and V non-null, which Kotlin bounds by Any; a
+     * method's own T stays as it is, and so does a class type parameter they leave nullable.
+     */
+    @Test
+    public void nonNullClassTypeParameters() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Cache<K, V> {
+                    final Map<K, V> map = new HashMap<>();
+                    V get(K key) { return map.get(key); }
+                    <T> T first(List<T> list) { return list.get(0); }
+                    static class Entry<E> { E e; }
+                }
+                """, options);
+        contains(kotlin, "class Cache<K : Any, V : Any>");
+        contains(kotlin, "class Entry<E>");
+        contains(kotlin, "fun <T> first(");
+        compiles(kotlin);
+    }
+
     @Test
     public void assertedAtDeclaration() {
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("find()"), Set.of("!s")),

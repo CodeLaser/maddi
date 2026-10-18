@@ -161,6 +161,17 @@ public class KotlinTypeName {
                && nullableBound(t.typeParameter(), 0);
     }
 
+    /**
+     * A class's type parameter the verdicts hold non-null ({@link
+     * io.codelaser.maddi.cst.impl.analysis.NullabilityFacts#nonNullTypeParameter}), with no bound of its own: Kotlin's
+     * {@code K : Any}.
+     */
+    static boolean nonNullClassTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        return KotlinContext.translatingJava() && !tp.isMethodTypeParameter()
+               && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+               && KotlinNullability.verdicts().nonNullTypeParameter(tp);
+    }
+
     private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         // langchain4j's Utils.firstNotNull: the printer bounds its own <T> by Any (KotlinMethodPrinter.nonNullBound)
@@ -169,7 +180,7 @@ public class KotlinTypeName {
             && KotlinMethodPrinter.nonNullBound(current, tp)) {
             return false;
         }
-        if (bounds.isEmpty()) return true;
+        if (bounds.isEmpty()) return !nonNullClassTypeParameter(tp);
         if (bounds.size() > 1 || depth > 8) return false;
         ParameterizedType bound = KotlinTypePrinter.declared(bounds.getFirst());
         return bound.nullable() == NullableState.NULLABLE
