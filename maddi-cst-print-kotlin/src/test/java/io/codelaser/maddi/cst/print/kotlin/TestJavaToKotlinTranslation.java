@@ -121,6 +121,30 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
             """;
 
     /**
+     * guava's BigIntegerMath.factorial: a long counter between two ints is a LongRange in Kotlin only from a Long; an
+     * int counter against a long bound stays a while loop, where a range would make it a Long.
+     */
+    @Test
+    public void longCounterBetweenInts() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    static long m(int from, int n, long big) {
+                        long s = 0;
+                        for (long num = from; num <= n; num++) { s += num & 1L; }
+                        for (long k = 0; k < n; k++) { s += k; }
+                        for (int i = 0; i < big; i++) { s += i; }
+                        return s;
+                    }
+                }
+                """);
+        contains(kotlin, "for (num in from.toLong() .. n) {");
+        contains(kotlin, "for (k in 0L until n) {");
+        contains(kotlin, "while (i < big) {");
+        compiles(kotlin);
+    }
+
+    /**
      * A range only when it is the same loop; a bound the body changes ({@code n--}) is not, because a range reads it
      * once. A {@code continue} must still run the updates.
      */

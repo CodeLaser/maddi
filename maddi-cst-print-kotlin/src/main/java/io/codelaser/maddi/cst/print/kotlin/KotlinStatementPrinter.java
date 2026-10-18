@@ -431,6 +431,11 @@ public class KotlinStatementPrinter {
         return found[0];
     }
 
+    private static boolean isLong(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        return t != null && (t.isLong() || t.typeInfo() != null && "java.lang.Long".equals(t.typeInfo().fullyQualifiedName()));
+    }
+
     /**
      * {@code for (int i = a; i < n; i++)} as {@code for (i in a until n)}, when that is the same loop: one integral
      * counter, compared with a bound that cannot change during the loop, stepped by a positive constant in the
@@ -458,6 +463,10 @@ public class KotlinStatementPrinter {
             default -> null;
         };
         if (range == null || !stable(cmp.rhs(), fs) || assignedIn(fs.block(), v)) return null;
+        boolean longFrom = isLong(v.assignmentExpression());
+        boolean longBound = isLong(cmp.rhs());
+        // an int counter against a long bound: Kotlin's range would be a LongRange, its variable a Long
+        if (type.isInt() && (longFrom || longBound)) return null;
 
         OutputBuilder bound = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 cmp.rhs(), q);
@@ -465,6 +474,12 @@ public class KotlinStatementPrinter {
                 .add(new TextImpl("1"));
         OutputBuilder from = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 v.assignmentExpression(), q);
+        if (type.isLong() && !longFrom && !longBound) {
+            // guava's BigIntegerMath.factorial: for (long num = startingNumber; num <= n; num++) of two ints, which
+            // Kotlin's range would make an Int
+            from = v.assignmentExpression() instanceof IntConstant ic ? new OutputBuilderImpl().add(new TextImpl(ic.constant() + "L"))
+                    : KotlinExpressionPrinter.widened(v.assignmentExpression(), type, q);
+        }
         OutputBuilder header = new OutputBuilderImpl().add(KotlinKeyword.FOR).add(SpaceEnum.ONE)
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl(KotlinNames.name(v.simpleName())))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE).add(from);
