@@ -1200,22 +1200,28 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
 
     /**
      * guava's ImmutableSet.construct: {@code Object[] elements = distinct == n ? deduped : Arrays.copyOf(deduped,
-     * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>.
+     * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>;
+     * guava's other branch is the builder's E[], Java's covariant array into an Object[].
      */
     @Test
     public void genericLibraryArrayInAConditional() {
         String kotlin = kotlin("""
                 package a;
                 import java.util.Arrays;
-                class Construct {
+                class Construct<E> {
+                    E[] typed;
                     static int construct(int n, int distinct) {
                         Object[] deduped = new Object[n];
                         deduped[0] = "x";
                         Object[] elements = distinct == deduped.length ? deduped : Arrays.copyOf(deduped, distinct);
                         return elements.length;
                     }
+                    int build(int distinct) {
+                        Object[] elements = distinct == typed.length ? typed : Arrays.copyOf(typed, distinct);
+                        return elements.length;
+                    }
                 }
-                """, new KotlinPrintOptions(new ByName(Set.of("deduped[]", "elements[]")), KotlinPrintOptions.NullCheck.ASSERT));
+                """, new KotlinPrintOptions(new ByName(Set.of("deduped[]", "elements[]", "typed[]")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "as Array<Any?>)");
         compiles(kotlin);
     }

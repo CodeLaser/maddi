@@ -2471,6 +2471,14 @@ public class KotlinExpressionPrinter {
      * target's array.
      */
     private static OutputBuilder arrayBranch(Expression branch, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && covariantArray(branch, target)) {
+            // the other branch there: the builder's E[] dedupedElements, Java's covariant array into an Object[]
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, branch, KotlinContext.describe(branch));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(branch, q)).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(
+                            target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (target.arrays() == 1 && KotlinTypeName.primitiveArray(target.componentType()) == null
             && !target.componentType().isPrimitiveExcludingVoid()
             && unwrap(branch) instanceof MethodCall mc && mc.methodInfo() != null
