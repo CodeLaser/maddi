@@ -2068,6 +2068,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Maps.EntrySet.removeAll: {@code Sets.removeAllImpl(this, c.iterator())} of a read-only Collection<*>
+     * parameter, whose iterator() is Kotlin's Iterator; removeAllImpl's translated Iterator parameter is a
+     * MutableIterator. Java's iterator is one: cast.
+     */
+    @Test
+    public void readOnlyCollectionsIteratorIntoAnIteratorParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Sets {
+                    static boolean removeAllImpl(Set<?> set, Iterator<?> iterator) {
+                        boolean changed = false;
+                        while (iterator.hasNext()) changed |= set.remove(iterator.next());
+                        return changed;
+                    }
+                    static final class EntrySet<E> extends AbstractSet<E> {
+                        final Set<E> delegate = new HashSet<>();
+                        @Override public Iterator<E> iterator() { return delegate.iterator(); }
+                        @Override public int size() { return delegate.size(); }
+                        @Override public boolean removeAll(Collection<?> c) { return removeAllImpl(this, c.iterator()); }
+                    }
+                }
+                """);
+        contains(kotlin, "c: Collection<");
+        contains(kotlin, "(c.iterator() as MutableIterator<*>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's MoreExecutors.ScheduledListeningDecorator: its private delegate shadows ListeningDecorator's in Java; in
      * Kotlin both are internal (private members of nested classes), and the subclass's would hide the other: renamed.
      */

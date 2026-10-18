@@ -862,6 +862,20 @@ public class KotlinExpressionPrinter {
                             .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q) + ">()"));
                     continue;
                 }
+                if (hasParameter && translated && readOnlyIterator(args.get(i))
+                    && KotlinTypeName.mutableOnly("java.util.Iterator")
+                    && method.parameters().get(i).parameterizedType().typeInfo() != null
+                    && "java.util.Iterator".equals(method.parameters().get(i).parameterizedType().typeInfo().fullyQualifiedName())) {
+                    // guava's Maps.EntrySet.removeAll(c): Sets.removeAllImpl(this, c.iterator()) of a read-only
+                    // Collection<*>, whose Iterator a translated MutableIterator parameter does not take; Java's is one
+                    KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                            .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(
+                                    method.parameters().get(i)).withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS));
+                    continue;
+                }
                 if (hasParameter && ownTypeVariableArray(method, method.parameters().get(i).parameterizedType())
                     && KotlinNullability.translated(method.typeInfo())
                     && KotlinNullability.isNullable(KotlinNullability.parameterType(method.parameters().get(i)).componentType())) {
@@ -2350,6 +2364,24 @@ public class KotlinExpressionPrinter {
             }
         }
         return false;
+    }
+
+    /**
+     * {@code c.iterator()} of a parameter printed read-only, its own verdict or the mapped member's it overrides
+     * ({@code removeAll(elements: Collection<E>)}): Kotlin's Iterator, no MutableIterator.
+     */
+    private static boolean readOnlyIterator(Expression e) {
+        if (!(unwrap(e) instanceof MethodCall mc) || !"iterator".equals(mc.methodInfo().name())
+            || !mc.parameterExpressions().isEmpty() || !(unwrap(mc.object()) instanceof VariableExpression ve)
+            || !(ve.variable() instanceof ParameterInfo pi)) {
+            return false;
+        }
+        if (KotlinMappedMembers.overriddenCollectionParameter(pi.methodInfo(), pi.index())) {
+            ParameterizedType mapped = KotlinMappedMembers.overriddenParameterType(pi.methodInfo(), pi.index());
+            return mapped != null && mapped.typeInfo() != null
+                   && "java.util.Collection".equals(mapped.typeInfo().fullyQualifiedName());
+        }
+        return KotlinMethodPrinter.readOnlyParameter(pi);
     }
 
     /**

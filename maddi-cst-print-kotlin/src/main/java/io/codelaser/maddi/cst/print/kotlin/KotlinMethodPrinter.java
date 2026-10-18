@@ -489,7 +489,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * none, its own verdict; for any other, its override family's in the {@link KotlinWorld} (maddi-mod#25): Kotlin
      * wants an override's parameter types exactly the overridden member's.
      */
-    private static boolean readOnlyParameter(ParameterInfo pi) {
+    static boolean readOnlyParameter(ParameterInfo pi) {
         return readOnlyOwn(pi) && widerOverloadsReadOnly(pi);
     }
 
