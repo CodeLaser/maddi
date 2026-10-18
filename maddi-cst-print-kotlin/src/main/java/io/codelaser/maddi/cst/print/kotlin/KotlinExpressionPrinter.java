@@ -602,7 +602,13 @@ public class KotlinExpressionPrinter {
                     continue;
                 }
             }
-            if (t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) return null;
+            if (t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) {
+                // guava's Streams.findLast: Optional.empty() cast to the method's Optional<T>; the operand of an
+                // unchecked cast only needs a type (not an argument, whose parameter still types it)
+                if (!NO_EXPECTED_TYPE.get().contains(mc)) return null;
+                printed.add("Any");
+                continue;
+            }
             printed.add(KotlinTypeName.of(t, q));
         }
         return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
@@ -1752,9 +1758,11 @@ public class KotlinExpressionPrinter {
             && target.parameters().size() == 1 && target.parameters().getFirst().typeParameter() != null
             && target.parameters().getFirst().wildcard() == null) {
             // Optional.ofNullable(element) into an Optional<T>: Kotlin's Optional bounds its T non-null, so the call
-            // is an Optional<T & Any>, which the invariant Optional<T> is not. Erased, the cast checks nothing
+            // is an Optional<T & Any>, which the invariant Optional<T> is not. Erased, the cast checks nothing. The
+            // operand has no expected type: guava's Streams.findLast, Optional.empty<Any>() as Optional<T>
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(withoutExpectedType(e, () -> print(e, q))).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);

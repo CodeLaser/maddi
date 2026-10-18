@@ -461,6 +461,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Streams.findLast: {@code return java.util.Optional.empty();} into an Optional<T> whose T may be null: cast,
+     * and the operand of the cast has no expected type to infer empty's T from.
+     */
+    @Test
+    public void optionalEmptyIntoANullableTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                import java.util.stream.Stream;
+                class Streams {
+                    static <T> Optional<T> findLast(Stream<T> stream) {
+                        return Optional.empty();
+                    }
+                }
+                """);
+        compiles(kotlin);
+    }
+
+    /**
      * guava's FluentIterable.first(): {@code Optional<@NonNull E>} of {@code Optional.of(iterator.next())}, guava's own
      * Optional, whose of throws on null as java.util's: asserted, so the result is an Optional<E & Any>.
      */
