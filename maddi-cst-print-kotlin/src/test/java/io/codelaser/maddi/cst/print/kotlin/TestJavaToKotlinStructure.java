@@ -2080,12 +2080,14 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     NEW { @Override int level() { return 2; } };
                     abstract int level();
                     static final Version CURRENT;
+                    static final Version[] ALL = new Version[]{OLD, NEW};
                     static {
                         if (System.getProperty("old") != null) CURRENT = OLD; else CURRENT = NEW;
                     }
                 }
                 """);
         assertFalse(kotlin.contains("CURRENT;"), kotlin);
+        assertFalse(kotlin.contains("ALL;"), kotlin);
         compiles(kotlin);
     }
 

@@ -539,11 +539,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /**
      * An enum constant: a static final field of the enum's own type, initialized by a constructor call. Not guava's
      * Types.JavaVersion.CURRENT, a static final field of the enum's type that a static block assigns one of the
-     * constants.
+     * constants; nor LocalCache.EntryFactory's {@code static final EntryFactory[] factories = {…}}.
      */
     private boolean isEnumConstant(FieldInfo f) {
         return typeInfo.typeNature().isEnum() && f.isStatic() && f.isFinal()
-                && f.type().typeInfo() == typeInfo && f.initializer() instanceof ConstructorCall;
+                && f.type().typeInfo() == typeInfo && f.type().arrays() == 0 && f.initializer() instanceof ConstructorCall;
     }
 
     private List<FieldInfo> enumConstants() {
