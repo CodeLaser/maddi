@@ -461,6 +461,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's FluentIterable.first(): {@code Optional<@NonNull E>} of {@code Optional.of(iterator.next())}, guava's own
+     * Optional, whose of throws on null as java.util's: asserted, so the result is an Optional<E & Any>.
+     */
+    @Test
+    public void guavaOptionalOfATypeVariable() {
+        String kotlin = kotlinInWorld("""
+                package com.google.common.base;
+                import java.util.*;
+                import org.jspecify.annotations.NonNull;
+                abstract class Optional<T> {
+                    static <T> Optional<T> of(T reference) { return new Present<>(Objects.requireNonNull(reference)); }
+                    static <T> Optional<T> absent() { return null; }
+                    static final class Present<T> extends Optional<T> { final T t; Present(T t) { this.t = t; } }
+                }
+                class Fluent<E> {
+                    final Iterable<E> delegate = new ArrayList<>();
+                    Optional<@NonNull E> first() {
+                        Iterator<E> iterator = delegate.iterator();
+                        return iterator.hasNext() ? Optional.of(iterator.next()) : Optional.absent();
+                    }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "Optional.of(iterator.next()!!)");
+    }
+
+    /**
      * guava's Range.compareOrThrow(Comparable left, Comparable right) and RegularContiguousSet<C extends Comparable>:
      * compareTo on a raw Comparable, which Kotlin's Comparable<*> refuses: an unchecked Comparable<Any?>.
      */

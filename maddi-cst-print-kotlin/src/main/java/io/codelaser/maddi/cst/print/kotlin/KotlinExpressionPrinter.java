@@ -926,7 +926,9 @@ public class KotlinExpressionPrinter {
                         continue;
                     }
                 }
-                if (hasParameter && "java.util.Optional".equals(method.typeInfo().fullyQualifiedName())
+                // guava's own Optional.of too (FluentIterable.first(): Optional<@NonNull E> of iterator.next())
+                if (hasParameter && ("java.util.Optional".equals(method.typeInfo().fullyQualifiedName())
+                                     || "com.google.common.base.Optional".equals(method.typeInfo().fullyQualifiedName()))
                     && "of".equals(method.name()) && args.size() == 1
                     && KotlinTypeName.nullableTypeVariable(KotlinNullability.kotlinType(args.get(i)))) {
                     // guava's Streams.findLast: Optional.of(state.get()) of a T: Kotlin's Optional.of takes a T & Any,
