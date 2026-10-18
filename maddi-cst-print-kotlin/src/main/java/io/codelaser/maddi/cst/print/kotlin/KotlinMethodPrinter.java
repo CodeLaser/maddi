@@ -507,7 +507,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         && op.parameterizedType().typeInfo() != own
                         && KotlinTypeName.isMapped(op.parameterizedType().typeInfo().fullyQualifiedName())
                         && isSubtype(own, op.parameterizedType().typeInfo(), new java.util.HashSet<>()))
-                .allMatch(KotlinMethodPrinter::readOnlyParameter);
+                // an Iterable prints MutableIterable whatever its verdict (acceptsReadOnly): guava's addAll(Iterable)
+                // only reads its values
+                .allMatch(op -> !KotlinTypeName.mutableOnly(op.parameterizedType().typeInfo().fullyQualifiedName())
+                                && readOnlyParameter(op));
     }
 
     private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {

@@ -525,6 +525,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * As {@link #overloadReadOnlyOnlyWithTheWiderOne}, as guava has it: addAll(Iterable) only reads its values, both
+     * are unmodified. The Iterable's read-only form is Kotlin's Iterable, of which a cast MutableCollection is a
+     * subtype as much as of Collection: the two print as one, both read-only or both mutable.
+     */
+    @Test
+    public void overloadsReadOnlyTogether() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class B {
+                    int n;
+                    B addAll(Iterable<Integer> values) {
+                        if (values instanceof Collection) return addAll((Collection<Integer>) values);
+                        for (Integer value : values) n += value;
+                        return this;
+                    }
+                    B addAll(Collection<Integer> values) { n += values.size(); return this; }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> p.analysis().set(
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's FilteredEntryMultimap.AsMap, an AbstractMap<K, Collection<V>>: remove(Object key) and containsValue's
      * Object take the type argument as it is, MutableCollection<V>, not addAll's read-only Collection<E>; ArrayTable's
      * ColumnMap.put(key, value: V) with V a Map takes MutableMap.
