@@ -1101,4 +1101,20 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "none<Any>()");
         compiles(kotlin);
     }
+
+    /** guava's Streams.findLast: {@code Optional.of(state.get())} of a T, which Kotlin's Optional.of wants T & Any. */
+    @Test
+    public void optionalOfATypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class S<T> {
+                    T value;
+                    T get() { return value; }
+                    Optional<T> last() { return Optional.of(get()); }
+                }
+                """);
+        contains(kotlin, "Optional.of(get()!!)");
+        compiles(kotlin);
+    }
 }

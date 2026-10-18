@@ -155,6 +155,12 @@ public class KotlinTypeName {
                && nullableBound(t.typeParameter(), 0);
     }
 
+    /** A type variable Kotlin bounds nullable: its values may be null, whatever their own state says. */
+    static boolean nullableTypeVariable(ParameterizedType t) {
+        return t != null && t.isTypeParameter() && t.arrays() == 0 && t.wildcard() == null
+               && nullableBound(t.typeParameter(), 0);
+    }
+
     private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         // langchain4j's Utils.firstNotNull: the printer bounds its own <T> by Any (KotlinMethodPrinter.nonNullBound)

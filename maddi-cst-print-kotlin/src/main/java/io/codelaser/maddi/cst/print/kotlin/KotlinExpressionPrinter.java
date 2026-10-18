@@ -850,6 +850,15 @@ public class KotlinExpressionPrinter {
                             .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q) + ">()"));
                     continue;
                 }
+                if (hasParameter && "java.util.Optional".equals(method.typeInfo().fullyQualifiedName())
+                    && "of".equals(method.name()) && args.size() == 1
+                    && KotlinTypeName.nullableTypeVariable(KotlinNullability.kotlinType(args.get(i)))) {
+                    // guava's Streams.findLast: Optional.of(state.get()) of a T: Kotlin's Optional.of takes a T & Any,
+                    // and Java throws for the null as !! does
+                    KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, args.get(i), KotlinContext.describe(args.get(i)));
+                    printed.add(receiver(args.get(i), q).add(KotlinNullability.NOT_NULL));
+                    continue;
+                }
                 if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
                     // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
                     // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin. The
