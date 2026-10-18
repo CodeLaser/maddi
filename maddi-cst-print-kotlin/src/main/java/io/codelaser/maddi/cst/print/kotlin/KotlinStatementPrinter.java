@@ -125,6 +125,23 @@ public class KotlinStatementPrinter {
     }
 
     private static OutputBuilder printStatement(Statement s, Qualification q) {
+        if (s.label() != null && (s instanceof IfElseStatement || s instanceof TryStatement
+                                  || s instanceof SynchronizedStatement || s instanceof SwitchStatementNewStyle
+                                  || s instanceof SwitchStatementOldStyle)) {
+            // guava's AbstractFutureState.get: long_wait_loop: if (…) { do { … break long_wait_loop; } while (…); }.
+            // Kotlin's break leaves loops only: as a labelled block, a run label@{ } left with return@label
+            KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, s.label()));
+            try {
+                return new OutputBuilderImpl().add(new TextImpl("run " + s.label() + "@")).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.LEFT_BRACE).add(unlabelled(s, q)).add(SymbolEnum.RIGHT_BRACE);
+            } finally {
+                KotlinContext.pop();
+            }
+        }
+        return unlabelled(s, q);
+    }
+
+    private static OutputBuilder unlabelled(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
                     : scope(block(block, q));

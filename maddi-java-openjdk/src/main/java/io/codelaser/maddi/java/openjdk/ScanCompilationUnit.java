@@ -1592,6 +1592,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
                 Block parsedSub = parseBlock("0", subBlock, 0, true);
                 addStatement(parsedSub);
+            } else if (statement instanceof JCTree.JCLabeledStatement labelled
+                       && labelled.body instanceof JCTree.JCBlock subBlock) {
+                // guava's Monitor.enterWhen: 'locked: { … break locked; … }' is a block statement with that label;
+                // scanned through visitLabeledStatement, its statements would join the enclosing block, label lost
+                statementLabels.put(subBlock, labelled.label.toString());
+                labelledStatementOf.put(subBlock, labelled);
+                Block parsedSub = parseBlock("0", subBlock, 0, true);
+                addStatement(parsedSub);
             } else if (statement instanceof JCTree.JCClassDecl localType) {
                 Statement localTypeCreation = handleLocalType(localType);
                 addStatement(localTypeCreation);

@@ -121,6 +121,48 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
             """;
 
     /**
+     * guava's Monitor.enterWhen: {@code locked: { … break locked; … }} after a local; AbstractFutureState.get:
+     * {@code long_wait_loop: if (…) { do { … break long_wait_loop; } while (…); }}, a label on an if. Kotlin's break
+     * leaves loops only: each is a {@code run label@{ }} left with {@code return@label}.
+     */
+    @Test
+    public void labelledStatementsThatAreNoLoops() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    boolean fair;
+                    boolean tryLock() { return true; }
+                    boolean enter(long n) {
+                        long start = 0L;
+                        locked:
+                        {
+                            if (!fair) {
+                                if (tryLock()) break locked;
+                            }
+                            start = n;
+                            if (!tryLock()) return false;
+                        }
+                        return start > 0;
+                    }
+                    int waitFor(int n) {
+                        int k = 0;
+                        long_wait_loop:
+                        if (n > 0) {
+                            do {
+                                k++;
+                                if (k > n) break long_wait_loop;
+                            } while (k < 100);
+                        }
+                        return k;
+                    }
+                }
+                """);
+        contains(kotlin, "return@locked");
+        contains(kotlin, "return@long_wait_loop");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ImmutableSortedSet.spliterator(): new Spliterators.AbstractSpliterator<E>(size(), …) { … }, an int into
      * the anonymous class's superclass constructor's long: Kotlin widens nothing by itself.
      */
