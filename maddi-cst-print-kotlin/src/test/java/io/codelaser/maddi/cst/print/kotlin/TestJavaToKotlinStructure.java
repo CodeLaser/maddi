@@ -615,6 +615,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Maps.removeOnlySet(Set<E> set): a ForwardingSet whose delegate() returns set, a MutableSet: the
+     * anonymous class's use counts, and set stays mutable.
+     */
+    @Test
+    public void parameterReturnedByAnAnonymousClassStaysMutable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Supplier;
+                final class M {
+                    static <E> Supplier<Set<E>> removeOnly(Set<E> set) {
+                        return new Supplier<Set<E>>() {
+                            public Set<E> get() { return set; }
+                        };
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "removeOnly(set: MutableSet<E>)");
+        compiles(kotlin);
+    }
+
+    /**
      * The ablation switch (KotlinConf 2027): with {@link io.codelaser.maddi.cst.impl.analysis.ModificationFacts#NONE}
      * the printer ignores the stored modification verdicts, and every collection keeps Java's mutable type.
      */

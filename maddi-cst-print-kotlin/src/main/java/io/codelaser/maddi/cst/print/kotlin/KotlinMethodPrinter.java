@@ -593,7 +593,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads =
                 java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         int[] uses = {0};
-        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+        java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> visitor = e -> {
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
                 && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
                 && pi.equals(ve.variable()) && !VIEWS.contains(mc.methodInfo().name())) {
@@ -648,6 +648,16 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
             if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable())) {
                 uses[0]++;
+            }
+            return true;
+        };
+        body.visit(visitor);
+        // the methods of an anonymous class capture it too: guava's Maps.removeOnlySet, a ForwardingSet whose
+        // delegate() returns the set as its MutableSet
+        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null) {
+                cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null)
+                        .forEach(am -> am.methodBody().visit(visitor));
             }
             return true;
         });
