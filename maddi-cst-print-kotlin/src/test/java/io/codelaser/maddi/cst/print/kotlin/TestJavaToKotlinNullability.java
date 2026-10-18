@@ -1236,6 +1236,36 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's RegularImmutableMap: {@code Entry<K, V>[] entries = n == array.length ? array : createEntryArray(n)},
+     * createEntryArray's ImmutableMapEntry<K, V>[] Java's covariant array; cast, its K and V stated, which only the
+     * cast types.
+     */
+    @Test
+    public void covariantArrayOfAResultOnlyGenericCall() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Entries {
+                    static class Entry<K, V> implements Map.Entry<K, V> {
+                        public K getKey() { return null; } public V getValue() { return null; }
+                        public V setValue(V v) { return null; }
+                    }
+                    @SuppressWarnings("unchecked")
+                    static <K, V> Entry<K, V>[] createEntryArray(int size) { return new Entry[size]; }
+                    static <K, V> int build(int n, Map.Entry<K, V>[] array) {
+                        array[0] = null;
+                        Map.Entry<K, V>[] entries = n == array.length ? array : createEntryArray(n);
+                        Map.Entry<K, V>[] fresh = createEntryArray(n);
+                        return entries.length + fresh.length;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("entries[]", "fresh[]", "array[]", "createEntryArray()[]")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "createEntryArray<K, V>(n)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ImmutableSet.construct: {@code Object[] elements = distinct == n ? deduped : Arrays.copyOf(deduped,
      * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>;
      * guava's other branch is the builder's E[], Java's covariant array into an Object[].

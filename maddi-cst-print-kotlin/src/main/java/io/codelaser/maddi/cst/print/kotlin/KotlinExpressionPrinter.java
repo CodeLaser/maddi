@@ -1690,7 +1690,9 @@ public class KotlinExpressionPrinter {
         }
         if (!KotlinContext.translatingJava() || !covariantArray(e, target)) return widened(e, target, q);
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+        // guava's RegularImmutableMap: createEntryArray(n) as Array<Entry<K, V>?>, whose K and V only the cast types
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(withoutExpectedType(e, () -> print(e, q)))
+                .add(SpaceEnum.ONE)
                 .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                 .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
@@ -2519,7 +2521,8 @@ public class KotlinExpressionPrinter {
         if (KotlinContext.translatingJava() && covariantArray(branch, target)) {
             // the other branch there: the builder's E[] dedupedElements, Java's covariant array into an Object[]
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, branch, KotlinContext.describe(branch));
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(branch, q)).add(SpaceEnum.ONE)
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(withoutExpectedType(branch, () -> print(branch, q))).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(
                             target.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
