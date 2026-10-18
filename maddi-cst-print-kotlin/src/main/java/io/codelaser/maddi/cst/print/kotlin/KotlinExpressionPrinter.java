@@ -390,6 +390,16 @@ public class KotlinExpressionPrinter {
             String element = expected != null ? KotlinTypeName.of(expected, q)
                     : array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            if (element != null && uncheckedElement(object, mc.parameterExpressions().getFirst())) {
+                // guava's JdkBackedImmutableMultiset: entries.toArray((Entry<E>[]) new Entry<?>[0]) on a
+                // Collection<? extends Entry<? extends E>>: Java's cast is unchecked, and so is the receiver's here,
+                // without which toTypedArray<Entry<E>?>() does not apply
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, object, KotlinContext.describe(object));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(object, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl("Collection<" + element + ">"))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
+                        .add(new TextImpl("toTypedArray<" + element + ">()"));
+            }
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
         if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
@@ -2340,6 +2350,22 @@ public class KotlinExpressionPrinter {
             }
         }
         return false;
+    }
+
+    /**
+     * {@code c.toArray((X[]) …)}: Java's cast names an element type that is not the collection's own, a wildcard
+     * ({@code Collection<? extends Entry<? extends E>>} into an {@code Entry<E>[]}).
+     */
+    private static boolean uncheckedElement(Expression collection, Expression argument) {
+        if (!(unwrap(argument) instanceof Cast cast) || cast.parameterizedType().arrays() != 1) return false;
+        ParameterizedType type = collection.parameterizedType();
+        if (type == null || type.parameters().size() != 1 || type.parameters().getFirst() == null) return false;
+        ParameterizedType own = type.parameters().getFirst();
+        return own.wildcard() != null && own.typeInfo() != null && hasWildcard(own.withWildcard(null));
+    }
+
+    private static boolean hasWildcard(ParameterizedType type) {
+        return type.parameters().stream().anyMatch(p -> p != null && (p.wildcard() != null || hasWildcard(p)));
     }
 
     /** {@code type} is {@code T[]} of one of {@code method}'s own type parameters. */

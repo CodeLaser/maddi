@@ -1168,6 +1168,28 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's JdkBackedImmutableMultiset.create: {@code entries.toArray((Entry<E>[]) new Entry<?>[0])} on a
+     * {@code Collection<? extends Entry<? extends E>>}. Java's cast is unchecked; the receiver's is too.
+     */
+    @Test
+    public void toArrayIntoAnUncheckedElementType() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bag {
+                    interface Entry<E> { E element(); }
+                    @SuppressWarnings("unchecked")
+                    static <E> int create(Collection<? extends Entry<? extends E>> entries) {
+                        Entry<E>[] array = entries.toArray((Entry<E>[]) new Entry<?>[0]);
+                        return array.length;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("array[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(entries as Collection<Entry<E>?>).toTypedArray<Entry<E>?>()");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ExecutionSequencer.TaskNonReentrantExecutor.run: two locals assigned in one loop condition, the second
      * after {@code &&}. Each assignment is an {@code .also { x = it }}, and Kotlin's definite assignment does not see
      * the second as made before the body reads it: the nullable local starts as null.
