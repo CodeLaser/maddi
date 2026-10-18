@@ -682,6 +682,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
             String sameName = sameNamedInnerSuperclass(q);
+            if (sameName == null) sameName = innerOfAGenericOuter(q);
             OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
                     : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
@@ -726,6 +727,37 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String own = KotlinTypeName.of(declaredArguments(parent), q);
         int lt = own.indexOf('<');
         return outerName + "." + parentType.simpleName() + (lt < 0 ? "" : own.substring(lt));
+    }
+
+    /**
+     * guava's AbstractMapBasedMultimap.WrappedList.WrappedListIterator extends WrappedIterator, an inner class of
+     * WrappedCollection, itself an inner class of the generic AbstractMapBasedMultimap<K, V>: Kotlin wants the outer
+     * classes' type arguments ("type arguments must be specified for outer class"), the same K and V the class sees
+     * as a member of that outer. Null when the superclass is no inner class of an outer that is not the class's own.
+     */
+    private String innerOfAGenericOuter(Qualification q) {
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent.typeInfo();
+        if (!parentType.isInnerClass() || CstQueries.enclosing(parentType) == CstQueries.enclosing(typeInfo)) return null;
+        List<TypeInfo> chain = new ArrayList<>();
+        for (TypeInfo t = CstQueries.enclosing(parentType); t != null; t = CstQueries.enclosing(t)) chain.addFirst(t);
+        if (chain.isEmpty() || chain.stream().allMatch(t -> t.typeParameters().isEmpty())) return null;
+        // only where the generic outers enclose this class too: their type parameters are in scope as they are
+        java.util.Set<TypeInfo> ownOuters = new java.util.HashSet<>();
+        for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) ownOuters.add(t);
+        if (chain.stream().anyMatch(t -> !t.typeParameters().isEmpty() && !ownOuters.contains(t))) return null;
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo t : chain) {
+            if (!sb.isEmpty()) sb.append('.');
+            sb.append(KotlinNames.name(t.simpleName()));
+            if (!t.typeParameters().isEmpty()) {
+                sb.append(t.typeParameters().stream().map(tp -> KotlinNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">")));
+            }
+        }
+        String own = KotlinTypeName.of(declaredArguments(parent), q);
+        int lt = own.indexOf('<');
+        return sb + "." + KotlinNames.name(parentType.simpleName()) + (lt < 0 ? "" : own.substring(lt));
     }
 
     private static boolean overridesObjectClone(TypeInfo typeInfo) {

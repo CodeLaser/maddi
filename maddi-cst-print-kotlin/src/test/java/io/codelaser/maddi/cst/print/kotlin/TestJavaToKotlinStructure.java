@@ -2168,6 +2168,39 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's AbstractMapBasedMultimap.WrappedList.WrappedListIterator extends WrappedIterator, an inner class of
+     * WrappedCollection, the outer WrappedList's superclass, inside the generic AbstractMapBasedMultimap<K, V>: Kotlin
+     * wants the outer classes' type arguments written.
+     */
+    @Test
+    public void innerClassExtendingAnInnerOfTheOutersSuperclass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Multimap<K, V> {
+                    class WrappedCollection {
+                        final List<V> delegate = new ArrayList<>();
+                        class WrappedIterator {
+                            final Iterator<V> it;
+                            WrappedIterator() { it = delegate.iterator(); }
+                            WrappedIterator(Iterator<V> it) { this.it = it; }
+                            Iterator<V> getDelegateIterator() { return it; }
+                        }
+                    }
+                    class WrappedList extends WrappedCollection {
+                        class WrappedListIterator extends WrappedIterator {
+                            WrappedListIterator() { }
+                            WrappedListIterator(int index) { super(delegate.listIterator(index)); }
+                            ListIterator<V> list() { return (ListIterator<V>) getDelegateIterator(); }
+                        }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class WrappedListIterator : Multimap<K, V>.WrappedCollection.WrappedIterator");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass's simple name is
      * the class's own, which inside it means itself in Kotlin. Qualified by the superclass's outer, with its type
      * arguments.
