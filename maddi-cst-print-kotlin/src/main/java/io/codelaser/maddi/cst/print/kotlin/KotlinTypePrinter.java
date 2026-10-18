@@ -163,8 +163,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 else if (mods.contains(TypeModifierEnum.SEALED)) out.add(KeywordImpl.SEALED).add(SpaceEnum.ONE);
                 else if (!mods.contains(TypeModifierEnum.FINAL)) out.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
             }
-            if (companion && typeInfo.isInnerClass() && !isLocal(typeInfo) && !typeInfo.isAnonymous()) {
-                out.add(new TextImpl("inner")).add(SpaceEnum.ONE); // Java's nested class sees the outer instance
+            if (companion && typeInfo.isInnerClass() && !typeInfo.isAnonymous()
+                && (!isLocal(typeInfo) || memberOfAnonymous(typeInfo))) {
+                // Java's nested class sees the outer instance; an object expression takes only an inner class
+                // (guava's HashBiMap: class MapEntry inside the anonymous BiIterator)
+                out.add(new TextImpl("inner")).add(SpaceEnum.ONE);
             }
             if (annotationType) {
                 out.add(new TextImpl("annotation")).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
@@ -734,6 +737,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /** A class declared in a method body: not reachable as a member type from its primary type. No visibility in Kotlin. */
+    private static boolean memberOfAnonymous(TypeInfo typeInfo) {
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
+        return enclosing != null && enclosing.isAnonymous() && typeInfo.enclosingMethod() == null;
+    }
+
     static boolean isLocal(TypeInfo typeInfo) {
         return !typeInfo.isAnonymous() && !typeInfo.isPrimaryType() && !isMemberOf(typeInfo.primaryType(), typeInfo);
     }

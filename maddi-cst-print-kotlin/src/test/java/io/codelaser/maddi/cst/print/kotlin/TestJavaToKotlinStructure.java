@@ -2068,6 +2068,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's HashBiMap.entryIterator(): an anonymous BiIterator declares {@code class MapEntry}, an inner class of
+     * the anonymous class. Kotlin's object expression takes no nested class: an inner one.
+     */
+    @Test
+    public void classInsideAnAnonymousClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bi<K> {
+                    K first;
+                    abstract static class It<T> { abstract T output(int i); }
+                    It<Object> iterator() {
+                        return new It<Object>() {
+                            @Override Object output(int i) { return new Entry(i); }
+                            class Entry {
+                                final int index;
+                                Entry(int index) { this.index = index; }
+                                K key() { return first; }
+                            }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "inner class Entry");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ToDoubleRounder<X extends Number & Comparable<X>>, and a method's {@code <T extends Number &
      * Comparable<T>>}: Kotlin's where clause, after the supertypes or the result.
      */
