@@ -1010,4 +1010,27 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 """);
         assertFalse(kotlin.contains("Unit?>"), kotlin);
     }
+
+    /**
+     * guava's Multisets.UnmodifiableMultiset.entrySet(): {@code return es == null ? entrySet = (Set)
+     * Collections.unmodifiableSet(delegate) : es}: the raw cast in the assignment's value takes the field's arguments.
+     */
+    @Test
+    public void rawCastInAnAssignmentUsedAsValue() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class U<E> {
+                    final Set<E> delegate = new HashSet<>();
+                    transient Set<E> entrySet;
+                    @SuppressWarnings("unchecked")
+                    Set<E> entrySet() {
+                        Set<E> es = entrySet;
+                        return (es == null) ? entrySet = (Set) Collections.unmodifiableSet(delegate) : es;
+                    }
+                }
+                """);
+        contains(kotlin, "as MutableSet<E>");
+        compiles(kotlin);
+    }
 }

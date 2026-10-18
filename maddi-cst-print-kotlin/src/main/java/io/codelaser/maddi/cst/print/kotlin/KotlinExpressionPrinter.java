@@ -2431,6 +2431,11 @@ public class KotlinExpressionPrinter {
             && cc.parameterizedType().arrays() == 0) {
             // ArrayList<Int?>().also { lst = it }: the constructed type takes the target's states, as an assignment's
             value = assigned(a.value(), declaredType(a.variableTarget()), q);
+        } else if ("=".equals(op) && unwrap(a.value()) instanceof Cast) {
+            // guava's Multisets.UnmodifiableMultiset.entrySet(): entrySet = (Set) Collections.unmodifiableSet(…), a raw
+            // cast: Kotlin's takes the target's type arguments, as an assignment's does
+            value = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(assigned(a.value(), declaredType(a.variableTarget()), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         } else if ("=".equals(op) && widens(a.value(), a.variableTarget().parameterizedType())) {
             // (read = in.read(buf)) != -1 with a long read: in.read(buf).toLong().also { read = it }
             value = assigned(a.value(), a.variableTarget().parameterizedType(), q);
