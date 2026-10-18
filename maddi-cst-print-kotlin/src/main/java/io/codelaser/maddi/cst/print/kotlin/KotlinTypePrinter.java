@@ -667,7 +667,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<ParameterizedType> arguments = new ArrayList<>(supertype.parameters().size());
         for (ParameterizedType a : supertype.parameters()) {
             ParameterizedType inner = declaredArguments(a);
-            if (a.wildcard() == null && a.arrays() == 0 && inner.annotations().stream()
+            // a bounded wildcard's too: ? super @Nullable V (guava's RangeMap.merge)
+            if ((a.wildcard() == null || !a.isUnboundWildcard()) && a.arrays() == 0 && inner.annotations().stream()
                     .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
                 inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
             }

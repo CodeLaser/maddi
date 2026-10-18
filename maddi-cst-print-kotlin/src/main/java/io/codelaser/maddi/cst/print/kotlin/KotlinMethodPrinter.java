@@ -339,7 +339,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             if (!objectForVariable && !looserWildcard) continue;
             ParameterizedType seen;
             try {
-                seen = KotlinInheritedDefaults.seenThrough(theirs, o.typeInfo(), m.typeInfo().asParameterizedType());
+                // with the overridden declaration's type-use @Nullable arguments (RangeMap.merge's ? super @Nullable V)
+                seen = KotlinInheritedDefaults.seenThrough(KotlinTypePrinter.declaredArguments(theirs), o.typeInfo(),
+                        m.typeInfo().asParameterizedType());
             } catch (RuntimeException | AssertionError e) {
                 continue;
             }

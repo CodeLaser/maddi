@@ -1196,6 +1196,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's TreeRangeMap's empty sub-range map: merge(Range<Comparable<?>> range, @Nullable Object value,
+     * BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable Object> f) overrides RangeMap's merge:
+     * the wildcard bounds' type-use @Nullable stays, or it overrides nothing.
+     */
+    @Test
+    public void parameterKeepsNullableWildcardBounds() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.BiFunction;
+                import org.jspecify.annotations.Nullable;
+                interface RangeMap<V> {
+                    void merge(@Nullable V value, BiFunction<? super V, ? super @Nullable V, ? extends @Nullable V> f);
+                }
+                final class Empty implements RangeMap<Object> {
+                    @Override public void merge(@Nullable Object value,
+                            BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable Object> f) { }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("value")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "f: BiFunction<in Any, in Any?, out Any?>");
+        contains(kotlin, "f: BiFunction<in V, in V?, out V?>");
+    }
+
+    /**
      * guava's RegularImmutableSortedSet.containsAll(Collection<?> targets) reassigns targets, a value that may be null
      * by its verdict: the var copying the parameter, the mapped member's read-only Collection, is read-only too.
      */

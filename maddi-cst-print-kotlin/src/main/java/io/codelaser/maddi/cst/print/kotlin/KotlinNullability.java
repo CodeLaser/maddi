@@ -92,7 +92,11 @@ final class KotlinNullability {
             return declared.withNullable(NullableState.NULLABLE);
         }
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
+        // guava's TreeRangeMap: merge(…, BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable
+        // Object> f) overriding RangeMap's: the declaration's type-use annotations on its arguments, wildcard bounds
+        // included, which an override must repeat
         ParameterizedType type = verdict != null ? verdict : declared;
+        if (KotlinContext.translatingJava()) type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(declared));
         return INFERRED_NULLABLE.get().containsKey(parameterInfo) ? type.withNullable(NullableState.NULLABLE) : type;
     }
 
@@ -324,7 +328,9 @@ final class KotlinNullability {
             ParameterizedType mine = type.parameters().get(i);
             ParameterizedType theirs = declared.parameters().get(i);
             ParameterizedType merged = withDeclaredArgumentStates(mine, theirs);
-            if (theirs != null && theirs.wildcard() == null && isNullable(theirs) && !isNullable(merged)) {
+            if (theirs != null && mine != null && isNullable(theirs) && !isNullable(merged)
+                && (theirs.wildcard() == null || mine.wildcard() != null && !theirs.isUnboundWildcard()
+                                                 && theirs.wildcard().isSuper() == mine.wildcard().isSuper())) {
                 merged = merged.withNullable(NullableState.NULLABLE);
             }
             changed |= merged != mine;
