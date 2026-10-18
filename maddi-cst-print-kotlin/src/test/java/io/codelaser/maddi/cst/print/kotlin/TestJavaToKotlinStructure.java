@@ -2090,6 +2090,19 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "override fun forEachRemaining(action: Consumer<in T>) = super<Base>.forEachRemaining(action)");
         contains(kotlin, "override fun each(a: Consumer<in E>) = super<Coll>.each(a)");
         compiles(kotlin);
+        // FlatMapSpliteratorOfPrimitive's forEachRemaining(OutConsumerT) is a forEachRemaining(DoubleConsumer) to
+        // FlatMapSpliteratorOfDouble, as Spliterator.OfDouble's default
+        String primitive = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.DoubleConsumer;
+                abstract class Prim<C> {
+                    public void forEachRemaining(C action) { }
+                }
+                abstract class PrimD extends Prim<DoubleConsumer> implements Spliterator.OfDouble { }
+                """);
+        contains(primitive, "override fun forEachRemaining(action: DoubleConsumer) = super<Prim>.forEachRemaining(action)");
+        compiles(primitive);
     }
 
     /**
