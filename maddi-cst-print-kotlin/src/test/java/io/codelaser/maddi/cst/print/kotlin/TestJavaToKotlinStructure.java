@@ -2068,6 +2068,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass's simple name is
+     * the class's own, which inside it means itself in Kotlin. Qualified by the superclass's outer, with its type
+     * arguments.
+     */
+    @Test
+    public void innerClassExtendingTheSameNamedInnerOfTheOutersSuperclass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Base<E> {
+                    class EntrySet { int size() { return 0; } }
+                }
+                class Concurrent<E> extends Base<E> {
+                    private class EntrySet extends Base<E>.EntrySet { @Override int size() { return 1; } }
+                    int count() { return new EntrySet().size(); }
+                }
+                """);
+        contains(kotlin, "inner class EntrySet : Base<E>.EntrySet()");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Maps.EntrySet.removeAll: {@code Sets.removeAllImpl(this, c.iterator())} of a read-only Collection<*>
      * parameter, whose iterator() is Kotlin's Iterator; removeAllImpl's translated Iterator parameter is a
      * MutableIterator. Java's iterator is one: cast.

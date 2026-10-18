@@ -667,7 +667,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
-            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
+            String sameName = sameNamedInnerSuperclass(q);
+            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
+                    : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
@@ -680,6 +682,36 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));
         }
         return supers;
+    }
+
+    /**
+     * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass, an inner class of
+     * the outer class's superclass, has the class's own simple name, which inside it means the class itself ("cycle in
+     * supertypes"). Qualified by its outer class, with the type arguments the class's outer gives it. Null otherwise.
+     */
+    private String sameNamedInnerSuperclass(Qualification q) {
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent.typeInfo();
+        if (!parentType.simpleName().equals(typeInfo.simpleName()) || parentType.isPrimaryType()) return null;
+        TypeInfo parentOuter = CstQueries.enclosing(parentType);
+        TypeInfo outer = CstQueries.enclosing(typeInfo);
+        if (parentOuter == null || outer == null) return null;
+        String outerName;
+        if (parentType.isInnerClass() && !parentOuter.typeParameters().isEmpty()) {
+            ParameterizedType seen;
+            try {
+                seen = outer.asParameterizedType().concreteSuperType(parentOuter.asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                return null;
+            }
+            if (seen == null) return null;
+            outerName = KotlinTypeName.of(seen, q);
+        } else {
+            outerName = KotlinTypeName.name(parentOuter, q);
+        }
+        String own = KotlinTypeName.of(declaredArguments(parent), q);
+        int lt = own.indexOf('<');
+        return outerName + "." + parentType.simpleName() + (lt < 0 ? "" : own.substring(lt));
     }
 
     private static boolean overridesObjectClone(TypeInfo typeInfo) {
