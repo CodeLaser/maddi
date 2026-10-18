@@ -2042,6 +2042,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * As {@link #inheritedDefaultsChosenExplicitly}, for methods with parameters: guava's FlatMapSpliteratorOfDouble
+     * inherits forEachRemaining(Consumer) from FlatMapSpliterator and as Spliterator's default; SynchronizedMultiset
+     * forEach(Consumer) from SynchronizedCollection and as Multiset's default.
+     */
+    @Test
+    public void inheritedDefaultsWithParametersChosenExplicitly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Consumer;
+                abstract class Base<T> {
+                    public void forEachRemaining(Consumer<? super T> action) { }
+                }
+                abstract class Split<T> extends Base<T> implements Spliterator<T> { }
+                interface Each<E> { void each(Consumer<? super E> a); }
+                interface Bag<E> extends Each<E> { @Override default void each(Consumer<? super E> a) { } }
+                class Coll<E> implements Each<E> { @Override public void each(Consumer<? super E> a) { } }
+                class SyncBag<E> extends Coll<E> implements Bag<E> { }
+                """);
+        contains(kotlin, "override fun forEachRemaining(action: Consumer<in T>) = super<Base>.forEachRemaining(action)");
+        contains(kotlin, "override fun each(a: Consumer<in E>) = super<Coll>.each(a)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection has no
      * toArray to override, so the members are declared plainly (Java's toArray on the JVM); toArray(T[]) with a T[]
      * calls Java's, which fills and returns the array it is handed.

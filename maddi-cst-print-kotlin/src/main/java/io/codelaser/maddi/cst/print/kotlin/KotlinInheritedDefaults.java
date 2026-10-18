@@ -23,8 +23,9 @@ import java.util.stream.Collectors;
  * {@code override fun spliterator(): Spliterator<V> = super<WrappedCollection>.spliterator()}.
  * <p>
  * Only where the superclass chain's own method overrides another declaration than the interface's default
- * (WrappedCollection's spliterator overrides Collection's, not Set's), and only for methods without parameters, whose
- * signature reads the same from either side.
+ * (WrappedCollection's spliterator overrides Collection's, not Set's). Parameters read as the interface sees them
+ * (guava's FlatMapSpliteratorOfDouble: {@code tryAdvance(action: Consumer<in Double>)}), with the nullability of the
+ * superclass's translated method, which the override must match; varargs are left alone.
  */
 final class KotlinInheritedDefaults {
 
@@ -52,24 +53,57 @@ final class KotlinInheritedDefaults {
                 }
                 String via = superName(typeInfo.parentClass(), q);
                 done.add(key);
-                result.add(override(d, iface, via, q));
+                result.add(override(d, iface, fromSuper, via, q));
             }
         }
         return result;
     }
 
-    private static OutputBuilder override(MethodInfo d, ParameterizedType iface, String via, Qualification q) {
+    private static OutputBuilder override(MethodInfo d, ParameterizedType iface, MethodInfo fromSuper, String via,
+                                          Qualification q) {
+        boolean translated = KotlinNullability.translated(fromSuper.typeInfo());
         String parameters = d.parameters().stream()
-                .map(p -> KotlinNames.name(p.name()) + ": " + KotlinTypeName.of(KotlinNullability
-                        .seenThrough(p.parameterizedType(), d.typeInfo(), iface).withNullable(NullableState.NONNULL), q))
+                .map(p -> KotlinNames.name(name(fromSuper, p)) + ": " + KotlinTypeName.of(
+                        seenThrough(p.parameterizedType(), d.typeInfo(), iface).withNullable(translated
+                                && KotlinNullability.isNullable(KotlinNullability.parameterType(fromSuper.parameters().get(p.index())))
+                                ? NullableState.NULLABLE : NullableState.NONNULL), q))
                 .collect(Collectors.joining(", "));
-        String arguments = d.parameters().stream().map(p -> KotlinNames.name(p.name())).collect(Collectors.joining(", "));
+        String arguments = d.parameters().stream().map(p -> KotlinNames.name(name(fromSuper, p)))
+                .collect(Collectors.joining(", "));
         String name = KotlinNames.name(d.name());
         ParameterizedType rt = d.returnType();
         String returns = rt == null || rt.isVoid() ? ""
-                : ": " + KotlinTypeName.of(KotlinNullability.seenThrough(rt, d.typeInfo(), iface).withNullable(NullableState.NONNULL), q);
+                : ": " + KotlinTypeName.of(seenThrough(rt, d.typeInfo(), iface).withNullable(translated
+                        && KotlinNullability.isNullable(KotlinNullability.returnType(fromSuper))
+                        ? NullableState.NULLABLE : NullableState.NONNULL), q);
         return new OutputBuilderImpl().add(new TextImpl("override fun " + name + "(" + parameters + ")" + returns
                                                         + " = super<" + via + ">." + name + "(" + arguments + ")"));
+    }
+
+    /** The superclass method's parameter name: a library default's may be {@code arg0}. */
+    private static String name(MethodInfo fromSuper, io.codelaser.maddi.cst.api.info.ParameterInfo p) {
+        return fromSuper.parameters().get(p.index()).name();
+    }
+
+    /**
+     * As {@link KotlinNullability#seenThrough}, keeping the projections of the declaration's type arguments:
+     * {@code Consumer<? super T>} is a {@code Consumer<in Double>} through {@code Spliterator<Double>}, which an
+     * override's signature must repeat.
+     */
+    private static ParameterizedType seenThrough(ParameterizedType declared, TypeInfo declaring, ParameterizedType via) {
+        if (declared.arrays() > 0 || declared.parameters().isEmpty()) {
+            return KotlinNullability.seenThrough(declared, declaring, via);
+        }
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (ParameterizedType a : declared.parameters()) {
+            if (a == null || a.isUnboundWildcard()) {
+                arguments.add(a);
+                continue;
+            }
+            ParameterizedType seen = seenThrough(a.wildcard() == null ? a : a.withWildcard(null), declaring, via);
+            arguments.add(a.wildcard() != null && seen.wildcard() == null ? seen.withWildcard(a.wildcard()) : seen);
+        }
+        return declared.withParameters(arguments);
     }
 
     private static String superName(ParameterizedType type, Qualification q) {
@@ -83,7 +117,7 @@ final class KotlinInheritedDefaults {
         if (!visited.add(iface)) return List.of();
         List<MethodInfo> result = new ArrayList<>();
         for (MethodInfo m : iface.methods()) {
-            if (m.isDefault() && !m.isStatic() && m.parameters().isEmpty()) result.add(m);
+            if (m.isDefault() && !m.isStatic() && m.parameters().stream().noneMatch(p -> p.isVarArgs())) result.add(m);
         }
         for (ParameterizedType sup : iface.interfacesImplemented()) {
             if (sup.typeInfo() == null) continue;
