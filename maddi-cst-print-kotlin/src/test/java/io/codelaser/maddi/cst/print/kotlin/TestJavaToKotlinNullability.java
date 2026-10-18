@@ -1132,6 +1132,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Parameter.getDeclaredAnnotations(): {@code annotations.toArray(new Annotation[0])} on guava's own
+     * {@code <T> T[] toArray(T[] other)}, whose verdict is {@code Array<T?>} both ways: arrayOfNulls into it, and the
+     * result cast to the non-null Array<String> returned.
+     */
+    @Test
+    public void toArrayOfNullableElementsIntoANonNullArray() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Coll<E> {
+                    abstract <T> T[] toArray(T[] other);
+                    static String[] names(Coll<String> c) { return c.toArray(new String[0]); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("other[]", "toArray()[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "c.toArray(arrayOfNulls<String>(0)) as Array<String>");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.

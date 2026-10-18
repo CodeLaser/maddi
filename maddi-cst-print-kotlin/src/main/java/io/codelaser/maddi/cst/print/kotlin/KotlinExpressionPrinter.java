@@ -808,7 +808,10 @@ public class KotlinExpressionPrinter {
                     argumentTranslated = false;
                 }
                 if (hasParameter && "toArray".equals(method.name()) && method.parameters().size() == 1
-                    && KotlinNullability.translated(method.typeInfo()) && unwrap(args.get(i)) instanceof ConstructorCall ec
+                    && KotlinNullability.translated(method.typeInfo())
+                    // not into guava's own toArray(other: Array<T?>), whose T an Array<Annotation> does not give
+                    && !KotlinNullability.isNullable(KotlinNullability.parameterType(method.parameters().getFirst()).componentType())
+                    && unwrap(args.get(i)) instanceof ConstructorCall ec
                     && ec.arrayInitializer() == null && ec.parameterizedType().arrays() == 1
                     && ec.parameterExpressions().size() == 1 && unwrap(ec.parameterExpressions().getFirst()) instanceof IntConstant zero
                     && zero.constant() == 0 && ec.parameterizedType().componentType().typeParameter() == null
@@ -1528,6 +1531,21 @@ public class KotlinExpressionPrinter {
                 return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
                         .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                         .add(new TextImpl(KotlinTypeName.of(target.withNullable(value.nullable()), q)))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+        }
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
+            && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null && "toArray".equals(tc.methodInfo().name())
+            && KotlinNullability.translated(tc.methodInfo().typeInfo())
+            && !KotlinNullability.isNullable(target.componentType())) {
+            ParameterizedType result = KotlinNullability.kotlinType(e);
+            if (result != null && result.arrays() == 1 && KotlinNullability.isNullable(result.componentType())) {
+                // guava's Parameter.getDeclaredAnnotations(): annotations.toArray(new Annotation[0]), guava's own
+                // <T> toArray(other: Array<T?>): Array<T?>, into an Array<Annotation>: Java's array is filled; erased,
+                // the cast checks nothing
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                         .add(SymbolEnum.RIGHT_PARENTHESIS);
             }
         }
