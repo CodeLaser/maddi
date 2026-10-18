@@ -449,12 +449,42 @@ public class KotlinExpressionPrinter {
                     .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
-        String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
-                .map(t -> KotlinTypeName.of(KotlinTypePrinter.declared(t), q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
+        String typeArguments = !mc.typeArguments().isEmpty() ? explicitTypeArguments(mc, q)
                 : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyOrLambdaOnly(mc, q);
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
     }
+
+    /**
+     * Java's explicit type arguments, {@code Ranges.<Integer>range(2, 4)}, with the type-use annotation's state; and,
+     * where {@link #widened} prints the call into a declaration whose type argument is nullable, with that state:
+     * Kotlin's generics are invariant, {@code range<Int>} is no {@code MutableList<Int?>}.
+     */
+    private static String explicitTypeArguments(MethodCall mc, Qualification q) {
+        List<ParameterizedType> arguments = new ArrayList<>(mc.typeArguments().stream().map(KotlinTypePrinter::declared).toList());
+        java.util.Map.Entry<MethodCall, ParameterizedType> t = TYPE_ARGUMENTS_TARGET.get();
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (t != null && t.getKey() == mc && m.returnType() != null && m.typeParameters().size() == arguments.size()) {
+            Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete;
+            try {
+                concrete = m.returnType().formalToConcrete(t.getValue());
+            } catch (RuntimeException | AssertionError e) {
+                concrete = Map.of();
+            }
+            for (int i = 0; i < arguments.size(); i++) {
+                ParameterizedType target = concrete.get(m.typeParameters().get(i));
+                ParameterizedType argument = arguments.get(i);
+                if (target != null && target.wildcard() == null && KotlinNullability.isNullable(target)
+                    && sameUpToStates(target, argument)) {
+                    arguments.set(i, argument.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+                }
+            }
+        }
+        return arguments.stream().map(a -> KotlinTypeName.of(a, q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /** The call with explicit type arguments that {@link #widened} prints into a declaration of this type. */
+    private static final ThreadLocal<java.util.Map.Entry<MethodCall, ParameterizedType>> TYPE_ARGUMENTS_TARGET = new ThreadLocal<>();
 
     /** The method returns a type whose type arguments Kotlin types nullable: {@code Ordering<@Nullable S>}. */
     private static boolean nullableArgument(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
@@ -1559,6 +1589,19 @@ public class KotlinExpressionPrinter {
                 return print(e, q);
             } finally {
                 TO_ARRAY_TARGET.set(previous);
+            }
+        }
+        if (target != null && target.arrays() == 0 && unwrap(e) instanceof MethodCall mc && mc.methodInfo() != null
+            && !mc.typeArguments().isEmpty() && target.parameters().stream().anyMatch(KotlinNullability::isNullable)
+            && !optionalOfNullable(e, target) && !rawOf(rawValueType(e), target)) {
+            // List<Integer> r = Ranges.<Integer>range(2, 4) into a MutableList<Int?>: Kotlin's generics are invariant,
+            // so the explicit type arguments take the states of what the call initializes, range<Int?>
+            java.util.Map.Entry<MethodCall, ParameterizedType> previous = TYPE_ARGUMENTS_TARGET.get();
+            TYPE_ARGUMENTS_TARGET.set(java.util.Map.entry(mc, target));
+            try {
+                return print(e, q);
+            } finally {
+                TYPE_ARGUMENTS_TARGET.set(previous);
             }
         }
         if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
