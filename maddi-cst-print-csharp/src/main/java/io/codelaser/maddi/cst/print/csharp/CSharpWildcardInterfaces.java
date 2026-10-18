@@ -136,7 +136,11 @@ final class CSharpWildcardInterfaces {
         for (Object info : CSharpContext.program().reachedThroughWildcard(t)) {
             if (declared.contains(info)) continue;
             if (info instanceof MethodInfo m) {
-                if ("java.lang.Object".equals(m.typeInfo().fullyQualifiedName())) continue;
+                // Object's, or an override of Object's (javac resolves tag.toString() to Tag's): every C# object has it
+                if (m.overrides().stream().anyMatch(o -> "java.lang.Object".equals(o.typeInfo().fullyQualifiedName()))
+                    || "java.lang.Object".equals(m.typeInfo().fullyQualifiedName())) {
+                    continue;
+                }
                 if (m.overrides().stream().filter(o -> o != m).map(MethodInfo::typeInfo)
                         .anyMatch(o -> inheritedClosed(t, o, removed)) || inheritedClosed(t, m.typeInfo(), removed)) {
                     continue;
