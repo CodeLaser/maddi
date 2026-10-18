@@ -598,6 +598,20 @@ public class KotlinExpressionPrinter {
 
     private static boolean noExpectedType(MethodCall mc) {
         if (NO_EXPECTED_TYPE.get().contains(mc)) return true;
+        // guava's ImmutableTable.SerializedForm.readResolve(): return of(), the method's result an Object
+        io.codelaser.maddi.cst.api.info.MethodInfo current = KotlinContext.currentMethod();
+        if (current != null && current.returnType() != null && current.returnType().isJavaLangObject()
+            && current.methodBody() != null) {
+            boolean[] returned = {false};
+            current.methodBody().visit((io.codelaser.maddi.cst.api.element.Element el) -> {
+                if (el instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs && rs.expression() != null
+                    && unwrap(rs.expression()) == mc) {
+                    returned[0] = true;
+                }
+                return !returned[0];
+            });
+            if (returned[0]) return true;
+        }
         List<Expression> args;
         List<ParameterInfo> params;
         if (KotlinContext.enclosingCall() instanceof MethodCall outer) {
@@ -2881,7 +2895,11 @@ public class KotlinExpressionPrinter {
                 // ((Comparable) actual).compareTo(expected): Comparable<*> takes nothing, Comparable<Any?> anything,
                 // unchecked, as Java's raw type does
                 ? "Comparable<Any?>" + (nullable ? "?" : "") : KotlinTypeName.of(type, q);
-        return new OutputBuilderImpl().add(operand(cast.precedence(), cast.expression(), q)).add(SpaceEnum.ONE)
+        // the operand has no expected type of its own: Ordering.natural().reverse() as Comparator<in E> (guava's Sets),
+        // Optional.empty() as Optional<T> (Streams)
+        OutputBuilder operand = withoutExpectedType(cast.expression(),
+                () -> operand(cast.precedence(), cast.expression(), q));
+        return new OutputBuilderImpl().add(operand).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                 .add(new TextImpl(typeName));
     }

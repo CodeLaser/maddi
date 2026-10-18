@@ -1070,4 +1070,35 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "toArray(ArrayList<Double>())");
         compiles(kotlin);
     }
+
+    /** guava's ImmutableTable.SerializedForm.readResolve(): {@code Object readResolve() { return of(); }}. */
+    @Test
+    public void resultOnlyCallReturnedAsObject() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class T {
+                    static <R, C> Map<R, C> of() { return new HashMap<>(); }
+                    Object readResolve() { return of(); }
+                }
+                """);
+        contains(kotlin, "of<Any, Any>()");
+        compiles(kotlin);
+    }
+
+    /** guava's Streams.findLast: {@code (Optional<T>) Optional.empty()}, the cast giving empty() no type. */
+    @Test
+    public void resultOnlyCallAsACastsOperand() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class S {
+                    static <T> List<T> none() { return new ArrayList<>(); }
+                    @SuppressWarnings("unchecked")
+                    static <T> Collection<T> last() { return (Collection<T>) none(); }
+                }
+                """);
+        contains(kotlin, "none<Any>()");
+        compiles(kotlin);
+    }
 }
