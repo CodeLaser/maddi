@@ -268,6 +268,42 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SCOPED_DIAMONDS = """
+            package org.example.scoped;
+            import java.util.*;
+            import java.util.function.Function;
+            class Scoped {
+                static final class OrderedSet<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<T> {
+                    Notifiable(Collection<List<T>> queue) { }
+                }
+                static <T> Notifiable<T> build(boolean unique) {
+                    return new Notifiable<>(unique ? new OrderedSet<>() : new ArrayDeque<>());
+                }
+                @SuppressWarnings("rawtypes")
+                static final class Joiner<A> {
+                    @SuppressWarnings("unchecked")
+                    private static final Joiner NONE = new Joiner(new Function[0]);
+                    Joiner(Function<A, Object>[] mappings) { }
+                }
+            }
+            """;
+
+    /**
+     * A diamond whose parameter is a supertype its class reaches through another, Collection through Set; a raw
+     * creation's raw array, of no type parameter out of scope.
+     */
+    @Test
+    public void scopedDiamonds() {
+        String cs = translate("Scoped", SCOPED_DIAMONDS);
+        contains(cs, "unique ? new OrderedSet<List<T>>()\n: new List<List<T>>()");
+        contains(cs, "new Joiner<object>(new Func<object, object>[0])");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

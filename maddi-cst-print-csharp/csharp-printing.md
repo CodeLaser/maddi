@@ -392,9 +392,13 @@ implements the interface.
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
   for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method
-  reference binds; through the parameter's whole type and a supertype the class declares with its own type
-  parameters (`newSetFromMap(new HashMap<>())` is `new Dictionary<T, bool>()` for `Map<E, Boolean>`), and an outer
+  reference binds; through the parameter's whole type and any supertype of the class in its own type parameters
+  (`newSetFromMap(new HashMap<>())` is `new Dictionary<T, bool>()` for `Map<E, Boolean>`, a
+  `ListBasedScalingOrderedSet<E>` a `Collection<E>` through `Set<E>`), and an outer
   creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch.
+- **Raw creations.** `new DefaultBiJoiner(new Function[0], …)`, raw in a static member, is
+  `new DefaultBiJoiner<object, object>(new Func<object, object>[0], …)`: its parameter, `Func<A, object>[]`, is
+  of type parameters out of scope, and no conversion's target.
 - **Erased diamonds.** A diamond of raw arguments, `new DefaultBiJoiner<>(newLeftMappings, …)` of a
   `new Function[n]`, is the raw type to Java, which converts unchecked to the `DefaultBiJoiner<A, B>` it is
   returned or assigned as. C# creates it with the target's type arguments, also through an interface the class

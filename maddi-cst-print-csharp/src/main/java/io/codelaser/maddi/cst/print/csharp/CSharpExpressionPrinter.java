@@ -823,16 +823,12 @@ public final class CSharpExpressionPrinter {
                     inferred);
         }
         ParameterizedType target = argumentTarget(cc);
-        // the parameter's type, or a supertype the class declares with its own type parameters (HashMap<K, V> : Map<K, V>)
-        if (target != null && (created.equals(target.typeInfo()) || target.typeInfo() != null
-                                                                     && passesOwnParameters(created, target.typeInfo()))
-            && target.parameters().size() == type.parameters().size()) {
-            for (int i = 0; i < type.parameters().size(); i++) {
-                ParameterizedType a = type.parameters().get(i);
-                if (a.isTypeParameter() && own.contains(a.typeParameter())) {
-                    inferred.putIfAbsent(a.typeParameter(), target.parameters().get(i));
-                }
-            }
+        // the parameter's type, or a supertype of the class, as it extends or implements it in its own type parameters:
+        // HashMap<K, V> is a Map<K, V>, ListBasedScalingOrderedSet<E> a Collection<E> through Set<E>
+        if (target != null && target.typeInfo() != null) {
+            ParameterizedType asTarget = created.equals(target.typeInfo()) ? type
+                    : CSharpHierarchy.implementedAs(created, target.typeInfo());
+            if (asTarget != null) match(asTarget, target, own, inferred);
         }
         List<ParameterizedType> arguments = new ArrayList<>();
         for (ParameterizedType a : type.parameters()) {
@@ -1075,6 +1071,13 @@ public final class CSharpExpressionPrinter {
         if (target == null || method == null || !method.isConstructor()) return target;
         if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || cc.constructor() != method) return target;
         ParameterizedType created = CSharpContext.created(cc);
+        // created raw, new DefaultBiJoiner(new Function[0], …) in a static member: C#'s of object, whose parameter
+        // is no conversion's target; the raw array is its own Func<object, object>[]
+        if (created != null && created.typeInfo() != null && created.parameters().isEmpty()
+            && !created.typeInfo().typeParameters().isEmpty() && CstQueries.mentionsAny(target,
+                created.typeInfo().typeParameters())) {
+            return null;
+        }
         if (created == null || created.typeInfo() == null
             || created.parameters().size() != created.typeInfo().typeParameters().size()) {
             return target;
@@ -1133,7 +1136,7 @@ public final class CSharpExpressionPrinter {
     /**
      * A diamond of raw arguments, {@code new DefaultBiJoiner<>(newLeftMappings, …)} of a {@code new Function[n]}: Java
      * infers the raw type, which converts to the {@code DefaultBiJoiner<A, B>} returned unchecked; C# creates it with
-     * the target's type arguments, or those of the class that make it the target, an interface it implements. Null
+     * the target's type arguments, or those of the class that make it the target, a supertype's. Null
      * when the creation is not such a diamond, or the target does not determine them.
      */
     private static ParameterizedType erasedDiamond(Expression e, ParameterizedType target) {
@@ -1149,14 +1152,9 @@ public final class CSharpExpressionPrinter {
         }
         List<TypeParameter> own = created.typeParameters();
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        if (created.equals(target.typeInfo())) {
-            match(created.asParameterizedType(), target, own, inferred);
-        } else {
-            List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
-            if (created.parentClass() != null) declared.add(created.parentClass());
-            declared.stream().filter(d -> target.typeInfo().equals(d.typeInfo())).findFirst()
-                    .ifPresent(d -> match(d, target, own, inferred));
-        }
+        ParameterizedType asTarget = created.equals(target.typeInfo()) ? created.asParameterizedType()
+                : CSharpHierarchy.implementedAs(created, target.typeInfo());
+        if (asTarget != null) match(asTarget, target, own, inferred);
         List<ParameterizedType> arguments = new ArrayList<>();
         for (TypeParameter tp : own) {
             ParameterizedType t = inferred.get(tp);
