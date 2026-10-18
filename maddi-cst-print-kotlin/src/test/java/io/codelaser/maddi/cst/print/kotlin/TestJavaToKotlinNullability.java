@@ -2376,4 +2376,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "val r: MutableList<Int?>");
         compiles(kotlin);
     }
+
+    /**
+     * As {@link #localTypedWhereGenericCallInfersNonNull}, with Java's explicit type argument: {@code
+     * Ranges2.<Integer>range(2, 4)} into a local whose elements are nullable, because {@code r.add(null)} writes a null
+     * into them. Kotlin's generics are invariant: the explicit type argument takes the local's state, {@code
+     * range<Int?>}; {@code range<Int>} is a {@code MutableList<Int>}, which the {@code MutableList<Int?>} local rejects.
+     */
+    @Test
+    public void explicitTypeArgumentTakesLocalTypeArgumentState() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("r<>")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Ranges2 {
+                    static <T> List<T> range(T lower, T upper) { List<T> l = new ArrayList<>(); l.add(lower); l.add(upper); return l; }
+                    static int size() {
+                        List<Integer> r = Ranges2.<Integer>range(2, 4);
+                        r.add(null);
+                        return r.size();
+                    }
+                }
+                """, options);
+        contains(kotlin, "range<Int?>(2, 4)");
+        compiles(kotlin);
+    }
 }
