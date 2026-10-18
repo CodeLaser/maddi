@@ -518,6 +518,30 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ClosingFuture.whenAllSucceed(inputFutures()) and CollectCollectors' checkNotNull(key, template, t): no
+     * type arguments, which Java infers as a class without Kotlin's states, or where the varargs position is no
+     * type variable's.
+     */
+    @Test
+    public void callBesideAVarargsOverloadInfersItsOwn() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Combine {
+                    static <V> List<V> all(Iterable<? extends List<? extends V>> lists) { return new ArrayList<>(); }
+                    @SafeVarargs
+                    static <V> List<V> all(List<? extends V>... lists) { return new ArrayList<>(); }
+                    static <T> T check(T reference, String template, Object p1) { return reference; }
+                    static <T> T check(T reference, String template, Object... args) { return reference; }
+                    static List<Object> combined(List<List<String>> inputs) { return all(inputs); }
+                    static String key(String k, Object t) { return check(k, "Null key for %s", t); }
+                }
+                """);
+        assertFalse(kotlin.contains("all<"), kotlin);
+        assertFalse(kotlin.contains("check<"), kotlin);
+    }
+
+    /**
      * guava's BloomFilter.Strategy declares {@code int ordinal()}, which the BloomFilterStrategies enum implements by
      * java.lang.Enum's: a property in Kotlin, which Kotlin's Enum implements, and read as one.
      */

@@ -519,16 +519,23 @@ public class KotlinExpressionPrinter {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
         if (!KotlinContext.translatingJava() || m.typeParameters().isEmpty() || m.isVarargs()
             || mc.concreteReturnType() == null || m.returnType() == null) return null;
-        boolean varargsOverload = m.typeInfo().methodStream().anyMatch(o -> o != m && o.name().equals(m.name())
-                && o.isVarargs() && !o.typeParameters().isEmpty() && o.parameters().size() == m.parameters().size());
+        // the parameter at the varargs position mentions a type parameter: a free one lets the argument be an
+        // element. Not guava's checkNotNull(reference, template, Object p1) beside its varargs one
+        int last = m.parameters().size() - 1;
+        boolean varargsOverload = last >= 0 && m.typeInfo().methodStream().anyMatch(o -> o != m
+                && o.name().equals(m.name()) && o.isVarargs() && !o.typeParameters().isEmpty()
+                && o.parameters().size() == m.parameters().size())
+                && m.typeParameters().stream().anyMatch(tp -> CstQueries.mentions(m.parameters().get(last).parameterizedType(), tp));
         if (!varargsOverload) return null;
         Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete =
                 m.returnType().formalToConcrete(mc.concreteReturnType());
         List<String> printed = new ArrayList<>();
         for (io.codelaser.maddi.cst.api.info.TypeParameter tp : m.typeParameters()) {
             ParameterizedType c = concrete.get(tp);
-            if (c == null || c.wildcard() != null || c.typeParameter() == tp
-                || c.typeParameter() != null && !KotlinContext.typeParameterInScope(c.typeParameter())) return null;
+            // a type variable of ours only: Java's inferred class (guava's whenAllSucceed(inputFutures()), V an
+            // Object) has lost the states Kotlin infers
+            if (c == null || c.wildcard() != null || c.arrays() > 0 || c.typeParameter() == null || c.typeParameter() == tp
+                || !KotlinContext.typeParameterInScope(c.typeParameter())) return null;
             printed.add(KotlinTypeName.of(c, q));
         }
         return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
