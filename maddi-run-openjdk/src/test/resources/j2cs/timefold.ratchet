@@ -161,9 +161,12 @@
 # 2026-10-17, maddi 1798df741, 114195d54, 42976fa84: ListIterator, reflection's declared members, String strips,
 # List's first/last; a generic default method implements the inherited interface's explicitly: 1255 -> 1267
 # compiling files, 1221 -> 1123 errors, unmapped JDK uses 333 -> 292.
+# 2026-10-18, maddi 459ff635e, 4b171c277, 929b63000, 8a222b943: a diamond's type arguments through any supertype;
+# a raw creation's raw arrays; delegates widened for a generic constructor; the formatter's split points move with
+# an overflow split: 1267 -> 1268 compiling files, 1123 -> 1071 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1267
+compilingFiles	1268
 unmappedJdkUses	292
