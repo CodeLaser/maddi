@@ -697,11 +697,13 @@ final class KotlinNullability {
             && unboundTypeVariable(valueType)) {
             // Success<T>(response) with a T? response: a parameter typed by an unbounded type variable is not checked
             // at runtime, so the null reaches the callee as in Java, whose ensureNotNull throws what the caller
-            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased
+            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased; to the target's
+            // where that is a supertype's, out of scope (get(type) of a Forwarding<K, V> superclass, its V a B here)
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            ParameterizedType castTo = KotlinContext.typeParameterInScope(valueType.typeParameter()) ? valueType : target;
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                    .add(new TextImpl(KotlinTypeName.of(valueType.withNullable(NullableState.NONNULL), q)))
+                    .add(new TextImpl(KotlinTypeName.of(castTo.withNullable(NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintCode.ASSERT_AT_UNBOXING : KotlinPrintCode.ASSERT_INTO_NON_NULL,

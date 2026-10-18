@@ -461,6 +461,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * {@code get(type)} of a translated Forwarding<K, V> superclass, into a B: the unchecked cast is to B, as the
+     * superclass's V is out of scope.
+     */
+    @Test
+    public void inheritedTypeVariableResultCastToTheTarget() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Forwarding<K, V> extends AbstractMap<K, V> {
+                    final Map<K, V> delegate = new HashMap<>();
+                    @Override public V get(Object key) { return delegate.get(key); }
+                    @Override public Set<Entry<K, V>> entrySet() { return delegate.entrySet(); }
+                }
+                class Instances<B> extends Forwarding<Class<? extends B>, B> {
+                    B instance(Class<?> type) { return get(type); }
+                }
+                """);
+        contains(kotlin, "(get(type) as B)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's MultimapBuilder.enumKeys: {@code new EnumMap<K0, Collection<V>>(keyClass)} in the createMap of the
      * anonymous class it returns, K0 the enclosing method's: the type arguments stay, or Kotlin infers no V.
      */
