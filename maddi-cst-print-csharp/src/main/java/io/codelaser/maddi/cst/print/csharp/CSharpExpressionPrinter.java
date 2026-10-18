@@ -980,15 +980,18 @@ public final class CSharpExpressionPrinter {
         if (from == null || from.arrays() != 0 || from.typeInfo() == null || !from.typeInfo().equals(target.typeInfo())) {
             return null;
         }
-        String to = CSharpTypeName.of(target, q);
-        if (to.equals(CSharpTypeName.of(from, q))) return null;
         // only Java's wildcard or raw use, object in C#: a position of the callee's own type parameter, Func<A, Result_>,
-        // C# infers from the variable, which a lambda would hide (CS0411)
+        // C# infers from the variable, which a lambda would hide (CS0411); a generic constructor's is object, C# has none
         if (!target.parameters().isEmpty() && target.parameters().size() != from.parameters().size()) return null;
+        boolean differs = target.parameters().isEmpty() && !from.parameters().isEmpty();
         for (int i = 0; i < target.parameters().size(); i++) { // a raw target is object throughout
-            String t = CSharpTypeName.argument(target.parameters().get(i), q);
-            if (!t.equals(CSharpTypeName.argument(from.parameters().get(i), q)) && !"object".equals(t)) return null;
+            ParameterizedType ti = target.parameters().get(i);
+            String t = constructorTypeParameter(ti) ? "object" : CSharpTypeName.argument(ti, q);
+            if (t.equals(CSharpTypeName.argument(from.parameters().get(i), q))) continue;
+            if (!"object".equals(t)) return null;
+            differs = true;
         }
+        if (!differs) return null;
         LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(from.typeInfo());
         if (!CSharpContext.program().delegate(from.typeInfo()) && (mapping == null || !mapping.delegate())) return null;
         MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
@@ -1011,6 +1014,13 @@ public final class CSharpExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q));
         if (arguments.isEmpty()) return b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         return b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /** A generic constructor's own type parameter, which C# erases to object: it has no generic constructors. */
+    private static boolean constructorTypeParameter(ParameterizedType t) {
+        if (!t.isTypeParameter() || t.arrays() != 0) return false;
+        var owner = t.typeParameter().getOwner();
+        return owner != null && owner.isRight() && owner.getRight().isConstructor();
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */

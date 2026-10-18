@@ -304,6 +304,28 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String GENERIC_CONSTRUCTORS = """
+            package org.example.ctors;
+            import java.util.function.Function;
+            class Joiners {
+                static final class Joiner<A, B> {
+                    <P> Joiner(Function<A, P> left, Function<B, P> right) { }
+                }
+                static <A, B, P extends Comparable<P>> Joiner<A, B> lessThan(Function<A, P> left, Function<B, P> right) {
+                    return new Joiner<>(left, right);
+                }
+            }
+            """;
+
+    /** A generic constructor, which C# does not have: its own type parameter is object, a delegate of it widened. */
+    @Test
+    public void genericConstructors() {
+        String cs = translate("Joiners", GENERIC_CONSTRUCTORS);
+        contains(cs, "internal Joiner(Func<A, object> left, Func<B, object> right) { }");
+        contains(cs, "new Joiner<A, B>(x0_ => left(x0_), x0_ => right(x0_))");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

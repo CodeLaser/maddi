@@ -417,7 +417,9 @@ implements the interface.
 - **Delegate variance.** Java passes a `Function<A, P>` where a `Function<A, ?>` is expected; C#'s `Func` is
   covariant only in a reference type, which a type parameter is not known to be. A variable is wrapped in a lambda
   that C# converts with the boxing, `x0_ => leftMapping(x0_)`, a parameter that differs cast,
-  `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call.
+  `x0_ => mapping((T) x0_)`; any other expression is left, the lambda would evaluate it at every call. So is one
+  passed to a generic constructor's `Function<A, Property_>`, which C#, without generic constructors, declares
+  `Func<A, object>`.
 - **Casts to type parameters.** C# casts to a type parameter only from `object`, an interface or another type
   parameter: `(T) this` in a self-typed builder is `(T) (object) this`.
 
