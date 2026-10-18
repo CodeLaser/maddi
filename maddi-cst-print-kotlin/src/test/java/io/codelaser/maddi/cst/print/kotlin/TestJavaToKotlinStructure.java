@@ -1756,6 +1756,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * Java's {@code g.new In()} outside the outer class is Kotlin's {@code g.In()}: the constructor of an inner class
+     * is reached through the outer instance by its simple name.
+     */
+    @Test
+    public void innerClassConstructedOutsideItsOuterClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class A {
+                        int n;
+                        class In { int get() { return n; } }
+                    }
+                    static class C {
+                        Object make(G<String> g) { return g.new In(); }
+                        Object make(A a) { return a.new In(); }
+                    }
+                }
+                """);
+        contains(kotlin, "g.In()");
+        contains(kotlin, "a.In()");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Ordering.onResultOf(Entry::getValue): the method's type parameter F is fixed only by the method
      * reference's receiver. As a lambda, {@code { it.value }}, Kotlin has nothing to infer F from.
      */

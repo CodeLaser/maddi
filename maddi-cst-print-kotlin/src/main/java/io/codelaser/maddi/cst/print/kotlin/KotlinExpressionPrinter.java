@@ -2049,8 +2049,8 @@ public class KotlinExpressionPrinter {
         OutputBuilder b = new OutputBuilderImpl();
         if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
         String constructed = KotlinTypeName.constructed(type, q);
-        if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
-            constructed = implicitOuter(constructed, type.typeInfo());
+        if (type.typeInfo() != null && type.typeInfo().isInnerClass()) {
+            constructed = simpleInner(constructed, type.typeInfo());
         }
         return b.add(new TextImpl(constructed)).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
     }
@@ -2059,8 +2059,10 @@ public class KotlinExpressionPrinter {
      * {@code new Values()} of an inner class, the outer instance implicit (this, or an enclosing this): by its simple
      * name, which Kotlin resolves with that receiver, in the outer class, its subclasses and their inner classes.
      * {@code AbstractMultimap.Values()} is the static-style access an inner class does not allow (guava's multimaps).
+     * With the outer instance written, {@code g.new In()}, also by its simple name: {@code g.In()}, as Java's
+     * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve.
      */
-    private static String implicitOuter(String constructed, TypeInfo inner) {
+    private static String simpleInner(String constructed, TypeInfo inner) {
         String simple = KotlinNames.name(inner.simpleName());
         int lt = constructed.indexOf('<');
         String head = lt < 0 ? constructed : constructed.substring(0, lt);
