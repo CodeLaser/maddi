@@ -461,6 +461,24 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmediateFuture.NULL: {@code new ImmediateFuture<@Nullable Object>(null)} in a static field, where the
+     * class's V is out of scope: the null goes into the call's own type argument.
+     */
+    @Test
+    public void nullIntoAnExplicitlyNullableTypeArgument() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import org.jspecify.annotations.Nullable;
+                class Immediate<V extends @Nullable Object> {
+                    static final Immediate<?> NULL = new Immediate<@Nullable Object>(null);
+                    final V value;
+                    Immediate(V value) { this.value = value; }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "Immediate<Any?>(null)");
+    }
+
+    /**
      * guava's CollectCollectors.toImmutableMap: {@code toMap(keyFunction, valueFunction, mergeFunction,
      * LinkedHashMap::new)} handed to a copy of a {@code Map<? extends K, ? extends V>}: the map constructed is a
      * LinkedHashMap<K, V>.

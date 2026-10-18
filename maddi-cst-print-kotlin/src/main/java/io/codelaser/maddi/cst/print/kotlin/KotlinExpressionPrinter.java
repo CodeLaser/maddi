@@ -742,6 +742,7 @@ public class KotlinExpressionPrinter {
         boolean translated = method != null && (mappedType ? !"equals".equals(method.name())
                 : KotlinNullability.translated(method.typeInfo()));
         List<OutputBuilder> printed = new ArrayList<>();
+        ParameterizedType constructed = call == null && method != null && method.isConstructor() ? CONSTRUCTED.get() : null;
         for (int i = 0; i < args.size(); i++) {
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
@@ -847,6 +848,7 @@ public class KotlinExpressionPrinter {
                 ParameterizedType declared = !hasParameter ? mapped ? null : varargsElement(method, i)
                         : KotlinNullability.parameterType(method.parameters().get(i));
                 boolean argumentTranslated = translated;
+                if (constructed != null) declared = constructedArgument(method, declared, constructed);
                 if (call != null) {
                     ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);
                     // the receiver's type argument is a declaration of ours, even on a library member (queue.add);
@@ -2307,11 +2309,38 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (cc.object() != null) b.add(receiver(cc.object(), q)).add(SymbolEnum.DOT);
-        String constructed = KotlinTypeName.constructed(type, q);
+        // new ImmediateFuture<@Nullable Object>(null): the type-use annotation makes the argument an Any?
+        ParameterizedType declared = KotlinContext.translatingJava() ? KotlinTypePrinter.declaredArguments(type) : type;
+        String constructed = KotlinTypeName.constructed(declared, q);
         if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
             constructed = implicitOuter(constructed, type.typeInfo());
         }
-        return b.add(new TextImpl(constructed)).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        ParameterizedType outer = CONSTRUCTED.get();
+        CONSTRUCTED.set(declared);
+        try {
+            return b.add(new TextImpl(constructed)).add(arguments(cc.parameterExpressions(), cc.constructor(), q));
+        } finally {
+            CONSTRUCTED.set(outer);
+        }
+    }
+
+    /** The type a constructor call being printed constructs, its type arguments as declared; for its arguments. */
+    private static final ThreadLocal<ParameterizedType> CONSTRUCTED = new ThreadLocal<>();
+
+    /**
+     * A constructor's parameter typed by its class's type variable, as the call's own type argument instantiates it:
+     * guava's static {@code ImmediateFuture.NULL = new ImmediateFuture<@Nullable Object>(null)} passes null into an
+     * Any?, where the class's V is out of scope (a {@code null as V} would not resolve).
+     */
+    private static ParameterizedType constructedArgument(io.codelaser.maddi.cst.api.info.MethodInfo constructor,
+                                                         ParameterizedType declared, ParameterizedType constructed) {
+        if (constructed == null || declared == null || !declared.isTypeParameter() || declared.arrays() > 0
+            || declared.wildcard() != null || constructed.typeInfo() != constructor.typeInfo()) return declared;
+        int index = constructor.typeInfo().typeParameters().indexOf(declared.typeParameter());
+        if (index < 0 || index >= constructed.parameters().size()) return declared;
+        ParameterizedType argument = constructed.parameters().get(index);
+        return argument.wildcard() != null || argument.arrays() > 0 || argument.isTypeParameter()
+               || argument.typeInfo() == null ? declared : argument;
     }
 
     /**
