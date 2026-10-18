@@ -90,7 +90,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(typeParameters.stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
-                                                                             + (nonNullBound(methodInfo, tp) ? " : Any" : ""))))
+                                                                             + (nonNullBound(methodInfo, tp)
+                                                                                || KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }

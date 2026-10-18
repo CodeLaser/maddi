@@ -192,7 +192,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void nonNullClassTypeParameters() {
-        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>")),
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>", "<U>")),
                 KotlinPrintOptions.NullCheck.ASSERT);
         String kotlin = kotlin("""
                 package a;
@@ -201,10 +201,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     final Map<K, V> map = new HashMap<>();
                     V get(K key) { return map.get(key); }
                     <T> T first(List<T> list) { return list.get(0); }
+                    static <U> Cache<U, U> of(U u) { return new Cache<>(); }
                     static class Entry<E> { E e; }
                 }
                 """, options);
         contains(kotlin, "class Cache<K : Any, V : Any>");
+        contains(kotlin, "fun <U : Any> of(");
         contains(kotlin, "class Entry<E>");
         contains(kotlin, "fun <T> first(");
         compiles(kotlin);

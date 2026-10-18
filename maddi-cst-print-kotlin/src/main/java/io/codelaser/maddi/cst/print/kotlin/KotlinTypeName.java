@@ -162,12 +162,12 @@ public class KotlinTypeName {
     }
 
     /**
-     * A class's type parameter the verdicts hold non-null ({@link
+     * A type parameter the verdicts hold non-null ({@link
      * io.codelaser.maddi.cst.impl.analysis.NullabilityFacts#nonNullTypeParameter}), with no bound of its own: Kotlin's
-     * {@code K : Any}.
+     * {@code K : Any}. A class's, or a method's that flows into one (langchain4j's {@code <T> Response<T> from(T)}).
      */
     static boolean nonNullClassTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        return KotlinContext.translatingJava() && !tp.isMethodTypeParameter()
+        return KotlinContext.translatingJava()
                && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
                && KotlinNullability.verdicts().nonNullTypeParameter(tp);
     }
