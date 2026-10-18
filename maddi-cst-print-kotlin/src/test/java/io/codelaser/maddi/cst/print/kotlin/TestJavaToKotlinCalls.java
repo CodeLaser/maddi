@@ -461,6 +461,40 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ImmutableRangeMap again: the SAM constructor names com.google.common.base.Function, which Java never
+     * wrote, in a file that imports java.util.function.Function. The simple name would mean the imported one.
+     */
+    @Test
+    public void samConstructorOfATypeWhoseNameAnImportHolds() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Function;
+                import b.Search;
+                class Range<C> { C lower; C lowerBound() { return lower; } }
+                class Ranges {
+                    static <C> int find(List<Range<C>> ranges, C c) { return Search.search(ranges, Range::lowerBound, c); }
+                    static <C> Function<Range<C>, C> lower() { return Range::lowerBound; }
+                }
+                """, java.util.Map.of("b.Fn", """
+                package b;
+                public interface Fn<F, T> { T apply(F input); }
+                """, "b.Function", """
+                package b;
+                public interface Function<F, T> extends Fn<F, T> { }
+                """, "b.Search", """
+                package b;
+                import java.util.*;
+                public class Search {
+                    public static <E, K> int search(List<? extends E> list, Function<? super E, K> key, K target) { return 0; }
+                    public static <E> int search(List<? extends E> list, E key, E target) { return 1; }
+                }
+                """));
+        contains(kotlin, "b.Function<Range<C>, C>(");
+        contains(kotlin, "import java.util.function.Function");
+    }
+
+    /**
      * guava's Graphs.inducedSubgraph: {@code MutableGraph<N> subgraph = c ? b.build() : b.build()}, a builder whose
      * {@code <N1 extends N> build()} only the target types. The local keeps its declared type.
      */

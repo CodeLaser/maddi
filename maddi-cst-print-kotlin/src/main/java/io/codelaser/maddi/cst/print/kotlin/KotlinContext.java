@@ -200,6 +200,23 @@ final class KotlinContext {
         return STATE.get().takeReferenced();
     }
 
+    // the file's imports by simple name: a type Java never named (a SAM constructor's guava Function, where the file
+    // imports java.util.function.Function) cannot take a name another import holds
+    private static final ThreadLocal<java.util.Map<String, String>> IMPORTED_NAMES =
+            ThreadLocal.withInitial(java.util.Map::of);
+
+    static void importedNames(java.util.List<String> imports) {
+        java.util.Map<String, String> names = new java.util.HashMap<>();
+        imports.stream().filter(i -> !i.endsWith(".*"))
+                .forEach(i -> names.putIfAbsent(i.substring(i.lastIndexOf('.') + 1), i));
+        IMPORTED_NAMES.set(names);
+    }
+
+    /** The fully qualified name of the import holding {@code simpleName} in the file being printed, or null. */
+    static String importedName(String simpleName) {
+        return IMPORTED_NAMES.get().get(simpleName);
+    }
+
     // the file's private helpers its text calls (KotlinCompilationUnitPrinter appends their declarations)
     private static final ThreadLocal<java.util.Set<String>> FILE_HELPERS = ThreadLocal.withInitial(java.util.TreeSet::new);
 

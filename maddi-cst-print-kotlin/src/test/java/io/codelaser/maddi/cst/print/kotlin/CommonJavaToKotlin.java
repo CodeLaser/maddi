@@ -85,6 +85,25 @@ public abstract class CommonJavaToKotlin {
         return formatter.write(result.output());
     }
 
+    /**
+     * As {@link #kotlin(String)}, with {@code others} (fully qualified name to source) parsed along: the types
+     * {@code java} uses from other packages. Only {@code java}'s file is printed.
+     */
+    protected String kotlin(String java, Map<String, String> others) {
+        String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+        String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+        Map<String, String> sources = new java.util.HashMap<>(others);
+        sources.put(pkg + "." + first, java);
+        TypeInfo typeInfo = javaInspector.parse(sources, new JavaInspector.ParseOptions.Builder().build())
+                .parseResult().primaryTypes().stream().filter(t -> t.fullyQualifiedName().equals(pkg + "." + first))
+                .findFirst().orElseThrow();
+        KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true,
+                KotlinPrintOptions.DEFAULT).printWithMessages(new ImportComputerImpl(),
+                javaInspector.runtime().qualificationQualifyFromPrimaryType());
+        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
+        return formatter.write(result.output());
+    }
+
     private KotlinCompilationUnitPrinter.Result translate(String java, KotlinPrintOptions options) {
         return translate(java, options, t -> {
         });

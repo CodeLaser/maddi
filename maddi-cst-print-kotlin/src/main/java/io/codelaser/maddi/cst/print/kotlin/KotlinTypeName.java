@@ -349,6 +349,14 @@ public class KotlinTypeName {
             return KotlinNames.dotted(minimal);
         }
         TypeInfo primary = typeInfo.primaryType();
+        String first = minimal.contains(".") ? minimal.substring(0, minimal.indexOf('.')) : minimal;
+        String imported = KotlinContext.importedName(first);
+        if (primary != null && first.equals(primary.simpleName()) && imported != null
+            && !imported.equals(primary.fullyQualifiedName())) {
+            // guava's ImmutableRangeMap: Function<Range<K>, Cut<K>>(…) for com.google.common.base.Function, where the
+            // file imports java.util.function.Function
+            return KotlinNames.dotted(typeInfo.fullyQualifiedName());
+        }
         if (primary != null && (minimal.equals(primary.simpleName()) || minimal.startsWith(primary.simpleName() + "."))) {
             KotlinContext.referencedType(primary);
         }
