@@ -1478,6 +1478,22 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        // only where a value is assigned or returned: an argument's target is Java's parameter type, not Kotlin's
+        if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && !target.parameters().isEmpty()
+            && unwrap(e) instanceof VariableExpression ve && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                                                               || ve.variable() instanceof ParameterInfo)) {
+            ParameterizedType value = KotlinNullability.kotlinType(e);
+            if (value != null && value.arrays() == 0 && sameUpToStatesAndWildcards(value, target)
+                && !sameArgumentStates(value, target)) {
+                // guava's Futures.allAsList: @SuppressWarnings("nullness") ListenableFuture<List<V>> nonNull = nullable,
+                // a ListenableFuture<List<@Nullable V>>: Java's unchecked nullness, Kotlin's invariant generics' cast
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl(KotlinTypeName.of(target.withNullable(value.nullable()), q)))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+        }
         if (KotlinContext.translatingJava() && unwrap(e) instanceof MethodCall mc && target != null
             && !target.parameters().isEmpty() && mc.typeArguments().stream().anyMatch(KotlinTypeName::definitelyNonNull)
             && sameUpToStates(mc.parameterizedType(), target) && nullableArgument(mc.methodInfo())) {
@@ -1531,21 +1547,6 @@ public class KotlinExpressionPrinter {
             ParameterizedType castType = own.withComponentType(own.componentType()
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
-        }
-        if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && !target.parameters().isEmpty()
-            && unwrap(e) instanceof VariableExpression ve && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
-                                                               || ve.variable() instanceof ParameterInfo)) {
-            ParameterizedType value = KotlinNullability.kotlinType(e);
-            if (value != null && value.arrays() == 0 && sameUpToStatesAndWildcards(value, target)
-                && !sameArgumentStates(value, target)) {
-                // guava's Futures.allAsList: @SuppressWarnings("nullness") ListenableFuture<List<V>> nonNull = nullable,
-                // a ListenableFuture<List<@Nullable V>>: Java's unchecked nullness, Kotlin's invariant generics' cast
-                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(e, q)).add(SpaceEnum.ONE)
-                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                        .add(new TextImpl(KotlinTypeName.of(target.withNullable(value.nullable()), q)))
-                        .add(SymbolEnum.RIGHT_PARENTHESIS);
-            }
         }
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 1
             && unwrap(e) instanceof MethodCall tc && tc.methodInfo() != null && "toArray".equals(tc.methodInfo().name())

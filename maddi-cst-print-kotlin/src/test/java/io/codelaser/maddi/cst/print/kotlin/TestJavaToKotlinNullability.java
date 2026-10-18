@@ -1150,6 +1150,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * langchain4j's JsonSchemaElementJsonUtils: a {@code Map<String, Object>} local with nullable values passed to a
+     * parameter with nullable values: no cast, whatever Java's own parameter type says (5f097a02e cast it to that).
+     */
+    @Test
+    public void argumentWithNullableArgumentsIsNotCast() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class J {
+                    static String fromMap(Map<String, Object> map) { return rawFallback(map); }
+                    static String rawFallback(Map<String, Object> raw) { return String.valueOf(raw); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("map<,>", "raw<,>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "rawFallback(map)");
+        compiles(kotlin);
+    }
+
+    /**
      * As {@link #nullForATypeVariable}, where the pass holds next() non-null for Kotlin's member and a branch is a
      * nullable call (fernflower's FastFixedSetIterator: {@code pointer < size ? getKey(pointer) : null}): the
      * conditional is cast as a whole, not asserted.
