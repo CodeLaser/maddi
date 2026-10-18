@@ -2068,6 +2068,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's DenseImmutableTable.Column, an inner AbstractMap: {@code values[keyIndex]} reads the outer table's
+     * field in Java; in Kotlin, values is the inherited Map property.
+     */
+    @Test
+    public void outerFieldNamedAsAnInheritedMappedProperty() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Table {
+                    private final String[] values = new String[3];
+                    class Column extends AbstractMap<Integer, String> {
+                        String at(int i) { return values[i]; }
+                        @Override public Set<Map.Entry<Integer, String>> entrySet() { return Collections.emptySet(); }
+                    }
+                }
+                """);
+        contains(kotlin, "this@Table.values[i]");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's HashBiMap.entryIterator(): an anonymous BiIterator declares {@code class MapEntry}, an inner class of
      * the anonymous class. Kotlin's object expression takes no nested class: an inner one.
      */

@@ -143,6 +143,12 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         return renamed;
     }
 
+    /** {@code typeInfo} has a Kotlin property {@code name} from a mapped supertype ({@code values} of a Map). */
+    static boolean mappedPropertyOf(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name) {
+        return KotlinContext.translatingJava() && MAPPED_PROPERTIES.contains(name)
+               && mappedProperty(typeInfo, name, new java.util.HashSet<>());
+    }
+
     private static boolean mappedProperty(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name,
                                           java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited) {
         if (typeInfo == null || !visited.add(typeInfo)) return false;

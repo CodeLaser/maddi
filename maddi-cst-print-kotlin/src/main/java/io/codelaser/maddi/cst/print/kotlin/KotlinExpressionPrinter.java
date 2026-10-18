@@ -279,6 +279,14 @@ public class KotlinExpressionPrinter {
             return text(KotlinTypeName.staticOwner(owner, q) + "." + name);
         }
         if (fr.isDefaultScope() || scope == null) {
+            TypeInfo current = KotlinContext.currentType();
+            TypeInfo owner = fr.fieldInfo().owner();
+            if (current != null && owner != null && current != owner && !current.isAnonymous()
+                && KotlinFieldPrinter.mappedPropertyOf(current, fr.fieldInfo().name())) {
+                // guava's DenseImmutableTable.Column, an inner ImmutableMap: Java's values is the outer table's field,
+                // Kotlin's the inherited Map.values property
+                return text("this@" + owner.simpleName() + "." + name);
+            }
             return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name()) ? "this." + name : name);
         }
         return new OutputBuilderImpl().add(KotlinNullability.receiverWithDot(scope, q)).add(new TextImpl(name));
