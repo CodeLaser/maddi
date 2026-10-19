@@ -603,7 +603,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
 
     /**
      * nacos's DistributedDatabaseOperateImpl: {@code queryOne(sql, ClassUtils.findClassByName(name))}, a raw Class
-     * into the callee's {@code Class<R>}: the cast cannot name R, Java infers it from the erasure, Class<Any?>.
+     * into the callee's {@code Class<R>}: the cast cannot name R, Java infers it from the erasure, a Class<Any>.
      */
     @Test
     @SuppressWarnings("rawtypes")
@@ -618,12 +618,12 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     static <R> R queryOne(String sql, Class<R> cls) throws Exception {
                         return cls.getDeclaredConstructor().newInstance();
                     }
-                    void query(String sql, String name) throws Exception {
-                        System.out.println(queryOne(sql, find(name)));
+                    Object query(String sql, String name) throws Exception {
+                        return queryOne(sql, find(name));
                     }
                 }
                 """);
-        contains(kotlin, "as Class<Any?>");
+        contains(kotlin, "as Class<Any>");
         compiles(kotlin);
     }
 

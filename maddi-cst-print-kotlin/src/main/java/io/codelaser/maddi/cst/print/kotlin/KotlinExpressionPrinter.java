@@ -2254,8 +2254,11 @@ public class KotlinExpressionPrinter {
             String cast = KotlinTypeName.of(target, q);
             if (mentionsOutOfScope(target)) {
                 // nacos's queryOne(jdbcTemplate, sql, ClassUtils.findClassByName(name)) into the callee's Class<R>,
-                // an R not in scope here: Java infers it from the raw Class's erasure, Class<Any?>
-                cast = rawValueType(e).typeInfo() == target.typeInfo() ? KotlinTypeName.erased(rawValueType(e), q) : null;
+                // an R not in scope here: Java infers it from the raw Class's erasure, Object. A Class's is an
+                // instance type, non-null (GrpcUtils's toObj(stream, classType) then returns an Any)
+                cast = rawValueType(e).typeInfo() != target.typeInfo() ? null
+                        : "java.lang.Class".equals(target.typeInfo().fullyQualifiedName()) ? "Class<Any>"
+                        : KotlinTypeName.erased(rawValueType(e), q);
             }
             if (cast != null) {
                 KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
