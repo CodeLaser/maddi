@@ -94,6 +94,7 @@ final class KotlinNullability {
                 ? m.parameters().get(index).parameterizedType() : null) || boxedClash(method))) {
             return declared.withNullable(NullableState.NULLABLE);
         }
+        if (overridesRawTypeVariable(method, index)) return declared.withNullable(NullableState.NULLABLE);
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
         // guava's TreeRangeMap: merge(…, BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable
         // Object> f) overriding RangeMap's: the declaration's type-use annotations on its arguments, wildcard bounds
@@ -101,6 +102,29 @@ final class KotlinNullability {
         ParameterizedType type = verdict != null ? verdict : declared;
         if (KotlinContext.translatingJava()) type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(declared));
         return INFERRED_NULLABLE.get().containsKey(parameterInfo) ? type.withNullable(NullableState.NULLABLE) : type;
+    }
+
+    /**
+     * jenkins's HyperlinkNote extends the raw ConsoleNote, whose header erases it to {@code ConsoleNote<Any?>}
+     * (KotlinTypePrinter.rawSupertype): {@code annotate(Object context, …)} overrides {@code annotate(T context, …)},
+     * a parameter Kotlin then sees as an {@code Any?}, whatever the override's verdict. Only an unbounded T: a bound's
+     * erasure keeps the bound's state.
+     */
+    private static boolean overridesRawTypeVariable(MethodInfo method, int index) {
+        if (!KotlinContext.translatingJava() || method.isStatic() || method.isConstructor()) return false;
+        TypeInfo owner = method.typeInfo();
+        return method.overrides().stream().anyMatch(m -> {
+            if (index >= m.parameters().size()) return false;
+            ParameterizedType p = m.parameters().get(index).parameterizedType();
+            io.codelaser.maddi.cst.api.info.TypeParameter tp = p.typeParameter();
+            if (tp == null || p.arrays() > 0 || tp.isMethodTypeParameter() || !m.typeInfo().typeParameters().contains(tp)
+                || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
+                return false;
+            }
+            return java.util.stream.Stream.concat(java.util.stream.Stream.ofNullable(owner.parentClass()),
+                            owner.interfacesImplemented().stream())
+                    .anyMatch(s -> s.typeInfo() == m.typeInfo() && s.parameters().isEmpty());
+        });
     }
 
     /**
