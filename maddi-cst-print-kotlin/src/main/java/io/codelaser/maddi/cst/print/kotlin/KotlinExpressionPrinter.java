@@ -1992,7 +1992,48 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
-        return intoRawTarget(e, target, () -> assignedTo(e, target, q));
+        java.util.Map.Entry<ConstructorCall, ParameterizedType> typed = targetTypedAnonymous(e, target);
+        if (typed == null) return intoRawTarget(e, target, () -> assignedTo(e, target, q));
+        ANONYMOUS_SUPERTYPE.get().put(typed.getKey(), typed.getValue());
+        try {
+            return intoRawTarget(e, target, () -> assignedTo(e, target, q));
+        } finally {
+            ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
+        }
+    }
+
+    // anonymous classes whose supertype's argument is the target of the call they are handed to: see below
+    private static final ThreadLocal<java.util.Map<ConstructorCall, ParameterizedType>> ANONYMOUS_SUPERTYPE =
+            ThreadLocal.withInitial(java.util.IdentityHashMap::new);
+
+    /**
+     * nacos's UtilsAndCommons: {@code metadataMap = JacksonUtils.toObj(metadata, new TypeReference<Map<String,
+     * String>>() {})}, a {@code <T> T toObj(String, TypeReference<T>)} whose T the anonymous class fixes, assigned to
+     * a {@code MutableMap<String, String?>}: the anonymous class's supertype takes the target's type, or Kotlin's
+     * invariant T differs. The anonymous class and that supertype; null when the call is not of that shape.
+     */
+    private static java.util.Map.Entry<ConstructorCall, ParameterizedType> targetTypedAnonymous(Expression e,
+                                                                                            ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || target == null || target.arrays() > 0 || target.typeInfo() == null
+            || !(unwrap(e) instanceof MethodCall mc) || mc.methodInfo() == null) {
+            return null;
+        }
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = m.returnType().typeParameter();
+        if (tp == null || m.returnType().arrays() > 0 || !m.typeParameters().contains(tp)) return null;
+        List<Expression> args = mc.parameterExpressions();
+        for (int i = 0; i < args.size() && i < m.parameters().size(); i++) {
+            ParameterizedType p = m.parameters().get(i).parameterizedType();
+            if (!(unwrap(args.get(i)) instanceof ConstructorCall cc) || cc.anonymousClass() == null
+                || p.parameters().size() != 1 || p.parameters().getFirst().typeParameter() != tp) {
+                continue;
+            }
+            ParameterizedType parent = cc.anonymousClass().parentClass();
+            if (parent == null || parent.typeInfo() != p.typeInfo() || parent.parameters().size() != 1) continue;
+            return java.util.Map.entry(cc, parent.withParameters(List.of(target.withNullable(
+                    io.codelaser.maddi.cst.api.type.NullableState.NONNULL))));
+        }
+        return null;
     }
 
     /** {@code print}, with {@code e} known to go into {@code target}, which may be raw: see {@link #RAW_TARGET}. */
@@ -2893,6 +2934,7 @@ public class KotlinExpressionPrinter {
 
     private static OutputBuilder anonymousClass(ConstructorCall cc, ParameterizedType supertype, Qualification q) {
         TypeInfo anonymous = cc.anonymousClass();
+        if (supertype == null) supertype = ANONYMOUS_SUPERTYPE.get().get(cc);
         OutputBuilder b = new OutputBuilderImpl().add(KotlinKeyword.OBJECT).add(SpaceEnum.ONE)
                 .add(SymbolEnum.COLON).add(SpaceEnum.ONE);
         ParameterizedType parent = anonymous.parentClass();

@@ -164,6 +164,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's UtilsAndCommons: {@code metadataMap = toObj(json, new TypeReference<Map<String, String>>() {})}, the
+     * call's T fixed by the anonymous class, into a local whose values are nullable: the supertype takes the target's
+     * type, Kotlin's T being invariant.
+     */
+    @Test
+    public void typeReferenceFromTarget() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class TypeRef<T> { }
+                class Json {
+                    @SuppressWarnings("unchecked")
+                    static <T> T toObj(String json, TypeRef<T> ref) {
+                        return (T) new HashMap<String, String>();
+                    }
+                    static int parse(String json) {
+                        Map<String, String> metadataMap = new HashMap<>();
+                        metadataMap.put("k", null);
+                        metadataMap = toObj(json, new TypeRef<Map<String, String>>() { });
+                        return metadataMap.size();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("metadataMap<,>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "object : TypeRef<MutableMap<String, String?>>()");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's GrpcConnection, {@code synchronized (streamObserver)} of a nullable field, and NacosServiceLoader's
      * {@code instance.getClass()} of a T: Java throws for a null at both; Kotlin's synchronized and javaClass take an
      * Any. Asserted.
