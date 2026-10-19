@@ -43,7 +43,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
 
     private final String name;
     private final boolean isStatic;
-    private final ParameterizedType type;
+    // variable until the commit: FieldInspectionImpl.Builder.setType may replace it before then (maddi#145)
+    private final EventuallyFinal<ParameterizedType> type;
     private final String fullyQualifiedName;
     private final TypeInfo owner;
     private final EventuallyFinal<FieldInspection> inspection;
@@ -51,7 +52,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     public FieldInfoImpl(String name, boolean isStatic, ParameterizedType type, TypeInfo owner) {
         this.name = name;
         this.isStatic = isStatic;
-        this.type = type;
+        this.type = new EventuallyFinal<>();
+        this.type.setVariable(Objects.requireNonNull(type));
         this.fullyQualifiedName = owner.fullyQualifiedName() + "." + name;
         this.owner = owner;
         inspection = new EventuallyFinal<>();
@@ -108,7 +110,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
 
     @Override
     public ParameterizedType type() {
-        return type;
+        return type.get();
     }
 
     @Override
@@ -162,7 +164,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
 
     @Override
     public boolean isPropertyNotNull() {
-        if (type.isPrimitiveExcludingVoid()) return true;
+        if (type().isPrimitiveExcludingVoid()) return true;
         return analysis().getOrDefault(PropertyImpl.NULLABILITY_FIELD, ValueImpl.NullabilityImpl.UNSPECIFIED).state()
                == NullableState.NONNULL;
     }
@@ -229,7 +231,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         Stream<TypeReference> fromInitializer = initializer == null ? Stream.of() : initializer.typesReferenced(predicate);
         Stream<TypeReference> fromJavaDoc = javaDoc() == null ? Stream.of() : javaDoc().typesReferenced(predicate);
         return Stream.concat(fromAnnotations,
-                Stream.concat(type.typesReferenced(TypeReferenceNature.EXPLICIT,
+                Stream.concat(type().typesReferenced(TypeReferenceNature.EXPLICIT,
                                 source() == null ? null : source().detailedSources()),
                         Stream.concat(fromJavaDoc, fromInitializer)));
     }
@@ -250,7 +252,15 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         return (FieldInfo.Builder) inspection.get();
     }
 
+    void setTypeBeforeCommit(ParameterizedType type) {
+        if (inspection.isFinal()) {
+            throw new UnsupportedOperationException("Field " + fullyQualifiedName + " has been committed");
+        }
+        this.type.setVariable(Objects.requireNonNull(type));
+    }
+
     public void commit(FieldInspectionImpl fieldInspection) {
+        type.setFinal(type.get());
         inspection.setFinal(fieldInspection);
     }
 
@@ -284,9 +294,9 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
         Expression init = initializer();
         Expression tInit = init.translate(translationMap);
         TypeInfo tOwner = translationMap.translateType(owner.asSimpleParameterizedType()).typeInfo();
-        ParameterizedType tType = translationMap.translateType(type);
+        ParameterizedType tType = translationMap.translateType(type());
 
-        if (tOwner != owner || tInit != init || tType != type || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
+        if (tOwner != owner || tInit != init || tType != type() || !analysis().isEmpty() && translationMap.isClearAnalysis()) {
             FieldInfoImpl newField = new FieldInfoImpl(name, isStatic, tType, tOwner);
             newField.builder()
                     .setInitializer(tInit)
@@ -304,7 +314,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
 
     @Override
     public FieldInfo withOwnerVariableBuilder(TypeInfo newOwner) {
-        FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, type, newOwner);
+        FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, type(), newOwner);
         fi.inspection.setVariable(new FieldInspectionImpl.Builder(fi, inspection.get()));
         return fi;
     }
@@ -312,7 +322,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
     @Override
     public FieldInfo withOwner(TypeInfo newOwner) {
         if (owner != newOwner) {
-            FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, type, newOwner);
+            FieldInfoImpl fi = new FieldInfoImpl(name, isStatic, type(), newOwner);
             if (inspection.isFinal()) {
                 fi.inspection.setFinal(inspection.get());
             } else {

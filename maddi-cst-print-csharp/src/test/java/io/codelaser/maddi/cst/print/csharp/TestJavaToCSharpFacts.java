@@ -503,6 +503,47 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ERASED_NULLS = """
+            package org.example.erased;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
+                static final class Concat implements TriFunction<String, String, String, String> {
+                    public String apply(String a, String b, String c) { return a + b + c; }
+                }
+                interface BiCollector<A, B, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    TriFunction<ResultContainer_, A, B, Runnable> accumulator();
+                }
+                static final class Count<A, B> implements BiCollector<A, B, int[], Integer> {
+                    public Supplier<int[]> supplier() { return () -> new int[1]; }
+                    public TriFunction<int[], A, B, Runnable> accumulator() {
+                        return (c, a, b) -> { c[0]++; return () -> c[0]--; };
+                    }
+                }
+                static <A, B, C, R> BiCollector<A, B, C, R> logged(BiCollector<A, B, C, R> collector) { return collector; }
+                static <A, B> BiCollector<A, B, ?, Integer> count() { return new Count<>(); }
+                static <A, B> BiCollector<A, B, ?, Integer> loggedCount() { return logged(count()); }
+            }
+            """;
+
+    /**
+     * An erasure adapter's lambda into a functional interface's adapter: its method of a type parameter, R? Apply(…),
+     * may return null to C#, the delegate's result not (CS8603): !.
+     */
+    @Test
+    public void erasedNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Collectors", ERASED_NULLS);
+        contains(cs, "new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
+    }
+
+    @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
             import java.math.BigDecimal;

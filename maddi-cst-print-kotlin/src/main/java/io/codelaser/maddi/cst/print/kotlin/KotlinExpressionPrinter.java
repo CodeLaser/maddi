@@ -328,7 +328,10 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.DOT).add(new TextImpl(mc.methodInfo().name()))
                     .add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
-        if (object != null && !mc.objectIsImplicit() && notReifiable(expectedElement(mc)) && (toArrayOf(mc.methodInfo())
+        // super.toArray() in a subclass of a Java collection class (AbstractCollection): Kotlin sees Java's toArray as
+        // the superclass's member, and `super` is no value to cast or to call an extension on
+        boolean onSuper = object instanceof VariableExpression sv && sv.variable() instanceof This st && st.writeSuper();
+        if (object != null && !mc.objectIsImplicit() && !onSuper && notReifiable(expectedElement(mc)) && (toArrayOf(mc.methodInfo())
                 && mc.parameterExpressions().getFirst().parameterizedType() != null
                 && mc.parameterExpressions().getFirst().parameterizedType().arrays() == 1
                 && mc.parameterExpressions().getFirst().parameterizedType().componentType().typeParameter() != null
@@ -417,7 +420,7 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isRemoveAt(mc.methodInfo())) {
             return b.add(new TextImpl("removeAt")).add(arguments(mc.parameterExpressions(), q));
         }
-        if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+        if (toArrayOf(mc.methodInfo()) && object != null && !mc.objectIsImplicit() && !onSuper) {
             // c.toArray(new X[0]): Kotlin's collections have no toArray(T[]); toTypedArray<X>() types the array as
             // Java's argument does (Kotlin's arrays are invariant, its Collection<out E> is not), with the element
             // state of what it initializes
@@ -438,7 +441,7 @@ public class KotlinExpressionPrinter {
             }
             return b.add(new TextImpl(element == null ? "toTypedArray()" : "toTypedArray<" + element + ">()"));
         }
-        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
+        if (toArray(mc.methodInfo()) && object != null && !mc.objectIsImplicit() && !onSuper) {
             // c.toArray(): Kotlin's collections have no toArray() either. toTypedArray<Any?>() or <Any>(), as Java's
             // Object[] prints here (a Collection<out E> is a Collection of either): typed by the collection, a local
             // would be an Array<String> where Java declares an Object[]
@@ -534,8 +537,7 @@ public class KotlinExpressionPrinter {
                     .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
-        String typeArguments = !mc.typeArguments().isEmpty() ? mc.typeArguments().stream()
-                .map(t -> KotlinTypeName.of(KotlinTypePrinter.declared(t), q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"))
+        String typeArguments = !mc.typeArguments().isEmpty() ? explicitTypeArguments(mc, q)
                 : comparingKeyCall(mc) ? comparedType(mc, q) : resultOnlyOrLambdaOnly(mc, q);
         String voidNull = typeArguments == null ? nullIntoVoid(mc, q) : null;
         if (voidNull != null) {
@@ -554,6 +556,37 @@ public class KotlinExpressionPrinter {
         b.add(new TextImpl(KotlinNames.name(mc.methodInfo().name()) + (typeArguments == null ? "" : typeArguments)));
         return b.add(arguments(mc.parameterExpressions(), mc.methodInfo(), mc, q));
     }
+
+    /**
+     * Java's explicit type arguments, {@code Ranges.<Integer>range(2, 4)}, with the type-use annotation's state; and,
+     * where {@link #widened} prints the call into a declaration whose type argument is nullable, with that state:
+     * Kotlin's generics are invariant, {@code range<Int>} is no {@code MutableList<Int?>}.
+     */
+    private static String explicitTypeArguments(MethodCall mc, Qualification q) {
+        List<ParameterizedType> arguments = new ArrayList<>(mc.typeArguments().stream().map(KotlinTypePrinter::declared).toList());
+        java.util.Map.Entry<MethodCall, ParameterizedType> t = TYPE_ARGUMENTS_TARGET.get();
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (t != null && t.getKey() == mc && m.returnType() != null && m.typeParameters().size() == arguments.size()) {
+            Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete;
+            try {
+                concrete = m.returnType().formalToConcrete(t.getValue());
+            } catch (RuntimeException | AssertionError e) {
+                concrete = Map.of();
+            }
+            for (int i = 0; i < arguments.size(); i++) {
+                ParameterizedType target = concrete.get(m.typeParameters().get(i));
+                ParameterizedType argument = arguments.get(i);
+                if (target != null && target.wildcard() == null && KotlinNullability.isNullable(target)
+                    && sameUpToStates(target, argument)) {
+                    arguments.set(i, argument.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+                }
+            }
+        }
+        return arguments.stream().map(a -> KotlinTypeName.of(a, q)).collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /** The call with explicit type arguments that {@link #widened} prints into a declaration of this type. */
+    private static final ThreadLocal<java.util.Map.Entry<MethodCall, ParameterizedType>> TYPE_ARGUMENTS_TARGET = new ThreadLocal<>();
 
     /** The method returns a type whose type arguments Kotlin types nullable: {@code Ordering<@Nullable S>}. */
     private static boolean nullableArgument(io.codelaser.maddi.cst.api.info.MethodInfo methodInfo) {
@@ -661,7 +694,57 @@ public class KotlinExpressionPrinter {
         String resultOnly = resultOnlyTypeArguments(mc, q);
         if (resultOnly != null) return resultOnly;
         String lambdaOnly = lambdaOnlyTypeArguments(mc, q);
-        return lambdaOnly != null ? lambdaOnly : besideVarargsOverload(mc, q);
+        if (lambdaOnly != null) return lambdaOnly;
+        String besideVarargs = besideVarargsOverload(mc, q);
+        return besideVarargs != null ? besideVarargs : nullOnlyTypeArguments(mc, q);
+    }
+
+    /**
+     * Type arguments Kotlin cannot infer from a test's asserted null ({@link KotlinNullability#testNullAsserted}):
+     * {@code g.all(null)} into {@code <X> all(List<X> xs)} is {@code g.all(null!!)}, whose Nothing fixes no X. Where
+     * a type parameter is mentioned only by parameters that take such a null, each type parameter takes Java's
+     * inferred argument, read off the call's concrete result, or else its bound, or Object:
+     * {@code g.all<Any>(null!!)}. Null when there is no such type parameter, or one of the others is not known.
+     */
+    private static String nullOnlyTypeArguments(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
+        if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null
+            || !KotlinNullability.translated(m.typeInfo())) {
+            return null;
+        }
+        List<Expression> args = mc.parameterExpressions();
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> nullOnly = typeParameters.stream().filter(tp -> {
+            boolean mentioned = false;
+            for (int i = 0; i < m.parameters().size(); i++) {
+                ParameterInfo p = m.parameters().get(i);
+                if (!CstQueries.mentions(p.parameterizedType(), tp)) continue;
+                if (p.isVarArgs() || i >= args.size()
+                    || !KotlinNullability.testNullAsserted(args.get(i), KotlinNullability.parameterType(p))) {
+                    return false;
+                }
+                mentioned = true;
+            }
+            return mentioned;
+        }).toList();
+        if (nullOnly.isEmpty()) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
+                ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType t = concrete.get(tp);
+            if (t == null || t.wildcard() != null || CstQueries.mentionsAny(t, typeParameters)) {
+                if (!nullOnly.contains(tp)) return null;
+                t = bound(tp);
+                if (t == null) {
+                    printed.add("Any");
+                    continue;
+                }
+            }
+            if (t.typeParameter() != null && !KotlinContext.typeParameterInScope(t.typeParameter())) return null;
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
     }
 
     /**
@@ -1065,7 +1148,7 @@ public class KotlinExpressionPrinter {
                     lookedUp = null;
                 }
                 if (lookedUp != null) {
-                    if (lookedUp.typeParameter() != null
+                    if (lookedUp.typeParameter() != null && lookedUp.typeParameter() != args.get(i).parameterizedType().typeParameter()
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
                            && KotlinNullability.nullableInKotlin(args.get(i))
                         // map.entries.contains(immutableEntry(key, value)) into a Set<Entry<K, V>>: the extension's
@@ -1646,6 +1729,12 @@ public class KotlinExpressionPrinter {
         }
         ParameterizedType argumentType = argument.parameterizedType();
         if (typeVariableLookup(element, argumentType)) return element;
+        if (element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
+            && element.wildcard() == null && argumentType.arrays() == 0
+            && argumentType.typeParameter() == element.typeParameter()) {
+            // values.contains(v) with a V into a Set<V>: Kotlin's member takes the V as it is, null included
+            return element;
+        }
         boolean found = element != null && argumentType != null && element.arrays() == argumentType.arrays()
                         && element.wildcard() == null && element.typeInfo() != null
                         && (element.typeInfo() == argumentType.typeInfo()
@@ -2050,6 +2139,19 @@ public class KotlinExpressionPrinter {
                 return print(e, q);
             } finally {
                 TO_ARRAY_TARGET.set(previous);
+            }
+        }
+        if (target != null && target.arrays() == 0 && unwrap(e) instanceof MethodCall mc && mc.methodInfo() != null
+            && !mc.typeArguments().isEmpty() && target.parameters().stream().anyMatch(KotlinNullability::isNullable)
+            && !optionalOfNullable(e, target) && !rawOf(rawValueType(e), target)) {
+            // List<Integer> r = Ranges.<Integer>range(2, 4) into a MutableList<Int?>: Kotlin's generics are invariant,
+            // so the explicit type arguments take the states of what the call initializes, range<Int?>
+            java.util.Map.Entry<MethodCall, ParameterizedType> previous = TYPE_ARGUMENTS_TARGET.get();
+            TYPE_ARGUMENTS_TARGET.set(java.util.Map.entry(mc, target));
+            try {
+                return print(e, q);
+            } finally {
+                TYPE_ARGUMENTS_TARGET.set(previous);
             }
         }
         if (unwrap(e) instanceof Cast c && target != null && target.arrays() > 0
@@ -2583,8 +2685,8 @@ public class KotlinExpressionPrinter {
             String erased = KotlinTypeName.erased(type, q);
             if (erased != null) constructed = erased;
         }
-        if (cc.object() == null && type.typeInfo() != null && KotlinTypePrinter.inner(type.typeInfo())) {
-            constructed = implicitOuter(constructed, type.typeInfo());
+        if (type.typeInfo() != null && KotlinTypePrinter.inner(type.typeInfo())) {
+            constructed = simpleInner(constructed, type.typeInfo());
         }
         int charsetName = charsetNameAt(cc.constructor());
         if (charsetName >= 0) {
@@ -2629,8 +2731,10 @@ public class KotlinExpressionPrinter {
      * {@code new Values()} of an inner class, the outer instance implicit (this, or an enclosing this): by its simple
      * name, which Kotlin resolves with that receiver, in the outer class, its subclasses and their inner classes.
      * {@code AbstractMultimap.Values()} is the static-style access an inner class does not allow (guava's multimaps).
+     * With the outer instance written, {@code g.new In()}, also by its simple name: {@code g.In()}, as Java's
+     * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve.
      */
-    private static String implicitOuter(String constructed, TypeInfo inner) {
+    private static String simpleInner(String constructed, TypeInfo inner) {
         String simple = KotlinNames.name(inner.simpleName());
         int lt = constructed.indexOf('<');
         String head = lt < 0 ? constructed : constructed.substring(0, lt);
@@ -3535,8 +3639,10 @@ public class KotlinExpressionPrinter {
             // (Supplier<ImmutableTable.Builder<R, C, V>>) ImmutableTable.Builder::new: the cast is what types the
             // reference for Java; Kotlin's `{ ImmutableTable.Builder() } as Supplier<…>` infers nothing from it, a SAM
             // constructor does
-            return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(castType.withNullable(
-                            io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)))
+            String sam = KotlinTypeName.of(castType.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            // a lambda prints its own SAM constructor: this one instead, not a second around it
+            if (unwrap(cast.expression()) instanceof Lambda l) return lambda(l, sam, q);
+            return new OutputBuilderImpl().add(new TextImpl(sam))
                     .add(SymbolEnum.LEFT_PARENTHESIS).add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // ((Comparable<@Nullable Object>) k1).compareTo(k2) (guava's ForwardingSortedMap): the type-use annotations of

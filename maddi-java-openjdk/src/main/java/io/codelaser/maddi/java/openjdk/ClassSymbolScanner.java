@@ -1976,6 +1976,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             assert pt != null;
             TypeInfo ti = pt.typeInfo();
             assert ti != null;
+            // G<String>.In, an inner class named through a parameterized outer type: the outer type's arguments come
+            // first in parameters(), as the bytecode inspector has them (ParameterizedTypePrinter.distributeTypeParameters).
+            // javac's type of In carries them only on its enclosing type (a class type only for an inner class), which
+            // classType does not look at.
+            if (fieldAccess.type instanceof Type.ClassType ct
+                && ct.getEnclosingType() instanceof Type.ClassType outer && outer.isParameterized()) {
+                List<ParameterizedType> parameters = new ArrayList<>(convert(outer).parameters());
+                parameters.addAll(pt.parameters());
+                pt = runtime.newParameterizedType(ti, parameters);
+            }
             dsb.put(ti, source);
             iterateUpToPackageLevel(dsb, fieldAccess, ti);
             return pt;

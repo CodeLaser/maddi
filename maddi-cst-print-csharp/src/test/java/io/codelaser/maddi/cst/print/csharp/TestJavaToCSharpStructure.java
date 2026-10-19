@@ -18,6 +18,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 
@@ -361,6 +362,188 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     public void longTypeArguments() {
         String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
         contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
+    }
+
+    @Language("java")
+    private static final String WILDCARD_DELEGATES = """
+            package org.example.collectors;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static final class Group<A, R> {
+                    private final Collector<A, ?, R> collector;
+                    Group(Collector<A, ?, R> collector) { this.collector = collector; }
+                    @SuppressWarnings("unchecked")
+                    R collect(List<A> items) {
+                        Object container = collector.supplier().get();
+                        var accumulator = (BiFunction<Object, A, Runnable>) (BiFunction<?, A, Runnable>) collector.accumulator();
+                        for (A a : items) accumulator.apply(container, a);
+                        return ((Function<Object, R>) (Function<?, R>) collector.finisher()).apply(container);
+                    }
+                }
+                static List<String> names(List<String> items) { return new Group<>(Collectors.<String>toList()).collect(items); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type whose members return a delegate of the wildcarded type parameter: the wildcard interface
+     * has them with it erased, {@code Func<object, A, Action>}, which the type's bridge adapts to by a lambda.
+     */
+    @Test
+    public void wildcardDelegates() {
+        String cs = translate("Collectors", WILDCARD_DELEGATES);
+        contains(cs, "internal static ICollector<A, List<A>> toList<A>() => new ToList<A>();");
+        contains(cs, "internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {");
+        contains(cs, "Func<object, A, Action> Accumulator();");
+        contains(cs, "Func<object> ICollector<A, Result_>.Supplier() { var f = Supplier(); return () => f(); }");
+        contains(cs, "Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+    }
+
+    @Language("java")
+    private static final String ERASURES = """
+            package org.example.erasures;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A, C, R> Collector<A, C, R> logged(Collector<A, C, R> collector) { return collector; }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static <A> Collector<A, ?, List<A>> loggedList() { return logged(toList()); }
+                static <A, C, R> Collector<A, ?, R> plain(Collector<A, C, R> collector) { return collector; }
+                static final class Distinct<A, M> implements Collector<A, Set<M>, Integer> {
+                    Distinct(Function<? super A, ? extends M> mapper) { }
+                    public Supplier<Set<M>> supplier() { return HashSet::new; }
+                    public BiFunction<Set<M>, A, Runnable> accumulator() { return (set, a) -> () -> { }; }
+                    public Function<Set<M>, Integer> finisher() { return Set::size; }
+                }
+                static <A, M> Collector<A, ?, Integer> distinct(Function<? super A, ? extends M> mapper) {
+                    return new Distinct<>(mapper);
+                }
+                interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
+                static final class Concat implements TriFunction<String, String, String, String> {
+                    public String apply(String a, String b, String c) { return a + b + c; }
+                }
+                interface BiCollector<A, B, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    TriFunction<ResultContainer_, A, B, Runnable> accumulator();
+                }
+                static final class Count<A, B> implements BiCollector<A, B, int[], Integer> {
+                    public Supplier<int[]> supplier() { return () -> new int[1]; }
+                    public TriFunction<int[], A, B, Runnable> accumulator() {
+                        return (c, a, b) -> { c[0]++; return () -> c[0]--; };
+                    }
+                }
+                static <A, B, C, R> BiCollector<A, B, C, R> loggedBi(BiCollector<A, B, C, R> collector) { return collector; }
+                static <A, B> BiCollector<A, B, ?, Integer> count() { return new Count<>(); }
+                static <A, B> BiCollector<A, B, ?, Integer> loggedCount() { return loggedBi(count()); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type that the code also passes where a generic method captures its type parameter, which a
+     * wildcard interface would not let C# infer: it is the type of object, which a concrete one is adapted to by the
+     * interface's erasure adapter.
+     */
+    @Test
+    public void erasures() {
+        String cs = translate("Collectors", ERASURES);
+        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);");
+        contains(cs, "private sealed class Erasure_ : ICollector<A, object, Result_> {");
+        contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+        contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
+        contains(cs, "=> Logged(toList<A>());");
+        contains(cs, "=> ICollector<A, C, R>.Erased_(collector);");
+        // a diamond's inferred ? extends M is its bound
+        contains(cs, "=> ICollector<A, ISet<M>, int>.Erased_(\nnew Distinct<A, M>(mapper));");
+        // a functional interface with its lambda adapter
+        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
+        contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
+    }
+
+    @Language("java")
+    private static final String COVARIANT_DELEGATES = """
+            package org.example.accumulators;
+            import java.util.function.BiFunction;
+            class Accumulators {
+                interface Accumulator<C, A> extends BiFunction<C, A, Runnable> {
+                    Runnable into(C container);
+                    @Override
+                    default Runnable apply(C container, A a) { return into(container); }
+                }
+                interface Collector<A, C> {
+                    BiFunction<C, A, Runnable> accumulator();
+                }
+                static final class Counting<A> implements Collector<A, int[]> {
+                    public Accumulator<int[], A> accumulator() { return c -> () -> c[0]++; }
+                }
+            }
+            """;
+
+    /**
+     * An override that returns a program interface extending a library's functional interface, which C# has as a
+     * delegate the interface cannot extend: the interface's method returns the override's method group.
+     */
+    @Test
+    public void covariantDelegates() {
+        String cs = translate("Accumulators", COVARIANT_DELEGATES);
+        contains(cs, "Func<int[], A, Action> ICollector<A, int[]>.Accumulator() => Accumulator().Apply;");
+    }
+
+    @Language("java")
+    private static final String PROPERTY_REFERENCES = """
+            package org.example.refs;
+            import java.util.Comparator;
+            import java.util.List;
+            import java.util.function.Supplier;
+            class Refs {
+                record Location(String className, int lineNumber) { }
+                static List<String> names(List<Location> locations) {
+                    return locations.stream().map(Location::className).toList();
+                }
+                static final Comparator<Location> ORDER =
+                        Comparator.comparing(Location::className).thenComparingInt(Location::lineNumber);
+                static Supplier<String> bound(Location location) { return location::className; }
+            }
+            """;
+
+    /** A method reference to a member C# has as a property, a record's component: a lambda reading it. */
+    @Test
+    public void propertyReferences() {
+        String cs = translate("Refs", PROPERTY_REFERENCES);
+        contains(cs, ".Select((Location p0) => p0.ClassName)");
+        contains(cs, "() => location.ClassName");
     }
 
     @Language("java")
@@ -2078,6 +2261,34 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "public interface ITyped { Type Kind { get; } }");
         // ? extends Tuple is its bound, what the code stores there
         contains(cs, "private Box<ITuple> boxed;");
+    }
+
+    /**
+     * A method of Object the code reaches through the wildcard is no obstacle to the wildcard interface, also where the
+     * type overrides it and javac resolves the call to the override: every C# object has ToString.
+     */
+    @Test
+    public void wildcardInterfaceObjectOverrideReached() {
+        String cs = translate("Tags", """
+                package org.example.tags;
+                public class Tags {
+                    public static class Tag<T> {
+                        @Override public String toString() { return "t"; }
+                        public T first() { return null; }
+                        public int size() { return 0; }
+                    }
+                    static final class Uses {
+                        private Tag<?> tag = new Tag<String>();
+                        int c() { return tag.size() + tag.toString().length(); }
+                    }
+                }
+                """);
+        // Tag<object> would not compile: C# classes are invariant, a Tag<string> is no Tag<object> (CS0029)
+        contains(cs, "private ITag tag = new Tag<string>();");
+        int start = cs.indexOf("public interface ITag");
+        assertTrue(start >= 0, "no wildcard interface ITag printed\n" + cs);
+        String iface = cs.substring(start, cs.indexOf('}', start) + 1);
+        assertFalse(iface.contains("ToString"), "ITag must not declare Object's ToString; printed: " + iface + "\n" + cs);
     }
 
     @Language("java")

@@ -35,6 +35,10 @@ dependencies {
     testImplementation(project(":maddi-inspection-api"))
     testImplementation(project(":maddi-inspection-openjdk"))
     testImplementation(project(":maddi-inspection-resource"))
+    // org.jspecify.annotations for the snippets' type-use @Nullable/@NonNull, handed to the inspector as a
+    // jar-on-classpath (CommonJavaToKotlin): javac 27 recovers a missing annotation import under its written name,
+    // javac 26 does not, so without the jar those tests passed on 27 only
+    testRuntimeOnly("org.jspecify:jspecify:1.0.0")
 }
 
 tasks.test {

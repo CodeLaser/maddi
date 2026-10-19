@@ -2046,6 +2046,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * An inner class of a generic class named outside it, {@code G<String>.In}: Kotlin's type has the outer class's
+     * type argument on the outer class too. {@code G.In} lacks it ("one type argument expected").
+     */
+    @Test
+    public void innerOfGenericClassNamedOutsideIt() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class C {
+                        String pass(G<String>.In x) { return x.get(); }
+                    }
+                }
+                """);
+        contains(kotlin, "x: G<String>.In");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
      * superclass is an inner class of a generic superclass of its outer class.
      */
@@ -2064,6 +2086,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """);
+        compiles(kotlin);
+    }
+
+    /**
+     * Java's {@code g.new In()} outside the outer class is Kotlin's {@code g.In()}: the constructor of an inner class
+     * is reached through the outer instance by its simple name.
+     */
+    @Test
+    public void innerClassConstructedOutsideItsOuterClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class A {
+                        int n;
+                        class In { int get() { return n; } }
+                    }
+                    static class C {
+                        Object make(G<String> g) { return g.new In(); }
+                        Object make(A a) { return a.new In(); }
+                    }
+                }
+                """);
+        contains(kotlin, "g.In()");
+        contains(kotlin, "a.In()");
         compiles(kotlin);
     }
 
@@ -2127,6 +2177,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "map.remove((key as K?))");
         contains(kotlin, "values.contains((value as V?))");
+        compiles(kotlin);
+    }
+
+    /**
+     * A V looked up in a Set<V> or a Map<V, String>: Java's contains and get take an Object, and a null V finds
+     * nothing (false, null). Kotlin's member takes the V itself, which may be null: no `!!`, which would throw.
+     */
+    @Test
+    public void sameTypeVariableLookupNotAsserted() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Look<V> {
+                    private final Set<V> values = new HashSet<>();
+                    private final Map<V, String> names = new HashMap<>();
+                    boolean hasValue(V v) { return values.contains(v); }
+                    boolean named(V v) { return names.get(v) != null; }
+                    boolean add(V v) { return values.add(v); }
+                }
+                """);
+        contains(kotlin, "values.contains(v)");
+        contains(kotlin, "names.get(v) != null");
+        contains(kotlin, "values.add(v)");
+        assertFalse(kotlin.contains("v!!"), () -> "a null v finds nothing in Java; the printed Kotlin asserts it non-null:\n" + kotlin);
         compiles(kotlin);
     }
 
@@ -2619,6 +2693,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * A subclass of AbstractCollection, a Java class: Kotlin sees its toArray() and toArray(T[]) as members, so
+     * {@code super.toArray()} stays a call to the superclass's member. Kotlin's {@code super} is no value: it can be
+     * neither cast ({@code (super as java.util.Collection<*>)}) nor the receiver of the extension toTypedArray.
+     */
+    @Test
+    public void toArrayOnSuper() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bag<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public int size() { return items.size(); }
+                    @Override public Object[] toArray() { return super.toArray(); }
+                    @Override public <T> T[] toArray(T[] array) { return super.toArray(array); }
+                }
+                """);
+        contains(kotlin, "super.toArray()");
+        contains(kotlin, "super.toArray(array)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Optional.toJavaUtil(), AbstractValueGraph.edgeValue: java.util.Optional.ofNullable(t) into an
      * Optional<T>. Kotlin's Optional bounds its T non-null, so the call is an Optional<T & Any>; the cast is unchecked.
      */
@@ -2931,6 +3028,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "override fun contains(o: MutableMap.MutableEntry<K, MutableCollection<V>>): Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * Optional.empty() and Optional.of(value) into an Optional<T>, beside ofNullable above: the cast to Optional<T>
+     * gives Kotlin nothing to infer the call's own T from.
+     */
+    @Test
+    public void optionalEmptyAndOfIntoTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                class Opt<T> {
+                    private final T value;
+                    Opt(T value) { this.value = value; }
+                    Optional<T> none() { return Optional.empty(); }
+                    Optional<T> some() { return Optional.of(value); }
+                }
+                """);
+        // empty's T from Optional<T>; of's value asserted, as Kotlin's of takes a T & Any (Java's of throws on null too)
+        contains(kotlin, "(Optional.empty<T>() as Optional<T>)");
+        contains(kotlin, "(Optional.of(value!!) as Optional<T>)");
         compiles(kotlin);
     }
 }

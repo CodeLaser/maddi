@@ -708,6 +708,7 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                     return java.lang.reflect.Array.getLength(array) > 0 ? java.lang.reflect.Array.get(array, 0) : null;
                 }
                 static boolean primitive(Class<?> c) { return c == Integer.TYPE || c == Boolean.TYPE; }
+                static long distinct(String[] a) { return Arrays.stream(Objects.requireNonNull(a)).distinct().count(); }
             }
             """;
 
@@ -726,10 +727,105 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a value type's function gives null to remove: the int? variant
         contains(cs, "m.ComputeIfPresentValue(\"k\",");
         contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
-                contains(cs, "s + CultureInfo.CurrentCulture");
+        contains(cs, "s + CultureInfo.CurrentCulture");
         contains(cs, "b / ");
         contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
         contains(cs, "c == typeof(int) || c == typeof(bool)");
+        // Arrays.stream(a) is a: as a receiver, in parentheses where a is not an atom
+        contains(cs, "(a ?? throw new NullReferenceException()).Distinct().LongCount()");
+    }
+
+    @Language("java")
+    private static final String CONCURRENT = """
+            package org.example.concurrent;
+            import java.util.*;
+            import java.util.concurrent.atomic.*;
+            import java.util.concurrent.locks.ReentrantLock;
+            import java.util.function.*;
+            import java.util.stream.*;
+            public class Concurrent {
+                static int bump(AtomicInteger i) { return i.updateAndGet(v -> v + 1) + i.getAndUpdate(v -> v * 2); }
+                static String swap(AtomicReference<String> r) { return r.updateAndGet(v -> v + "!"); }
+                static boolean held(ReentrantLock lock) { return lock.isLocked() && lock.isHeldByCurrentThread(); }
+                static int below(BitSet bits, int i) { return bits.previousClearBit(i) + bits.previousSetBit(i); }
+                static int apply(IntUnaryOperator op, IntBinaryOperator add) { return add.applyAsInt(op.applyAsInt(1), 2); }
+                static Set<String> ordered(Stream<String> s) { return s.collect(Collectors.toCollection(LinkedHashSet::new)); }
+                static Map<String, Integer> lengths(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x, String::length, Integer::sum));
+                }
+                static Map<String, String> firsts(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x.substring(0, 1), x -> x, (a, b) -> a, LinkedHashMap::new));
+                }
+            }
+            """;
+
+    /** Atomic updates, a lock's queries, a BitSet's previous bits, primitive operators, toMap with a merge. */
+    @Test
+    public void concurrent() {
+        String cs = translate("Concurrent", CONCURRENT);
+        contains(cs, "i.UpdateAndGet(v => v + 1) + i.GetAndUpdate(v => v * 2)");
+        contains(cs, "r.UpdateAndGet(v => v + \"!\")");
+        contains(cs, "@lock.IsLocked() && @lock.IsHeldByCurrentThread()");
+        contains(cs, "bits.PreviousClearBit(i) + bits.PreviousSetBit(i)");
+        contains(cs, "Func<int, int> op, Func<int, int, int> add) => add(op(1), 2)");
+        contains(cs, "s.ToCollection(");
+        contains(cs, "l.ToMap(x => x, ");
+        // the supplier's type arguments are the result's
+        contains(cs, "=> new OrderedDictionary<string, string>());");
+        contains(cs, "s.ToCollection(() => new HashSet<string>())");
+    }
+
+    @Language("java")
+    private static final String SMALLER = """
+            package org.example.smaller;
+            import java.math.*;
+            import java.util.*;
+            import java.util.stream.*;
+            public class Smaller {
+                static String indented(String s) { return s.indent(4); }
+                static String trimmed(StringBuilder b) { return b.replace(b.length() - 2, b.length(), "").toString(); }
+                static String letters(Random random) {
+                    StringBuilder value = new StringBuilder();
+                    random.ints(97, 122).limit(4).forEach(value::appendCodePoint);
+                    return value.toString();
+                }
+                static void doubled(List<Integer> l, Map<String, Integer> m) { l.replaceAll(x -> x * 2); m.replaceAll((k, v) -> v + 1); }
+                static Integer last(TreeSet<Integer> s) { return s.removeLast(); }
+                static int below(TreeSet<Integer> s) { return s.subSet(1, 5).size(); }
+                static int down(TreeSet<Integer> s) { int t = 0; for (int i : s.descendingSet()) t = t * 10 + i; return t; }
+                static NavigableSet<String> keys(TreeMap<String, Integer> m) { return m.navigableKeySet(); }
+                static boolean finite(double d) { return Double.isFinite(d); }
+                static BigDecimal rest(BigDecimal a, BigDecimal b) { return a.remainder(b); }
+                static BigDecimal half(BigDecimal a) { return a.divide(BigDecimal.TWO, RoundingMode.HALF_EVEN); }
+                static BigInteger larger(BigInteger a, BigInteger b) { return a.max(b); }
+                static long total(List<String> l) { return l.stream().mapToLong(String::length).sum(); }
+                static int[] sortedSquares(int[] a) { return IntStream.of(a).map(x -> x * x).sorted().toArray(); }
+                static Comparator<String> order(TreeMap<String, Integer> m) { return m.comparator(); }
+                static BigDecimal exact(BigInteger i) { return new BigDecimal(i); }
+            }
+            """;
+
+    /** Smaller JDK members: String.indent, a StringBuilder's replace, replaceAll, a sorted set's ends and ranges. */
+    @Test
+    public void smaller() {
+        String cs = translate("Smaller", SMALLER);
+        contains(cs, "JavaString.Indent(s, 4)");
+        contains(cs, "b.ReplaceRange(b.Length - 2, b.Length, \"\")");
+        contains(cs, "random.Ints(97, 122).Take((int) 4)");
+        contains(cs, "l.ReplaceAll(x => x * 2);");
+        contains(cs, "m.ReplaceAll((k, v) => v + 1);");
+        contains(cs, "s.RemoveLast()");
+        contains(cs, "s.SubSet(1, 5).Count");
+        contains(cs, "s.Reverse()");
+        contains(cs, "m.NavigableKeySet()");
+        contains(cs, "double.IsFinite(d)");
+        contains(cs, "((decimal) a) % ((decimal) b)");
+        contains(cs, "Math.Round(((decimal) a) / 2m, ((decimal) a).Scale,\nMidpointRounding.ToEven)");
+        contains(cs, "BigInteger.Max(a, b)");
+        contains(cs, "a.Select(x => x * x).Order().ToArray()");
+        // a Comparator is a Comparison: the comparer's method group
+        contains(cs, "new Comparison<string>(m.Comparer\n.Compare)");
+        contains(cs, "(decimal) i");
     }
 
     @Language("java")
