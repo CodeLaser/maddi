@@ -539,6 +539,39 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's AbstractRequestFilter: {@code <T> Response getDefaultResponseInstance(Class)}, a type parameter neither
+     * the parameters nor the result mention; and CollectionUtils {@code List columnList = list()}, an empty varargs
+     * into a raw local. Nothing fixes T, which Java erases to Object.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void unfixableTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Unfixed {
+                    static <T> String name(Class c) {
+                        return c.getName();
+                    }
+                    @SafeVarargs
+                    static <T> List<T> list(T... elements) {
+                        return new ArrayList<>(Arrays.asList(elements));
+                    }
+                    static int use() {
+                        String n = name(String.class);
+                        List columns = list();
+                        columns.add(n);
+                        return columns.size();
+                    }
+                }
+                """);
+        contains(kotlin, "name<Any?>(");
+        contains(kotlin, "list<Any");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's CollectionUtils.getCardinalityMap: {@code Map count = new HashMap(coll.size())}, a raw construction into
      * a raw local, which fixes no type arguments: the erasure, HashMap<Any?, Any?>; as into a raw field or the return
      * of a raw method (nacos's NoneSelector). A typed target keeps inferring.

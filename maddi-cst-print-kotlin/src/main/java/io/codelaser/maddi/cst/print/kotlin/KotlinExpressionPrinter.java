@@ -540,8 +540,8 @@ public class KotlinExpressionPrinter {
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
     }
 
-    // constructor calls assigned to a raw variable or returned from a raw method: nothing fixes their type arguments
-    private static final ThreadLocal<java.util.Set<ConstructorCall>> RAW_TARGET =
+    // calls assigned to a raw variable or returned from a raw method: nothing fixes their type arguments
+    private static final ThreadLocal<java.util.Set<Expression>> RAW_TARGET =
             ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
 
     /**
@@ -748,11 +748,19 @@ public class KotlinExpressionPrinter {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
         List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
         if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
+        // an empty varargs fixes nothing: nacos's List columnList = CollectionUtils.list()
+        boolean emptyVarargs = m.parameters().size() == mc.parameterExpressions().size() + 1 && m.parameters().getLast().isVarArgs();
         List<io.codelaser.maddi.cst.api.info.TypeParameter> resultOnly = typeParameters.stream()
-                .filter(tp -> m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp))).toList();
+                .filter(tp -> m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)
+                                                                     && !(emptyVarargs && p == m.parameters().getLast())))
+                .toList();
         if (resultOnly.isEmpty()) return null;
         boolean bounded = resultOnly.stream().anyMatch(tp -> bound(tp) != null);
-        boolean noExpectedType = noExpectedType(mc);
+        // nor does an expected type fix one the result does not mention (nacos's <T> Response
+        // getDefaultResponseInstance(Class)), nor a raw target
+        boolean unfixable = RAW_TARGET.get().contains(mc)
+                            || resultOnly.stream().anyMatch(tp -> !CstQueries.mentions(m.returnType(), tp));
+        boolean noExpectedType = unfixable || noExpectedType(mc);
         if (!bounded && !noExpectedType) return null;
         Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
                 ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
@@ -766,7 +774,8 @@ public class KotlinExpressionPrinter {
                     if (!noExpectedType) return null;
                     // guava's CollectCollectors.TO_IMMUTABLE_ENUM_SET: (Collector) toImmutableEnumSetGeneric(), whose
                     // E extends Enum<E> no Any satisfies; Nothing satisfies every bound, and the cast checks nothing
-                    printed.add(tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()) ? "Nothing" : "Any");
+                    printed.add(tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()) ? "Nothing"
+                                : unfixable ? "Any?" : "Any");
                     continue;
                 }
             }
@@ -1827,12 +1836,14 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
-        if (KotlinContext.translatingJava() && unwrap(e) instanceof ConstructorCall cc && rawGeneric(target)) {
-            boolean added = RAW_TARGET.get().add(cc);
+        Expression call = unwrap(e);
+        if (KotlinContext.translatingJava() && (call instanceof ConstructorCall || call instanceof MethodCall)
+            && rawGeneric(target)) {
+            boolean added = RAW_TARGET.get().add(call);
             try {
                 return assignedTo(e, target, q);
             } finally {
-                if (added) RAW_TARGET.get().remove(cc);
+                if (added) RAW_TARGET.get().remove(call);
             }
         }
         return assignedTo(e, target, q);
