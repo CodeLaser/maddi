@@ -291,9 +291,13 @@ final class KotlinContext {
         return STATE.get().typeInScope(typeInfo);
     }
 
-    /** A type parameter of one of the types being printed. */
+    /** A type parameter of one of the types being printed, or of the method being printed. */
     static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
-        return STATE.get().typeParameterInScope(typeParameter);
+        if (STATE.get().typeParameterInScope(typeParameter)) return true;
+        // an enclosing method's too: guava's MultimapBuilder.enumKeys<K0> creates an EnumMap<K0, …> in the
+        // createMap of the anonymous class it returns
+        return typeParameter.isMethodTypeParameter()
+               && STATE.get().methods().stream().anyMatch(m -> m.typeParameters().contains(typeParameter));
     }
 
     /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */

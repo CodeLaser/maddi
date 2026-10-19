@@ -193,7 +193,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 out.add(typeInfo.typeParameters().stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp,
-                                new KotlinHeaderQualification(insideType, typeInfo)))))
+                                new KotlinHeaderQualification(insideType, typeInfo))
+                                + (KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }
@@ -397,12 +398,17 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return allFields && (!companion || onlyAssignsParameters(c)) ? field : null;
     }
 
+    /**
+     * Each statement assigns a parameter to the field of its name. Not to another field: guava's Invokable assigns
+     * its member to accessibleObject and member, and the header property took the second, the first assignment lost.
+     */
     private static boolean onlyAssignsParameters(MethodInfo c) {
         return c.methodBody() != null && c.methodBody().statements().stream().filter(s -> !s.isSynthetic())
                 .allMatch(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
                                && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
                                && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                               && ve.variable() instanceof ParameterInfo);
+                               && ve.variable() instanceof ParameterInfo pi
+                               && a.variableTarget() != null && pi.name().equals(a.variableTarget().simpleName()));
     }
 
     private static boolean privateProperty(FieldInfo field) {
@@ -667,7 +673,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<ParameterizedType> arguments = new ArrayList<>(supertype.parameters().size());
         for (ParameterizedType a : supertype.parameters()) {
             ParameterizedType inner = declaredArguments(a);
-            if (a.wildcard() == null && a.arrays() == 0 && inner.annotations().stream()
+            // a bounded wildcard's too: ? super @Nullable V (guava's RangeMap.merge)
+            if ((a.wildcard() == null || !a.isUnboundWildcard()) && a.arrays() == 0 && inner.annotations().stream()
                     .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
                 inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
             }
@@ -681,6 +688,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
             String sameName = sameNamedInnerSuperclass(q);
+            if (sameName == null) sameName = innerOfAGenericOuter(q);
             OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
                     : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
@@ -725,6 +733,37 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         String own = KotlinTypeName.of(declaredArguments(parent), q);
         int lt = own.indexOf('<');
         return outerName + "." + parentType.simpleName() + (lt < 0 ? "" : own.substring(lt));
+    }
+
+    /**
+     * guava's AbstractMapBasedMultimap.WrappedList.WrappedListIterator extends WrappedIterator, an inner class of
+     * WrappedCollection, itself an inner class of the generic AbstractMapBasedMultimap<K, V>: Kotlin wants the outer
+     * classes' type arguments ("type arguments must be specified for outer class"), the same K and V the class sees
+     * as a member of that outer. Null when the superclass is no inner class of an outer that is not the class's own.
+     */
+    private String innerOfAGenericOuter(Qualification q) {
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent.typeInfo();
+        if (!parentType.isInnerClass() || CstQueries.enclosing(parentType) == CstQueries.enclosing(typeInfo)) return null;
+        List<TypeInfo> chain = new ArrayList<>();
+        for (TypeInfo t = CstQueries.enclosing(parentType); t != null; t = CstQueries.enclosing(t)) chain.addFirst(t);
+        if (chain.isEmpty() || chain.stream().allMatch(t -> t.typeParameters().isEmpty())) return null;
+        // only where the generic outers enclose this class too: their type parameters are in scope as they are
+        java.util.Set<TypeInfo> ownOuters = new java.util.HashSet<>();
+        for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) ownOuters.add(t);
+        if (chain.stream().anyMatch(t -> !t.typeParameters().isEmpty() && !ownOuters.contains(t))) return null;
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo t : chain) {
+            if (!sb.isEmpty()) sb.append('.');
+            sb.append(KotlinNames.name(t.simpleName()));
+            if (!t.typeParameters().isEmpty()) {
+                sb.append(t.typeParameters().stream().map(tp -> KotlinNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">")));
+            }
+        }
+        String own = KotlinTypeName.of(declaredArguments(parent), q);
+        int lt = own.indexOf('<');
+        return sb + "." + KotlinNames.name(parentType.simpleName()) + (lt < 0 ? "" : own.substring(lt));
     }
 
     private static boolean overridesObjectClone(TypeInfo typeInfo) {

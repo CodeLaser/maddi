@@ -93,7 +93,7 @@ final class KotlinInheritedDefaults {
      * {@code Consumer<? super T>} is a {@code Consumer<in Double>} through {@code Spliterator<Double>}, which an
      * override's signature must repeat.
      */
-    private static ParameterizedType seenThrough(ParameterizedType declared, TypeInfo declaring, ParameterizedType via) {
+    static ParameterizedType seenThrough(ParameterizedType declared, TypeInfo declaring, ParameterizedType via) {
         if (declared.arrays() > 0 || declared.parameters().isEmpty()) {
             return KotlinNullability.seenThrough(declared, declaring, via);
         }

@@ -131,6 +131,12 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return checked.contains("!" + variable.simpleName());
         }
 
+        /** {@code "<K>"} in checked: class type parameter K is non-null. */
+        @Override
+        public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+            return checked.contains("<" + typeParameter.simpleName() + ">");
+        }
+
         /** {@code "^x"} in checked: parameter x is declared non-null as its method's precondition. */
         @Override
         public boolean preconditionNonNull(ParameterInfo parameterInfo) {
@@ -180,6 +186,99 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      * A local the pass asserts at its declaration, because Java dereferences it unconditionally further on: the `!!`
      * is the declaration's, a behaviour change of its own (the null no longer reaches `seen`), and reported as such.
      */
+    /**
+     * guava's LocalCache<K, V>, null-marked: the verdicts hold K and V non-null, which Kotlin bounds by Any; a
+     * method's own T stays as it is, and so does a class type parameter they leave nullable.
+     */
+    @Test
+    public void nonNullClassTypeParameters() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>", "<U>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Cache<K, V> {
+                    final Map<K, V> map = new HashMap<>();
+                    V get(K key) { return map.get(key); }
+                    <T> T first(List<T> list) { return list.get(0); }
+                    static <U> Cache<U, U> of(U u) { return new Cache<>(); }
+                    static class Entry<E> { E e; }
+                }
+                """, options);
+        contains(kotlin, "class Cache<K : Any, V : Any>");
+        contains(kotlin, "fun <U : Any> of(");
+        contains(kotlin, "class Entry<E>");
+        contains(kotlin, "fun <T> first(");
+        compiles(kotlin);
+    }
+
+    /**
+     * Null-marked bounds into signatures: an override repeats the overridden's {@code E : Any} (guava's
+     * AllEqualOrdering), whatever the verdict of its own E; a static method's {@code ? super @NonNull V} parameter is
+     * an {@code in V & Any} (Maps.difference into an Equivalence<T : Any>); {@code <T extends @NonNull B>} of a
+     * nullable-bounded B is {@code T : B & Any} (TypeToInstanceMap.getInstance into a TypeToken<T : Any>).
+     */
+    @Test
+    public void nonNullBoundsInSignatures() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<E>", "<T>", "<F>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.NonNull;
+                import org.jspecify.annotations.Nullable;
+                abstract class Eq<T> { abstract boolean same(T a, T b); }
+                abstract class Order<X> {
+                    <E> List<E> copy(Iterable<E> elements) { return new ArrayList<>(); }
+                    <S extends @NonNull X> List<S> sorted(Iterable<S> elements) { return new ArrayList<>(); }
+                }
+                class AllEqual extends Order<@Nullable Object> {
+                    @Override <F> List<F> copy(Iterable<F> elements) { return new ArrayList<>(); }
+                    @Override <R extends @Nullable Object> List<R> sorted(Iterable<R> elements) { return new ArrayList<>(); }
+                }
+                class Diff {
+                    static <V extends @Nullable Object> boolean differ(V a, V b, Eq<? super @NonNull V> eq) {
+                        return a != null && b != null && !eq.same(a, b);
+                    }
+                    static <A extends @Nullable Object> A[] concat(A[] first, Class<@NonNull A> type) { return first; }
+                }
+                class Tok<T> { }
+                interface Instances<B extends @Nullable Object> {
+                    <T extends @NonNull B> @Nullable T get(Tok<T> type);
+                }
+                """, options, t -> { });
+        contains(kotlin, "fun <F : Any> copy(");
+        contains(kotlin, "eq: Eq<in V & Any>");
+        contains(kotlin, "fun <T : B & Any> get(");
+        contains(kotlin, "fun <S : X & Any> sorted(");
+        contains(kotlin, "fun <R : Any> sorted(");
+        contains(kotlin, "type: Class<A>");
+    }
+
+    /**
+     * guava's LocalCache<K : Any, V : Any> overrides Map's merge and computeIfPresent: their V & Any is just V, as
+     * Kotlin takes an intersection only of a nullable-bounded type variable.
+     */
+    @Test
+    public void mapDefaultsOfANonNullTypeParameter() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<K>", "<V>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.*;
+                class Cache<K, V> extends AbstractMap<K, V> {
+                    final Map<K, V> map = new HashMap<>();
+                    @Override public Set<Entry<K, V>> entrySet() { return map.entrySet(); }
+                    @Override public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> function) {
+                        return map.merge(key, value, function);
+                    }
+                }
+                """, options);
+        assertFalse(kotlin.contains("V & Any"), kotlin);
+        compiles(kotlin);
+    }
+
     @Test
     public void assertedAtDeclaration() {
         KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("find()"), Set.of("!s")),
@@ -1176,6 +1275,49 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's ArrayTable.ColumnMap, an AbstractMap<C, Map<R, @Nullable V>>: put(C key, Map<R, @Nullable V> value)
+     * keeps its parameter's type-use @Nullable argument with a verdict, or overrides nothing.
+     */
+    @Test
+    public void parameterKeepsDeclaredNullableArguments() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.Nullable;
+                final class Columns<R, V> extends AbstractMap<String, Map<R, @Nullable V>> {
+                    @Override public Set<Map.Entry<String, Map<R, @Nullable V>>> entrySet() { return Collections.emptySet(); }
+                    @Override public Map<R, @Nullable V> put(String key, Map<R, @Nullable V> value) {
+                        throw new UnsupportedOperationException();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("put()")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "put(key: String, value: MutableMap<R, V?>)");
+    }
+
+    /**
+     * guava's TreeRangeMap's empty sub-range map: merge(Range<Comparable<?>> range, @Nullable Object value,
+     * BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable Object> f) overrides RangeMap's merge:
+     * the wildcard bounds' type-use @Nullable stays, or it overrides nothing.
+     */
+    @Test
+    public void parameterKeepsNullableWildcardBounds() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.BiFunction;
+                import org.jspecify.annotations.Nullable;
+                interface RangeMap<V> {
+                    void merge(@Nullable V value, BiFunction<? super V, ? super @Nullable V, ? extends @Nullable V> f);
+                }
+                final class Empty implements RangeMap<Object> {
+                    @Override public void merge(@Nullable Object value,
+                            BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable Object> f) { }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("value")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "f: BiFunction<in Any, in Any?, out Any?>");
+        contains(kotlin, "f: BiFunction<in V, in V?, out V?>");
+    }
+
+    /**
      * guava's RegularImmutableSortedSet.containsAll(Collection<?> targets) reassigns targets, a value that may be null
      * by its verdict: the var copying the parameter, the mapped member's read-only Collection, is read-only too.
      */
@@ -1196,26 +1338,79 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("=targets")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "var targets: Collection<");
         compiles(kotlin);
+        // ImmutableEnumSet.containsAll: without a nullable verdict, the copy still takes Java's Collection<?>
+        String enumSet = kotlin("""
+                package a;
+                import java.util.*;
+                final class EnumBox<E extends Enum<E>> extends AbstractSet<E> {
+                    final EnumSet<E> delegate;
+                    EnumBox(EnumSet<E> delegate) { this.delegate = delegate; }
+                    @Override public Iterator<E> iterator() { return delegate.iterator(); }
+                    @Override public int size() { return delegate.size(); }
+                    @Override public boolean containsAll(Collection<?> collection) {
+                        if (collection instanceof EnumBox<?>) collection = ((EnumBox<?>) collection).delegate;
+                        return delegate.containsAll(collection);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(enumSet, "var collection: Collection<*> = collection");
+        compiles(enumSet);
+    }
+
+    /**
+     * guava's RegularImmutableMap: {@code Entry<K, V>[] entries = n == array.length ? array : createEntryArray(n)},
+     * createEntryArray's ImmutableMapEntry<K, V>[] Java's covariant array; cast, its K and V stated, which only the
+     * cast types.
+     */
+    @Test
+    public void covariantArrayOfAResultOnlyGenericCall() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Entries {
+                    static class Entry<K, V> implements Map.Entry<K, V> {
+                        public K getKey() { return null; } public V getValue() { return null; }
+                        public V setValue(V v) { return null; }
+                    }
+                    @SuppressWarnings("unchecked")
+                    static <K, V> Entry<K, V>[] createEntryArray(int size) { return new Entry[size]; }
+                    static <K, V> int build(int n, Map.Entry<K, V>[] array) {
+                        array[0] = null;
+                        Map.Entry<K, V>[] entries = n == array.length ? array : createEntryArray(n);
+                        Map.Entry<K, V>[] fresh = createEntryArray(n);
+                        return entries.length + fresh.length;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("entries[]", "fresh[]", "array[]", "createEntryArray()[]")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "createEntryArray<K, V>(n)");
+        compiles(kotlin);
     }
 
     /**
      * guava's ImmutableSet.construct: {@code Object[] elements = distinct == n ? deduped : Arrays.copyOf(deduped,
-     * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>.
+     * distinct)}. Kotlin types copyOf's result Array<(out) T>!, and the if joins the branches to an Array<out Any?>;
+     * guava's other branch is the builder's E[], Java's covariant array into an Object[].
      */
     @Test
     public void genericLibraryArrayInAConditional() {
         String kotlin = kotlin("""
                 package a;
                 import java.util.Arrays;
-                class Construct {
+                class Construct<E> {
+                    E[] typed;
                     static int construct(int n, int distinct) {
                         Object[] deduped = new Object[n];
                         deduped[0] = "x";
                         Object[] elements = distinct == deduped.length ? deduped : Arrays.copyOf(deduped, distinct);
                         return elements.length;
                     }
+                    int build(int distinct) {
+                        Object[] elements = distinct == typed.length ? typed : Arrays.copyOf(typed, distinct);
+                        return elements.length;
+                    }
                 }
-                """, new KotlinPrintOptions(new ByName(Set.of("deduped[]", "elements[]")), KotlinPrintOptions.NullCheck.ASSERT));
+                """, new KotlinPrintOptions(new ByName(Set.of("deduped[]", "elements[]", "typed[]")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "as Array<Any?>)");
         compiles(kotlin);
     }

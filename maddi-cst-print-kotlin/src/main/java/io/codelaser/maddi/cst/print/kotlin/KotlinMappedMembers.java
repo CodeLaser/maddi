@@ -143,6 +143,7 @@ final class KotlinMappedMembers {
      * ArrayList subclass is {@code override val size: Int}); null otherwise. Kotlin has no {@code size()} to override.
      */
     static String overriddenProperty(MethodInfo methodInfo) {
+        if (enumProperty(methodInfo)) return methodInfo.name();
         if (methodInfo.overrides().isEmpty() || !methodInfo.parameters().isEmpty() || methodInfo.isStatic()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
             return null;
@@ -197,12 +198,14 @@ final class KotlinMappedMembers {
             Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
             if (ownVariable != null) index = ownVariable;
             if (index == null && !collection && !map) continue;
-            ParameterizedType asOwner;
-            try {
-                asOwner = methodInfo.typeInfo().asParameterizedType()
-                        .concreteSuperType(m.typeInfo().asParameterizedType());
-            } catch (RuntimeException e) {
-                return null;
+            ParameterizedType asOwner = declaredSupertype(methodInfo.typeInfo(), m.typeInfo());
+            if (asOwner == null) {
+                try {
+                    asOwner = methodInfo.typeInfo().asParameterizedType()
+                            .concreteSuperType(m.typeInfo().asParameterizedType());
+                } catch (RuntimeException e) {
+                    return null;
+                }
             }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
@@ -210,6 +213,30 @@ final class KotlinMappedMembers {
             ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
             return collectionType.typeInfo() == null ? null
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
+        }
+        return null;
+    }
+
+    /**
+     * {@code owner}, seen from {@code typeInfo}'s declared supertypes, with their type arguments'
+     * type-use annotations: guava's ArrayTable.ColumnMap extends ArrayMap<C, Map<R, @Nullable V>>, whose put(key,
+     * value) takes a Map<R, V?>, as the class header writes it. Null when no direct supertype leads there.
+     */
+    private static ParameterizedType declaredSupertype(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo,
+                                                       io.codelaser.maddi.cst.api.info.TypeInfo owner) {
+        List<ParameterizedType> direct = new java.util.ArrayList<>();
+        if (typeInfo.parentClass() != null) direct.add(typeInfo.parentClass());
+        direct.addAll(typeInfo.interfacesImplemented());
+        for (ParameterizedType st : direct) {
+            if (st == null || st.typeInfo() == null) continue;
+            ParameterizedType declared = KotlinTypePrinter.declaredArguments(st);
+            if (declared.typeInfo() == owner) return declared;
+            try {
+                ParameterizedType seen = declared.concreteSuperType(owner.asParameterizedType());
+                if (seen != null) return seen;
+            } catch (RuntimeException | AssertionError e) {
+                // not this one
+            }
         }
         return null;
     }
@@ -287,7 +314,8 @@ final class KotlinMappedMembers {
         ParameterizedType v = asMap.parameters().get(1);
         String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
         return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
-                v.typeParameter() != null ? vName + " & Any" : vName};
+                // V & Any only of a nullable-bounded V: a V : Any (a null-marked LocalCache's) takes no intersection
+                KotlinTypeName.nullableTypeVariable(v) ? vName + " & Any" : vName};
     }
 
     private static String substitute(String template, String[] kv) {
@@ -296,7 +324,25 @@ final class KotlinMappedMembers {
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
     static String property(MethodInfo methodInfo) {
-        return lookup(PROPERTY, methodInfo);
+        String property = lookup(PROPERTY, methodInfo);
+        return property != null ? property : enumProperty(methodInfo) ? methodInfo.name() : null;
+    }
+
+    /**
+     * An interface's {@code int ordinal()} or {@code String name()}, which an enum implements by java.lang.Enum's
+     * (guava's BloomFilter.Strategy, implemented by the BloomFilterStrategies enum): Kotlin's Enum has the properties,
+     * and a {@code fun ordinal()} in the enum would clash with them on the JVM. A property in the interface too, which
+     * Enum's implements; an override of it is one.
+     */
+    static boolean enumProperty(MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.isConstructor() || !methodInfo.parameters().isEmpty()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) return false;
+        // an interface being translated: a library's (java.nio's FileAttribute.name()) keeps its function
+        return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream()).anyMatch(m -> m.typeInfo().isInterface()
+                && KotlinNullability.translated(m.typeInfo()) && m.parameters().isEmpty()
+                && ("ordinal".equals(m.name()) && m.returnType().isInt()
+                    || "name".equals(m.name()) && m.returnType().typeInfo() != null && m.returnType().arrays() == 0
+                       && "java.lang.String".equals(m.returnType().typeInfo().fullyQualifiedName())));
     }
 
     /** The Kotlin function that replaces this call, called without arguments ({@code intValue()} -> {@code toInt()}). */

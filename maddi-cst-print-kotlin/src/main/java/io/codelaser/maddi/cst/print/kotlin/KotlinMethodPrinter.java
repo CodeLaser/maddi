@@ -90,7 +90,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(typeParameters.stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
-                                                                             + (nonNullBound(methodInfo, tp) ? " : Any" : ""))))
+                                                                             + (nonNullBoundOfTypeVariable(methodInfo, tp) ? " & Any" : "")
+                                                                             + (nonNullBound(methodInfo, tp)
+                                                                                || methodInfo.overrides().isEmpty()
+                                                                                   && KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }
@@ -304,13 +307,77 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
-        String printed = typeOverride != null ? typeOverride : KotlinTypeName.inSignature(() ->
+        if (typeOverride == null) {
+            ParameterizedType overridden = erasureOverride(pi);
+            if (overridden != null) {
+                typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
+            }
+        }
+        java.util.function.Supplier<String> print = () ->
                 // before the read-only collection rule, which leaves an array invariant
                 covariantArray(pi, type) ? outArray(type, q)
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
-                : KotlinTypeName.of(type, q));
+                : KotlinTypeName.of(type, q);
+        // a constructor's E & Any stays: no override repeats it (guava's Equivalence.Wrapper takes an
+        // Equivalence<? super @NonNull T>, which wrap's Equivalence<T> is for an S extends @Nullable T)
+        // a member nothing overrides keeps ? super E & Any: guava's static Maps.difference takes an
+        // Equivalence<? super @NonNull V>, into a null-marked Equivalence<T : Any>. Not a plain E & Any:
+        // ObjectArrays.concat's Class<@NonNull T> would type its newArray result Array<T & Any>
+        String printed = typeOverride != null ? typeOverride
+                : pi.methodInfo().isConstructor() ? print.get()
+                : KotlinTypeName.inSignature(notOverridable(pi.methodInfo()), print);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
+    }
+
+    /**
+     * The overridden member's parameter type, seen through the class, where Java's override declares a looser one
+     * that erases the same: guava's DirectedGraphConnections.removeSuccessor(Object node) overriding
+     * removeSuccessor(N node), TreeRangeMap's putAll(RangeMap<Comparable<?>, ?>) overriding putAll(RangeMap<K, ?
+     * extends V>). Kotlin's override takes the overridden signature. Null otherwise.
+     */
+    static ParameterizedType erasureOverride(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        if (!KotlinContext.translatingJava() || m.overrides().isEmpty() || pi.isVarArgs()) return null;
+        ParameterizedType own = pi.parameterizedType();
+        for (MethodInfo o : m.overrides()) {
+            if (!KotlinNullability.translated(o.typeInfo()) || o.parameters().size() <= pi.index()) continue;
+            ParameterizedType theirs = o.parameters().get(pi.index()).parameterizedType();
+            boolean objectForVariable = own.isJavaLangObject() && own.arrays() == 0 && theirs.typeParameter() != null
+                                        && theirs.arrays() == 0 && !theirs.typeParameter().isMethodTypeParameter();
+            boolean looserWildcard = own.typeInfo() != null && own.typeInfo() == theirs.typeInfo()
+                                     && looserWildcards(own, theirs);
+            if (!objectForVariable && !looserWildcard) continue;
+            ParameterizedType seen;
+            try {
+                // with the overridden declaration's type-use @Nullable arguments (RangeMap.merge's ? super @Nullable V)
+                seen = KotlinInheritedDefaults.seenThrough(KotlinTypePrinter.declaredArguments(theirs), o.typeInfo(),
+                        m.typeInfo().asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                continue;
+            }
+            if (seen != null && seen != theirs && (seen.typeParameter() == null
+                                                   || KotlinContext.typeParameterInScope(seen.typeParameter()))) {
+                return seen;
+            }
+        }
+        return null;
+    }
+
+    /** Same type arguments, but {@code ?} in {@code own} where {@code theirs} has a bounded wildcard. */
+    private static boolean looserWildcards(ParameterizedType own, ParameterizedType theirs) {
+        if (own.parameters().size() != theirs.parameters().size() || own.parameters().isEmpty()) return false;
+        boolean looser = false;
+        for (int i = 0; i < own.parameters().size(); i++) {
+            ParameterizedType a = own.parameters().get(i);
+            ParameterizedType b = theirs.parameters().get(i);
+            if (a == null || b == null) return false;
+            if (a.isUnboundWildcard() && b.wildcard() != null && !b.isUnboundWildcard()) looser = true;
+            else if (a.isUnboundWildcard() != b.isUnboundWildcard()) {
+                if (!(b.isTypeParameter() || a.typeInfo() == b.typeInfo())) return false;
+            }
+        }
+        return looser;
     }
 
     /** {@code Array<out Any?>}: the parameter's own type, element states included, covariant. */
@@ -792,14 +859,48 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                        .allMatch(o -> o.typeInfo().isInterface() && o.typeInfo().fullyQualifiedName().startsWith("java.util."));
     }
 
+    /**
+     * {@code <T extends @NonNull B>} of a nullable-bounded B: {@code T : B & Any}, or no {@code TypeToken<T : Any>}
+     * takes a T (guava's TypeToInstanceMap). As the root declaration says, which every override repeats: the
+     * implementations of ClassToInstanceMap.getInstance do not all say @NonNull.
+     */
+    private static boolean nonNullBoundOfTypeVariable(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        if (!KotlinContext.translatingJava() || bounds.size() != 1 || !bounds.getFirst().isTypeParameter()
+            || bounds.getFirst().arrays() > 0 || !KotlinTypeName.nullableTypeVariable(bounds.getFirst())) return false;
+        int index = methodInfo.typeParameters().indexOf(tp);
+        if (index < 0) return false;
+        MethodInfo root = methodInfo;
+        io.codelaser.maddi.cst.api.info.TypeParameter rootTp = tp;
+        for (MethodInfo o : methodInfo.overrides()) {
+            if (KotlinNullability.translated(o.typeInfo()) && index < o.typeParameters().size()
+                && o.overrides().isEmpty()) {
+                root = o;
+                rootTp = o.typeParameters().get(index);
+            }
+        }
+        return root.typeParameters().contains(rootTp) && rootTp.typeBounds().stream().anyMatch(b -> b.annotations().stream()
+                .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName())));
+    }
+
+    /** A constructor, or a static, private or final method that overrides nothing: its signature is its own. */
+    private static boolean notOverridable(MethodInfo m) {
+        return m.isConstructor() || m.overrides().isEmpty() && (m.isStatic() || m.access() != null && m.access().isPrivate() || m.isFinal()
+                                                               || m.typeInfo().isFinal());
+    }
+
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!methodInfo.overrides().isEmpty()) {
-            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds
+            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds,
+            // the printer's or the verdicts' (null-marked bounds) of the overridden one, not the override's own
             int index = methodInfo.typeParameters().indexOf(tp);
             return index >= 0 && methodInfo.overrides().stream().anyMatch(o -> KotlinNullability.translated(o.typeInfo())
                     && index < o.typeParameters().size()
-                    && nonNullBound(o, o.typeParameters().get(index)));
+                    && (nonNullBound(o, o.typeParameters().get(index))
+                        || o.overrides().isEmpty() && KotlinTypeName.nonNullClassTypeParameter(o.typeParameters().get(index))
+                        // Ordering's <E extends @NonNull T>, a T & Any; AllEqualOrdering's T is an Any?
+                        || nonNullBoundOfTypeVariable(o, o.typeParameters().get(index))));
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;

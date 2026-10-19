@@ -98,6 +98,11 @@ public class ForwardingNullabilityFacts implements NullabilityFacts {
     }
 
     @Override
+    public boolean nonNullTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+        return delegate.nonNullTypeParameter(typeParameter);
+    }
+
+    @Override
     public boolean nullabilityAnalysed() {
         return delegate.nullabilityAnalysed();
     }

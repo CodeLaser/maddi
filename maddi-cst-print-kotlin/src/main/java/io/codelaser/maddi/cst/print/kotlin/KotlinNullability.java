@@ -71,7 +71,10 @@ final class KotlinNullability {
 
     static ParameterizedType fieldType(FieldInfo fieldInfo) {
         ParameterizedType verdict = verdicts().field(fieldInfo);
-        return verdict != null ? verdict : fieldInfo.type();
+        ParameterizedType type = verdict != null ? verdict : fieldInfo.type();
+        // guava's Ordering.ARBITRARY_ORDERING: an Ordering<@Nullable Object>, which arbitrary() returns as one
+        return KotlinContext.translatingJava()
+                ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(fieldInfo.type())) : type;
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {
@@ -92,7 +95,11 @@ final class KotlinNullability {
             return declared.withNullable(NullableState.NULLABLE);
         }
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
+        // guava's TreeRangeMap: merge(…, BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable
+        // Object> f) overriding RangeMap's: the declaration's type-use annotations on its arguments, wildcard bounds
+        // included, which an override must repeat
         ParameterizedType type = verdict != null ? verdict : declared;
+        if (KotlinContext.translatingJava()) type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(declared));
         return INFERRED_NULLABLE.get().containsKey(parameterInfo) ? type.withNullable(NullableState.NULLABLE) : type;
     }
 
@@ -324,7 +331,9 @@ final class KotlinNullability {
             ParameterizedType mine = type.parameters().get(i);
             ParameterizedType theirs = declared.parameters().get(i);
             ParameterizedType merged = withDeclaredArgumentStates(mine, theirs);
-            if (theirs != null && theirs.wildcard() == null && isNullable(theirs) && !isNullable(merged)) {
+            if (theirs != null && mine != null && isNullable(theirs) && !isNullable(merged)
+                && (theirs.wildcard() == null || mine.wildcard() != null && !theirs.isUnboundWildcard()
+                                                 && theirs.wildcard().isSuper() == mine.wildcard().isSuper())) {
                 merged = merged.withNullable(NullableState.NULLABLE);
             }
             changed |= merged != mine;
@@ -688,11 +697,13 @@ final class KotlinNullability {
             && unboundTypeVariable(valueType)) {
             // Success<T>(response) with a T? response: a parameter typed by an unbounded type variable is not checked
             // at runtime, so the null reaches the callee as in Java, whose ensureNotNull throws what the caller
-            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased
+            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased; to the target's
+            // where that is a supertype's, out of scope (get(type) of a Forwarding<K, V> superclass, its V a B here)
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            ParameterizedType castTo = KotlinContext.typeParameterInScope(valueType.typeParameter()) ? valueType : target;
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                    .add(new TextImpl(KotlinTypeName.of(valueType.withNullable(NullableState.NONNULL), q)))
+                    .add(new TextImpl(KotlinTypeName.of(castTo.withNullable(NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintCode.ASSERT_AT_UNBOXING : KotlinPrintCode.ASSERT_INTO_NON_NULL,

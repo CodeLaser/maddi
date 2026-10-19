@@ -138,12 +138,33 @@ public class KotlinTypeName {
 
     /** {@code print}, without {@code E & Any}: a parameter's type, a type parameter's bound. */
     static String inSignature(java.util.function.Supplier<String> print) {
+        return inSignature(false, print);
+    }
+
+    /** As {@link #inSignature(java.util.function.Supplier)}; {@code ownSignature}: one no override repeats. */
+    static String inSignature(boolean ownSignature, java.util.function.Supplier<String> print) {
         boolean previous = IN_SIGNATURE.get();
+        boolean previousOwn = IN_OWN_SIGNATURE.get();
         IN_SIGNATURE.set(true);
+        IN_OWN_SIGNATURE.set(ownSignature);
         try {
             return print.get();
         } finally {
             IN_SIGNATURE.set(previous);
+            IN_OWN_SIGNATURE.set(previousOwn);
+        }
+    }
+
+    /** In a signature no override repeats: a {@code ? super @NonNull T} keeps its {@code T & Any}. */
+    private static final ThreadLocal<Boolean> IN_OWN_SIGNATURE = ThreadLocal.withInitial(() -> false);
+
+    private static boolean superBoundNonNull(ParameterizedType t) {
+        if (!IN_OWN_SIGNATURE.get()) return definitelyNonNull(t);
+        IN_SIGNATURE.set(false);
+        try {
+            return definitelyNonNull(t);
+        } finally {
+            IN_SIGNATURE.set(true);
         }
     }
 
@@ -161,6 +182,17 @@ public class KotlinTypeName {
                && nullableBound(t.typeParameter(), 0);
     }
 
+    /**
+     * A type parameter the verdicts hold non-null ({@link
+     * io.codelaser.maddi.cst.impl.analysis.NullabilityFacts#nonNullTypeParameter}), with no bound of its own: Kotlin's
+     * {@code K : Any}. A class's, or a method's that flows into one (langchain4j's {@code <T> Response<T> from(T)}).
+     */
+    static boolean nonNullClassTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        return KotlinContext.translatingJava()
+               && tp.typeBounds().stream().allMatch(ParameterizedType::isJavaLangObject)
+               && KotlinNullability.verdicts().nonNullTypeParameter(tp);
+    }
+
     private static boolean nullableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp, int depth) {
         java.util.List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
         // langchain4j's Utils.firstNotNull: the printer bounds its own <T> by Any (KotlinMethodPrinter.nonNullBound)
@@ -169,7 +201,7 @@ public class KotlinTypeName {
             && KotlinMethodPrinter.nonNullBound(current, tp)) {
             return false;
         }
-        if (bounds.isEmpty()) return true;
+        if (bounds.isEmpty()) return !nonNullClassTypeParameter(tp);
         if (bounds.size() > 1 || depth > 8) return false;
         ParameterizedType bound = KotlinTypePrinter.declared(bounds.getFirst());
         return bound.nullable() == NullableState.NULLABLE
@@ -191,9 +223,17 @@ public class KotlinTypeName {
         if (pt.wildcard() != null) {
             if (pt.wildcard().isUnbound()) return "*";
             String bound = pt.typeInfo() == null && !pt.isTypeParameter() ? "Any" : withoutWildcard(pt, q);
+            // ? super @NonNull T, of a nullable-bounded T (guava's Equivalence.Wrapper). Not ? extends @NonNull B:
+            // MutableClassToInstanceMap's ForwardingMap<Class<? extends @NonNull B>, B> header would take it, and its
+            // overrides' parameters, printed without, would not match
+            if (pt.isTypeParameter() && pt.wildcard().isSuper() && superBoundNonNull(pt.withWildcard(null))) {
+                bound += " & Any";
+            }
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;
         }
         if (pt.isTypeParameter()) {
+            ParameterizedType erasure = constructorTypeParameterErasure(pt);
+            if (erasure != null) return of(erasure, q);
             return definitelyNonNull(pt) ? pt.typeParameter().simpleName() + " & Any" : pt.typeParameter().simpleName();
         }
         if (pt.typeInfo() == null) {
@@ -217,6 +257,28 @@ public class KotlinTypeName {
             sb.append(of(argument, q));
         }
         return sb.append('>').toString();
+    }
+
+    /**
+     * A constructor's own type parameter, which Kotlin's constructors cannot declare: its erasure, as Java's bytecode
+     * has it (guava's {@code <M extends AccessibleObject & Member> Invokable(M member)} takes an AccessibleObject; a
+     * use as another bound casts). Null for any other type.
+     */
+    static ParameterizedType constructorTypeParameterErasure(ParameterizedType pt) {
+        if (pt == null || !KotlinContext.translatingJava() || !pt.isTypeParameter() || pt.wildcard() != null
+            || !pt.typeParameter().isMethodTypeParameter()) {
+            return null;
+        }
+        // its constructor is one of the type being printed, where alone its parameter's type is written
+        TypeInfo current = KotlinContext.currentType();
+        if (current == null || current.constructors().stream().noneMatch(c -> c.typeParameters().contains(pt.typeParameter()))) {
+            return null;
+        }
+        ParameterizedType bound = pt.typeParameter().typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst()
+                .orElse(null);
+        if (bound == null || bound.isTypeParameter()) return null;
+        ParameterizedType erased = bound.withNullable(pt.nullable());
+        return pt.arrays() == 0 ? erased : erased.copyWithArrays(pt.arrays());
     }
 
     private static String withoutWildcard(ParameterizedType pt, Qualification q) {
@@ -249,9 +311,7 @@ public class KotlinTypeName {
     }
 
     private static boolean inScope(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
-        io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
-        return tp.isMethodTypeParameter() ? method != null && method.typeParameters().contains(tp)
-                : KotlinContext.typeParameterInScope(tp);
+        return KotlinContext.typeParameterInScope(tp);
     }
 
     private static String withoutNullable(String s) {
