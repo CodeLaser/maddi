@@ -802,6 +802,10 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static int[] sortedSquares(int[] a) { return IntStream.of(a).map(x -> x * x).sorted().toArray(); }
                 static Comparator<String> order(TreeMap<String, Integer> m) { return m.comparator(); }
                 static BigDecimal exact(BigInteger i) { return new BigDecimal(i); }
+                static List<String> all(String... names) { return List.of(names); }
+                static java.lang.reflect.Method setter(Class<?> c, Class<?> type) throws Exception { return c.getMethod("set", type); }
+                static List<String> some(List<String> l, long a, long b) { return l.stream().limit(a - b).toList(); }
+                static void check(int i) { if (i < 0) throw new IndexOutOfBoundsException(i); }
             }
             """;
 
@@ -826,6 +830,11 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a Comparator is a Comparison: the comparer's method group
         contains(cs, "new Comparison<string>(m.Comparer\n.Compare)");
         contains(cs, "(decimal) i");
+        // an array as the variable arity arguments is the elements
+        contains(cs, "new List<string>(names)");
+        contains(cs, "c.GetMethod(\"set\", new Type[]{ type })");
+        contains(cs, "l.Take((int) (a - b)).ToList()");
+        contains(cs, "new ArgumentOutOfRangeException(\"Index out of range: \" + i)");
     }
 
     @Language("java")

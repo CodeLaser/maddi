@@ -263,7 +263,9 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.List.subList/2", (method, call) -> readOnlyReceiver(call)
                 ? rule("$0.Skip(@1).Take(@2 - @1).ToList()", LINQ) : rule("$0.SubList($1, $2)", COMPAT));
         chooser("java.util.List.of/0", (method, call) -> rule("new List<{R0}>()"));
-        chooser("java.util.List.of", (method, call) -> rule("new List<{R0}> { $* }"));
+        // of(E...) given an array: the array is the elements
+        chooser("java.util.List.of", (method, call) -> rule(arrayAsVarargs(method, call)
+                ? "new List<{R0}>($1)" : "new List<{R0}> { $* }"));
         // a value-type value is null when absent, as Java's Integer; the BCL's GetValueOrDefault is for a concrete
         // dictionary, which is also read-only one; an IDictionary has the compatibility library's Get
         // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
@@ -278,7 +280,8 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));
-        chooser("java.util.Set.of", (method, call) -> rule("new HashSet<{R0}> { $* }"));
+        chooser("java.util.Set.of", (method, call) -> rule(arrayAsVarargs(method, call)
+                ? "new HashSet<{R0}>($1)" : "new HashSet<{R0}> { $* }"));
         chooser("java.util.Arrays.asList/1", (method, call) -> call != null && call.parameterExpressions().size() == 1
                                                                && arrayTyped(call.parameterExpressions().getFirst())
                 ? rule("new List<{R0}>($1)") : rule("new List<{R0}> { $* }"));
@@ -324,8 +327,9 @@ final class CSharpBcl implements LibraryMapping {
 
         // reflection
         // the parameter types are varargs: none, or an array
-        chooser("java.lang.Class.getMethod/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
-                ? "$0.GetMethod($1, Type.EmptyTypes)" : "$0.GetMethod($*)", SYSTEM));
+        chooser("java.lang.Class.getMethod/2", (method, call) -> rule(call == null || call.parameterExpressions().size() == 2
+                                                                     && arrayTyped(call.parameterExpressions().get(1))
+                ? "$0.GetMethod($*)" : "$0.GetMethod($1, " + typeArray(call, 1) + ")", SYSTEM));
         chooser("java.lang.Class.getDeclaredConstructor/1", (method, call) -> rule("$0.GetConstructor("
                 + "BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, "
                 + (call != null && call.parameterExpressions().isEmpty() ? "Type.EmptyTypes" : "$*") + ")",
@@ -503,6 +507,21 @@ final class CSharpBcl implements LibraryMapping {
             sb.append("[$").append(i + 1).append("] = $").append(i + 2);
         }
         return sb.append(n == 0 ? "}" : " }").toString();
+    }
+
+    /** A variable arity method's one argument, an array: Java passes it as the arguments themselves. */
+    private static boolean arrayAsVarargs(MethodInfo method, MethodCall call) {
+        return method.isVarargs() && call != null && call.parameterExpressions().size() == 1
+               && arrayTyped(call.parameterExpressions().getFirst());
+    }
+
+    /** The arguments from {@code from} on as a {@code Type[]}: {@code Type.EmptyTypes} when there are none. */
+    private static String typeArray(MethodCall call, int from) {
+        int n = call.parameterExpressions().size();
+        if (n <= from) return "Type.EmptyTypes";
+        StringBuilder sb = new StringBuilder("new Type[] { ");
+        for (int i = from; i < n; i++) sb.append(i > from ? ", $" : "$").append(i + 1);
+        return sb.append(" }").toString();
     }
 
     /** {@code LinkedHashMap::new}: a reference to a constructor without parameters. */

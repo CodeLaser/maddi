@@ -294,7 +294,6 @@ member java.util.List.getFirst/0 -> $0[0]
 member java.util.List.getLast/0 -> $0[^1]
 member java.util.SequencedCollection.getFirst/0 -> $0.First() using System.Linq
 member java.util.SequencedCollection.getLast/0 -> $0.Last() using System.Linq
-member java.util.List.of/1 -> new List<{R0}> { $* }
 member java.util.List.copyOf/1 -> new List<{R0}>($1)
 # the array argument only gives Java the element type
 member java.util.Collection.toArray/1 -> $0.ToArray() using System.Linq
@@ -418,7 +417,6 @@ member java.util.Set.removeAll/1 -> $0.RemoveAllOf($1) using Maddi.JavaCompat
 statement java.util.Set.removeAll/1 -> $0.ExceptWith($1)
 member java.util.Set.retainAll/1 -> $0.RetainAll($1) using Maddi.JavaCompat
 statement java.util.Set.retainAll/1 -> $0.IntersectWith($1)
-member java.util.Set.of/1 -> new HashSet<{R0}> { $* }
 # Collections, Arrays, Objects
 member java.util.Collections.emptyList/0 -> new List<{R0}>()
 member java.util.Collections.emptySet/0 -> new HashSet<{R0}>()
@@ -426,6 +424,9 @@ member java.util.Collections.emptyIterator/0 -> new JavaIterator<{R0}>(new List<
 # Java 19's factories of a capacity
 # a load factor, which .NET's collections do not take
 member java.util.HashMap.new(int,float) -> new {R}($1)
+# an index's exception of the index: Java's message
+member java.lang.IndexOutOfBoundsException.new(int) -> new ArgumentOutOfRangeException("Index out of range: " + $1) using System
+member java.lang.ArrayIndexOutOfBoundsException.new(int) -> new IndexOutOfRangeException("Array index out of range: " + $1) using System
 member java.util.LinkedHashMap.new(int,float) -> new {R}($1)
 member java.util.HashSet.new(int,float) -> new {R}($1)
 member java.util.LinkedHashSet.new(int,float) -> new {R}($1)
@@ -741,8 +742,8 @@ member java.util.stream.Stream.toList/0 -> $0.ToList() using System.Linq
 member java.util.stream.Stream.findFirst/0 -> $0.FirstOrDefault() using System.Linq
 member java.util.stream.Stream.findAny/0 -> $0.FirstOrDefault() using System.Linq
 member java.util.stream.Stream.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
-member java.util.stream.Stream.limit/1 -> $0.Take((int) $1) using System.Linq
-member java.util.stream.Stream.skip/1 -> $0.Skip((int) $1) using System.Linq
+member java.util.stream.Stream.limit/1 -> $0.Take((int) @1) using System.Linq
+member java.util.stream.Stream.skip/1 -> $0.Skip((int) @1) using System.Linq
 member java.util.stream.Stream.empty/0 -> Enumerable.Empty<{R0}>() using System.Linq
 member java.util.stream.Stream.concat/2 -> $1.Concat($2) using System.Linq
 member java.util.stream.Stream.generate/1 -> JavaFunctions.Generate($1) using Maddi.JavaCompat
@@ -880,8 +881,8 @@ member java.util.stream.BaseStream.parallel/0 -> $0
 member java.util.stream.IntStream.map/1 -> $0.Select($1) using System.Linq
 member java.util.stream.IntStream.sorted/0 -> $0.Order() using System.Linq
 member java.util.stream.IntStream.distinct/0 -> $0.Distinct() using System.Linq
-member java.util.stream.IntStream.limit/1 -> $0.Take((int) $1) using System.Linq
-member java.util.stream.IntStream.skip/1 -> $0.Skip((int) $1) using System.Linq
+member java.util.stream.IntStream.limit/1 -> $0.Take((int) @1) using System.Linq
+member java.util.stream.IntStream.skip/1 -> $0.Skip((int) @1) using System.Linq
 member java.util.stream.IntStream.count/0 -> $0.LongCount() using System.Linq
 member java.util.stream.IntStream.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
 member java.util.stream.IntStream.allMatch/1 -> $0.All($1) using System.Linq

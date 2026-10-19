@@ -417,6 +417,10 @@ implements the interface.
   cast through `object`, `(object[]) (object) values`: C#'s array covariance holds for a type it knows to be a
   reference type, .NET's at run time for the one the type parameter is. A `HashMap`'s or `HashSet`'s load factor is
   dropped.
+- **Variable arity of the JDK.** An array passed as the arguments themselves, `List.of(names)` of a `String[]`, is
+  the collection of its elements, `new List<string>(names)`, as `Arrays.asList` and `Stream.of`; `getMethod(name,
+  type)` is `GetMethod(name, new Type[] { type })`. A template's cast of an argument casts the operand,
+  `Take((int) (a - b))`.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
