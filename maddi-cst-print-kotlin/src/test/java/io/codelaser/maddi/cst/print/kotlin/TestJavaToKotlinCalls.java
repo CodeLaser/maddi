@@ -539,6 +539,30 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ObjectUtils.nullSafeEquals: {@code o1 instanceof Object[]}, Kotlin's {@code is Array<*>}; kotlinc cannot
+     * test the erased {@code Array<Any>}.
+     */
+    @Test
+    public void objectArrayInstanceOf() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Arrays;
+                class Objects {
+                    static boolean same(Object o1, Object o2) {
+                        if (o1 instanceof Object[] && !(o2 instanceof Object[])) return false;
+                        if (o1 instanceof Object[] && o2 instanceof Object[]) {
+                            return Arrays.equals((Object[]) o1, (Object[]) o2);
+                        }
+                        return o1 == o2;
+                    }
+                }
+                """);
+        contains(kotlin, "o1 is Array<*>");
+        contains(kotlin, "o2 !is Array<*>");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's GroupCapacityPersistService, {@code List<String> columnList = CollectionUtils.list()}: an empty varargs
      * fixes no T, the local's type does; and {@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))},
      * whose argument is typed by its target only. Both locals keep their types.

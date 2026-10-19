@@ -3398,7 +3398,19 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder instanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
-                .add(KotlinSymbols.binary("is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+                .add(KotlinSymbols.binary("is")).add(new TextImpl(testType(io, q)));
+    }
+
+    /**
+     * The type an {@code is} tests. Java's {@code Object[]}, any reference array, is Kotlin's {@code Array<*>}: an
+     * {@code Array<Any>} is an erased type kotlinc cannot test (nacos's ObjectUtils.nullSafeEquals).
+     */
+    private static String testType(InstanceOf io, Qualification q) {
+        ParameterizedType t = io.testType();
+        if (KotlinContext.translatingJava() && t.arrays() == 1 && t.typeInfo() != null && t.typeInfo().isJavaLangObject()) {
+            return "Array<*>";
+        }
+        return KotlinTypeName.of(t, q);
     }
 
     /**
@@ -3424,7 +3436,7 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder notInstanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
-                .add(KotlinSymbols.binary("!is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+                .add(KotlinSymbols.binary("!is")).add(new TextImpl(testType(io, q)));
     }
 
     // ---------------------------------------------------------------- casts (#105)
