@@ -164,6 +164,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's GrpcConnection, {@code synchronized (streamObserver)} of a nullable field, and NacosServiceLoader's
+     * {@code instance.getClass()} of a T: Java throws for a null at both; Kotlin's synchronized and javaClass take an
+     * Any. Asserted.
+     */
+    @Test
+    public void synchronizedAndGetClassAsserted() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Conn {
+                    private Object observer;
+                    static final Set<Class<?>> SEEN = new HashSet<>();
+                    void send() {
+                        synchronized (observer) {
+                            observer.notify();
+                        }
+                    }
+                    static <T> void cache(T instance) {
+                        SEEN.add(instance.getClass());
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("observer")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "synchronized(observer!!)");
+        contains(kotlin, "instance!!.javaClass");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's ServerLoaderController: {@code list.sort(Comparator.comparing(ServerLoaderMetrics::getAddress))}, a
      * getter whose String key is nullable: no Comparable for Kotlin, Java throws at the null. A lambda asserting it.
      */

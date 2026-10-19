@@ -401,6 +401,13 @@ public class KotlinExpressionPrinter {
                 b.add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, object, q)).add(SpaceEnum.ONE)
                         .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(erased))
                         .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT);
+            } else if ("javaClass".equals(KotlinMappedMembers.property(mc.methodInfo()))
+                       && KotlinTypeName.nullableTypeVariable(KotlinNullability.kotlinType(object))
+                       && !KotlinNullability.nullableInKotlin(object)) {
+                // nacos's NacosServiceLoader: instance.getClass() of a T, which Kotlin's javaClass takes only as an
+                // Any; Java throws for a null there
+                KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, object, KotlinContext.describe(object));
+                b.add(receiver(object, q)).add(KotlinNullability.NOT_NULL).add(SymbolEnum.DOT);
             } else {
                 b.add(KotlinNullability.receiverWithDot(object, q));
             }

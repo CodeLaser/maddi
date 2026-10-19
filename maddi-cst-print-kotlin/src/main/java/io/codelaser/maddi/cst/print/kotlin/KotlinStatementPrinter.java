@@ -191,8 +191,12 @@ public class KotlinStatementPrinter {
             case ContinueStatement cs -> new OutputBuilderImpl().add(new TextImpl("continue"
                     + (cs.goToLabel() == null ? "" : "@" + cs.goToLabel())));
             case EmptyStatement es -> new OutputBuilderImpl();
+            // nacos's GrpcConnection: synchronized (streamObserver) of a nullable field; Java throws for a null,
+            // Kotlin's synchronized takes an Any
             case SynchronizedStatement ss -> new OutputBuilderImpl().add(new TextImpl("synchronized"))
-                    .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(ss.expression(), q))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinNullability.nullableInKotlin(ss.expression())
+                            ? KotlinNullability.asserted(ss.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q)
+                            : KotlinExpressionPrinter.print(ss.expression(), q))
                     .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(block(ss.block(), q));
             case AssertStatement as -> assertStatement(as, q);
             case LocalTypeDeclaration ltd -> new KotlinTypePrinter(ltd.typeInfo(), true) // a local type has no visibility
