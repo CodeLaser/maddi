@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 namespace Org.Example.Uncheckeds;
 internal sealed class Unchecked<Node_> {
@@ -11,4 +12,5 @@ internal static class Unchecked {
         foreach (object o in values) { if (o == v) { return true; } }
         return false;
     }
+    internal static Func<int, ISet<V>> Sets<V>() => (Func<int, ISet<V>>) (p0 => new HashSet<V>(p0));
 }

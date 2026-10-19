@@ -961,6 +961,18 @@ public final class CSharpExpressionPrinter {
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
+        // a raw or wildcard use where the type is expected with arguments, ScoreDefinition getScoreDefinition() into a
+        // ScoreDefinition<Score_>: Java's unchecked conversion, C#'s cast of the wildcard interface, which the value is
+        if (wildcardIntoGeneric(inner, target)) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(value, q));
+        }
+        // Map.keySet where a Set is expected: .Keys is an ICollection, the compatibility library's view a set
+        if (keySetAsSet(inner, target)) {
+            CSharpContext.using(CSharpCompat.NAMESPACE);
+            return new OutputBuilderImpl().add(receiver(((MethodCall) inner).object(), q)).add(SymbolEnum.DOT)
+                    .add(text("KeySet()"));
+        }
         // Java's raw cast into a parameterized target, (Map) weights for a Map<Constraint, SimpleScore>: unchecked in
         // Java, C#'s cast to the target, (IDictionary<IConstraint, SimpleScore>) weights, not IDictionary<object, object>
         if (rawCastInto(inner, target)) {
@@ -1074,6 +1086,41 @@ public final class CSharpExpressionPrinter {
             b.add(CSharpNullability.NULL_FORGIVING);
         }
         return b;
+    }
+
+    /**
+     * A value of a type's wildcard interface ({@link CSharpWildcardInterfaces}), raw or {@code ?} in Java, where the
+     * type itself is expected with arguments C# can name here.
+     */
+    private static boolean wildcardIntoGeneric(Expression inner, ParameterizedType target) {
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || target.arrays() != 0 || from.typeInfo() == null
+            || !from.typeInfo().equals(target.typeInfo()) || target.parameters().isEmpty()
+            || !CSharpWildcardInterfaces.isWildcardUse(from) || CSharpWildcardInterfaces.isWildcardUse(target)
+            || inner instanceof NullConstant || inner instanceof Lambda || inner instanceof MethodReference) {
+            return false;
+        }
+        return target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
+               && writable(target, List.of()) && ownTypeParameters(target);
+    }
+
+    /** {@code m.keySet()} where a Set, C#'s ISet, is expected; a map whose C# type has its own Keys, not a read-only one. */
+    private static boolean keySetAsSet(Expression inner, ParameterizedType target) {
+        if (!(inner instanceof MethodCall mc) || mc.object() == null || !"keySet".equals(mc.methodInfo().name())
+            || !mc.methodInfo().parameters().isEmpty() || target.arrays() != 0 || target.typeInfo() == null) {
+            return false;
+        }
+        TypeInfo declaring = mc.methodInfo().typeInfo();
+        boolean mapKeySet = "java.util.Map".equals(declaring.fullyQualifiedName())
+                            || mc.methodInfo().overrides().stream().anyMatch(o -> "java.util.Map".equals(o.typeInfo()
+                .fullyQualifiedName()));
+        if (!mapKeySet || CSharpNames.translated(declaring)) return false;
+        if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi
+            && CSharpContext.program().readOnly(pi)) {
+            return false;
+        }
+        String fqn = target.typeInfo().fullyQualifiedName();
+        return "java.util.Set".equals(fqn) || "java.util.SequencedSet".equals(fqn);
     }
 
     /**
@@ -1248,7 +1295,8 @@ public final class CSharpExpressionPrinter {
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
                || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
-               || covariantArray(inner, target) || rawCastInto(inner, target)
+               || covariantArray(inner, target) || rawCastInto(inner, target) || keySetAsSet(inner, target)
+               || wildcardIntoGeneric(inner, target)
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
@@ -1577,16 +1625,17 @@ public final class CSharpExpressionPrinter {
         if (method.isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
             // Triple::new is raw: the type Java inferred for the reference's result, new Triple<A, B, C>(…)
-            // (HashSet::new as an IntFunction<Set<Value>>: HashSet<E> implements Set<E>, new HashSet<Value>(…))
+            // (LinkedHashSet::new as an IntFunction<Set<Value>>: LinkedHashSet<E> is a Set<E> through SequencedSet<E>,
+            // new LinkedHashSet<Value>(…))
             ParameterizedType result = mr.concreteReturnType();
-            if (type.arrays() == 0 && type.parameters().isEmpty() && type.typeInfo() != null
-                && !type.typeInfo().typeParameters().isEmpty() && result != null && result.arrays() == 0
-                && result.parameters().size() == type.typeInfo().typeParameters().size()
-                && result.parameters().stream().allMatch(a -> a.wildcard() == null)
-                && (type.typeInfo().equals(result.typeInfo()) || passesOwnParameters(type.typeInfo(), result.typeInfo()))) {
-                type = type.withParameters(result.parameters());
-            } else if (type.arrays() == 0 && type.parameters().isEmpty() && type.typeInfo() != null
-                       && !type.typeInfo().typeParameters().isEmpty()) {
+            boolean raw = type.arrays() == 0 && type.parameters().isEmpty() && type.typeInfo() != null
+                          && !type.typeInfo().typeParameters().isEmpty();
+            ParameterizedType inferred = raw && result != null && result.arrays() == 0
+                                         && result.parameters().stream().allMatch(a -> a.wildcard() == null)
+                    ? ownParametersAs(type.typeInfo(), result) : null;
+            if (inferred != null) {
+                type = inferred;
+            } else if (raw) {
                 // else from the delegate's parameters: Node::new as a Builder<String, List<String>>, whose
                 // (K key, int index, Lifecycle<T> next) are (string, int, ILifecycle<List<string>>)
                 type = fromParameters(type, method, mr.concreteParameterTypes());
@@ -1701,14 +1750,23 @@ public final class CSharpExpressionPrinter {
         return type.withParameters(arguments);
     }
 
-    /** {@code created} declares {@code supertype} with its own type parameters, in order: {@code HashSet<E> : Set<E>}. */
-    private static boolean passesOwnParameters(TypeInfo created, TypeInfo supertype) {
-        List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
-        if (created.parentClass() != null) declared.add(created.parentClass());
+    /**
+     * The created class with the type arguments that make it {@code declared}, where it passes its own type parameters
+     * on to that supertype, directly or through others: {@code LinkedHashSet<Value>} of a {@code Set<Value>}.
+     */
+    private static ParameterizedType ownParametersAs(TypeInfo created, ParameterizedType declared) {
         List<TypeParameter> own = created.typeParameters();
-        return declared.stream().anyMatch(s -> supertype.equals(s.typeInfo()) && s.parameters().size() == own.size()
-                && IntStream.range(0, own.size()).allMatch(i -> s.parameters().get(i).isTypeParameter()
-                && own.get(i).equals(s.parameters().get(i).typeParameter())));
+        if (own.isEmpty()) return null;
+        ParameterizedType seen = created.equals(declared.typeInfo()) ? created.asParameterizedType()
+                : CstSupertypes.asSeen(created, declared.typeInfo());
+        if (seen == null || seen.parameters().size() != own.size()) return null;
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (int i = 0; i < own.size(); i++) {
+            ParameterizedType p = seen.parameters().get(i);
+            if (!p.isTypeParameter() || !own.get(i).equals(p.typeParameter())) return null;
+            arguments.add(declared.parameters().get(i));
+        }
+        return created.asParameterizedType().withParameters(arguments);
     }
 
     /** Slot::new of an inner class: its enclosing instance first, as {@code new Slot(…)} has it (CS7036). */

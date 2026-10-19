@@ -28,7 +28,7 @@ public static class Streams {
     internal static string RawKeyed<T, P>(Func<T, P> mapping) => Raw(x0_ => mapping((T) x0_));
     internal static string Supplied(Func<object> supplier) => JavaString.ValueOf(supplier());
     internal static string Supply<P>(Func<P> supplier) => Supplied(() => supplier());
-    internal static ISet<E> FromMap<E>(IDictionary<E, bool> map) => map.Keys;
+    internal static ISet<E> FromMap<E>(IDictionary<E, bool> map) => map.KeySet();
     internal static ISet<T> IdentitySet<T>() => FromMap(new Dictionary<T, bool>());
     internal static Slot<R, R> MinSlot<R>() where R : IComparable<R> => new Slot<R, R>(
         true,
