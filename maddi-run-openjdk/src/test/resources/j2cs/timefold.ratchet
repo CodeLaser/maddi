@@ -170,9 +170,12 @@
 # 2026-10-19, maddi 455a86b39, bbc287e92, a91105b7a, b9602da04: an erasure adapter converts a concrete collector
 # into Java's unbound wildcard of it (Erased_); an override returning an interface that extends a delegate is the
 # delegate's method group: 1276 -> 1285 compiling files, 1016 -> 912 errors.
+# 2026-10-19, maddi 2115f98d9, 0573b1637: method references to properties, atomic updates, toMap with a merge
+# and a supplier, smaller JDK members, comparator() as a Comparison: 1285 -> 1297 compiling files, 912 -> 867
+# errors, unmapped JDK uses 215 -> 182.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1285
-unmappedJdkUses	215
+compilingFiles	1297
+unmappedJdkUses	182
