@@ -547,6 +547,36 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String UNCHECKED = """
+            package org.example.unchecked;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Unchecked<Node_> {
+                private final Map<String, Node_> nodes = new HashMap<>(16, 0.5f);
+                static int weigh(Map<String, Integer> weights) { return weights.size(); }
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                static <W> int weighAny(Map<String, W> weights) { return weigh((Map) weights); }
+                private static boolean seen(Object[] values, Object v) {
+                    for (Object o : values) if (o == v) return true;
+                    return false;
+                }
+                boolean seenNode(Node_[] values, Node_ v) { return seen(values, v); }
+            }
+            """;
+
+    /**
+     * Java's unchecked conversions: a raw cast into a parameterized target is a cast to the target; an array of a type
+     * parameter as an Object[] is cast through object, which .NET's array covariance takes for a reference type.
+     */
+    @Test
+    public void unchecked() {
+        String cs = translate("Unchecked", UNCHECKED);
+        contains(cs, "new Dictionary<string, Node_>(16);");
+        contains(cs, "Weigh((IDictionary<string, int>) weights)");
+        contains(cs, "Seen((object[]) (object) values, v)");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

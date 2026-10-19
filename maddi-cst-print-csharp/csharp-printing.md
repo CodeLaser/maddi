@@ -409,6 +409,14 @@ implements the interface.
   `new ComparatorSelectionSorter<Solution_, object>(comparator)`. Only where each raw argument, which C# has of
   `object`, still fits its parameter: not `new DefaultBiJoiner<>(newLeftMappings, …)` of a `new Function[n]`, whose
   `Func<object, object>[]` is no `Func<A, object>[]`.
+- **Unchecked conversions.** Java's raw cast into a parameterized target, `weigh((Map) weights)` for a
+  `Map<String, Integer>`, is C#'s cast to the target, `Weigh((IDictionary<string, int>) weights)`: Java's unchecked
+  conversion assumes the value is one, the cast checks it. Only where the target's type parameters are the current
+  method's or type's (not a super constructor's parameter, of the superclass's), and not of a lambda or a method
+  reference, which take their delegate type exactly. An array of a type parameter where an `Object[]` is expected is
+  cast through `object`, `(object[]) (object) values`: C#'s array covariance holds for a type it knows to be a
+  reference type, .NET's at run time for the one the type parameter is. A `HashMap`'s or `HashSet`'s load factor is
+  dropped.
 - **Constructor references.** A raw `Triple::new` creates the type Java inferred for its result,
   `(p0, p1, p2) => new Triple<A, B, C>(p0, p1, p2)`, also through a supertype the class declares with its own type
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not

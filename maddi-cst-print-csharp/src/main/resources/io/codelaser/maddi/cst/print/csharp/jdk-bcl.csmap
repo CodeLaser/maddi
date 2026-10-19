@@ -424,6 +424,12 @@ member java.util.Collections.emptyList/0 -> new List<{R0}>()
 member java.util.Collections.emptySet/0 -> new HashSet<{R0}>()
 member java.util.Collections.emptyIterator/0 -> new JavaIterator<{R0}>(new List<{R0}>()) using Maddi.JavaCompat
 # Java 19's factories of a capacity
+# a load factor, which .NET's collections do not take
+member java.util.HashMap.new(int,float) -> new {R}($1)
+member java.util.LinkedHashMap.new(int,float) -> new {R}($1)
+member java.util.HashSet.new(int,float) -> new {R}($1)
+member java.util.LinkedHashSet.new(int,float) -> new {R}($1)
+member java.util.concurrent.ConcurrentHashMap.new(int,float) -> new {R}($1)
 member java.util.HashMap.newHashMap/1 -> new {R}($1)
 member java.util.LinkedHashMap.newLinkedHashMap/1 -> new {R}($1)
 member java.util.HashSet.newHashSet/1 -> new {R}($1)

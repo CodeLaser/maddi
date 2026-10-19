@@ -961,6 +961,20 @@ public final class CSharpExpressionPrinter {
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
+        // Java's raw cast into a parameterized target, (Map) weights for a Map<Constraint, SimpleScore>: unchecked in
+        // Java, C#'s cast to the target, (IDictionary<IConstraint, SimpleScore>) weights, not IDictionary<object, object>
+        if (rawCastInto(inner, target)) {
+            Expression operand = ((Cast) inner).expression();
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(operand, q));
+        }
+        // Java's array covariance of a type parameter, Node_[] as an Object[]: C#'s holds for a reference type only,
+        // which it does not know the type parameter to be; at run time it is one, (object[]) (object) values
+        if (covariantArray(inner, target)) {
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(text(CSharpTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(SymbolEnum.LEFT_PARENTHESIS).add(text("object"))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS_AFTER_CAST).add(receiver(value, q));
+        }
         // a concrete collector where Java's wildcard of it is expected, IUniConstraintCollector<A, object, double>
         ParameterizedType adapted = erase ? CSharpErasures.adapted(inner, target) : null;
         if (adapted != null) return CSharpErasures.adapter(adapted, print(value, q), q);
@@ -1060,6 +1074,58 @@ public final class CSharpExpressionPrinter {
             b.add(CSharpNullability.NULL_FORGIVING);
         }
         return b;
+    }
+
+    /**
+     * A cast to a raw generic type, {@code (Map) m}, whose value goes where the type is expected with type arguments,
+     * none a wildcard or a type parameter C# would not have in scope: the cast is to the target.
+     */
+    private static boolean rawCastInto(Expression inner, ParameterizedType target) {
+        if (!(inner instanceof Cast cast) || target.arrays() != 0 || target.typeInfo() == null
+            // a method group or a lambda takes its delegate's type exactly: no cast of it is the target's
+            || cast.expression() instanceof MethodReference || cast.expression() instanceof Lambda) {
+            return false;
+        }
+        ParameterizedType to = cast.parameterizedType();
+        if (to == null || to.arrays() != 0 || to.typeInfo() == null || !to.typeInfo().equals(target.typeInfo())
+            || !to.parameters().isEmpty() || to.typeInfo().typeParameters().isEmpty()
+            || target.parameters().size() != to.typeInfo().typeParameters().size()) {
+            return false;
+        }
+        return target.parameters().stream().allMatch(a -> a.wildcard() == null && !constructorTypeParameter(a))
+               && writable(target, List.of()) && ownTypeParameters(target);
+    }
+
+    /**
+     * Whether each type parameter {@code t} mentions is the current method's or the current type's (or an enclosing
+     * type's): not a superclass's, of a super constructor's parameter, which the subclass may name otherwise.
+     */
+    private static boolean ownTypeParameters(ParameterizedType t) {
+        if (t.isTypeParameter()) {
+            var owner = t.typeParameter().getOwner();
+            if (owner == null) return false;
+            if (owner.isRight()) return owner.getRight().equals(CSharpContext.currentMethod());
+            for (TypeInfo at = CSharpContext.currentType(); at != null; at = CstQueries.enclosing(at)) {
+                if (at.equals(owner.getLeft())) return true;
+            }
+            return false;
+        }
+        return t.parameters().stream().allMatch(CSharpExpressionPrinter::ownTypeParameters);
+    }
+
+    /**
+     * An array of a type parameter where an array of Object is expected, as many dimensions: C# converts it only for
+     * a type parameter it knows to be a reference type, of a class bound.
+     */
+    private static boolean covariantArray(Expression inner, ParameterizedType target) {
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || target.arrays() == 0 || from.arrays() != target.arrays() || !from.isTypeParameter()
+            || target.typeInfo() == null || !target.isJavaLangObject() && !"java.lang.Object".equals(target.typeInfo()
+                .fullyQualifiedName())) {
+            return false;
+        }
+        return from.typeParameter().typeBounds().stream().allMatch(b -> b.isJavaLangObject()
+                                                                         || b.typeInfo() != null && b.typeInfo().isInterface());
     }
 
     /** A generic constructor's own type parameter, which C# erases to object: it has no generic constructors. */
@@ -1182,6 +1248,7 @@ public final class CSharpExpressionPrinter {
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
                || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
+               || covariantArray(inner, target) || rawCastInto(inner, target)
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
