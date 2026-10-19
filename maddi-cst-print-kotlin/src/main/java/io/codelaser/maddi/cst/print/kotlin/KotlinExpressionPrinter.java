@@ -1392,8 +1392,9 @@ public class KotlinExpressionPrinter {
         if (!"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
             || !COMPARING_KEY.contains(method.name())
             || !(unwrap(argument) instanceof MethodReference mr) || mr.methodInfo().isConstructor()
-            || mr.methodInfo().isStatic() || mr.methodInfo().parameters().size() != 1
-            || mr.scope() == null || mr.scope() instanceof TypeExpression) {
+            || mr.methodInfo().isStatic() || mr.scope() == null
+            || mr.methodInfo().parameters().size() != (unboundGetter(mr) ? 0 : 1)
+            || mr.scope() instanceof TypeExpression && !unboundGetter(mr)) {
             return false;
         }
         io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
@@ -1462,8 +1463,24 @@ public class KotlinExpressionPrinter {
                 .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
+    /** {@code ServerLoaderMetrics::getAddress}: a getter of the element, which the reference takes as its receiver. */
+    private static boolean unboundGetter(MethodReference mr) {
+        return unwrap(mr.scope()) instanceof TypeExpression && !mr.methodInfo().isStatic()
+               && mr.methodInfo().parameters().isEmpty();
+    }
+
     private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
         KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+        if (unboundGetter(mr)) {
+            // nacos's Comparator.comparing(ServerLoaderMetrics::getAddress), a String? key: the element typed, as
+            // comparing's T is fixed by nothing else
+            String type = KotlinTypeName.of(mr.scope().parameterizedType()
+                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
+                    .add(new TextImpl("e: " + type)).add(SymbolEnum.LAMBDA)
+                    .add(new TextImpl("e." + KotlinNames.name(mr.methodInfo().name()) + "()!!"))
+                    .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        }
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                 .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
