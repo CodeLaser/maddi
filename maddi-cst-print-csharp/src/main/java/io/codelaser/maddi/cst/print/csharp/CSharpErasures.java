@@ -194,8 +194,9 @@ final class CSharpErasures {
         if (erased.isEmpty()) return null;
         ParameterizedType from = value.parameterizedType();
         if (from == null || from.arrays() != 0 || from.typeInfo() == null || from.isTypeParameter()) return null;
-        ParameterizedType asTarget = asSeen(from, t);
-        if (asTarget == null || asTarget.parameters().size() != t.typeParameters().size()) return null;
+        ParameterizedType seen = asSeen(from, t);
+        if (seen == null || seen.parameters().size() != t.typeParameters().size()) return null;
+        ParameterizedType asTarget = extendsAsBound(seen);
         boolean differs = false;
         for (int i = 0; i < t.typeParameters().size(); i++) {
             ParameterizedType expected = target.parameters().get(i);
@@ -219,6 +220,16 @@ final class CSharpErasures {
         Map<TypeParameter, ParameterizedType> map = new HashMap<>();
         for (int k = 0; k < from.parameters().size(); k++) map.put(type.typeParameters().get(k), from.parameters().get(k));
         return CSharpHierarchy.substitute(seen, map);
+    }
+
+    /**
+     * A diamond's inferred {@code ? extends Mapped_}, {@code new CountDistinctUniCollector<>(mapper)} of a
+     * {@code Function<? super A, ? extends Mapped_>}, as C# has it: its bound.
+     */
+    private static ParameterizedType extendsAsBound(ParameterizedType pt) {
+        ParameterizedType bound = pt.wildcard() != null && pt.wildcard().isExtends() ? pt.withWildcard(null) : pt;
+        if (bound.parameters().isEmpty()) return bound;
+        return bound.withParameters(bound.parameters().stream().map(CSharpErasures::extendsAsBound).toList());
     }
 
     private static boolean open(ParameterizedType a) {

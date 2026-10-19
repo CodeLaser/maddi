@@ -7,6 +7,9 @@ internal sealed class Collectors {
     internal static ICollector<A, object, List<A>> LoggedList<A>() => Logged(toList<A>());
     internal static ICollector<A, object, R> Plain<A, C, R>(ICollector<A, C, R> collector)
         => ICollector<A, C, R>.Erased_(collector);
+
+    internal static ICollector<A, object, int> distinct<A, M>(Func<A, M> mapper) => ICollector<A, ISet<M>, int>.Erased_(
+        new Distinct<A, M>(mapper));
     internal static IBiCollector<A, B, C, R> LoggedBi<A, B, C, R>(IBiCollector<A, B, C, R> collector) => collector;
     internal static IBiCollector<A, B, object, int> count<A, B>() => IBiCollector<A, B, int[], int>.Erased_(
         new Count<A, B>());
@@ -47,6 +50,13 @@ internal sealed class Collectors {
             c[0]++;
             return () => c[0]--;
         });
+    }
+
+    internal sealed class Distinct<A, M> : ICollector<A, ISet<M>, int> {
+        internal Distinct(Func<A, M> mapper) { }
+        public Func<ISet<M>> Supplier() => () => new HashSet<M>();
+        public Func<ISet<M>, A, Action> Accumulator() => (set, a) => () => { };
+        public Func<ISet<M>, int> Finisher() => (ISet<M> p0) => p0.Count;
     }
 
     internal sealed class ToList<A> : ICollector<A, List<A>, List<A>> {

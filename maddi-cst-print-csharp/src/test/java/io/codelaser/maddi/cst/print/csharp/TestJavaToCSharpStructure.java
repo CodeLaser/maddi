@@ -418,7 +418,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     private static final String ERASURES = """
             package org.example.erasures;
             import java.util.ArrayList;
+            import java.util.HashSet;
             import java.util.List;
+            import java.util.Set;
             import java.util.function.BiFunction;
             import java.util.function.Function;
             import java.util.function.Supplier;
@@ -439,6 +441,15 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
                 static <A> Collector<A, ?, List<A>> loggedList() { return logged(toList()); }
                 static <A, C, R> Collector<A, ?, R> plain(Collector<A, C, R> collector) { return collector; }
+                static final class Distinct<A, M> implements Collector<A, Set<M>, Integer> {
+                    Distinct(Function<? super A, ? extends M> mapper) { }
+                    public Supplier<Set<M>> supplier() { return HashSet::new; }
+                    public BiFunction<Set<M>, A, Runnable> accumulator() { return (set, a) -> () -> { }; }
+                    public Function<Set<M>, Integer> finisher() { return Set::size; }
+                }
+                static <A, M> Collector<A, ?, Integer> distinct(Function<? super A, ? extends M> mapper) {
+                    return new Distinct<>(mapper);
+                }
                 interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
                 static final class Concat implements TriFunction<String, String, String, String> {
                     public String apply(String a, String b, String c) { return a + b + c; }
@@ -473,6 +484,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
         contains(cs, "=> Logged(toList<A>());");
         contains(cs, "=> ICollector<A, C, R>.Erased_(collector);");
+        // a diamond's inferred ? extends M is its bound
+        contains(cs, "=> ICollector<A, ISet<M>, int>.Erased_(\nnew Distinct<A, M>(mapper));");
         // a functional interface with its lambda adapter
         contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
         contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
