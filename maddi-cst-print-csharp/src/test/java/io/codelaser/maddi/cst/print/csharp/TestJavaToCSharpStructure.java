@@ -521,6 +521,31 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String PROPERTY_REFERENCES = """
+            package org.example.refs;
+            import java.util.Comparator;
+            import java.util.List;
+            import java.util.function.Supplier;
+            class Refs {
+                record Location(String className, int lineNumber) { }
+                static List<String> names(List<Location> locations) {
+                    return locations.stream().map(Location::className).toList();
+                }
+                static final Comparator<Location> ORDER =
+                        Comparator.comparing(Location::className).thenComparingInt(Location::lineNumber);
+                static Supplier<String> bound(Location location) { return location::className; }
+            }
+            """;
+
+    /** A method reference to a member C# has as a property, a record's component: a lambda reading it. */
+    @Test
+    public void propertyReferences() {
+        String cs = translate("Refs", PROPERTY_REFERENCES);
+        contains(cs, ".Select((Location p0) => p0.ClassName)");
+        contains(cs, "() => location.ClassName");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

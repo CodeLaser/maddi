@@ -119,6 +119,27 @@ type java.util.function.ToLongBiFunction -> Func<{0}, {1}, long> using System
 type java.util.function.ToDoubleBiFunction -> Func<{0}, {1}, double> using System
 type java.util.function.IntPredicate -> Func<int, bool> using System
 type java.util.function.BooleanSupplier -> Func<bool> using System
+type java.util.function.IntUnaryOperator -> Func<int, int> using System
+type java.util.function.LongUnaryOperator -> Func<long, long> using System
+type java.util.function.DoubleUnaryOperator -> Func<double, double> using System
+type java.util.function.IntBinaryOperator -> Func<int, int, int> using System
+type java.util.function.LongBinaryOperator -> Func<long, long, long> using System
+type java.util.function.DoubleBinaryOperator -> Func<double, double, double> using System
+type java.util.function.IntConsumer -> Action<int> using System
+type java.util.function.LongConsumer -> Action<long> using System
+type java.util.function.DoubleConsumer -> Action<double> using System
+type java.util.function.IntSupplier -> Func<int> using System
+type java.util.function.LongSupplier -> Func<long> using System
+type java.util.function.DoubleSupplier -> Func<double> using System
+type java.util.function.LongFunction -> Func<long, {0}> using System
+type java.util.function.DoubleFunction -> Func<double, {0}> using System
+type java.util.function.IntToLongFunction -> Func<int, long> using System
+type java.util.function.IntToDoubleFunction -> Func<int, double> using System
+type java.util.function.LongToIntFunction -> Func<long, int> using System
+type java.util.function.LongPredicate -> Func<long, bool> using System
+type java.util.function.DoublePredicate -> Func<double, bool> using System
+type java.util.function.ObjIntConsumer -> Action<{0}, int> using System
+type java.util.function.ObjLongConsumer -> Action<{0}, long> using System
 # a Spliterator is a sequence: StreamSupport.stream of one is the sequence itself
 type java.util.Spliterator -> IEnumerable<{0}> using System.Collections.Generic
 type java.lang.Runnable -> Action using System
@@ -768,6 +789,27 @@ member java.util.function.IntFunction.apply -> $0($*)
 member java.util.function.ToIntFunction.applyAsInt -> $0($*)
 member java.util.function.IntPredicate.test -> $0($*)
 member java.util.function.BooleanSupplier.getAsBoolean -> $0()
+member java.util.function.IntUnaryOperator.applyAsInt -> $0($*)
+member java.util.function.LongUnaryOperator.applyAsLong -> $0($*)
+member java.util.function.DoubleUnaryOperator.applyAsDouble -> $0($*)
+member java.util.function.IntBinaryOperator.applyAsInt -> $0($*)
+member java.util.function.LongBinaryOperator.applyAsLong -> $0($*)
+member java.util.function.DoubleBinaryOperator.applyAsDouble -> $0($*)
+member java.util.function.IntConsumer.accept -> $0($*)
+member java.util.function.LongConsumer.accept -> $0($*)
+member java.util.function.DoubleConsumer.accept -> $0($*)
+member java.util.function.IntSupplier.getAsInt -> $0($*)
+member java.util.function.LongSupplier.getAsLong -> $0($*)
+member java.util.function.DoubleSupplier.getAsDouble -> $0($*)
+member java.util.function.LongFunction.apply -> $0($*)
+member java.util.function.DoubleFunction.apply -> $0($*)
+member java.util.function.IntToLongFunction.applyAsLong -> $0($*)
+member java.util.function.IntToDoubleFunction.applyAsDouble -> $0($*)
+member java.util.function.LongToIntFunction.applyAsInt -> $0($*)
+member java.util.function.LongPredicate.test -> $0($*)
+member java.util.function.DoublePredicate.test -> $0($*)
+member java.util.function.ObjIntConsumer.accept -> $0($*)
+member java.util.function.ObjLongConsumer.accept -> $0($*)
 member java.util.function.Predicate.and/1 -> $0.And($1) using Maddi.JavaCompat
 member java.util.function.Predicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
 member java.util.function.Predicate.negate/0 -> $0.Negate() using Maddi.JavaCompat

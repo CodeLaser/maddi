@@ -414,6 +414,9 @@ implements the interface.
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
   say, the delegate's parameter types do: `Node::new` as a `Builder<String, List<String>>` of
   `(K key, int index, Lifecycle<T> next)` is `(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)`.
+- **References to properties.** A method reference to a member C# has as a property, a record's component, a getter
+  or a computed property, reads it: `ConstraintRef::id` is `(ConstraintRef p0) => p0.Id`, `location::className`
+  `() => location.ClassName`.
 - **Type parameters in scope.** Where the printer writes a type Java inferred (a cast after an erased call, explicit
   type arguments, a diamond), each type parameter in it must be one C# can name there: a method's being printed, or
   the current type's or an enclosing one's, not in the non-generic companion class of the static members.
@@ -848,9 +851,13 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
-  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
-  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`,
-  `JavaServiceLoader`.
+  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock` (with `isLocked` and
+  `isHeldByCurrentThread`), and the atomics (`AtomicBoolean`, `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`,
+  with `updateAndGet` and the like; `AtomicReference`'s applies its function once, under its lock),
+  `IJavaWildcardType` and `JavaModifier`, `JavaServiceLoader`, and `JavaCollectors`: `Collectors.toMap` with a merge
+  function and a map supplier, `toCollection` (a supplier `LinkedHashMap::new` creates the result's type,
+  `() => new OrderedDictionary<K, V>()`, which Java infers from it). The primitive functional interfaces
+  (`IntUnaryOperator`, `LongSupplier`, …) are delegates, as the generic ones.
 - `JavaResources` stands for `Class.getResource(AsStream)` and `ClassLoader.getResource(AsStream)`. A resource is
   one of the assembly's embedded resources, and is found by its Java path in one of two ways. Either the manifest
   name is the path itself (an `EmbeddedResource` whose `LogicalName` is the Java path), or the manifest name ends with

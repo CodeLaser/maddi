@@ -1535,6 +1535,14 @@ public final class CSharpExpressionPrinter {
         boolean asserted = forgiven || cast != null && CSharpContext.program().facts().nullabilityAnalysed();
         String arguments = "(" + String.join(", ", parameters) + ")" + (asserted ? "!" : "");
         String prefix = cast == null ? "" : cast;
+        // a member C# has as a property, ConstraintRef::id: (ConstraintRef p0) => p0.Id, () => location.ClassName
+        String property = method.isStatic() ? null : propertyOf(method);
+        if (property != null && (unboundReceiver ? arity == 1 : arity == 0)) {
+            OutputBuilder lambda = new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE);
+            if (cast != null) lambda.add(text(cast.strip())).add(SpaceEnum.ONE);
+            lambda.add(unboundReceiver ? text(parameters.getFirst()) : receiver(scope, q));
+            return lambda.add(SymbolEnum.DOT).add(text(property + (asserted ? "!" : "")));
+        }
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
             if (method.isStatic()) {
@@ -1551,6 +1559,19 @@ public final class CSharpExpressionPrinter {
             return lambda.add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name + arguments));
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /** The property C# has for a method, as {@link #member} prints a call of it: a record's component, a getter's. */
+    private static String propertyOf(MethodInfo method) {
+        String computed = CSharpContext.program().computedProperty(method);
+        if (computed != null) return computed;
+        CSharpProperties.Property property = CSharpContext.program().accessorOf(method);
+        if (property != null) return method == property.getter() ? property.name() : null;
+        if (CstQueries.isRecordAccessor(method)) {
+            return method.typeInfo().fields().stream().filter(f -> !f.isStatic() && f.name().equals(method.name()))
+                    .findFirst().map(CSharpNames::field).orElse(null);
+        }
+        return null;
     }
 
     /**

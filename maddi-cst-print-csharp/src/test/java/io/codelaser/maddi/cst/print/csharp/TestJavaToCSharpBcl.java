@@ -726,10 +726,50 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         // a value type's function gives null to remove: the int? variant
         contains(cs, "m.ComputeIfPresentValue(\"k\",");
         contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
-                contains(cs, "s + CultureInfo.CurrentCulture");
+        contains(cs, "s + CultureInfo.CurrentCulture");
         contains(cs, "b / ");
         contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
         contains(cs, "c == typeof(int) || c == typeof(bool)");
+    }
+
+    @Language("java")
+    private static final String CONCURRENT = """
+            package org.example.concurrent;
+            import java.util.*;
+            import java.util.concurrent.atomic.*;
+            import java.util.concurrent.locks.ReentrantLock;
+            import java.util.function.*;
+            import java.util.stream.*;
+            public class Concurrent {
+                static int bump(AtomicInteger i) { return i.updateAndGet(v -> v + 1) + i.getAndUpdate(v -> v * 2); }
+                static String swap(AtomicReference<String> r) { return r.updateAndGet(v -> v + "!"); }
+                static boolean held(ReentrantLock lock) { return lock.isLocked() && lock.isHeldByCurrentThread(); }
+                static int below(BitSet bits, int i) { return bits.previousClearBit(i) + bits.previousSetBit(i); }
+                static int apply(IntUnaryOperator op, IntBinaryOperator add) { return add.applyAsInt(op.applyAsInt(1), 2); }
+                static Set<String> ordered(Stream<String> s) { return s.collect(Collectors.toCollection(LinkedHashSet::new)); }
+                static Map<String, Integer> lengths(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x, String::length, Integer::sum));
+                }
+                static Map<String, String> firsts(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x.substring(0, 1), x -> x, (a, b) -> a, LinkedHashMap::new));
+                }
+            }
+            """;
+
+    /** Atomic updates, a lock's queries, a BitSet's previous bits, primitive operators, toMap with a merge. */
+    @Test
+    public void concurrent() {
+        String cs = translate("Concurrent", CONCURRENT);
+        contains(cs, "i.UpdateAndGet(v => v + 1) + i.GetAndUpdate(v => v * 2)");
+        contains(cs, "r.UpdateAndGet(v => v + \"!\")");
+        contains(cs, "@lock.IsLocked() && @lock.IsHeldByCurrentThread()");
+        contains(cs, "bits.PreviousClearBit(i) + bits.PreviousSetBit(i)");
+        contains(cs, "Func<int, int> op, Func<int, int, int> add) => add(op(1), 2)");
+        contains(cs, "s.ToCollection(");
+        contains(cs, "l.ToMap(x => x, ");
+        // the supplier's type arguments are the result's
+        contains(cs, "=> new OrderedDictionary<string, string>());");
+        contains(cs, "s.ToCollection(() => new HashSet<string>())");
     }
 
     @Language("java")

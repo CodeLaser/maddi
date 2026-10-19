@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -302,7 +303,7 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.stream.IntStream.of/1", (method, call) -> rule(method.isVarargs() && call != null
                 && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
                 ? "$1" : "new int[] { $* }"));
-        chooser("java.util.stream.Stream.collect/1", (method, call) -> rule(collect(call), LINQ));
+        chooser("java.util.stream.Stream.collect/1", (method, call) -> rule(collect(call), LINQ, COMPAT));
 
         // system
         // super.clone(): the shallow copy C#'s object makes
@@ -504,7 +505,13 @@ final class CSharpBcl implements LibraryMapping {
         return sb.append(n == 0 ? "}" : " }").toString();
     }
 
-    /** {@code stream.collect(Collectors.toList())}: LINQ's ToList(), and so on; the compatibility library otherwise. */
+    /** {@code LinkedHashMap::new}: a reference to a constructor without parameters. */
+    private static boolean newOfNothing(Expression e) {
+        return CSharpExpressionPrinter.unwrap(e) instanceof MethodReference mr && mr.methodInfo().isConstructor()
+               && mr.methodInfo().parameters().isEmpty() && mr.scope().parameterizedType().arrays() == 0;
+    }
+
+        /** {@code stream.collect(Collectors.toList())}: LINQ's ToList(), and so on; the compatibility library otherwise. */
     private static String collect(MethodCall call) {
         if (call != null && call.parameterExpressions().size() == 1
             && CSharpExpressionPrinter.unwrap(call.parameterExpressions().getFirst()) instanceof MethodCall collector
@@ -521,8 +528,19 @@ final class CSharpBcl implements LibraryMapping {
                     return "string.Join($1.1, $0)";
                 case "joining/3":
                     return "$1.2 + string.Join($1.1, $0) + $1.3";
-                case "toMap/2", "toMap/3":
+                case "toMap/2":
                     return "$0.ToDictionary($1.1, $1.2)";
+                // a merge function for a duplicate key, a map supplier: the compatibility library's
+                case "toMap/3":
+                    return "$0.ToMap($1.1, $1.2, $1.3)";
+                // LinkedHashMap::new, whose type arguments the reference does not have: the result's, which Java
+                // infers from it
+                case "toMap/4":
+                    return "$0.ToMap($1.1, $1.2, $1.3, " + (newOfNothing(collector.parameterExpressions().get(3))
+                            ? "() => new {R}())" : "$1.4)");
+                case "toCollection/1":
+                    return "$0.ToCollection(" + (newOfNothing(collector.parameterExpressions().getFirst())
+                            ? "() => new {R}())" : "$1.1)");
                 case "groupingBy/1":
                     return "$0.GroupBy($1.1).ToDictionary(g => g.Key, g => g.ToList())";
                 case "counting/0":

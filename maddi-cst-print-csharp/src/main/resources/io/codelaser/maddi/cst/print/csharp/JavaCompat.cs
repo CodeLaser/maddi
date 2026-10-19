@@ -1329,6 +1329,28 @@ public class BitSet : ICloneable
         return i;
     }
 
+    /// <summary>The nearest set bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousSetBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (Get(i)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>The nearest clear bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousClearBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (!Get(i)) return i;
+        }
+        return -1;
+    }
+
     /// <summary>The index of the highest set bit, plus one.</summary>
     public int Length()
     {
@@ -1651,6 +1673,36 @@ public class JavaFile
     public override bool Equals(object? o) => o is JavaFile f && f.path == path;
 
     public override int GetHashCode() => path.GetHashCode();
+}
+
+/// <summary>java.util.stream.Collectors that LINQ has no counterpart of.</summary>
+public static class JavaCollectors
+{
+    /// <summary>Collectors.toCollection(supplier): the elements added to the supplied collection.</summary>
+    public static C ToCollection<T, C>(this IEnumerable<T> source, Func<C> supplier) where C : ICollection<T>
+    {
+        var collection = supplier();
+        foreach (var t in source) collection.Add(t);
+        return collection;
+    }
+
+    /// <summary>Collectors.toMap(key, value, merge): a duplicate key's values merged, Java's HashMap a Dictionary.</summary>
+    public static Dictionary<K, V> ToMap<T, K, V>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge) where K : notnull => source.ToMap(key, value, merge, () => new Dictionary<K, V>());
+
+    /// <summary>Collectors.toMap(key, value, merge, supplier).</summary>
+    public static M ToMap<T, K, V, M>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge, Func<M> supplier) where M : IDictionary<K, V>
+    {
+        var map = supplier();
+        foreach (var t in source)
+        {
+            var k = key(t);
+            var v = value(t);
+            map[k] = map.TryGetValue(k, out var old) ? merge(old, v) : v;
+        }
+        return map;
+    }
 }
 
 /// <summary>InputStream's methods the BCL's Stream does not have.</summary>
@@ -2313,11 +2365,34 @@ public class JavaReentrantLock : IJavaLock
     {
     }
 
-    public void Lock() => Monitor.Enter(monitor);
+    // the holds of the owning thread, which only it changes
+    private int holds;
 
-    public void Unlock() => Monitor.Exit(monitor);
+    public void Lock()
+    {
+        Monitor.Enter(monitor);
+        holds++;
+    }
 
-    public bool TryLock() => Monitor.TryEnter(monitor);
+    public void Unlock()
+    {
+        if (!Monitor.IsEntered(monitor)) throw new SynchronizationLockException();
+        holds--;
+        Monitor.Exit(monitor);
+    }
+
+    public bool TryLock()
+    {
+        if (!Monitor.TryEnter(monitor)) return false;
+        holds++;
+        return true;
+    }
+
+    public bool IsHeldByCurrentThread() => Monitor.IsEntered(monitor);
+
+    public bool IsLocked() => Volatile.Read(ref holds) > 0;
+
+    public int GetHoldCount() => Monitor.IsEntered(monitor) ? holds : 0;
 }
 
 /// <summary>ReadWriteLock.readLock() and writeLock() of a ReaderWriterLockSlim.</summary>
@@ -2394,6 +2469,28 @@ public class AtomicInteger
 
     public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
 
+    public int UpdateAndGet(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public int GetAndUpdate(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public int AccumulateAndGet(int x, Func<int, int, int> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public int GetAndAccumulate(int x, Func<int, int, int> accumulator) => GetAndUpdate(old => accumulator(old, x));
+
     public double DoubleValue() => Get();
 
     public long LongValue() => Get();
@@ -2427,6 +2524,28 @@ public class AtomicLong
     public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
 
     public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public long UpdateAndGet(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public long GetAndUpdate(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public long AccumulateAndGet(long x, Func<long, long, long> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public long GetAndAccumulate(long x, Func<long, long, long> accumulator) => GetAndUpdate(old => accumulator(old, x));
 
     public double DoubleValue() => Get();
 
@@ -2473,6 +2592,37 @@ public class AtomicReference<T>
                 : ReferenceEquals(value, expected);
             if (same) value = update;
             return same;
+        }
+    }
+
+    /// <summary>Java may apply the function more than once under contention; here the lock applies it once.</summary>
+    public T UpdateAndGet(Func<T, T> update)
+    {
+        lock (monitor) return value = update(value);
+    }
+
+    public T GetAndUpdate(Func<T, T> update)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = update(old);
+            return old;
+        }
+    }
+
+    public T AccumulateAndGet(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor) return value = accumulator(value, x);
+    }
+
+    public T GetAndAccumulate(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = accumulator(old, x);
+            return old;
         }
     }
 
