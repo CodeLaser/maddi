@@ -5,6 +5,13 @@ mapping slf4j:ms-logging
 nuget Microsoft.Extensions.Logging.Abstractions 10.0.0
 compat JavaLogging.cs
 type org.slf4j.Logger -> ILogger using Microsoft.Extensions.Logging
+type org.slf4j.event.Level -> LogLevel using Microsoft.Extensions.Logging
+field org.slf4j.event.Level.TRACE -> LogLevel.Trace using Microsoft.Extensions.Logging
+field org.slf4j.event.Level.DEBUG -> LogLevel.Debug using Microsoft.Extensions.Logging
+field org.slf4j.event.Level.INFO -> LogLevel.Information using Microsoft.Extensions.Logging
+field org.slf4j.event.Level.WARN -> LogLevel.Warning using Microsoft.Extensions.Logging
+field org.slf4j.event.Level.ERROR -> LogLevel.Error using Microsoft.Extensions.Logging
+member org.slf4j.Logger.isEnabledForLevel/1 -> $0.IsEnabled($1) using Microsoft.Extensions.Logging
 member org.slf4j.LoggerFactory.getLogger(Class) -> JavaLogging.GetLogger($1) using Maddi.JavaCompat
 member org.slf4j.LoggerFactory.getLogger(String) -> JavaLogging.GetLogger($1) using Maddi.JavaCompat
 member org.slf4j.Logger.getName/0 -> $0.ToString()

@@ -738,6 +738,10 @@ from a map, a stream's collector.
   - `URI` → `Uri`, created `RelativeOrAbsolute` as Java's may be relative. `UUID` → `Guid`.
   - `BigDecimal` → `decimal`, with arithmetic as operators. `Random`, `Base64` and `HexFormat` become `Random` and
     `Convert`. A `MessageDigest` becomes a `HashAlgorithm`.
+  - A `Spliterator` is a sequence: `StreamSupport.stream(it.spliterator(), false)` is `it` itself, a spliterator of
+    an iterator its remaining elements (`JavaIterators.AsEnumerable`), a characteristic `0`. `Stream.generate`
+    is the compatibility library's infinite `JavaFunctions.Generate`; a `Predicate`'s and a `BiPredicate`'s `and`,
+    `or` and `negate` its extensions on the `Func`.
   - C#'s numbers have no common base class, so `Number` becomes `IConvertible`, and `n.doubleValue()` becomes
     `Convert.ToDouble(n)`. This is wider than Java's type: string and `DateTime` are `IConvertible` too.
   - These structs are not nullable where Java's references are: a `return null` of a `UUID` does not compile.

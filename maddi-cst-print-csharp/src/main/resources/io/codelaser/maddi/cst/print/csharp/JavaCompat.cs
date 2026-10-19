@@ -138,6 +138,16 @@ public static class JavaCollections
         return v;
     }
 
+    /// <summary>Map.computeIfPresent: a present value remapped, removed when the function gives null.</summary>
+    public static V? ComputeIfPresent<K, V>(this IDictionary<K, V> d, K key, Func<K, V, V?> f)
+    {
+        if (!d.TryGetValue(key, out var old) || old == null) return default;
+        var v = f(key, old);
+        if (v == null) d.Remove(key);
+        else d[key] = v;
+        return v;
+    }
+
     public static V Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V?, V> f)
     {
         d.TryGetValue(key, out var old);
@@ -986,6 +996,27 @@ public static class JavaFunctions
 
     public static Func<V, R> Compose<V, T, R>(this Func<T, R> second, Func<V, T> first) => x => second(first(x));
 
+    // Predicate's and BiPredicate's combinators, short-circuiting as Java's
+    public static Func<T, bool> And<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) && other(x);
+
+    public static Func<T, bool> Or<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) || other(x);
+
+    public static Func<T, bool> Negate<T>(this Func<T, bool> p) => x => !p(x);
+
+    public static Func<T, U, bool> And<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
+        (x, y) => first(x, y) && other(x, y);
+
+    public static Func<T, U, bool> Or<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
+        (x, y) => first(x, y) || other(x, y);
+
+    public static Func<T, U, bool> Negate<T, U>(this Func<T, U, bool> p) => (x, y) => !p(x, y);
+
+    /// <summary>Stream.generate: an infinite sequence of the supplier's values, which a Take or First ends.</summary>
+    public static IEnumerable<T> Generate<T>(Func<T> supplier)
+    {
+        while (true) yield return supplier();
+    }
+
     /// <summary>Stream.peek: each element seen by the action as it passes.</summary>
     public static IEnumerable<T> Peek<T>(this IEnumerable<T> source, Action<T> action)
     {
@@ -1411,6 +1442,12 @@ public static class JavaIterators
 {
     /// <summary>A Java iterator as C#'s enumerator: a class with iterator() is an IEnumerable.</summary>
     public static IEnumerator<T> AsEnumerator<T>(this IJavaIterator<T> iterator)
+    {
+        while (iterator.HasNext()) yield return iterator.Next();
+    }
+
+    /// <summary>A Java iterator's remaining elements as a sequence: Spliterators.spliterator(iterator, …)'s.</summary>
+    public static IEnumerable<T> AsEnumerable<T>(this IJavaIterator<T> iterator)
     {
         while (iterator.HasNext()) yield return iterator.Next();
     }

@@ -683,6 +683,53 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SEQUENCES = """
+            package org.example.sequences;
+            import java.math.BigInteger;
+            import java.util.*;
+            import java.util.function.*;
+            import java.util.stream.*;
+            public class Sequences {
+                static List<String> all(Iterable<String> it) { return StreamSupport.stream(it.spliterator(), false).toList(); }
+                static long count(Iterator<String> it, int n) {
+                    return StreamSupport.stream(Spliterators.spliterator(it, n, Spliterator.ORDERED), false).count();
+                }
+                static Iterator<String> iterate(Stream<String> s) { return s.iterator(); }
+                static int sum(int[] values) { return IntStream.of(values).sum() + IntStream.of(1, 2).sum(); }
+                static List<Double> random(Random r) { return Stream.generate(r::nextDouble).limit(3).toList(); }
+                static boolean both(BiPredicate<String, Integer> a, BiPredicate<String, Integer> b) { return a.and(b).test("x", 1); }
+                static boolean either(Predicate<String> a, Predicate<String> b) { return a.or(b.negate()).test("x"); }
+                static boolean ready(BooleanSupplier s) { return s.getAsBoolean(); }
+                static Integer bump(Map<String, Integer> m) { return m.computeIfPresent("k", (k, v) -> v + 1); }
+                static String lower(String s) { return s + Locale.getDefault(); }
+                static BigInteger half(BigInteger b) { return b.divide(BigInteger.TWO); }
+                static Object first(Object array) {
+                    return java.lang.reflect.Array.getLength(array) > 0 ? java.lang.reflect.Array.get(array, 0) : null;
+                }
+                static boolean primitive(Class<?> c) { return c == Integer.TYPE || c == Boolean.TYPE; }
+            }
+            """;
+
+    /** Spliterators as sequences, IntStream.of, Stream.generate, the predicates' combinators and smaller members. */
+    @Test
+    public void sequences() {
+        String cs = translate("Sequences", SEQUENCES);
+        contains(cs, "it.ToList()");
+        contains(cs, "it.AsEnumerable().LongCount()");
+        contains(cs, "s.Iterator()");
+        contains(cs, "values.Sum() + (new int[]{ 1, 2 }).Sum()");
+        contains(cs, "JavaFunctions.Generate(");
+        contains(cs, "a.And(b)(\"x\", 1)");
+        contains(cs, "a.Or(b.Negate())(\"x\")");
+        contains(cs, "s()");
+        contains(cs, "m.ComputeIfPresent(\"k\",");
+                contains(cs, "s + CultureInfo.CurrentCulture");
+        contains(cs, "b / ");
+        contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
+        contains(cs, "c == typeof(int) || c == typeof(bool)");
+    }
+
+    @Language("java")
     private static final String DELEGATE_CLASSES = """
             package org.example.delegates;
             import java.util.Comparator;

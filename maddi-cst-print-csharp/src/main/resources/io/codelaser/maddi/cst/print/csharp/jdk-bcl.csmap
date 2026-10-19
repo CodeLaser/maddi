@@ -118,6 +118,9 @@ type java.util.function.ToIntBiFunction -> Func<{0}, {1}, int> using System
 type java.util.function.ToLongBiFunction -> Func<{0}, {1}, long> using System
 type java.util.function.ToDoubleBiFunction -> Func<{0}, {1}, double> using System
 type java.util.function.IntPredicate -> Func<int, bool> using System
+type java.util.function.BooleanSupplier -> Func<bool> using System
+# a Spliterator is a sequence: StreamSupport.stream of one is the sequence itself
+type java.util.Spliterator -> IEnumerable<{0}> using System.Collections.Generic
 type java.lang.Runnable -> Action using System
 type java.util.concurrent.Callable -> Func using System
 type java.util.Comparator -> Comparison using System
@@ -376,6 +379,7 @@ member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
 member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
 statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
 member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
+member java.util.Map.computeIfPresent/2 -> $0.ComputeIfPresent($1, $2) using Maddi.JavaCompat
 member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
 member java.util.Map.merge/3 -> $0.Merge($1, $2, $3) using Maddi.JavaCompat
 member java.util.Map.entry/2 -> KeyValuePair.Create($1, $2) using System.Collections.Generic
@@ -709,6 +713,12 @@ member java.util.stream.Stream.limit/1 -> $0.Take((int) $1) using System.Linq
 member java.util.stream.Stream.skip/1 -> $0.Skip((int) $1) using System.Linq
 member java.util.stream.Stream.empty/0 -> Enumerable.Empty<{R0}>() using System.Linq
 member java.util.stream.Stream.concat/2 -> $1.Concat($2) using System.Linq
+member java.util.stream.Stream.generate/1 -> JavaFunctions.Generate($1) using Maddi.JavaCompat
+member java.util.stream.BaseStream.iterator/0 -> $0.Iterator() using Maddi.JavaCompat
+member java.util.stream.StreamSupport.stream/2 -> $1
+member java.lang.Iterable.spliterator/0 -> $0
+member java.util.Spliterators.spliterator(Iterator,long,int) -> $1.AsEnumerable() using Maddi.JavaCompat
+member java.util.Spliterators.spliteratorUnknownSize(Iterator,int) -> $1.AsEnumerable() using Maddi.JavaCompat
 member java.util.stream.Stream.peek/1 -> $0.Peek($1) using Maddi.JavaCompat
 member java.util.function.Function.identity/0 -> x_ => x_
 member java.util.function.Function.andThen/1 -> $0.AndThen($1) using Maddi.JavaCompat
@@ -758,6 +768,13 @@ member java.util.function.BiPredicate.test -> $0($*)
 member java.util.function.IntFunction.apply -> $0($*)
 member java.util.function.ToIntFunction.applyAsInt -> $0($*)
 member java.util.function.IntPredicate.test -> $0($*)
+member java.util.function.BooleanSupplier.getAsBoolean -> $0()
+member java.util.function.Predicate.and/1 -> $0.And($1) using Maddi.JavaCompat
+member java.util.function.Predicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
+member java.util.function.Predicate.negate/0 -> $0.Negate() using Maddi.JavaCompat
+member java.util.function.BiPredicate.and/1 -> $0.And($1) using Maddi.JavaCompat
+member java.util.function.BiPredicate.or/1 -> $0.Or($1) using Maddi.JavaCompat
+member java.util.function.BiPredicate.negate/0 -> $0.Negate() using Maddi.JavaCompat
 member java.util.function.ToLongFunction.applyAsLong -> $0($*)
 member java.util.function.ToDoubleFunction.applyAsDouble -> $0($*)
 member java.util.function.ToIntBiFunction.applyAsInt -> $0($*)
@@ -938,6 +955,7 @@ member java.time.temporal.Temporal.isSupported(TemporalUnit) -> JavaTemporal.IsS
 member java.time.temporal.TemporalUnit.between/2 -> JavaTemporal.Until($1, $2, $0) using Maddi.JavaCompat
 member java.util.Locale.forLanguageTag/1 -> CultureInfo.GetCultureInfo($1) using System.Globalization
 member java.util.Locale.toLanguageTag/0 -> $0.Name
+member java.util.Locale.getDefault/0 -> CultureInfo.CurrentCulture using System.Globalization
 member java.time.Clock.systemDefaultZone/0 -> TimeProvider.System using System
 member java.time.Clock.systemUTC/0 -> TimeProvider.System using System
 member java.time.Clock.instant/0 -> $0.GetUtcNow()
@@ -978,6 +996,7 @@ member java.math.BigDecimal.unscaledValue/0 -> JavaMath.UnscaledValue($0) using 
 member java.math.BigInteger.add/1 -> @0 + @1
 member java.math.BigInteger.subtract/1 -> @0 - @1
 member java.math.BigInteger.multiply/1 -> @0 * @1
+member java.math.BigInteger.divide/1 -> @0 / @1
 member java.math.BigInteger.negate/0 -> -@0
 member java.math.BigInteger.valueOf/1 -> new BigInteger($1) using System.Numerics
 member java.math.BigInteger.remainder/1 -> BigInteger.Remainder($0, $1) using System.Numerics
@@ -1146,6 +1165,9 @@ member java.lang.reflect.Field.getType/0 -> $0.FieldType
 member java.lang.reflect.Field.getGenericType/0 -> $0.FieldType
 member java.lang.reflect.Field.get/1 -> $0.GetValue($1)
 member java.lang.reflect.Field.set/2 -> $0.SetValue($1, $2)
+# java.lang.reflect.Array on an array of any element type: System.Array's
+member java.lang.reflect.Array.get/2 -> ((Array) $1).GetValue($2) using System
+member java.lang.reflect.Array.getLength/1 -> ((Array) $1).Length using System
 # Java's getInt widens, a byte field's value too; .NET's GetValue boxes the field's own type: Convert widens it
 member java.lang.reflect.Field.getInt/1 -> Convert.ToInt32($0.GetValue($1)) using System
 member java.lang.reflect.Field.setInt/2 -> $0.SetValue($1, $2)
@@ -1231,6 +1253,24 @@ field java.lang.Boolean.FALSE -> false
 field java.lang.Math.PI -> Math.PI using System
 field java.time.Duration.ZERO -> TimeSpan.Zero using System
 field java.time.Period.ZERO -> JavaPeriod.Zero using Maddi.JavaCompat
+# a characteristic of a Spliterator, which a sequence does not have
+field java.util.Spliterator.ORDERED -> 0
+field java.util.Spliterator.DISTINCT -> 0
+field java.util.Spliterator.SORTED -> 0
+field java.util.Spliterator.SIZED -> 0
+field java.util.Spliterator.NONNULL -> 0
+field java.util.Spliterator.IMMUTABLE -> 0
+field java.util.Spliterator.CONCURRENT -> 0
+field java.util.Spliterator.SUBSIZED -> 0
+field java.lang.Integer.TYPE -> typeof(int)
+field java.lang.Long.TYPE -> typeof(long)
+field java.lang.Short.TYPE -> typeof(short)
+field java.lang.Byte.TYPE -> typeof(sbyte)
+field java.lang.Character.TYPE -> typeof(char)
+field java.lang.Boolean.TYPE -> typeof(bool)
+field java.lang.Float.TYPE -> typeof(float)
+field java.lang.Double.TYPE -> typeof(double)
+field java.lang.Void.TYPE -> typeof(void)
 field java.time.temporal.ChronoUnit.NANOS -> JavaChronoUnit.Nanos using Maddi.JavaCompat
 field java.time.temporal.ChronoUnit.MICROS -> JavaChronoUnit.Micros using Maddi.JavaCompat
 field java.time.temporal.ChronoUnit.MILLIS -> JavaChronoUnit.Millis using Maddi.JavaCompat

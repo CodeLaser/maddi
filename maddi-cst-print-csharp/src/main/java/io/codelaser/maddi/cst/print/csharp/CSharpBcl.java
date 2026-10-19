@@ -296,6 +296,9 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.stream.Stream.of/1", (method, call) -> rule(method.isVarargs() && call != null
                 && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
                 ? "$1" : "new[] { $* }"));
+        chooser("java.util.stream.IntStream.of/1", (method, call) -> rule(method.isVarargs() && call != null
+                && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
+                ? "$1" : "new int[] { $* }"));
         chooser("java.util.stream.Stream.collect/1", (method, call) -> rule(collect(call), LINQ));
 
         // system

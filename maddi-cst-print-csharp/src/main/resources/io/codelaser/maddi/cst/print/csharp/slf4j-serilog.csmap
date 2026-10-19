@@ -3,6 +3,13 @@
 mapping slf4j:serilog
 nuget Serilog 4.2.0
 type org.slf4j.Logger -> ILogger using Serilog
+type org.slf4j.event.Level -> LogEventLevel using Serilog.Events
+field org.slf4j.event.Level.TRACE -> LogEventLevel.Verbose using Serilog.Events
+field org.slf4j.event.Level.DEBUG -> LogEventLevel.Debug using Serilog.Events
+field org.slf4j.event.Level.INFO -> LogEventLevel.Information using Serilog.Events
+field org.slf4j.event.Level.WARN -> LogEventLevel.Warning using Serilog.Events
+field org.slf4j.event.Level.ERROR -> LogEventLevel.Error using Serilog.Events
+member org.slf4j.Logger.isEnabledForLevel/1 -> $0.IsEnabled($1) using Serilog.Events
 member org.slf4j.LoggerFactory.getLogger(Class) -> Log.ForContext($1) using Serilog
 member org.slf4j.LoggerFactory.getLogger(String) -> Log.ForContext("SourceContext", $1) using Serilog
 # trace: the exception first, then the message and its arguments
