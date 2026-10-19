@@ -53,6 +53,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             }
             """;
 
+    /**
+     * nacos's NacosProperties: an annotation type whose constants concatenate other constants, and whose parameters
+     * default to them: {@code const val}s, as Kotlin wants for an annotation parameter's default.
+     */
+    @Test
+    public void annotationDefaultsOfConcatenatedConstants() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Props {
+                    String PREFIX = "nacos.";
+                    String ENDPOINT = "endpoint";
+                    String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}";
+                    int TIMEOUT = 30 * 1000;
+                    String endpoint() default ENDPOINT_PLACEHOLDER;
+                    int timeout() default TIMEOUT;
+                }
+                """);
+        contains(kotlin, "const val ENDPOINT_PLACEHOLDER: String");
+        contains(kotlin, "const val TIMEOUT: Int");
+        compiles(kotlin);
+    }
+
     /** Kotlin inherits no statics: they go to a companion object, and one inherited from a supertype is qualified. */
     @Test
     public void staticsInCompanion() {
