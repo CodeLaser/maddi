@@ -684,8 +684,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
      seen from a Stream<?>, was BaseStream<?, Stream<T>>, Stream's own T in a place where it means nothing
      (maddi#159). It goes in where Java can say the result: 'T' and '? extends T' take '?' or '? extends X' as it
      is, '? super T' takes '? super X'; across directions ('? extends' of '? super X') only '?' is left.
+     Public for the printers' own substitution, CstSupertypes.substitute (maddi#158).
      */
-    private static ParameterizedType nestedArgument(ParameterizedType p, ParameterizedType mapped) {
+    public static ParameterizedType nestedArgument(ParameterizedType p, ParameterizedType mapped) {
         Wildcard outer = p.wildcard();
         Wildcard inner = mapped.wildcard();
         if (inner == null) return outer == null ? mapped : mapped.withWildcard(outer);

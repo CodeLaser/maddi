@@ -109,7 +109,7 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             // a default method for an inherited interface's method implements it explicitly
             ParameterizedType owner = CstSupertypes.asSeen(typeInfo, overridden.typeInfo());
             Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(owner);
-            b.add(new TextImpl(CSharpTypeName.of(CstSupertypes.substitute(overridden.returnType(), map), q)))
+            b.add(new TextImpl(CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + (CSharpNames.translated(overridden.typeInfo())
                             ? CSharpNames.method(overridden) : CSharpNames.method(methodInfo)) + typeParameters));

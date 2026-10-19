@@ -123,7 +123,7 @@ final class CSharpAnonymous {
         if (constructor == null) return cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList();
         Map<TypeParameter, ParameterizedType> arguments = CstSupertypes.typeArguments(anonymous.parentClass());
         return constructor.parameters().stream()
-                .map(p -> CstSupertypes.substitute(p.parameterizedType(), arguments)).toList();
+                .map(p -> CstSupertypes.substituteDroppingWildcards(p.parameterizedType(), arguments)).toList();
     }
 
     /**

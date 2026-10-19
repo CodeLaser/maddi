@@ -180,7 +180,7 @@ final class CSharpHierarchy {
         for (TypeInfo t : chain) {
             ParameterizedType asSeen = t == cls ? null : CstSupertypes.asSeen(cls, t);
             Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : CstSupertypes.typeArguments(asSeen);
-            t.interfacesImplemented().forEach(i -> todo.add(CstSupertypes.substitute(i, map)));
+            t.interfacesImplemented().forEach(i -> todo.add(CstSupertypes.substituteDroppingWildcards(i, map)));
         }
         while (!todo.isEmpty()) {
             ParameterizedType i = todo.poll();
@@ -188,7 +188,7 @@ final class CSharpHierarchy {
             if (iface == null || interfaces.containsKey(iface)) continue;
             interfaces.put(iface, i);
             Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(i);
-            iface.interfacesImplemented().forEach(sup -> todo.add(CstSupertypes.substitute(sup, map)));
+            iface.interfacesImplemented().forEach(sup -> todo.add(CstSupertypes.substituteDroppingWildcards(sup, map)));
         }
         interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
                 .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
