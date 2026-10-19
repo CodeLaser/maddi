@@ -583,8 +583,10 @@ final class CSharpWildcardInterfaces {
                       + (CSharpContext.program().facts().nullabilityAnalysed() ? "!" : "") : name);
         }
         ParameterizedType result = sam.isVoid() ? null : slots.get(n);
-        boolean assertResult = result != null && result.isTypeParameter() && removed.contains(result.typeParameter())
-                               && CSharpContext.program().facts().nullabilityAnalysed();
+        // and a lambda adapter's method of a type parameter, R? Apply(…) as the analysis has it (CS8603)
+        boolean assertResult = result != null && CSharpContext.program().facts().nullabilityAnalysed()
+                               && (result.isTypeParameter() && removed.contains(result.typeParameter())
+                                   || adapted(pt.typeInfo()) && sam.returnType().isTypeParameter());
         String parameters = n == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
         String lambda = parameters + " => f" + (adapted(pt.typeInfo()) ? "." + CSharpNames.method(sam) : "") + "("
                         + String.join(", ", arguments) + ")" + (assertResult ? "!" : "");
