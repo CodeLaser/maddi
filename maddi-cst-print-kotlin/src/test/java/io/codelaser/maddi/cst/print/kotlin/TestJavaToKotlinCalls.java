@@ -1618,4 +1618,28 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         contains(kotlin, "take(Supplier<MutableList<String>> { ArrayList() })");
         compiles(kotlin);
     }
+
+    /**
+     * A static method reference returned, or assigned, as a java.util.function.Function: Kotlin types a bare
+     * {@code Util::parse} as a KFunction1, which is no Function. Passed as an argument, Kotlin converts it itself.
+     */
+    @Test
+    public void staticReferenceReturnedAsFunction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.*;
+                class Util {
+                    static int parse(String s) { return s.length(); }
+                    static Function<String, Integer> parser() { return Util::parse; }
+                    static Function<String, Integer> local() { Function<String, Integer> f = Util::parse; return f; }
+                    static int apply(Function<String, Integer> f) { return f.apply("x"); }
+                    static int use() { return apply(Util::parse); }
+                }
+                """);
+        contains(kotlin, "fun parser(): Function<String, Int> = Function<String, Int>(Util ::parse)");
+        contains(kotlin, "= Function<String, Int>(Util ::parse)\nreturn f");
+        // the argument as it was: Kotlin converts it to the parameter's interface
+        contains(kotlin, "apply(Util ::parse)");
+        compiles(kotlin);
+    }
 }
