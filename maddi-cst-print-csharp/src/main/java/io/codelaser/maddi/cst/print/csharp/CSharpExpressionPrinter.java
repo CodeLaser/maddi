@@ -898,14 +898,19 @@ public final class CSharpExpressionPrinter {
      * {@code int} is expected, where C# needs a cast of its {@code int?}.
      */
     static OutputBuilder converted(Expression value, ParameterizedType target, Qualification q) {
+        return converted(value, target, q, true);
+    }
+
+    /** As above; {@code erase} false where the target's wildcard is a type parameter C# captures it into. */
+    private static OutputBuilder converted(Expression value, ParameterizedType target, Qualification q, boolean erase) {
         if (target == null) return print(value, q);
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
         if (inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target))) {
             // the branches: C#'s conditional takes its type from them
             return new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
-                    .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q))
-                    .add(SymbolEnum.COLON).add(converted(ic.ifFalse(), target, q));
+                    .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q, erase))
+                    .add(SymbolEnum.COLON).add(converted(ic.ifFalse(), target, q, erase));
         }
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
         // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
@@ -925,6 +930,9 @@ public final class CSharpExpressionPrinter {
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
+        // a concrete collector where Java's wildcard of it is expected, IUniConstraintCollector<A, object, double>
+        ParameterizedType adapted = erase ? CSharpErasures.adapted(inner, target) : null;
+        if (adapted != null) return CSharpErasures.adapter(adapted, print(value, q), q);
         return print(value, q);
     }
 
@@ -1063,7 +1071,8 @@ public final class CSharpExpressionPrinter {
             return CSharpNullability.intoParameter(value, method, i,
                     unboxCast(CSharpTypeName.argument(unwrap(value).parameterizedType(), q), value, q));
         }
-        return CSharpNullability.intoParameter(value, method, i, converted(value, target, q));
+        boolean captured = method != null && i < method.parameters().size() && CSharpWildcards.capturedParameter(method, i);
+        return CSharpNullability.intoParameter(value, method, i, converted(value, target, q, !captured));
     }
 
     /**
@@ -1145,7 +1154,7 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || erasedDiamond(inner, target) != null
+               || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }

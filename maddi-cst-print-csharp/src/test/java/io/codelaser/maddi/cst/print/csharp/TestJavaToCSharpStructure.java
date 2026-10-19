@@ -415,6 +415,70 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ERASURES = """
+            package org.example.erasures;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A, C, R> Collector<A, C, R> logged(Collector<A, C, R> collector) { return collector; }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static <A> Collector<A, ?, List<A>> loggedList() { return logged(toList()); }
+                static <A, C, R> Collector<A, ?, R> plain(Collector<A, C, R> collector) { return collector; }
+                interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
+                static final class Concat implements TriFunction<String, String, String, String> {
+                    public String apply(String a, String b, String c) { return a + b + c; }
+                }
+                interface BiCollector<A, B, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    TriFunction<ResultContainer_, A, B, Runnable> accumulator();
+                }
+                static final class Count<A, B> implements BiCollector<A, B, int[], Integer> {
+                    public Supplier<int[]> supplier() { return () -> new int[1]; }
+                    public TriFunction<int[], A, B, Runnable> accumulator() {
+                        return (c, a, b) -> { c[0]++; return () -> c[0]--; };
+                    }
+                }
+                static <A, B, C, R> BiCollector<A, B, C, R> loggedBi(BiCollector<A, B, C, R> collector) { return collector; }
+                static <A, B> BiCollector<A, B, ?, Integer> count() { return new Count<>(); }
+                static <A, B> BiCollector<A, B, ?, Integer> loggedCount() { return loggedBi(count()); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type that the code also passes where a generic method captures its type parameter, which a
+     * wildcard interface would not let C# infer: it is the type of object, which a concrete one is adapted to by the
+     * interface's erasure adapter.
+     */
+    @Test
+    public void erasures() {
+        String cs = translate("Collectors", ERASURES);
+        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);");
+        contains(cs, "private sealed class Erasure_ : ICollector<A, object, Result_> {");
+        contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+        contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
+        contains(cs, "=> Logged(toList<A>());");
+        contains(cs, "=> ICollector<A, C, R>.Erased_(collector);");
+        // a functional interface with its lambda adapter
+        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
+        contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

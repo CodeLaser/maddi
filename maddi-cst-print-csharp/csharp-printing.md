@@ -692,9 +692,20 @@ from a map, a stream's collector.
   each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
   erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
   accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
-  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`. Only where it declares every member the code reaches
-  through such a wildcard: a field written through it, or a method it cannot declare, keeps the type's wildcards their
-  bound. An interface whose statics have a companion, of
+  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`; a functional interface of the program with its lambda adapter
+  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `Lambda`. Only where it declares every member the
+  code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
+  where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
+  ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
+  bound, `object`. Such an interface, of no supertypes, whose instance methods each take an erased type parameter or
+  none and return one, none, or a delegate the bridge adapts, has an erasure adapter (`CSharpErasures`): a static
+  `IUniConstraintCollector<A, object, Result_> Erased_(IUniConstraintCollector<A, ResultContainer_, Result_>)` and a
+  private class `Erasure_` that implements the interface of `object` by calling the adapted one's members. A value
+  going where the wildcard is expected, `new AverageUniCollector<>(mapper)` returned as `UniConstraintCollector<A, ?,
+  Double>`, is adapted: `IUniConstraintCollector<A, AbstractLongAverageSlot.State, double>.Erased_(new
+  AverageUniCollector<A>(mapper))`, which C#'s variance would not convert. One already of `object` is itself; any other
+  is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
+  captures the wildcard. An interface whose statics have a companion, of
   the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,

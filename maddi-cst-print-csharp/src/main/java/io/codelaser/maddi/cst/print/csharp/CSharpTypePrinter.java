@@ -231,6 +231,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
+        members.addAll(CSharpErasures.members(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();

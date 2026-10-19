@@ -500,11 +500,12 @@ final class CSharpWildcardInterfaces {
      * has it with the removed type parameter erased, {@code Func<object, A, Action>}, which the bridge adapts to by a
      * lambda: a parameter cast to the type parameter, the result converted from it.
      */
-    private static boolean erasedDelegate(ParameterizedType pt, List<TypeParameter> removed) {
+    static boolean erasedDelegate(ParameterizedType pt, List<TypeParameter> removed) {
         TypeInfo t = pt.typeInfo();
         if (t == null || pt.arrays() != 0 || !CstQueries.mentionsAny(pt, removed)) return false;
         LibraryMapping.TypeMapping mapping = CSharpNames.translated(t) ? null : CSharpContext.libraries().type(t);
-        if (!(CSharpNames.translated(t) ? CSharpContext.program().delegate(t) : mapping != null && mapping.delegate())) {
+        if (!(CSharpNames.translated(t) ? CSharpContext.program().delegate(t) || adapted(t)
+                : mapping != null && mapping.delegate())) {
             return false;
         }
         // a program delegate's bounds, where Score_ : IScore<Score_>, no erased argument meets
@@ -522,6 +523,16 @@ final class CSharpWildcardInterfaces {
             }
         }
         return true;
+    }
+
+    /**
+     * A functional interface of the program that C# has with its lambda adapter, {@code ITriFunction<A, B, C, R>}, of its
+     * own method: the bridge's lambda goes in as its {@code Lambda}.
+     */
+    private static boolean adapted(TypeInfo t) {
+        if (!CSharpNames.lambdaAdapter(t)) return false;
+        MethodInfo sam = CSharpNames.singleAbstractMethod(t);
+        return sam != null && sam.typeInfo().equals(t);
     }
 
     /** The single abstract method's parameter types, then its result's (null when void), as {@code pt} has them. */
@@ -543,7 +554,7 @@ final class CSharpWildcardInterfaces {
     }
 
     /** The delegate as the wildcard interface has it: each removed type parameter its bound's erasure. */
-    private static String erasedDelegateType(ParameterizedType pt, List<TypeParameter> removed, Qualification q) {
+    static String erasedDelegateType(ParameterizedType pt, List<TypeParameter> removed, Qualification q) {
         String printed = CSharpTypeName.of(pt, q);
         for (TypeParameter tp : removed) {
             printed = printed.replaceAll("\\b" + java.util.regex.Pattern.quote(CSharpNames.typeParameter(tp)) + "\\b",
@@ -556,7 +567,7 @@ final class CSharpWildcardInterfaces {
      * The bridge's body for a member whose result is an erased delegate: the type's own delegate, once, adapted by a
      * lambda, {@code { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }}.
      */
-    private static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed) {
+    static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q) {
         ParameterizedType pt = m.returnType();
         MethodInfo sam = CSharpNames.singleAbstractMethod(pt.typeInfo());
         List<ParameterizedType> slots = samTypes(pt, sam);
@@ -575,8 +586,12 @@ final class CSharpWildcardInterfaces {
         boolean assertResult = result != null && result.isTypeParameter() && removed.contains(result.typeParameter())
                                && CSharpContext.program().facts().nullabilityAnalysed();
         String parameters = n == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
-        return "{ var f = " + call + "; return " + parameters + " => f(" + String.join(", ", arguments) + ")"
-               + (assertResult ? "!" : "") + "; }";
+        String lambda = parameters + " => f" + (adapted(pt.typeInfo()) ? "." + CSharpNames.method(sam) : "") + "("
+                        + String.join(", ", arguments) + ")" + (assertResult ? "!" : "");
+        // ITriFunction<object, A, B, Action>'s lambda adapter
+        String adapter = adapted(pt.typeInfo()) ? "new " + erasedDelegateType(pt, removed, q) + ".Lambda(" + lambda + ")"
+                : lambda;
+        return "{ var f = " + call + "; return " + adapter + "; }";
     }
 
     private static String erasedBound(TypeParameter tp, List<TypeParameter> removed, Set<TypeParameter> seen,
@@ -714,7 +729,7 @@ final class CSharpWildcardInterfaces {
             String bridge;
             if (CstQueries.mentionsAny(m.returnType(), removed) && erasedDelegate(m.returnType(), removed)) {
                 String own = name + typeParameters + "(" + String.join(", ", arguments) + ")";
-                bridge = returnType + " " + self + "." + signature + " " + delegateBridge(m, own, removed);
+                bridge = returnType + " " + self + "." + signature + " " + delegateBridge(m, own, removed, q);
             } else {
                 String call = name + typeParameters + "(" + String.join(", ", arguments) + ")" + asserted(m, removed, returnType);
                 bridge = returnType + " " + self + "." + signature + " => " + call + ";";
@@ -792,7 +807,7 @@ final class CSharpWildcardInterfaces {
     }
 
 
-    private static boolean containsWildcard(ParameterizedType t) {
+    static boolean containsWildcard(ParameterizedType t) {
         if (t == null) return false;
         if (t.wildcard() != null) return true;
         return t.parameters().stream().anyMatch(CSharpWildcardInterfaces::containsWildcard);
