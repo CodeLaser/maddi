@@ -677,6 +677,27 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * fernflower's ExceptionDeobfuscator: {@code Set<String> exceptions = …collect(Collectors.toSet())} and then
+     * {@code !exceptions.contains(null)}: Kotlin's contains infers its T from the inputs, and a null fits no String.
+     */
+    @Test
+    public void containsNullOfNonNullSet() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.Collectors;
+                class Ranges {
+                    static boolean single(List<String> types) {
+                        Set<String> exceptions = types.stream().collect(Collectors.toSet());
+                        return exceptions.size() == 1 && !exceptions.contains(null);
+                    }
+                }
+                """);
+        contains(kotlin, "contains((null as String?))");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's hudson.util.HttpResponses extends Stapler's, and ListView calls {@code HttpResponses.ok()}, a static of
      * the library superclass: Kotlin reaches a Java class's statics through that class only.
      */

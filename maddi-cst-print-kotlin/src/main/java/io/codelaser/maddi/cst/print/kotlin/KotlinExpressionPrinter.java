@@ -1774,6 +1774,11 @@ public class KotlinExpressionPrinter {
                       && KotlinNullability.isNullable(kotlin) ? kotlin.withWildcard(null) : null;
         }
         ParameterizedType argumentType = argument.parameterizedType();
+        if (element != null && unwrap(argument) instanceof NullConstant && element.wildcard() == null
+            && element.typeInfo() != null) {
+            // fernflower's ExceptionDeobfuscator: !exceptions.contains(null) of a Set<String>, which no T fits
+            return element;
+        }
         if (typeVariableLookup(element, argumentType)) return element;
         if (element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
             && element.wildcard() == null && argumentType.arrays() == 0
