@@ -894,6 +894,75 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String QUEUES = """
+            package org.example.queues;
+            import java.math.BigDecimal;
+            import java.math.MathContext;
+            import java.math.RoundingMode;
+            import java.text.DecimalFormat;
+            import java.text.DecimalFormatSymbols;
+            import java.util.*;
+            import java.util.concurrent.*;
+            import java.util.random.RandomGenerator;
+            public class Queues {
+                private final BlockingQueue<String> changes = new LinkedBlockingQueue<>();
+                private final ConcurrentMap<String, Integer> counts = new ConcurrentHashMap<>();
+                private final PriorityQueue<Integer> order = new PriorityQueue<>(16);
+                private static final MathContext CONTEXT = new MathContext(6, RoundingMode.HALF_EVEN);
+                private static final DecimalFormat FORMAT = new DecimalFormat("#,###");
+                String next() throws InterruptedException {
+                    changes.put("a");
+                    var polled = changes.poll();
+                    return polled != null ? polled : changes.take();
+                }
+                int lowest() {
+                    order.add(3);
+                    order.offer(1);
+                    int first = order.peek();
+                    return first + order.poll() + order.size();
+                }
+                int count(String key) { return counts.computeIfAbsent(key, k -> 0); }
+                BigDecimal root(BigDecimal value) { return value.sqrt(CONTEXT); }
+                String format(double d, Locale locale) {
+                    FORMAT.setDecimalFormatSymbols(DecimalFormatSymbols.getInstance(locale));
+                    return FORMAT.format(d);
+                }
+                RandomGenerator.SplittableGenerator split(long seed) { return new SplittableRandom(seed).split(); }
+                double noise(RandomGenerator r) { return r.nextGaussian() + r.nextDouble(1, 2) + r.nextFloat(3f); }
+                int sum(PrimitiveIterator.OfInt it) { int s = 0; while (it.hasNext()) s += it.nextInt(); return s; }
+                boolean cancelled(Runnable r) {
+                    try { r.run(); return false; } catch (CancellationException e) { return true; }
+                }
+            }
+            """;
+
+    /**
+     * A blocking queue is a list under a lock, a priority queue Java's heap, a ConcurrentMap a dictionary; a
+     * MathContext, a DecimalFormat, a SplittableRandom and a primitive iterator the compatibility library's or .NET's.
+     */
+    @Test
+    public void queues() {
+        String cs = translate("Queues", QUEUES);
+        contains(cs, "private readonly JavaBlockingQueue<string> changes = new JavaBlockingQueue<string>();");
+        contains(cs, "private readonly IDictionary<string, int> counts = new Dictionary<string, int>();");
+        contains(cs, "private readonly JavaPriorityQueue<int> order = new JavaPriorityQueue<int>(16);");
+        contains(cs, "new JavaMathContext(6, MidpointRounding.ToEven)");
+        contains(cs, "new JavaDecimalFormat(\"#,###\")");
+        contains(cs, "changes.Put(\"a\");");
+        contains(cs, "changes.PollFirst()");
+        contains(cs, "changes.Take()");
+        contains(cs, "order.PeekFirst()");
+        contains(cs, "order.PollFirst()");
+        contains(cs, "((decimal) value).Sqrt(CONTEXT)");
+        contains(cs, "FORMAT.SetDecimalFormatSymbols(locale);");
+        contains(cs, "new Random(JavaRandoms.Seed(seed)).Split()");
+        contains(cs, "r.NextGaussian() + r.NextDouble(1, 2) + r.NextSingle(3.0f)");
+        contains(cs, "int Sum(IJavaIterator<int> it)");
+        contains(cs, "s += it.Next()");
+        contains(cs, "catch (OperationCanceledException e)");
+    }
+
+    @Language("java")
     private static final String DELEGATE_CLASSES = """
             package org.example.delegates;
             import java.util.Comparator;

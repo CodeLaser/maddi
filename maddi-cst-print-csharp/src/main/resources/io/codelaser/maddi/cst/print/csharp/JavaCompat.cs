@@ -19,6 +19,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -3327,4 +3328,484 @@ public static class JavaResources
         return candidates.OrderByDescending(m => m.ToLowerInvariant().Split('.', '/').Count(s => segments.Contains(s)))
             .First();
     }
+}
+
+/// <summary>
+/// Java's BlockingQueue, LinkedBlockingQueue and ArrayBlockingQueue: a list under a lock, first in first out as the
+/// Queue's list is. Offer, PollFirst, PeekFirst and RemoveFirst are its own, atomic, where the list's are extensions;
+/// Put and Take wait for room and for an element.
+/// </summary>
+public sealed class JavaBlockingQueue<T> : IList<T>
+{
+    private readonly List<T> items = new();
+    private readonly int capacity;
+
+    public JavaBlockingQueue() : this(int.MaxValue)
+    {
+    }
+
+    public JavaBlockingQueue(int capacity)
+    {
+        if (capacity <= 0) throw new ArgumentException("capacity " + capacity);
+        this.capacity = capacity;
+    }
+
+    public JavaBlockingQueue(IEnumerable<T> elements) : this()
+    {
+        items.AddRange(elements);
+    }
+
+    public int Count { get { lock (items) return items.Count; } }
+
+    public bool IsReadOnly => false;
+
+    public T this[int index]
+    {
+        get { lock (items) return items[index]; }
+        set { lock (items) items[index] = value; }
+    }
+
+    public int RemainingCapacity() { lock (items) return capacity - items.Count; }
+
+    /// <summary>Queue.add: an IllegalStateException, InvalidOperationException, when the queue is full.</summary>
+    public void Add(T item)
+    {
+        if (!Offer(item)) throw new InvalidOperationException("Queue full");
+    }
+
+    public bool Offer(T item)
+    {
+        lock (items)
+        {
+            if (items.Count >= capacity) return false;
+            items.Add(item);
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public bool Offer(T item, long timeout, JavaTimeUnit unit)
+    {
+        var deadline = DateTime.UtcNow + unit.ToTimeSpan(timeout);
+        lock (items)
+        {
+            while (items.Count >= capacity)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero) return false;
+                Monitor.Wait(items, left);
+            }
+            items.Add(item);
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public void Put(T item)
+    {
+        lock (items)
+        {
+            while (items.Count >= capacity) Monitor.Wait(items);
+            items.Add(item);
+            Monitor.PulseAll(items);
+        }
+    }
+
+    public T Take()
+    {
+        lock (items)
+        {
+            while (items.Count == 0) Monitor.Wait(items);
+            return Removed(0);
+        }
+    }
+
+    public T? Poll(long timeout, JavaTimeUnit unit)
+    {
+        var deadline = DateTime.UtcNow + unit.ToTimeSpan(timeout);
+        lock (items)
+        {
+            while (items.Count == 0)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero) return default;
+                Monitor.Wait(items, left);
+            }
+            return Removed(0);
+        }
+    }
+
+    public T? PollFirst() { lock (items) return items.Count == 0 ? default : Removed(0); }
+
+    public T? PeekFirst() { lock (items) return items.Count == 0 ? default : items[0]; }
+
+    public T RemoveFirst()
+    {
+        lock (items)
+        {
+            if (items.Count == 0) throw new InvalidOperationException("empty");
+            return Removed(0);
+        }
+    }
+
+    public int DrainTo(ICollection<T> target)
+    {
+        lock (items)
+        {
+            foreach (var x in items) target.Add(x);
+            int n = items.Count;
+            items.Clear();
+            Monitor.PulseAll(items);
+            return n;
+        }
+    }
+
+    private T Removed(int index)
+    {
+        var x = items[index];
+        items.RemoveAt(index);
+        Monitor.PulseAll(items);
+        return x;
+    }
+
+    public void Clear() { lock (items) { items.Clear(); Monitor.PulseAll(items); } }
+
+    public bool Contains(T item) { lock (items) return items.Contains(item); }
+
+    public void CopyTo(T[] array, int index) { lock (items) items.CopyTo(array, index); }
+
+    public int IndexOf(T item) { lock (items) return items.IndexOf(item); }
+
+    public void Insert(int index, T item)
+    {
+        lock (items)
+        {
+            if (items.Count >= capacity) throw new InvalidOperationException("Queue full");
+            items.Insert(index, item);
+            Monitor.PulseAll(items);
+        }
+    }
+
+    public bool Remove(T item)
+    {
+        lock (items)
+        {
+            if (!items.Remove(item)) return false;
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public void RemoveAt(int index) { lock (items) Removed(index); }
+
+    /// <summary>A snapshot, where Java's iterator is weakly consistent: it never throws for a concurrent change.</summary>
+    public IEnumerator<T> GetEnumerator()
+    {
+        List<T> snapshot;
+        lock (items) snapshot = new List<T>(items);
+        return snapshot.GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public override string ToString() { lock (items) return "[" + string.Join(", ", items) + "]"; }
+}
+
+/// <summary>
+/// Java's PriorityQueue: Java's binary heap, so that its iteration order and the order of equal elements are Java's.
+/// The head is [0]; Offer, PollFirst, PeekFirst and RemoveFirst are the Queue's methods, as on a list.
+/// </summary>
+public sealed class JavaPriorityQueue<T> : ICollection<T>
+{
+    private readonly List<T> heap;
+    private readonly Comparison<T> comparison;
+
+    public JavaPriorityQueue() : this(11, (Comparison<T>?) null)
+    {
+    }
+
+    public JavaPriorityQueue(int initialCapacity) : this(initialCapacity, (Comparison<T>?) null)
+    {
+    }
+
+    public JavaPriorityQueue(Comparison<T>? comparison) : this(11, comparison)
+    {
+    }
+
+    public JavaPriorityQueue(int initialCapacity, Comparison<T>? comparison)
+    {
+        if (initialCapacity < 1) throw new ArgumentException("initialCapacity " + initialCapacity);
+        heap = new List<T>(initialCapacity);
+        this.comparison = comparison ?? Comparer<T>.Default.Compare;
+    }
+
+    public JavaPriorityQueue(IEnumerable<T> elements) : this(11, (Comparison<T>?) null)
+    {
+        foreach (var x in elements) Add(x);
+    }
+
+    public int Count => heap.Count;
+
+    public bool IsReadOnly => false;
+
+    public T this[int index] => heap[index];
+
+    public Comparison<T> Comparator() => comparison;
+
+    public void Add(T item) => Offer(item);
+
+    public bool Offer(T item)
+    {
+        if (item is null) throw new NullReferenceException();
+        heap.Add(item);
+        SiftUp(heap.Count - 1, item);
+        return true;
+    }
+
+    public T? PeekFirst() => heap.Count == 0 ? default : heap[0];
+
+    public T? PollFirst() => heap.Count == 0 ? default : RemoveFirst();
+
+    public T RemoveFirst()
+    {
+        if (heap.Count == 0) throw new InvalidOperationException("empty");
+        var result = heap[0];
+        int last = heap.Count - 1;
+        var x = heap[last];
+        heap.RemoveAt(last);
+        if (last > 0) SiftDown(0, x);
+        return result;
+    }
+
+    public bool Remove(T item)
+    {
+        int i = IndexOf(item);
+        if (i < 0) return false;
+        RemoveAt(i);
+        return true;
+    }
+
+    public bool Contains(T item) => IndexOf(item) >= 0;
+
+    public void Clear() => heap.Clear();
+
+    public void CopyTo(T[] array, int index) => heap.CopyTo(array, index);
+
+    public IEnumerator<T> GetEnumerator() => heap.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public override string ToString() => "[" + string.Join(", ", heap) + "]";
+
+    private int IndexOf(T item)
+    {
+        if (item is null) return -1;
+        var equality = EqualityComparer<T>.Default;
+        for (int i = 0; i < heap.Count; i++) if (equality.Equals(item, heap[i])) return i;
+        return -1;
+    }
+
+    private void RemoveAt(int i)
+    {
+        int last = heap.Count - 1;
+        if (last == i)
+        {
+            heap.RemoveAt(i);
+            return;
+        }
+        var moved = heap[last];
+        heap.RemoveAt(last);
+        SiftDown(i, moved);
+        if (ReferenceEquals(heap[i], moved) || Equals(heap[i], moved)) SiftUp(i, moved);
+    }
+
+    private void SiftUp(int k, T x)
+    {
+        while (k > 0)
+        {
+            int parent = (k - 1) >>> 1;
+            var e = heap[parent];
+            if (comparison(x, e) >= 0) break;
+            heap[k] = e;
+            k = parent;
+        }
+        heap[k] = x;
+    }
+
+    private void SiftDown(int k, T x)
+    {
+        int n = heap.Count;
+        int half = n >>> 1;
+        while (k < half)
+        {
+            int child = (k << 1) + 1;
+            var c = heap[child];
+            int right = child + 1;
+            if (right < n && comparison(c, heap[right]) > 0) c = heap[child = right];
+            if (comparison(x, c) <= 0) break;
+            heap[k] = c;
+            k = child;
+        }
+        heap[k] = x;
+    }
+}
+
+/// <summary>
+/// Java's DecimalFormat, for the patterns .NET's custom numeric format strings share with it ("#,##0.00", "0.###E0",
+/// "#%"): rounded half to even first, as Java's is, and "0" where no digit would show, a zero by "#", where .NET
+/// prints nothing. The symbols are a culture's (DecimalFormatSymbols), by default the current one.
+/// </summary>
+public sealed class JavaDecimalFormat
+{
+    private readonly string pattern;
+    private readonly int fractionDigits;
+    private CultureInfo culture = CultureInfo.CurrentCulture;
+
+    public JavaDecimalFormat(string pattern)
+    {
+        this.pattern = pattern;
+        string number = pattern.Split(';')[0];
+        int e = number.IndexOfAny(new[] { 'E', 'e' });
+        if (e >= 0) number = number[..e];
+        int point = number.IndexOf('.');
+        fractionDigits = point < 0 ? 0 : number[(point + 1)..].Count(c => c == '0' || c == '#');
+    }
+
+    public void SetDecimalFormatSymbols(CultureInfo symbols) => culture = symbols;
+
+    public string Format(double number)
+    {
+        if (double.IsNaN(number)) return culture.NumberFormat.NaNSymbol;
+        bool exponent = pattern.Contains('E') || pattern.Contains('e');
+        bool percent = pattern.Contains('%');
+        bool scaled = exponent || percent || pattern.Contains('‰');
+        double rounded = !scaled && fractionDigits <= 15 ? Math.Round(number, fractionDigits, MidpointRounding.ToEven) : number;
+        string s = rounded.ToString(pattern, culture);
+        // "#" of 0: Java prints a 0 where no digit would show, .NET nothing; "#.##" of 0.5 is ".5" in both
+        if (s.Length == 0) return "0";
+        if (s == culture.NumberFormat.NegativeSign) return s + "0";
+        return s;
+    }
+
+    public string Format(long number) => Format((double) number);
+
+    public override string ToString() => pattern;
+}
+
+/// <summary>Java's MathContext: a precision in significant digits, 0 for unlimited, and a rounding.</summary>
+public readonly record struct JavaMathContext(int Precision, MidpointRounding Rounding)
+{
+    public JavaMathContext(int precision) : this(precision, MidpointRounding.ToEven)
+    {
+    }
+
+    public static readonly JavaMathContext Unlimited = new(0, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal32 = new(7, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal64 = new(16, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal128 = new(34, MidpointRounding.ToEven);
+
+    public int GetPrecision() => Precision;
+
+    public MidpointRounding GetRoundingMode() => Rounding;
+}
+
+/// <summary>BigDecimal's operations with a MathContext, on C#'s decimal, whose precision is 28 or 29 digits.</summary>
+public static class JavaDecimals
+{
+    /// <summary>BigDecimal.round: to the context's significant digits.</summary>
+    public static decimal Round(this decimal value, JavaMathContext mc)
+    {
+        if (mc.Precision == 0 || value == 0m) return value;
+        int digits = IntegerDigits(value);
+        int scale = mc.Precision - digits;
+        if (scale >= 0) return Math.Round(value, Math.Min(scale, 28), mc.Rounding);
+        decimal factor = Pow10(-scale);
+        return Math.Round(value / factor, 0, mc.Rounding) * factor;
+    }
+
+    /// <summary>
+    /// BigDecimal.sqrt: rounded to the context; an exact root's trailing zeros stripped down to half the value's scale,
+    /// Java's preferred scale.
+    /// </summary>
+    public static decimal Sqrt(this decimal value, JavaMathContext mc)
+    {
+        if (value < 0m) throw new ArithmeticException("Attempted square root of negative BigDecimal");
+        if (value == 0m) return 0m;
+        decimal x = (decimal) Math.Sqrt((double) value);
+        for (int i = 0; i < 4; i++) x = (x + value / x) / 2m;
+        decimal r = x.Round(mc);
+        if (r * r != value) return r;
+        int preferred = value.Scale / 2;
+        decimal stripped = r / 1.0000000000000000000000000000m;
+        return stripped.Scale >= preferred ? stripped : stripped + new decimal(0, 0, 0, false, (byte) preferred);
+    }
+
+    /// <summary>BigDecimal.divide(divisor, mc).</summary>
+    public static decimal Divide(this decimal value, decimal divisor, JavaMathContext mc) => (value / divisor).Round(mc);
+
+    private static int IntegerDigits(decimal value)
+    {
+        decimal a = Math.Abs(value);
+        int digits = 0;
+        if (a >= 1m)
+        {
+            while (a >= 1m) { a /= 10m; digits++; }
+            return digits;
+        }
+        while (a < 0.1m) { a *= 10m; digits--; }
+        return digits;
+    }
+
+    private static decimal Pow10(int n)
+    {
+        decimal p = 1m;
+        for (int i = 0; i < n; i++) p *= 10m;
+        return p;
+    }
+}
+
+/// <summary>Java's seeded and split random generators as .NET's Random.</summary>
+public static class JavaRandoms
+{
+    /// <summary>A long seed as Random's int one.</summary>
+    public static int Seed(long seed) => unchecked((int) (seed ^ (seed >>> 32)));
+
+    /// <summary>SplittableGenerator.split: a new generator, seeded from this one.</summary>
+    public static Random Split(this Random random) => new Random(Seed(random.NextInt64()));
+
+    /// <summary>RandomGenerator.nextDouble(origin, bound).</summary>
+    public static double NextDouble(this Random random, double origin, double bound)
+    {
+        if (!(origin < bound)) throw new ArgumentException("bound must be greater than origin");
+        double r = origin + random.NextDouble() * (bound - origin);
+        return r < bound ? r : Math.BitDecrement(bound);
+    }
+
+    /// <summary>RandomGenerator.nextFloat(bound).</summary>
+    public static float NextSingle(this Random random, float bound) => random.NextSingle(0f, bound);
+
+    /// <summary>RandomGenerator.nextFloat(origin, bound).</summary>
+    public static float NextSingle(this Random random, float origin, float bound)
+    {
+        if (!(origin < bound)) throw new ArgumentException("bound must be greater than origin");
+        float r = origin + random.NextSingle() * (bound - origin);
+        return r < bound ? r : MathF.BitDecrement(bound);
+    }
+
+    /// <summary>Random.nextGaussian: Box and Muller's transform, mean 0 and standard deviation 1.</summary>
+    public static double NextGaussian(this Random random)
+    {
+        double u = 1.0 - random.NextDouble();
+        double v = random.NextDouble();
+        return Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * v);
+    }
+
+    public static double NextGaussian(this Random random, double mean, double stddev)
+    {
+        if (stddev < 0.0) throw new ArgumentException("standard deviation must be non-negative");
+        return mean + stddev * random.NextGaussian();
+    }
+
+    /// <summary>Random.nextBytes of Java's signed bytes.</summary>
+    public static void NextBytes(this Random random, sbyte[] bytes) => random.NextBytes(MemoryMarshal.Cast<sbyte, byte>(bytes.AsSpan()));
 }
