@@ -166,6 +166,7 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 static <G, H> Map<G, H> keyed(java.util.function.Function<? super H, ? extends G> key) {
                     return new HashMap<>();
                 }
+                static <M, N> Map<M, N> orEmpty(Map<M, N> m) { return m == null ? Map.of() : m; }
                 static class Sub<S, U> extends Index<S, U> { }
                 static class Plain<P> { P value; }
             }
@@ -191,6 +192,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         // through a wildcard: E is passed as ? extends G
         contains(cs, "where E : notnull");
         contains(cs, "where G : notnull");
+        // Map.of() is a new Dictionary
+        contains(cs, "where M : notnull");
         assertFalse(cs.contains("where D : notnull"), cs);
         assertFalse(cs.contains("where P : notnull"), cs);
         assertFalse(cs.contains("where V : notnull"), cs);

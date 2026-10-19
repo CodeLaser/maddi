@@ -42,7 +42,8 @@ import java.util.stream.Stream;
  * type parameter is expected, through a wildcard too ({@code ? extends K} is {@code K} in C#): a generic type's
  * argument (its supertypes' too), a generic method's argument as the method's parameters receive it. An override
  * family shares its type parameters' constraints, which C# lets only the first declaration state. {@code Map} itself
- * is {@code IDictionary}, which takes any key.
+ * is {@code IDictionary}, which takes any key; the result of {@code Map.of()}, {@code ofEntries} and {@code copyOf}
+ * is a Dictionary.
  */
 final class CSharpNotNullKeys {
 
@@ -51,6 +52,10 @@ final class CSharpNotNullKeys {
             "java.util.TreeMap", "java.util.SortedMap", "java.util.NavigableMap", "java.util.SequencedMap",
             "java.util.EnumMap", "java.util.IdentityHashMap", "java.util.WeakHashMap",
             "java.util.concurrent.ConcurrentHashMap", "java.util.concurrent.ConcurrentSkipListMap");
+
+    /** The JDK's factories of a Map that CSharpBcl prints as a Dictionary, {@code Map.of()}: its result's key. */
+    private static final Set<String> DICTIONARY_FACTORIES = Set.of("java.util.Map.of", "java.util.Map.ofEntries",
+            "java.util.Map.copyOf");
 
     /** flagged(key) implies flagged(each value): the type parameter passed where the key is expected. */
     private final Map<TypeParameter, Set<TypeParameter>> passedTo = new HashMap<>();
@@ -93,7 +98,10 @@ final class CSharpNotNullKeys {
         body.visit(e -> {
             if (e instanceof Expression ex) {
                 if (ex.parameterizedType() != null) use(ex.parameterizedType());
-                if (ex instanceof MethodCall mc) call(mc.methodInfo(), mc.parameterExpressions());
+                if (ex instanceof MethodCall mc) {
+                    call(mc.methodInfo(), mc.parameterExpressions());
+                    dictionaryFactory(mc);
+                }
                 else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
                     call(cc.constructor(), cc.parameterExpressions());
                 }
@@ -102,6 +110,16 @@ final class CSharpNotNullKeys {
             }
             return true;
         });
+    }
+
+    /** {@code Map.of()} of a {@code Map<K, V>}: C#'s {@code new Dictionary<K, V>}, whose K is not null. */
+    private void dictionaryFactory(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        if (m == null || !DICTIONARY_FACTORIES.contains(m.typeInfo().fullyQualifiedName() + "." + m.name())) return;
+        ParameterizedType result = mc.parameterizedType();
+        if (result != null && !result.parameters().isEmpty() && plain(result.parameters().getFirst())) {
+            seeds.add(result.parameters().getFirst().typeParameter());
+        }
     }
 
     /** A generic method's type parameters as its arguments give them. */
