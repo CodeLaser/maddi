@@ -505,7 +505,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             && m.methodBody().statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
             && rs.expression() != null) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, q));
+                    .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, type, q));
         }
         return b;
     }

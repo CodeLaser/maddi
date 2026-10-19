@@ -178,6 +178,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's {@code @Extension(ordinal = 1000)}: an int into the annotation's {@code double ordinal()}, which Java
+     * widens and Kotlin does not.
+     */
+    @Test
+    public void annotationValueWidened() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Extension {
+                    double ordinal() default 0;
+                    long size() default 1;
+                }
+                @Extension(ordinal = 1000, size = 2)
+                class Impl { }
+                @Extension(ordinal = -1)
+                class Low { }
+                """);
+        contains(kotlin, "ordinal = 1000.0");
+        contains(kotlin, "ordinal = -1.0");
+        contains(kotlin, "val ordinal: Double = 0.0");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's CLICommand.handleException: a switch of type patterns, {@code case CmdLineException c -> …}, a guarded
      * one, and {@code case null, default}: Kotlin's {@code is} arms, the pattern variable the smart-cast selector,
      * a guard's {@code if}, and else.
