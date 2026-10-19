@@ -1394,8 +1394,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
 
     /**
      * guava's ClassToInstanceMap: {@code <T extends @NonNull B> T getInstance(Class<T> type)}, {@code putInstance(
-     * Class<@NonNull T> type, T value)}, implemented without the annotation: the bound and the parameter type stay
-     * as the override says them, which Kotlin wants exactly.
+     * Class<@NonNull T> type, T value)}, implemented without the annotation: Kotlin wants an override's exactly. The
+     * bound is the root declaration's, {@code T : B & Any} in both; the parameter type stays plain in both.
      */
     @Test
     public void nonNullTypeVariableNotInSignatures() {
@@ -1413,7 +1413,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     public <T extends B> T putInstance(Class<T> type, T value) { return value; }
                 }
                 """);
-        assertFalse(kotlin.contains("& Any"), kotlin);
+        assertTrue(kotlin.split("fun <T : B & Any> getInstance\\(type: Class<T>\\)", -1).length == 3, kotlin);
+        assertFalse(kotlin.contains("T & Any"), kotlin);
     }
 
     /** guava's AbstractScheduledService.ReschedulableCallable: {@code Void call() { …; return null; }}, a Unit call(). */

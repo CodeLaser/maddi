@@ -213,6 +213,43 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * Null-marked bounds into signatures: an override repeats the overridden's {@code E : Any} (guava's
+     * AllEqualOrdering), whatever the verdict of its own E; a static method's {@code ? super @NonNull V} parameter is
+     * an {@code in V & Any} (Maps.difference into an Equivalence<T : Any>); {@code <T extends @NonNull B>} of a
+     * nullable-bounded B is {@code T : B & Any} (TypeToInstanceMap.getInstance into a TypeToken<T : Any>).
+     */
+    @Test
+    public void nonNullBoundsInSignatures() {
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of(), Set.of("<E>", "<T>", "<F>")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.*;
+                import org.jspecify.annotations.NonNull;
+                import org.jspecify.annotations.Nullable;
+                abstract class Eq<T> { abstract boolean same(T a, T b); }
+                abstract class Order<X> {
+                    <E> List<E> copy(Iterable<E> elements) { return new ArrayList<>(); }
+                }
+                class AllEqual extends Order<Object> {
+                    @Override <F> List<F> copy(Iterable<F> elements) { return new ArrayList<>(); }
+                }
+                class Diff {
+                    static <V extends @Nullable Object> boolean differ(V a, V b, Eq<? super @NonNull V> eq) {
+                        return a != null && b != null && !eq.same(a, b);
+                    }
+                }
+                class Tok<T> { }
+                interface Instances<B extends @Nullable Object> {
+                    <T extends @NonNull B> @Nullable T get(Tok<T> type);
+                }
+                """, options, t -> { });
+        contains(kotlin, "fun <F : Any> copy(");
+        contains(kotlin, "eq: Eq<in V & Any>");
+        contains(kotlin, "fun <T : B & Any> get(");
+    }
+
+    /**
      * guava's LocalCache<K : Any, V : Any> overrides Map's merge and computeIfPresent: their V & Any is just V, as
      * Kotlin takes an intersection only of a nullable-bounded type variable.
      */
