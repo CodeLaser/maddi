@@ -152,6 +152,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's DefaultGrpcClientConfig: {@code private String name} beside {@code name()} of the RpcClientConfig
+     * interface, a property in Kotlin: the field is renamed, as an enum's is.
+     */
+    @Test
+    public void nameFieldBesideNameProperty() {
+        String kotlin = kotlin("""
+                package a;
+                interface ClientConfig {
+                    String name();
+                }
+                class GrpcConfig implements ClientConfig {
+                    private String name = "grpc";
+                    @Override
+                    public String name() {
+                        return this.name;
+                    }
+                    public void setName(String name) {
+                        this.name = name;
+                    }
+                }
+                """);
+        contains(kotlin, "_name");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
      * no companion object; nothing of it uses the outer instance, so it is a nested class.
      */

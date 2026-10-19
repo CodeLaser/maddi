@@ -104,11 +104,18 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         return clashesWithMappedProperty(fieldInfo) || hidesSuperclassField(fieldInfo) || hidesEnumProperty(fieldInfo);
     }
 
-    /** nacos's BaseHttpMethod: an enum's {@code private String name}, which Kotlin's Enum.name would hide. */
+    /**
+     * nacos's BaseHttpMethod: an enum's {@code private String name}, which Kotlin's Enum.name would hide; and
+     * DefaultGrpcClientConfig's, beside its {@code name()} of RpcClientConfig, a property in Kotlin (see
+     * {@link KotlinMappedMembers#enumProperty}).
+     */
     private static boolean hidesEnumProperty(FieldInfo fieldInfo) {
-        return KotlinContext.translatingJava() && !fieldInfo.isStatic() && fieldInfo.owner() != null
-               && fieldInfo.owner().typeNature().isEnum()
-               && ("name".equals(fieldInfo.name()) || "ordinal".equals(fieldInfo.name()));
+        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.owner() == null
+            || !"name".equals(fieldInfo.name()) && !"ordinal".equals(fieldInfo.name())) {
+            return false;
+        }
+        return fieldInfo.owner().typeNature().isEnum() || fieldInfo.owner().methods().stream()
+                .anyMatch(m -> m.name().equals(fieldInfo.name()) && KotlinMappedMembers.enumProperty(m));
     }
 
     private static boolean hidesSuperclassField(FieldInfo fieldInfo) {

@@ -178,9 +178,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else if (typeInfo.typeNature().isInterface()) {
                 // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`; a generic method
                 // cannot be one's, nor is it a lambda's target in Java
+                // nor one whose method is a property, String name() (nacos's RpcClientConfig)
                 if (companion && typeInfo.isFunctionalInterface() && !typeInfo.typeNature().isAnnotation()
                     && (typeInfo.singleAbstractMethod() == null
-                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty())) {
+                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty()
+                           && !KotlinMappedMembers.enumProperty(typeInfo.singleAbstractMethod()))) {
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
