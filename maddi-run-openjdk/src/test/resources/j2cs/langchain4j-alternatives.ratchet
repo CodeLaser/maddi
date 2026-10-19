@@ -40,9 +40,11 @@
 # 2026-10-19, maddi d62fc3f33, 3e3d94d4a: CompletableFuture completed and cancelled from outside, a shutting-down executor
 # (JavaExecutorService), thread interrupts, TimeUnit: 299 -> 300 compiling files, 198 -> 197 errors, unmapped JDK uses
 # 152 -> 151.
+# 2026-10-19, maddi d31f0f731, e9a7e4927, 9680a9230: a raw cast into a parameterized target, an array of a type parameter as
+# Object[], an array as varargs arguments, getMethod's types, Map.of()'s key notnull: 300 -> 301 compiling files, 197 -> 191 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	300
+compilingFiles	301
 unmappedJdkUses	151
