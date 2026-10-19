@@ -54,6 +54,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     /**
+     * nacos's AbstractHealthChecker, annotated with its own nested class ({@code defaultImpl = None.class}), which
+     * Kotlin resolves outside the class: AbstractHealthChecker.None. And NacosInjected's {@code default @NacosProperties},
+     * an annotation instance: NacosProperties().
+     */
+    @Test
+    public void annotationsNamingNestedClassesAndAnnotationDefaults() {
+        String kotlin = kotlin("""
+                package a;
+                import a.Checker.None;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME) @interface Impl { Class<?> value(); String name() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Props { String endpoint() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Injected { Props properties() default @Props; }
+                @Impl(value = None.class, name = None.TYPE)
+                abstract class Checker {
+                    static class None extends Checker { static final String TYPE = "NONE"; }
+                }
+                """);
+        contains(kotlin, "Checker.None::class");
+        contains(kotlin, "Checker.None.TYPE");
+        contains(kotlin, "= Props()");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's NacosProperties: an annotation type whose constants concatenate other constants, and whose parameters
      * default to them: {@code const val}s, as Kotlin wants for an annotation parameter's default.
      */

@@ -68,7 +68,9 @@ final class KotlinAnnotations {
     private static OutputBuilder annotation(AnnotationExpression ae, String at, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl().add(new TextImpl(at + annotationName(ae.typeInfo(), q)));
         List<AnnotationExpression.KV> kvs = ae.keyValuePairs();
-        if (kvs.isEmpty()) return b;
+        // an annotation as a value is a constructor call: nacos's NacosProperties properties() default
+        // @NacosProperties is NacosProperties(), where the bare name is its companion
+        if (kvs.isEmpty()) return at.isEmpty() ? b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS) : b;
         b.add(SymbolEnum.LEFT_PARENTHESIS);
         boolean translated = KotlinNullability.translated(ae.typeInfo());
         // Kotlin hands a positional argument to the annotation class's first parameter, which is Java's value only

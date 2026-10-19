@@ -140,7 +140,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
-            out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
+            // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
+            // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
+            out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
             if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
                 && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
