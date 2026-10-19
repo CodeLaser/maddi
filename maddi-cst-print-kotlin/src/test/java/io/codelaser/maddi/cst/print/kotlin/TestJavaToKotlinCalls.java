@@ -539,6 +539,25 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
+     * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
+     */
+    @Test
+    public void unboundReferenceOfLibraryGeneric() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Members {
+                    static List<String> simple(Collection<String> members) {
+                        return members.stream().sorted().collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+                    }
+                }
+                """);
+        contains(kotlin, "ArrayList<String> ::add");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's ClientAttributesFilter: {@code attributes.getClientAttribute(KEY) == null}, a {@code <T> T} result
      * compared with null, which fixes no T.
      */

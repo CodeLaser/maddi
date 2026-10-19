@@ -2594,9 +2594,11 @@ public class KotlinExpressionPrinter {
         if (scope instanceof TypeExpression te) {
             TypeInfo owner = te.parameterizedType().typeInfo();
             String name = mr.methodInfo().isStatic() ? KotlinTypeName.staticOwner(owner, q) : KotlinTypeName.name(owner, q);
-            if (KotlinContext.translatingJava() && !owner.typeParameters().isEmpty() && KotlinNullability.translated(owner)) {
+            if (KotlinContext.translatingJava() && !owner.typeParameters().isEmpty()
+                && (KotlinNullability.translated(owner) || !m.isStatic())) {
                 // Acc::create, Acc::add on a generic class of ours: Kotlin wants the class's type arguments, and finds
-                // a static in the companion
+                // a static in the companion. A library class's too: nacos's collect(ArrayList::new, ArrayList::add,
+                // ArrayList::addAll), ArrayList<String>::add
                 ParameterizedType receiver = m.isStatic() ? null : referenceReceiver(mr, owner);
                 if (m.isStatic()) name += ".Companion";
                 else if (receiver != null) name = KotlinTypeName.of(receiver
