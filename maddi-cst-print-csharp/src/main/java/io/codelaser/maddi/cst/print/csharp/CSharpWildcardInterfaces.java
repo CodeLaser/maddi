@@ -507,6 +507,11 @@ final class CSharpWildcardInterfaces {
         if (!(CSharpNames.translated(t) ? CSharpContext.program().delegate(t) : mapping != null && mapping.delegate())) {
             return false;
         }
+        // a program delegate's bounds, where Score_ : IScore<Score_>, no erased argument meets
+        if (CSharpNames.translated(t) && t.typeParameters().stream().anyMatch(tp -> tp.typeBounds().stream()
+                .anyMatch(bound -> !bound.isJavaLangObject()))) {
+            return false;
+        }
         MethodInfo sam = CSharpNames.singleAbstractMethod(t);
         if (sam == null) return false;
         for (ParameterizedType slot : samTypes(pt, sam)) {
