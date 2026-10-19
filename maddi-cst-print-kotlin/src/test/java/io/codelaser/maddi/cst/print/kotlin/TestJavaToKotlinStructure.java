@@ -127,6 +127,35 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's BaseHttpMethod and ConnectionType: an enum's own {@code name} field, which would hide Kotlin's
+     * Enum.name: renamed, as a field clashing with a mapped property is.
+     */
+    @Test
+    public void enumNameField() {
+        String kotlin = kotlin("""
+                package a;
+                enum Method {
+                    GET("get"), POST("post");
+                    private final String name;
+                    Method(String name) {
+                        this.name = name;
+                    }
+                    public String getName() {
+                        return name;
+                    }
+                    static Method of(String name) {
+                        for (Method m : values()) {
+                            if (m.name.equals(name)) return m;
+                        }
+                        throw new IllegalArgumentException(name);
+                    }
+                }
+                """);
+        contains(kotlin, "_name");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
      * anonymous subclass with an instance initializer: an object expression whose init block puts.
      */
