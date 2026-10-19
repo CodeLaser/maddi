@@ -612,9 +612,8 @@ public class KotlinStatementPrinter {
                 .add(selector(selector, labels, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
         boolean intSelector = isIntSelector(selector, labels);
-        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, intSelector, q)).toList());
-        boolean hasElse = entries.stream().anyMatch(e -> e.conditions().isEmpty()
-                                                         || e.conditions().stream().allMatch(Expression::isEmpty));
+        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, selector, intSelector, q)).toList());
+        boolean hasElse = entries.stream().anyMatch(KotlinStatementPrinter::isDefault);
         if (statement && !hasElse) addElseWhenRequired(selector, arms);
         return b.add(arms.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE,
                 SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
@@ -633,11 +632,44 @@ public class KotlinStatementPrinter {
         }
     }
 
-    private static OutputBuilder whenEntry(SwitchEntry e, boolean intSelector, Qualification q) {
+    /**
+     * The default arm: no conditions, or a single empty-expression sentinel; {@code case null, default} too, Kotlin's
+     * else taking the null. Not a type pattern's arm, which has no conditions either.
+     */
+    private static boolean isDefault(SwitchEntry e) {
+        if (typePattern(e)) return false;
+        return e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty)
+               || e.conditions().stream().anyMatch(Expression::isEmpty)
+                  && e.conditions().stream().allMatch(c -> c.isEmpty() || c instanceof NullConstant);
+    }
+
+    /** {@code case CmdLineException c ->}: a type pattern, Java 21's. Not a record's deconstruction. */
+    private static boolean typePattern(SwitchEntry e) {
+        return e.patternVariable() != null
+               && (e.patternVariable().patterns() == null || e.patternVariable().patterns().isEmpty())
+               && (e.patternVariable().localVariable() != null || e.patternVariable().recordType() != null);
+    }
+
+    private static OutputBuilder whenEntry(SwitchEntry e, Expression selector, boolean intSelector, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
-        // the default arm has no conditions, or a single empty-expression sentinel
-        boolean isElse = e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty);
-        if (isElse) {
+        if (typePattern(e)) {
+            // jenkins's CLICommand.handleException: case CmdLineException cmdLineException -> …, Kotlin's
+            // is CmdLineException ->, where the variable is the selector, smart-cast (or cast) to the type
+            io.codelaser.maddi.cst.api.element.RecordPattern pattern = e.patternVariable();
+            ParameterizedType type = pattern.localVariable() != null ? pattern.localVariable().parameterizedType()
+                    : pattern.recordType();
+            if (pattern.localVariable() != null && !pattern.unnamedPattern()) {
+                KotlinExpressionPrinter.registerPattern(pattern.localVariable(), selector, type, q);
+            }
+            b.add(new TextImpl("is " + KotlinTypeName.of(type.withNullable(
+                    io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
+            if (e.whenExpression() != null && !e.whenExpression().isEmpty()) {
+                // case X x when cond: Kotlin's guard
+                b.add(SpaceEnum.ONE).add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(e.whenExpression(), q));
+            }
+            return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
+        }
+        if (isDefault(e)) {
             b.add(KotlinKeyword.ELSE_ARROW);
         } else {
             b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, intSelector, q))

@@ -178,6 +178,44 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's CLICommand.handleException: a switch of type patterns, {@code case CmdLineException c -> …}, a guarded
+     * one, and {@code case null, default}: Kotlin's {@code is} arms, the pattern variable the smart-cast selector,
+     * a guard's {@code if}, and else.
+     */
+    @Test
+    public void typePatternSwitch() {
+        String kotlin = kotlin("""
+                package a;
+                class Handler {
+                    static int exitCode(Throwable e) {
+                        int code;
+                        switch (e) {
+                            case IllegalArgumentException iae -> code = iae.getMessage() == null ? 2 : 3;
+                            case IllegalStateException ise when ise.getCause() != null -> code = 4;
+                            case RuntimeException re -> {
+                                code = 5;
+                                System.out.println(re.getMessage());
+                            }
+                            case null, default -> code = 1;
+                        }
+                        return code;
+                    }
+                    static String kind(Object o) {
+                        return switch (o) {
+                            case String s -> s.trim();
+                            case Integer i -> Integer.toString(i + 1);
+                            default -> "?";
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "is IllegalArgumentException ->");
+        contains(kotlin, "is IllegalStateException if ");
+        contains(kotlin, "is String -> o.trim()");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
      * no companion object; nothing of it uses the outer instance, so it is a nested class.
      */

@@ -3752,12 +3752,18 @@ public class KotlinExpressionPrinter {
     private static void registerPattern(InstanceOf io, Qualification q) {
         if (io.patternVariable() == null || io.patternVariable().unnamedPattern()
             || io.patternVariable().localVariable() == null) return;
-        Expression tested = unwrap(io.expression());
+        registerPattern(io.patternVariable().localVariable(), io.expression(), io.testType(), q);
+    }
+
+    /** As {@link #registerPattern(InstanceOf, Qualification)}, for {@code variable} of {@code type} bound by {@code tested}. */
+    static void registerPattern(io.codelaser.maddi.cst.api.variable.LocalVariable variable, Expression testedExpression,
+                                ParameterizedType testType, Qualification q) {
+        Expression tested = unwrap(testedExpression);
         boolean smartCast = tested instanceof VariableExpression ve
                             && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
                                 || ve.variable() instanceof ParameterInfo);
-        String type = KotlinTypeName.of(io.testType(), q);
-        KotlinContext.patternVariable(io.patternVariable().localVariable(), smartCast
+        String type = KotlinTypeName.of(testType, q);
+        KotlinContext.patternVariable(variable, smartCast
                 ? () -> print(tested, q)
                 : () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, tested, q))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
