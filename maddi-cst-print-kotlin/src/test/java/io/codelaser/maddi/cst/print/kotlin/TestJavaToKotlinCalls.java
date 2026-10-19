@@ -539,6 +539,158 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's GroupCapacityPersistService, {@code List<String> columnList = CollectionUtils.list()}: an empty varargs
+     * fixes no T, the local's type does; and {@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))},
+     * whose argument is typed by its target only. Both locals keep their types.
+     */
+    @Test
+    public void targetTypedLocal() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Targeted {
+                    static class Key<T> {
+                        static <T> Key<T> valueOf(String name) {
+                            return new Key<>();
+                        }
+                    }
+                    static class Attr<T> {
+                        T value;
+                    }
+                    static <T> Attr<T> attr(Key<T> key) {
+                        return new Attr<>();
+                    }
+                    @SafeVarargs
+                    static <T> List<T> list(T... elements) {
+                        return new ArrayList<>(Arrays.asList(elements));
+                    }
+                    static int use() {
+                        List<String> columns = list();
+                        columns.add("x");
+                        Attr<Boolean> tls = attr(Key.valueOf("TLS"));
+                        return columns.size() + (tls.value == null ? 0 : 1);
+                    }
+                }
+                """);
+        contains(kotlin, "val columns: MutableList<String>");
+        contains(kotlin, "val tls: Attr<Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's AbstractRequestFilter: {@code <T> Response getDefaultResponseInstance(Class)}, a type parameter neither
+     * the parameters nor the result mention; and CollectionUtils {@code List columnList = list()}, an empty varargs
+     * into a raw local. Nothing fixes T, which Java erases to Object.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void unfixableTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Unfixed {
+                    static <T> String name(Class c) {
+                        return c.getName();
+                    }
+                    @SafeVarargs
+                    static <T> List<T> list(T... elements) {
+                        return new ArrayList<>(Arrays.asList(elements));
+                    }
+                    static int use() {
+                        String n = name(String.class);
+                        List columns = list();
+                        columns.add(n);
+                        return columns.size();
+                    }
+                }
+                """);
+        contains(kotlin, "name<Any?>(");
+        contains(kotlin, "list<Any");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's CollectionUtils.getCardinalityMap: {@code Map count = new HashMap(coll.size())}, a raw construction into
+     * a raw local, which fixes no type arguments: the erasure, HashMap<Any?, Any?>; as into a raw field or the return
+     * of a raw method (nacos's NoneSelector). A typed target keeps inferring.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawConstruction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Raw {
+                    private Map cache = new HashMap();
+                    static Map make() {
+                        return new HashMap();
+                    }
+                    static int count(Collection coll) {
+                        Map count = new HashMap(coll.size());
+                        return count.size();
+                    }
+                    static List<String> typed() {
+                        List<String> list = new ArrayList();
+                        return list;
+                    }
+                }
+                """);
+        contains(kotlin, "HashMap<Any?, Any?>(coll.size)");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's IoUtils and ByteUtils: {@code str.getBytes(encoding)} and {@code new String(bytes, encoding)} with a
+     * charset's name, where Kotlin's toByteArray and String take a Charset: charset(encoding).
+     */
+    @Test
+    public void charsetNames() throws Exception {
+        String kotlin = kotlin("""
+                package a;
+                import java.nio.charset.StandardCharsets;
+                class Codec {
+                    static byte[] encode(String s, String encoding) throws Exception { return s.getBytes(encoding); }
+                    static byte[] utf8(String s) { return s.getBytes(StandardCharsets.UTF_8); }
+                    static String decode(byte[] bytes, String encoding) throws Exception { return new String(bytes, encoding); }
+                    static String part(byte[] bytes) throws Exception { return new String(bytes, 0, 2, "UTF-8"); }
+                }
+                """);
+        contains(kotlin, "s.toByteArray(charset(encoding))");
+        contains(kotlin, "s.toByteArray(StandardCharsets.UTF_8)");
+        contains(kotlin, "String(bytes, charset(encoding))");
+        contains(kotlin, "String(bytes, 0, 2, charset(\"UTF-8\"))");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's StringUtils: a final local assigned inside a condition, {@code (strLen = cs.length()) == 0}, which
+     * Kotlin assigns in an {@code .also} lambda: a var starting at 0; and String.regionMatches with ignoreCase first in
+     * Java, last in Kotlin.
+     */
+    @Test
+    public void localAssignedInAConditionAndRegionMatches() {
+        String kotlin = kotlin("""
+                package a;
+                class Strings {
+                    static boolean isBlank(CharSequence cs) {
+                        final int strLen;
+                        if (cs == null || (strLen = cs.length()) == 0) return true;
+                        for (int i = 0; i < strLen; i++) if (!Character.isWhitespace(cs.charAt(i))) return false;
+                        return true;
+                    }
+                    static boolean matches(String a, String b, boolean ignoreCase) {
+                        return a.regionMatches(ignoreCase, 0, b, 0, b.length());
+                    }
+                }
+                """);
+        contains(kotlin, "var strLen: Int = 0");
+        contains(kotlin, "a.regionMatches(0, b, 0, b.length,");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ClosingFuture.whenAllSucceed(inputFutures()) and CollectCollectors' checkNotNull(key, template, t): no
      * type arguments, which Java infers as a class without Kotlin's states, or where the varargs position is no
      * type variable's.

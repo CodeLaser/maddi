@@ -307,6 +307,35 @@ public class KotlinTypeName {
         }
     }
 
+    /**
+     * A raw type as Java erases it: each type parameter's bound, {@code Any?} for none ({@code Subscriber<Event>} of
+     * nacos's raw {@code Subscriber}, {@code MutableMap<Any?, Any?>} of a raw Map). A generic bound is star-projected,
+     * which a type argument may be. Null when {@code raw} is not a raw generic type.
+     */
+    static String erased(ParameterizedType raw, Qualification q) {
+        if (raw == null || raw.typeInfo() == null || raw.arrays() > 0 || !raw.parameters().isEmpty()
+            || raw.typeInfo().typeParameters().isEmpty()) return null;
+        String name = of(raw.withNullable(NullableState.NONNULL), q);
+        int lt = name.indexOf('<');
+        if (lt > 0) name = name.substring(0, lt);
+        StringBuilder sb = new StringBuilder(name).append('<');
+        java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> tps = raw.typeInfo().typeParameters();
+        for (int i = 0; i < tps.size(); i++) {
+            if (i > 0) sb.append(", ");
+            ParameterizedType bound = tps.get(i).typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst()
+                    .orElse(null);
+            if (bound == null || bound.typeInfo() == null) {
+                sb.append("Any?");
+            } else {
+                String b = of(bound.typeInfo().asSimpleParameterizedType(), q);
+                int blt = b.indexOf('<');
+                sb.append(bound.typeInfo().typeParameters().isEmpty() || blt < 0 ? b
+                        : b.substring(0, blt) + starProjections(bound.typeInfo()));
+            }
+        }
+        return sb.append('>').toString();
+    }
+
     private static String withoutWildcard(ParameterizedType pt, Qualification q) {
         if (pt.isTypeParameter()) return pt.typeParameter().simpleName();
         String base = mapped(pt.typeInfo().fullyQualifiedName());

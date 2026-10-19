@@ -393,7 +393,17 @@ public class KotlinExpressionPrinter {
                 b.add(new TextImpl(KotlinTypeName.staticOwner(named, q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
-            b.add(KotlinNullability.receiverWithDot(object, q));
+            String erased = rawReceiver(object, mc.methodInfo()) ? KotlinTypeName.erased(object.parameterizedType(), q) : null;
+            if (erased != null) {
+                // nacos's DefaultPublisher: subscriber.onEvent(event) on a raw Subscriber, Kotlin's Subscriber<*>,
+                // whose onEvent(T) takes nothing: the erasure Java calls it on, an unchecked cast
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, object, KotlinContext.describe(object));
+                b.add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, object, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(erased))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT);
+            } else {
+                b.add(KotlinNullability.receiverWithDot(object, q));
+            }
         }
         if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo()) || KotlinTypePrinter.isAnnotationElement(mc.methodInfo())) {
             // a data class's property; an annotation's element, Java's too, which Kotlin reads as a property
@@ -462,6 +472,11 @@ public class KotlinExpressionPrinter {
         if (renamed != null) {
             return b.add(new TextImpl(renamed)).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
+        if (charsetNameAt(mc.methodInfo()) >= 0) {
+            // str.getBytes(encoding) with a charset's name: Kotlin's toByteArray takes a Charset (nacos's IoUtils)
+            return b.add(new TextImpl("toByteArray")).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(charsetOf(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         String sameArguments = KotlinMappedMembers.renamed(mc.methodInfo());
         if (sameArguments != null) {
             return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
@@ -483,6 +498,15 @@ public class KotlinExpressionPrinter {
                     .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
             for (Expression a : args.subList(1, args.size())) call.add(SymbolEnum.COMMA).add(print(a, q));
             return call.add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
+        if ("regionMatches".equals(mc.methodInfo().name()) && mc.parameterExpressions().size() == 5
+            && "java.lang.String".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+            // Java's regionMatches(ignoreCase, toffset, other, ooffset, len) is Kotlin's
+            // regionMatches(thisOffset, other, otherOffset, length, ignoreCase) (nacos's StringUtils)
+            List<Expression> args = mc.parameterExpressions();
+            OutputBuilder call = b.add(new TextImpl("regionMatches")).add(SymbolEnum.LEFT_PARENTHESIS);
+            for (int i = 1; i < 5; i++) call.add(print(args.get(i), q)).add(SymbolEnum.COMMA);
+            return call.add(new TextImpl("ignoreCase =")).add(print(args.getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())) {
             return b.add(new TextImpl("equals")).add(SymbolEnum.LEFT_PARENTHESIS)
@@ -547,6 +571,67 @@ public class KotlinExpressionPrinter {
         ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
         return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
+    }
+
+    // calls assigned to a raw variable or returned from a raw method: nothing fixes their type arguments
+    private static final ThreadLocal<java.util.Set<Expression>> RAW_TARGET =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /**
+     * A generic class constructed raw, {@code new HashMap()}: no type arguments written, nor a diamond, into a raw
+     * target, which fixes none. Not where the target is typed, {@code List<String> l = new ArrayList()}: Kotlin infers.
+     */
+    private static boolean rawConstruction(ConstructorCall cc, ParameterizedType type) {
+        if (!RAW_TARGET.get().contains(cc) || cc.diamond() == null || !cc.diamond().isNo()) return false;
+        return rawGeneric(type);
+    }
+
+    /** A generic class without type arguments, or with {@code ?} only: Java's raw type, Kotlin's star projection. */
+    private static boolean rawGeneric(ParameterizedType type) {
+        if (type == null || type.typeInfo() == null || type.arrays() > 0 || type.typeInfo().typeParameters().isEmpty()) {
+            return false;
+        }
+        return type.parameters().isEmpty() || type.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard);
+    }
+
+    /**
+     * The index of a String's {@code charsetName} parameter, where Kotlin's member or constructor takes a Charset:
+     * {@code getBytes(String)}, {@code new String(byte[], String)}, {@code new String(byte[], int, int, String)}; -1
+     * for any other.
+     */
+    private static int charsetNameAt(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        if (!KotlinContext.translatingJava() || m == null || m.parameters().isEmpty()
+            || !"java.lang.String".equals(m.typeInfo().fullyQualifiedName())) return -1;
+        int last = m.parameters().size() - 1;
+        boolean name = m.parameters().get(last).parameterizedType().isJavaLangString();
+        if (!name) return -1;
+        if ("getBytes".equals(m.name()) && last == 0) return 0;
+        boolean bytes = m.parameters().getFirst().parameterizedType().arrays() == 1
+                        && m.parameters().getFirst().parameterizedType().componentType().isPrimitiveExcludingVoid();
+        return m.isConstructor() && bytes && (last == 1 || last == 3) ? last : -1;
+    }
+
+    /** {@code charset(name)}: Kotlin's Charset of a name, which throws as Java's would for an unsupported one. */
+    private static OutputBuilder charsetOf(Expression name, Qualification q) {
+        return new OutputBuilderImpl().add(new TextImpl("charset")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinNullability.asserted(name, KotlinPrintCode.ASSERT_INTO_NON_NULL, q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /**
+     * A raw receiver of a member whose parameters take its class's type variables: Kotlin's star projection of the
+     * raw type takes nothing there.
+     */
+    private static boolean rawReceiver(Expression object, io.codelaser.maddi.cst.api.info.MethodInfo method) {
+        ParameterizedType t = object.parameterizedType();
+        if (!KotlinContext.translatingJava() || method == null || method.isStatic() || t == null || t.typeInfo() == null
+            || t.arrays() > 0 || !t.parameters().isEmpty() || t.typeInfo().typeParameters().isEmpty()
+            || unwrap(object) instanceof TypeExpression) return false;
+        // a raw Comparable's compareTo has its own cast, to Comparable<Any?>
+        if ("compareTo".equals(method.name())) return false;
+        java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> own = method.typeInfo().typeParameters();
+        return !own.isEmpty() && method.parameters().stream()
+                .anyMatch(p -> own.stream().anyMatch(tp -> CstQueries.mentions(p.parameterizedType(), tp)));
     }
 
     /**
@@ -746,11 +831,19 @@ public class KotlinExpressionPrinter {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
         List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
         if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
+        // an empty varargs fixes nothing: nacos's List columnList = CollectionUtils.list()
+        boolean emptyVarargs = m.parameters().size() == mc.parameterExpressions().size() + 1 && m.parameters().getLast().isVarArgs();
         List<io.codelaser.maddi.cst.api.info.TypeParameter> resultOnly = typeParameters.stream()
-                .filter(tp -> m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp))).toList();
+                .filter(tp -> m.parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)
+                                                                     && !(emptyVarargs && p == m.parameters().getLast())))
+                .toList();
         if (resultOnly.isEmpty()) return null;
         boolean bounded = resultOnly.stream().anyMatch(tp -> bound(tp) != null);
-        boolean noExpectedType = noExpectedType(mc);
+        // nor does an expected type fix one the result does not mention (nacos's <T> Response
+        // getDefaultResponseInstance(Class)), nor a raw target
+        boolean unfixable = RAW_TARGET.get().contains(mc)
+                            || resultOnly.stream().anyMatch(tp -> !CstQueries.mentions(m.returnType(), tp));
+        boolean noExpectedType = unfixable || noExpectedType(mc);
         if (!bounded && !noExpectedType) return null;
         Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
                 ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
@@ -764,7 +857,8 @@ public class KotlinExpressionPrinter {
                     if (!noExpectedType) return null;
                     // guava's CollectCollectors.TO_IMMUTABLE_ENUM_SET: (Collector) toImmutableEnumSetGeneric(), whose
                     // E extends Enum<E> no Any satisfies; Nothing satisfies every bound, and the cast checks nothing
-                    printed.add(tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()) ? "Nothing" : "Any");
+                    printed.add(tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()) ? "Nothing"
+                                : unfixable ? "Any?" : "Any");
                     continue;
                 }
             }
@@ -1831,6 +1925,20 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        Expression call = unwrap(e);
+        if (KotlinContext.translatingJava() && (call instanceof ConstructorCall || call instanceof MethodCall)
+            && rawGeneric(target)) {
+            boolean added = RAW_TARGET.get().add(call);
+            try {
+                return assignedTo(e, target, q);
+            } finally {
+                if (added) RAW_TARGET.get().remove(call);
+            }
+        }
+        return assignedTo(e, target, q);
+    }
+
+    private static OutputBuilder assignedTo(Expression e, ParameterizedType target, Qualification q) {
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && target.typeInfo() != null
             && unwrap(e) instanceof VariableExpression ve) {
             ParameterizedType erasure = KotlinTypeName.constructorTypeParameterErasure(ve.parameterizedType());
@@ -2522,8 +2630,25 @@ public class KotlinExpressionPrinter {
         // new ImmediateFuture<@Nullable Object>(null): the type-use annotation makes the argument an Any?
         ParameterizedType declared = KotlinContext.translatingJava() ? KotlinTypePrinter.declaredArguments(type) : type;
         String constructed = KotlinTypeName.constructed(declared, q);
+        if (rawConstruction(cc, type)) {
+            // nacos's Map count = new HashMap(coll.size()), into a raw MutableMap<*, *> that fixes no K and V: Java's
+            // raw construction is its erasure, HashMap<Any?, Any?>
+            String erased = KotlinTypeName.erased(type, q);
+            if (erased != null) constructed = erased;
+        }
         if (type.typeInfo() != null && type.typeInfo().isInnerClass()) {
             constructed = simpleInner(constructed, type.typeInfo());
+        }
+        int charsetName = charsetNameAt(cc.constructor());
+        if (charsetName >= 0) {
+            // new String(bytes, encoding) with a charset's name: Kotlin's String(ByteArray, Charset) (nacos's ByteUtils)
+            OutputBuilder call = b.add(new TextImpl(constructed)).add(SymbolEnum.LEFT_PARENTHESIS);
+            for (int i = 0; i < cc.parameterExpressions().size(); i++) {
+                if (i > 0) call.add(SymbolEnum.COMMA);
+                call.add(i == charsetName ? charsetOf(cc.parameterExpressions().get(i), q)
+                        : print(cc.parameterExpressions().get(i), q));
+            }
+            return call.add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         ParameterizedType outer = CONSTRUCTED.get();
         CONSTRUCTED.set(declared);

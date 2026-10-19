@@ -53,6 +53,119 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             }
             """;
 
+    /**
+     * nacos's AbstractRequestCallBack implements the raw RequestCallBack: a supertype takes no star projection, its
+     * erasure's Any?. And RequestMeta's {@code if (abilityTable.get(key))} of a Map<String, Boolean>: unboxed, asserted.
+     */
+    @Test
+    public void rawSupertypeAndBoxedCondition() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Response { }
+                interface CallBack<T extends Response> { void onResponse(T response); }
+                @SuppressWarnings("rawtypes")
+                abstract class AbstractCallBack implements CallBack {
+                    long timeout;
+                }
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Future {
+                    CallBack callBack;
+                    void done(Response response, Map map) {
+                        callBack.onResponse(response);
+                        map.put("k", response);
+                    }
+                }
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    int status(String key) {
+                        if (abilities.get(key)) return 1;
+                        return 0;
+                    }
+                }
+                """);
+        contains(kotlin, "AbstractCallBack : CallBack<Response>");
+        contains(kotlin, "(callBack as CallBack<Response>).onResponse(response)");
+        contains(kotlin, "(map as MutableMap<Any?, Any?>).put(");
+        contains(kotlin, "if (abilities.get(key)!!)");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
+     * anonymous subclass with an instance initializer: an object expression whose init block puts.
+     */
+    @Test
+    public void doubleBraceInitialization() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    String version = "1";
+                    Map<String, String> labels() {
+                        return new HashMap<String, String>(8) {
+                            {
+                                put("version", version);
+                                put("name", "x");
+                            }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "init {");
+        assertFalse(kotlin.contains("constructor()"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's AbstractHealthChecker, annotated with its own nested class ({@code defaultImpl = None.class}), which
+     * Kotlin resolves outside the class: AbstractHealthChecker.None. And NacosInjected's {@code default @NacosProperties},
+     * an annotation instance: NacosProperties().
+     */
+    @Test
+    public void annotationsNamingNestedClassesAndAnnotationDefaults() {
+        String kotlin = kotlin("""
+                package a;
+                import a.Checker.None;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME) @interface Impl { Class<?> value(); String name() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Props { String endpoint() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Injected { Props properties() default @Props; }
+                @Impl(value = None.class, name = None.TYPE)
+                abstract class Checker {
+                    static class None extends Checker { static final String TYPE = "NONE"; }
+                }
+                """);
+        contains(kotlin, "Checker.None::class");
+        contains(kotlin, "Checker.None.TYPE");
+        contains(kotlin, "= Props()");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's NacosProperties: an annotation type whose constants concatenate other constants, and whose parameters
+     * default to them: {@code const val}s, as Kotlin wants for an annotation parameter's default.
+     */
+    @Test
+    public void annotationDefaultsOfConcatenatedConstants() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Props {
+                    String PREFIX = "nacos.";
+                    String ENDPOINT = "endpoint";
+                    String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}";
+                    int TIMEOUT = 30 * 1000;
+                    String endpoint() default ENDPOINT_PLACEHOLDER;
+                    int timeout() default TIMEOUT;
+                }
+                """);
+        contains(kotlin, "const val ENDPOINT_PLACEHOLDER: String");
+        contains(kotlin, "const val TIMEOUT: Int");
+        compiles(kotlin);
+    }
+
     /** Kotlin inherits no statics: they go to a companion object, and one inherited from a supertype is qualified. */
     @Test
     public void staticsInCompanion() {

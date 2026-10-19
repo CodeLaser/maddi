@@ -94,9 +94,21 @@ public class KotlinStatementPrinter {
         }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
+        List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters = mc.methodInfo().parameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
                 CstQueries.mentions(mc.methodInfo().returnType(), tp)
-                && mc.methodInfo().parameters().stream().noneMatch(p -> mentionsOutsideSuper(p.parameterizedType(), tp)));
+                && java.util.stream.IntStream.range(0, parameters.size()).noneMatch(i ->
+                        mentionsOutsideSuper(parameters.get(i).parameterizedType(), tp) && fixes(mc, i)));
+    }
+
+    /**
+     * The argument at parameter {@code i} types the call: not an empty varargs (nacos's
+     * {@code List<String> columnList = CollectionUtils.list()}), nor a call typed by its own target only
+     * ({@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))}).
+     */
+    private static boolean fixes(MethodCall mc, int i) {
+        List<Expression> args = mc.parameterExpressions();
+        return i < args.size() && !onlyTargetTyped(args.get(i));
     }
 
     /**
@@ -154,12 +166,12 @@ public class KotlinStatementPrinter {
                     .add(KotlinNullability.asserted(ts.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q));
             case WhileStatement ws -> loop(ws, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(test(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(ws.block(), q)));
             case DoStatement ds -> loop(ds, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+                    .add(test(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
             case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(new TextImpl(declareForEach(fe)))
@@ -649,6 +661,19 @@ public class KotlinStatementPrinter {
         return KotlinExpressionPrinter.print(c, q);
     }
 
+    /**
+     * An if's or a loop's condition. A Boolean Kotlin types nullable is unboxed by Java, which throws for a null:
+     * asserted (nacos's RequestMeta, {@code if (abilityTable.get(key))} of a Map<String, Boolean>).
+     */
+    private static OutputBuilder test(Expression c, Qualification q) {
+        ParameterizedType t = c.parameterizedType();
+        if (t != null && t.arrays() == 0 && t.typeInfo() != null
+            && "java.lang.Boolean".equals(t.typeInfo().fullyQualifiedName()) && KotlinNullability.nullableInKotlin(c)) {
+            return KotlinNullability.asserted(c, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
+        }
+        return KotlinExpressionPrinter.print(c, q);
+    }
+
     /** Inside a {@code when} arm printed as {@code run { }}: a {@code yield} is {@code return@run}. */
     private static final ThreadLocal<Boolean> YIELD_AS_RETURN = ThreadLocal.withInitial(() -> false);
 
@@ -912,13 +937,24 @@ public class KotlinStatementPrinter {
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
+        // assigned inside an expression, .also { x = it }: a var, which a lambda may assign, final or not (nacos's
+        // StringUtils.isBlank: final int strLen; if (cs == null || (strLen = cs.length()) == 0))
+        boolean inLambda = !hasInitializer && KotlinContext.assignedAsValue(lv);
         // effectively final: a val; one declared without a value when each path assigns it once, in a statement
-        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
-                      || !hasInitializer && KotlinContext.assignedOnce(lvc, lv);
-        OutputBuilder b = new OutputBuilderImpl()
-                .add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(declare(lv.simpleName())));
+        boolean val = !inLambda && (lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
+                                    || !hasInitializer && KotlinContext.assignedOnce(lvc, lv));
+        // the name is declared before the local's type is asked for, which records it
+        TextImpl name = new TextImpl(declare(lv.simpleName()));
         ParameterizedType type = KotlinNullability.localType(lvc, lv);
+        // nor does Kotlin's definite assignment follow the lambda: a primitive starts at its zero, a non-null
+        // reference is lateinit (a nullable one at null, below)
+        String zero = inLambda && type.arrays() == 0 && type.isPrimitiveExcludingVoid()
+                ? KotlinFieldPrinter.defaultValue(type) : null;
+        boolean lateinit = inLambda && zero == null && !KotlinNullability.isNullable(type)
+                           && !type.isPrimitiveExcludingVoid();
+        OutputBuilder b = new OutputBuilderImpl();
+        if (lateinit) b.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
+        b.add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE).add(name);
         // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
         boolean nullableFromNonNull = hasInitializer && KotlinNullability.isNullable(type)
                                       && !KotlinNullability.nullableInKotlin(init);
@@ -953,6 +989,8 @@ public class KotlinStatementPrinter {
             // != null): the second .also { queuedExecutor = it } runs only after the first, which Kotlin's definite
             // assignment does not follow into the lambda
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl("null"));
+        } else if (zero != null) {
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -977,7 +1015,7 @@ public class KotlinStatementPrinter {
     private static OutputBuilder ifElse(IfElseStatement ife, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(test(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ife.expression()), () -> block(ife.block(), q)));
         KotlinSmartCasts.Facts whenFalse = KotlinSmartCasts.whenFalse(ife.expression());

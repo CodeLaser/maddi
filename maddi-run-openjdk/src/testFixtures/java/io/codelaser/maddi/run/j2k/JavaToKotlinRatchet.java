@@ -157,9 +157,14 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * A parsed corpus: the inspector, the parse, the configuration, the main source set and its primary types,
      * sorted by name.
      */
+    /**
+     * {@code siblings}: the corpus's other main source sets are modules of its own, whose class directories go on
+     * the class path (nacos: core's Kotlin calls api's and common's classes). Not guava's, whose second main source
+     * set holds the very classes translated.
+     */
     public record Corpus(InputConfigurationImpl config, JavaInspector javaInspector, Summary summary,
                          SourceSet main, List<TypeInfo> types, List<TypeInfo> testTypes, SourceSet test,
-                         boolean junit4) {
+                         boolean junit4, boolean siblings) {
     }
 
     /** Parses a corpus of {@link Corpora#oss}, which must be built (its class files are compile 2's class path). */
@@ -179,6 +184,12 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * or 4 (guava's), run by JUnit's vintage engine beside Jupiter.
      */
     public static Corpus parse(String corpusName, String mainName, String testName, boolean junit4) throws IOException {
+        return parse(corpusName, mainName, testName, junit4, false);
+    }
+
+    /** As {@link #parse(String, String, String, boolean)}; {@code siblings}: see {@link Corpus#siblings()}. */
+    public static Corpus parse(String corpusName, String mainName, String testName, boolean junit4, boolean siblings)
+            throws IOException {
         Corpora.Corpus corpus = Corpora.oss(corpusName);
         // the locator, not a hand-written assumption: it honours -Dmaddi.corpus.required, which slowTest sets
         corpus.requireConfig();
@@ -206,7 +217,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                              && (test == null || t.compilationUnit().sourceSet().name().equals(test.name())))
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
                 .toList();
-        return new Corpus(config, javaInspector, summary, main, types, testTypes, test, junit4);
+        return new Corpus(config, javaInspector, summary, main, types, testTypes, test, junit4, siblings);
     }
 
     /** Translates, compiles twice, writes the report, and holds the numbers to the ratchet file. */
@@ -261,7 +272,8 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         List<PrintMessage<KotlinPrintCode>> messages = main.messages;
 
         // compile 1: everything, for the syntax errors
-        List<String> classPath = libraries(corpus.config());
+        List<String> classPath = new ArrayList<>(libraries(corpus.config()));
+        if (corpus.siblings()) classPath.addAll(siblingClasses(corpus));
         Compiled all = compile(files, classPath, out.resolve("compile-all"));
         Map<Path, Long> syntaxPerFile = all.errors.stream().filter(d -> d.message.toLowerCase().startsWith("syntax error"))
                 .collect(Collectors.groupingBy(d -> d.file, TreeMap::new, Collectors.counting()));
@@ -360,6 +372,16 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
             throws IOException {
         KotlinTranslator.Result result = KotlinTranslator.translate(corpus.javaInspector().runtime(), types, options, src);
         return new Printed(result.files(), result.crashes(), result.messages());
+    }
+
+    /** The class directories of the corpus's other main source sets, the built ones. */
+    private static List<String> siblingClasses(Corpus corpus) {
+        return corpus.config().sourceSets().stream()
+                .filter(s -> !s.test() && s != corpus.main() && "file".equals(s.uri().getScheme()))
+                .map(s -> Path.of(s.uri()))
+                .filter(Files::isDirectory)
+                .map(Path::toString)
+                .toList();
     }
 
     /** Every jar the configuration names; the JDK comes from the compiler's own JVM. */
@@ -602,6 +624,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         cp.add(Path.of(corpus.main().uri()).toString());
         cp.add(testClasses.toString());
         cp.addAll(libraries(corpus.config()));
+        if (corpus.siblings()) cp.addAll(siblingClasses(corpus));
         cp.addAll(Arrays.asList(runner.split(java.io.File.pathSeparator)));
         Path argFile = dir.resolve("java.args");
         Files.write(argFile, List.of("-cp", "\"" + String.join(java.io.File.pathSeparator, cp) + "\""));

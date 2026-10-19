@@ -140,7 +140,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
-            out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
+            // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
+            // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
+            out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
             if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
                 && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
@@ -326,8 +328,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */
     private MethodInfo soleConstructor(List<MethodInfo> constructors) {
-        if (typeInfo.isAnonymous() || typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
+        if (typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
         MethodInfo c = constructors.getFirst();
+        // an anonymous class's instance initializer, its one constructor: double-brace initialization, nacos's
+        // new HashMap<String, String>(8) {{ put(…); }}; an object expression has an init block, and no constructor
+        if (typeInfo.isAnonymous() && !c.parameters().isEmpty()) return null;
         return isImplicitDefaultConstructor(c) || returnsEarly(c) ? null : c;
     }
 
@@ -684,20 +689,34 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return changed ? supertype.withParameters(arguments) : supertype;
     }
 
+    /**
+     * A raw supertype, nacos's {@code AbstractRequestCallBack implements RequestCallBack}: Kotlin forbids the star
+     * projections a raw type is elsewhere; Java's erasure, each type parameter's bound, is
+     * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
+     */
+    private static String rawSupertype(ParameterizedType supertype, Qualification q) {
+        if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null
+            || KotlinTypeName.isMapped(supertype.typeInfo().fullyQualifiedName())) return null;
+        return KotlinTypeName.erased(supertype, q);
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
             String sameName = sameNamedInnerSuperclass(q);
             if (sameName == null) sameName = innerOfAGenericOuter(q);
+            String raw = sameName == null ? rawSupertype(typeInfo.parentClass(), q) : null;
             OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
-                    : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
+                    : raw != null ? raw : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
-        typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
-                        ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
-                        : KotlinTypeName.of(declaredArguments(i), q)))));
+        typeInfo.interfacesImplemented().forEach(i -> {
+            String raw = rawSupertype(i, q);
+            supers.add(new OutputBuilderImpl().add(new TextImpl(raw != null ? raw : readOnlyIterator(i)
+                    ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
+                    : KotlinTypeName.of(declaredArguments(i), q))));
+        });
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));
