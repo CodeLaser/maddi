@@ -539,6 +539,33 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ServiceOperatorV2Impl: {@code return Collections.EMPTY_LIST} from a {@code Collection<String>}, and
+     * CatalogServiceV2Impl's from a {@code List<? extends Instance>}: a raw value, Java's unchecked conversion, is
+     * Kotlin's unchecked cast.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawValueIntoTypedResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                @SuppressWarnings("unchecked")
+                class Services {
+                    static Collection<String> names(boolean none) {
+                        if (none) return Collections.EMPTY_LIST;
+                        return List.of("a");
+                    }
+                    static List<? extends Number> numbers(boolean none) {
+                        if (none) return Collections.EMPTY_LIST;
+                        return List.of(1);
+                    }
+                }
+                """);
+        contains(kotlin, "Collections.EMPTY_LIST as");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's NamingDefaultHttpParamExtractor: {@code groupServiceName.split(SPLITER, 2)}, a regex and a limit, which
      * keeps trailing empty strings as Kotlin's does; a negative limit is Kotlin's none.
      */

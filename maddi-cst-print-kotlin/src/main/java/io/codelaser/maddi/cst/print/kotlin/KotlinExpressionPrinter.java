@@ -2119,7 +2119,7 @@ public class KotlinExpressionPrinter {
                     .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         if (target != null && !(unwrap(e) instanceof ConstructorCall) && !(unwrap(e) instanceof NullConstant)
-            && rawOf(rawValueType(e), target)) {
+            && (rawOf(rawValueType(e), target) || rawInto(rawValueType(e), target))) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
@@ -2374,6 +2374,22 @@ public class KotlinExpressionPrinter {
         // Class<?> is not raw, and Class.forName's Class<*> is nothing to adopt
         return raw.parameters().isEmpty() && !typed.parameters().isEmpty()
                && typed.parameters().stream().noneMatch(p -> p.wildcard() != null || p.isTypeParameter() && p.typeParameter() == null);
+    }
+
+    /**
+     * A raw value into a parameterization of its own type or of a supertype, nacos's {@code return
+     * Collections.EMPTY_LIST} from a {@code Collection<String>} or a {@code List<? extends Instance>}: Java's unchecked
+     * conversion. Not into a star projection, which takes it as it is.
+     */
+    private static boolean rawInto(ParameterizedType raw, ParameterizedType typed) {
+        if (!KotlinContext.translatingJava() || raw == null || typed == null || raw.arrays() > 0 || typed.arrays() > 0
+            || raw.typeInfo() == null || typed.typeInfo() == null || raw.typeInfo().typeParameters().isEmpty()
+            || !raw.parameters().isEmpty() || typed.parameters().isEmpty()
+            || typed.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard)
+            || typed.parameters().stream().anyMatch(p -> p.isTypeParameter() && p.typeParameter() == null)) {
+            return false;
+        }
+        return raw.typeInfo() == typed.typeInfo() || isSubtype(raw.typeInfo(), typed.typeInfo(), new java.util.HashSet<>());
     }
 
     /** A cast to a raw type, into a parameterization of it: unlike a creation, a cast may write a wildcard. */
