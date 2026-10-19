@@ -540,6 +540,27 @@ public class KotlinExpressionPrinter {
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
     }
 
+    // constructor calls assigned to a raw variable or returned from a raw method: nothing fixes their type arguments
+    private static final ThreadLocal<java.util.Set<ConstructorCall>> RAW_TARGET =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /**
+     * A generic class constructed raw, {@code new HashMap()}: no type arguments written, nor a diamond, into a raw
+     * target, which fixes none. Not where the target is typed, {@code List<String> l = new ArrayList()}: Kotlin infers.
+     */
+    private static boolean rawConstruction(ConstructorCall cc, ParameterizedType type) {
+        if (!RAW_TARGET.get().contains(cc) || cc.diamond() == null || !cc.diamond().isNo()) return false;
+        return rawGeneric(type);
+    }
+
+    /** A generic class without type arguments, or with {@code ?} only: Java's raw type, Kotlin's star projection. */
+    private static boolean rawGeneric(ParameterizedType type) {
+        if (type == null || type.typeInfo() == null || type.arrays() > 0 || type.typeInfo().typeParameters().isEmpty()) {
+            return false;
+        }
+        return type.parameters().isEmpty() || type.parameters().stream().allMatch(ParameterizedType::isUnboundWildcard);
+    }
+
     /**
      * The index of a String's {@code charsetName} parameter, where Kotlin's member or constructor takes a Charset:
      * {@code getBytes(String)}, {@code new String(byte[], String)}, {@code new String(byte[], int, int, String)}; -1
@@ -1806,6 +1827,18 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (KotlinContext.translatingJava() && unwrap(e) instanceof ConstructorCall cc && rawGeneric(target)) {
+            boolean added = RAW_TARGET.get().add(cc);
+            try {
+                return assignedTo(e, target, q);
+            } finally {
+                if (added) RAW_TARGET.get().remove(cc);
+            }
+        }
+        return assignedTo(e, target, q);
+    }
+
+    private static OutputBuilder assignedTo(Expression e, ParameterizedType target, Qualification q) {
         if (KotlinContext.translatingJava() && target != null && target.arrays() == 0 && target.typeInfo() != null
             && unwrap(e) instanceof VariableExpression ve) {
             ParameterizedType erasure = KotlinTypeName.constructorTypeParameterErasure(ve.parameterizedType());
@@ -2484,6 +2517,12 @@ public class KotlinExpressionPrinter {
         // new ImmediateFuture<@Nullable Object>(null): the type-use annotation makes the argument an Any?
         ParameterizedType declared = KotlinContext.translatingJava() ? KotlinTypePrinter.declaredArguments(type) : type;
         String constructed = KotlinTypeName.constructed(declared, q);
+        if (rawConstruction(cc, type)) {
+            // nacos's Map count = new HashMap(coll.size()), into a raw MutableMap<*, *> that fixes no K and V: Java's
+            // raw construction is its erasure, HashMap<Any?, Any?>
+            String erased = KotlinTypeName.erased(type, q);
+            if (erased != null) constructed = erased;
+        }
         if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
             constructed = implicitOuter(constructed, type.typeInfo());
         }

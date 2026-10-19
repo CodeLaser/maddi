@@ -539,6 +539,37 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's CollectionUtils.getCardinalityMap: {@code Map count = new HashMap(coll.size())}, a raw construction into
+     * a raw local, which fixes no type arguments: the erasure, HashMap<Any?, Any?>; as into a raw field or the return
+     * of a raw method (nacos's NoneSelector). A typed target keeps inferring.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawConstruction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Raw {
+                    private Map cache = new HashMap();
+                    static Map make() {
+                        return new HashMap();
+                    }
+                    static int count(Collection coll) {
+                        Map count = new HashMap(coll.size());
+                        return count.size();
+                    }
+                    static List<String> typed() {
+                        List<String> list = new ArrayList();
+                        return list;
+                    }
+                }
+                """);
+        contains(kotlin, "HashMap<Any?, Any?>(coll.size)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's IoUtils and ByteUtils: {@code str.getBytes(encoding)} and {@code new String(bytes, encoding)} with a
      * charset's name, where Kotlin's toByteArray and String take a Charset: charset(encoding).
      */
