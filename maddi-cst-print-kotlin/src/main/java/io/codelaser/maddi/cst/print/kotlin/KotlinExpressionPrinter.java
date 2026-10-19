@@ -2962,7 +2962,16 @@ public class KotlinExpressionPrinter {
             return KotlinTypeName.of(type, q) + "::class.javaPrimitiveType!!";
         }
         if (type.isVoid()) return "Void.TYPE";
-        if (type.arrays() > 0) return KotlinTypeName.of(type, q) + "::class.java";
+        if (type.arrays() > 0) {
+            // nacos's ClassUtils: Class[].class. A class literal takes no generic element, Array<Class<*>>::class;
+            // the class of an empty such array is Java's
+            ParameterizedType component = type.componentType();
+            if (KotlinContext.translatingJava() && KotlinTypeName.primitiveArray(component) == null
+                && KotlinTypeName.of(component, q).contains("<")) {
+                return "arrayOfNulls<" + KotlinTypeName.of(component, q) + ">(0).javaClass";
+            }
+            return KotlinTypeName.of(type, q) + "::class.java";
+        }
         if (type.typeInfo() == null) return "Any::class.java";
         // Integer.class: Kotlin's Int::class.java is int.class, the primitive's
         if (type.typeInfo().isBoxedExcludingVoid()) return KotlinTypeName.name(type.typeInfo(), q) + "::class.javaObjectType";

@@ -539,6 +539,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ClassUtils: {@code Class[].class}, an array of a generic class, which no Kotlin class literal names: the
+     * class of an empty such array.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void genericArrayClassLiteral() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Literals {
+                    static List<Class<?>> types() {
+                        return List.of(Class[].class, List[].class, String[].class);
+                    }
+                }
+                """);
+        contains(kotlin, "arrayOfNulls<Class<*>>(0).javaClass");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
      * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
      */
