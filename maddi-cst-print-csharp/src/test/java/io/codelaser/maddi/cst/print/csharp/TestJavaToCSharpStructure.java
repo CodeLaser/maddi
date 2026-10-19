@@ -364,6 +364,57 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String WILDCARD_DELEGATES = """
+            package org.example.collectors;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static final class Group<A, R> {
+                    private final Collector<A, ?, R> collector;
+                    Group(Collector<A, ?, R> collector) { this.collector = collector; }
+                    @SuppressWarnings("unchecked")
+                    R collect(List<A> items) {
+                        Object container = collector.supplier().get();
+                        var accumulator = (BiFunction<Object, A, Runnable>) (BiFunction<?, A, Runnable>) collector.accumulator();
+                        for (A a : items) accumulator.apply(container, a);
+                        return ((Function<Object, R>) (Function<?, R>) collector.finisher()).apply(container);
+                    }
+                }
+                static List<String> names(List<String> items) { return new Group<>(Collectors.<String>toList()).collect(items); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type whose members return a delegate of the wildcarded type parameter: the wildcard interface
+     * has them with it erased, {@code Func<object, A, Action>}, which the type's bridge adapts to by a lambda.
+     */
+    @Test
+    public void wildcardDelegates() {
+        String cs = translate("Collectors", WILDCARD_DELEGATES);
+        contains(cs, "internal static ICollector<A, List<A>> toList<A>() => new ToList<A>();");
+        contains(cs, "internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {");
+        contains(cs, "Func<object, A, Action> Accumulator();");
+        contains(cs, "Func<object> ICollector<A, Result_>.Supplier() { var f = Supplier(); return () => f(); }");
+        contains(cs, "Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

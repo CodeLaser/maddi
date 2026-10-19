@@ -688,7 +688,11 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig.filterClass => filterClass;`). Only where it declares every member the code reaches
+  (`Type IMoveSelectorConfig.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
+  each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
+  erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
+  accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
+  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`. Only where it declares every member the code reaches
   through such a wildcard: a field written through it, or a method it cannot declare, keeps the type's wildcards their
   bound. An interface whose statics have a companion, of
   the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. Where a
