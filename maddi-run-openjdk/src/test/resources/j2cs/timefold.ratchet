@@ -167,9 +167,12 @@
 # 2026-10-19, maddi 0bfc63eae, 4da793adf: spliterators as sequences, Stream.generate, IntStream.of, predicate
 # combinators, Map.computeIfPresent and smaller JDK members: 1268 -> 1276 compiling files, 1071 -> 1016 errors,
 # unmapped JDK uses 292 -> 215.
+# 2026-10-19, maddi 455a86b39, bbc287e92, a91105b7a, b9602da04: an erasure adapter converts a concrete collector
+# into Java's unbound wildcard of it (Erased_); an override returning an interface that extends a delegate is the
+# delegate's method group: 1276 -> 1285 compiling files, 1016 -> 912 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1276
+compilingFiles	1285
 unmappedJdkUses	215
