@@ -18,6 +18,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -2428,6 +2429,424 @@ public static class JavaTasks
     }).Unwrap();
 
     public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.GetAwaiter().GetResult()));
+
+    // what completes a task from outside: a CompletableFuture made empty, or an executor's submitted task
+    private static readonly ConditionalWeakTable<Task, ICompleter> Completers = new();
+
+    internal interface ICompleter
+    {
+        bool Complete(object? value);
+
+        bool Fail(Exception e);
+
+        bool Cancel(bool mayInterrupt);
+    }
+
+    internal sealed class Completer<T>(TaskCompletionSource<T> source, Func<Thread?>? runner = null) : ICompleter
+    {
+        public bool Complete(object? value) => source.TrySetResult((T) value!);
+
+        public bool Fail(Exception e) => source.TrySetException(e);
+
+        public bool Cancel(bool mayInterrupt)
+        {
+            if (!source.TrySetCanceled()) return false;
+            if (mayInterrupt && runner?.Invoke() is { } thread) JavaThreads.Interrupt(thread);
+            return true;
+        }
+    }
+
+    internal static Task<T> Register<T>(TaskCompletionSource<T> source, Func<Thread?>? runner = null)
+    {
+        Completers.Add(source.Task, new Completer<T>(source, runner));
+        return source.Task;
+    }
+
+    /// <summary>new CompletableFuture&lt;T&gt;(): a task that Complete, CompleteExceptionally or Cancel ends.</summary>
+    public static Task<T> Incomplete<T>() =>
+        Register(new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously));
+
+    /// <summary>CompletableFuture.complete: false when the task is done, or nothing can complete it from outside.</summary>
+    public static bool Complete<T>(this Task<T> t, T? value) =>
+        Completers.TryGetValue(t, out var c) && c.Complete(value);
+
+    public static bool CompleteExceptionally(this Task t, Exception e) =>
+        Completers.TryGetValue(t, out var c) && c.Fail(e);
+
+    /// <summary>Future.cancel: an executor's running task's thread is interrupted when mayInterrupt.</summary>
+    public static bool Cancel(this Task t, bool mayInterrupt) =>
+        Completers.TryGetValue(t, out var c) && c.Cancel(mayInterrupt);
+
+    /// <summary>Future.get(timeout, unit): TimeoutException when the task is not done in time.</summary>
+    public static T Get<T>(this Task<T> t, long timeout, JavaTimeUnit unit)
+    {
+        if (!t.Wait(unit.ToTimeSpan(timeout))) throw new TimeoutException();
+        return t.Result;
+    }
+
+    // the Throwable a task ended with: a cancellation, or the exception it threw
+    private static Exception Cause(Task t) => t.IsCanceled ? new TaskCanceledException(t)
+        : t.Exception!.InnerExceptions.Count == 1 ? t.Exception.InnerException! : t.Exception;
+
+    /// <summary>
+    /// CompletableFuture.whenComplete: the action of the result, or of the exception, after which the task's own
+    /// outcome stands; an exception the action throws when the task succeeded.
+    /// </summary>
+    public static Task<T> WhenComplete<T>(this Task<T> t, Action<T?, Exception?> action) => t.ContinueWith(x =>
+    {
+        if (x.IsCompletedSuccessfully)
+        {
+            action(x.Result, null);
+            return x.Result;
+        }
+        var cause = Cause(x);
+        action(default, cause);
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cause).Throw();
+        return default!;
+    }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+
+    /// <summary>CompletableFuture.runAsync: a CompletableFuture&lt;Void&gt;, of null.</summary>
+    public static Task<object> RunAsync(Action action) => RunAsync(action, TaskScheduler.Default);
+
+    public static Task<object> RunAsync(Action action, TaskScheduler executor)
+    {
+        (executor as JavaExecutorService)?.Admit();
+        return Task.Factory.StartNew<object>(() =>
+        {
+            action();
+            return null!;
+        }, CancellationToken.None, TaskCreationOptions.None, executor);
+    }
+
+    /// <summary>ExecutorService.submit: cancellable, as Java's Future.</summary>
+    public static Task<T> Submit<T>(this TaskScheduler executor, Func<T> task) => executor is JavaExecutorService e
+        ? e.Submit(task)
+        : Task.Factory.StartNew(task, CancellationToken.None, TaskCreationOptions.None, executor);
+
+    public static Task<object> Submit(this TaskScheduler executor, Action task) => executor.Submit<object>(() =>
+    {
+        task();
+        return null!;
+    });
+
+    // an executor's lifecycle; the BCL's own schedulers, TaskScheduler.Default, are never shut down
+    public static void Shutdown(this TaskScheduler executor) => (executor as JavaExecutorService)?.Shutdown();
+
+    public static List<Task> ShutdownNow(this TaskScheduler executor) =>
+        executor is JavaExecutorService e ? e.ShutdownNow() : [];
+
+    public static bool IsShutdown(this TaskScheduler executor) => executor is JavaExecutorService { Shut: true };
+
+    public static bool IsTerminated(this TaskScheduler executor) => executor is JavaExecutorService { Terminated: true };
+
+    public static bool AwaitTermination(this TaskScheduler executor, long timeout, JavaTimeUnit unit) =>
+        executor is not JavaExecutorService e || e.AwaitTermination(unit.ToTimeSpan(timeout));
+
+    /// <summary>ExecutorService.close: shut down, and wait for the tasks.</summary>
+    public static void Close(this TaskScheduler executor)
+    {
+        if (executor is not JavaExecutorService e) return;
+        e.Shutdown();
+        e.AwaitTermination(Timeout.InfiniteTimeSpan);
+    }
+}
+
+/// <summary>java.util.concurrent.ThreadFactory.</summary>
+public interface IJavaThreadFactory
+{
+    Thread NewThread(Action r);
+}
+
+/// <summary>java.util.concurrent.Executors' thread factory.</summary>
+public static class JavaExecutors
+{
+    private static int pools;
+
+    /// <summary>Executors.defaultThreadFactory: pool-N-thread-M, not daemon threads, as Java's.</summary>
+    public static IJavaThreadFactory DefaultThreadFactory() => new Default(Interlocked.Increment(ref pools));
+
+    private sealed class Default(int pool) : IJavaThreadFactory
+    {
+        private int threads;
+
+        public Thread NewThread(Action r) =>
+            new(() => r()) { Name = $"pool-{pool}-thread-{Interlocked.Increment(ref threads)}", IsBackground = false };
+    }
+}
+
+/// <summary>
+/// java.util.concurrent.ExecutorService of a fixed number of threads, which its ThreadFactory makes as tasks come: a
+/// TaskScheduler, which Task.Factory.StartNew takes, that shuts down. shutdownNow interrupts its threads
+/// (JavaThreads.Interrupt) and returns the tasks it had not started.
+/// </summary>
+public sealed class JavaExecutorService : TaskScheduler
+{
+    private readonly System.Collections.Concurrent.BlockingCollection<Task> queue = new();
+    private readonly List<Thread> threads = [];
+    private readonly int size;
+    private readonly IJavaThreadFactory factory;
+    private readonly ManualResetEventSlim terminated = new(false);
+    private int alive;
+    private volatile bool shut;
+
+    public JavaExecutorService(int size) : this(size, JavaExecutors.DefaultThreadFactory())
+    {
+    }
+
+    public JavaExecutorService(int size, IJavaThreadFactory factory)
+    {
+        if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+        this.size = size;
+        this.factory = factory;
+    }
+
+    public override int MaximumConcurrencyLevel => size;
+
+    internal bool Shut => shut;
+
+    internal bool Terminated => terminated.IsSet;
+
+    protected override void QueueTask(Task task)
+    {
+        lock (threads)
+        {
+            // RejectedExecutionException
+            if (shut) throw new InvalidOperationException("The executor is shut down.");
+            queue.Add(task);
+            if (threads.Count < size)
+            {
+                var thread = factory.NewThread(Work);
+                threads.Add(thread);
+                Interlocked.Increment(ref alive);
+                thread.Start();
+            }
+        }
+    }
+
+    private void Work()
+    {
+        try
+        {
+            while (true)
+            {
+                Task? task;
+                try
+                {
+                    // a wait the next task interrupts: Java clears the interrupt between tasks
+                    if (!queue.TryTake(out task, Timeout.Infinite)) break;
+                }
+                catch (ThreadInterruptedException)
+                {
+                    JavaThreads.Interrupted();
+                    if (shut && queue.IsCompleted) break;
+                    continue;
+                }
+                catch (InvalidOperationException)
+                {
+                    break; // completed for adding, and empty
+                }
+                JavaThreads.Interrupted();
+                TryExecuteTask(task);
+            }
+        }
+        finally
+        {
+            // no lock: an interrupt would find the thread waiting for it
+            if (Interlocked.Decrement(ref alive) == 0 && shut) terminated.Set();
+        }
+    }
+
+    protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
+
+    protected override IEnumerable<Task> GetScheduledTasks() => queue.ToArray();
+
+    /// <summary>Java's RejectedExecutionException, at submission: not a TaskSchedulerException when it starts.</summary>
+    internal void Admit()
+    {
+        if (shut) throw new InvalidOperationException("The executor is shut down.");
+    }
+
+    internal Task<T> Submit<T>(Func<T> task)
+    {
+        Admit();
+        var source = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Thread? runner = null;
+        var future = JavaTasks.Register(source, () => runner);
+        new Task(() =>
+        {
+            if (future.IsCompleted) return; // cancelled before it started
+            runner = Thread.CurrentThread;
+            try
+            {
+                source.TrySetResult(task());
+            }
+            catch (Exception e)
+            {
+                source.TrySetException(e);
+            }
+            finally
+            {
+                runner = null;
+            }
+        }).Start(this);
+        return future;
+    }
+
+    internal void Shutdown()
+    {
+        lock (threads)
+        {
+            if (shut) return;
+            shut = true;
+            queue.CompleteAdding();
+            if (Volatile.Read(ref alive) == 0) terminated.Set();
+        }
+    }
+
+    internal List<Task> ShutdownNow()
+    {
+        Shutdown();
+        var pending = new List<Task>();
+        while (queue.TryTake(out var task)) pending.Add(task);
+        List<Thread> workers;
+        lock (threads) workers = [..threads];
+        foreach (var thread in workers)
+        {
+            if (thread.IsAlive) JavaThreads.Interrupt(thread);
+        }
+        return pending;
+    }
+
+    internal bool AwaitTermination(TimeSpan timeout) => terminated.Wait(timeout);
+}
+
+/// <summary>
+/// A thread's interrupt, which .NET's Thread.Interrupt delivers at the next wait but does not let ask about: Java's
+/// isInterrupted and interrupted read a flag beside it.
+/// </summary>
+public static class JavaThreads
+{
+    private static readonly ConditionalWeakTable<Thread, StrongBox<bool>> Flags = new();
+
+    public static void Interrupt(Thread thread)
+    {
+        Flags.GetOrCreateValue(thread).Value = true;
+        thread.Interrupt();
+    }
+
+    public static bool IsInterrupted(Thread thread) => Flags.TryGetValue(thread, out var flag) && flag.Value;
+
+    /// <summary>Thread.interrupted: the current thread's flag, cleared, and the pending .NET interrupt with it.</summary>
+    public static bool Interrupted()
+    {
+        if (!Flags.TryGetValue(Thread.CurrentThread, out var flag) || !flag.Value) return false;
+        flag.Value = false;
+        try
+        {
+            Thread.Sleep(0);
+        }
+        catch (ThreadInterruptedException)
+        {
+            // the pending interrupt, consumed
+        }
+        return true;
+    }
+
+    /// <summary>Thread.ofPlatform().</summary>
+    public static JavaThreadBuilder OfPlatform() => new();
+
+    /// <summary>Thread.getThreadGroup: .NET has no thread groups.</summary>
+    public static object? ThreadGroup(Thread thread) => null;
+}
+
+/// <summary>Thread.Builder.OfPlatform: a thread's name, daemon flag and priority (Java's 1 to 10).</summary>
+public sealed class JavaThreadBuilder
+{
+    private string? name;
+    private bool daemon;
+    private ThreadPriority priority = ThreadPriority.Normal;
+
+    public JavaThreadBuilder Name(string name)
+    {
+        this.name = name;
+        return this;
+    }
+
+    public JavaThreadBuilder Group(object? group) => this;
+
+    public JavaThreadBuilder Daemon(bool daemon = true)
+    {
+        this.daemon = daemon;
+        return this;
+    }
+
+    public JavaThreadBuilder Priority(int priority)
+    {
+        this.priority = priority switch
+        {
+            <= 2 => ThreadPriority.Lowest,
+            <= 4 => ThreadPriority.BelowNormal,
+            5 => ThreadPriority.Normal,
+            <= 8 => ThreadPriority.AboveNormal,
+            _ => ThreadPriority.Highest
+        };
+        return this;
+    }
+
+    public Thread Unstarted(Action task) => new(() => task()) { Name = name, IsBackground = daemon, Priority = priority };
+
+    public Thread Start(Action task)
+    {
+        var thread = Unstarted(task);
+        thread.Start();
+        return thread;
+    }
+}
+
+/// <summary>java.util.concurrent.TimeUnit.</summary>
+public enum JavaTimeUnit
+{
+    Nanoseconds, Microseconds, Milliseconds, Seconds, Minutes, Hours, Days
+}
+
+public static class JavaTimeUnits
+{
+    private static readonly long[] Nanos = [1L, 1_000L, 1_000_000L, 1_000_000_000L, 60_000_000_000L,
+        3_600_000_000_000L, 86_400_000_000_000L];
+
+    /// <summary>TimeUnit.convert: a duration in this unit as another, truncated, saturated as Java's.</summary>
+    public static long Convert(this JavaTimeUnit to, long duration, JavaTimeUnit from)
+    {
+        long f = Nanos[(int) from], t = Nanos[(int) to];
+        if (f >= t)
+        {
+            long ratio = f / t;
+            return duration > long.MaxValue / ratio ? long.MaxValue : duration < long.MinValue / ratio ? long.MinValue
+                : duration * ratio;
+        }
+        return duration / (t / f);
+    }
+
+    public static long ToNanos(this JavaTimeUnit unit, long d) => JavaTimeUnit.Nanoseconds.Convert(d, unit);
+
+    public static long ToMicros(this JavaTimeUnit unit, long d) => JavaTimeUnit.Microseconds.Convert(d, unit);
+
+    public static long ToMillis(this JavaTimeUnit unit, long d) => JavaTimeUnit.Milliseconds.Convert(d, unit);
+
+    public static long ToSeconds(this JavaTimeUnit unit, long d) => JavaTimeUnit.Seconds.Convert(d, unit);
+
+    public static long ToMinutes(this JavaTimeUnit unit, long d) => JavaTimeUnit.Minutes.Convert(d, unit);
+
+    public static long ToHours(this JavaTimeUnit unit, long d) => JavaTimeUnit.Hours.Convert(d, unit);
+
+    public static long ToDays(this JavaTimeUnit unit, long d) => JavaTimeUnit.Days.Convert(d, unit);
+
+    /// <summary>A duration as a TimeSpan, of ticks (100 ns); a negative one is zero, a wait's.</summary>
+    public static TimeSpan ToTimeSpan(this JavaTimeUnit unit, long duration)
+    {
+        long ticks = unit.ToNanos(duration) / 100;
+        return TimeSpan.FromTicks(Math.Max(0, Math.Min(ticks, TimeSpan.MaxValue.Ticks)));
+    }
 }
 
 /// <summary>java.util.concurrent.locks.Lock: what a ReentrantLock and a read-write lock's halves are.</summary>

@@ -829,6 +829,62 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String EXECUTORS = """
+            package org.example.executors;
+            import java.util.List;
+            import java.util.concurrent.*;
+            public class Jobs {
+                static final class Named implements ThreadFactory {
+                    public Thread newThread(Runnable r) {
+                        return Thread.ofPlatform().name("job").priority(Thread.NORM_PRIORITY).daemon(false).unstarted(r);
+                    }
+                }
+                private final ExecutorService pool = Executors.newFixedThreadPool(2, new Named());
+                private final ExecutorService single = Executors.newSingleThreadExecutor();
+                Future<String> run(Callable<String> job) { return pool.submit(job); }
+                CompletableFuture<Void> change(List<CompletableFuture<Void>> pending) {
+                    var future = new CompletableFuture<Void>();
+                    pending.forEach(f -> f.cancel(false));
+                    future.complete(null);
+                    return future;
+                }
+                void fail(CompletableFuture<Void> future, Exception e) { future.completeExceptionally(e); }
+                CompletableFuture<Void> consume(Runnable r) {
+                    return CompletableFuture.runAsync(r, single).whenComplete((unused, throwable) -> System.out.println(throwable));
+                }
+                boolean stop(CountDownLatch latch) throws InterruptedException {
+                    pool.shutdownNow();
+                    single.shutdown();
+                    return latch.await(100, TimeUnit.MILLISECONDS) && single.awaitTermination(1, TimeUnit.SECONDS);
+                }
+                boolean interrupted() { return Thread.currentThread().isInterrupted(); }
+            }
+            """;
+
+    /**
+     * A CompletableFuture is a Task, completed and cancelled from outside when it was made empty; an ExecutorService
+     * a TaskScheduler, the executors' own shut down; a ThreadFactory, Thread's builder, TimeUnit, a thread's interrupt.
+     */
+    @Test
+    public void executors() {
+        String cs = translate("Jobs", EXECUTORS);
+        contains(cs, "internal sealed class Named : IJavaThreadFactory {");
+        contains(cs, "public Thread NewThread(Action r) => JavaThreads.OfPlatform().Name(\"job\").Priority(5).Daemon(false).Unstarted(r);");
+        contains(cs, "private readonly TaskScheduler pool = new JavaExecutorService(2, new Named());");
+        contains(cs, "private readonly TaskScheduler single = new JavaExecutorService(1);");
+        contains(cs, "pool.Submit(job)");
+        contains(cs, "var future = JavaTasks.Incomplete<object>();");
+        contains(cs, "f.Cancel(false)");
+        contains(cs, "future.Complete(default);");
+        contains(cs, "future.CompleteExceptionally(e);");
+        contains(cs, "JavaTasks.RunAsync(r, single).WhenComplete(\n(unused, throwable) =>");
+        contains(cs, "pool.ShutdownNow();");
+        contains(cs, "single.Shutdown();");
+        contains(cs, "latch.Wait(JavaTimeUnit.Milliseconds.ToTimeSpan(100)) && single.AwaitTermination(1, JavaTimeUnit.Seconds)");
+        contains(cs, "JavaThreads.IsInterrupted(Thread.CurrentThread)");
+    }
+
+    @Language("java")
     private static final String DELEGATE_CLASSES = """
             package org.example.delegates;
             import java.util.Comparator;

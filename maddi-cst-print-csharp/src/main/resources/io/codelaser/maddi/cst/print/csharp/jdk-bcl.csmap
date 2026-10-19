@@ -194,6 +194,11 @@ type java.util.concurrent.ExecutorService -> TaskScheduler using System.Threadin
 type java.util.concurrent.ThreadPoolExecutor -> TaskScheduler using System.Threading.Tasks
 type java.util.concurrent.CountDownLatch -> CountdownEvent using System.Threading
 type java.util.concurrent.Semaphore -> SemaphoreSlim using System.Threading
+pascal java.util.concurrent.ThreadFactory -> IJavaThreadFactory using Maddi.JavaCompat
+pascal java.lang.Thread.Builder -> JavaThreadBuilder using Maddi.JavaCompat
+pascal java.lang.Thread.Builder.OfPlatform -> JavaThreadBuilder using Maddi.JavaCompat
+type java.lang.ThreadGroup -> object
+type java.util.concurrent.TimeUnit -> JavaTimeUnit using Maddi.JavaCompat
 # Java's read-write lock is reentrant; its read and write locks are the compatibility library's IJavaLock
 type java.util.concurrent.locks.ReadWriteLock -> ReaderWriterLockSlim using System.Threading
 type java.util.concurrent.locks.ReentrantReadWriteLock -> ReaderWriterLockSlim using System.Threading
@@ -906,7 +911,6 @@ member java.lang.Class.getCanonicalName/0 ->? JavaClass.CanonicalName($0) using 
 member java.lang.Thread.currentThread/0 -> Thread.CurrentThread using System.Threading
 member java.lang.Runtime.availableProcessors/0 -> Environment.ProcessorCount using System
 member java.lang.Thread.sleep(long) -> Thread.Sleep(TimeSpan.FromMilliseconds($1)) using System.Threading, System
-member java.lang.Thread.interrupt/0 -> $0.Interrupt()
 member java.lang.AutoCloseable.close/0 -> $0.Dispose()
 member java.io.Closeable.close/0 -> $0.Dispose()
 member java.io.InputStream.close/0 -> $0.Dispose()
@@ -1155,8 +1159,6 @@ member java.nio.file.Files.newOutputStream/2 -> $1.Create()
 # Futures as tasks, executors as task schedulers, latches and locks.
 member java.util.concurrent.CompletableFuture.supplyAsync/1 -> Task.Run($1) using System.Threading.Tasks
 member java.util.concurrent.CompletableFuture.supplyAsync/2 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $2) using System.Threading.Tasks, System.Threading
-member java.util.concurrent.CompletableFuture.runAsync/1 -> Task.Run($1) using System.Threading.Tasks
-member java.util.concurrent.CompletableFuture.runAsync/2 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $2) using System.Threading.Tasks, System.Threading
 member java.util.concurrent.CompletableFuture.completedFuture/1 -> Task.FromResult($1) using System.Threading.Tasks
 member java.util.concurrent.CompletableFuture.allOf/1 -> Task.WhenAll($*) using System.Threading.Tasks
 member java.util.concurrent.CompletableFuture.thenAccept/1 -> $0.ThenAccept($1) using Maddi.JavaCompat
@@ -1166,15 +1168,53 @@ member java.util.concurrent.CompletableFuture.isDone/0 -> $0.IsCompleted
 member java.util.concurrent.Future.get/0 -> $0.Result
 member java.util.concurrent.Future.isDone/0 -> $0.IsCompleted
 member java.util.concurrent.Executor.execute/1 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0) using System.Threading.Tasks, System.Threading
-member java.util.concurrent.ExecutorService.submit/1 -> Task.Factory.StartNew($1, CancellationToken.None, TaskCreationOptions.None, $0) using System.Threading.Tasks, System.Threading
 # the pool's sizes and keep-alive are the .NET thread pool's
 member java.util.concurrent.ThreadPoolExecutor.new/5 -> TaskScheduler.Default using System.Threading.Tasks
 member java.util.concurrent.ThreadPoolExecutor.new/6 -> TaskScheduler.Default using System.Threading.Tasks
 member java.util.concurrent.ThreadPoolExecutor.new/7 -> TaskScheduler.Default using System.Threading.Tasks
 member java.util.concurrent.Executors.newCachedThreadPool/0 -> TaskScheduler.Default using System.Threading.Tasks
-member java.util.concurrent.Executors.newFixedThreadPool/1 -> TaskScheduler.Default using System.Threading.Tasks
 member java.util.concurrent.Executors.newWorkStealingPool/0 -> TaskScheduler.Default using System.Threading.Tasks
 member java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor/0 -> TaskScheduler.Default using System.Threading.Tasks
+# a CompletableFuture is a Task; one made empty, or an executor's, is completed and cancelled from outside
+member java.util.concurrent.CompletableFuture.new/0 -> JavaTasks.Incomplete<{R0}>() using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.complete/1 -> $0.Complete($1) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.completeExceptionally/1 -> $0.CompleteExceptionally($1) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.whenComplete/1 -> $0.WhenComplete($1) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.runAsync/1 -> JavaTasks.RunAsync($1) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.runAsync/2 -> JavaTasks.RunAsync($1, $2) using Maddi.JavaCompat
+member java.util.concurrent.Future.cancel/1 -> $0.Cancel($1) using Maddi.JavaCompat
+member java.util.concurrent.Future.isCancelled/0 -> $0.IsCanceled
+member java.util.concurrent.Future.get/2 -> $0.Get($1, $2) using Maddi.JavaCompat
+member java.util.concurrent.CompletableFuture.isCompletedExceptionally/0 -> ($0.IsFaulted || $0.IsCanceled)
+# an ExecutorService is a TaskScheduler; the executors' own, JavaExecutorService, shuts down
+member java.util.concurrent.Executors.newFixedThreadPool/1 -> new JavaExecutorService($1) using Maddi.JavaCompat
+member java.util.concurrent.Executors.newFixedThreadPool/2 -> new JavaExecutorService($1, $2) using Maddi.JavaCompat
+member java.util.concurrent.Executors.newSingleThreadExecutor/0 -> new JavaExecutorService(1) using Maddi.JavaCompat
+member java.util.concurrent.Executors.newSingleThreadExecutor/1 -> new JavaExecutorService(1, $1) using Maddi.JavaCompat
+member java.util.concurrent.Executors.defaultThreadFactory/0 -> JavaExecutors.DefaultThreadFactory() using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.submit/1 -> $0.Submit($1) using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.shutdown/0 -> $0.Shutdown() using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.shutdownNow/0 -> $0.ShutdownNow() using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.isShutdown/0 -> $0.IsShutdown() using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.isTerminated/0 -> $0.IsTerminated() using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.awaitTermination/2 -> $0.AwaitTermination($1, $2) using Maddi.JavaCompat
+member java.util.concurrent.ExecutorService.close/0 -> $0.Close() using Maddi.JavaCompat
+member java.util.concurrent.CountDownLatch.await/2 -> $0.Wait($2.ToTimeSpan($1)) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toNanos/1 -> $0.ToNanos($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toMicros/1 -> $0.ToMicros($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toMillis/1 -> $0.ToMillis($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toSeconds/1 -> $0.ToSeconds($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toMinutes/1 -> $0.ToMinutes($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toHours/1 -> $0.ToHours($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.toDays/1 -> $0.ToDays($1) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.convert/2 -> $0.Convert($1, $2) using Maddi.JavaCompat
+member java.util.concurrent.TimeUnit.sleep/1 -> Thread.Sleep($0.ToTimeSpan($1)) using Maddi.JavaCompat, System.Threading
+# .NET delivers an interrupt at the next wait and does not let ask about it: a flag beside it
+member java.lang.Thread.interrupt/0 -> JavaThreads.Interrupt($0) using Maddi.JavaCompat
+member java.lang.Thread.isInterrupted/0 -> JavaThreads.IsInterrupted($0) using Maddi.JavaCompat
+member java.lang.Thread.interrupted/0 -> JavaThreads.Interrupted() using Maddi.JavaCompat
+member java.lang.Thread.ofPlatform/0 -> JavaThreads.OfPlatform() using Maddi.JavaCompat
+member java.lang.Thread.getThreadGroup/0 ->? JavaThreads.ThreadGroup($0) using Maddi.JavaCompat
 member java.util.concurrent.CountDownLatch.countDown/0 -> $0.Signal()
 member java.util.concurrent.CountDownLatch.await/0 -> $0.Wait()
 member java.util.concurrent.CountDownLatch.getCount/0 -> (long) @0.CurrentCount
@@ -1354,6 +1394,16 @@ field java.lang.Boolean.TYPE -> typeof(bool)
 field java.lang.Float.TYPE -> typeof(float)
 field java.lang.Double.TYPE -> typeof(double)
 field java.lang.Void.TYPE -> typeof(void)
+field java.util.concurrent.TimeUnit.NANOSECONDS -> JavaTimeUnit.Nanoseconds using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.MICROSECONDS -> JavaTimeUnit.Microseconds using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.MILLISECONDS -> JavaTimeUnit.Milliseconds using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.SECONDS -> JavaTimeUnit.Seconds using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.MINUTES -> JavaTimeUnit.Minutes using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.HOURS -> JavaTimeUnit.Hours using Maddi.JavaCompat
+field java.util.concurrent.TimeUnit.DAYS -> JavaTimeUnit.Days using Maddi.JavaCompat
+field java.lang.Thread.MIN_PRIORITY -> 1
+field java.lang.Thread.NORM_PRIORITY -> 5
+field java.lang.Thread.MAX_PRIORITY -> 10
 field java.time.temporal.ChronoUnit.NANOS -> JavaChronoUnit.Nanos using Maddi.JavaCompat
 field java.time.temporal.ChronoUnit.MICROS -> JavaChronoUnit.Micros using Maddi.JavaCompat
 field java.time.temporal.ChronoUnit.MILLIS -> JavaChronoUnit.Millis using Maddi.JavaCompat
