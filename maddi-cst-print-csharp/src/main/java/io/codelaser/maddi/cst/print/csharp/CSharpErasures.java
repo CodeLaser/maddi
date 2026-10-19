@@ -27,11 +27,10 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -194,9 +193,9 @@ final class CSharpErasures {
         if (erased.isEmpty()) return null;
         ParameterizedType from = value.parameterizedType();
         if (from == null || from.arrays() != 0 || from.typeInfo() == null || from.isTypeParameter()) return null;
-        ParameterizedType seen = asSeen(from, t);
+        ParameterizedType seen = CstSupertypes.asSeen(from, t);
         if (seen == null || seen.parameters().size() != t.typeParameters().size()) return null;
-        ParameterizedType asTarget = extendsAsBound(seen);
+        ParameterizedType asTarget = CstSupertypes.extendsAsBound(seen);
         boolean differs = false;
         for (int i = 0; i < t.typeParameters().size(); i++) {
             ParameterizedType expected = target.parameters().get(i);
@@ -208,28 +207,6 @@ final class CSharpErasures {
             else if (!expected.equals(actual)) return null;
         }
         return differs ? asTarget : null;
-    }
-
-    /** {@code from} as its supertype {@code t}, in {@code from}'s type arguments; null when it is raw, or no {@code t}. */
-    private static ParameterizedType asSeen(ParameterizedType from, TypeInfo t) {
-        TypeInfo type = from.typeInfo();
-        if (type.equals(t)) return from;
-        if (from.parameters().size() != type.typeParameters().size()) return null;
-        ParameterizedType seen = CSharpHierarchy.implementedAs(type, t);
-        if (seen == null) return null;
-        Map<TypeParameter, ParameterizedType> map = new HashMap<>();
-        for (int k = 0; k < from.parameters().size(); k++) map.put(type.typeParameters().get(k), from.parameters().get(k));
-        return CSharpHierarchy.substitute(seen, map);
-    }
-
-    /**
-     * A diamond's inferred {@code ? extends Mapped_}, {@code new CountDistinctUniCollector<>(mapper)} of a
-     * {@code Function<? super A, ? extends Mapped_>}, as C# has it: its bound.
-     */
-    private static ParameterizedType extendsAsBound(ParameterizedType pt) {
-        ParameterizedType bound = pt.wildcard() != null && pt.wildcard().isExtends() ? pt.withWildcard(null) : pt;
-        if (bound.parameters().isEmpty()) return bound;
-        return bound.withParameters(bound.parameters().stream().map(CSharpErasures::extendsAsBound).toList());
     }
 
     private static boolean open(ParameterizedType a) {

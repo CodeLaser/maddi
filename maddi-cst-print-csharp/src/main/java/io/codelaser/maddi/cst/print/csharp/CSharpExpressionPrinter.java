@@ -36,6 +36,7 @@ import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 import io.codelaser.maddi.cst.print.translate.Emission;
 import io.codelaser.maddi.cst.print.translate.Literals;
 
@@ -857,7 +858,7 @@ public final class CSharpExpressionPrinter {
         // HashMap<K, V> is a Map<K, V>, ListBasedScalingOrderedSet<E> a Collection<E> through Set<E>
         if (target != null && target.typeInfo() != null) {
             ParameterizedType asTarget = created.equals(target.typeInfo()) ? type
-                    : CSharpHierarchy.implementedAs(created, target.typeInfo());
+                    : CstSupertypes.asSeen(created, target.typeInfo());
             if (asTarget != null) match(asTarget, target, own, inferred);
         }
         List<ParameterizedType> arguments = new ArrayList<>();
@@ -907,7 +908,7 @@ public final class CSharpExpressionPrinter {
         ParameterizedType formal = method.parameters().get(index).parameterizedType();
         if (formal.arrays() != 0) return null;
         if (formal.isTypeParameter()) return bound.get(formal.typeParameter());
-        ParameterizedType target = CSharpHierarchy.substitute(formal, bound);
+        ParameterizedType target = CstSupertypes.substitute(formal, bound);
         return target.parameters().stream().allMatch(a -> a.wildcard() == null) ? target : null;
     }
 
@@ -1032,7 +1033,7 @@ public final class CSharpExpressionPrinter {
         if (!differs) return null;
         LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(from.typeInfo());
         if (!CSharpContext.program().delegate(from.typeInfo()) && (mapping == null || !mapping.delegate())) return null;
-        MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(from.typeInfo());
         if (sam == null) return null;
         Map<NamedType, ParameterizedType> fromMap = from.initialTypeParameterMap();
         Map<NamedType, ParameterizedType> toMap = target.initialTypeParameterMap();
@@ -1138,11 +1139,7 @@ public final class CSharpExpressionPrinter {
             || created.parameters().size() != created.typeInfo().typeParameters().size()) {
             return target;
         }
-        Map<TypeParameter, ParameterizedType> map = new HashMap<>();
-        for (int k = 0; k < created.parameters().size(); k++) {
-            map.put(created.typeInfo().typeParameters().get(k), created.parameters().get(k));
-        }
-        return CSharpHierarchy.substitute(target, map);
+        return CstSupertypes.substitute(target, CstSupertypes.typeArguments(created));
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
@@ -1209,7 +1206,7 @@ public final class CSharpExpressionPrinter {
         List<TypeParameter> own = created.typeParameters();
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         ParameterizedType asTarget = created.equals(target.typeInfo()) ? created.asParameterizedType()
-                : CSharpHierarchy.implementedAs(created, target.typeInfo());
+                : CstSupertypes.asSeen(created, target.typeInfo());
         if (asTarget != null) match(asTarget, target, own, inferred);
         List<ParameterizedType> arguments = new ArrayList<>();
         for (TypeParameter tp : own) {
@@ -1226,7 +1223,7 @@ public final class CSharpExpressionPrinter {
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
             ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
             if (!raw(argument)) continue;
-            ParameterizedType formal = CSharpHierarchy.substitute(parameters.get(i).parameterizedType(), bound);
+            ParameterizedType formal = CstSupertypes.substitute(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
                                                             && p.wildcard().isUnbound())) {
                 return null;
@@ -1613,7 +1610,7 @@ public final class CSharpExpressionPrinter {
         if (method.isVoid() || method.isConstructor() || !CSharpTypeName.valueReference(method.returnType())) return null;
         ParameterizedType target = mr.parameterizedType();
         TypeInfo functional = target == null ? null : target.typeInfo();
-        MethodInfo sam = functional == null ? null : CSharpNames.singleAbstractMethod(functional);
+        MethodInfo sam = functional == null ? null : CstSupertypes.singleAbstractMethod(functional);
         if (sam == null || !sam.returnType().isTypeParameter()) return null;
         return "(" + CSharpTypeName.argument(method.returnType(), q) + ") ";
     }
