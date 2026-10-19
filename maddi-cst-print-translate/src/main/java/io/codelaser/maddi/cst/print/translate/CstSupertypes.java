@@ -33,7 +33,9 @@ import java.util.function.Predicate;
  * <p>
  * The search is the printers' own rather than {@link ParameterizedType#concreteSuperType}: breadth first, with a
  * visited set, so a cyclic or very deep hierarchy on a partial class path neither overflows nor needs a catch, and with
- * plain substitution of the type's own type arguments (maddi#157).
+ * plain substitution of the type's own type arguments. The two agree except for {@code java.lang.Object}, which
+ * {@code concreteSuperType} does not return as a superclass; the Kotlin printer stays on {@code concreteSuperType}
+ * until maddi#158 and maddi#159 are settled (maddi#157).
  */
 public final class CstSupertypes {
 
@@ -85,7 +87,10 @@ public final class CstSupertypes {
         return map;
     }
 
-    /** {@code pt} with the type parameters of {@code map} replaced by their arguments, nested ones included. */
+    /**
+     * {@code pt} with the type parameters of {@code map} replaced by their arguments, nested ones included.
+     * ⚠ A type parameter written with a wildcard, {@code ? extends B}, becomes the argument without it (maddi#158).
+     */
     public static ParameterizedType substitute(ParameterizedType pt, Map<TypeParameter, ParameterizedType> map) {
         if (map.isEmpty()) return pt;
         if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
