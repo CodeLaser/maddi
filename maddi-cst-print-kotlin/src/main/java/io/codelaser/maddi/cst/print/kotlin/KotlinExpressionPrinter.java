@@ -2673,6 +2673,8 @@ public class KotlinExpressionPrinter {
     /** The receiver's Kotlin element type admits null: a {@code Collection<out Number?>}, a {@code List<E?>}. */
     private static boolean nullableElements(Expression receiver) {
         ParameterizedType type = KotlinNullability.kotlinType(receiver);
+        // a raw Collection, nacos's StringUtils.join(Collection, String): Kotlin's Collection<*>, of Any? elements
+        if (type != null && rawGeneric(type)) return true;
         if (type == null || type.parameters().size() != 1) return false;
         ParameterizedType element = type.parameters().getFirst();
         return KotlinNullability.isNullable(element);

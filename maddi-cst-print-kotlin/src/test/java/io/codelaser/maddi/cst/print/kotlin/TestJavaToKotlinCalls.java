@@ -579,6 +579,41 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's StringUtils.join(Collection, String): {@code collection.toArray()} of a raw Collection, Kotlin's
+     * Collection<*>, whose elements are Any?; and SwitchManager's {@code switchDomain.clone()}, a protected override
+     * of Object.clone() that the package calls.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawToArrayAndPackageClone() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Strings {
+                    static int join(Collection collection) {
+                        Object[] objects = collection.toArray();
+                        return objects.length;
+                    }
+                }
+                class Domain implements Cloneable {
+                    int value;
+                    @Override
+                    protected Domain clone() throws CloneNotSupportedException {
+                        return (Domain) super.clone();
+                    }
+                }
+                class Manager {
+                    Domain domain = new Domain();
+                    Domain copy() throws CloneNotSupportedException {
+                        return domain.clone();
+                    }
+                }
+                """);
+        contains(kotlin, "toTypedArray<Any?>()");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
      * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
      */
