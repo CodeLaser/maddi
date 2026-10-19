@@ -694,7 +694,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * projections a raw type is elsewhere; Java's erasure, each type parameter's bound, is
      * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
      */
-    private static String rawSupertype(ParameterizedType supertype, Qualification q) {
+    static String rawSupertype(ParameterizedType supertype, Qualification q) {
         if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null
             || KotlinTypeName.isMapped(supertype.typeInfo().fullyQualifiedName())) return null;
         return KotlinTypeName.erased(supertype, q);

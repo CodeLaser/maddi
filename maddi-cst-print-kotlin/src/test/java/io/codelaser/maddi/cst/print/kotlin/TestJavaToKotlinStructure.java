@@ -92,6 +92,41 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's DumpService: {@code registerSubscriber(new Subscriber() {…})} and ServerLoaderController's
+     * {@code new RequestCallBack() {…}}, anonymous classes of a raw supertype: erased as a named class's header is,
+     * so that onEvent(Event) overrides.
+     */
+    @Test
+    public void rawAnonymousSupertype() {
+        String kotlin = kotlin("""
+                package a;
+                class Event { }
+                abstract class Subscriber<T extends Event> {
+                    abstract void onEvent(T event);
+                }
+                interface CallBack<T extends Event> { void onResponse(T response); }
+                @SuppressWarnings("rawtypes")
+                class Dump {
+                    static void register(Subscriber subscriber) { }
+                    static void call(CallBack callBack) { }
+                    void init() {
+                        register(new Subscriber() {
+                            @Override
+                            void onEvent(Event event) { }
+                        });
+                        call(new CallBack() {
+                            @Override
+                            public void onResponse(Event response) { }
+                        });
+                    }
+                }
+                """);
+        contains(kotlin, "object : Subscriber<Event>()");
+        contains(kotlin, "object : CallBack<Event>");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
      * anonymous subclass with an instance initializer: an object expression whose init block puts.
      */

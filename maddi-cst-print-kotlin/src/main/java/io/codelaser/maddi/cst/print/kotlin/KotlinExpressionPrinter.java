@@ -2648,15 +2648,19 @@ public class KotlinExpressionPrinter {
         ParameterizedType parent = anonymous.parentClass();
         // new ListMultimapBuilder<K0, @Nullable Object>() {…}: the type arguments' type-use annotations, as a named
         // class's header writes them (maddi#144 kept them on the anonymous class's supertype)
+        // nacos's DumpService: new Subscriber() {…}, a raw supertype, which a named class's header erases too
         if (parent != null && !parent.isJavaLangObject()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
+            String raw = KotlinTypePrinter.rawSupertype(parent, q);
+            b.add(new TextImpl(raw != null ? raw : KotlinTypeName.of(supertype != null ? supertype
                             : KotlinTypePrinter.declaredArguments(parent), q)))
                     // guava's ImmutableSortedSet: AbstractSpliterator<E>(size(), …) widens the int to the superclass
                     // constructor's long, as a named class's constructor call does
                     .add(anonymousSuperArguments(cc, parent, q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
-                    : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
+            ParameterizedType implemented = anonymous.interfacesImplemented().getFirst();
+            String raw = KotlinTypePrinter.rawSupertype(implemented, q);
+            b.add(new TextImpl(raw != null ? raw : KotlinTypeName.of(supertype != null ? supertype
+                    : KotlinTypePrinter.declaredArguments(implemented), q)));
         } else {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
