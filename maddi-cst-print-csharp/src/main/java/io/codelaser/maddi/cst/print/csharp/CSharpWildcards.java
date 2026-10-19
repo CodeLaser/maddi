@@ -20,6 +20,7 @@ import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -100,7 +101,7 @@ final class CSharpWildcards {
         if (method.parameters().stream().noneMatch(p -> capturable(p.parameterizedType()))) return false;
         for (MethodInfo m : overriddenAndSelf(method)) {
             if (!CSharpNames.translated(m.typeInfo())) return false;
-            if (m.typeInfo().isInterface() && CSharpNames.singleAbstractMethod(m.typeInfo()) == m) return false;
+            if (m.typeInfo().isInterface() && CstSupertypes.singleAbstractMethod(m.typeInfo()) == m) return false;
         }
         return true;
     }

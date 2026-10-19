@@ -19,18 +19,17 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 
 /**
  * The type hierarchy as C# needs it: a supertype as a type extends or implements it, in its own type parameters, and
@@ -57,56 +56,13 @@ final class CSharpHierarchy {
                              && (CSharpNames.translated(o.typeInfo()) || renamed) && o.isAbstract()
                              && o.typeParameters().size() == m.typeParameters().size()
                              && !CSharpContext.program().erasedGeneric(o))
-                .filter(o -> implementedAs(iface, o.typeInfo()) != null)
+                .filter(o -> CstSupertypes.asSeen(iface, o.typeInfo()) != null)
                 .findFirst().orElse(null);
-    }
-
-    /** {@code ancestor} as {@code type} extends or implements it, in {@code type}'s type parameters. */
-    static ParameterizedType implementedAs(TypeInfo type, TypeInfo ancestor) {
-        return firstAsSeen(type, ancestor::equals);
     }
 
     /** {@code Iterable<E>} as {@code t} implements it, directly or through its supertypes; null when it does not. */
     static ParameterizedType iterableAsSeen(TypeInfo t) {
-        return firstAsSeen(t, at -> "java.lang.Iterable".equals(at.fullyQualifiedName()));
-    }
-
-    /** The first supertype of {@code type}, breadth first, that is an {@code ancestor}, in {@code type}'s type parameters. */
-    private static ParameterizedType firstAsSeen(TypeInfo type, Predicate<TypeInfo> ancestor) {
-        Deque<ParameterizedType> todo = new ArrayDeque<>();
-        Set<TypeInfo> seen = new HashSet<>();
-        if (type.parentClass() != null) todo.add(type.parentClass());
-        todo.addAll(type.interfacesImplemented());
-        while (!todo.isEmpty()) {
-            ParameterizedType pt = todo.poll();
-            TypeInfo t = pt.typeInfo();
-            if (t == null || !seen.add(t)) continue;
-            if (ancestor.test(t)) return pt;
-            Map<TypeParameter, ParameterizedType> map = typeArguments(pt);
-            if (t.parentClass() != null) todo.add(substitute(t.parentClass(), map));
-            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
-        }
-        return null;
-    }
-
-    /** The type parameters of {@code pt}'s type, mapped to its arguments. */
-    static Map<TypeParameter, ParameterizedType> typeArguments(ParameterizedType pt) {
-        Map<TypeParameter, ParameterizedType> map = new HashMap<>();
-        TypeInfo t = pt.typeInfo();
-        for (int k = 0; k < Math.min(t.typeParameters().size(), pt.parameters().size()); k++) {
-            map.put(t.typeParameters().get(k), pt.parameters().get(k));
-        }
-        return map;
-    }
-
-    static ParameterizedType substitute(ParameterizedType pt, Map<TypeParameter, ParameterizedType> map) {
-        if (map.isEmpty()) return pt;
-        if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
-            ParameterizedType mapped = map.get(pt.typeParameter());
-            return pt.arrays() == 0 ? mapped : mapped.copyWithArrays(mapped.arrays() + pt.arrays());
-        }
-        if (pt.parameters().isEmpty()) return pt;
-        return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map)).toList());
+        return CstSupertypes.firstAsSeen(t, at -> "java.lang.Iterable".equals(at.fullyQualifiedName()));
     }
 
     /**
@@ -222,17 +178,17 @@ final class CSharpHierarchy {
         Map<TypeInfo, ParameterizedType> interfaces = new LinkedHashMap<>();
         Deque<ParameterizedType> todo = new ArrayDeque<>();
         for (TypeInfo t : chain) {
-            ParameterizedType asSeen = t == cls ? null : implementedAs(cls, t);
-            Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : typeArguments(asSeen);
-            t.interfacesImplemented().forEach(i -> todo.add(substitute(i, map)));
+            ParameterizedType asSeen = t == cls ? null : CstSupertypes.asSeen(cls, t);
+            Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : CstSupertypes.typeArguments(asSeen);
+            t.interfacesImplemented().forEach(i -> todo.add(CstSupertypes.substitute(i, map)));
         }
         while (!todo.isEmpty()) {
             ParameterizedType i = todo.poll();
             TypeInfo iface = i.typeInfo();
             if (iface == null || interfaces.containsKey(iface)) continue;
             interfaces.put(iface, i);
-            Map<TypeParameter, ParameterizedType> map = typeArguments(i);
-            iface.interfacesImplemented().forEach(sup -> todo.add(substitute(sup, map)));
+            Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(i);
+            iface.interfacesImplemented().forEach(sup -> todo.add(CstSupertypes.substitute(sup, map)));
         }
         interfaces.keySet().forEach(iface -> implementations.addAll(iface.methods().stream()
                 .filter(m -> !m.isAbstract() && !m.isStatic()).toList()));
@@ -253,7 +209,7 @@ final class CSharpHierarchy {
                 if (CSharpBcl.objectOverridable(m)) continue;
                 if (implementations.stream().anyMatch(x -> x != m && (x.overrides().contains(m)
                                                                        || inheritedImplementation(x, m)))) continue;
-                left.add(new LeftAbstract(m, typeArguments(i)));
+                left.add(new LeftAbstract(m, CstSupertypes.typeArguments(i)));
             }
         });
         return List.copyOf(left);

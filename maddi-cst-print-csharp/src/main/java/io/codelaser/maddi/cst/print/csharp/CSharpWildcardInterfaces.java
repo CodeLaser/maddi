@@ -36,6 +36,7 @@ import io.codelaser.maddi.cst.impl.output.OutputBuilderImpl;
 import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -517,7 +518,7 @@ final class CSharpWildcardInterfaces {
                 .anyMatch(bound -> !bound.isJavaLangObject()))) {
             return false;
         }
-        MethodInfo sam = CSharpNames.singleAbstractMethod(t);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(t);
         if (sam == null) return false;
         for (ParameterizedType slot : samTypes(pt, sam)) {
             if (slot == null) return false;
@@ -535,7 +536,7 @@ final class CSharpWildcardInterfaces {
      */
     private static boolean adapted(TypeInfo t) {
         if (!CSharpNames.lambdaAdapter(t)) return false;
-        MethodInfo sam = CSharpNames.singleAbstractMethod(t);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(t);
         return sam != null && sam.typeInfo().equals(t);
     }
 
@@ -573,7 +574,7 @@ final class CSharpWildcardInterfaces {
      */
     static String delegateBridge(MethodInfo m, String call, List<TypeParameter> removed, Qualification q) {
         ParameterizedType pt = m.returnType();
-        MethodInfo sam = CSharpNames.singleAbstractMethod(pt.typeInfo());
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(pt.typeInfo());
         List<ParameterizedType> slots = samTypes(pt, sam);
         int n = sam.parameters().size();
         List<String> names = new ArrayList<>();
