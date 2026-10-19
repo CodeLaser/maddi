@@ -171,6 +171,36 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ServerMemberManager.MemberInfoReportTask and TcpHealthCheckProcessor.TaskProcessor: an inner class with
+     * instance members and a static constant. Kotlin's inner class has no companion object; the constant goes to the
+     * enclosing class's, where the inner class finds it by its simple name.
+     */
+    @Test
+    public void innerClassConstantHoisted() {
+        String kotlin = kotlin("""
+                package a;
+                public class Manager {
+                    private long last;
+                    class ReportTask implements Runnable {
+                        public static final long REPORT_INTERVAL = 50000L;
+                        private long reported;
+                        @Override
+                        public void run() {
+                            if (System.currentTimeMillis() - last > REPORT_INTERVAL) reported++;
+                        }
+                    }
+                    class Processor {
+                        private static final int MAX_WAIT = 500;
+                        int waited;
+                        boolean late() { return waited > MAX_WAIT; }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class ReportTask");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's BaseHttpMethod and ConnectionType: an enum's own {@code name} field, which would hide Kotlin's
      * Enum.name: renamed, as a field clashing with a mapped property is.
      */
