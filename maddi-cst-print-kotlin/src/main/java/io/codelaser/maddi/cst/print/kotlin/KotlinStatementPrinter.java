@@ -94,9 +94,21 @@ public class KotlinStatementPrinter {
         }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
+        List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters = mc.methodInfo().parameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
                 CstQueries.mentions(mc.methodInfo().returnType(), tp)
-                && mc.methodInfo().parameters().stream().noneMatch(p -> mentionsOutsideSuper(p.parameterizedType(), tp)));
+                && java.util.stream.IntStream.range(0, parameters.size()).noneMatch(i ->
+                        mentionsOutsideSuper(parameters.get(i).parameterizedType(), tp) && fixes(mc, i)));
+    }
+
+    /**
+     * The argument at parameter {@code i} types the call: not an empty varargs (nacos's
+     * {@code List<String> columnList = CollectionUtils.list()}), nor a call typed by its own target only
+     * ({@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))}).
+     */
+    private static boolean fixes(MethodCall mc, int i) {
+        List<Expression> args = mc.parameterExpressions();
+        return i < args.size() && !onlyTargetTyped(args.get(i));
     }
 
     /**

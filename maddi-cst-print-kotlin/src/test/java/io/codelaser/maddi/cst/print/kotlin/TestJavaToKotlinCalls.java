@@ -539,6 +539,45 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's GroupCapacityPersistService, {@code List<String> columnList = CollectionUtils.list()}: an empty varargs
+     * fixes no T, the local's type does; and {@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))},
+     * whose argument is typed by its target only. Both locals keep their types.
+     */
+    @Test
+    public void targetTypedLocal() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Targeted {
+                    static class Key<T> {
+                        static <T> Key<T> valueOf(String name) {
+                            return new Key<>();
+                        }
+                    }
+                    static class Attr<T> {
+                        T value;
+                    }
+                    static <T> Attr<T> attr(Key<T> key) {
+                        return new Attr<>();
+                    }
+                    @SafeVarargs
+                    static <T> List<T> list(T... elements) {
+                        return new ArrayList<>(Arrays.asList(elements));
+                    }
+                    static int use() {
+                        List<String> columns = list();
+                        columns.add("x");
+                        Attr<Boolean> tls = attr(Key.valueOf("TLS"));
+                        return columns.size() + (tls.value == null ? 0 : 1);
+                    }
+                }
+                """);
+        contains(kotlin, "val columns: MutableList<String>");
+        contains(kotlin, "val tls: Attr<Boolean");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's AbstractRequestFilter: {@code <T> Response getDefaultResponseInstance(Class)}, a type parameter neither
      * the parameters nor the result mention; and CollectionUtils {@code List columnList = list()}, an empty varargs
      * into a raw local. Nothing fixes T, which Java erases to Object.
