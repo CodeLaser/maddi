@@ -390,7 +390,17 @@ public class KotlinExpressionPrinter {
                 b.add(new TextImpl(KotlinTypeName.staticOwner(named, q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
-            b.add(KotlinNullability.receiverWithDot(object, q));
+            String erased = rawReceiver(object, mc.methodInfo()) ? KotlinTypeName.erased(object.parameterizedType(), q) : null;
+            if (erased != null) {
+                // nacos's DefaultPublisher: subscriber.onEvent(event) on a raw Subscriber, Kotlin's Subscriber<*>,
+                // whose onEvent(T) takes nothing: the erasure Java calls it on, an unchecked cast
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, object, KotlinContext.describe(object));
+                b.add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, object, q)).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(erased))
+                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT);
+            } else {
+                b.add(KotlinNullability.receiverWithDot(object, q));
+            }
         }
         if (KotlinTypePrinter.isRecordAccessor(mc.methodInfo()) || KotlinTypePrinter.isAnnotationElement(mc.methodInfo())) {
             // a data class's property; an annotation's element, Java's too, which Kotlin reads as a property
@@ -523,6 +533,22 @@ public class KotlinExpressionPrinter {
         ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
         return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
+    }
+
+    /**
+     * A raw receiver of a member whose parameters take its class's type variables: Kotlin's star projection of the
+     * raw type takes nothing there.
+     */
+    private static boolean rawReceiver(Expression object, io.codelaser.maddi.cst.api.info.MethodInfo method) {
+        ParameterizedType t = object.parameterizedType();
+        if (!KotlinContext.translatingJava() || method == null || method.isStatic() || t == null || t.typeInfo() == null
+            || t.arrays() > 0 || !t.parameters().isEmpty() || t.typeInfo().typeParameters().isEmpty()
+            || unwrap(object) instanceof TypeExpression) return false;
+        // a raw Comparable's compareTo has its own cast, to Comparable<Any?>
+        if ("compareTo".equals(method.name())) return false;
+        java.util.List<io.codelaser.maddi.cst.api.info.TypeParameter> own = method.typeInfo().typeParameters();
+        return !own.isEmpty() && method.parameters().stream()
+                .anyMatch(p -> own.stream().anyMatch(tp -> CstQueries.mentions(p.parameterizedType(), tp)));
     }
 
     /**

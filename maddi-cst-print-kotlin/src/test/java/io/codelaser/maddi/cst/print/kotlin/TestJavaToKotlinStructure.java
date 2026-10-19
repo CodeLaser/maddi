@@ -62,10 +62,19 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin("""
                 package a;
                 import java.util.*;
-                interface CallBack<T> { void onResponse(T response); }
+                class Response { }
+                interface CallBack<T extends Response> { void onResponse(T response); }
                 @SuppressWarnings("rawtypes")
                 abstract class AbstractCallBack implements CallBack {
                     long timeout;
+                }
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Future {
+                    CallBack callBack;
+                    void done(Response response, Map map) {
+                        callBack.onResponse(response);
+                        map.put("k", response);
+                    }
                 }
                 class Meta {
                     Map<String, Boolean> abilities = new HashMap<>();
@@ -75,7 +84,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "AbstractCallBack : CallBack<Any?>");
+        contains(kotlin, "AbstractCallBack : CallBack<Response>");
+        contains(kotlin, "(callBack as CallBack<Response>).onResponse(response)");
+        contains(kotlin, "(map as MutableMap<Any?, Any?>).put(");
         contains(kotlin, "if (abilities.get(key)!!)");
         compiles(kotlin);
     }

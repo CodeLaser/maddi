@@ -691,17 +691,13 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /**
      * A raw supertype, nacos's {@code AbstractRequestCallBack implements RequestCallBack}: Kotlin forbids the star
-     * projections a raw type is elsewhere; Java's erasure is each type parameter's bound, {@code RequestCallBack<Any?>}.
-     * Null when the supertype is not raw, or a type parameter is bounded (its bound may mention itself).
+     * projections a raw type is elsewhere; Java's erasure, each type parameter's bound, is
+     * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
      */
     private static String rawSupertype(ParameterizedType supertype, Qualification q) {
         if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null
-            || !supertype.parameters().isEmpty() || supertype.typeInfo().typeParameters().isEmpty()
             || KotlinTypeName.isMapped(supertype.typeInfo().fullyQualifiedName())) return null;
-        if (supertype.typeInfo().typeParameters().stream()
-                .anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()))) return null;
-        return KotlinTypeName.name(supertype.typeInfo(), q) + supertype.typeInfo().typeParameters().stream()
-                .map(tp -> "Any?").collect(Collectors.joining(", ", "<", ">"));
+        return KotlinTypeName.erased(supertype, q);
     }
 
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
