@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.impl.statement;
 
 import io.codelaser.maddi.cst.api.element.*;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.InfoMap;
 import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
@@ -25,6 +26,7 @@ import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.SwitchEntry;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
 import io.codelaser.maddi.cst.api.variable.DescendMode;
+import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
@@ -107,6 +109,16 @@ public class SwitchEntryImpl implements SwitchEntry {
         return statement;
     }
 
+    /*
+     Only an enum constant takes the simple name in a case label (before Java 21 it must). Every other condition
+     prints with the caller's qualification: a static constant of another type, 'case Consts.ONE ->', printed as
+     'case ONE ->' does not compile outside Consts. Found printing a method body into another class (maddi#156).
+     */
+    private static boolean isEnumConstant(Expression condition) {
+        return condition instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
+               && fr.fieldInfo().isSynthetic() && fr.fieldInfo().owner().typeNature().isEnum();
+    }
+
     @Override
     public OutputBuilder print(Qualification qualification) {
         OutputBuilder outputBuilder = new OutputBuilderImpl();
@@ -129,7 +141,8 @@ public class SwitchEntryImpl implements SwitchEntry {
                 } else {
                     outputBuilder.add(SymbolEnum.COMMA);
                 }
-                outputBuilder.add(condition.print(QualificationImpl.SIMPLE_ONLY));
+                outputBuilder.add(condition.print(isEnumConstant(condition) ? QualificationImpl.SIMPLE_ONLY
+                        : qualification));
             }
         }
         // A pattern label carries its pattern in patternVariable, NOT in conditions, which is empty for
