@@ -689,20 +689,38 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return changed ? supertype.withParameters(arguments) : supertype;
     }
 
+    /**
+     * A raw supertype, nacos's {@code AbstractRequestCallBack implements RequestCallBack}: Kotlin forbids the star
+     * projections a raw type is elsewhere; Java's erasure is each type parameter's bound, {@code RequestCallBack<Any?>}.
+     * Null when the supertype is not raw, or a type parameter is bounded (its bound may mention itself).
+     */
+    private static String rawSupertype(ParameterizedType supertype, Qualification q) {
+        if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null
+            || !supertype.parameters().isEmpty() || supertype.typeInfo().typeParameters().isEmpty()
+            || KotlinTypeName.isMapped(supertype.typeInfo().fullyQualifiedName())) return null;
+        if (supertype.typeInfo().typeParameters().stream()
+                .anyMatch(tp -> tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject()))) return null;
+        return KotlinTypeName.name(supertype.typeInfo(), q) + supertype.typeInfo().typeParameters().stream()
+                .map(tp -> "Any?").collect(Collectors.joining(", ", "<", ">"));
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
             String sameName = sameNamedInnerSuperclass(q);
             if (sameName == null) sameName = innerOfAGenericOuter(q);
+            String raw = sameName == null ? rawSupertype(typeInfo.parentClass(), q) : null;
             OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
-                    : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
+                    : raw != null ? raw : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
-        typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
-                        ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
-                        : KotlinTypeName.of(declaredArguments(i), q)))));
+        typeInfo.interfacesImplemented().forEach(i -> {
+            String raw = rawSupertype(i, q);
+            supers.add(new OutputBuilderImpl().add(new TextImpl(raw != null ? raw : readOnlyIterator(i)
+                    ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
+                    : KotlinTypeName.of(declaredArguments(i), q))));
+        });
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));

@@ -154,12 +154,12 @@ public class KotlinStatementPrinter {
                     .add(KotlinNullability.asserted(ts.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q));
             case WhileStatement ws -> loop(ws, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(test(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(ws.block(), q)));
             case DoStatement ds -> loop(ds, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+                    .add(test(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
             case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(new TextImpl(declareForEach(fe)))
@@ -649,6 +649,19 @@ public class KotlinStatementPrinter {
         return KotlinExpressionPrinter.print(c, q);
     }
 
+    /**
+     * An if's or a loop's condition. A Boolean Kotlin types nullable is unboxed by Java, which throws for a null:
+     * asserted (nacos's RequestMeta, {@code if (abilityTable.get(key))} of a Map<String, Boolean>).
+     */
+    private static OutputBuilder test(Expression c, Qualification q) {
+        ParameterizedType t = c.parameterizedType();
+        if (t != null && t.arrays() == 0 && t.typeInfo() != null
+            && "java.lang.Boolean".equals(t.typeInfo().fullyQualifiedName()) && KotlinNullability.nullableInKotlin(c)) {
+            return KotlinNullability.asserted(c, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
+        }
+        return KotlinExpressionPrinter.print(c, q);
+    }
+
     /** Inside a {@code when} arm printed as {@code run { }}: a {@code yield} is {@code return@run}. */
     private static final ThreadLocal<Boolean> YIELD_AS_RETURN = ThreadLocal.withInitial(() -> false);
 
@@ -990,7 +1003,7 @@ public class KotlinStatementPrinter {
     private static OutputBuilder ifElse(IfElseStatement ife, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(test(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ife.expression()), () -> block(ife.block(), q)));
         KotlinSmartCasts.Facts whenFalse = KotlinSmartCasts.whenFalse(ife.expression());

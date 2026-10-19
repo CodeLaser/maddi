@@ -54,6 +54,33 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     /**
+     * nacos's AbstractRequestCallBack implements the raw RequestCallBack: a supertype takes no star projection, its
+     * erasure's Any?. And RequestMeta's {@code if (abilityTable.get(key))} of a Map<String, Boolean>: unboxed, asserted.
+     */
+    @Test
+    public void rawSupertypeAndBoxedCondition() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface CallBack<T> { void onResponse(T response); }
+                @SuppressWarnings("rawtypes")
+                abstract class AbstractCallBack implements CallBack {
+                    long timeout;
+                }
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    int status(String key) {
+                        if (abilities.get(key)) return 1;
+                        return 0;
+                    }
+                }
+                """);
+        contains(kotlin, "AbstractCallBack : CallBack<Any?>");
+        contains(kotlin, "if (abilities.get(key)!!)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
      * anonymous subclass with an instance initializer: an object expression whose init block puts.
      */
