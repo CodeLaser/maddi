@@ -613,7 +613,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     /**
      * nacos's CollectionUtils.getCardinalityMap: {@code Map count = new HashMap(coll.size())}, a raw construction into
      * a raw local, which fixes no type arguments: the erasure, HashMap<Any?, Any?>; as into a raw field or the return
-     * of a raw method (nacos's NoneSelector). A typed target keeps inferring.
+     * of a raw method (nacos's NoneSelector), or as an argument into a raw parameter (AbstractNacosRestTemplate's
+     * handlers.put). A typed target keeps inferring.
      */
     @Test
     @SuppressWarnings("rawtypes")
@@ -624,6 +625,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 class Raw {
                     private Map cache = new HashMap();
+                    private final Map<String, List> lists = new HashMap<>();
+                    void init() {
+                        lists.put("a", new ArrayList());
+                    }
                     static Map make() {
                         return new HashMap();
                     }
@@ -638,6 +643,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "HashMap<Any?, Any?>(coll.size)");
+        contains(kotlin, "ArrayList<Any?>()");
         compiles(kotlin);
     }
 

@@ -1149,8 +1149,12 @@ public class KotlinExpressionPrinter {
                                              // (Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY into an Array<Entry?>
                                              || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1)
                                             && declared != null ? declared : target;
+                // nacos's AbstractNacosRestTemplate: handlers.put(type, new BeanResponseHandler()) into a
+                // Map<String, ResponseHandler>, whose raw V fixes no type arguments
+                Expression arg = args.get(i);
+                OutputBuilder widenedArgument = intoRawTarget(arg, declared, () -> widened(arg, widenTo, q));
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
-                        widened(args.get(i), widenTo, q), q);
+                        widenedArgument, q);
                 if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
                                      || nullableElementsParameter(method, i, args.get(i)))) {
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
@@ -1836,17 +1840,23 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        return intoRawTarget(e, target, () -> assignedTo(e, target, q));
+    }
+
+    /** {@code print}, with {@code e} known to go into {@code target}, which may be raw: see {@link #RAW_TARGET}. */
+    private static OutputBuilder intoRawTarget(Expression e, ParameterizedType target,
+                                               java.util.function.Supplier<OutputBuilder> print) {
         Expression call = unwrap(e);
-        if (KotlinContext.translatingJava() && (call instanceof ConstructorCall || call instanceof MethodCall)
-            && rawGeneric(target)) {
-            boolean added = RAW_TARGET.get().add(call);
-            try {
-                return assignedTo(e, target, q);
-            } finally {
-                if (added) RAW_TARGET.get().remove(call);
-            }
+        if (!KotlinContext.translatingJava() || !(call instanceof ConstructorCall || call instanceof MethodCall)
+            || !rawGeneric(target)) {
+            return print.get();
         }
-        return assignedTo(e, target, q);
+        boolean added = RAW_TARGET.get().add(call);
+        try {
+            return print.get();
+        } finally {
+            if (added) RAW_TARGET.get().remove(call);
+        }
     }
 
     private static OutputBuilder assignedTo(Expression e, ParameterizedType target, Qualification q) {
