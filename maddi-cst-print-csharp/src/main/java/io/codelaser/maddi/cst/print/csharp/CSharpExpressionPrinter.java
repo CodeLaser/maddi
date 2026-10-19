@@ -823,16 +823,12 @@ public final class CSharpExpressionPrinter {
                     inferred);
         }
         ParameterizedType target = argumentTarget(cc);
-        // the parameter's type, or a supertype the class declares with its own type parameters (HashMap<K, V> : Map<K, V>)
-        if (target != null && (created.equals(target.typeInfo()) || target.typeInfo() != null
-                                                                     && passesOwnParameters(created, target.typeInfo()))
-            && target.parameters().size() == type.parameters().size()) {
-            for (int i = 0; i < type.parameters().size(); i++) {
-                ParameterizedType a = type.parameters().get(i);
-                if (a.isTypeParameter() && own.contains(a.typeParameter())) {
-                    inferred.putIfAbsent(a.typeParameter(), target.parameters().get(i));
-                }
-            }
+        // the parameter's type, or a supertype of the class, as it extends or implements it in its own type parameters:
+        // HashMap<K, V> is a Map<K, V>, ListBasedScalingOrderedSet<E> a Collection<E> through Set<E>
+        if (target != null && target.typeInfo() != null) {
+            ParameterizedType asTarget = created.equals(target.typeInfo()) ? type
+                    : CSharpHierarchy.implementedAs(created, target.typeInfo());
+            if (asTarget != null) match(asTarget, target, own, inferred);
         }
         List<ParameterizedType> arguments = new ArrayList<>();
         for (ParameterizedType a : type.parameters()) {
@@ -984,15 +980,18 @@ public final class CSharpExpressionPrinter {
         if (from == null || from.arrays() != 0 || from.typeInfo() == null || !from.typeInfo().equals(target.typeInfo())) {
             return null;
         }
-        String to = CSharpTypeName.of(target, q);
-        if (to.equals(CSharpTypeName.of(from, q))) return null;
         // only Java's wildcard or raw use, object in C#: a position of the callee's own type parameter, Func<A, Result_>,
-        // C# infers from the variable, which a lambda would hide (CS0411)
+        // C# infers from the variable, which a lambda would hide (CS0411); a generic constructor's is object, C# has none
         if (!target.parameters().isEmpty() && target.parameters().size() != from.parameters().size()) return null;
+        boolean differs = target.parameters().isEmpty() && !from.parameters().isEmpty();
         for (int i = 0; i < target.parameters().size(); i++) { // a raw target is object throughout
-            String t = CSharpTypeName.argument(target.parameters().get(i), q);
-            if (!t.equals(CSharpTypeName.argument(from.parameters().get(i), q)) && !"object".equals(t)) return null;
+            ParameterizedType ti = target.parameters().get(i);
+            String t = constructorTypeParameter(ti) ? "object" : CSharpTypeName.argument(ti, q);
+            if (t.equals(CSharpTypeName.argument(from.parameters().get(i), q))) continue;
+            if (!"object".equals(t)) return null;
+            differs = true;
         }
+        if (!differs) return null;
         LibraryMapping.TypeMapping mapping = CSharpContext.libraries().type(from.typeInfo());
         if (!CSharpContext.program().delegate(from.typeInfo()) && (mapping == null || !mapping.delegate())) return null;
         MethodInfo sam = CSharpNames.singleAbstractMethod(from.typeInfo());
@@ -1013,8 +1012,22 @@ public final class CSharpExpressionPrinter {
         }
         String parameters = names.size() == 1 ? names.getFirst() : "(" + String.join(", ", names) + ")";
         OutputBuilder b = new OutputBuilderImpl().add(text(parameters + " =>")).add(SpaceEnum.ONE).add(print(inner, q));
-        if (arguments.isEmpty()) return b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
-        return b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        if (arguments.isEmpty()) b.add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        else b.add(SymbolEnum.LEFT_PARENTHESIS).add(text(String.join(", ", arguments))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        // the result of a type parameter, which may be null, as the delegate's object, which the analysis has not
+        // (CS8603): as a method reference's unboxing has it
+        if (!sam.isVoid() && sam.returnType().isTypeParameter()
+            && CSharpContext.program().facts().nullabilityAnalysed()) {
+            b.add(CSharpNullability.NULL_FORGIVING);
+        }
+        return b;
+    }
+
+    /** A generic constructor's own type parameter, which C# erases to object: it has no generic constructors. */
+    private static boolean constructorTypeParameter(ParameterizedType t) {
+        if (!t.isTypeParameter() || t.arrays() != 0) return false;
+        var owner = t.typeParameter().getOwner();
+        return owner != null && owner.isRight() && owner.getRight().isConstructor();
     }
 
     /** {@code (int) x}; Java's cast to a boxed type, {@code (Integer) o}, becomes the cast to the primitive. */
@@ -1075,6 +1088,13 @@ public final class CSharpExpressionPrinter {
         if (target == null || method == null || !method.isConstructor()) return target;
         if (!(CSharpContext.currentCall() instanceof ConstructorCall cc) || cc.constructor() != method) return target;
         ParameterizedType created = CSharpContext.created(cc);
+        // created raw, new DefaultBiJoiner(new Function[0], …) in a static member: C#'s of object, whose parameter
+        // is no conversion's target; the raw array is its own Func<object, object>[]
+        if (created != null && created.typeInfo() != null && created.parameters().isEmpty()
+            && !created.typeInfo().typeParameters().isEmpty() && CstQueries.mentionsAny(target,
+                created.typeInfo().typeParameters())) {
+            return null;
+        }
         if (created == null || created.typeInfo() == null
             || created.parameters().size() != created.typeInfo().typeParameters().size()) {
             return target;
@@ -1133,7 +1153,7 @@ public final class CSharpExpressionPrinter {
     /**
      * A diamond of raw arguments, {@code new DefaultBiJoiner<>(newLeftMappings, …)} of a {@code new Function[n]}: Java
      * infers the raw type, which converts to the {@code DefaultBiJoiner<A, B>} returned unchecked; C# creates it with
-     * the target's type arguments, or those of the class that make it the target, an interface it implements. Null
+     * the target's type arguments, or those of the class that make it the target, a supertype's. Null
      * when the creation is not such a diamond, or the target does not determine them.
      */
     private static ParameterizedType erasedDiamond(Expression e, ParameterizedType target) {
@@ -1149,14 +1169,9 @@ public final class CSharpExpressionPrinter {
         }
         List<TypeParameter> own = created.typeParameters();
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
-        if (created.equals(target.typeInfo())) {
-            match(created.asParameterizedType(), target, own, inferred);
-        } else {
-            List<ParameterizedType> declared = new ArrayList<>(created.interfacesImplemented());
-            if (created.parentClass() != null) declared.add(created.parentClass());
-            declared.stream().filter(d -> target.typeInfo().equals(d.typeInfo())).findFirst()
-                    .ifPresent(d -> match(d, target, own, inferred));
-        }
+        ParameterizedType asTarget = created.equals(target.typeInfo()) ? created.asParameterizedType()
+                : CSharpHierarchy.implementedAs(created, target.typeInfo());
+        if (asTarget != null) match(asTarget, target, own, inferred);
         List<ParameterizedType> arguments = new ArrayList<>();
         for (TypeParameter tp : own) {
             ParameterizedType t = inferred.get(tp);

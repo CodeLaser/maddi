@@ -160,14 +160,18 @@ public class ElementPrinter {
         boolean multiLine = line.computeAvailable();
         if (line.available() < 0 && !splitInfo.map().isEmpty()) {
             int indent = block.tab() * options.spacesInTab();
-            int pos = updateForSplit(splitInfo, indent);
+            int pos = splitInfo.map().lastEntry().getValue().lastKey();
 
             // A wrapped single-line comment keeps its continuation at comment level (no extra
             // indent); everything else gets a continuation indent. Works in concert with
             // BlockPrinter.handleBlock (line.appendNewLine(...)).
             int increment = line.isSingleLineComment() ? 0 : options.spacesInTab();
 
-            line.carryOutSplit(pos, indent + increment, false);
+            int added = line.carryOutSplit(pos, indent + increment, false);
+            // the split points are positions in the line's builder: those after the split move with the text the
+            // split inserted. Rebased on the new line's indent, a second split of the same line came out far too
+            // early, in the middle of a name: `basicVariableListe\n    ner()`.
+            shiftAfterSplit(splitInfo, pos, added);
             line.computeAvailable();
             return true;
         }
@@ -234,6 +238,20 @@ public class ElementPrinter {
             }
         }
         return pos;
+    }
+
+    /** Drops the split points up to {@code pos}, where the line was split, and moves those after it by {@code added}. */
+    private static void shiftAfterSplit(BlockPrinter.SplitInfo splitInfo, int pos, int added) {
+        Iterator<Map.Entry<Integer, TreeMap<Integer, BlockPrinter.SplitLevel>>> iterator = splitInfo.map().entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, TreeMap<Integer, BlockPrinter.SplitLevel>> entry = iterator.next();
+            TreeMap<Integer, BlockPrinter.SplitLevel> updated = new TreeMap<>();
+            entry.getValue().forEach((at, level) -> {
+                if (at > pos) updated.put(at + added, level);
+            });
+            if (updated.isEmpty()) iterator.remove();
+            else entry.setValue(updated);
+        }
     }
 
     /** Withdraws the split points registered at this position, of every rank: see {@link Space#withdrawsSplitBefore()}. */

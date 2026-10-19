@@ -268,6 +268,102 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String SCOPED_DIAMONDS = """
+            package org.example.scoped;
+            import java.util.*;
+            import java.util.function.Function;
+            class Scoped {
+                static final class OrderedSet<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<T> {
+                    Notifiable(Collection<List<T>> queue) { }
+                }
+                static <T> Notifiable<T> build(boolean unique) {
+                    return new Notifiable<>(unique ? new OrderedSet<>() : new ArrayDeque<>());
+                }
+                @SuppressWarnings("rawtypes")
+                static final class Joiner<A> {
+                    @SuppressWarnings("unchecked")
+                    private static final Joiner NONE = new Joiner(new Function[0]);
+                    Joiner(Function<A, Object>[] mappings) { }
+                }
+            }
+            """;
+
+    /**
+     * A diamond whose parameter is a supertype its class reaches through another, Collection through Set; a raw
+     * creation's raw array, of no type parameter out of scope.
+     */
+    @Test
+    public void scopedDiamonds() {
+        String cs = translate("Scoped", SCOPED_DIAMONDS);
+        contains(cs, "unique ? new OrderedSet<List<T>>()\n: new List<List<T>>()");
+        contains(cs, "new Joiner<object>(new Func<object, object>[0])");
+    }
+
+    @Language("java")
+    private static final String GENERIC_CONSTRUCTORS = """
+            package org.example.ctors;
+            import java.util.function.Function;
+            class Joiners {
+                static final class Joiner<A, B> {
+                    <P> Joiner(Function<A, P> left, Function<B, P> right) { }
+                }
+                static <A, B, P extends Comparable<P>> Joiner<A, B> lessThan(Function<A, P> left, Function<B, P> right) {
+                    return new Joiner<>(left, right);
+                }
+            }
+            """;
+
+    /** A generic constructor, which C# does not have: its own type parameter is object, a delegate of it widened. */
+    @Test
+    public void genericConstructors() {
+        String cs = translate("Joiners", GENERIC_CONSTRUCTORS);
+        contains(cs, "internal Joiner(Func<A, object> left, Func<B, object> right) { }");
+        contains(cs, "new Joiner<A, B>(x0_ => left(x0_), x0_ => right(x0_))");
+    }
+
+    @Language("java")
+    private static final String LONG_TYPE_ARGUMENTS = """
+            package org.example.longtypes;
+            import java.util.*;
+            class Notifiables {
+                interface ChangeEventOfAVeryLongName<T> { }
+                interface ListenerOfAnEvenLongerNameStill<S, T> { boolean requiresUniqueEntityEvents(); }
+                interface NotificationWithALongName<S, E, L> { }
+                static final class OrderedSetOfSomeLength<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<S> {
+                    Notifiable(Object scoreDirector, ListenerOfAnEvenLongerNameStill<S, Object> listener,
+                               Collection<NotificationWithALongName<S, ChangeEventOfAVeryLongName<Object>,
+                                       ListenerOfAnEvenLongerNameStill<S, Object>>> queue, int globalOrder) { }
+                }
+                @SuppressWarnings("unchecked")
+                static <S> Notifiable<S> build(Object scoreDirector, Object variableListener, int globalOrder) {
+                    if (variableListener instanceof ListenerOfAnEvenLongerNameStill<?, ?> basicVariableListener) {
+                        return new Notifiable<>(
+                                scoreDirector,
+                                (ListenerOfAnEvenLongerNameStill<S, Object>) basicVariableListener,
+                                basicVariableListener.requiresUniqueEntityEvents() ? new OrderedSetOfSomeLength<>() : new ArrayDeque<>(),
+                                globalOrder);
+                    }
+                    return null;
+                }
+            }
+            """;
+
+    /** A line the formatter cannot fit: a type argument longer than the line splits between tokens, not in one. */
+    @Test
+    public void longTypeArguments() {
+        String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
+        contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {

@@ -476,6 +476,33 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String WIDENED_NULLS = """
+            package org.example.widened;
+            import java.util.function.Function;
+            class Joiners {
+                static final class Joiner<A, B> {
+                    <P> Joiner(Function<A, P> left, Function<B, P> right) { }
+                }
+                static <A, B, P extends Comparable<P>> Joiner<A, B> lessThan(Function<A, P> left, Function<B, P> right) {
+                    return new Joiner<>(left, right);
+                }
+            }
+            """;
+
+    /** A widened delegate's result, of a type parameter that may be null, into the delegate's object (CS8603): !. */
+    @Test
+    public void widenedNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Joiners", WIDENED_NULLS);
+        contains(cs, "new Joiner<A, B>(x0_ => left(x0_)!, x0_ => right(x0_)!)");
+    }
+
+    @Language("java")
     private static final String VALUE_NULLS = """
             package org.example.values;
             import java.math.BigDecimal;

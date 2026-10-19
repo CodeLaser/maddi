@@ -75,9 +75,12 @@
 # fits), cast where C# has the value type; a companion's protected member internal; a record header's nested types
 # qualified; an annotation's nested types printed; Class.getName()'s FullName a string?: 183 -> 184 compiling files,
 # 35 -> 34 errors.
+# 2026-10-18, maddi 459ff635e, 4b171c277, 929b63000, 8a222b943: a diamond's type arguments through any supertype;
+# a raw creation's raw arrays; delegates widened for a generic constructor; the formatter's split points move with
+# an overflow split: 184 -> 185 compiling files.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	184
+compilingFiles	185
 unmappedJdkUses	15
