@@ -33,6 +33,7 @@ import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.api.variable.DependentVariable;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.output.*;
@@ -227,17 +228,63 @@ public final class CSharpStatementPrinter {
     static OutputBuilder declaration(LocalVariableCreation lvc, Qualification q) {
         LocalVariable lv = lvc.localVariable();
         OutputBuilder b = new OutputBuilderImpl();
-        b.add(text(implicitlyTyped(lvc) ? "var" : local(lv.parameterizedType(), q))).add(SpaceEnum.ONE);
+        ParameterizedType stored = lvc.otherLocalVariables().isEmpty() ? storedArrayType(lv) : null;
+        ParameterizedType type = stored != null ? stored : lv.parameterizedType();
+        b.add(text(implicitlyTyped(lvc) ? "var" : local(type, q))).add(SpaceEnum.ONE);
         return b.add(lvc.localVariableStream().map(v -> {
             OutputBuilder d = new OutputBuilderImpl().add(text(CSharpContext.declare(v.simpleName())));
             CSharpNullability.declared(lvc, v);
             Expression init = v.assignmentExpression();
             if (init != null && !init.isEmpty()) {
                 d.add(SymbolEnum.assignment("=")).add(CSharpNullability.initializer(lvc, v, init,
-                        CSharpExpressionPrinter.initializer(init, v.parameterizedType(), q)));
+                        CSharpExpressionPrinter.initializer(init, v == lv ? type : v.parameterizedType(), q)));
             }
             return d;
         }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+    }
+
+    /**
+     * A raw array local created raw, {@code var moves = new Move[n]}, whose elements the method stores are all of one
+     * type with arguments, {@code moves[i] = node.getMove()} of a {@code Move<Solution_>}: that type's array, which C#
+     * declares and creates, {@code new IMove<Solution_>[n]}, not {@code IMove<object>[]}. Not one a diamond's creation
+     * takes. Null otherwise.
+     */
+    private static ParameterizedType storedArrayType(LocalVariable lv) {
+        ParameterizedType declared = lv.parameterizedType();
+        Expression init = lv.assignmentExpression();
+        if (declared == null || declared.arrays() != 1 || declared.typeInfo() == null || !declared.parameters().isEmpty()
+            || declared.typeInfo().typeParameters().isEmpty()
+            || !(init != null && CSharpExpressionPrinter.unwrap(init) instanceof ConstructorCall cc)
+            || cc.anonymousClass() != null || cc.parameterizedType().arrays() != 1) {
+            return null;
+        }
+        var method = CSharpContext.currentMethod();
+        if (method == null || method.methodBody() == null) return null;
+        Set<ParameterizedType> types = new HashSet<>();
+        boolean[] other = {false};
+        method.methodBody().visit((Element e) -> {
+            if (e instanceof Assignment a && a.variableTarget() instanceof DependentVariable dv
+                && lv.equals(dv.arrayVariable())) {
+                Expression value = CSharpExpressionPrinter.unwrap(a.value());
+                if (value instanceof NullConstant) return true;
+                ParameterizedType t = value.parameterizedType();
+                if (t == null || t.arrays() != 0 || !declared.typeInfo().equals(t.typeInfo())) other[0] = true;
+                else types.add(t);
+            } else if (e instanceof ConstructorCall created && created.diamond() != null && created.diamond().isYes()
+                       && created.parameterExpressions().stream().anyMatch(p -> CSharpExpressionPrinter.unwrap(p)
+                    instanceof VariableExpression ve && lv.equals(ve.variable()))) {
+                // new Joiner<>(copy), whose diamond C# may print erased, of object, where the raw array fits
+                other[0] = true;
+            }
+            return !other[0];
+        });
+        if (other[0] || types.size() != 1) return null;
+        ParameterizedType element = types.iterator().next();
+        if (element.parameters().size() != declared.typeInfo().typeParameters().size()
+            || !CSharpExpressionPrinter.writable(element, List.of())) {
+            return null;
+        }
+        return declared.withParameters(element.parameters());
     }
 
     /**

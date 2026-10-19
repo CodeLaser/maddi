@@ -13,4 +13,11 @@ internal static class Unchecked {
         return false;
     }
     internal static Func<int, ISet<V>> Sets<V>() => (Func<int, ISet<V>>) (p0 => new HashSet<V>(p0));
+    internal static Cell<T> Pick<T>(Cell<T>[] cells) => cells[0];
+    internal static Cell<T> First<T>(Cell<T> c) {
+        var all = new Cell<T>[1];
+        all[0] = c;
+        return Pick(all);
+    }
 }
+internal sealed class Cell<T> { internal T t; }

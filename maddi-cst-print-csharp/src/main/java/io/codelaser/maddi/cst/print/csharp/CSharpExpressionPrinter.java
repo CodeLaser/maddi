@@ -672,7 +672,7 @@ public final class CSharpExpressionPrinter {
      * A type C# can write as a type argument: no wildcard, none of the called method's own type parameters, and only
      * type parameters in scope where it is printed.
      */
-    private static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
+    static boolean writable(ParameterizedType t, List<TypeParameter> typeParameters) {
         if (t.wildcard() != null) return false;
         // nor one C# cannot name here: a static member's in the companion class, an override's declaration's
         if (t.isTypeParameter()) return !typeParameters.contains(t.typeParameter()) && CSharpContext.inScope(t.typeParameter());
@@ -1215,8 +1215,46 @@ public final class CSharpExpressionPrinter {
             return CSharpNullability.intoParameter(value, method, i,
                     unboxCast(CSharpTypeName.argument(unwrap(value).parameterizedType(), q), value, q));
         }
+        // HashMap::new as a generic method's Supplier<Result_>: Java infers Result_ from where the reference goes, a
+        // Map<Key, Value>, C# from the lambda's result, which is cast to it: () => (IDictionary<Key, Value>) new Dictionary…
+        ParameterizedType inferred = unwrap(value) instanceof MethodReference mr ? resultInferred(mr, method, i) : null;
+        if (inferred != null) {
+            MethodReference mr = (MethodReference) unwrap(value);
+            return CSharpNullability.intoParameter(value, method, i,
+                    adapted(mr.parameterizedType(), methodReference(mr, inferred, q), q));
+        }
         boolean captured = method != null && i < method.parameters().size() && CSharpWildcards.capturedParameter(method, i);
         return CSharpNullability.intoParameter(value, method, i, converted(value, target, q, !captured));
+    }
+
+    /**
+     * The result type of a constructor reference passed where the called method infers a type parameter of its own from
+     * the functional interface's result, when that is another type than the one created; null otherwise.
+     */
+    private static ParameterizedType resultInferred(MethodReference mr, MethodInfo method, int i) {
+        if (!mr.methodInfo().isConstructor() || method == null || method.typeParameters().isEmpty()
+            || i >= method.parameters().size() || method.parameters().get(i).isVarArgs()) {
+            return null;
+        }
+        ParameterizedType formal = method.parameters().get(i).parameterizedType();
+        TypeInfo functional = formal.typeInfo();
+        if (formal.arrays() != 0 || functional == null || formal.parameters().size() != functional.typeParameters().size()) {
+            return null;
+        }
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(functional);
+        if (sam == null || sam.isVoid() || !sam.returnType().isTypeParameter() || sam.returnType().arrays() != 0) return null;
+        int index = functional.typeParameters().indexOf(sam.returnType().typeParameter());
+        if (index < 0) return null;
+        ParameterizedType r = formal.parameters().get(index);
+        if (!r.isTypeParameter() || !r.typeParameter().isMethodTypeParameter()
+            || !method.typeParameters().contains(r.typeParameter())) {
+            return null;
+        }
+        ParameterizedType result = mr.concreteReturnType();
+        ParameterizedType created = mr.scope().parameterizedType();
+        return result != null && result.arrays() == 0 && result.typeInfo() != null && created != null
+               && created.arrays() == 0 && !result.typeInfo().equals(created.typeInfo())
+               && result.typeInfo().isInterface() && writable(result, method.typeParameters()) ? result : null;
     }
 
     /**
@@ -1601,6 +1639,11 @@ public final class CSharpExpressionPrinter {
      * for a constructor.
      */
     private static OutputBuilder methodReference(MethodReference mr, Qualification q) {
+        return methodReference(mr, null, q);
+    }
+
+    /** {@code resultType}: a constructor reference's result as C# is to infer it, the created value cast to it. */
+    private static OutputBuilder methodReference(MethodReference mr, ParameterizedType resultType, Qualification q) {
         MethodInfo method = mr.methodInfo();
         Expression scope = mr.scope();
         int arity = mr.concreteParameterTypes().size();
@@ -1645,6 +1688,7 @@ public final class CSharpExpressionPrinter {
                       + "[]".repeat(type.arrays() - 1)
                     : "new " + CSharpTypeName.of(type, q) + "(" + String.join(", ", constructorArguments(type, parameters))
                       + ")";
+            if (resultType != null) created = "(" + CSharpTypeName.of(resultType, q) + ") " + created;
             return text(parameterList + " => " + created);
         }
         LibraryMapping.Rule rule = CSharpNames.translated(method.typeInfo()) ? null

@@ -29,6 +29,12 @@ public static class Streams {
     internal static string Supplied(Func<object> supplier) => JavaString.ValueOf(supplier());
     internal static string Supply<P>(Func<P> supplier) => Supplied(() => supplier());
     internal static ISet<E> FromMap<E>(IDictionary<E, bool> map) => map.KeySet();
+    internal static List<M> Fill<V, M>(V value, Func<M> supplier)
+        where M : IDictionary<string, V> => new List<M> { supplier() };
+
+    internal static List<IDictionary<string, V>> Filled<V>(V value) => Fill<V, IDictionary<string, V>>(
+        value,
+        () => (IDictionary<string, V>) new Dictionary<string, V>());
     internal static ISet<T> IdentitySet<T>() => FromMap(new Dictionary<T, bool>());
     internal static Slot<R, R> MinSlot<R>() where R : IComparable<R> => new Slot<R, R>(
         true,
