@@ -771,8 +771,25 @@ from a map, a stream's collector.
   - The continuations (`ThenApply`, `ThenCompose`) are the compatibility library's. They get explicit type
     arguments: `Task<T>` is invariant, and C# would infer the result type from the lambda where Java has it from
     the target.
-  - An `Executor` becomes a `TaskScheduler`; a `ThreadPoolExecutor` and the `Executors` pools become the .NET thread
-    pool, `TaskScheduler.Default`.
+  - A `CompletableFuture` made empty, `new CompletableFuture<Void>()`, is `JavaTasks.Incomplete<object>()`: a
+    `TaskCompletionSource`'s task, which the compatibility library remembers (a weak table), so that `complete`,
+    `completeExceptionally` and `cancel` are extensions of `Task` that end it. A task nothing completes from outside,
+    `Task.Run`'s, is not completed: they return false, as Java's of a future that is done. `whenComplete` is a
+    continuation that runs the action of the result or the exception and keeps the task's outcome;
+    `runAsync` gives the `Task<object>` that a `CompletableFuture<Void>` is.
+  - An `Executor` becomes a `TaskScheduler`; a `ThreadPoolExecutor`, a cached pool and the work-stealing pool become
+    the .NET thread pool, `TaskScheduler.Default`. `Executors.newFixedThreadPool(n, threadFactory)` and
+    `newSingleThreadExecutor()` are the compatibility library's `JavaExecutorService`, a `TaskScheduler` of `n`
+    threads its `ThreadFactory` (`IJavaThreadFactory`) makes: `shutdown`, `shutdownNow` (which interrupts its
+    threads and returns the tasks it had not started), `awaitTermination` and `isShutdown` are extensions of
+    `TaskScheduler`, which do nothing on the thread pool. `submit` gives a task that `cancel` ends, before it starts or
+    by interrupting its thread; a submission after `shutdown` throws `InvalidOperationException` (Java's
+    `RejectedExecutionException`).
+  - .NET delivers `Thread.Interrupt` at the thread's next wait, as Java's interrupt throws `InterruptedException`
+    there, but does not let a thread ask about it: `JavaThreads.Interrupt`, `IsInterrupted` and `Interrupted` keep
+    Java's flag beside it. `Thread.ofPlatform()` is the compatibility library's builder (Java's priorities 1 to 10
+    as .NET's five; no thread groups). `TimeUnit` is the enum `JavaTimeUnit`, its conversions Java's;
+    `latch.await(n, unit)` is `latch.Wait(unit.ToTimeSpan(n))`.
   - `CountDownLatch` becomes `CountdownEvent`, and `ReadWriteLock` a reentrant `ReaderWriterLockSlim`.
   - Its halves, Java's `Lock`, are the compatibility library's `IJavaLock`, as are the atomics.
 - **Reflection.** `Class` becomes `System.Type`, and the members of `java.lang.reflect` become

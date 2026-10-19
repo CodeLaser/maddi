@@ -66,11 +66,11 @@ public final class CSharpTypeName {
     /** The value types C# has for Java's types, the primitives and the BCL mapping's structs. */
     private static final Set<String> VALUE_TYPES = Set.of("int", "long", "short", "sbyte", "byte", "char", "bool",
             "double", "float", "decimal", "Guid", "DateOnly", "TimeOnly", "DateTime", "DateTimeOffset", "TimeSpan",
-            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod");
+            "KeyValuePair", "ValueTuple", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit");
 
     /** The structs a Java reference type maps to, {@link #valueReference}. */
     private static final Set<String> STRUCTS = Set.of("decimal", "Guid", "DateOnly", "TimeOnly", "DateTime",
-            "DateTimeOffset", "TimeSpan", "JavaChronoUnit", "JavaPeriod");
+            "DateTimeOffset", "TimeSpan", "JavaChronoUnit", "JavaPeriod", "JavaTimeUnit");
 
     /** Collections of {@code ?}: C#'s non-generic interfaces, which all its generic collections implement. */
     private static final Map<String, String> NON_GENERIC = Map.of(
