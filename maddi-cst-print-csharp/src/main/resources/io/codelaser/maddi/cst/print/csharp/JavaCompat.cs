@@ -66,6 +66,9 @@ public static class JavaCollections
         for (int i = 0; i < l.Count; i++) l[i] = op(l[i]);
     }
 
+    /// <summary>Map.keySet where a Set is expected: the keys' view (JavaKeySet).</summary>
+    public static ISet<K> KeySet<K, V>(this IDictionary<K, V> m) => new JavaKeySet<K, V>(m);
+
     /// <summary>Map.replaceAll: each value the function's result of its key and value.</summary>
     public static void ReplaceAll<K, V>(this IDictionary<K, V> m, Func<K, V, V> f)
     {
@@ -465,6 +468,63 @@ public static class JavaNavigable
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
+/// <summary>
+/// Map.keySet as a Set: a view of the dictionary's keys, as Java's, whose Remove and Clear remove the entries and whose
+/// Add is not supported (UnsupportedOperationException).
+/// </summary>
+public sealed class JavaKeySet<K, V>(IDictionary<K, V> map) : ISet<K>
+{
+    public int Count => map.Count;
+
+    public bool IsReadOnly => false;
+
+    public bool Contains(K item) => map.ContainsKey(item);
+
+    public bool Remove(K item) => map.Remove(item);
+
+    public void Clear() => map.Clear();
+
+    public IEnumerator<K> GetEnumerator() => map.Keys.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void CopyTo(K[] array, int index) => map.Keys.CopyTo(array, index);
+
+    public bool Add(K item) => throw new NotSupportedException();
+
+    void ICollection<K>.Add(K item) => throw new NotSupportedException();
+
+    public void UnionWith(IEnumerable<K> other) => throw new NotSupportedException();
+
+    public void IntersectWith(IEnumerable<K> other)
+    {
+        var keep = new HashSet<K>(other);
+        foreach (var k in map.Keys.Where(k => !keep.Contains(k)).ToList()) map.Remove(k);
+    }
+
+    public void ExceptWith(IEnumerable<K> other)
+    {
+        // a copy first: other may be this view itself, s.removeAll(s)
+        foreach (var k in other.ToList()) map.Remove(k);
+    }
+
+    public void SymmetricExceptWith(IEnumerable<K> other) => throw new NotSupportedException();
+
+    public bool IsSubsetOf(IEnumerable<K> other) => new HashSet<K>(other).IsSupersetOf(this);
+
+    public bool IsSupersetOf(IEnumerable<K> other) => other.All(Contains);
+
+    public bool IsProperSubsetOf(IEnumerable<K> other) => new HashSet<K>(other).IsProperSupersetOf(this);
+
+    public bool IsProperSupersetOf(IEnumerable<K> other) => new HashSet<K>(this).IsProperSupersetOf(other);
+
+    public bool Overlaps(IEnumerable<K> other) => other.Any(Contains);
+
+    public bool SetEquals(IEnumerable<K> other) => new HashSet<K>(other).SetEquals(this);
+
+    public override string ToString() => "[" + string.Join(", ", this) + "]";
+}
+
 /// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
 public static class JavaSortedSets
 {

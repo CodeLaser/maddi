@@ -100,6 +100,12 @@ public sealed class Lifecycles {
         internal PairNode(ITupleLifecycle<Pair> next) : base(ITupleLifecycle.Same(next)) { }
     }
 
+    public sealed class Scored<G> : IScored where G : IGrade<G> {
+        internal IImpacter<G> Narrowed(IImpacter raw) => (IImpacter<G>) raw;
+        IImpacter IScored.Narrowed(IImpacter raw) => Narrowed(raw);
+    }
+    public interface IScored { internal IImpacter Narrowed(IImpacter raw); }
+
     public interface ITuple {
         int Size();
         public sealed class Lambda(Func<int> f) : ITuple { public int Size() => f(); }

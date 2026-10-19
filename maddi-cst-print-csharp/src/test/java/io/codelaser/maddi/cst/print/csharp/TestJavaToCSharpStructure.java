@@ -561,6 +561,17 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     return false;
                 }
                 boolean seenNode(Node_[] values, Node_ v) { return seen(values, v); }
+                static <V> java.util.function.IntFunction<java.util.Set<V>> sets() {
+                    return (java.util.function.IntFunction<java.util.Set<V>>) java.util.LinkedHashSet::new;
+                }
+                static final class Cell<T> { T t; }
+                static <T> Cell<T> pick(Cell<T>[] cells) { return cells[0]; }
+                @SuppressWarnings("unchecked")
+                static <T> Cell<T> first(Cell<T> c) {
+                    var all = new Cell[1];
+                    all[0] = c;
+                    return pick(all);
+                }
             }
             """;
 
@@ -574,6 +585,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "new Dictionary<string, Node_>(16);");
         contains(cs, "Weigh((IDictionary<string, int>) weights)");
         contains(cs, "Seen((object[]) (object) values, v)");
+        // LinkedHashSet<E> is a Set<E> through SequencedSet<E>: the created set has the target's element type
+        contains(cs, "(Func<int, ISet<V>>) (p0 => new HashSet<V>(p0))");
+        // a raw array whose elements are all a Cell<T>: a Cell<T>[]
+        contains(cs, "var all = new Cell<T>[1];");
     }
 
     @Language("java")
@@ -1985,6 +2000,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
                 static <E> java.util.Set<E> fromMap(java.util.Map<E, Boolean> map) { return map.keySet(); }
+                static <V, M extends java.util.Map<String, V>> java.util.List<M> fill(V value, java.util.function.Supplier<M> supplier) {
+                    return java.util.List.of(supplier.get());
+                }
+                static <V> java.util.List<java.util.Map<String, V>> filled(V value) { return fill(value, java.util.HashMap::new); }
                 static <T> java.util.Set<T> identitySet() { return fromMap(new java.util.HashMap<>()); }
                 static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
                 static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
@@ -2005,6 +2024,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
         contains(cs, "new Bridge<NewA>(this)");
         contains(cs, "new Bridge2<A, B>(this)");
+        // Map.keySet where a Set is expected: the compatibility library's live view, not ICollection Keys
+        contains(cs, "FromMap<E>(IDictionary<E, bool> map) => map.KeySet();");
+        // HashMap::new where Java infers M from the target, a Map<String, V>, and C# from the lambda: its result cast
+        contains(cs, "() => (IDictionary<string, V>) new Dictionary<string, V>()");
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");
@@ -2210,6 +2233,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     java.util.List<G> impacts();
                     static <G extends Grade<G>> Impacter<G> none() { return null; }
                 }
+                public static final class Scored<G extends Grade<G>> {
+                    @SuppressWarnings({"rawtypes", "unchecked"}) Impacter<G> narrowed(Impacter raw) { return raw; }
+                }
                 static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
                 public abstract static class Base { }
                 public static final class Node2<T> extends Base { public int size() { return 0; } }
@@ -2291,6 +2317,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "public interface ITyped { Type Kind { get; } }");
         // ? extends Tuple is its bound, what the code stores there
         contains(cs, "private Box<ITuple> boxed;");
+        // a raw self-bounded one where the type is expected with arguments: Java's unchecked conversion, a cast
+        contains(cs, "IImpacter<G> Narrowed(IImpacter raw) => (IImpacter<G>) raw;");
     }
 
     /**
