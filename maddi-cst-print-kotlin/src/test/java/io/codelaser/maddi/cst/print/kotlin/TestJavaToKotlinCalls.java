@@ -539,6 +539,29 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's IoUtils and ByteUtils: {@code str.getBytes(encoding)} and {@code new String(bytes, encoding)} with a
+     * charset's name, where Kotlin's toByteArray and String take a Charset: charset(encoding).
+     */
+    @Test
+    public void charsetNames() throws Exception {
+        String kotlin = kotlin("""
+                package a;
+                import java.nio.charset.StandardCharsets;
+                class Codec {
+                    static byte[] encode(String s, String encoding) throws Exception { return s.getBytes(encoding); }
+                    static byte[] utf8(String s) { return s.getBytes(StandardCharsets.UTF_8); }
+                    static String decode(byte[] bytes, String encoding) throws Exception { return new String(bytes, encoding); }
+                    static String part(byte[] bytes) throws Exception { return new String(bytes, 0, 2, "UTF-8"); }
+                }
+                """);
+        contains(kotlin, "s.toByteArray(charset(encoding))");
+        contains(kotlin, "s.toByteArray(StandardCharsets.UTF_8)");
+        contains(kotlin, "String(bytes, charset(encoding))");
+        contains(kotlin, "String(bytes, 0, 2, charset(\"UTF-8\"))");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's StringUtils: a final local assigned inside a condition, {@code (strLen = cs.length()) == 0}, which
      * Kotlin assigns in an {@code .also} lambda: a var starting at 0; and String.regionMatches with ignoreCase first in
      * Java, last in Kotlin.

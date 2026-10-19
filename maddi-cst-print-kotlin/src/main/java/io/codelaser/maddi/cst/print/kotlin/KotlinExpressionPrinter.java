@@ -469,6 +469,11 @@ public class KotlinExpressionPrinter {
         if (renamed != null) {
             return b.add(new TextImpl(renamed)).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
+        if (charsetNameAt(mc.methodInfo()) >= 0) {
+            // str.getBytes(encoding) with a charset's name: Kotlin's toByteArray takes a Charset (nacos's IoUtils)
+            return b.add(new TextImpl("toByteArray")).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(charsetOf(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         String sameArguments = KotlinMappedMembers.renamed(mc.methodInfo());
         if (sameArguments != null) {
             return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
@@ -533,6 +538,30 @@ public class KotlinExpressionPrinter {
         ParameterizedType declared = KotlinTypePrinter.declaredArguments(methodInfo.returnType());
         return java.util.stream.Stream.of(verdict, declared).anyMatch(t -> t != null
                 && t.parameters().stream().anyMatch(KotlinNullability::isNullable));
+    }
+
+    /**
+     * The index of a String's {@code charsetName} parameter, where Kotlin's member or constructor takes a Charset:
+     * {@code getBytes(String)}, {@code new String(byte[], String)}, {@code new String(byte[], int, int, String)}; -1
+     * for any other.
+     */
+    private static int charsetNameAt(io.codelaser.maddi.cst.api.info.MethodInfo m) {
+        if (!KotlinContext.translatingJava() || m == null || m.parameters().isEmpty()
+            || !"java.lang.String".equals(m.typeInfo().fullyQualifiedName())) return -1;
+        int last = m.parameters().size() - 1;
+        boolean name = m.parameters().get(last).parameterizedType().isJavaLangString();
+        if (!name) return -1;
+        if ("getBytes".equals(m.name()) && last == 0) return 0;
+        boolean bytes = m.parameters().getFirst().parameterizedType().arrays() == 1
+                        && m.parameters().getFirst().parameterizedType().componentType().isPrimitiveExcludingVoid();
+        return m.isConstructor() && bytes && (last == 1 || last == 3) ? last : -1;
+    }
+
+    /** {@code charset(name)}: Kotlin's Charset of a name, which throws as Java's would for an unsupported one. */
+    private static OutputBuilder charsetOf(Expression name, Qualification q) {
+        return new OutputBuilderImpl().add(new TextImpl("charset")).add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinNullability.asserted(name, KotlinPrintCode.ASSERT_INTO_NON_NULL, q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /**
@@ -2457,6 +2486,17 @@ public class KotlinExpressionPrinter {
         String constructed = KotlinTypeName.constructed(declared, q);
         if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
             constructed = implicitOuter(constructed, type.typeInfo());
+        }
+        int charsetName = charsetNameAt(cc.constructor());
+        if (charsetName >= 0) {
+            // new String(bytes, encoding) with a charset's name: Kotlin's String(ByteArray, Charset) (nacos's ByteUtils)
+            OutputBuilder call = b.add(new TextImpl(constructed)).add(SymbolEnum.LEFT_PARENTHESIS);
+            for (int i = 0; i < cc.parameterExpressions().size(); i++) {
+                if (i > 0) call.add(SymbolEnum.COMMA);
+                call.add(i == charsetName ? charsetOf(cc.parameterExpressions().get(i), q)
+                        : print(cc.parameterExpressions().get(i), q));
+            }
+            return call.add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         ParameterizedType outer = CONSTRUCTED.get();
         CONSTRUCTED.set(declared);
