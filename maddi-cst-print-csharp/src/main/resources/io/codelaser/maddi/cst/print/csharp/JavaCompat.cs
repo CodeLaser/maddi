@@ -59,7 +59,19 @@ public static class JavaCollections
     }
 
     /// <summary>Collection.removeIf on a set or a map's entries: whether anything was removed.</summary>
-    public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
+    /// <summary>List.replaceAll: each element the operator's result.</summary>
+    public static void ReplaceAll<T>(this IList<T> l, Func<T, T> op)
+    {
+        for (int i = 0; i < l.Count; i++) l[i] = op(l[i]);
+    }
+
+    /// <summary>Map.replaceAll: each value the function's result of its key and value.</summary>
+    public static void ReplaceAll<K, V>(this IDictionary<K, V> m, Func<K, V, V> f)
+    {
+        foreach (var k in m.Keys.ToList()) m[k] = f(k, m[k]);
+    }
+
+        public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
     {
         var removed = c.Where(p).ToList();
         foreach (var x in removed) c.Remove(x);
@@ -452,6 +464,42 @@ public static class JavaNavigable
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
+/// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
+public static class JavaSortedSets
+{
+    /// <summary>SortedSet.removeFirst: the least element, removed; NoSuchElementException when empty.</summary>
+    public static T RemoveFirst<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var first = s.Min!;
+        s.Remove(first);
+        return first;
+    }
+
+    public static T RemoveLast<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var last = s.Max!;
+        s.Remove(last);
+        return last;
+    }
+
+    /// <summary>SortedSet.subSet(from, to), from inclusive, to exclusive: a copy, not Java's view.</summary>
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, T to) => s.SubSet(from, true, to, false);
+
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, bool fromInclusive, T to, bool toInclusive)
+    {
+        if (s.Comparer.Compare(from, to) > 0) throw new ArgumentException("from > to");
+        return new SortedSet<T>(s.GetViewBetween(from, to).Where(x =>
+            (fromInclusive || s.Comparer.Compare(x, from) != 0) && (toInclusive || s.Comparer.Compare(x, to) != 0)),
+            s.Comparer);
+    }
+
+    /// <summary>NavigableMap.navigableKeySet: the keys in order, a copy, not Java's view.</summary>
+    public static SortedSet<K> NavigableKeySet<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+        new(m.Keys, m.Comparer);
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -497,6 +545,35 @@ public static class JavaUnsupported
 /// <summary>Java's String methods that differ from the BCL's.</summary>
 public static class JavaString
 {
+    /// <summary>String.indent: each line n spaces more, or up to -n leading white space less; each ends in \n.</summary>
+    public static string Indent(string s, int n)
+    {
+        if (s.Length == 0) return "";
+        var lines = s.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        int count = s.EndsWith('\n') || s.EndsWith('\r') ? lines.Length - 1 : lines.Length;
+        var sb = new StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            var line = lines[i];
+            if (n > 0) sb.Append(' ', n);
+            else if (n < 0)
+            {
+                int strip = 0;
+                while (strip < -n && strip < line.Length && char.IsWhiteSpace(line[strip])) strip++;
+                line = line[strip..];
+            }
+            sb.Append(line).Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>StringBuilder.replace(start, end, str): end past the length is the length.</summary>
+    public static StringBuilder ReplaceRange(this StringBuilder sb, int start, int end, string str)
+    {
+        if (start < 0 || start > sb.Length || start > end) throw new ArgumentOutOfRangeException(nameof(start));
+        return sb.Remove(start, Math.Min(end, sb.Length) - start).Insert(start, str);
+    }
+
     /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>
     public static string ReplaceAll(string s, string regex, string replacement) =>
         new JavaMatcher(new Regex(regex), s).ReplaceAll(replacement);
@@ -996,6 +1073,16 @@ public readonly record struct JavaPeriod(int Years, int Months, int Days)
 
 public static class JavaFunctions
 {
+    /// <summary>RandomGenerator.ints(origin, bound): an endless sequence of draws.</summary>
+    public static IEnumerable<int> Ints(this Random r, int origin, int bound)
+    {
+        while (true) yield return r.Next(origin, bound);
+    }
+
+    /// <summary>RandomGenerator.ints(size, origin, bound).</summary>
+    public static IEnumerable<int> Ints(this Random r, long size, int origin, int bound) =>
+        r.Ints(origin, bound).Take(checked((int) size));
+
     public static Action<T> AndThen<T>(this Action<T> first, Action<T> then) => x =>
     {
         first(x);
@@ -1329,6 +1416,28 @@ public class BitSet : ICloneable
         return i;
     }
 
+    /// <summary>The nearest set bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousSetBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (Get(i)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>The nearest clear bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousClearBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (!Get(i)) return i;
+        }
+        return -1;
+    }
+
     /// <summary>The index of the highest set bit, plus one.</summary>
     public int Length()
     {
@@ -1651,6 +1760,36 @@ public class JavaFile
     public override bool Equals(object? o) => o is JavaFile f && f.path == path;
 
     public override int GetHashCode() => path.GetHashCode();
+}
+
+/// <summary>java.util.stream.Collectors that LINQ has no counterpart of.</summary>
+public static class JavaCollectors
+{
+    /// <summary>Collectors.toCollection(supplier): the elements added to the supplied collection.</summary>
+    public static C ToCollection<T, C>(this IEnumerable<T> source, Func<C> supplier) where C : ICollection<T>
+    {
+        var collection = supplier();
+        foreach (var t in source) collection.Add(t);
+        return collection;
+    }
+
+    /// <summary>Collectors.toMap(key, value, merge): a duplicate key's values merged, Java's HashMap a Dictionary.</summary>
+    public static Dictionary<K, V> ToMap<T, K, V>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge) where K : notnull => source.ToMap(key, value, merge, () => new Dictionary<K, V>());
+
+    /// <summary>Collectors.toMap(key, value, merge, supplier).</summary>
+    public static M ToMap<T, K, V, M>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge, Func<M> supplier) where M : IDictionary<K, V>
+    {
+        var map = supplier();
+        foreach (var t in source)
+        {
+            var k = key(t);
+            var v = value(t);
+            map[k] = map.TryGetValue(k, out var old) ? merge(old, v) : v;
+        }
+        return map;
+    }
 }
 
 /// <summary>InputStream's methods the BCL's Stream does not have.</summary>
@@ -2313,11 +2452,34 @@ public class JavaReentrantLock : IJavaLock
     {
     }
 
-    public void Lock() => Monitor.Enter(monitor);
+    // the holds of the owning thread, which only it changes
+    private int holds;
 
-    public void Unlock() => Monitor.Exit(monitor);
+    public void Lock()
+    {
+        Monitor.Enter(monitor);
+        holds++;
+    }
 
-    public bool TryLock() => Monitor.TryEnter(monitor);
+    public void Unlock()
+    {
+        if (!Monitor.IsEntered(monitor)) throw new SynchronizationLockException();
+        holds--;
+        Monitor.Exit(monitor);
+    }
+
+    public bool TryLock()
+    {
+        if (!Monitor.TryEnter(monitor)) return false;
+        holds++;
+        return true;
+    }
+
+    public bool IsHeldByCurrentThread() => Monitor.IsEntered(monitor);
+
+    public bool IsLocked() => Volatile.Read(ref holds) > 0;
+
+    public int GetHoldCount() => Monitor.IsEntered(monitor) ? holds : 0;
 }
 
 /// <summary>ReadWriteLock.readLock() and writeLock() of a ReaderWriterLockSlim.</summary>
@@ -2394,6 +2556,28 @@ public class AtomicInteger
 
     public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
 
+    public int UpdateAndGet(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public int GetAndUpdate(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public int AccumulateAndGet(int x, Func<int, int, int> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public int GetAndAccumulate(int x, Func<int, int, int> accumulator) => GetAndUpdate(old => accumulator(old, x));
+
     public double DoubleValue() => Get();
 
     public long LongValue() => Get();
@@ -2427,6 +2611,28 @@ public class AtomicLong
     public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
 
     public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public long UpdateAndGet(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public long GetAndUpdate(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public long AccumulateAndGet(long x, Func<long, long, long> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public long GetAndAccumulate(long x, Func<long, long, long> accumulator) => GetAndUpdate(old => accumulator(old, x));
 
     public double DoubleValue() => Get();
 
@@ -2473,6 +2679,37 @@ public class AtomicReference<T>
                 : ReferenceEquals(value, expected);
             if (same) value = update;
             return same;
+        }
+    }
+
+    /// <summary>Java may apply the function more than once under contention; here the lock applies it once.</summary>
+    public T UpdateAndGet(Func<T, T> update)
+    {
+        lock (monitor) return value = update(value);
+    }
+
+    public T GetAndUpdate(Func<T, T> update)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = update(old);
+            return old;
+        }
+    }
+
+    public T AccumulateAndGet(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor) return value = accumulator(value, x);
+    }
+
+    public T GetAndAccumulate(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = accumulator(old, x);
+            return old;
         }
     }
 

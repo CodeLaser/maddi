@@ -211,7 +211,10 @@ implements the interface.
     and do not repeat them.
 - **Interface implementations.** C# is stricter than Java in three places:
   - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
-    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
+    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`. Where
+    the interface's result is a delegate and the method's a program interface extending it (an
+    `UniConstraintCollectorAccumulator` for a `BiFunction<ResultContainer_, A, Runnable>`), which C#'s interface
+    cannot, the call's method group of the delegate's method: `=> Accumulator().Apply;`;
   - a default method that implements an inherited interface's method is an explicit implementation:
     `Type IListener<string>.EventClass() => typeof(string);`; so is one of a JDK interface's method that C# names
     otherwise, `default void close()` of a `Closeable`: `void IDisposable.Dispose() { }`, which a `Dispose()` of its
@@ -411,6 +414,9 @@ implements the interface.
   parameters: `HashSet::new` as an `IntFunction<Set<V>>` is `p0 => new HashSet<V>(p0)`. Where the result does not
   say, the delegate's parameter types do: `Node::new` as a `Builder<String, List<String>>` of
   `(K key, int index, Lifecycle<T> next)` is `(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)`.
+- **References to properties.** A method reference to a member C# has as a property, a record's component, a getter
+  or a computed property, reads it: `ConstraintRef::id` is `(ConstraintRef p0) => p0.Id`, `location::className`
+  `() => location.ClassName`.
 - **Type parameters in scope.** Where the printer writes a type Java inferred (a cast after an erased call, explicit
   type arguments, a diamond), each type parameter in it must be one C# can name there: a method's being printed, or
   the current type's or an enclosing one's, not in the non-generic companion class of the static members.
@@ -688,9 +694,24 @@ from a map, a stream's collector.
   `ITupleLifecycle<ITuple>` is not. A class's wildcard interface declares its internal members too, Java's
   package-private ones, and the overrides of a library's methods; a result C# writes without arguments (`Class<A>`'s
   `Type`) is kept, and the fields the code reads through the wildcard, as properties of the field's name
-  (`Type IMoveSelectorConfig.filterClass => filterClass;`). Only where it declares every member the code reaches
-  through such a wildcard: a field written through it, or a method it cannot declare, keeps the type's wildcards their
-  bound. An interface whose statics have a companion, of
+  (`Type IMoveSelectorConfig.filterClass => filterClass;`). A result that is a delegate of a removed parameter,
+  each of its parameters and its result that parameter or not mentioning it, is the delegate with the parameter
+  erased, which the bridge adapts to by a lambda: a collector's `BiFunction<ResultContainer_, A, Runnable>
+  accumulator()` is `Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return
+  (x0_, x1_) => f((ResultContainer_) x0_, x1_); }`; a functional interface of the program with its lambda adapter
+  (`ITriFunction<ResultContainer_, A, B, Action>`) goes in as its `Lambda`. Only where it declares every member the
+  code reaches through such a wildcard: a field written through it, a method it cannot declare, or a wildcard passed
+  where a generic method captures the type parameter (`conditionally(predicate, UniConstraintCollector<A,
+  ResultContainer_, Result_>)`, which C# could not infer from the wildcard interface), keeps the type's wildcards their
+  bound, `object`. Such an interface, of no supertypes, whose instance methods each take an erased type parameter or
+  none and return one, none, or a delegate the bridge adapts, has an erasure adapter (`CSharpErasures`): a static
+  `IUniConstraintCollector<A, object, Result_> Erased_(IUniConstraintCollector<A, ResultContainer_, Result_>)` and a
+  private class `Erasure_` that implements the interface of `object` by calling the adapted one's members. A value
+  going where the wildcard is expected, `new AverageUniCollector<>(mapper)` returned as `UniConstraintCollector<A, ?,
+  Double>`, is adapted: `IUniConstraintCollector<A, AbstractLongAverageSlot.State, double>.Erased_(new
+  AverageUniCollector<A>(mapper))`, which C#'s variance would not convert. One already of `object` is itself; any other
+  is another object, which a reference comparison with the original tells apart. Not into a method's parameter that
+  captures the wildcard. An interface whose statics have a companion, of
   the same name (`ITupleLifecycle`), has them in its wildcard interface, which C# lets have static members. Where a
   class's superclass is expected, its wildcard interface is cast to it, `(AbstractNode) node`: the interface cannot
   extend the class. A wildcard of a library type,
@@ -830,9 +851,18 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
   step, as `java.util.regex.Matcher`), `JavaEnumeration<T>`, and `java.util.zip`/`java.util.jar` over
   `System.IO.Compression` (`JavaZipFile`, `JavaJarFile`, `JavaZipEntry`, `JavaZipOutputStream`, `JavaManifest`),
   `JavaUuid` (the MD5 name-based UUID), `JavaDigest` (`MessageDigest.getInstance`'s algorithm names), `JavaTasks`
-  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock`, and the atomics (`AtomicBoolean`,
-  `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`), `IJavaWildcardType` and `JavaModifier`,
-  `JavaServiceLoader`.
+  (`CompletableFuture`'s continuations), `IJavaLock` and `JavaReentrantLock` (with `isLocked` and
+  `isHeldByCurrentThread`), and the atomics (`AtomicBoolean`, `AtomicInteger`, `AtomicLong`, `AtomicReference<T>`,
+  with `updateAndGet` and the like; `AtomicReference`'s applies its function once, under its lock),
+  `IJavaWildcardType` and `JavaModifier`, `JavaServiceLoader`, and `JavaCollectors`: `Collectors.toMap` with a merge
+  function and a map supplier, `toCollection` (a supplier `LinkedHashMap::new` creates the result's type,
+  `() => new OrderedDictionary<K, V>()`, which Java infers from it). The primitive functional interfaces
+  (`IntUnaryOperator`, `LongSupplier`, …) are delegates, as the generic ones. `JavaString.Indent` and
+  `ReplaceRange` (`StringBuilder.replace`), `ReplaceAll` of a list and a map, `Ints` of a `Random`, and a sorted
+  set's `RemoveFirst`/`RemoveLast`, `SubSet` and a map's `NavigableKeySet`, which copy where Java gives a view.
+  A sorted collection's `comparator()` is its comparer's method group, `new Comparison<K>(m.Comparer.Compare)`.
+- A template that is one of its arguments, `Arrays.stream(a)`'s `$1`, is as atomic as that argument: a receiver
+  `(a ?? throw new NullReferenceException()).Distinct()` of `Objects.requireNonNull(a)`.
 - `JavaResources` stands for `Class.getResource(AsStream)` and `ClassLoader.getResource(AsStream)`. A resource is
   one of the assembly's embedded resources, and is found by its Java path in one of two ways. Either the manifest
   name is the path itself (an `EmbeddedResource` whose `LogicalName` is the Java path), or the manifest name ends with

@@ -231,6 +231,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
+        members.addAll(CSharpErasures.members(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -718,13 +719,38 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 sb.append(CSharpTypeName.of(CSharpHierarchy.substitute(m.parameters().get(k).parameterizedType(), map), q))
                         .append(' ').append(names.get(k));
             }
+            String group = delegateMember(CSharpHierarchy.substitute(m.returnType(), map), own.returnType());
             sb.append(") => ").append(CSharpNames.method(own)).append('(').append(String.join(", ", names))
-                    .append(");");
+                    .append(')').append(group == null ? "" : "." + group).append(';');
             out.add(new OutputBuilderImpl().add(new TextImpl(sb.toString())));
         }
         for (ParameterizedType sup : iface.interfacesImplemented()) {
             covariantImplementations(sup, map, seen, out, q);
         }
+    }
+
+    /**
+     * The member of a program interface that implements a delegate's method, where the interface's method returns the
+     * delegate and the override the interface: Java's {@code UniConstraintCollectorAccumulator<A> accumulator()} for
+     * {@code BiFunction<ResultContainer_, A, Runnable> accumulator()}, which C#'s interface cannot extend, is its
+     * method group, {@code Accumulator().Apply}. Null otherwise.
+     */
+    private static String delegateMember(ParameterizedType expected, ParameterizedType returned) {
+        TypeInfo delegate = expected.typeInfo();
+        TypeInfo own = returned.typeInfo();
+        if (delegate == null || own == null || expected.arrays() != 0 || returned.arrays() != 0 || !own.isInterface()
+            || !CSharpNames.translated(own) || CSharpContext.program().delegate(own)
+            || !(CSharpTypeName.libraryDelegate(delegate) || CSharpNames.translated(delegate)
+                 && CSharpContext.program().delegate(delegate))) {
+            return null;
+        }
+        MethodInfo sam = CSharpNames.singleAbstractMethod(delegate);
+        if (sam == null) return null;
+        return Stream.concat(Stream.of(own), own.recursiveSuperTypeStream())
+                .filter(CSharpNames::translated)
+                .flatMap(t -> t.methods().stream())
+                .filter(mm -> !mm.isStatic() && mm.overrides().contains(sam))
+                .map(CSharpNames::method).findFirst().orElse(null);
     }
 
     /**

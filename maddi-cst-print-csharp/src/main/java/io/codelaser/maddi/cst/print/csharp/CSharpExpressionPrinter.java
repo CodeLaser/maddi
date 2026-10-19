@@ -364,8 +364,38 @@ public final class CSharpExpressionPrinter {
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
     private static boolean nonAtomicCall(Expression e) {
-        return e instanceof MethodCall mc && (rule(mc) instanceof LibraryMapping.Rule r && !r.atomic()
-                                               || erasedResultCast(mc));
+        if (!(e instanceof MethodCall mc)) return false;
+        if (rule(mc) instanceof LibraryMapping.Rule r) {
+            // Arrays.stream(a) is a itself: as atomic as a, not Objects.requireNonNull(a)'s a ?? throw …
+            Expression passed = passedThrough(mc, r);
+            if (passed != null) return !atomic(passed);
+            if (!r.atomic()) return true;
+        }
+        return erasedResultCast(mc);
+    }
+
+    /** The argument or receiver a rule's template is, {@code $1}; null for any other template. */
+    private static Expression passedThrough(MethodCall mc, LibraryMapping.Rule r) {
+        String value = r.value();
+        if (value == null || !value.matches("\\$\\d")) return null;
+        int n = value.charAt(1) - '0';
+        if (n == 0) return mc.object();
+        return n <= mc.parameterExpressions().size() ? mc.parameterExpressions().get(n - 1) : null;
+    }
+
+    /** An expression {@link #receiver} prints without parentheses. */
+    private static boolean atomic(Expression e) {
+        return switch (e) {
+            case VariableExpression ve -> true;
+            case MethodCall mc -> !nonAtomicCall(mc);
+            case EnclosedExpression ee -> true;
+            case ArrayLength al -> true;
+            case ClassExpression ce -> true;
+            case TypeExpression te -> true;
+            case StringConstant sc -> true;
+            case ConstructorCall cc -> cc.parameterizedType().arrays() == 0 && cc.anonymousClass() == null;
+            case null, default -> false;
+        };
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
@@ -898,14 +928,19 @@ public final class CSharpExpressionPrinter {
      * {@code int} is expected, where C# needs a cast of its {@code int?}.
      */
     static OutputBuilder converted(Expression value, ParameterizedType target, Qualification q) {
+        return converted(value, target, q, true);
+    }
+
+    /** As above; {@code erase} false where the target's wildcard is a type parameter C# captures it into. */
+    private static OutputBuilder converted(Expression value, ParameterizedType target, Qualification q, boolean erase) {
         if (target == null) return print(value, q);
         Expression inner = unwrap(value);
         if (inner instanceof NullConstant && target.isTypeParameter() && target.arrays() == 0) return text("default");
         if (inner instanceof InlineConditional ic && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target))) {
             // the branches: C#'s conditional takes its type from them
             return new OutputBuilderImpl().add(booleanOperand(ic.precedence(), ic.condition(), q))
-                    .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q))
-                    .add(SymbolEnum.COLON).add(converted(ic.ifFalse(), target, q));
+                    .add(SymbolEnum.QUESTION_MARK).add(converted(ic.ifTrue(), target, q, erase))
+                    .add(SymbolEnum.COLON).add(converted(ic.ifFalse(), target, q, erase));
         }
         if (target.isPrimitiveExcludingVoid() && unboxed(inner)) return unboxCast(CSharpTypeName.of(target, q), value, q);
         // Java creates an array of a generic type raw, new Set[n]; C# creates it with the declared type's arguments
@@ -925,6 +960,9 @@ public final class CSharpExpressionPrinter {
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
+        // a concrete collector where Java's wildcard of it is expected, IUniConstraintCollector<A, object, double>
+        ParameterizedType adapted = erase ? CSharpErasures.adapted(inner, target) : null;
+        if (adapted != null) return CSharpErasures.adapter(adapted, print(value, q), q);
         return print(value, q);
     }
 
@@ -1063,7 +1101,8 @@ public final class CSharpExpressionPrinter {
             return CSharpNullability.intoParameter(value, method, i,
                     unboxCast(CSharpTypeName.argument(unwrap(value).parameterizedType(), q), value, q));
         }
-        return CSharpNullability.intoParameter(value, method, i, converted(value, target, q));
+        boolean captured = method != null && i < method.parameters().size() && CSharpWildcards.capturedParameter(method, i);
+        return CSharpNullability.intoParameter(value, method, i, converted(value, target, q, !captured));
     }
 
     /**
@@ -1145,7 +1184,7 @@ public final class CSharpExpressionPrinter {
         Expression inner = unwrap(value);
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
-               || erasedDiamond(inner, target) != null
+               || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
                || inner instanceof InlineConditional ic
                   && (converts(ic.ifTrue(), target) || converts(ic.ifFalse(), target));
     }
@@ -1526,6 +1565,14 @@ public final class CSharpExpressionPrinter {
         boolean asserted = forgiven || cast != null && CSharpContext.program().facts().nullabilityAnalysed();
         String arguments = "(" + String.join(", ", parameters) + ")" + (asserted ? "!" : "");
         String prefix = cast == null ? "" : cast;
+        // a member C# has as a property, ConstraintRef::id: (ConstraintRef p0) => p0.Id, () => location.ClassName
+        String property = method.isStatic() ? null : propertyOf(method);
+        if (property != null && (unboundReceiver ? arity == 1 : arity == 0)) {
+            OutputBuilder lambda = new OutputBuilderImpl().add(text(parameterList + " =>")).add(SpaceEnum.ONE);
+            if (cast != null) lambda.add(text(cast.strip())).add(SpaceEnum.ONE);
+            lambda.add(unboundReceiver ? text(parameters.getFirst()) : receiver(scope, q));
+            return lambda.add(SymbolEnum.DOT).add(text(property + (asserted ? "!" : "")));
+        }
         if (scope instanceof TypeExpression te) {
             String owner = CSharpTypeName.nameInExpression(te.parameterizedType().typeInfo(), q);
             if (method.isStatic()) {
@@ -1542,6 +1589,19 @@ public final class CSharpExpressionPrinter {
             return lambda.add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name + arguments));
         }
         return new OutputBuilderImpl().add(receiver(scope, q)).add(SymbolEnum.DOT).add(text(name));
+    }
+
+    /** The property C# has for a method, as {@link #member} prints a call of it: a record's component, a getter's. */
+    private static String propertyOf(MethodInfo method) {
+        String computed = CSharpContext.program().computedProperty(method);
+        if (computed != null) return computed;
+        CSharpProperties.Property property = CSharpContext.program().accessorOf(method);
+        if (property != null) return method == property.getter() ? property.name() : null;
+        if (CstQueries.isRecordAccessor(method)) {
+            return method.typeInfo().fields().stream().filter(f -> !f.isStatic() && f.name().equals(method.name()))
+                    .findFirst().map(CSharpNames::field).orElse(null);
+        }
+        return null;
     }
 
     /**
@@ -1825,17 +1885,7 @@ public final class CSharpExpressionPrinter {
     /** The receiver of {@code .member}: anything but an atom is enclosed. */
     static OutputBuilder receiver(Expression e, Qualification q) {
         OutputBuilder inner = print(e, q);
-        return switch (e) {
-            case VariableExpression ve -> inner;
-            case MethodCall mc when !nonAtomicCall(mc) -> inner;
-            case EnclosedExpression ee -> inner;
-            case ArrayLength al -> inner;
-            case ClassExpression ce -> inner;
-            case TypeExpression te -> inner;
-            case StringConstant sc -> inner;
-            case ConstructorCall cc when cc.parameterizedType().arrays() == 0 && cc.anonymousClass() == null -> inner;
-            default -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner)
-                    .add(SymbolEnum.RIGHT_PARENTHESIS);
-        };
+        return atomic(e) ? inner : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner)
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 }
