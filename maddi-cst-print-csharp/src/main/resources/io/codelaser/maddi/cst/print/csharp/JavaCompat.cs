@@ -2551,10 +2551,10 @@ public static class JavaTasks
     }
 }
 
-/// <summary>java.util.concurrent.ThreadFactory.</summary>
+/// <summary>java.util.concurrent.ThreadFactory: null where it refuses to make a thread.</summary>
 public interface IJavaThreadFactory
 {
-    Thread NewThread(Action r);
+    Thread? NewThread(Action r);
 }
 
 /// <summary>java.util.concurrent.Executors' thread factory.</summary>
@@ -2612,14 +2612,22 @@ public sealed class JavaExecutorService : TaskScheduler
         {
             // RejectedExecutionException
             if (shut) throw new InvalidOperationException("The executor is shut down.");
-            queue.Add(task);
             if (threads.Count < size)
             {
+                // a factory that refuses a thread: the task waits for one there is, else it is rejected, as Java's
                 var thread = factory.NewThread(Work);
-                threads.Add(thread);
-                Interlocked.Increment(ref alive);
-                thread.Start();
+                if (thread == null)
+                {
+                    if (Volatile.Read(ref alive) == 0) throw new InvalidOperationException("No thread for the task.");
+                }
+                else
+                {
+                    threads.Add(thread);
+                    Interlocked.Increment(ref alive);
+                    thread.Start();
+                }
             }
+            queue.Add(task);
         }
     }
 
