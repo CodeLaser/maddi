@@ -127,6 +127,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
+     * no companion object; nothing of it uses the outer instance, so it is a nested class.
+     */
+    @Test
+    public void innerConstantHolder() {
+        String kotlin = kotlin("""
+                package a;
+                public class Constants {
+                    public static final String PREFIX = "rpc" + Suffix.TLS;
+                    public class Suffix {
+                        public static final String TLS = ".tls";
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("inner"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's BaseHttpMethod and ConnectionType: an enum's own {@code name} field, which would hide Kotlin's
      * Enum.name: renamed, as a field clashing with a mapped property is.
      */

@@ -2567,7 +2567,7 @@ public class KotlinExpressionPrinter {
             String erased = KotlinTypeName.erased(type, q);
             if (erased != null) constructed = erased;
         }
-        if (cc.object() == null && type.typeInfo() != null && type.typeInfo().isInnerClass()) {
+        if (cc.object() == null && type.typeInfo() != null && KotlinTypePrinter.inner(type.typeInfo())) {
             constructed = implicitOuter(constructed, type.typeInfo());
         }
         int charsetName = charsetNameAt(cc.constructor());

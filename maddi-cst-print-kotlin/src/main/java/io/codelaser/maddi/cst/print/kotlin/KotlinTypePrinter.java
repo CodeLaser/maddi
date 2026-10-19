@@ -165,7 +165,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 else if (mods.contains(TypeModifierEnum.SEALED)) out.add(KeywordImpl.SEALED).add(SpaceEnum.ONE);
                 else if (!mods.contains(TypeModifierEnum.FINAL)) out.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
             }
-            if (companion && typeInfo.isInnerClass() && !typeInfo.isAnonymous()
+            if (companion && inner(typeInfo) && !typeInfo.isAnonymous()
                 && (!isLocal(typeInfo) || memberOfAnonymous(typeInfo))) {
                 // Java's nested class sees the outer instance; an object expression takes only an inner class
                 // (guava's HashBiMap: class MapEntry inside the anonymous BiIterator)
@@ -556,7 +556,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = new ArrayList<>();
         // an inner, local or anonymous class can have no companion: its serialVersionUID (all guava's statics there)
         // goes, the class's stream id is then computed
-        boolean noCompanion = typeInfo.isInnerClass() || isLocal(typeInfo) || typeInfo.isAnonymous();
+        boolean noCompanion = inner(typeInfo) || isLocal(typeInfo) || typeInfo.isAnonymous();
         typeInfo.fields().stream().filter(f -> !f.isSynthetic() && f.isStatic() && !isEnumConstant(f))
                 .filter(f -> !noCompanion || !"serialVersionUID".equals(f.name()))
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
@@ -567,6 +567,25 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return Stream.of(new OutputBuilderImpl().add(KotlinKeyword.COMPANION).add(SpaceEnum.ONE).add(KotlinKeyword.OBJECT)
                 .add(SpaceEnum.ONE).add(members.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                         SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock()))));
+    }
+
+    /**
+     * Java's inner class is Kotlin's: it sees the outer instance. Not a member class holding constants only, nacos's
+     * RpcConstants.ClientSuffix (public class, static finals): nothing of it uses the outer instance, and Kotlin
+     * allows no companion object in an inner class.
+     */
+    static boolean inner(TypeInfo typeInfo) {
+        if (!typeInfo.isInnerClass()) return false;
+        if (!KotlinContext.translatingJava() || typeInfo.isAnonymous() || isLocal(typeInfo)) return true;
+        boolean staticOnly = (typeInfo.parentClass() == null || typeInfo.parentClass().isJavaLangObject())
+                && typeInfo.interfacesImplemented().isEmpty()
+                && typeInfo.fields().stream().allMatch(f -> f.isSynthetic() || f.isStatic())
+                && typeInfo.fields().stream().anyMatch(f -> !f.isSynthetic() && f.isStatic())
+                && typeInfo.methods().stream().allMatch(m -> m.isSynthetic() || m.isStatic() || m.isStaticInitializer())
+                && typeInfo.constructors().stream().allMatch(c -> c.isSynthetic() || c.parameters().isEmpty()
+                        && (c.methodBody() == null || c.methodBody().statements().stream().allMatch(st -> st.isSynthetic())))
+                && typeInfo.subTypes().isEmpty();
+        return !staticOnly;
     }
 
     /** Parsed from a {@code .kt} file: printed back in its own shape, not translated from Java's. */

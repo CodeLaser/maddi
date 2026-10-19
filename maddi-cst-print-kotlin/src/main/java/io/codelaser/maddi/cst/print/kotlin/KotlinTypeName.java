@@ -400,7 +400,7 @@ public class KotlinTypeName {
      * FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's KeySet).
      */
     private static boolean innerOfGenericInScope(TypeInfo typeInfo) {
-        if (!KotlinContext.translatingJava() || !typeInfo.isInnerClass()) return false;
+        if (!KotlinContext.translatingJava() || !KotlinTypePrinter.inner(typeInfo)) return false;
         TypeInfo outer = typeInfo.enclosingTypeStream().skip(1).findFirst().orElse(null);
         if (outer == null || outer.enclosingTypeStream().allMatch(t -> t.typeParameters().isEmpty())) return false;
         TypeInfo current = KotlinContext.currentType();
