@@ -320,10 +320,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 : KotlinTypeName.of(type, q);
         // a constructor's E & Any stays: no override repeats it (guava's Equivalence.Wrapper takes an
         // Equivalence<? super @NonNull T>, which wrap's Equivalence<T> is for an S extends @Nullable T)
-        // a member nothing overrides keeps E & Any too: guava's static Maps.difference takes an
-        // Equivalence<? super @NonNull V>, into a null-marked Equivalence<T : Any>
+        // a member nothing overrides keeps ? super E & Any: guava's static Maps.difference takes an
+        // Equivalence<? super @NonNull V>, into a null-marked Equivalence<T : Any>. Not a plain E & Any:
+        // ObjectArrays.concat's Class<@NonNull T> would type its newArray result Array<T & Any>
         String printed = typeOverride != null ? typeOverride
-                : notOverridable(pi.methodInfo()) ? print.get() : KotlinTypeName.inSignature(print);
+                : pi.methodInfo().isConstructor() ? print.get()
+                : KotlinTypeName.inSignature(notOverridable(pi.methodInfo()), print);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
     }
@@ -896,7 +898,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             return index >= 0 && methodInfo.overrides().stream().anyMatch(o -> KotlinNullability.translated(o.typeInfo())
                     && index < o.typeParameters().size()
                     && (nonNullBound(o, o.typeParameters().get(index))
-                        || o.overrides().isEmpty() && KotlinTypeName.nonNullClassTypeParameter(o.typeParameters().get(index))));
+                        || o.overrides().isEmpty() && KotlinTypeName.nonNullClassTypeParameter(o.typeParameters().get(index))
+                        // Ordering's <E extends @NonNull T>, a T & Any; AllEqualOrdering's T is an Any?
+                        || nonNullBoundOfTypeVariable(o, o.typeParameters().get(index))));
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;

@@ -138,12 +138,33 @@ public class KotlinTypeName {
 
     /** {@code print}, without {@code E & Any}: a parameter's type, a type parameter's bound. */
     static String inSignature(java.util.function.Supplier<String> print) {
+        return inSignature(false, print);
+    }
+
+    /** As {@link #inSignature(java.util.function.Supplier)}; {@code ownSignature}: one no override repeats. */
+    static String inSignature(boolean ownSignature, java.util.function.Supplier<String> print) {
         boolean previous = IN_SIGNATURE.get();
+        boolean previousOwn = IN_OWN_SIGNATURE.get();
         IN_SIGNATURE.set(true);
+        IN_OWN_SIGNATURE.set(ownSignature);
         try {
             return print.get();
         } finally {
             IN_SIGNATURE.set(previous);
+            IN_OWN_SIGNATURE.set(previousOwn);
+        }
+    }
+
+    /** In a signature no override repeats: a {@code ? super @NonNull T} keeps its {@code T & Any}. */
+    private static final ThreadLocal<Boolean> IN_OWN_SIGNATURE = ThreadLocal.withInitial(() -> false);
+
+    private static boolean superBoundNonNull(ParameterizedType t) {
+        if (!IN_OWN_SIGNATURE.get()) return definitelyNonNull(t);
+        IN_SIGNATURE.set(false);
+        try {
+            return definitelyNonNull(t);
+        } finally {
+            IN_SIGNATURE.set(true);
         }
     }
 
@@ -205,7 +226,7 @@ public class KotlinTypeName {
             // ? super @NonNull T, of a nullable-bounded T (guava's Equivalence.Wrapper). Not ? extends @NonNull B:
             // MutableClassToInstanceMap's ForwardingMap<Class<? extends @NonNull B>, B> header would take it, and its
             // overrides' parameters, printed without, would not match
-            if (pt.isTypeParameter() && pt.wildcard().isSuper() && definitelyNonNull(pt.withWildcard(null))) {
+            if (pt.isTypeParameter() && pt.wildcard().isSuper() && superBoundNonNull(pt.withWildcard(null))) {
                 bound += " & Any";
             }
             return (pt.wildcard().isSuper() ? "in " : "out ") + bound;

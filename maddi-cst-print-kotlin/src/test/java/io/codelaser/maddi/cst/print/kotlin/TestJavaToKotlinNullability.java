@@ -230,14 +230,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 abstract class Eq<T> { abstract boolean same(T a, T b); }
                 abstract class Order<X> {
                     <E> List<E> copy(Iterable<E> elements) { return new ArrayList<>(); }
+                    <S extends @NonNull X> List<S> sorted(Iterable<S> elements) { return new ArrayList<>(); }
                 }
-                class AllEqual extends Order<Object> {
+                class AllEqual extends Order<@Nullable Object> {
                     @Override <F> List<F> copy(Iterable<F> elements) { return new ArrayList<>(); }
+                    @Override <R extends @Nullable Object> List<R> sorted(Iterable<R> elements) { return new ArrayList<>(); }
                 }
                 class Diff {
                     static <V extends @Nullable Object> boolean differ(V a, V b, Eq<? super @NonNull V> eq) {
                         return a != null && b != null && !eq.same(a, b);
                     }
+                    static <A extends @Nullable Object> A[] concat(A[] first, Class<@NonNull A> type) { return first; }
                 }
                 class Tok<T> { }
                 interface Instances<B extends @Nullable Object> {
@@ -247,6 +250,9 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun <F : Any> copy(");
         contains(kotlin, "eq: Eq<in V & Any>");
         contains(kotlin, "fun <T : B & Any> get(");
+        contains(kotlin, "fun <S : X & Any> sorted(");
+        contains(kotlin, "fun <R : Any> sorted(");
+        contains(kotlin, "type: Class<A>");
     }
 
     /**
