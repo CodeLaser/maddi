@@ -91,9 +91,12 @@
 # 2026-10-17, maddi 1798df741, 114195d54, 42976fa84: ListIterator, reflection's declared members, String strips,
 # List's first/last; a generic default method implements the inherited interface's explicitly: 298 -> 299
 # compiling files.
+# 2026-10-19, maddi d62fc3f33, 3e3d94d4a: CompletableFuture completed and cancelled from outside, a shutting-down executor
+# (JavaExecutorService), thread interrupts, TimeUnit: 299 -> 300 compiling files, 198 -> 197 errors, unmapped JDK uses
+# 152 -> 151.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	299
-unmappedJdkUses	152
+compilingFiles	300
+unmappedJdkUses	151
