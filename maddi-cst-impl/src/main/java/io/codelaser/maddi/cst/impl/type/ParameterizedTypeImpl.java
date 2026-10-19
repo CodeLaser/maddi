@@ -668,9 +668,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             ParameterizedType s = p;
             if (p.typeParameter() != null && p.typeInfo() == null) {
                 ParameterizedType mapped = map.get(p.typeParameter());
-                if (mapped != null && p.arrays() == 0 && mapped.wildcard() == null) {
-                    s = p.wildcard() == null ? mapped : mapped.withWildcard(p.wildcard());
-                }
+                if (mapped != null && p.arrays() == 0) s = nestedArgument(p, mapped);
             } else if (p.typeInfo() != null) {
                 s = substituted(p, map);
             }
@@ -678,6 +676,23 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             parameters.add(s);
         }
         return changed ? type.withParameters(List.copyOf(parameters)) : type;
+    }
+
+    /*
+     A type argument p, a type variable written as is or with a wildcard, with the variable's argument 'mapped'
+     put in. A wildcard argument used to leave the variable in place: Stream<T> extends BaseStream<T, Stream<T>>,
+     seen from a Stream<?>, was BaseStream<?, Stream<T>>, Stream's own T in a place where it means nothing
+     (maddi#159). It goes in where Java can say the result: 'T' and '? extends T' take '?' or '? extends X' as it
+     is, '? super T' takes '? super X'; across directions ('? extends' of '? super X') only '?' is left.
+     Public for the printers' own substitution, CstSupertypes.substitute (maddi#158).
+     */
+    public static ParameterizedType nestedArgument(ParameterizedType p, ParameterizedType mapped) {
+        Wildcard outer = p.wildcard();
+        Wildcard inner = mapped.wildcard();
+        if (inner == null) return outer == null ? mapped : mapped.withWildcard(outer);
+        if (outer == null || inner.isUnbound()) return mapped;
+        if (outer.isExtends() && inner.isExtends() || outer.isSuper() && inner.isSuper()) return mapped;
+        return WILDCARD_PARAMETERIZED_TYPE;
     }
 
     private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {

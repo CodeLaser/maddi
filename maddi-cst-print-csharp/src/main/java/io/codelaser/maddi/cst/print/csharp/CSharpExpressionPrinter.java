@@ -908,7 +908,7 @@ public final class CSharpExpressionPrinter {
         ParameterizedType formal = method.parameters().get(index).parameterizedType();
         if (formal.arrays() != 0) return null;
         if (formal.isTypeParameter()) return bound.get(formal.typeParameter());
-        ParameterizedType target = CstSupertypes.substitute(formal, bound);
+        ParameterizedType target = CstSupertypes.substituteDroppingWildcards(formal, bound);
         return target.parameters().stream().allMatch(a -> a.wildcard() == null) ? target : null;
     }
 
@@ -1205,7 +1205,7 @@ public final class CSharpExpressionPrinter {
             || created.parameters().size() != created.typeInfo().typeParameters().size()) {
             return target;
         }
-        return CstSupertypes.substitute(target, CstSupertypes.typeArguments(created));
+        return CstSupertypes.substituteDroppingWildcards(target, CstSupertypes.typeArguments(created));
     }
 
     /** The type of the {@code i}-th parameter of {@code method}; null for a variable arity one. */
@@ -1290,7 +1290,7 @@ public final class CSharpExpressionPrinter {
         for (int i = 0; i < parameters.size() && i < cc.parameterExpressions().size(); i++) {
             ParameterizedType argument = cc.parameterExpressions().get(i).parameterizedType();
             if (!raw(argument)) continue;
-            ParameterizedType formal = CstSupertypes.substitute(parameters.get(i).parameterizedType(), bound);
+            ParameterizedType formal = CstSupertypes.substituteDroppingWildcards(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
                                                             && p.wildcard().isUnbound())) {
                 return null;

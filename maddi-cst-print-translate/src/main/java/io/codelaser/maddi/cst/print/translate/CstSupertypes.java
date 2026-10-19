@@ -17,6 +17,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.impl.type.ParameterizedTypeImpl;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -33,7 +34,8 @@ import java.util.function.Predicate;
  * <p>
  * The search is the printers' own rather than {@link ParameterizedType#concreteSuperType}: breadth first, with a
  * visited set, so a cyclic or very deep hierarchy on a partial class path neither overflows nor needs a catch, and with
- * plain substitution of the type's own type arguments (maddi#157).
+ * plain substitution of the type's own type arguments. The two agree except for {@code java.lang.Object}, which
+ * {@code concreteSuperType} does not return as a superclass (maddi#157).
  */
 public final class CstSupertypes {
 
@@ -85,15 +87,40 @@ public final class CstSupertypes {
         return map;
     }
 
-    /** {@code pt} with the type parameters of {@code map} replaced by their arguments, nested ones included. */
+    /**
+     * {@code pt} with the type parameters of {@code map} replaced by their arguments, nested ones included. A type
+     * argument written with a wildcard keeps it: {@code Map<Class<? extends B>, B>} with {@code Number} for {@code B} is
+     * {@code Map<Class<? extends Number>, Number>}, where it used to lose it, {@code Map<Class<Number>, Number>}
+     * (maddi#158). Combined with a wildcard argument as {@link ParameterizedTypeImpl#nestedArgument} does, as
+     * {@code concreteSuperType} does.
+     */
     public static ParameterizedType substitute(ParameterizedType pt, Map<TypeParameter, ParameterizedType> map) {
+        return substitute(pt, map, true);
+    }
+
+    /**
+     * As {@link #substitute(ParameterizedType, Map)}, but a type argument written with a wildcard on a substituted type
+     * parameter becomes the argument without it: {@code List<? extends T>} with {@code String} for {@code T} is
+     * {@code List<String>}. For a printer that prints such a declaration without its wildcard (the C# printer's
+     * {@code List<? extends T>} is {@code List<T>}), so that a substituted signature, a hoisted constructor's or an
+     * override's, prints as the declaration it must match does: with the wildcard kept, {@code List<? extends String>}
+     * is C#'s {@code IReadOnlyList<string>}, which {@code List<string>} is not.
+     */
+    public static ParameterizedType substituteDroppingWildcards(ParameterizedType pt,
+                                                                Map<TypeParameter, ParameterizedType> map) {
+        return substitute(pt, map, false);
+    }
+
+    private static ParameterizedType substitute(ParameterizedType pt, Map<TypeParameter, ParameterizedType> map,
+                                                boolean keepWildcards) {
         if (map.isEmpty()) return pt;
         if (pt.isTypeParameter() && map.containsKey(pt.typeParameter())) {
             ParameterizedType mapped = map.get(pt.typeParameter());
-            return pt.arrays() == 0 ? mapped : mapped.copyWithArrays(mapped.arrays() + pt.arrays());
+            if (pt.arrays() > 0) return mapped.copyWithArrays(mapped.arrays() + pt.arrays());
+            return pt.wildcard() == null || !keepWildcards ? mapped : ParameterizedTypeImpl.nestedArgument(pt, mapped);
         }
         if (pt.parameters().isEmpty()) return pt;
-        return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map)).toList());
+        return pt.withParameters(pt.parameters().stream().map(p -> substitute(p, map, keepWildcards)).toList());
     }
 
     /**
