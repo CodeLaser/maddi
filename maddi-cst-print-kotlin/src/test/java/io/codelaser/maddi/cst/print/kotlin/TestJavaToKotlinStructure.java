@@ -92,6 +92,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's RequestMeta, {@code abilityTable.get(key) ? SUPPORTED : NOT_SUPPORTED}, and DistroLoadDataTask's
+     * {@code !loadCompletedMap.get(each)}, of a Map<String, Boolean>: unboxed by Java, asserted, as an if's
+     * condition is.
+     */
+    @Test
+    public void boxedConditionInExpressions() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    String status(String key) {
+                        return abilities.get(key) ? "on" : "off";
+                    }
+                    boolean pending(String key) {
+                        return !abilities.containsKey(key) || !abilities.get(key);
+                    }
+                }
+                """);
+        contains(kotlin, "if (abilities.get(key)!!)");
+        contains(kotlin, "!abilities.get(key)!!");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's DumpService: {@code registerSubscriber(new Subscriber() {…})} and ServerLoaderController's
      * {@code new RequestCallBack() {…}}, anonymous classes of a raw supertype: erased as a named class's header is,
      * so that onEvent(Event) overrides.

@@ -666,12 +666,8 @@ public class KotlinStatementPrinter {
      * asserted (nacos's RequestMeta, {@code if (abilityTable.get(key))} of a Map<String, Boolean>).
      */
     private static OutputBuilder test(Expression c, Qualification q) {
-        ParameterizedType t = c.parameterizedType();
-        if (t != null && t.arrays() == 0 && t.typeInfo() != null
-            && "java.lang.Boolean".equals(t.typeInfo().fullyQualifiedName()) && KotlinNullability.nullableInKotlin(c)) {
-            return KotlinNullability.asserted(c, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
-        }
-        return KotlinExpressionPrinter.print(c, q);
+        OutputBuilder unboxed = KotlinExpressionPrinter.unboxedBoolean(c, q);
+        return unboxed != null ? unboxed : KotlinExpressionPrinter.print(c, q);
     }
 
     /** Inside a {@code when} arm printed as {@code run { }}: a {@code yield} is {@code return@run}. */

@@ -2186,7 +2186,7 @@ public class KotlinExpressionPrinter {
         if (e instanceof InlineConditional ic && target != null && !isElvis(ic)) {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
             return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                    .add(condition(ic, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                     .add(branch(ic.ifTrue(), () -> arrayBranch(ic.ifTrue(), target, q), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
                     .add(branch(ic.ifFalse(), () -> arrayBranch(ic.ifFalse(), target, q), q));
@@ -3596,12 +3596,33 @@ public class KotlinExpressionPrinter {
         return operand(precedence, e, q);
     }
 
+    /**
+     * A Boolean Kotlin types nullable where Java unboxes it, which throws for a null: asserted. nacos's RequestMeta,
+     * {@code abilityTable.get(key) ? SUPPORTED : NOT_SUPPORTED} of a Map<String, Boolean>; DistroLoadDataTask's
+     * {@code !loadCompletedMap.get(each)}. Null where the value is no such Boolean.
+     */
+    static OutputBuilder unboxedBoolean(Expression c, Qualification q) {
+        ParameterizedType t = c.parameterizedType();
+        if (t != null && t.arrays() == 0 && t.typeInfo() != null
+            && "java.lang.Boolean".equals(t.typeInfo().fullyQualifiedName()) && KotlinNullability.nullableInKotlin(c)) {
+            return KotlinNullability.asserted(c, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
+        }
+        return null;
+    }
+
+    private static OutputBuilder condition(InlineConditional ic, Qualification q) {
+        OutputBuilder unboxed = unboxedBoolean(ic.condition(), q);
+        return unboxed != null ? unboxed : print(ic.condition(), q);
+    }
+
     private static OutputBuilder unaryOperator(UnaryOperator uo, Qualification q) {
         Expression inner = unwrap(uo.expression());
         if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // a unary op wrapping `is` is `!` -> `!is`
         if ("!".equals(uo.operator().name()) && inner instanceof MethodCall mc && equality(mc) != null) {
             return equality(equality(mc), "!=", q); // !a.equals(b) -> a != b
         }
+        OutputBuilder unboxed = "!".equals(uo.operator().name()) ? unboxedBoolean(uo.expression(), q) : null;
+        if (unboxed != null) return new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix("!")).add(unboxed);
         Primitive operand = primitive(uo.expression().parameterizedType());
         boolean promoted = operand == Primitive.BYTE || operand == Primitive.SHORT || operand == Primitive.CHAR;
         if ("~".equals(uo.operator().name())) {
@@ -3920,7 +3941,7 @@ public class KotlinExpressionPrinter {
         }
         return new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                .add(condition(ic, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ic.condition()),
                         () -> branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q))).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
