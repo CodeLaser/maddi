@@ -539,6 +539,31 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's NamingDefaultHttpParamExtractor: {@code groupServiceName.split(SPLITER, 2)}, a regex and a limit, which
+     * keeps trailing empty strings as Kotlin's does; a negative limit is Kotlin's none.
+     */
+    @Test
+    public void splitWithLimit() {
+        String kotlin = kotlin("""
+                package a;
+                class Names {
+                    static String group(String name) {
+                        String[] splits = name.split("@@", 2);
+                        String[] all = name.split(",", -1);
+                        return splits[0] + all.length;
+                    }
+                    static int parts(String name, int n) {
+                        return name.split(",", n).length;
+                    }
+                }
+                """);
+        contains(kotlin, "name.split(\"@@\".toRegex(), 2).toTypedArray()");
+        contains(kotlin, "name.split(\",\".toRegex()).toTypedArray()");
+        contains(kotlin, "maxOf(n, 0)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's ObjectUtils.nullSafeEquals: {@code o1 instanceof Object[]}, Kotlin's {@code is Array<*>}; kotlinc cannot
      * test the erased {@code Array<Any>}.
      */
