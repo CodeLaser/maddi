@@ -2234,10 +2234,18 @@ public class KotlinExpressionPrinter {
             && (rawOf(rawValueType(e), target) || rawInto(rawValueType(e), target))) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
-            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
-                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                    .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+            String cast = KotlinTypeName.of(target, q);
+            if (mentionsOutOfScope(target)) {
+                // nacos's queryOne(jdbcTemplate, sql, ClassUtils.findClassByName(name)) into the callee's Class<R>,
+                // an R not in scope here: Java infers it from the raw Class's erasure, Class<Any?>
+                cast = rawValueType(e).typeInfo() == target.typeInfo() ? KotlinTypeName.erased(rawValueType(e), q) : null;
+            }
+            if (cast != null) {
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                        .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl(cast)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
         }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
@@ -2475,6 +2483,13 @@ public class KotlinExpressionPrinter {
             return e.parameterizedType();
         }
         return kotlin != null ? kotlin : e.parameterizedType();
+    }
+
+    /** {@code type} mentions a type variable the code being printed cannot name: a callee's own. */
+    private static boolean mentionsOutOfScope(ParameterizedType type) {
+        if (type == null) return false;
+        if (type.typeParameter() != null && !KotlinContext.typeParameterInScope(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(KotlinExpressionPrinter::mentionsOutOfScope);
     }
 
     /** {@code raw} is {@code typed} without its type arguments: the same type, the same arrays, no arguments written. */

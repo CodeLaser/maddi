@@ -539,6 +539,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's DistributedDatabaseOperateImpl: {@code queryOne(sql, ClassUtils.findClassByName(name))}, a raw Class
+     * into the callee's {@code Class<R>}: the cast cannot name R, Java infers it from the erasure, Class<Any?>.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawIntoCalleeTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Operate {
+                    static Class find(String name) throws Exception {
+                        return Class.forName(name);
+                    }
+                    static <R> R queryOne(String sql, Class<R> cls) throws Exception {
+                        return cls.getDeclaredConstructor().newInstance();
+                    }
+                    void query(String sql, String name) throws Exception {
+                        System.out.println(queryOne(sql, find(name)));
+                    }
+                }
+                """);
+        contains(kotlin, "as Class<Any?>");
+        compiles(kotlin);
+    }
+
+    /**
      * Java's unchecked argument conversions. nacos's DistributedDatabaseOperateImpl:
      * {@code protocol.addRequestProcessors(Collections.singletonList(this))} on a raw CPProtocol, cast to its erasure,
      * whose {@code Collection<P>} is a {@code Collection<RequestProcessor4CP>}; and ClientMetricsController's
