@@ -59,7 +59,19 @@ public static class JavaCollections
     }
 
     /// <summary>Collection.removeIf on a set or a map's entries: whether anything was removed.</summary>
-    public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
+    /// <summary>List.replaceAll: each element the operator's result.</summary>
+    public static void ReplaceAll<T>(this IList<T> l, Func<T, T> op)
+    {
+        for (int i = 0; i < l.Count; i++) l[i] = op(l[i]);
+    }
+
+    /// <summary>Map.replaceAll: each value the function's result of its key and value.</summary>
+    public static void ReplaceAll<K, V>(this IDictionary<K, V> m, Func<K, V, V> f)
+    {
+        foreach (var k in m.Keys.ToList()) m[k] = f(k, m[k]);
+    }
+
+        public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
     {
         var removed = c.Where(p).ToList();
         foreach (var x in removed) c.Remove(x);
@@ -452,6 +464,42 @@ public static class JavaNavigable
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
+/// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
+public static class JavaSortedSets
+{
+    /// <summary>SortedSet.removeFirst: the least element, removed; NoSuchElementException when empty.</summary>
+    public static T RemoveFirst<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var first = s.Min!;
+        s.Remove(first);
+        return first;
+    }
+
+    public static T RemoveLast<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var last = s.Max!;
+        s.Remove(last);
+        return last;
+    }
+
+    /// <summary>SortedSet.subSet(from, to), from inclusive, to exclusive: a copy, not Java's view.</summary>
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, T to) => s.SubSet(from, true, to, false);
+
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, bool fromInclusive, T to, bool toInclusive)
+    {
+        if (s.Comparer.Compare(from, to) > 0) throw new ArgumentException("from > to");
+        return new SortedSet<T>(s.GetViewBetween(from, to).Where(x =>
+            (fromInclusive || s.Comparer.Compare(x, from) != 0) && (toInclusive || s.Comparer.Compare(x, to) != 0)),
+            s.Comparer);
+    }
+
+    /// <summary>NavigableMap.navigableKeySet: the keys in order, a copy, not Java's view.</summary>
+    public static SortedSet<K> NavigableKeySet<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+        new(m.Keys, m.Comparer);
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -497,6 +545,35 @@ public static class JavaUnsupported
 /// <summary>Java's String methods that differ from the BCL's.</summary>
 public static class JavaString
 {
+    /// <summary>String.indent: each line n spaces more, or up to -n leading white space less; each ends in \n.</summary>
+    public static string Indent(string s, int n)
+    {
+        if (s.Length == 0) return "";
+        var lines = s.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        int count = s.EndsWith('\n') || s.EndsWith('\r') ? lines.Length - 1 : lines.Length;
+        var sb = new StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            var line = lines[i];
+            if (n > 0) sb.Append(' ', n);
+            else if (n < 0)
+            {
+                int strip = 0;
+                while (strip < -n && strip < line.Length && char.IsWhiteSpace(line[strip])) strip++;
+                line = line[strip..];
+            }
+            sb.Append(line).Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>StringBuilder.replace(start, end, str): end past the length is the length.</summary>
+    public static StringBuilder ReplaceRange(this StringBuilder sb, int start, int end, string str)
+    {
+        if (start < 0 || start > sb.Length || start > end) throw new ArgumentOutOfRangeException(nameof(start));
+        return sb.Remove(start, Math.Min(end, sb.Length) - start).Insert(start, str);
+    }
+
     /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>
     public static string ReplaceAll(string s, string regex, string replacement) =>
         new JavaMatcher(new Regex(regex), s).ReplaceAll(replacement);
@@ -996,6 +1073,16 @@ public readonly record struct JavaPeriod(int Years, int Months, int Days)
 
 public static class JavaFunctions
 {
+    /// <summary>RandomGenerator.ints(origin, bound): an endless sequence of draws.</summary>
+    public static IEnumerable<int> Ints(this Random r, int origin, int bound)
+    {
+        while (true) yield return r.Next(origin, bound);
+    }
+
+    /// <summary>RandomGenerator.ints(size, origin, bound).</summary>
+    public static IEnumerable<int> Ints(this Random r, long size, int origin, int bound) =>
+        r.Ints(origin, bound).Take(checked((int) size));
+
     public static Action<T> AndThen<T>(this Action<T> first, Action<T> then) => x =>
     {
         first(x);

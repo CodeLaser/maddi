@@ -857,7 +857,12 @@ by contract is `T?`, and a mapping rule that calls one says `->?`. `JavaCompat.c
   `IJavaWildcardType` and `JavaModifier`, `JavaServiceLoader`, and `JavaCollectors`: `Collectors.toMap` with a merge
   function and a map supplier, `toCollection` (a supplier `LinkedHashMap::new` creates the result's type,
   `() => new OrderedDictionary<K, V>()`, which Java infers from it). The primitive functional interfaces
-  (`IntUnaryOperator`, `LongSupplier`, …) are delegates, as the generic ones.
+  (`IntUnaryOperator`, `LongSupplier`, …) are delegates, as the generic ones. `JavaString.Indent` and
+  `ReplaceRange` (`StringBuilder.replace`), `ReplaceAll` of a list and a map, `Ints` of a `Random`, and a sorted
+  set's `RemoveFirst`/`RemoveLast`, `SubSet` and a map's `NavigableKeySet`, which copy where Java gives a view.
+  A sorted collection's `comparator()` is its comparer's method group, `new Comparison<K>(m.Comparer.Compare)`.
+- A template that is one of its arguments, `Arrays.stream(a)`'s `$1`, is as atomic as that argument: a receiver
+  `(a ?? throw new NullReferenceException()).Distinct()` of `Objects.requireNonNull(a)`.
 - `JavaResources` stands for `Class.getResource(AsStream)` and `ClassLoader.getResource(AsStream)`. A resource is
   one of the assembly's embedded resources, and is found by its Java path in one of two ways. Either the manifest
   name is the path itself (an `EmbeddedResource` whose `LogicalName` is the Java path), or the manifest name ends with

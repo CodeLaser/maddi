@@ -470,7 +470,8 @@ member java.util.NavigableMap.tailMap/2 -> $0.TailMap($1, $2) using Maddi.JavaCo
 member java.util.NavigableMap.subMap/4 -> $0.SubMap($1, $2, $3, $4) using Maddi.JavaCompat
 member java.util.SortedSet.first/0 -> $0.Min
 member java.util.SortedSet.last/0 -> $0.Max
-member java.util.SortedSet.comparator/0 -> $0.Comparer
+# a Comparator is a Comparison: the comparer's method group
+member java.util.SortedSet.comparator/0 -> new Comparison<{T0}>($0.Comparer.Compare) using System
 member java.util.NavigableSet.floor/1 ->? $0.Floor($1) using Maddi.JavaCompat
 member java.util.NavigableSet.lower/1 ->? $0.Lower($1) using Maddi.JavaCompat
 member java.util.NavigableSet.ceiling/1 ->? $0.Ceiling($1) using Maddi.JavaCompat
@@ -836,6 +837,46 @@ member java.util.Comparator.naturalOrder/0 -> Comparer<{R0}>.Default.Compare
 member java.util.Comparator.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 member java.util.Collections.reverseOrder/0 -> JavaComparator.ReverseOrder<{R0}>() using Maddi.JavaCompat
 
+# ---------------------------------------------------------------- smaller members
+member java.lang.String.indent/1 -> JavaString.Indent($0, $1) using Maddi.JavaCompat
+member java.lang.StringBuilder.replace/3 -> $0.ReplaceRange($1, $2, $3) using Maddi.JavaCompat
+member java.lang.AbstractStringBuilder.replace/3 -> $0.ReplaceRange($1, $2, $3) using Maddi.JavaCompat
+member java.lang.StringBuilder.appendCodePoint/1 -> $0.Append(char.ConvertFromUtf32($1))
+member java.lang.AbstractStringBuilder.appendCodePoint/1 -> $0.Append(char.ConvertFromUtf32($1))
+member java.util.List.replaceAll/1 -> $0.ReplaceAll($1) using Maddi.JavaCompat
+member java.util.Map.replaceAll/1 -> $0.ReplaceAll($1) using Maddi.JavaCompat
+member java.util.SortedSet.removeFirst/0 -> $0.RemoveFirst() using Maddi.JavaCompat
+member java.util.SortedSet.removeLast/0 -> $0.RemoveLast() using Maddi.JavaCompat
+member java.util.SortedSet.subSet/2 -> $0.SubSet($1, $2) using Maddi.JavaCompat
+member java.util.NavigableSet.subSet/4 -> $0.SubSet($1, $2, $3, $4) using Maddi.JavaCompat
+member java.util.NavigableSet.descendingSet/0 -> $0.Reverse()
+member java.util.NavigableMap.navigableKeySet/0 -> $0.NavigableKeySet() using Maddi.JavaCompat
+member java.util.SortedMap.comparator/0 -> new Comparison<{T0}>($0.Comparer.Compare) using System
+member java.lang.Double.isFinite/1 -> double.IsFinite($1)
+member java.math.BigDecimal.remainder/1 -> @0 % @1
+member java.math.BigDecimal.divide(BigDecimal,RoundingMode) -> Math.Round(@0 / @1, $0.Scale, $2) using System
+member java.math.BigInteger.max/1 -> BigInteger.Max($0, $1) using System.Numerics
+member java.math.BigInteger.min/1 -> BigInteger.Min($0, $1) using System.Numerics
+member java.lang.reflect.Type.getTypeName/0 -> $0.ToString()
+member java.util.random.RandomGenerator.ints/2 -> $0.Ints($1, $2) using Maddi.JavaCompat
+member java.util.Random.ints/2 -> $0.Ints($1, $2) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.ints/3 -> $0.Ints($1, $2, $3) using Maddi.JavaCompat
+member java.util.Random.ints/3 -> $0.Ints($1, $2, $3) using Maddi.JavaCompat
+member java.util.stream.Stream.mapToLong/1 -> $0.Select($1) using System.Linq
+member java.util.stream.Stream.mapToDouble/1 -> $0.Select($1) using System.Linq
+member java.util.stream.BaseStream.sequential/0 -> $0
+member java.util.stream.BaseStream.parallel/0 -> $0
+member java.util.stream.IntStream.map/1 -> $0.Select($1) using System.Linq
+member java.util.stream.IntStream.sorted/0 -> $0.Order() using System.Linq
+member java.util.stream.IntStream.distinct/0 -> $0.Distinct() using System.Linq
+member java.util.stream.IntStream.limit/1 -> $0.Take((int) $1) using System.Linq
+member java.util.stream.IntStream.skip/1 -> $0.Skip((int) $1) using System.Linq
+member java.util.stream.IntStream.count/0 -> $0.LongCount() using System.Linq
+member java.util.stream.IntStream.forEach/1 -> $0.ForEach($1) using Maddi.JavaCompat
+member java.util.stream.IntStream.allMatch/1 -> $0.All($1) using System.Linq
+member java.util.stream.IntStream.noneMatch/1 -> !$0.Any($1) using System.Linq
+member java.util.stream.LongStream.sum/0 -> $0.Sum() using System.Linq
+
 # ---------------------------------------------------------------- system
 member java.lang.System.arraycopy/5 -> Array.Copy($1, $2, $3, $4, $5) using System
 member java.lang.System.currentTimeMillis/0 -> DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() using System
@@ -1019,6 +1060,7 @@ member java.math.BigDecimal.new(String) -> decimal.Parse($1, CultureInfo.Invaria
 member java.math.BigDecimal.new(int) -> (decimal) @1
 member java.math.BigDecimal.new(long) -> (decimal) @1
 member java.math.BigDecimal.new(double) -> (decimal) @1
+member java.math.BigDecimal.new(BigInteger) -> (decimal) @1
 member java.math.BigDecimal.add/1 -> @0 + @1
 member java.math.BigDecimal.subtract/1 -> @0 - @1
 member java.math.BigDecimal.multiply/1 -> @0 * @1

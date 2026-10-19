@@ -364,8 +364,38 @@ public final class CSharpExpressionPrinter {
 
     /** A call whose C# form is not an atom ({@code list.Count == 0}): in parentheses as an operand or a receiver. */
     private static boolean nonAtomicCall(Expression e) {
-        return e instanceof MethodCall mc && (rule(mc) instanceof LibraryMapping.Rule r && !r.atomic()
-                                               || erasedResultCast(mc));
+        if (!(e instanceof MethodCall mc)) return false;
+        if (rule(mc) instanceof LibraryMapping.Rule r) {
+            // Arrays.stream(a) is a itself: as atomic as a, not Objects.requireNonNull(a)'s a ?? throw …
+            Expression passed = passedThrough(mc, r);
+            if (passed != null) return !atomic(passed);
+            if (!r.atomic()) return true;
+        }
+        return erasedResultCast(mc);
+    }
+
+    /** The argument or receiver a rule's template is, {@code $1}; null for any other template. */
+    private static Expression passedThrough(MethodCall mc, LibraryMapping.Rule r) {
+        String value = r.value();
+        if (value == null || !value.matches("\\$\\d")) return null;
+        int n = value.charAt(1) - '0';
+        if (n == 0) return mc.object();
+        return n <= mc.parameterExpressions().size() ? mc.parameterExpressions().get(n - 1) : null;
+    }
+
+    /** An expression {@link #receiver} prints without parentheses. */
+    private static boolean atomic(Expression e) {
+        return switch (e) {
+            case VariableExpression ve -> true;
+            case MethodCall mc -> !nonAtomicCall(mc);
+            case EnclosedExpression ee -> true;
+            case ArrayLength al -> true;
+            case ClassExpression ce -> true;
+            case TypeExpression te -> true;
+            case StringConstant sc -> true;
+            case ConstructorCall cc -> cc.parameterizedType().arrays() == 0 && cc.anonymousClass() == null;
+            case null, default -> false;
+        };
     }
 
     private static OutputBuilder methodCall(MethodCall mc, Qualification q, boolean statement) {
@@ -1855,17 +1885,7 @@ public final class CSharpExpressionPrinter {
     /** The receiver of {@code .member}: anything but an atom is enclosed. */
     static OutputBuilder receiver(Expression e, Qualification q) {
         OutputBuilder inner = print(e, q);
-        return switch (e) {
-            case VariableExpression ve -> inner;
-            case MethodCall mc when !nonAtomicCall(mc) -> inner;
-            case EnclosedExpression ee -> inner;
-            case ArrayLength al -> inner;
-            case ClassExpression ce -> inner;
-            case TypeExpression te -> inner;
-            case StringConstant sc -> inner;
-            case ConstructorCall cc when cc.parameterizedType().arrays() == 0 && cc.anonymousClass() == null -> inner;
-            default -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner)
-                    .add(SymbolEnum.RIGHT_PARENTHESIS);
-        };
+        return atomic(e) ? inner : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(inner)
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 }
