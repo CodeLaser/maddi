@@ -614,6 +614,42 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's {@code new CopyOnWriteList<>((List) items, true)}, a raw cast into the constructor's {@code List<E>}:
+     * the call cannot name E, which Java's unchecked conversion erases, MutableList<Any>.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawCastIntoCalleeTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Text<T> {
+                    final T context;
+                    Text(String file, boolean done, T context) {
+                        this.context = context;
+                    }
+                }
+                class Copy<E> {
+                    final List<E> core;
+                    Copy(List<E> core, boolean noCopy) {
+                        this.core = core;
+                    }
+                }
+                class Computer {
+                    Text<Computer> logText() {
+                        return new Text<>("log", false, this);
+                    }
+                    @SuppressWarnings("unchecked")
+                    static Copy<Object> copy(Object items) {
+                        return new Copy<>((List) items, true);
+                    }
+                }
+                """);
+        contains(kotlin, "items as MutableList<Any>");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's hudson.util.HttpResponses extends Stapler's, and ListView calls {@code HttpResponses.ok()}, a static of
      * the library superclass: Kotlin reaches a Java class's statics through that class only.
      */

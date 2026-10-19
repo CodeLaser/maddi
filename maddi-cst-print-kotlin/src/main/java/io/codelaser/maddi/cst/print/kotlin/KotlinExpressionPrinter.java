@@ -2565,6 +2565,34 @@ public class KotlinExpressionPrinter {
         return kotlin != null ? kotlin : e.parameterizedType();
     }
 
+    /**
+     * {@code type} as Kotlin writes it, each type variable the code cannot name replaced by its bound's erasure, or
+     * {@code Any}: {@code MutableList<E>} of a callee's E is {@code MutableList<Any>}.
+     */
+    private static String outOfScopeErased(ParameterizedType type, Qualification q) {
+        String printed = KotlinTypeName.of(type, q);
+        java.util.Map<String, String> replacements = new java.util.LinkedHashMap<>();
+        collectOutOfScope(type, replacements, q);
+        for (java.util.Map.Entry<String, String> r : replacements.entrySet()) {
+            printed = printed.replaceAll("(?<![\\w.])" + java.util.regex.Pattern.quote(r.getKey()) + "(?![\\w])",
+                    java.util.regex.Matcher.quoteReplacement(r.getValue()));
+        }
+        return printed;
+    }
+
+    private static void collectOutOfScope(ParameterizedType type, java.util.Map<String, String> replacements,
+                                          Qualification q) {
+        if (type == null) return;
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        if (tp != null && !KotlinContext.typeParameterInScope(tp)) {
+            ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst().orElse(null);
+            String erased = bound == null || bound.typeInfo() == null ? "Any"
+                    : KotlinTypeName.name(bound.typeInfo(), q) + KotlinTypeName.starProjections(bound.typeInfo());
+            replacements.putIfAbsent(KotlinNames.name(tp.simpleName()), erased);
+        }
+        type.parameters().forEach(p -> collectOutOfScope(p, replacements, q));
+    }
+
     /** {@code type} mentions a type variable the code being printed cannot name: a callee's own. */
     private static boolean mentionsOutOfScope(ParameterizedType type) {
         if (type == null) return false;
@@ -3824,6 +3852,15 @@ public class KotlinExpressionPrinter {
     /** As Java's cast, to {@code castType}: Java's type with the type argument states of what it initializes. */
     private static OutputBuilder cast(Cast cast, ParameterizedType castType, boolean nullable, Qualification q) {
         if (smartCast(cast)) return print(cast.expression(), q);
+        if (KotlinContext.translatingJava() && castType != cast.parameterizedType() && mentionsOutOfScope(castType)) {
+            // jenkins's new CopyOnWriteList<>((List) items, true), Descriptor.toMap((Iterable) properties): a raw cast
+            // taking the target's arguments, the callee's E or T, which the call cannot name; Java's unchecked
+            // conversion erases it to its bound
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, cast, KotlinContext.describe(cast));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(operand(PrecedenceEnum.CAST, cast.expression(), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl(outOfScopeErased(castType, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
         if (to != null && cast.parameterizedType().isPrimitiveExcludingVoid() && signaturePolymorphic(cast.expression())) {
