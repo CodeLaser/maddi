@@ -539,6 +539,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's StringUtils: a final local assigned inside a condition, {@code (strLen = cs.length()) == 0}, which
+     * Kotlin assigns in an {@code .also} lambda: a var starting at 0; and String.regionMatches with ignoreCase first in
+     * Java, last in Kotlin.
+     */
+    @Test
+    public void localAssignedInAConditionAndRegionMatches() {
+        String kotlin = kotlin("""
+                package a;
+                class Strings {
+                    static boolean isBlank(CharSequence cs) {
+                        final int strLen;
+                        if (cs == null || (strLen = cs.length()) == 0) return true;
+                        for (int i = 0; i < strLen; i++) if (!Character.isWhitespace(cs.charAt(i))) return false;
+                        return true;
+                    }
+                    static boolean matches(String a, String b, boolean ignoreCase) {
+                        return a.regionMatches(ignoreCase, 0, b, 0, b.length());
+                    }
+                }
+                """);
+        contains(kotlin, "var strLen: Int = 0");
+        contains(kotlin, "a.regionMatches(0, b, 0, b.length,");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's ClosingFuture.whenAllSucceed(inputFutures()) and CollectCollectors' checkNotNull(key, template, t): no
      * type arguments, which Java infers as a class without Kotlin's states, or where the varargs position is no
      * type variable's.

@@ -481,6 +481,15 @@ public class KotlinExpressionPrinter {
             for (Expression a : args.subList(1, args.size())) call.add(SymbolEnum.COMMA).add(print(a, q));
             return call.add(SymbolEnum.RIGHT_PARENTHESIS);
         }
+        if ("regionMatches".equals(mc.methodInfo().name()) && mc.parameterExpressions().size() == 5
+            && "java.lang.String".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+            // Java's regionMatches(ignoreCase, toffset, other, ooffset, len) is Kotlin's
+            // regionMatches(thisOffset, other, otherOffset, length, ignoreCase) (nacos's StringUtils)
+            List<Expression> args = mc.parameterExpressions();
+            OutputBuilder call = b.add(new TextImpl("regionMatches")).add(SymbolEnum.LEFT_PARENTHESIS);
+            for (int i = 1; i < 5; i++) call.add(print(args.get(i), q)).add(SymbolEnum.COMMA);
+            return call.add(new TextImpl("ignoreCase =")).add(print(args.getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())) {
             return b.add(new TextImpl("equals")).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(print(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.COMMA)

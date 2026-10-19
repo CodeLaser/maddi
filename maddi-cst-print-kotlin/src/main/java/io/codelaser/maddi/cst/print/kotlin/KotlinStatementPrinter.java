@@ -912,13 +912,24 @@ public class KotlinStatementPrinter {
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
+        // assigned inside an expression, .also { x = it }: a var, which a lambda may assign, final or not (nacos's
+        // StringUtils.isBlank: final int strLen; if (cs == null || (strLen = cs.length()) == 0))
+        boolean inLambda = !hasInitializer && KotlinContext.assignedAsValue(lv);
         // effectively final: a val; one declared without a value when each path assigns it once, in a statement
-        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
-                      || !hasInitializer && KotlinContext.assignedOnce(lvc, lv);
-        OutputBuilder b = new OutputBuilderImpl()
-                .add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(declare(lv.simpleName())));
+        boolean val = !inLambda && (lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
+                                    || !hasInitializer && KotlinContext.assignedOnce(lvc, lv));
+        // the name is declared before the local's type is asked for, which records it
+        TextImpl name = new TextImpl(declare(lv.simpleName()));
         ParameterizedType type = KotlinNullability.localType(lvc, lv);
+        // nor does Kotlin's definite assignment follow the lambda: a primitive starts at its zero, a non-null
+        // reference is lateinit (a nullable one at null, below)
+        String zero = inLambda && type.arrays() == 0 && type.isPrimitiveExcludingVoid()
+                ? KotlinFieldPrinter.defaultValue(type) : null;
+        boolean lateinit = inLambda && zero == null && !KotlinNullability.isNullable(type)
+                           && !type.isPrimitiveExcludingVoid();
+        OutputBuilder b = new OutputBuilderImpl();
+        if (lateinit) b.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
+        b.add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE).add(name);
         // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
         boolean nullableFromNonNull = hasInitializer && KotlinNullability.isNullable(type)
                                       && !KotlinNullability.nullableInKotlin(init);
@@ -953,6 +964,8 @@ public class KotlinStatementPrinter {
             // != null): the second .also { queuedExecutor = it } runs only after the first, which Kotlin's definite
             // assignment does not follow into the lambda
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl("null"));
+        } else if (zero != null) {
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         if (hasInitializer) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
