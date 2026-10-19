@@ -379,7 +379,6 @@ member java.util.Map.putAll/1 -> $0.PutAll($1) using Maddi.JavaCompat
 member java.util.Map.putIfAbsent/2 ->? $0.PutIfAbsent($1, $2) using Maddi.JavaCompat
 statement java.util.Map.putIfAbsent/2 -> $0.TryAdd($1, $2)
 member java.util.Map.computeIfAbsent/2 -> $0.ComputeIfAbsent($1, $2) using Maddi.JavaCompat
-member java.util.Map.computeIfPresent/2 -> $0.ComputeIfPresent($1, $2) using Maddi.JavaCompat
 member java.util.Map.compute/2 -> $0.Compute($1, $2) using Maddi.JavaCompat
 member java.util.Map.merge/3 -> $0.Merge($1, $2, $3) using Maddi.JavaCompat
 member java.util.Map.entry/2 -> KeyValuePair.Create($1, $2) using System.Collections.Generic

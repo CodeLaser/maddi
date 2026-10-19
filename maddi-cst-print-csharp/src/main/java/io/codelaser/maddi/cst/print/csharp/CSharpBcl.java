@@ -271,6 +271,9 @@ final class CSharpBcl implements LibraryMapping {
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
                 : valueType(call, 1) ? nullable("$0.GetValueOrNull($1)", COMPAT)
                 : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
+        // a value type's function gives null to remove, as Java's Integer: the int? variant
+        chooser("java.util.Map.computeIfPresent/2", (method, call) -> valueType(call, 1)
+                ? nullable("$0.ComputeIfPresentValue($1, $2)", COMPAT) : nullable("$0.ComputeIfPresent($1, $2)", COMPAT));
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));

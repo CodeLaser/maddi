@@ -700,7 +700,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static boolean both(BiPredicate<String, Integer> a, BiPredicate<String, Integer> b) { return a.and(b).test("x", 1); }
                 static boolean either(Predicate<String> a, Predicate<String> b) { return a.or(b.negate()).test("x"); }
                 static boolean ready(BooleanSupplier s) { return s.getAsBoolean(); }
-                static Integer bump(Map<String, Integer> m) { return m.computeIfPresent("k", (k, v) -> v + 1); }
+                static Integer bump(Map<String, Integer> m) { return m.computeIfPresent("k", (k, v) -> v > 1 ? v - 1 : null); }
+                static String rename(Map<String, String> m) { return m.computeIfPresent("k", (k, v) -> v + k); }
                 static String lower(String s) { return s + Locale.getDefault(); }
                 static BigInteger half(BigInteger b) { return b.divide(BigInteger.TWO); }
                 static Object first(Object array) {
@@ -722,7 +723,9 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "a.And(b)(\"x\", 1)");
         contains(cs, "a.Or(b.Negate())(\"x\")");
         contains(cs, "s()");
-        contains(cs, "m.ComputeIfPresent(\"k\",");
+        // a value type's function gives null to remove: the int? variant
+        contains(cs, "m.ComputeIfPresentValue(\"k\",");
+        contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
                 contains(cs, "s + CultureInfo.CurrentCulture");
         contains(cs, "b / ");
         contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");

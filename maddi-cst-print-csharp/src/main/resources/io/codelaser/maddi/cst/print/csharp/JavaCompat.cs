@@ -148,6 +148,16 @@ public static class JavaCollections
         return v;
     }
 
+    /// <summary>Map.computeIfPresent of a value type, whose function gives null to remove: as Java's Integer.</summary>
+    public static V? ComputeIfPresentValue<K, V>(this IDictionary<K, V> d, K key, Func<K, V, V?> f) where V : struct
+    {
+        if (!d.TryGetValue(key, out var old)) return null;
+        var v = f(key, old);
+        if (v == null) d.Remove(key);
+        else d[key] = v.Value;
+        return v;
+    }
+
     public static V Compute<K, V>(this IDictionary<K, V> d, K key, Func<K, V?, V> f)
     {
         d.TryGetValue(key, out var old);
