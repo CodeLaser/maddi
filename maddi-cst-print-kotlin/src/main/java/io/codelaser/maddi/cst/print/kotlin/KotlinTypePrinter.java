@@ -710,6 +710,17 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * the outer class's superclass, has the class's own simple name, which inside it means the class itself ("cycle in
      * supertypes"). Qualified by its outer class, with the type arguments the class's outer gives it. Null otherwise.
      */
+    /**
+     * The superclass with only its own type arguments: an inner class named through its parameterized outer,
+     * {@code Base<E>.EntrySet}, has the outer's arguments first in {@code parameters()} (the Java front end and the
+     * bytecode reader alike). The callers write the outer classes themselves, and then the class's own arguments.
+     */
+    private static ParameterizedType ownArgumentsOnly(ParameterizedType parent) {
+        int own = parent.typeInfo().typeParameters().size();
+        int all = parent.parameters().size();
+        return all > own ? parent.withParameters(new ArrayList<>(parent.parameters().subList(all - own, all))) : parent;
+    }
+
     private String sameNamedInnerSuperclass(Qualification q) {
         ParameterizedType parent = typeInfo.parentClass();
         TypeInfo parentType = parent.typeInfo();
@@ -730,7 +741,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         } else {
             outerName = KotlinTypeName.name(parentOuter, q);
         }
-        String own = KotlinTypeName.of(declaredArguments(parent), q);
+        String own = KotlinTypeName.of(ownArgumentsOnly(declaredArguments(parent)), q);
         int lt = own.indexOf('<');
         return outerName + "." + parentType.simpleName() + (lt < 0 ? "" : own.substring(lt));
     }
@@ -761,7 +772,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .collect(Collectors.joining(", ", "<", ">")));
             }
         }
-        String own = KotlinTypeName.of(declaredArguments(parent), q);
+        String own = KotlinTypeName.of(ownArgumentsOnly(declaredArguments(parent)), q);
         int lt = own.indexOf('<');
         return sb + "." + KotlinNames.name(parentType.simpleName()) + (lt < 0 ? "" : own.substring(lt));
     }
