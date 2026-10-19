@@ -47,7 +47,8 @@ public abstract class CommonJavaToKotlin {
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").build());
+                .addClassPath("jmod:java.base")
+                .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/jspecify/annotations").build());
         javaInspector.onlyPreload();
     }
 
