@@ -559,6 +559,26 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's GrpcConnection: {@code channel.eventLoop().submit(() -> { …; return true; })} on netty's
+     * EventExecutorGroup, whose submit(Runnable) the printer may not see: a lambda into a library's Callable names it,
+     * {@code Callable<T> { … }}, so that Kotlin does not take the Runnable.
+     */
+    @Test
+    public void libraryCallableNamed() throws Exception {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.concurrent.*;
+                class Calls {
+                    static String run() throws Exception {
+                        return Executors.privilegedCallable(() -> "x").call();
+                    }
+                }
+                """);
+        contains(kotlin, "Callable<String>");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
      * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
      */

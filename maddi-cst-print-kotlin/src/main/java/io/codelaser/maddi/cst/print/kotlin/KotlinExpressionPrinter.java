@@ -1557,6 +1557,12 @@ public class KotlinExpressionPrinter {
         if (!KotlinContext.translatingJava()) return false;
         TypeInfo functional = method.parameters().get(i).parameterizedType().typeInfo();
         if (functional == null || !functional.isInterface()) return false;
+        // a library's Callable, beside the Runnable overload executors declare: its other methods may not be loaded
+        // (nacos's channel.eventLoop().submit(() -> { …; return true; }), netty's EventExecutorGroup)
+        if ("java.util.concurrent.Callable".equals(functional.fullyQualifiedName())
+            && !KotlinNullability.translated(method.typeInfo())) {
+            return true;
+        }
         return method.typeInfo().methods().stream().anyMatch(other -> other != method
                 && other.name().equals(method.name()) && other.parameters().size() == method.parameters().size()
                 && other.parameters().get(i).parameterizedType().arrays() == 0
