@@ -865,13 +865,24 @@ public final class CSharpExpressionPrinter {
         for (ParameterizedType a : type.parameters()) {
             if (a.isTypeParameter() && own.contains(a.typeParameter())) {
                 ParameterizedType t = inferred.get(a.typeParameter());
-                if (t == null || !writable(t, own)) return type;
+                if (t == null || !writableNested(t, own)) return type;
                 arguments.add(t);
             } else {
                 arguments.add(a);
             }
         }
         return type.withParameters(arguments);
+    }
+
+    /**
+     * {@link #writable}, but with wildcards below the top, which C# prints as it prints the argument's or the
+     * parameter's type they come from: {@code Pair<Mapper<A>, Collector<A, ?, R>>} of a {@code collector} declared so.
+     */
+    private static boolean writableNested(ParameterizedType t, List<TypeParameter> typeParameters) {
+        if (t.wildcard() != null) return false;
+        if (t.isTypeParameter() || t.typeInfo() == null) return writable(t, typeParameters);
+        return t.parameters().stream().allMatch(a -> a.wildcard() == null ? writableNested(a, typeParameters)
+                : a.wildcard().isUnbound() || writableNested(a.withWildcard(null), typeParameters));
     }
 
     /** The type Java inferred for the parameter that {@code cc} is the argument of; null when not a call's argument. */

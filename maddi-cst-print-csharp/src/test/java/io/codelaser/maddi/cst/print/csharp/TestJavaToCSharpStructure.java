@@ -2000,6 +2000,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
                 static <E> java.util.Set<E> fromMap(java.util.Map<E, Boolean> map) { return map.keySet(); }
+                interface Folding<A, C, R> { R finish(C c); C start(); }
+                record Duo<K, V>(K key, V value) { }
+                static final class Gather<A, R> { Gather(Duo<Function<A, R>, Folding<A, ?, R>> duo) { } }
+                static final class Folds<A, R> {
+                    private final Folding<A, ?, R> folding;
+                    Folds(Folding<A, ?, R> folding) { this.folding = folding; }
+                    Gather<A, R> gathered(Function<A, R> key) { return new Gather<>(new Duo<>(key, folding)); }
+                }
                 static <V, M extends java.util.Map<String, V>> java.util.List<M> fill(V value, java.util.function.Supplier<M> supplier) {
                     return java.util.List.of(supplier.get());
                 }
@@ -2026,6 +2034,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "new Bridge2<A, B>(this)");
         // Map.keySet where a Set is expected: the compatibility library's live view, not ICollection Keys
         contains(cs, "FromMap<E>(IDictionary<E, bool> map) => map.KeySet();");
+        // a wildcard below the top of an inferred argument: as C# prints the collector's own type
+        contains(cs, "new Duo<Func<A, R>, IFolding<A, R>>(key, folding)");
         // HashMap::new where Java infers M from the target, a Map<String, V>, and C# from the lambda: its result cast
         contains(cs, "() => (IDictionary<string, V>) new Dictionary<string, V>()");
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only

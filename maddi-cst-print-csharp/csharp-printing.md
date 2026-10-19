@@ -398,7 +398,10 @@ implements the interface.
   reference binds; through the parameter's whole type and any supertype of the class in its own type parameters
   (`newSetFromMap(new HashMap<>())` is `new Dictionary<T, bool>()` for `Map<E, Boolean>`, a
   `ListBasedScalingOrderedSet<E>` a `Collection<E>` through `Set<E>`), and an outer
-  creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch.
+  creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch. A
+  wildcard below the top of such an argument is printed as the type it comes from is: `new Pair<>(key, collector)`
+  of a `Collector<A, ?, R> collector` is `new Pair<Func<A, R>, ICollector<A, R>>(key, collector)`. A capture at the
+  top, a `Score_` Java infers as `? extends Score<?>`, has no C# type and stays.
 - **Raw creations.** `new DefaultBiJoiner(new Function[0], …)`, raw in a static member, is
   `new DefaultBiJoiner<object, object>(new Func<object, object>[0], …)`: its parameter, `Func<A, object>[]`, is
   of type parameters out of scope, and no conversion's target.
