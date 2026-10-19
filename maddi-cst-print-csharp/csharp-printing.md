@@ -211,7 +211,10 @@ implements the interface.
     and do not repeat them.
 - **Interface implementations.** C# is stricter than Java in three places:
   - a method may implement an interface's method with a narrower return type in Java; C# implements the interface's
-    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`;
+    method explicitly as well, calling the method: `IFailure IFailure.WithCode(int code) => WithCode(code);`. Where
+    the interface's result is a delegate and the method's a program interface extending it (an
+    `UniConstraintCollectorAccumulator` for a `BiFunction<ResultContainer_, A, Runnable>`), which C#'s interface
+    cannot, the call's method group of the delegate's method: `=> Accumulator().Apply;`;
   - a default method that implements an inherited interface's method is an explicit implementation:
     `Type IListener<string>.EventClass() => typeof(string);`; so is one of a JDK interface's method that C# names
     otherwise, `default void close()` of a `Closeable`: `void IDisposable.Dispose() { }`, which a `Dispose()` of its

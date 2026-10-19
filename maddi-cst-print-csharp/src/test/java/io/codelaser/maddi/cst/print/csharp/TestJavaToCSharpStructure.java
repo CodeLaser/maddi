@@ -492,6 +492,35 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String COVARIANT_DELEGATES = """
+            package org.example.accumulators;
+            import java.util.function.BiFunction;
+            class Accumulators {
+                interface Accumulator<C, A> extends BiFunction<C, A, Runnable> {
+                    Runnable into(C container);
+                    @Override
+                    default Runnable apply(C container, A a) { return into(container); }
+                }
+                interface Collector<A, C> {
+                    BiFunction<C, A, Runnable> accumulator();
+                }
+                static final class Counting<A> implements Collector<A, int[]> {
+                    public Accumulator<int[], A> accumulator() { return c -> () -> c[0]++; }
+                }
+            }
+            """;
+
+    /**
+     * An override that returns a program interface extending a library's functional interface, which C# has as a
+     * delegate the interface cannot extend: the interface's method returns the override's method group.
+     */
+    @Test
+    public void covariantDelegates() {
+        String cs = translate("Accumulators", COVARIANT_DELEGATES);
+        contains(cs, "Func<int[], A, Action> ICollector<A, int[]>.Accumulator() => Accumulator().Apply;");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {
