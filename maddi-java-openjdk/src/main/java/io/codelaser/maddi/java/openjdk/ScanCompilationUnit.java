@@ -2279,6 +2279,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                  String one did not. A fixture whose DTO sorts before its user never sees this, and every
                  fixture did. TestFieldTypeDetailUnitOrder.
                 */
+                // ⛔ ...and the type-use annotations, as for a method's return type and parameters: the
+                // symbol-built type has none, so 'static final List<@Nullable Object> ALL' read as List<Object>
+                // whenever a method declared earlier referenced the field (maddi#145, guava's
+                // Ordering.ArbitraryOrderingHolder). Replaced before the details below are keyed to it.
+                ParameterizedType annotated = transplantAnnotations(fieldInfo.type(), type);
+                if (annotated != fieldInfo.type() && !fieldInfo.hasBeenInspected()) {
+                    fieldInfo.builder().setType(annotated);
+                }
                 if (type != fieldInfo.type()) {
                     for (Source typeSource : dsb.build().details(type)) {
                         dsb.put(fieldInfo.type(), typeSource);
