@@ -538,10 +538,12 @@ public class KotlinExpressionPrinter {
             for (int i = 1; i < 5; i++) call.add(print(args.get(i), q)).add(SymbolEnum.COMMA);
             return call.add(new TextImpl("ignoreCase =")).add(print(args.getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())) {
-            return b.add(new TextImpl("equals")).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(print(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.COMMA)
-                    .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
+        if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())
+            || KotlinMappedMembers.isCompareToIgnoreCase(mc.methodInfo())) {
+            // jenkins's Functions: a.getName().compareToIgnoreCase(b.getName()), compareTo(…, ignoreCase = true)
+            return b.add(new TextImpl(KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo()) ? "equals" : "compareTo"))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(mc.parameterExpressions().getFirst(), q))
+                    .add(SymbolEnum.COMMA).add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
         String typeArguments = !mc.typeArguments().isEmpty() ? explicitTypeArguments(mc, q)
@@ -2617,6 +2619,15 @@ public class KotlinExpressionPrinter {
         Expression scope = mr.scope();
         if (mr.methodInfo().isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
+            if (KotlinContext.translatingJava() && type.arrays() > 0) {
+                // jenkins's ComputerSet: stream.toArray(Computer[]::new); Kotlin has no array constructor reference.
+                // An IntFunction making the array, whose elements Java leaves null
+                ParameterizedType component = type.componentType();
+                String primitive = KotlinTypeName.primitiveArray(component);
+                if (primitive != null) return text("{ " + primitive + "(it) }");
+                String element = KotlinTypeName.of(component.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+                return text("{ arrayOfNulls<" + element + ">(it) as Array<" + element + "> }");
+            }
             String name = type.arrays() > 0 ? KotlinTypeName.of(type, q) : KotlinTypeName.name(type.typeInfo(), q);
             if (type.arrays() == 0 && name.contains(".") && mr.methodInfo().parameters().size() <= 2) {
                 // ::java.util.ArrayList is no reference Kotlin can parse

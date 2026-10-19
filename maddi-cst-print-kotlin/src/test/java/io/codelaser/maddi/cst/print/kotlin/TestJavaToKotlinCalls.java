@@ -614,6 +614,37 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins: {@code a.compareToIgnoreCase(b)} (Functions), {@code annotation.annotationType()} (ExtensionFinder) and
+     * {@code stream.toArray(Computer[]::new)} (ComputerSet), which Kotlin's String, Annotation and arrays lack.
+     */
+    @Test
+    public void jenkinsJdkMembers() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.Annotation;
+                import java.util.*;
+                class Members {
+                    static int compare(String a, String b) {
+                        return a.compareToIgnoreCase(b);
+                    }
+                    static Class<? extends Annotation> type(Annotation annotation) {
+                        return annotation.annotationType();
+                    }
+                    static String[] names(List<String> list) {
+                        return list.stream().toArray(String[]::new);
+                    }
+                    static int[][] grid(List<int[]> rows) {
+                        return rows.stream().toArray(int[][]::new);
+                    }
+                }
+                """);
+        contains(kotlin, "a.compareTo(b, ignoreCase = true)");
+        contains(kotlin, "annotation.annotationClass.java");
+        contains(kotlin, "arrayOfNulls<String>(it)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
      * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
      */

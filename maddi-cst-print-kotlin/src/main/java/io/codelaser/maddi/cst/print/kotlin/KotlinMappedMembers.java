@@ -52,7 +52,10 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.lang.Enum", "ordinal", 0), "ordinal"),
             // Kotlin's Enum has no getDeclaringClass(); kotlin.jvm's extension property gives Java's
             Map.entry(new Key("java.lang.Enum", "getDeclaringClass", 0), "declaringJavaClass"),
-            Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"));
+            Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"),
+            // Kotlin's Annotation has no annotationType(); kotlin.jvm's annotationClass is its KClass (jenkins's
+            // ExtensionFinder: extensionAnnotations.get(annotation.annotationType()))
+            Map.entry(new Key("java.lang.annotation.Annotation", "annotationType", 0), "annotationClass.java"));
 
     private static final Map<Key, String> FUNCTION = Map.ofEntries(
             Map.entry(new Key("java.lang.Number", "intValue", 0), "toInt"),
@@ -94,6 +97,9 @@ final class KotlinMappedMembers {
 
     private static final Map<Key, Boolean> EQUALS_IGNORE_CASE = Map.of(
             new Key("java.lang.String", "equalsIgnoreCase", 1), true);
+
+    private static final Map<Key, Boolean> COMPARE_TO_IGNORE_CASE = Map.of(
+            new Key("java.lang.String", "compareToIgnoreCase", 1), true);
 
     private static final Map<Key, Boolean> INDEX_GET = Map.of(
             new Key("java.lang.CharSequence", "charAt", 1), true,
@@ -361,6 +367,11 @@ final class KotlinMappedMembers {
 
     static boolean isEqualsIgnoreCase(MethodInfo methodInfo) {
         return lookup(EQUALS_IGNORE_CASE, methodInfo) != null;
+    }
+
+    /** {@code a.compareToIgnoreCase(b)}: Kotlin's String has {@code compareTo(b, ignoreCase = true)}. */
+    static boolean isCompareToIgnoreCase(MethodInfo methodInfo) {
+        return lookup(COMPARE_TO_IGNORE_CASE, methodInfo) != null;
     }
 
     /** {@code b.booleanValue()} is {@code b}. */
