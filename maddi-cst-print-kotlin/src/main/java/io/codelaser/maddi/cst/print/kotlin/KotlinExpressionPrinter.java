@@ -3338,6 +3338,15 @@ public class KotlinExpressionPrinter {
         }
         String infix = INFIX.get(op);
         if (infix != null) return infix(bo, infix, q);
+        if ("==".equals(op) || "!=".equals(op)) {
+            // nacos's attributes.getClientAttribute(KEY) == null: compared with null, a call's result has no expected
+            // type to fix a result-only type variable
+            Expression other = unwrap(bo.rhs()) instanceof NullConstant ? bo.lhs()
+                    : unwrap(bo.lhs()) instanceof NullConstant ? bo.rhs() : null;
+            if (other != null && unwrap(other) instanceof MethodCall && !NO_EXPECTED_TYPE.get().contains(unwrap(other))) {
+                return withoutExpectedType(other, () -> binaryOperator(bo, q));
+            }
+        }
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
             op = op + "="; // Java's identity comparison of references is Kotlin's === (Kotlin's == calls equals)
         }

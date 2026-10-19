@@ -539,6 +539,30 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ClientAttributesFilter: {@code attributes.getClientAttribute(KEY) == null}, a {@code <T> T} result
+     * compared with null, which fixes no T.
+     */
+    @Test
+    public void resultOnlyComparedWithNull() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Attributes {
+                    final Map<String, Object> map = new HashMap<>();
+                    @SuppressWarnings("unchecked")
+                    <T> T get(String key) {
+                        return (T) map.get(key);
+                    }
+                    boolean has(String key) {
+                        return get(key) != null;
+                    }
+                }
+                """);
+        contains(kotlin, "get<Any>(key) != null");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's DistributedDatabaseOperateImpl: {@code queryOne(sql, ClassUtils.findClassByName(name))}, a raw Class
      * into the callee's {@code Class<R>}: the cast cannot name R, Java infers it from the erasure, Class<Any?>.
      */
