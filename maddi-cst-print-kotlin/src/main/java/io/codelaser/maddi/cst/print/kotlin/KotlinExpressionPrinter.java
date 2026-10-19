@@ -388,8 +388,12 @@ public class KotlinExpressionPrinter {
             if (!mc.objectIsImplicit() || !KotlinContext.typeInScope(owner) && !KotlinTypePrinter.fromKotlinSource(owner)) {
                 // SingleClassesTest.collectClasses(f), declared in SingleClassesTestBase: a companion's members are
                 // not inherited, so the declaring type names them
-                TypeInfo named = mc.methodInfo().isStatic() && KotlinNullability.translated(owner)
-                                 && te.parameterizedType().typeInfo() != owner ? owner : te.parameterizedType().typeInfo();
+                // nor does a class of ours give a Java superclass's statics: jenkins's hudson.util.HttpResponses
+                // extends Stapler's, whose ok() is called as HttpResponses.ok()
+                TypeInfo written = te.parameterizedType().typeInfo();
+                TypeInfo named = mc.methodInfo().isStatic() && written != owner
+                                 && (KotlinNullability.translated(owner) || KotlinNullability.translated(written))
+                        ? owner : written;
                 b.add(new TextImpl(KotlinTypeName.staticOwner(named, q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {

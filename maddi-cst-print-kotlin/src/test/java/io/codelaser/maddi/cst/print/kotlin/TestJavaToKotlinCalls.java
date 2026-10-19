@@ -614,6 +614,29 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's hudson.util.HttpResponses extends Stapler's, and ListView calls {@code HttpResponses.ok()}, a static of
+     * the library superclass: Kotlin reaches a Java class's statics through that class only.
+     */
+    @Test
+    public void inheritedLibraryStatic() {
+        String kotlin = kotlin("""
+                package a;
+                class Worker extends Thread {
+                    static String current() {
+                        return Worker.currentThread().getName();
+                    }
+                }
+                class View {
+                    String name() {
+                        return Worker.currentThread().getName();
+                    }
+                }
+                """);
+        contains(kotlin, "Thread.currentThread()");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins: {@code a.compareToIgnoreCase(b)} (Functions), {@code annotation.annotationType()} (ExtensionFinder) and
      * {@code stream.toArray(Computer[]::new)} (ComputerSet), which Kotlin's String, Annotation and arrays lack.
      */
