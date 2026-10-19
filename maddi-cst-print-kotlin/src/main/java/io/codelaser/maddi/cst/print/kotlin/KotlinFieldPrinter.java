@@ -101,7 +101,14 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
      * private delegate beside ListeningDecorator's, both internal): Java's field shadows, Kotlin's property hides.
      */
     static boolean renamed(FieldInfo fieldInfo) {
-        return clashesWithMappedProperty(fieldInfo) || hidesSuperclassField(fieldInfo);
+        return clashesWithMappedProperty(fieldInfo) || hidesSuperclassField(fieldInfo) || hidesEnumProperty(fieldInfo);
+    }
+
+    /** nacos's BaseHttpMethod: an enum's {@code private String name}, which Kotlin's Enum.name would hide. */
+    private static boolean hidesEnumProperty(FieldInfo fieldInfo) {
+        return KotlinContext.translatingJava() && !fieldInfo.isStatic() && fieldInfo.owner() != null
+               && fieldInfo.owner().typeNature().isEnum()
+               && ("name".equals(fieldInfo.name()) || "ordinal".equals(fieldInfo.name()));
     }
 
     private static boolean hidesSuperclassField(FieldInfo fieldInfo) {

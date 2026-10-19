@@ -396,9 +396,14 @@ final class KotlinMappedMembers {
                 "translateEscapes", "getChars").contains(methodInfo.name());
     }
 
-    /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */
+    /**
+     * {@code s.split(regex)}, {@code s.split(regex, limit)}: Kotlin's {@code split(String)} splits on the literal
+     * string, and returns a list.
+     */
     static boolean isSplit(MethodInfo methodInfo) {
-        return "split".equals(methodInfo.name()) && methodInfo.parameters().size() == 1
+        return "split".equals(methodInfo.name()) && (methodInfo.parameters().size() == 1
+                                                     || methodInfo.parameters().size() == 2
+                                                        && methodInfo.parameters().get(1).parameterizedType().isInt())
                && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName());
     }
 

@@ -539,6 +539,55 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's NamingDefaultHttpParamExtractor: {@code groupServiceName.split(SPLITER, 2)}, a regex and a limit, which
+     * keeps trailing empty strings as Kotlin's does; a negative limit is Kotlin's none.
+     */
+    @Test
+    public void splitWithLimit() {
+        String kotlin = kotlin("""
+                package a;
+                class Names {
+                    static String group(String name) {
+                        String[] splits = name.split("@@", 2);
+                        String[] all = name.split(",", -1);
+                        return splits[0] + all.length;
+                    }
+                    static int parts(String name, int n) {
+                        return name.split(",", n).length;
+                    }
+                }
+                """);
+        contains(kotlin, "name.split(\"@@\".toRegex(), 2).toTypedArray()");
+        contains(kotlin, "name.split(\",\".toRegex()).toTypedArray()");
+        contains(kotlin, "maxOf(n, 0)");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's ObjectUtils.nullSafeEquals: {@code o1 instanceof Object[]}, Kotlin's {@code is Array<*>}; kotlinc cannot
+     * test the erased {@code Array<Any>}.
+     */
+    @Test
+    public void objectArrayInstanceOf() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Arrays;
+                class Objects {
+                    static boolean same(Object o1, Object o2) {
+                        if (o1 instanceof Object[] && !(o2 instanceof Object[])) return false;
+                        if (o1 instanceof Object[] && o2 instanceof Object[]) {
+                            return Arrays.equals((Object[]) o1, (Object[]) o2);
+                        }
+                        return o1 == o2;
+                    }
+                }
+                """);
+        contains(kotlin, "o1 is Array<*>");
+        contains(kotlin, "o2 !is Array<*>");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's GroupCapacityPersistService, {@code List<String> columnList = CollectionUtils.list()}: an empty varargs
      * fixes no T, the local's type does; and {@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))},
      * whose argument is typed by its target only. Both locals keep their types.
@@ -613,7 +662,8 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     /**
      * nacos's CollectionUtils.getCardinalityMap: {@code Map count = new HashMap(coll.size())}, a raw construction into
      * a raw local, which fixes no type arguments: the erasure, HashMap<Any?, Any?>; as into a raw field or the return
-     * of a raw method (nacos's NoneSelector). A typed target keeps inferring.
+     * of a raw method (nacos's NoneSelector), or as an argument into a raw parameter (AbstractNacosRestTemplate's
+     * handlers.put). A typed target keeps inferring.
      */
     @Test
     @SuppressWarnings("rawtypes")
@@ -624,6 +674,10 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 @SuppressWarnings({"rawtypes", "unchecked"})
                 class Raw {
                     private Map cache = new HashMap();
+                    private final Map<String, List> lists = new HashMap<>();
+                    void init() {
+                        lists.put("a", new ArrayList());
+                    }
                     static Map make() {
                         return new HashMap();
                     }
@@ -638,6 +692,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "HashMap<Any?, Any?>(coll.size)");
+        contains(kotlin, "ArrayList<Any?>()");
         compiles(kotlin);
     }
 

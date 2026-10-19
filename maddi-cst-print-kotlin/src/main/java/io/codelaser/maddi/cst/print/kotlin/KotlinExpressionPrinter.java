@@ -482,9 +482,32 @@ public class KotlinExpressionPrinter {
             return b.add(new TextImpl(sameArguments)).add(arguments(mc.parameterExpressions(), mc.methodInfo(), q));
         }
         if (KotlinMappedMembers.isSplit(mc.methodInfo())) {
-            // Java's split drops trailing empty strings, and returns an array
+            // Java's split drops trailing empty strings, and returns an array. A positive limit keeps them, as
+            // Kotlin's does (nacos's groupServiceName.split(SPLITER, 2)); a negative one is no limit, keeping them
+            List<Expression> args = mc.parameterExpressions();
+            Integer limit = args.size() == 2 && unwrap(args.get(1)) instanceof IntConstant ic ? ic.constant() : null;
+            if (args.size() == 2 && (limit == null || limit != 0)) {
+                if (limit == null) {
+                    // Kotlin rejects a negative limit, Java's "no limit", which is Kotlin's 0; a computed 0 keeps the
+                    // trailing empty strings Java's drops
+                    OutputBuilder l = operand(PrecedenceEnum.ASSIGNMENT, args.get(1), q);
+                    return b.add(new TextImpl("split")).add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(receiver(args.getFirst(), q)).add(SymbolEnum.DOT).add(new TextImpl("toRegex"))
+                            .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS).add(SymbolEnum.COMMA)
+                            .add(new TextImpl("maxOf")).add(SymbolEnum.LEFT_PARENTHESIS).add(l).add(SymbolEnum.COMMA)
+                            .add(new TextImpl("0")).add(SymbolEnum.RIGHT_PARENTHESIS)
+                            .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT)
+                            .add(new TextImpl("toTypedArray")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+                }
+                OutputBuilder call = b.add(new TextImpl("split")).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(receiver(args.getFirst(), q)).add(SymbolEnum.DOT).add(new TextImpl("toRegex"))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+                if (limit > 0) call.add(SymbolEnum.COMMA).add(new TextImpl(Integer.toString(limit)));
+                return call.add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.DOT).add(new TextImpl("toTypedArray"))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            }
             return b.add(new TextImpl("split")).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(receiver(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.DOT)
+                    .add(receiver(args.getFirst(), q)).add(SymbolEnum.DOT)
                     .add(new TextImpl("toRegex")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SymbolEnum.DOT).add(new TextImpl("dropLastWhile { it.isEmpty() }"))
                     .add(SymbolEnum.DOT).add(new TextImpl("toTypedArray")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
@@ -1232,8 +1255,12 @@ public class KotlinExpressionPrinter {
                                              // (Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY into an Array<Entry?>
                                              || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1)
                                             && declared != null ? declared : target;
+                // nacos's AbstractNacosRestTemplate: handlers.put(type, new BeanResponseHandler()) into a
+                // Map<String, ResponseHandler>, whose raw V fixes no type arguments
+                Expression arg = args.get(i);
+                OutputBuilder widenedArgument = intoRawTarget(arg, declared, () -> widened(arg, widenTo, q));
                 OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
-                        widened(args.get(i), widenTo, q), q);
+                        widenedArgument, q);
                 if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
                                      || nullableElementsParameter(method, i, args.get(i)))) {
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
@@ -1925,17 +1952,23 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        return intoRawTarget(e, target, () -> assignedTo(e, target, q));
+    }
+
+    /** {@code print}, with {@code e} known to go into {@code target}, which may be raw: see {@link #RAW_TARGET}. */
+    private static OutputBuilder intoRawTarget(Expression e, ParameterizedType target,
+                                               java.util.function.Supplier<OutputBuilder> print) {
         Expression call = unwrap(e);
-        if (KotlinContext.translatingJava() && (call instanceof ConstructorCall || call instanceof MethodCall)
-            && rawGeneric(target)) {
-            boolean added = RAW_TARGET.get().add(call);
-            try {
-                return assignedTo(e, target, q);
-            } finally {
-                if (added) RAW_TARGET.get().remove(call);
-            }
+        if (!KotlinContext.translatingJava() || !(call instanceof ConstructorCall || call instanceof MethodCall)
+            || !rawGeneric(target)) {
+            return print.get();
         }
-        return assignedTo(e, target, q);
+        boolean added = RAW_TARGET.get().add(call);
+        try {
+            return print.get();
+        } finally {
+            if (added) RAW_TARGET.get().remove(call);
+        }
     }
 
     private static OutputBuilder assignedTo(Expression e, ParameterizedType target, Qualification q) {
@@ -2742,15 +2775,19 @@ public class KotlinExpressionPrinter {
         ParameterizedType parent = anonymous.parentClass();
         // new ListMultimapBuilder<K0, @Nullable Object>() {…}: the type arguments' type-use annotations, as a named
         // class's header writes them (maddi#144 kept them on the anonymous class's supertype)
+        // nacos's DumpService: new Subscriber() {…}, a raw supertype, which a named class's header erases too
         if (parent != null && !parent.isJavaLangObject()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
+            String raw = KotlinTypePrinter.rawSupertype(parent, q);
+            b.add(new TextImpl(raw != null ? raw : KotlinTypeName.of(supertype != null ? supertype
                             : KotlinTypePrinter.declaredArguments(parent), q)))
                     // guava's ImmutableSortedSet: AbstractSpliterator<E>(size(), …) widens the int to the superclass
                     // constructor's long, as a named class's constructor call does
                     .add(anonymousSuperArguments(cc, parent, q));
         } else if (!anonymous.interfacesImplemented().isEmpty()) {
-            b.add(new TextImpl(KotlinTypeName.of(supertype != null ? supertype
-                    : KotlinTypePrinter.declaredArguments(anonymous.interfacesImplemented().getFirst()), q)));
+            ParameterizedType implemented = anonymous.interfacesImplemented().getFirst();
+            String raw = KotlinTypePrinter.rawSupertype(implemented, q);
+            b.add(new TextImpl(raw != null ? raw : KotlinTypeName.of(supertype != null ? supertype
+                    : KotlinTypePrinter.declaredArguments(implemented), q)));
         } else {
             b.add(new TextImpl("Any")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
@@ -3488,7 +3525,19 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder instanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
-                .add(KotlinSymbols.binary("is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+                .add(KotlinSymbols.binary("is")).add(new TextImpl(testType(io, q)));
+    }
+
+    /**
+     * The type an {@code is} tests. Java's {@code Object[]}, any reference array, is Kotlin's {@code Array<*>}: an
+     * {@code Array<Any>} is an erased type kotlinc cannot test (nacos's ObjectUtils.nullSafeEquals).
+     */
+    private static String testType(InstanceOf io, Qualification q) {
+        ParameterizedType t = io.testType();
+        if (KotlinContext.translatingJava() && t.arrays() == 1 && t.typeInfo() != null && t.typeInfo().isJavaLangObject()) {
+            return "Array<*>";
+        }
+        return KotlinTypeName.of(t, q);
     }
 
     /**
@@ -3514,7 +3563,7 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder notInstanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
-                .add(KotlinSymbols.binary("!is")).add(new TextImpl(KotlinTypeName.of(io.testType(), q)));
+                .add(KotlinSymbols.binary("!is")).add(new TextImpl(testType(io, q)));
     }
 
     // ---------------------------------------------------------------- casts (#105)
