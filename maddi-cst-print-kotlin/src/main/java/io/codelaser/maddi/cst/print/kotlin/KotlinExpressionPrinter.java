@@ -2046,8 +2046,9 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder intoRawTarget(Expression e, ParameterizedType target,
                                                java.util.function.Supplier<OutputBuilder> print) {
         Expression call = unwrap(e);
+        // an Object target fixes nothing either: jenkins's createCollection(Class) { return new ArrayList(); }
         if (!KotlinContext.translatingJava() || !(call instanceof ConstructorCall || call instanceof MethodCall)
-            || !rawGeneric(target)) {
+            || !rawGeneric(target) && !(call instanceof ConstructorCall && target != null && target.isJavaLangObject())) {
             return print.get();
         }
         boolean added = RAW_TARGET.get().add(call);

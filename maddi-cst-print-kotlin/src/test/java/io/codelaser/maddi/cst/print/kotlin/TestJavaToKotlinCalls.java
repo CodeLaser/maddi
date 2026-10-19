@@ -650,6 +650,33 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins: {@code Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>())} (ExtensionList), a diamond
+     * typed by the call, which the local's type fixes; and {@code Object createCollection(Class type) { return new
+     * ArrayList(); }} (ImmutableListConverter), a raw construction into an Object.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void diamondArgumentAndRawIntoObject() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Extensions<T> {
+                    int count(List<T> items) {
+                        Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>());
+                        instances.addAll(items);
+                        return instances.size();
+                    }
+                    Object createCollection(Class type) {
+                        return new ArrayList();
+                    }
+                }
+                """);
+        contains(kotlin, "val instances: MutableSet<T>");
+        contains(kotlin, "ArrayList<Any?>()");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's hudson.util.HttpResponses extends Stapler's, and ListView calls {@code HttpResponses.ok()}, a static of
      * the library superclass: Kotlin reaches a Java class's statics through that class only.
      */

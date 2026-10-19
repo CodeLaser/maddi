@@ -103,12 +103,15 @@ public class KotlinStatementPrinter {
 
     /**
      * The argument at parameter {@code i} types the call: not an empty varargs (nacos's
-     * {@code List<String> columnList = CollectionUtils.list()}), nor a call typed by its own target only
+     * {@code List<String> columnList = CollectionUtils.list()}), nor a call or a diamond typed by its own target only
      * ({@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))}).
      */
     private static boolean fixes(MethodCall mc, int i) {
         List<Expression> args = mc.parameterExpressions();
-        return i < args.size() && !onlyTargetTyped(args.get(i));
+        // nor a diamond, typed by the call: jenkins's Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>())
+        return i < args.size() && !onlyTargetTyped(args.get(i))
+               && !(KotlinExpressionPrinter.unwrap(args.get(i)) instanceof ConstructorCall cc && cc.diamond() != null
+                    && cc.diamond().isYes() && cc.anonymousClass() == null);
     }
 
     /**
