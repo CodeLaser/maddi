@@ -539,6 +539,95 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's ClassUtils: {@code Class[].class}, an array of a generic class, which no Kotlin class literal names: the
+     * class of an empty such array.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void genericArrayClassLiteral() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Literals {
+                    static List<Class<?>> types() {
+                        return List.of(Class[].class, List[].class, String[].class);
+                    }
+                }
+                """);
+        contains(kotlin, "arrayOfNulls<Class<*>>(0).javaClass");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
+     * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
+     */
+    @Test
+    public void unboundReferenceOfLibraryGeneric() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Members {
+                    static List<String> simple(Collection<String> members) {
+                        return members.stream().sorted().collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+                    }
+                }
+                """);
+        contains(kotlin, "ArrayList<String> ::add");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's ClientAttributesFilter: {@code attributes.getClientAttribute(KEY) == null}, a {@code <T> T} result
+     * compared with null, which fixes no T.
+     */
+    @Test
+    public void resultOnlyComparedWithNull() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Attributes {
+                    final Map<String, Object> map = new HashMap<>();
+                    @SuppressWarnings("unchecked")
+                    <T> T get(String key) {
+                        return (T) map.get(key);
+                    }
+                    boolean has(String key) {
+                        return get(key) != null;
+                    }
+                }
+                """);
+        contains(kotlin, "get<Any>(key) != null");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's DistributedDatabaseOperateImpl: {@code queryOne(sql, ClassUtils.findClassByName(name))}, a raw Class
+     * into the callee's {@code Class<R>}: the cast cannot name R, Java infers it from the erasure, a Class<Any>.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawIntoCalleeTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Operate {
+                    static Class find(String name) throws Exception {
+                        return Class.forName(name);
+                    }
+                    static <R> R queryOne(String sql, Class<R> cls) throws Exception {
+                        return cls.getDeclaredConstructor().newInstance();
+                    }
+                    Object query(String sql, String name) throws Exception {
+                        return queryOne(sql, find(name));
+                    }
+                }
+                """);
+        contains(kotlin, "as Class<Any>");
+        compiles(kotlin);
+    }
+
+    /**
      * Java's unchecked argument conversions. nacos's DistributedDatabaseOperateImpl:
      * {@code protocol.addRequestProcessors(Collections.singletonList(this))} on a raw CPProtocol, cast to its erasure,
      * whose {@code Collection<P>} is a {@code Collection<RequestProcessor4CP>}; and ClientMetricsController's

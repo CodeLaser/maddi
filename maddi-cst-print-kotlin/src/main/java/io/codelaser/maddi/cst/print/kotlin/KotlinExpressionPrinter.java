@@ -1392,8 +1392,9 @@ public class KotlinExpressionPrinter {
         if (!"java.util.Comparator".equals(method.typeInfo().fullyQualifiedName())
             || !COMPARING_KEY.contains(method.name())
             || !(unwrap(argument) instanceof MethodReference mr) || mr.methodInfo().isConstructor()
-            || mr.methodInfo().isStatic() || mr.methodInfo().parameters().size() != 1
-            || mr.scope() == null || mr.scope() instanceof TypeExpression) {
+            || mr.methodInfo().isStatic() || mr.scope() == null
+            || mr.methodInfo().parameters().size() != (unboundGetter(mr) ? 0 : 1)
+            || mr.scope() instanceof TypeExpression && !unboundGetter(mr)) {
             return false;
         }
         io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
@@ -1462,8 +1463,24 @@ public class KotlinExpressionPrinter {
                 .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
+    /** {@code ServerLoaderMetrics::getAddress}: a getter of the element, which the reference takes as its receiver. */
+    private static boolean unboundGetter(MethodReference mr) {
+        return unwrap(mr.scope()) instanceof TypeExpression && !mr.methodInfo().isStatic()
+               && mr.methodInfo().parameters().isEmpty();
+    }
+
     private static OutputBuilder comparingKeyLambda(MethodReference mr, Qualification q) {
         KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+        if (unboundGetter(mr)) {
+            // nacos's Comparator.comparing(ServerLoaderMetrics::getAddress), a String? key: the element typed, as
+            // comparing's T is fixed by nothing else
+            String type = KotlinTypeName.of(mr.scope().parameterizedType()
+                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
+                    .add(new TextImpl("e: " + type)).add(SymbolEnum.LAMBDA)
+                    .add(new TextImpl("e." + KotlinNames.name(mr.methodInfo().name()) + "()!!"))
+                    .add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        }
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
                 .add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(mr.methodInfo().name())))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl("it")).add(SymbolEnum.RIGHT_PARENTHESIS)
@@ -2186,7 +2203,7 @@ public class KotlinExpressionPrinter {
         if (e instanceof InlineConditional ic && target != null && !isElvis(ic)) {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
             return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                    .add(condition(ic, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                     .add(branch(ic.ifTrue(), () -> arrayBranch(ic.ifTrue(), target, q), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
                     .add(branch(ic.ifFalse(), () -> arrayBranch(ic.ifFalse(), target, q), q));
@@ -2234,10 +2251,21 @@ public class KotlinExpressionPrinter {
             && (rawOf(rawValueType(e), target) || rawInto(rawValueType(e), target))) {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
-            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
-                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                    .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+            String cast = KotlinTypeName.of(target, q);
+            if (mentionsOutOfScope(target)) {
+                // nacos's queryOne(jdbcTemplate, sql, ClassUtils.findClassByName(name)) into the callee's Class<R>,
+                // an R not in scope here: Java infers it from the raw Class's erasure, Object. A Class's is an
+                // instance type, non-null (GrpcUtils's toObj(stream, classType) then returns an Any)
+                cast = rawValueType(e).typeInfo() != target.typeInfo() ? null
+                        : "java.lang.Class".equals(target.typeInfo().fullyQualifiedName()) ? "Class<Any>"
+                        : KotlinTypeName.erased(rawValueType(e), q);
+            }
+            if (cast != null) {
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                        .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                        .add(new TextImpl(cast)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
         }
         Primitive to = target == null ? null : primitive(target);
         Primitive from = primitive(e.parameterizedType());
@@ -2477,6 +2505,13 @@ public class KotlinExpressionPrinter {
         return kotlin != null ? kotlin : e.parameterizedType();
     }
 
+    /** {@code type} mentions a type variable the code being printed cannot name: a callee's own. */
+    private static boolean mentionsOutOfScope(ParameterizedType type) {
+        if (type == null) return false;
+        if (type.typeParameter() != null && !KotlinContext.typeParameterInScope(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(KotlinExpressionPrinter::mentionsOutOfScope);
+    }
+
     /** {@code raw} is {@code typed} without its type arguments: the same type, the same arrays, no arguments written. */
     static boolean rawOf(ParameterizedType raw, ParameterizedType typed) {
         if (raw == null || typed == null || raw.arrays() != typed.arrays() || raw.typeInfo() == null
@@ -2562,9 +2597,11 @@ public class KotlinExpressionPrinter {
         if (scope instanceof TypeExpression te) {
             TypeInfo owner = te.parameterizedType().typeInfo();
             String name = mr.methodInfo().isStatic() ? KotlinTypeName.staticOwner(owner, q) : KotlinTypeName.name(owner, q);
-            if (KotlinContext.translatingJava() && !owner.typeParameters().isEmpty() && KotlinNullability.translated(owner)) {
+            if (KotlinContext.translatingJava() && !owner.typeParameters().isEmpty()
+                && (KotlinNullability.translated(owner) || !m.isStatic())) {
                 // Acc::create, Acc::add on a generic class of ours: Kotlin wants the class's type arguments, and finds
-                // a static in the companion
+                // a static in the companion. A library class's too: nacos's collect(ArrayList::new, ArrayList::add,
+                // ArrayList::addAll), ArrayList<String>::add
                 ParameterizedType receiver = m.isStatic() ? null : referenceReceiver(mr, owner);
                 if (m.isStatic()) name += ".Companion";
                 else if (receiver != null) name = KotlinTypeName.of(receiver
@@ -2928,7 +2965,16 @@ public class KotlinExpressionPrinter {
             return KotlinTypeName.of(type, q) + "::class.javaPrimitiveType!!";
         }
         if (type.isVoid()) return "Void.TYPE";
-        if (type.arrays() > 0) return KotlinTypeName.of(type, q) + "::class.java";
+        if (type.arrays() > 0) {
+            // nacos's ClassUtils: Class[].class. A class literal takes no generic element, Array<Class<*>>::class;
+            // the class of an empty such array is Java's
+            ParameterizedType component = type.componentType();
+            if (KotlinContext.translatingJava() && KotlinTypeName.primitiveArray(component) == null
+                && KotlinTypeName.of(component, q).contains("<")) {
+                return "arrayOfNulls<" + KotlinTypeName.of(component, q) + ">(0).javaClass";
+            }
+            return KotlinTypeName.of(type, q) + "::class.java";
+        }
         if (type.typeInfo() == null) return "Any::class.java";
         // Integer.class: Kotlin's Int::class.java is int.class, the primitive's
         if (type.typeInfo().isBoxedExcludingVoid()) return KotlinTypeName.name(type.typeInfo(), q) + "::class.javaObjectType";
@@ -3323,6 +3369,15 @@ public class KotlinExpressionPrinter {
         }
         String infix = INFIX.get(op);
         if (infix != null) return infix(bo, infix, q);
+        if ("==".equals(op) || "!=".equals(op)) {
+            // nacos's attributes.getClientAttribute(KEY) == null: compared with null, a call's result has no expected
+            // type to fix a result-only type variable
+            Expression other = unwrap(bo.rhs()) instanceof NullConstant ? bo.lhs()
+                    : unwrap(bo.lhs()) instanceof NullConstant ? bo.rhs() : null;
+            if (other != null && unwrap(other) instanceof MethodCall && !NO_EXPECTED_TYPE.get().contains(unwrap(other))) {
+                return withoutExpectedType(other, () -> binaryOperator(bo, q));
+            }
+        }
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
             op = op + "="; // Java's identity comparison of references is Kotlin's === (Kotlin's == calls equals)
         }
@@ -3572,12 +3627,33 @@ public class KotlinExpressionPrinter {
         return operand(precedence, e, q);
     }
 
+    /**
+     * A Boolean Kotlin types nullable where Java unboxes it, which throws for a null: asserted. nacos's RequestMeta,
+     * {@code abilityTable.get(key) ? SUPPORTED : NOT_SUPPORTED} of a Map<String, Boolean>; DistroLoadDataTask's
+     * {@code !loadCompletedMap.get(each)}. Null where the value is no such Boolean.
+     */
+    static OutputBuilder unboxedBoolean(Expression c, Qualification q) {
+        ParameterizedType t = c.parameterizedType();
+        if (t != null && t.arrays() == 0 && t.typeInfo() != null
+            && "java.lang.Boolean".equals(t.typeInfo().fullyQualifiedName()) && KotlinNullability.nullableInKotlin(c)) {
+            return KotlinNullability.asserted(c, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
+        }
+        return null;
+    }
+
+    private static OutputBuilder condition(InlineConditional ic, Qualification q) {
+        OutputBuilder unboxed = unboxedBoolean(ic.condition(), q);
+        return unboxed != null ? unboxed : print(ic.condition(), q);
+    }
+
     private static OutputBuilder unaryOperator(UnaryOperator uo, Qualification q) {
         Expression inner = unwrap(uo.expression());
         if (inner instanceof InstanceOf io) return notInstanceOf(io, q); // a unary op wrapping `is` is `!` -> `!is`
         if ("!".equals(uo.operator().name()) && inner instanceof MethodCall mc && equality(mc) != null) {
             return equality(equality(mc), "!=", q); // !a.equals(b) -> a != b
         }
+        OutputBuilder unboxed = "!".equals(uo.operator().name()) ? unboxedBoolean(uo.expression(), q) : null;
+        if (unboxed != null) return new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix("!")).add(unboxed);
         Primitive operand = primitive(uo.expression().parameterizedType());
         boolean promoted = operand == Primitive.BYTE || operand == Primitive.SHORT || operand == Primitive.CHAR;
         if ("~".equals(uo.operator().name())) {
@@ -3896,7 +3972,7 @@ public class KotlinExpressionPrinter {
         }
         return new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(print(ic.condition(), q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
+                .add(condition(ic, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ic.condition()),
                         () -> branch(ic.ifTrue(), () -> print(ic.ifTrue(), q), q))).add(SpaceEnum.ONE)
                 .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)

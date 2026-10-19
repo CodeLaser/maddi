@@ -92,6 +92,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's RequestMeta, {@code abilityTable.get(key) ? SUPPORTED : NOT_SUPPORTED}, and DistroLoadDataTask's
+     * {@code !loadCompletedMap.get(each)}, of a Map<String, Boolean>: unboxed by Java, asserted, as an if's
+     * condition is.
+     */
+    @Test
+    public void boxedConditionInExpressions() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    String status(String key) {
+                        return abilities.get(key) ? "on" : "off";
+                    }
+                    boolean pending(String key) {
+                        return !abilities.containsKey(key) || !abilities.get(key);
+                    }
+                }
+                """);
+        contains(kotlin, "if (abilities.get(key)!!)");
+        contains(kotlin, "!abilities.get(key)!!");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's DumpService: {@code registerSubscriber(new Subscriber() {…})} and ServerLoaderController's
      * {@code new RequestCallBack() {…}}, anonymous classes of a raw supertype: erased as a named class's header is,
      * so that onEvent(Event) overrides.
@@ -127,6 +152,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * nacos's DefaultGrpcClientConfig: {@code private String name} beside {@code name()} of the RpcClientConfig
+     * interface, a property in Kotlin: the field is renamed, as an enum's is.
+     */
+    @Test
+    public void nameFieldBesideNameProperty() {
+        String kotlin = kotlin("""
+                package a;
+                interface ClientConfig {
+                    String name();
+                }
+                class GrpcConfig implements ClientConfig {
+                    private String name = "grpc";
+                    @Override
+                    public String name() {
+                        return this.name;
+                    }
+                    public void setName(String name) {
+                        this.name = name;
+                    }
+                }
+                """);
+        contains(kotlin, "_name");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
      * no companion object; nothing of it uses the outer instance, so it is a nested class.
      */
@@ -142,6 +193,36 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         assertFalse(kotlin.contains("inner"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's ServerMemberManager.MemberInfoReportTask and TcpHealthCheckProcessor.TaskProcessor: an inner class with
+     * instance members and a static constant. Kotlin's inner class has no companion object; the constant goes to the
+     * enclosing class's, where the inner class finds it by its simple name.
+     */
+    @Test
+    public void innerClassConstantHoisted() {
+        String kotlin = kotlin("""
+                package a;
+                public class Manager {
+                    private long last;
+                    class ReportTask implements Runnable {
+                        public static final long REPORT_INTERVAL = 50000L;
+                        private long reported;
+                        @Override
+                        public void run() {
+                            if (System.currentTimeMillis() - last > REPORT_INTERVAL) reported++;
+                        }
+                    }
+                    class Processor {
+                        private static final int MAX_WAIT = 500;
+                        int waited;
+                        boolean late() { return waited > MAX_WAIT; }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class ReportTask");
         compiles(kotlin);
     }
 

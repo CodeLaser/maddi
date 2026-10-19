@@ -163,6 +163,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         }
     }
 
+    /**
+     * nacos's ServerLoaderController: {@code list.sort(Comparator.comparing(ServerLoaderMetrics::getAddress))}, a
+     * getter whose String key is nullable: no Comparable for Kotlin, Java throws at the null. A lambda asserting it.
+     */
+    @Test
+    public void comparingNullableGetter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Metrics {
+                    private String address;
+                    String getAddress() {
+                        return address;
+                    }
+                    static void sort(List<Metrics> list) {
+                        list.sort(Comparator.comparing(Metrics::getAddress));
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("getAddress()", "address")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "e.getAddress()!!");
+        compiles(kotlin);
+    }
+
     @Language("java")
     private static final String EARLY = """
             package a;

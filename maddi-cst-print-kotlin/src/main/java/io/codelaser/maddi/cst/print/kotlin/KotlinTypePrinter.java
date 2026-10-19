@@ -178,9 +178,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else if (typeInfo.typeNature().isInterface()) {
                 // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`; a generic method
                 // cannot be one's, nor is it a lambda's target in Java
+                // nor one whose method is a property, String name() (nacos's RpcClientConfig)
                 if (companion && typeInfo.isFunctionalInterface() && !typeInfo.typeNature().isAnnotation()
                     && (typeInfo.singleAbstractMethod() == null
-                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty())) {
+                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty()
+                           && !KotlinMappedMembers.enumProperty(typeInfo.singleAbstractMethod()))) {
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
@@ -559,6 +561,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean noCompanion = inner(typeInfo) || isLocal(typeInfo) || typeInfo.isAnonymous();
         typeInfo.fields().stream().filter(f -> !f.isSynthetic() && f.isStatic() && !isEnumConstant(f))
                 .filter(f -> !noCompanion || !"serialVersionUID".equals(f.name()))
+                .filter(f -> !hoisted(f))
+                .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
+        typeInfo.subTypes().stream().flatMap(t -> t.fields().stream()).filter(KotlinTypePrinter::hoisted)
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.methods().stream().filter(m -> !m.isSynthetic() && (m.isStatic() || m.isStaticInitializer()))
                 .sorted(java.util.Comparator.comparing(MethodInfo::isStaticInitializer))
@@ -567,6 +572,28 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return Stream.of(new OutputBuilderImpl().add(KotlinKeyword.COMPANION).add(SpaceEnum.ONE).add(KotlinKeyword.OBJECT)
                 .add(SpaceEnum.ONE).add(members.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                         SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock()))));
+    }
+
+    /**
+     * A static final field of an inner class, printed in the enclosing class's companion object: Kotlin allows no
+     * companion in an inner class, whose members find the enclosing class's by their simple names. nacos's
+     * ServerMemberManager.MemberInfoReportTask: {@code public static final long REPORT_INTERVAL}. Not where the
+     * enclosing class has a static field of that name, nor another of its inner classes.
+     */
+    static boolean hoisted(FieldInfo f) {
+        TypeInfo owner = f.owner();
+        if (!KotlinContext.translatingJava() || f.isSynthetic() || !f.isStatic() || !f.isFinal() || owner == null
+            || "serialVersionUID".equals(f.name()) || !inner(owner) || owner.isAnonymous() || isLocal(owner)) {
+            return false;
+        }
+        TypeInfo enclosing = CstQueries.enclosing(owner);
+        if (enclosing == null || enclosing == owner || inner(enclosing) || isLocal(enclosing) || enclosing.isAnonymous()
+            || enclosing.typeNature().isInterface()) {
+            return false;
+        }
+        return enclosing.fields().stream().noneMatch(g -> g.name().equals(f.name()))
+               && enclosing.subTypes().stream().filter(t -> t != owner && inner(t))
+                       .flatMap(t -> t.fields().stream()).noneMatch(g -> g.isStatic() && g.name().equals(f.name()));
     }
 
     /**
