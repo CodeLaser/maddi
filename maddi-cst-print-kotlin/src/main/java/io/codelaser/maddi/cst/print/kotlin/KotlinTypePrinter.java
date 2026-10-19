@@ -328,8 +328,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */
     private MethodInfo soleConstructor(List<MethodInfo> constructors) {
-        if (typeInfo.isAnonymous() || typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
+        if (typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
         MethodInfo c = constructors.getFirst();
+        // an anonymous class's instance initializer, its one constructor: double-brace initialization, nacos's
+        // new HashMap<String, String>(8) {{ put(…); }}; an object expression has an init block, and no constructor
+        if (typeInfo.isAnonymous() && !c.parameters().isEmpty()) return null;
         return isImplicitDefaultConstructor(c) || returnsEarly(c) ? null : c;
     }
 

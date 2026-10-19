@@ -54,6 +54,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             """;
 
     /**
+     * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
+     * anonymous subclass with an instance initializer: an object expression whose init block puts.
+     */
+    @Test
+    public void doubleBraceInitialization() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    String version = "1";
+                    Map<String, String> labels() {
+                        return new HashMap<String, String>(8) {
+                            {
+                                put("version", version);
+                                put("name", "x");
+                            }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "init {");
+        assertFalse(kotlin.contains("constructor()"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's AbstractHealthChecker, annotated with its own nested class ({@code defaultImpl = None.class}), which
      * Kotlin resolves outside the class: AbstractHealthChecker.None. And NacosInjected's {@code default @NacosProperties},
      * an annotation instance: NacosProperties().
