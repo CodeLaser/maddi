@@ -1255,6 +1255,16 @@ public class KotlinExpressionPrinter {
                                              // (Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY into an Array<Entry?>
                                              || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1)
                                             && declared != null ? declared : target;
+                ParameterizedType uncheckedTo = hasParameter && call != null ? uncheckedArgument(call, i, args.get(i), declared)
+                        : null;
+                if (uncheckedTo != null) {
+                    KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));
+                    printed.add(new OutputBuilderImpl().add(operand(PrecedenceEnum.CAST, args.get(i), q))
+                            .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(uncheckedTo.withNullable(
+                                    io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q))));
+                    continue;
+                }
                 // nacos's AbstractNacosRestTemplate: handlers.put(type, new BeanResponseHandler()) into a
                 // Map<String, ResponseHandler>, whose raw V fixes no type arguments
                 Expression arg = args.get(i);
@@ -2629,6 +2639,51 @@ public class KotlinExpressionPrinter {
         return m != null && "toArray".equals(m.name()) && m.parameters().size() == 1
                && m.parameters().getFirst().parameterizedType().arrays() == 1
                && m.typeInfo().fullyQualifiedName().startsWith("java.util.");
+    }
+
+    /**
+     * The parameter type an argument is cast to where Java converts it unchecked; null where it goes in as it is.
+     * <ul>
+     * <li>On a raw receiver, which the call casts to its erasure: a generic call's result, typed by its own arguments.
+     * nacos's {@code protocol.addRequestProcessors(Collections.singletonList(this))} on a raw CPProtocol: Kotlin's
+     * {@code List<DistributedDatabaseOperateImpl>} is no {@code MutableCollection<RequestProcessor4CP>}.</li>
+     * <li>A raw value, or one with {@code ?} arguments, into a parameter that types them: nacos's
+     * {@code responseMap.putAll(result.getData())} of a raw Map into a {@code Map<String, Object>}, and
+     * {@code putAll} of a {@code Map<String, ?>}, whose {@code *} is no {@code Any}.</li>
+     * </ul>
+     */
+    private static ParameterizedType uncheckedArgument(MethodCall call, int i, Expression arg, ParameterizedType declared) {
+        if (!KotlinContext.translatingJava() || unwrap(arg) instanceof ConstructorCall || unwrap(arg) instanceof NullConstant
+            || unwrap(arg) instanceof Lambda || unwrap(arg) instanceof MethodReference) {
+            return null;
+        }
+        io.codelaser.maddi.cst.api.info.MethodInfo method = call.methodInfo();
+        if (call.object() != null && rawReceiver(call.object(), method) && unwrap(arg) instanceof MethodCall argCall
+            && argCall.methodInfo() != null && !argCall.methodInfo().typeParameters().isEmpty()
+            && argCall.typeArguments().isEmpty()) {
+            ParameterizedType raw = call.object().parameterizedType();
+            List<ParameterizedType> bounds = new ArrayList<>();
+            for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeInfo().typeParameters()) {
+                ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst().orElse(null);
+                if (bound == null || bound.typeInfo() == null) return null;
+                bounds.add(bound.typeInfo().asSimpleParameterizedType());
+            }
+            ParameterizedType seen = KotlinNullability.seenThrough(method.parameters().get(i).parameterizedType(),
+                    method.typeInfo(), raw.withParameters(bounds));
+            return seen == null || seen.typeInfo() == null || seen.arrays() > 0
+                   || CstQueries.mentionsAny(seen, raw.typeInfo().typeParameters())
+                   || CstQueries.mentionsAny(seen, method.typeInfo().typeParameters()) ? null : seen;
+        }
+        ParameterizedType java = arg.parameterizedType();
+        if (declared == null || java == null || java.typeInfo() == null || declared.typeInfo() == null
+            || java.arrays() > 0 || declared.arrays() > 0 || declared.parameters().isEmpty()
+            || java.typeInfo().typeParameters().isEmpty()
+            || declared.parameters().stream().anyMatch(p -> p.isUnboundWildcard() || p.isTypeParameter())) {
+            return null;
+        }
+        if (java.parameters().isEmpty()) return rawInto(java, declared) ? declared : null;
+        return java.typeInfo() == declared.typeInfo() && java.parameters().stream().anyMatch(ParameterizedType::isUnboundWildcard)
+               ? declared : null;
     }
 
     /** A raw Comparable, or a type variable whose bound is one. */

@@ -539,6 +539,42 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * Java's unchecked argument conversions. nacos's DistributedDatabaseOperateImpl:
+     * {@code protocol.addRequestProcessors(Collections.singletonList(this))} on a raw CPProtocol, cast to its erasure,
+     * whose {@code Collection<P>} is a {@code Collection<RequestProcessor4CP>}; and ClientMetricsController's
+     * {@code responseMap.putAll(raw)}, NacosCoreStartUp's {@code putAll} of a {@code Map<String, ?>}.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void uncheckedArguments() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Config { }
+                class Processor { }
+                class Processor4CP extends Processor { }
+                interface Protocol<C extends Config, P extends Processor> {
+                    void addProcessors(Collection<P> processors);
+                }
+                interface CPProtocol<C extends Config, P extends Processor4CP> extends Protocol<C, P> { }
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Operate extends Processor4CP {
+                    CPProtocol protocol;
+                    Map<String, Object> response = new HashMap<>();
+                    void init(Map raw, Map<String, ?> loaded) {
+                        protocol.addProcessors(Collections.singletonList(this));
+                        response.putAll(raw);
+                        response.putAll(loaded);
+                    }
+                }
+                """);
+        contains(kotlin, "as MutableCollection<Processor4CP>");
+        contains(kotlin, "putAll(raw as MutableMap<String, Any>)");
+        contains(kotlin, "putAll(loaded as MutableMap<String, Any>)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's ServiceOperatorV2Impl: {@code return Collections.EMPTY_LIST} from a {@code Collection<String>}, and
      * CatalogServiceV2Impl's from a {@code List<? extends Instance>}: a raw value, Java's unchecked conversion, is
      * Kotlin's unchecked cast.
