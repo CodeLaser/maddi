@@ -959,6 +959,11 @@ public final class CSharpExpressionPrinter {
         if (rawArray(inner, target)) return constructorCall((ConstructorCall) inner, target, q);
         ParameterizedType fromTarget = erasedDiamond(inner, target);
         if (fromTarget != null) return constructorCall((ConstructorCall) inner, fromTarget, q);
+        // a raw constant lambda returned as the generic type, TRI_PICK_FIRST of a TriFunction<A, B, C, A>: the lambda
+        // itself, which C# caches per type arguments as Java's one instance is cached
+        Expression constant = constantLambda(inner, target);
+        if (constant instanceof Lambda lambda) return adapted(target, lambda(lambda, q), q);
+        if (constant != null) return print(constant, q);
         // a type argument is the value type itself, List<int>: a K of a Dictionary<int, V> is an int
         if (target.isTypeParameter() && target.arrays() == 0 && unboxed(inner)) {
             return unboxCast(CSharpTypeName.argument(inner.parameterizedType(), q), value, q);
@@ -1027,6 +1032,14 @@ public final class CSharpExpressionPrinter {
      */
     private static OutputBuilder implementationGroup(Expression value, Expression inner, ParameterizedType target,
                                                      Qualification q) {
+        MethodInfo implementation = implementation(inner, target);
+        if (implementation == null) return null;
+        return new OutputBuilderImpl().add(receiver(value, q)).add(SymbolEnum.DOT)
+                .add(text(CSharpNames.method(implementation)));
+    }
+
+    /** The class's method {@link #implementationGroup} takes the group of; null where it takes none. */
+    private static MethodInfo implementation(Expression inner, ParameterizedType target) {
         if (target.arrays() != 0 || target.typeInfo() == null) return null;
         ParameterizedType from = inner.parameterizedType();
         if (from == null || from.arrays() != 0 || from.typeInfo() == null || from.typeInfo().isInterface()
@@ -1036,11 +1049,8 @@ public final class CSharpExpressionPrinter {
         // Comparator declares equals(Object) abstract too
         MethodInfo sam = target.typeInfo().isFunctionalInterface() ? target.typeInfo().singleAbstractMethod() : null;
         if (sam == null) return null;
-        MethodInfo implementation = CstQueries.classChain(from.typeInfo()).stream().flatMap(t -> t.methods().stream())
+        return CstQueries.classChain(from.typeInfo()).stream().flatMap(t -> t.methods().stream())
                 .filter(m -> !m.isStatic() && m.overrides().contains(sam)).findFirst().orElse(null);
-        if (implementation == null) return null;
-        return new OutputBuilderImpl().add(receiver(value, q)).add(SymbolEnum.DOT)
-                .add(text(CSharpNames.method(implementation)));
     }
 
     /**
@@ -1158,7 +1168,7 @@ public final class CSharpExpressionPrinter {
      * Whether each type parameter {@code t} mentions is the current method's or the current type's (or an enclosing
      * type's): not a superclass's, of a super constructor's parameter, which the subclass may name otherwise.
      */
-    private static boolean ownTypeParameters(ParameterizedType t) {
+    static boolean ownTypeParameters(ParameterizedType t) {
         if (t.isTypeParameter()) {
             var owner = t.typeParameter().getOwner();
             if (owner == null) return false;
@@ -1344,6 +1354,7 @@ public final class CSharpExpressionPrinter {
         return target.isTypeParameter() && target.arrays() == 0 && (inner instanceof NullConstant || unboxed(inner))
                || target.isPrimitiveExcludingVoid() && unboxed(inner) || rawArray(inner, target)
                || erasedDiamond(inner, target) != null || CSharpErasures.adapted(inner, target) != null
+               || constantLambda(inner, target) != null || implementation(inner, target) != null
                || covariantArray(inner, target) || rawCastInto(inner, target) || keySetAsSet(inner, target)
                || wildcardIntoGeneric(inner, target)
                || inner instanceof InlineConditional ic
@@ -1389,11 +1400,75 @@ public final class CSharpExpressionPrinter {
             if (!raw(argument)) continue;
             ParameterizedType formal = CstSupertypes.substituteDroppingWildcards(parameters.get(i).parameterizedType(), bound);
             if (!formal.parameters().stream().allMatch(p -> p.isJavaLangObject() || p.wildcard() != null
-                                                            && p.wildcard().isUnbound())) {
+                                                            && p.wildcard().isUnbound())
+                && !storedAs(cc.parameterExpressions().get(i), formal)) {
                 return null;
             }
         }
         return type.withParameters(arguments);
+    }
+
+    /**
+     * The initializer of a static final field of a raw functional type, a lambda, or {@code Function.identity()},
+     * where its value goes as the type with arguments: {@code private static final TriFunction TRI_PICK_FIRST =
+     * (a, b, c) -> a} returned as a {@code TriFunction<A, B, C, A>}. C#'s field is of object, which no
+     * {@code ITriFunction<A, B, C, A>} is; a lambda that captures nothing C# creates once per type arguments. Null
+     * otherwise.
+     */
+    private static Expression constantLambda(Expression inner, ParameterizedType target) {
+        if (!(inner instanceof VariableExpression ve) || !(ve.variable() instanceof FieldReference fr)) return null;
+        FieldInfo field = fr.fieldInfo();
+        ParameterizedType type = field.type();
+        if (!field.isStatic() || !field.isFinal() || type == null || !raw(type) || type.arrays() != 0
+            || !type.typeInfo().equals(target.typeInfo()) || target.arrays() != 0 || target.parameters().isEmpty()
+            || target.parameters().stream().allMatch(ParameterizedType::isJavaLangObject)
+            || !writable(target, List.of())) {
+            return null;
+        }
+        Expression init = field.initializer() == null ? null : unwrap(field.initializer());
+        // a -> null: null is no value of the target's type parameter B in C#
+        if (init instanceof Lambda lambda) {
+            Expression returned = CstQueries.returnedValue(CstQueries.own(lambda.methodInfo().methodBody().statements()));
+            return returned != null && unwrap(returned) instanceof NullConstant ? null : init;
+        }
+        if (init instanceof MethodCall mc && mc.methodInfo().isStatic() && mc.parameterExpressions().isEmpty()
+            && "identity".equals(mc.methodInfo().name())
+            && mc.methodInfo().typeInfo().fullyQualifiedName().startsWith("java.util.function.")) {
+            return init;
+        }
+        return null;
+    }
+
+    /**
+     * A raw array local whose stored elements give it the formal's type, {@code var copy = new Function[n]} of
+     * {@code Function<A, Object>} elements for a {@code Function<A, ?>[]} ({@link CSharpStatementPrinter#storedArrayType}).
+     */
+    private static boolean storedAs(Expression argument, ParameterizedType formal) {
+        if (!(unwrap(argument) instanceof VariableExpression ve) || !(ve.variable() instanceof LocalVariable lv)) {
+            return false;
+        }
+        ParameterizedType stored = CSharpStatementPrinter.storedArrayType(lv);
+        return stored != null && sameErased(stored, formal);
+    }
+
+    /** The same type, a wildcard, a constructor's type parameter or Object alike: C#'s object each. */
+    private static boolean sameErased(ParameterizedType a, ParameterizedType b) {
+        boolean objectA = a.isJavaLangObject() || a.wildcard() != null && a.wildcard().isUnbound()
+                          || constructorTypeParameter(a);
+        boolean objectB = b.isJavaLangObject() || b.wildcard() != null && b.wildcard().isUnbound()
+                          || constructorTypeParameter(b);
+        if (objectA || objectB) return objectA && objectB && a.arrays() == b.arrays();
+        if (a.arrays() != b.arrays()) return false;
+        if (a.isTypeParameter() || b.isTypeParameter()) {
+            return a.isTypeParameter() && b.isTypeParameter() && a.typeParameter().equals(b.typeParameter());
+        }
+        if (a.typeInfo() == null || !a.typeInfo().equals(b.typeInfo()) || a.parameters().size() != b.parameters().size()) {
+            return false;
+        }
+        for (int i = 0; i < a.parameters().size(); i++) {
+            if (!sameErased(a.parameters().get(i), b.parameters().get(i))) return false;
+        }
+        return true;
     }
 
     /** A generic type without its type arguments, {@code Function[]}. */

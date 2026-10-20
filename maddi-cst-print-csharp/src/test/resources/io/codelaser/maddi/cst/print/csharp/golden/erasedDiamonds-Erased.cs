@@ -14,9 +14,19 @@ internal sealed class Erased {
         private readonly Func<A, object>[] mappings;
         internal Joiner(Func<A, object>[] mappings) { this.mappings = (Func<A, object>[]) mappings; }
         internal Joiner<A, B> Reordered() {
-            var copy = new Func<object, object>[mappings.Length];
+            var copy = new Func<A, object>[mappings.Length];
             for (int i = 0; i < copy.Length; i++) { copy[i] = mappings[mappings.Length - 1 - i]; }
-            return new Joiner<object, object>(copy);
+            return new Joiner<A, B>(copy);
+        }
+    }
+
+    internal sealed class Mapped<A> {
+        private readonly Func<A, object>[] mappings;
+        internal Mapped(Func<A, object>[] mappings) { this.mappings = (Func<A, object>[]) (object) mappings; }
+        internal Mapped<A> Reversed() {
+            Func<A, object>[] copy = new Func<A, object>[mappings.Length];
+            for (int i = 0; i < copy.Length; i++) { copy[i] = mappings[mappings.Length - 1 - i]; }
+            return new Mapped<A>(copy);
         }
     }
     internal interface ISorter<S, T> { }

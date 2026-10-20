@@ -197,6 +197,17 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                         return new Joiner<>(copy);
                     }
                 }
+                static final class Mapped<A> {
+                    private final Function<A, Object>[] mappings;
+                    @SuppressWarnings("unchecked")
+                    <P> Mapped(Function<A, P>[] mappings) { this.mappings = (Function<A, Object>[]) (Object) mappings; }
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Mapped<A> reversed() {
+                        Function[] copy = new Function[mappings.length];
+                        for (int i = 0; i < copy.length; i++) copy[i] = mappings[mappings.length - 1 - i];
+                        return new Mapped<>(copy);
+                    }
+                }
                 static final class Holder<S> {
                     private Sorter<S, Object> sorter;
                     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -212,8 +223,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     @Test
     public void erasedDiamonds() {
         String cs = translate("Erased", ERASED_DIAMONDS);
-        // not of a raw array, Func<object, object>[], which C# does not pass as the Func<A, object>[] of Joiner<A, B>
-        contains(cs, "return new Joiner<object, object>(copy);");
+        // a raw array whose stored elements are Func<A, object>, which C# passes as the Func<A, object>[] of Joiner<A, B>
+        contains(cs, "var copy = new Func<A, object>[mappings.Length];");
+        contains(cs, "return new Joiner<A, B>(copy);");
+        // a generic constructor's Function<A, P>[], C#'s Func<A, object>[]
+        contains(cs, "Func<A, object>[] copy = new Func<A, object>[mappings.Length];");
+        contains(cs, "return new Mapped<A>(copy);");
         contains(cs, "sorter = new ComparingSorter<S, object>(comparator);");
     }
 
@@ -564,6 +579,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static <V> java.util.function.IntFunction<java.util.Set<V>> sets() {
                     return (java.util.function.IntFunction<java.util.Set<V>>) java.util.LinkedHashSet::new;
                 }
+                @SuppressWarnings("rawtypes")
+                private static final java.util.function.BiFunction PICK_FIRST = (a, b) -> a;
+                @SuppressWarnings("rawtypes")
+                private static final java.util.function.Function IDENTITY = java.util.function.Function.identity();
+                @SuppressWarnings("unchecked")
+                static <A, B> java.util.function.BiFunction<A, B, A> pickFirst() { return PICK_FIRST; }
+                @SuppressWarnings("unchecked")
+                static <A> java.util.function.Function<A, A> identity() { return IDENTITY; }
                 static final class Cell<T> { T t; }
                 static <T> Cell<T> pick(Cell<T>[] cells) { return cells[0]; }
                 @SuppressWarnings("unchecked")
@@ -589,6 +612,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "(Func<int, ISet<V>>) (p0 => new HashSet<V>(p0))");
         // a raw array whose elements are all a Cell<T>: a Cell<T>[]
         contains(cs, "var all = new Cell<T>[1];");
+        // a raw constant lambda returned as the generic type: the lambda, which C# caches per type arguments
+        contains(cs, "internal static Func<A, B, A> PickFirst<A, B>() => (a, b) => a;");
+        contains(cs, "internal static Func<A, A> Identity<A>() => ");
     }
 
     @Language("java")

@@ -410,8 +410,16 @@ implements the interface.
   returned or assigned as. C# creates it with the target's type arguments, also through an interface the class
   implements: `sorter = new ComparatorSelectionSorter<>(comparator)` for a `SelectionSorter<Solution_, Object>` is
   `new ComparatorSelectionSorter<Solution_, object>(comparator)`. Only where each raw argument, which C# has of
-  `object`, still fits its parameter: not `new DefaultBiJoiner<>(newLeftMappings, …)` of a `new Function[n]`, whose
-  `Func<object, object>[]` is no `Func<A, object>[]`.
+  `object`, still fits its parameter, or is a raw array local whose stored elements give it the parameter's type
+  (below): `new DefaultBiJoiner<>(newLeftMappings, …)` of a `new Function[n]` that holds `leftMappings[i]`, a
+  `Function<A, Object>`, is `new DefaultBiJoiner<A, B>(newLeftMappings, …)` of a `new Func<A, object>[n]`; a
+  superclass's field, `rightMappings[i]`, of the type as the class extends it (`Right_` is `B`); a generic
+  constructor's `Function<A, P>[]` is C#'s `Func<A, object>[]`.
+- **Constant lambdas.** A raw static final field of a lambda, `private static final TriFunction TRI_PICK_FIRST =
+  (a, b, c) -> a`, returned or passed as the type with arguments, `TriFunction<A, B, C, A>`, is the lambda itself,
+  `new ITriFunction<A, B, C, A>.Lambda((a, b, c) => a)`: C#'s field is of `object`, which converts to no
+  `ITriFunction<A, B, C, A>`. A lambda that captures nothing C# creates once per type arguments, as Java's field is
+  one instance. `Function.identity()` too; not a lambda of `null`, which C# does not convert to a type parameter.
 - **Unchecked conversions.** Java's raw cast into a parameterized target, `weigh((Map) weights)` for a
   `Map<String, Integer>`, is C#'s cast to the target, `Weigh((IDictionary<string, int>) weights)`: Java's unchecked
   conversion assumes the value is one, the cast checks it. Only where the target's type parameters are the current
@@ -423,8 +431,8 @@ implements the interface.
   into a `ScoreDefinition<Score_>` is `(IScoreDefinition<Score_>) GetScoreDefinition()`. `m.keySet()` of a JDK map
   where a `Set` is expected is `m.KeySet()`, the compatibility library's live view of the keys (`Keys` is only an
   `ICollection`); not of a read-only parameter. A raw array local created raw, `var moves = new Move[n]`, whose stored
-  elements are all one type with arguments, `Move<Solution_>`, is that type's array, `new IMove<Solution_>[n]`; not
-  one a diamond's creation takes, which C# may print erased. A `HashMap`'s or `HashSet`'s load factor is dropped.
+  elements are all one type with arguments, `Move<Solution_>`, is that type's array, `new IMove<Solution_>[n]`. A
+  `HashMap`'s or `HashSet`'s load factor is dropped.
 - **Variable arity of the JDK.** An array passed as the arguments themselves, `List.of(names)` of a `String[]`, is
   the collection of its elements, `new List<string>(names)`, as `Arrays.asList` and `Stream.of`; `getMethod(name,
   type)` is `GetMethod(name, new Type[] { type })`. A template's cast of an argument casts the operand,
@@ -766,7 +774,8 @@ from a map, a stream's collector.
   `Func<T, bool>`, `Runnable` → `Action`, `Comparator<T>` → `Comparison<T>`. Calling their method becomes an
   invocation: `f.apply(x)` becomes `f(x)`. A class of the program that implements one does not derive from the
   delegate, a sealed type (CS0509); where the interface is expected, its instance is the method group:
-  `list.sort(new ByLength())` becomes `JavaCollections.Sort(list, new ByLength().Compare)`.
+  `list.sort(new ByLength())` becomes `JavaCollections.Sort(list, new ByLength().Compare)`, also as a switch
+  expression's arm, which converts to the switch's type as a conditional's branches do.
 - **Values.** The values of `java.time`, `java.net` and `java.math` become BCL structs, as `Instant` →
   `DateTimeOffset` does:
   - `LocalDate` → `DateOnly`, `LocalTime` → `TimeOnly`, `LocalDateTime` → `DateTime`, `OffsetDateTime` →
