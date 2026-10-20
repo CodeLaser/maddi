@@ -179,6 +179,11 @@ final class KotlinNullability {
             return methodInfo.returnType().withNullable(NullableState.NULLABLE);
         }
         ParameterizedType verdict = verdicts().returnType(methodInfo);
+        if (verdict == null && libraryNullableResult(methodInfo)) {
+            // jenkins's WhoAmI: Spring Security 7's @Nullable GrantedAuthority.getAuthority(), which Kotlin reads as
+            // String?: what it is put into asserts it (authorities.add(a.getAuthority()!!))
+            verdict = methodInfo.returnType().withNullable(NullableState.NULLABLE);
+        }
         if (verdict != null && isNullable(verdict)
             && (overridesMappedMember(methodInfo) || returnsNullForTypeVariable(methodInfo))) {
             // Kotlin declares the member it overrides, non-null: Any.toString(): String; Iterator<E>.next(): E
@@ -755,6 +760,29 @@ final class KotlinNullability {
     }
 
     /** Declared by the code being translated, so Kotlin will hold a value for it to its (non-)nullability. */
+    /** A library method whose result its annotations declare {@code @Nullable}, as Kotlin reads them. */
+    private static boolean libraryNullableResult(MethodInfo methodInfo) {
+        return KotlinContext.translatingJava() && !methodInfo.isConstructor() && !translated(methodInfo.typeInfo())
+               && !methodInfo.returnType().isPrimitiveExcludingVoid() && !methodInfo.returnType().isVoidOrJavaLangVoid()
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(methodInfo) == NullableState.NULLABLE;
+    }
+
+    /**
+     * A library parameter Kotlin reads as non-null: annotated so, or unannotated in a JSpecify {@code @NullMarked}
+     * scope and not a type variable (Spring Security 7's {@code SimpleGrantedAuthority(String role)}). A nullable
+     * argument is asserted there, as into a translated non-null parameter; Java's caller met the library's own check.
+     */
+    static boolean libraryNonNullParameter(ParameterInfo pi) {
+        if (!KotlinContext.translatingJava() || translated(pi.methodInfo().typeInfo())
+            || pi.parameterizedType().isPrimitiveExcludingVoid()) {
+            return false;
+        }
+        NullableState explicit = io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(pi);
+        if (explicit != null) return explicit == NullableState.NONNULL;
+        return !pi.parameterizedType().isTypeParameter()
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(pi.methodInfo());
+    }
+
     static boolean translated(TypeInfo owner) {
         return !owner.compilationUnit().externalLibrary() && !KotlinTypePrinter.fromKotlinSource(owner);
     }

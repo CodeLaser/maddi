@@ -1213,7 +1213,9 @@ public class KotlinExpressionPrinter {
             } else {
                 ParameterizedType declared = !hasParameter ? mapped ? null : varargsElement(method, i)
                         : KotlinNullability.parameterType(method.parameters().get(i));
-                boolean argumentTranslated = translated;
+                // a library's non-null parameter checks as a translated one does (Spring Security 7, @NullMarked)
+                boolean argumentTranslated = translated
+                                             || hasParameter && KotlinNullability.libraryNonNullParameter(method.parameters().get(i));
                 if (constructed != null) declared = constructedArgument(method, declared, constructed);
                 if (call != null) {
                     ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);

@@ -1424,7 +1424,7 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 import java.util.*;
                 import org.jspecify.annotations.NonNull;
                 abstract class Optional<T> {
-                    static <T> Optional<T> of(T reference) { return new Present<>(Objects.requireNonNull(reference)); }
+                    static <T> Optional<T> of(T reference) { return new Present<>(java.util.Objects.requireNonNull(reference)); }
                     static <T> Optional<T> absent() { return null; }
                     static final class Present<T> extends Optional<T> { final T t; Present(T t) { this.t = t; } }
                 }

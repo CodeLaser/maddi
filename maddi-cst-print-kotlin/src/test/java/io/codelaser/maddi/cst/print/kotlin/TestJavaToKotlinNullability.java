@@ -305,6 +305,49 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's LastGrantedAuthoritiesProperty: {@code new SimpleGrantedAuthority(authenticatedRole)} with a nullable
+     * role, into Spring Security 7's {@code @NullMarked} constructor. Kotlin reads the library's parameter as non-null,
+     * as Java's caller met the library's own check: the argument is asserted. Guava's {@code @NullMarked}
+     * {@code Strings.repeat(string, count)} stands in for the library.
+     */
+    @Test
+    public void nullableIntoNullMarkedLibraryParameter() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a;
+                import com.google.common.base.Strings;
+                class Roles {
+                    static String twice(String name) { return Strings.repeat(name, 2); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("name")), KotlinPrintOptions.NullCheck.ASSERT),
+                "com/google/common/base");
+        contains(kotlin, "Strings.repeat(name!!, 2)");
+        compiles(kotlin, List.of("com/google/common/base"));
+    }
+
+    /**
+     * jenkins's WhoAmI: {@code authorities.add(a.getAuthority())}, Spring Security 7's {@code @Nullable} result into
+     * a {@code MutableList<String>}: asserted at the add. Guava's {@code @Nullable String emptyToNull(…)} stands in.
+     */
+    @Test
+    public void nullableLibraryResultIntoNonNullSlot() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a;
+                import com.google.common.base.Strings;
+                import java.util.*;
+                class Roles {
+                    static List<String> of(String name) {
+                        List<String> names = new ArrayList<>();
+                        names.add(Strings.emptyToNull(name));
+                        return names;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT),
+                "com/google/common/base");
+        contains(kotlin, "Strings.emptyToNull(name)!!");
+        compiles(kotlin, List.of("com/google/common/base"));
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */

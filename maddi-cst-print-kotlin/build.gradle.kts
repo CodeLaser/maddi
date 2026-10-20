@@ -39,6 +39,9 @@ dependencies {
     // jar-on-classpath (CommonJavaToKotlin): javac 27 recovers a missing annotation import under its written name,
     // javac 26 does not, so without the jar those tests passed on 27 only
     testRuntimeOnly("org.jspecify:jspecify:1.0.0")
+    // a @NullMarked library for the snippets that call one (guava's packages are, since 33.4), handed to the inspector
+    // and to kotlinc as a jar-on-classpath: what a library declares non-null or @Nullable, as Spring Security 7 does
+    testRuntimeOnly("com.google.guava:guava:33.6.0-jre")
 }
 
 tasks.test {
