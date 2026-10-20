@@ -1058,8 +1058,10 @@ public class KotlinExpressionPrinter {
         if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())) return false;
         ParameterizedType mine = KotlinNullability.parameterType(method.parameters().get(i));
         ParameterizedType declared = method.parameters().get(i).parameterizedType();
+        // jenkins's new AnnotatedLargeText(file, charset, completed, this) into a T?: the cast would name the callee's
+        // own T, not in scope at the call
         if (!KotlinNullability.isNullable(mine) || declared.isPrimitiveExcludingVoid()
-            || KotlinNullability.nullableInKotlin(argument)) {
+            || KotlinNullability.nullableInKotlin(argument) || mentionsOutOfScope(mine)) {
             return false;
         }
         List<io.codelaser.maddi.cst.api.info.MethodInfo> siblings = method.isConstructor()

@@ -223,6 +223,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's Run.getLogText(): {@code new AnnotatedLargeText(file, charset, completed, this)}, a raw construction
+     * whose nullable {@code T context} takes {@code this}, beside a constructor whose T is non-null: no cast to pick
+     * Java's overload, which would name the constructor's own T, out of scope here.
+     */
+    @Test
+    public void thisIntoRawConstructionsTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                class LargeText<T> {
+                    private final T context;
+                    LargeText(String file, boolean completed, T context) { this.context = context; }
+                    LargeText(StringBuilder memory, boolean completed, T context) { this.context = context; }
+                    LargeText(Integer source, boolean completed, T ctx) { this.context = ctx; }
+                    T context() { return context; }
+                }
+                class Run {
+                    LargeText getLogText() { return new LargeText("log", true, this); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("context", "context()")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("as T"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */
