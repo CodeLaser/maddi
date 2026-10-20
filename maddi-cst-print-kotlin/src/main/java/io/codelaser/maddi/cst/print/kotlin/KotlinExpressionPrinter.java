@@ -1318,7 +1318,9 @@ public class KotlinExpressionPrinter {
                     continue;
                 }
                 if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i), false)
-                    && widerOverloadOfTheSameName(method, i)) {
+                    && widerOverloadOfTheSameName(method, i)
+                    // guava's FauxveridesTest: not into copyOf(elements: MutableCollection<out E>?), the callee's E
+                    && !mentionsOutOfScope(KotlinNullability.parameterType(method.parameters().get(i)))) {
                     // jenkins's ArgumentListBuilder: add(a.toString(), false) to add(a: String?, mask) beside
                     // add(a: Any, mask), the same name: the nullable type picks Java's. A cast needs no Kotlin callee:
                     // its test, builder.add("arg"), compiles against either

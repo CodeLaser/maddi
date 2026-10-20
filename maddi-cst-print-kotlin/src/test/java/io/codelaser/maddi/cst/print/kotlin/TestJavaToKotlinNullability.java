@@ -348,6 +348,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's FauxveridesTest: {@code ImmutableSortedSet.copyOf(original)} into {@code <E> copyOf(Collection<? extends
+     * E> elements)}, nullable, beside {@code copyOf(Iterable<? extends E> elements)}: the overload-picking cast would
+     * name the callee's own E, not in scope at the call. No cast there.
+     */
+    @Test
+    public void overloadPickingCastNotToTheCalleesTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Sets {
+                    static <E> Set<E> copyOf(Iterable<? extends E> elements) { return new HashSet<>(); }
+                    static <E> Set<E> copyOf(Collection<? extends E> elements) {
+                        return elements == null ? new HashSet<>() : new HashSet<>(elements);
+                    }
+                    static Set<String> of(List<String> original) { return copyOf(original); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("Collection elements")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("as MutableCollection<out E>"), kotlin);
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */
