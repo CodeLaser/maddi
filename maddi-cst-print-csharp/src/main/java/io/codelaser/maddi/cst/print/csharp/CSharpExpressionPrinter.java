@@ -686,7 +686,8 @@ public final class CSharpExpressionPrinter {
      * A type parameter of the called method that only parameters given a lambda or a method reference mention:
      * {@code oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)}'s {@code Tuple_}, of the builder's
      * {@code TupleLifecycle<Tuple_>} parameter. C# infers nothing from an implicitly typed lambda's parameters, and
-     * a method reference is a lambda in C# (CS0411); Java infers it from the call's target.
+     * a method reference is a lambda in C# (CS0411); Java infers it from the call's target. Nor from {@code null},
+     * {@code ValueRangeItem.of(null, …)}'s {@code Entity_}.
      */
     private static boolean onlyThroughLambdas(MethodCall mc) {
         MethodInfo method = mc.methodInfo();
@@ -697,7 +698,9 @@ public final class CSharpExpressionPrinter {
             for (int i = 0; i < method.parameters().size() && i < args.size(); i++) {
                 if (!mentionsInCSharp(method.parameters().get(i).parameterizedType(), tp)) continue;
                 Expression arg = unwrap(args.get(i));
-                if (!(arg instanceof Lambda) && !(arg instanceof MethodReference)) return false;
+                if (!(arg instanceof Lambda) && !(arg instanceof MethodReference) && !(arg instanceof NullConstant)) {
+                    return false;
+                }
                 mentioned = true;
             }
             return mentioned;
