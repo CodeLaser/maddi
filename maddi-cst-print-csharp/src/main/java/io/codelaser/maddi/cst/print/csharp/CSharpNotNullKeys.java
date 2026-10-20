@@ -40,7 +40,8 @@ import java.util.stream.Stream;
  * OrderedDictionary want a key type that is not null (CS8714); Java's HashMap, TreeMap and LinkedHashMap, which they
  * print as, take any. A type parameter that is such a map's key is not null, and so is one that is passed where such a
  * type parameter is expected, through a wildcard too ({@code ? extends K} is {@code K} in C#): a generic type's
- * argument (its supertypes' too), a generic method's argument as the method's parameters receive it. An override
+ * argument (its supertypes' too), a generic method's argument as the method's parameters receive it, its result and
+ * type arguments as the call has them, which C# gets written where it cannot infer them. An override
  * family shares its type parameters' constraints, which C# lets only the first declaration state. {@code Map} itself
  * is {@code IDictionary}, which takes any key; the result of {@code Map.of()}, {@code ofEntries} and {@code copyOf}
  * is a Dictionary.
@@ -100,6 +101,7 @@ final class CSharpNotNullKeys {
                 if (ex.parameterizedType() != null) use(ex.parameterizedType());
                 if (ex instanceof MethodCall mc) {
                     call(mc.methodInfo(), mc.parameterExpressions());
+                    typeArguments(mc);
                     dictionaryFactory(mc);
                 }
                 else if (ex instanceof ConstructorCall cc && cc.constructor() != null) {
@@ -129,6 +131,23 @@ final class CSharpNotNullKeys {
         for (int i = 0; i < arguments.size() && i < parameters.size(); i++) {
             ParameterizedType argument = arguments.get(i).parameterizedType();
             if (argument != null) bind(parameters.get(i).parameterizedType(), argument);
+        }
+    }
+
+    /**
+     * A generic method's type parameters as the call's result and explicit type arguments give them: C# gets them
+     * written where it cannot infer them, {@code GetFromSolution<Value_>(descriptor, solution, null)}, whose
+     * {@code Value_} is the caller's.
+     */
+    private void typeArguments(MethodCall mc) {
+        MethodInfo method = mc.methodInfo();
+        if (method == null || method.typeParameters().isEmpty()) return;
+        if (mc.concreteReturnType() != null) bind(method.returnType(), mc.concreteReturnType());
+        List<ParameterizedType> explicit = mc.typeArguments();
+        if (explicit.size() == method.typeParameters().size()) {
+            for (int i = 0; i < explicit.size(); i++) {
+                if (plain(explicit.get(i))) link(method.typeParameters().get(i), explicit.get(i).typeParameter());
+            }
         }
     }
 

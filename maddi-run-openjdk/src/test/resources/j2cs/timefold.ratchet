@@ -184,9 +184,13 @@
 # 2026-10-19, maddi 2469aa8ba, ce36151cb: blocking and priority queues, ConcurrentMap, MathContext, DecimalFormat,
 # SplittableRandom, primitive iterators, CancellationException; a diamond's inferred argument with a nested wildcard:
 # 1315 -> 1320 compiling files, 719 -> 673 errors, unmapped JDK uses 137 -> 106.
+# 2026-10-20, maddi 7a4675ccd: erased diamonds of typed raw arrays (the joiners), constant lambdas, switch arms
+# converted: 1320 -> 1321 compiling files, 673 -> 630 errors.
+# 2026-10-20, maddi e4f3b7eea, c419cf6ec, c23c8a94d: type arguments C# cannot infer through variable arity, bounds and
+# null arguments: 1321 -> 1322 compiling files, 630 -> 618 errors.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1320
+compilingFiles	1322
 unmappedJdkUses	106

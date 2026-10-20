@@ -1595,6 +1595,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's Ordering.arbitrary(): an {@code Ordering<@Nullable Object>} returning the holder's field of the same type.
+     * The result keeps its declared type-use {@code @Nullable} argument, as the field does (maddi#145), or the two
+     * disagree and kotlinc refuses the return. Not compiled: without verdicts, compare's parameters print non-null.
+     */
+    @Test
+    public void resultKeepsDeclaredNullableArguments() {
+        String kotlin = kotlinInWorld("""
+                package a;
+                import java.util.Comparator;
+                import org.jspecify.annotations.Nullable;
+                abstract class AS<T> implements Comparator<T> {
+                    static AS<@Nullable Object> arbitrary() { return Holder.ARBITRARY; }
+                    private static final class Holder {
+                        static final AS<@Nullable Object> ARBITRARY = new Arbitrary();
+                    }
+                    static class Arbitrary extends AS<@Nullable Object> {
+                        public int compare(@Nullable Object a, @Nullable Object b) { return 0; }
+                    }
+                }
+                """, KotlinPrintOptions.DEFAULT, t -> { });
+        contains(kotlin, "val ARBITRARY: AS<Any?> = Arbitrary()");
+        contains(kotlin, "fun arbitrary(): AS<Any?> = Holder.ARBITRARY");
+    }
+
+    /**
      * guava's TreeRangeMap's empty sub-range map: merge(Range<Comparable<?>> range, @Nullable Object value,
      * BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable Object> f) overrides RangeMap's merge:
      * the wildcard bounds' type-use @Nullable stays, or it overrides nothing.

@@ -182,9 +182,10 @@ final class KotlinNullability {
         if (verdict != null && isNullable(verdict)
             && (overridesMappedMember(methodInfo) || returnsNullForTypeVariable(methodInfo))) {
             // Kotlin declares the member it overrides, non-null: Any.toString(): String; Iterator<E>.next(): E
-            return verdict.withNullable(NullableState.NONNULL);
+            return withDeclaredArgumentStates(methodInfo, verdict.withNullable(NullableState.NONNULL));
         }
-        ParameterizedType result = verdict != null ? verdict : methodInfo.returnType();
+        ParameterizedType result = withDeclaredArgumentStates(methodInfo,
+                verdict != null ? verdict : methodInfo.returnType());
         ParameterizedType typed = rawOverrideResult(methodInfo, result);
         return typed != null ? typed : result;
     }
@@ -235,6 +236,16 @@ final class KotlinNullability {
             }
         }
         return null;
+    }
+
+    /*
+     The declaration's type-use annotations on the result's arguments, as for a field, a parameter and a local:
+     guava's Ordering<@Nullable Object> arbitrary(), returning the field ARBITRARY_ORDERING, printed as
+     Ordering<Any> beside the field's Ordering<Any?> once the field kept its annotations (maddi#145).
+     */
+    private static ParameterizedType withDeclaredArgumentStates(MethodInfo methodInfo, ParameterizedType type) {
+        return KotlinContext.translatingJava()
+                ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(methodInfo.returnType())) : type;
     }
 
     /**

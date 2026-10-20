@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.expression.TypeExpression;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
@@ -38,6 +39,7 @@ import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -246,10 +248,9 @@ public final class CSharpStatementPrinter {
     /**
      * A raw array local created raw, {@code var moves = new Move[n]}, whose elements the method stores are all of one
      * type with arguments, {@code moves[i] = node.getMove()} of a {@code Move<Solution_>}: that type's array, which C#
-     * declares and creates, {@code new IMove<Solution_>[n]}, not {@code IMove<object>[]}. Not one a diamond's creation
-     * takes. Null otherwise.
+     * declares and creates, {@code new IMove<Solution_>[n]}, not {@code IMove<object>[]}. Null otherwise.
      */
-    private static ParameterizedType storedArrayType(LocalVariable lv) {
+    static ParameterizedType storedArrayType(LocalVariable lv) {
         ParameterizedType declared = lv.parameterizedType();
         Expression init = lv.assignmentExpression();
         if (declared == null || declared.arrays() != 1 || declared.typeInfo() == null || !declared.parameters().isEmpty()
@@ -267,24 +268,37 @@ public final class CSharpStatementPrinter {
                 && lv.equals(dv.arrayVariable())) {
                 Expression value = CSharpExpressionPrinter.unwrap(a.value());
                 if (value instanceof NullConstant) return true;
-                ParameterizedType t = value.parameterizedType();
+                ParameterizedType t = seenHere(value);
                 if (t == null || t.arrays() != 0 || !declared.typeInfo().equals(t.typeInfo())) other[0] = true;
                 else types.add(t);
-            } else if (e instanceof ConstructorCall created && created.diamond() != null && created.diamond().isYes()
-                       && created.parameterExpressions().stream().anyMatch(p -> CSharpExpressionPrinter.unwrap(p)
-                    instanceof VariableExpression ve && lv.equals(ve.variable()))) {
-                // new Joiner<>(copy), whose diamond C# may print erased, of object, where the raw array fits
-                other[0] = true;
             }
             return !other[0];
         });
         if (other[0] || types.size() != 1) return null;
         ParameterizedType element = types.iterator().next();
         if (element.parameters().size() != declared.typeInfo().typeParameters().size()
-            || !CSharpExpressionPrinter.writable(element, List.of())) {
+            || !CSharpExpressionPrinter.writable(element, List.of()) || !CSharpExpressionPrinter.ownTypeParameters(element)) {
             return null;
         }
         return declared.withParameters(element.parameters());
+    }
+
+    /**
+     * A value's type as the current type sees it: {@code rightMappings[i]} of a superclass's
+     * {@code Function<Right_, Object>[]} field is a {@code Function<B, Object>} in a class that extends it with
+     * {@code B}.
+     */
+    private static ParameterizedType seenHere(Expression value) {
+        ParameterizedType t = value.parameterizedType();
+        if (t == null || !(value instanceof VariableExpression ve)) return t;
+        var v = ve.variable();
+        while (v instanceof DependentVariable dv) v = dv.arrayVariable();
+        TypeInfo current = CSharpContext.currentType();
+        if (!(v instanceof FieldReference fr) || current == null) return t;
+        TypeInfo owner = fr.fieldInfo().owner();
+        if (owner == null || owner.equals(current) || owner.typeParameters().isEmpty()) return t;
+        ParameterizedType seen = CstSupertypes.asSeen(current, owner);
+        return seen == null ? t : CstSupertypes.substitute(t, CstSupertypes.typeArguments(seen));
     }
 
     /**
@@ -695,9 +709,13 @@ public final class CSharpStatementPrinter {
         return b;
     }
 
-    /** An arm's value: the expression, a throw expression, or a block as a lambda called at once. */
+    /**
+     * An arm's value: the expression, a throw expression, or a block as a lambda called at once. The expression
+     * converted to the switch's type, as a conditional's branches are: {@code new DepthFirstNodeComparator<>(…)} of a
+     * {@code Comparator<…>} switch is the method group of its {@code Compare}.
+     */
     private static OutputBuilder armValue(Statement statement, ParameterizedType type, Qualification q) {
-        if (statement instanceof ExpressionAsStatement eas) return CSharpExpressionPrinter.print(eas.expression(), q);
+        if (statement instanceof ExpressionAsStatement eas) return armExpression(eas.expression(), type, q);
         if (statement instanceof ThrowStatement ts) {
             return new OutputBuilderImpl().add(KeywordImpl.THROW).add(SpaceEnum.ONE)
                     .add(CSharpExpressionPrinter.print(ts.expression(), q));
@@ -705,7 +723,7 @@ public final class CSharpStatementPrinter {
         if (statement instanceof Block block) {
             List<Statement> statements = CstQueries.own(block.statements());
             if (statements.size() == 1 && statements.getFirst() instanceof YieldStatement ys) {
-                return CSharpExpressionPrinter.print(ys.expression(), q);
+                return armExpression(ys.expression(), type, q);
             }
             if (statements.size() == 1 && statements.getFirst() instanceof ThrowStatement ts) {
                 return armValue(ts, type, q);
@@ -718,6 +736,11 @@ public final class CSharpStatementPrinter {
         }
         CSharpContext.message(CSharpPrintCode.SWITCH_FORM, statement, CSharpContext.describe(statement));
         return statement.print(q);
+    }
+
+    private static OutputBuilder armExpression(Expression value, ParameterizedType type, Qualification q) {
+        return type != null && CSharpExpressionPrinter.converts(value, type)
+                ? CSharpExpressionPrinter.converted(value, type, q) : CSharpExpressionPrinter.print(value, q);
     }
 
     // ---------------------------------------------------------------- try
