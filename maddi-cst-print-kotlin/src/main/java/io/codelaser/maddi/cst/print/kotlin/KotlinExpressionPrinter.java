@@ -1104,6 +1104,15 @@ public class KotlinExpressionPrinter {
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
             }
+            if (spread(args, method, i) && emptyReferenceArray(args.get(i)) != null) {
+                // jenkins's DirScanner.Glob: this(includes, excludes, true, new OpenOption[0]) into vararg
+                // openOptions: OpenOption. arrayOfNulls<OpenOption>(0) is an Array<OpenOption?>; an empty array holds
+                // no null, and a vararg takes any Array<out OpenOption>
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(new TextImpl("emptyArray<"
+                        + KotlinTypeName.of(emptyReferenceArray(args.get(i)).withNullable(
+                                io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q) + ">()")));
+                continue;
+            }
             if (spread(args, method, i)) {
                 printed.add(new OutputBuilderImpl().add(SPREAD)
                         .add(KotlinNullability.asserted(args.get(i), KotlinPrintCode.ASSERT_INTO_NON_NULL, q)));
@@ -2613,6 +2622,18 @@ public class KotlinExpressionPrinter {
 
     private static boolean vararg(Expression e) {
         return unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi && pi.isVarArgs();
+    }
+
+    /** {@code new X[0]} of a reference X: its element type; null otherwise. */
+    private static ParameterizedType emptyReferenceArray(Expression e) {
+        if (!(unwrap(e) instanceof ConstructorCall cc) || cc.arrayInitializer() != null || cc.anonymousClass() != null
+            || cc.parameterizedType().arrays() != 1) {
+            return null;
+        }
+        List<Expression> dimensions = cc.parameterExpressions().stream().filter(x -> !x.isEmpty()).toList();
+        ParameterizedType element = cc.parameterizedType().componentType();
+        return dimensions.size() == 1 && unwrap(dimensions.getFirst()) instanceof IntConstant ic && ic.constant() == 0
+               && KotlinTypeName.primitiveArray(element) == null && element.typeInfo() != null ? element : null;
     }
 
     /** An array of references whose elements the declaration says are non-null: arrayOfNulls would make them X?. */

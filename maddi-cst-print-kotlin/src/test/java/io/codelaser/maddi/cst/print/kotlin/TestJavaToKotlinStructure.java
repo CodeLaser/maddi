@@ -3344,4 +3344,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("HttpResponse<Unit>"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * jenkins's DirScanner.Glob: {@code this(includes, excludes, true, new OpenOption[0])} into a vararg of non-null
+     * OpenOption. {@code arrayOfNulls<OpenOption>(0)} is an {@code Array<OpenOption?>}; the empty array spread is
+     * {@code *emptyArray<OpenOption>()}. Not left out: the call would pick the overload without the varargs.
+     */
+    @Test
+    public void emptyArrayIntoVarargs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.nio.file.OpenOption;
+                class Glob {
+                    private final String includes;
+                    private final OpenOption[] openOptions;
+                    Glob(String includes, boolean useDefaultExcludes) {
+                        this(includes, useDefaultExcludes, new OpenOption[0]);
+                    }
+                    Glob(String includes, boolean useDefaultExcludes, OpenOption... openOptions) {
+                        this.includes = includes;
+                        this.openOptions = openOptions;
+                    }
+                    int count() { return openOptions.length + includes.length(); }
+                }
+                """);
+        contains(kotlin, "*emptyArray<OpenOption>()");
+        compiles(kotlin);
+    }
 }
