@@ -164,6 +164,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
+     * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
+     */
+    @Test
+    public void requireNonNullElseAsElvis() {
+        String kotlin = kotlin("""
+                package a;
+                import java.time.LocalDate;
+                import java.util.Objects;
+                class Tokens {
+                    static int year(LocalDate expirationDate, String name) {
+                        LocalDate expiration = Objects.requireNonNullElseGet(expirationDate, LocalDate::now);
+                        String label = Objects.requireNonNullElse(name, "none");
+                        String other = Objects.requireNonNullElseGet(name, () -> "x" + expiration.getYear());
+                        return expiration.getYear() + label.length() + other.length();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("expirationDate", "name")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(expirationDate ?: LocalDate.now())");
+        contains(kotlin, "(name ?: \"none\")");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's InstallUtil: a block lambda into a {@code Function<Provider<InstallState>, InstallState>} returns
      * {@code getDefaultInstallState()} early and {@code states.get(current)} last, values Kotlin types nullable, into a
      * result the verdicts hold non-null: both asserted, as a single-expression lambda's value is.

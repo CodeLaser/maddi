@@ -368,6 +368,15 @@ public class KotlinExpressionPrinter {
         if (KotlinMappedMembers.isUnboxing(mc.methodInfo()) && object != null && !mc.objectIsImplicit()) {
             return KotlinNullability.asserted(object, KotlinPrintCode.ASSERT_AT_UNBOXING, q);
         }
+        if (KotlinContext.translatingJava() && KotlinMappedMembers.isRequireNonNullElse(mc.methodInfo())) {
+            // Objects.requireNonNullElseGet(expirationDate, LocalDate::now): (expirationDate ?: LocalDate.now())
+            Expression fallback = mc.parameterExpressions().get(1);
+            OutputBuilder otherwise = "requireNonNullElse".equals(mc.methodInfo().name()) ? print(fallback, q)
+                    : supplied(fallback, q);
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(operand(PrecedenceEnum.ASSIGNMENT, mc.parameterExpressions().getFirst(), q))
+                    .add(KotlinSymbols.binary("?:")).add(otherwise).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (KotlinMappedMembers.isRequireNonNull(mc.methodInfo())) {
             Expression checked = mc.parameterExpressions().getFirst();
             if (KotlinNullability.declaredNullableVariable(checked)) {
@@ -2878,6 +2887,33 @@ public class KotlinExpressionPrinter {
         if (java.parameters().isEmpty()) return rawInto(java, declared) ? declared : null;
         return java.typeInfo() == declared.typeInfo() && java.parameters().stream().anyMatch(ParameterizedType::isUnboundWildcard)
                ? declared : null;
+    }
+
+    /**
+     * What a Supplier argument supplies, called in place: {@code LocalDate::now} as {@code LocalDate.now()},
+     * {@code Foo::new} as {@code Foo()}, {@code () -> x} as {@code x}; any other Supplier as {@code s.get()}.
+     */
+    private static OutputBuilder supplied(Expression supplier, Qualification q) {
+        Expression s = unwrap(supplier);
+        if (s instanceof MethodReference mr && mr.methodInfo() != null && mr.methodInfo().parameters().isEmpty()) {
+            io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+            if (m.isConstructor()) {
+                return new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.name(mr.scope().parameterizedType().typeInfo(), q)))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            }
+            if (m.isStatic() || !(unwrap(mr.scope()) instanceof TypeExpression)) {
+                OutputBuilder owner = unwrap(mr.scope()) instanceof TypeExpression te
+                        ? new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q)))
+                        : receiver(mr.scope(), q);
+                return owner.add(SymbolEnum.DOT).add(new TextImpl(KotlinNames.name(m.name())))
+                        .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+            }
+        }
+        if (s instanceof Lambda l && l.parameters().isEmpty()) {
+            Expression value = CstQueries.returnedValue(CstQueries.own(l.methodBody().statements()));
+            if (value != null) return operand(PrecedenceEnum.ASSIGNMENT, value, q);
+        }
+        return receiver(supplier, q).add(SymbolEnum.DOT).add(new TextImpl("get")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
     }
 
     /** A raw Comparable, or a type variable whose bound is one. */

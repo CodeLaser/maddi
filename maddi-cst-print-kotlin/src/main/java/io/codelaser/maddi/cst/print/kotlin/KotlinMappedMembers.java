@@ -392,6 +392,16 @@ final class KotlinMappedMembers {
                && "java.util.Objects".equals(methodInfo.typeInfo().fullyQualifiedName());
     }
 
+    /**
+     * {@code Objects.requireNonNullElse(a, b)}, {@code requireNonNullElseGet(a, supplier)}: Kotlin infers their T from
+     * a nullable {@code a} as nullable, and the result with it (jenkins's ApiTokenStore); Kotlin's elvis is non-null.
+     */
+    static boolean isRequireNonNullElse(MethodInfo methodInfo) {
+        return methodInfo.isStatic() && methodInfo.parameters().size() == 2
+               && ("requireNonNullElse".equals(methodInfo.name()) || "requireNonNullElseGet".equals(methodInfo.name()))
+               && "java.util.Objects".equals(methodInfo.typeInfo().fullyQualifiedName());
+    }
+
     static boolean isMonitorMethod(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.Object".equals(methodInfo.typeInfo().fullyQualifiedName())
                && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
