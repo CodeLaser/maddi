@@ -709,7 +709,49 @@ public class KotlinExpressionPrinter {
         String lambdaOnly = lambdaOnlyTypeArguments(mc, q);
         if (lambdaOnly != null) return lambdaOnly;
         String besideVarargs = besideVarargsOverload(mc, q);
-        return besideVarargs != null ? besideVarargs : nullOnlyTypeArguments(mc, q);
+        if (besideVarargs != null) return besideVarargs;
+        String throwsOnly = throwsOnlyTypeArguments(mc, q);
+        return throwsOnly != null ? throwsOnly : nullOnlyTypeArguments(mc, q);
+    }
+
+    /**
+     * jenkins's {@code <T extends Throwable> void runWithLock(ThrowingRunnable<T> runnable) throws T} and
+     * {@code <V, T extends Throwable> V callWithLock(ThrowingCallable<V, T>)}: a T only the lambda's throws clause
+     * fixes, which Kotlin, without checked exceptions, cannot infer. All type arguments written: such a T is its
+     * bound, the others Java's inferred ones. Null when a call has no such T, or an argument cannot be named.
+     */
+    private static String throwsOnlyTypeArguments(MethodCall mc, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        if (!KotlinContext.translatingJava() || m.typeParameters().isEmpty() || m.returnType() == null) return null;
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> throwsOnly = m.typeParameters().stream()
+                .filter(tp -> throwableBound(tp) != null && !CstQueries.mentions(m.returnType(), tp)).toList();
+        if (throwsOnly.isEmpty()) return null;
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
+                ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : m.typeParameters()) {
+            if (throwsOnly.contains(tp)) {
+                printed.add(KotlinTypeName.of(throwableBound(tp).withNullable(
+                        io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q));
+                continue;
+            }
+            ParameterizedType t = concrete.get(tp);
+            if (t == null || t.wildcard() != null || mentionsOutOfScope(t)) return null;
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /** The bound of a type parameter declared {@code T extends Throwable} (or a subclass); null for any other. */
+    private static ParameterizedType throwableBound(io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        if (tp.typeBounds().size() != 1) return null;
+        ParameterizedType bound = tp.typeBounds().getFirst();
+        java.util.Set<TypeInfo> visited = new java.util.HashSet<>();
+        for (TypeInfo t = bound.typeInfo(); t != null && visited.add(t);
+             t = t.parentClass() == null ? null : t.parentClass().typeInfo()) {
+            if ("java.lang.Throwable".equals(t.fullyQualifiedName())) return bound.arrays() == 0 ? bound : null;
+        }
+        return null;
     }
 
     /**

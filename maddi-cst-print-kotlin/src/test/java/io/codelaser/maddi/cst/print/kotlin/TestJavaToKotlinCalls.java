@@ -677,6 +677,40 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's Queue: {@code <T extends Throwable> void runWithLock(ThrowingRunnable<T>) throws T} and
+     * {@code <V, T extends Throwable> V callWithLock(ThrowingCallable<V, T>) throws T}, a T only the lambda's throws
+     * fixes: Kotlin cannot infer it, so each type argument is written, T as its bound.
+     */
+    @Test
+    public void throwsOnlyTypeParameter() {
+        String kotlin = kotlin("""
+                package a;
+                class Queue {
+                    @FunctionalInterface
+                    interface ThrowingRunnable<T extends Throwable> { void run() throws T; }
+                    @FunctionalInterface
+                    interface ThrowingCallable<V, T extends Throwable> { V call() throws T; }
+                    static <T extends Throwable> void runWithLock(ThrowingRunnable<T> runnable) throws T {
+                        runnable.run();
+                    }
+                    static <V, T extends Throwable> V callWithLock(ThrowingCallable<V, T> callable) throws T {
+                        return callable.call();
+                    }
+                    int count;
+                    void bump() {
+                        runWithLock(() -> count++);
+                    }
+                    String name() {
+                        return callWithLock(() -> "q" + count);
+                    }
+                }
+                """);
+        contains(kotlin, "runWithLock<Throwable>(");
+        contains(kotlin, "callWithLock<String, Throwable>(");
+        compiles(kotlin);
+    }
+
+    /**
      * fernflower's ExceptionDeobfuscator: {@code Set<String> exceptions = …collect(Collectors.toSet())} and then
      * {@code !exceptions.contains(null)}: Kotlin's contains infers its T from the inputs, and a null fits no String.
      */
