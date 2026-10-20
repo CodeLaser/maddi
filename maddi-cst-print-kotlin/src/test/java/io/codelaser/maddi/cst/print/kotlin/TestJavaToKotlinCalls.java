@@ -677,6 +677,32 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins: {@code forward = backward = Collections.emptyMap()} (DependencyGraph), the inner assignment a value,
+     * {@code emptyMap().also { backward = it }}, which no target types; and {@code classOrEmpty == Optional.empty()}
+     * (CachingClassLoader), compared. Java's inferred type arguments.
+     */
+    @Test
+    public void resultOnlyAsValueAndCompared() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Graph {
+                    Map<String, List<String>> forward;
+                    Map<String, List<String>> backward;
+                    void clear() {
+                        forward = backward = Collections.emptyMap();
+                    }
+                    static boolean empty(Optional<Class<?>> classOrEmpty) {
+                        return classOrEmpty == Optional.empty();
+                    }
+                }
+                """);
+        contains(kotlin, "Collections.emptyMap<");
+        contains(kotlin, "Optional.empty<");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's Queue: {@code <T extends Throwable> void runWithLock(ThrowingRunnable<T>) throws T} and
      * {@code <V, T extends Throwable> V callWithLock(ThrowingCallable<V, T>) throws T}, a T only the lambda's throws
      * fixes: Kotlin cannot infer it, so each type argument is written, T as its bound.

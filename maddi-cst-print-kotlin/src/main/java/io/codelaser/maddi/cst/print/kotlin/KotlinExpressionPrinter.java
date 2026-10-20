@@ -3475,6 +3475,10 @@ public class KotlinExpressionPrinter {
         } else if ("=".equals(op) && widens(a.value(), a.variableTarget().parameterizedType())) {
             // (read = in.read(buf)) != -1 with a long read: in.read(buf).toLong().also { read = it }
             value = assigned(a.value(), a.variableTarget().parameterizedType(), q);
+        } else if ("=".equals(op) && KotlinStatementPrinter.onlyTargetTyped(a.value())) {
+            // jenkins's DependencyGraph: forward = backward = Collections.emptyMap(), as a receiver of also { } no
+            // longer typed by the target: Java's inferred type arguments
+            value = withoutExpectedType(a.value(), () -> receiver(a.value(), q));
         } else if ("=".equals(op)) {
             value = receiver(a.value(), q);
         } else {
@@ -3524,6 +3528,13 @@ public class KotlinExpressionPrinter {
                     : unwrap(bo.lhs()) instanceof NullConstant ? bo.rhs() : null;
             if (other != null && unwrap(other) instanceof MethodCall && !NO_EXPECTED_TYPE.get().contains(unwrap(other))) {
                 return withoutExpectedType(other, () -> binaryOperator(bo, q));
+            }
+            // jenkins's CachingClassLoader: classOrEmpty == Optional.empty(), compared, whatever its type arguments
+            for (Expression side : List.of(bo.lhs(), bo.rhs())) {
+                if (unwrap(side) instanceof MethodCall && !NO_EXPECTED_TYPE.get().contains(unwrap(side))
+                    && KotlinStatementPrinter.onlyTargetTyped(side)) {
+                    return withoutExpectedType(side, () -> binaryOperator(bo, q));
+                }
             }
         }
         if (("==".equals(op) || "!=".equals(op)) && isReferenceComparison(bo.lhs(), bo.rhs())) {
