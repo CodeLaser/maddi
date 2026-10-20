@@ -423,11 +423,24 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .equals(Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE));
     }
 
-    /** A header property's visibility: its field's, nothing for a public one. */
+    /**
+     * A header property's visibility: its field's, nothing for a public one. Parsed from Kotlin, the property's own,
+     * which is its getter's: the front end models {@code class Foo(val id: Int)} as a private field and a public
+     * {@code getId()}, and the field's would print the public property private.
+     */
     private static OutputBuilder propertyVisibility(FieldInfo field) {
         OutputBuilder b = new OutputBuilderImpl();
-        KotlinModifiers.visibility(field.access(), field.owner(), field).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        MethodInfo getter = fromKotlinSource(field.owner()) ? getter(field) : null;
+        (getter != null ? KotlinModifiers.visibility(getter.access(), field.owner(), getter)
+                : KotlinModifiers.visibility(field.access(), field.owner(), field)).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
         return b;
+    }
+
+    /** The accessor that reads {@code field}, as the front end links it ({@code getSetField}); null when none. */
+    private static MethodInfo getter(FieldInfo field) {
+        return field.owner().methods().stream()
+                .filter(m -> isAccessor(m) && m.getSetField().field() == field && m.parameters().isEmpty())
+                .findFirst().orElse(null);
     }
 
     /** {@code private constructor(x: Int)}, or just {@code (x: Int)}. */
