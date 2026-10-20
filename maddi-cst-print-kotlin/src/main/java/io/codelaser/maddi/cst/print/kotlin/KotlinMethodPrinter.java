@@ -510,6 +510,14 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     if (cloneOf(pi, mc) && !spreadClones.contains(mc)) escapes[0] = true;
                     if (!acceptsOut(pi, mc.parameterExpressions(), mc.methodInfo())) escapes[0] = true;
                 }
+                case ExplicitConstructorInvocation eci -> {
+                    // jenkins's UrlValidator: this(schemes, authorityValidator, options, …), whose schemes is
+                    // reassigned there, an invariant Array<String>?
+                    if (eci.methodInfo() == null && eci.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || eci.methodInfo() != null && !acceptsOut(pi, eci.parameterExpressions(), eci.methodInfo())) {
+                        escapes[0] = true;
+                    }
+                }
                 case io.codelaser.maddi.cst.api.expression.ConstructorCall cc -> {
                     if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
                         || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {

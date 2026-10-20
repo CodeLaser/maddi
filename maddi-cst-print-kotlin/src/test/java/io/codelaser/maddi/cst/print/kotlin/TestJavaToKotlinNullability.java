@@ -247,6 +247,35 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's UrlValidator: {@code UrlValidator(String[] schemes, long options)} only hands its schemes on, through
+     * {@code this(schemes, null, options)}, to a constructor that reassigns its own. That parameter is an invariant
+     * {@code Array<String>?}, which takes no {@code Array<out String>?}: the first constructor's stays invariant too.
+     */
+    @Test
+    public void arrayHandedOnThroughThisIsInvariant() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class UrlValidator {
+                    private static final String[] DEFAULT_SCHEMES = {"http", "https"};
+                    private final Set<String> allowedSchemes = new HashSet<>();
+                    UrlValidator(String[] schemes, long options) {
+                        this(schemes, null, options);
+                    }
+                    UrlValidator(String[] schemes, String authority, long options) {
+                        if (schemes == null) {
+                            schemes = DEFAULT_SCHEMES;
+                        }
+                        for (String s : schemes) allowedSchemes.add(s);
+                    }
+                    int size() { return allowedSchemes.size(); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("schemes", "authority")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("Array<out String>"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */
