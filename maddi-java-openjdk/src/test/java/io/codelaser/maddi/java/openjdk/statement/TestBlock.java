@@ -25,8 +25,9 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestBlock extends CommonTest {
 
@@ -103,5 +104,41 @@ public class TestBlock extends CommonTest {
         assertEquals(" comment", ifElse.block().comments().getFirst().comment());
         assertEquals(1, ifElse.block().trailingComments().size());
         assertEquals(" this was i", ifElse.block().trailingComments().getFirst().comment());
+    }
+
+    @Language("java")
+    private static final String LABELLED = """
+            package a.b;
+            class X {
+              void m() {
+                // the labelled one
+                L: { int a = 1; break L; }
+                { int b = 2; }
+              }
+            }
+            """;
+
+    /**
+     * A labelled block keeps its label, and its comments, through {@code withBlocks}, as an if or a loop does. It used
+     * to return the new sub-block itself (found by deduplication's TestForBreakLabel). A plain block still does.
+     */
+    @Test
+    public void labelledBlockKeepsItsLabelThroughWithBlocks() {
+        TypeInfo x = scan("a.b.X", LABELLED);
+        MethodInfo m = x.findUniqueMethod("m", 0);
+        Block labelled = (Block) m.methodBody().statements().getFirst();
+        assertEquals("L", labelled.label());
+        Block content = runtime.newBlockBuilder().build();
+
+        Statement replaced = labelled.withBlocks(List.of(content));
+        assertEquals("L", replaced.label());
+        assertEquals(labelled.comments(), replaced.comments());
+        assertFalse(replaced.comments().isEmpty(), "the comment above the labelled block");
+        assertEquals(labelled.annotations(), replaced.annotations());
+        assertTrue(((Block) replaced).statements().isEmpty(), "the new content");
+
+        Block plain = (Block) m.methodBody().statements().get(1);
+        assertNull(plain.label());
+        assertSame(content, plain.withBlocks(List.of(content)));
     }
 }

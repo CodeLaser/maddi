@@ -235,9 +235,17 @@ public class BlockImpl extends StatementImpl implements Block {
         return true;
     }
 
+    /*
+     The new content, as this block: a labelled block 'L: { .. }' keeps its label, its comments and annotations, as
+     IfElse and the loops do through withBlocks. Returning the sub-block itself dropped them (deduplication's
+     TransformMethod, TestForBreakLabel). A plain block is still the sub-block itself.
+     */
     @Override
     public Statement withBlocks(List<Block> tSubBlocks) {
-        return tSubBlocks.getFirst();
+        Block content = tSubBlocks.getFirst();
+        if (label() == null && comments().isEmpty() && annotations().isEmpty()) return content;
+        return new BlockImpl(comments(), source(), annotations(), label(), content.statements(),
+                content.trailingComments());
     }
 
     @Override
