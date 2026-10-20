@@ -347,4 +347,24 @@ public class TestDeclaredNullability extends CommonTest {
         assertEquals("String", k(dn.parameter(publish.parameters().getFirst())));
         assertEquals("String", k(dn.parameter(publish.parameters().get(1))));
     }
+
+    // a LIBRARY member's type-use annotation: javac attaches a class file's RuntimeVisibleTypeAnnotations to the
+    // member's type, and the scanner carries them (JUnit 6's '@Nullable Object Store.get(Object)'; Spring Security 7's
+    // getCredentials() read as a plain Object before, jenkins 2026-10-20)
+    @Test
+    public void libraryTypeUseReturn() {
+        Map<String, TypeInfo> types = parse(Map.of("a.b.S", """
+                package a.b;
+                class S {
+                    Object read(org.junit.jupiter.api.extension.ExtensionContext.Store store) { return store.get("k"); }
+                }
+                """));
+        TypeInfo store = types.get("a.b.S").findUniqueMethod("read", 1).parameters().getFirst()
+                .parameterizedType().typeInfo();
+        MethodInfo get = store.methodStream()
+                .filter(mi -> "get".equals(mi.name()) && mi.parameters().size() == 1).findFirst().orElseThrow();
+        assertEquals("[Nullable]", get.returnType().annotations().stream()
+                .map(ae -> ae.typeInfo().simpleName()).toList().toString());
+        assertEquals("Object?", k(declared(types).returnType(get)));
+    }
 }
