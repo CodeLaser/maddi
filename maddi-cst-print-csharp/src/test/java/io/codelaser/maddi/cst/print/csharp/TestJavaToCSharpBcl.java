@@ -977,6 +977,12 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
             class Sorting {
                 static void sort(List<String> l) { l.sort(new ByLength()); }
                 static Comparator<String> by() { return new ByLength(); }
+                static Comparator<String> chosen(int k) {
+                    return switch (k) {
+                        case 0 -> new ByLength();
+                        default -> Comparator.naturalOrder();
+                    };
+                }
                 static int direct(ByLength c) { return c.compare("a", "bb"); }
                 static String value() {
                     Supplier<String> s = new Fixed();
@@ -996,6 +1002,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "internal sealed class Fixed {");
         contains(cs, "JavaCollections.Sort(l, new ByLength().Compare);");
         contains(cs, "internal static Comparison<string> By() => new ByLength().Compare;");
+        // a switch expression's arm, as the switch's type
+        contains(cs, "0 => new ByLength().Compare,");
         contains(cs, "c.Compare(\"a\", \"bb\")");
         contains(cs, "Func<string> s = new Fixed().Get;");
     }
