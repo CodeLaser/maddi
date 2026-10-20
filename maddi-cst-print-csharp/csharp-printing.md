@@ -398,7 +398,10 @@ implements the interface.
   reference binds; through the parameter's whole type and any supertype of the class in its own type parameters
   (`newSetFromMap(new HashMap<>())` is `new Dictionary<T, bool>()` for `Map<E, Boolean>`, a
   `ListBasedScalingOrderedSet<E>` a `Collection<E>` through `Set<E>`), and an outer
-  creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch.
+  creation's type arguments as printed (`new State<>(true, new TreeMap<>())`), also as a conditional's branch. A
+  wildcard below the top of such an argument is printed as the type it comes from is: `new Pair<>(key, collector)`
+  of a `Collector<A, ?, R> collector` is `new Pair<Func<A, R>, ICollector<A, R>>(key, collector)`. A capture at the
+  top, a `Score_` Java infers as `? extends Score<?>`, has no C# type and stays.
 - **Raw creations.** `new DefaultBiJoiner(new Function[0], …)`, raw in a static member, is
   `new DefaultBiJoiner<object, object>(new Func<object, object>[0], …)`: its parameter, `Func<A, object>[]`, is
   of type parameters out of scope, and no conversion's target.
@@ -777,8 +780,22 @@ from a map, a stream's collector.
   - A `DateTimeFormatter` becomes a custom format string. The ISO constants are .NET patterns
     (`ISO_LOCAL_DATE` → `"yyyy-MM-dd"`), and `parse(s, f)` becomes `ParseExact(s, f, CultureInfo.InvariantCulture)`.
   - `URI` → `Uri`, created `RelativeOrAbsolute` as Java's may be relative. `UUID` → `Guid`.
-  - `BigDecimal` → `decimal`, with arithmetic as operators. `Random`, `Base64` and `HexFormat` become `Random` and
-    `Convert`. A `MessageDigest` becomes a `HashAlgorithm`.
+  - `BigDecimal` → `decimal`, with arithmetic as operators. A `MathContext` is the compatibility library's
+    `JavaMathContext`, of which `sqrt`, `round` and `divide` round to significant digits (`JavaDecimals`; an exact
+    root keeps Java's preferred scale, `4.00` → `2.0`). `Random`, `Base64` and `HexFormat` become `Random` and
+    `Convert`; a `SplittableRandom` and a `SplittableGenerator` are a `Random` too, `split()` one seeded from it, and
+    a long seed folded into Random's int (`JavaRandoms.Seed`). A `MessageDigest` becomes a `HashAlgorithm`. A
+    `DecimalFormat` is `JavaDecimalFormat`, whose patterns are .NET's custom numeric format strings, rounded half to
+    even as Java's, a `0` where `#` would print nothing; its `DecimalFormatSymbols` a `CultureInfo`.
+  - A `BlockingQueue`, a `LinkedBlockingQueue` and an `ArrayBlockingQueue` are `JavaBlockingQueue`, a list under a
+    lock that takes the `Queue`'s rows: its own `Offer`, `PollFirst`, `PeekFirst` and `RemoveFirst`, which C# picks
+    before the list's extensions, are atomic; `put` and `take` wait, `poll` and `offer` with a timeout wait as long;
+    its enumerator is a snapshot, as Java's iterator is weakly consistent. A `PriorityQueue` is `JavaPriorityQueue`,
+    Java's binary heap, so that the order of equal elements and of iteration is Java's; its head is `[0]`. A
+    `ConcurrentMap` is an `IDictionary`, as its `ConcurrentHashMap` is a `Dictionary`. A `PrimitiveIterator.OfInt`
+    is an `IJavaIterator<int>`.
+  - `CancellationException` is `OperationCanceledException`, which a cancelled task's `TaskCanceledException` is;
+    `UnsupportedEncodingException` is `Encoding.GetEncoding`'s `ArgumentException`.
   - A `Spliterator` is a sequence: `StreamSupport.stream(it.spliterator(), false)` is `it` itself, a spliterator of
     an iterator its remaining elements (`JavaIterators.AsEnumerable`), a characteristic `0`. `Stream.generate`
     is the compatibility library's infinite `JavaFunctions.Generate`; a `Predicate`'s and a `BiPredicate`'s `and`,

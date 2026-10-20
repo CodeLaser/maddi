@@ -14,6 +14,12 @@ type java.util.AbstractList -> List using System.Collections.Generic
 type java.util.Deque -> List using System.Collections.Generic
 type java.util.ArrayDeque -> List using System.Collections.Generic
 type java.util.Queue -> List using System.Collections.Generic
+# a blocking queue is a list under a lock, its own Offer, PollFirst, PeekFirst and RemoveFirst atomic; a priority
+# queue Java's heap, its head [0]: both take the Queue's rows
+type java.util.concurrent.BlockingQueue -> JavaBlockingQueue using Maddi.JavaCompat
+type java.util.concurrent.LinkedBlockingQueue -> JavaBlockingQueue using Maddi.JavaCompat
+type java.util.concurrent.ArrayBlockingQueue -> JavaBlockingQueue using Maddi.JavaCompat
+type java.util.PriorityQueue -> JavaPriorityQueue using Maddi.JavaCompat
 # a SequencedCollection is a list's, a deque's or a LinkedHashSet's: C#'s ICollection, which List and HashSet are
 type java.util.SequencedCollection -> ICollection using System.Collections.Generic
 # Java's Map and Set are implemented by hash and tree collections alike: C#'s interfaces. A HashMap is C#'s
@@ -26,6 +32,7 @@ type java.util.IdentityHashMap -> Dictionary using System.Collections.Generic
 # a WeakHashMap's keys are weak, which a Dictionary's are not: a key stays until it is removed
 type java.util.WeakHashMap -> Dictionary using System.Collections.Generic
 type java.util.concurrent.ConcurrentHashMap -> Dictionary using System.Collections.Generic
+type java.util.concurrent.ConcurrentMap -> IDictionary using System.Collections.Generic
 type java.util.LinkedHashMap -> OrderedDictionary using System.Collections.Generic
 type java.util.EnumMap -> SortedDictionary using System.Collections.Generic
 type java.util.TreeMap -> SortedDictionary using System.Collections.Generic
@@ -86,6 +93,12 @@ type java.math.BigInteger -> BigInteger using System.Numerics
 type java.lang.Number -> IConvertible using System
 type java.util.Random -> Random using System
 type java.util.random.RandomGenerator -> Random using System
+type java.util.random.RandomGenerator.SplittableGenerator -> Random using System
+type java.util.SplittableRandom -> Random using System
+type java.math.MathContext -> JavaMathContext using Maddi.JavaCompat
+type java.text.DecimalFormat -> JavaDecimalFormat using Maddi.JavaCompat
+# a DecimalFormat's symbols are its culture's
+type java.text.DecimalFormatSymbols -> CultureInfo using System.Globalization
 type java.math.RoundingMode -> MidpointRounding using System
 type java.lang.StringBuffer -> StringBuilder using System.Text
 type java.security.MessageDigest -> HashAlgorithm using System.Security.Cryptography
@@ -142,6 +155,9 @@ type java.util.function.ObjIntConsumer -> Action<{0}, int> using System
 type java.util.function.ObjLongConsumer -> Action<{0}, long> using System
 # a Spliterator is a sequence: StreamSupport.stream of one is the sequence itself
 type java.util.Spliterator -> IEnumerable<{0}> using System.Collections.Generic
+type java.util.PrimitiveIterator.OfInt -> IJavaIterator<int> using Maddi.JavaCompat
+type java.util.PrimitiveIterator.OfLong -> IJavaIterator<long> using Maddi.JavaCompat
+type java.util.PrimitiveIterator.OfDouble -> IJavaIterator<double> using Maddi.JavaCompat
 type java.lang.Runnable -> Action using System
 type java.util.concurrent.Callable -> Func using System
 type java.util.Comparator -> Comparison using System
@@ -226,6 +242,10 @@ type java.lang.NumberFormatException -> FormatException using System
 type java.lang.ArithmeticException -> ArithmeticException using System
 type java.lang.CloneNotSupportedException -> NotSupportedException using System
 type java.lang.InterruptedException -> ThreadInterruptedException using System.Threading
+# a cancelled Task's TaskCanceledException is one
+type java.util.concurrent.CancellationException -> OperationCanceledException using System
+# Encoding.GetEncoding's, of a name it does not know
+type java.io.UnsupportedEncodingException -> ArgumentException using System
 type java.util.NoSuchElementException -> InvalidOperationException using System
 type java.io.IOException -> IOException using System.IO
 type java.io.UncheckedIOException -> IOException using System.IO
@@ -1085,6 +1105,20 @@ member java.math.BigDecimal.scale/0 -> @0.Scale
 member java.math.BigDecimal.stripTrailingZeros/0 -> JavaMath.StripTrailingZeros($0) using Maddi.JavaCompat
 member java.math.BigDecimal.setScale/2 -> Math.Round(@0, $1, $2) using System
 member java.math.BigDecimal.divide/3 -> Math.Round(@0 / @1, $2, $3) using System
+member java.math.BigDecimal.divide(BigDecimal,MathContext) -> $0.Divide($1, $2) using Maddi.JavaCompat
+member java.math.BigDecimal.sqrt/1 -> $0.Sqrt($1) using Maddi.JavaCompat
+member java.math.BigDecimal.round/1 -> $0.Round($1) using Maddi.JavaCompat
+member java.math.MathContext.getPrecision/0 -> $0.Precision
+member java.math.MathContext.getRoundingMode/0 -> $0.Rounding
+field java.math.MathContext.UNLIMITED -> JavaMathContext.Unlimited using Maddi.JavaCompat
+field java.math.MathContext.DECIMAL32 -> JavaMathContext.Decimal32 using Maddi.JavaCompat
+field java.math.MathContext.DECIMAL64 -> JavaMathContext.Decimal64 using Maddi.JavaCompat
+field java.math.MathContext.DECIMAL128 -> JavaMathContext.Decimal128 using Maddi.JavaCompat
+member java.text.DecimalFormat.format/1 -> $0.Format($1)
+member java.text.NumberFormat.format/1 -> $0.Format($1)
+member java.text.DecimalFormat.setDecimalFormatSymbols/1 -> $0.SetDecimalFormatSymbols($1)
+member java.text.DecimalFormatSymbols.getInstance/1 -> $1
+member java.text.DecimalFormatSymbols.getInstance/0 -> CultureInfo.CurrentCulture using System.Globalization
 member java.math.BigDecimal.pow/1 -> JavaMath.Pow($0, $1) using Maddi.JavaCompat
 member java.math.BigDecimal.unscaledValue/0 -> JavaMath.UnscaledValue($0) using Maddi.JavaCompat
 member java.math.BigInteger.add/1 -> @0 + @1
@@ -1103,6 +1137,22 @@ member java.util.Random.nextInt/2 -> $0.Next($1, $2)
 member java.util.random.RandomGenerator.nextInt/2 -> $0.Next($1, $2)
 member java.util.Random.nextLong/0 -> $0.NextInt64()
 member java.util.random.RandomGenerator.nextLong/0 -> $0.NextInt64()
+member java.util.Random.new(long) -> new {R}(JavaRandoms.Seed($1)) using Maddi.JavaCompat
+member java.util.SplittableRandom.new(long) -> new Random(JavaRandoms.Seed($1)) using Maddi.JavaCompat, System
+member java.util.SplittableRandom.new/0 -> new Random() using System
+member java.util.random.RandomGenerator.SplittableGenerator.split/0 -> $0.Split() using Maddi.JavaCompat
+member java.util.SplittableRandom.split/0 -> $0.Split() using Maddi.JavaCompat
+member java.util.PrimitiveIterator.OfInt.nextInt/0 -> $0.Next()
+member java.util.PrimitiveIterator.OfLong.nextLong/0 -> $0.Next()
+member java.util.PrimitiveIterator.OfDouble.nextDouble/0 -> $0.Next()
+member java.util.concurrent.BlockingQueue.put/1 -> $0.Put($1)
+member java.util.concurrent.BlockingQueue.take/0 -> $0.Take()
+member java.util.concurrent.BlockingQueue.offer/3 -> $0.Offer($1, $2, $3)
+member java.util.concurrent.BlockingQueue.poll/2 ->? $0.Poll($1, $2)
+member java.util.concurrent.BlockingQueue.remainingCapacity/0 -> $0.RemainingCapacity()
+member java.util.concurrent.BlockingQueue.drainTo/1 -> $0.DrainTo($1)
+member java.util.concurrent.ArrayBlockingQueue.new(int,boolean) -> new {R}($1)
+member java.util.PriorityQueue.comparator/0 -> $0.Comparator()
 member java.util.Random.nextLong/1 -> $0.NextInt64($1)
 member java.util.random.RandomGenerator.nextLong/1 -> $0.NextInt64($1)
 member java.util.Random.nextLong/2 -> $0.NextInt64($1, $2)
@@ -1113,6 +1163,18 @@ member java.util.Random.nextDouble/1 -> ($0.NextDouble() * @1)
 member java.util.random.RandomGenerator.nextDouble/1 -> ($0.NextDouble() * @1)
 member java.util.Random.nextFloat/0 -> $0.NextSingle()
 member java.util.random.RandomGenerator.nextFloat/0 -> $0.NextSingle()
+member java.util.Random.nextDouble/2 -> $0.NextDouble($1, $2) using Maddi.JavaCompat
+member java.util.Random.nextFloat/1 -> $0.NextSingle($1) using Maddi.JavaCompat
+member java.util.Random.nextFloat/2 -> $0.NextSingle($1, $2) using Maddi.JavaCompat
+member java.util.Random.nextGaussian/0 -> $0.NextGaussian() using Maddi.JavaCompat
+member java.util.Random.nextGaussian/2 -> $0.NextGaussian($1, $2) using Maddi.JavaCompat
+member java.util.Random.nextBytes/1 -> $0.NextBytes($1) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextDouble/2 -> $0.NextDouble($1, $2) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextFloat/1 -> $0.NextSingle($1) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextFloat/2 -> $0.NextSingle($1, $2) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextGaussian/0 -> $0.NextGaussian() using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextGaussian/2 -> $0.NextGaussian($1, $2) using Maddi.JavaCompat
+member java.util.random.RandomGenerator.nextBytes/1 -> $0.NextBytes($1) using Maddi.JavaCompat
 member java.util.Random.nextBoolean/0 -> $0.Next(2) == 1
 member java.util.random.RandomGenerator.nextBoolean/0 -> $0.Next(2) == 1
 # the encoder and decoder are Convert's methods; Java's byte[] is C#'s sbyte[]

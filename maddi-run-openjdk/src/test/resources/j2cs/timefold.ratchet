@@ -181,9 +181,12 @@
 # 2026-10-19, maddi d2d14e004, b6e935b93: a wildcard interface's value cast where the type is expected with arguments,
 # Map.keySet as a live set, constructor references typed as Java infers, raw array locals: 1311 -> 1315 compiling files,
 # 778 -> 719 errors.
+# 2026-10-19, maddi 2469aa8ba, ce36151cb: blocking and priority queues, ConcurrentMap, MathContext, DecimalFormat,
+# SplittableRandom, primitive iterators, CancellationException; a diamond's inferred argument with a nested wildcard:
+# 1315 -> 1320 compiling files, 719 -> 673 errors, unmapped JDK uses 137 -> 106.
 types	1583
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	1565
-compilingFiles	1315
-unmappedJdkUses	137
+compilingFiles	1320
+unmappedJdkUses	106

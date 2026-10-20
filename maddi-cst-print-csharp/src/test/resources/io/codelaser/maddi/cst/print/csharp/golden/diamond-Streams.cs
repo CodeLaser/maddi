@@ -49,6 +49,19 @@ public static class Streams {
 internal sealed class Bridge<A> : IStream<A> { internal Bridge(IStreams parent) { } }
 internal sealed class Bridge2<A, B> : IStream<B> { internal Bridge2(IStreams parent) { } }
 internal abstract class Builder { internal abstract S Build<S>(S s) where S : IStream; }
+internal sealed record Duo<K, V>(K Key, V Value);
+internal interface IFolding<A, C, R> : IFolding<A, R> {
+    R Finish(C c);
+    C Start();
+    object IFolding<A, R>.Start() => Start();
+}
+internal interface IFolding<A, R> { object Start(); }
+internal sealed class Folds<A, R> {
+    private readonly IFolding<A, R> folding;
+    internal Folds(IFolding<A, R> folding) { this.folding = folding; }
+    internal Gather<A, R> Gathered(Func<A, R> key) => new Gather<A, R>(new Duo<Func<A, R>, IFolding<A, R>>(key, folding));
+}
+internal sealed class Gather<A, R> { internal Gather(Duo<Func<A, R>, IFolding<A, R>> duo) { } }
 internal sealed class Group<A, NewA> : IStream<NewA> { internal void SetBridge(Bridge<NewA> bridge) { } }
 internal sealed class Joined<A, B> : IStream<B> { internal void SetBridge(Bridge2<A, B> bridge) { } }
 internal sealed class MapStream<A, NewA> : IStream<NewA> {
