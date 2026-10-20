@@ -1587,8 +1587,10 @@ public class BitSet : ICloneable
 /// <summary>
 /// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
 /// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
+/// Covariant, as reading is: an iterator of IPositionInList is one of IElementPosition, which Java's
+/// Iterator&lt;? extends ElementPosition&gt; takes.
 /// </summary>
-public interface IJavaIterator<T>
+public interface IJavaIterator<out T>
 {
     bool HasNext();
 

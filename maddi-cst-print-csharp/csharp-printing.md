@@ -264,7 +264,8 @@ implements the interface.
   extends both), declares its own `GetEnumerator()`: C#
   finds no most specific of their defaults (CS8705). Its subclasses inherit it. An interface that extends two such
   redeclares `new IJavaIterator<T> Iterator();`: each of them declares one, and a call through it is ambiguous
-  (CS0121).
+  (CS0121). `IJavaIterator<out T>` is covariant, as reading is: a `MappingIterator<…, PositionInList>` is an
+  `IJavaIterator<IElementPosition>`, which Java's `Iterator<? extends ElementPosition>` takes.
 
 ### Members
 
