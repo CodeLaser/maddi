@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -183,7 +184,57 @@ final class KotlinNullability {
             // Kotlin declares the member it overrides, non-null: Any.toString(): String; Iterator<E>.next(): E
             return verdict.withNullable(NullableState.NONNULL);
         }
-        return verdict != null ? verdict : methodInfo.returnType();
+        ParameterizedType result = verdict != null ? verdict : methodInfo.returnType();
+        ParameterizedType typed = rawOverrideResult(methodInfo, result);
+        return typed != null ? typed : result;
+    }
+
+    /**
+     * jenkins's Notifier: {@code BuildStepDescriptor getDescriptor()} overriding {@code Descriptor<Publisher>
+     * getDescriptor()}, a raw result Java accepts unchecked. Kotlin's {@code BuildStepDescriptor<*>} is no subtype of
+     * {@code Descriptor<Publisher>}; the raw class with the overridden result's arguments is,
+     * {@code BuildStepDescriptor<Publisher>}, where each of its type parameters is one of the overridden type's
+     * arguments. Null otherwise.
+     */
+    private static ParameterizedType rawOverrideResult(MethodInfo methodInfo, ParameterizedType result) {
+        TypeInfo raw = result.typeInfo();
+        if (!KotlinContext.translatingJava() || raw == null || result.arrays() > 0 || !result.parameters().isEmpty()
+            || raw.typeParameters().isEmpty() || methodInfo.overrides().isEmpty()) {
+            return null;
+        }
+        for (MethodInfo o : methodInfo.overrides()) {
+            ParameterizedType theirs = o.returnType();
+            if (theirs == null || theirs.typeInfo() == null || theirs.parameters().isEmpty() || theirs.arrays() > 0) {
+                continue;
+            }
+            ParameterizedType seen = seenThrough(theirs, o.typeInfo(), methodInfo.typeInfo().asParameterizedType());
+            if (seen.typeInfo() == null || seen.parameters().size() != theirs.parameters().size()) continue;
+            ParameterizedType asSuper;
+            try {
+                asSuper = raw == seen.typeInfo() ? raw.asParameterizedType()
+                        : raw.asParameterizedType().concreteSuperType(seen.typeInfo().asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                continue;
+            }
+            if (asSuper == null || asSuper.parameters().size() != seen.parameters().size()) continue;
+            List<ParameterizedType> arguments = new ArrayList<>();
+            for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+                ParameterizedType argument = null;
+                for (int i = 0; i < asSuper.parameters().size(); i++) {
+                    ParameterizedType a = asSuper.parameters().get(i);
+                    if (a != null && a.typeParameter() == tp && a.arrays() == 0 && a.wildcard() == null) {
+                        argument = seen.parameters().get(i);
+                        break;
+                    }
+                }
+                if (argument == null) break;
+                arguments.add(argument);
+            }
+            if (arguments.size() == raw.typeParameters().size()) {
+                return result.withParameters(arguments);
+            }
+        }
+        return null;
     }
 
     /**

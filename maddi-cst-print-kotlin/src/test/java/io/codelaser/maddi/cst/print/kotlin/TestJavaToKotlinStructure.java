@@ -3196,4 +3196,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "(Optional.of(value!!) as Optional<T>)");
         compiles(kotlin);
     }
+
+    /**
+     * jenkins's Notifier: {@code BuildStepDescriptor getDescriptor()} overriding Publisher's {@code
+     * Descriptor<Publisher> getDescriptor()}, a raw result Java accepts unchecked. Kotlin's {@code
+     * BuildStepDescriptor<*>} is no subtype of {@code Descriptor<Publisher>}: the raw class takes the overridden
+     * result's arguments, {@code BuildStepDescriptor<Publisher>}.
+     */
+    @Test
+    public void rawResultOfAnOverride() {
+        String kotlin = kotlin("""
+                package a;
+                class Descriptor<T> { }
+                class BuildStepDescriptor<T> extends Descriptor<T> { }
+                abstract class Publisher {
+                    Descriptor<Publisher> getDescriptor() { return new Descriptor<>(); }
+                }
+                abstract class Notifier extends Publisher {
+                    @Override BuildStepDescriptor getDescriptor() { return (BuildStepDescriptor) super.getDescriptor(); }
+                }
+                abstract class Annotator<T> {
+                    abstract Annotator<T> annotate(T context);
+                }
+                class Url extends Annotator<Object> {
+                    @Override Annotator annotate(Object context) { return this; }
+                }
+                """);
+        contains(kotlin, "fun getDescriptor(): BuildStepDescriptor<Publisher>");
+        contains(kotlin, "fun annotate(context: Any): Annotator<Any>");
+        compiles(kotlin);
+    }
 }
