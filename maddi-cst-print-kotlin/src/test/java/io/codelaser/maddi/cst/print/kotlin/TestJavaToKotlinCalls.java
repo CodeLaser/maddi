@@ -614,6 +614,144 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's {@code new CopyOnWriteList<>((List) items, true)}, a raw cast into the constructor's {@code List<E>}:
+     * the call cannot name E, which Java's unchecked conversion erases, MutableList<Any>.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void rawCastIntoCalleeTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Text<T> {
+                    final T context;
+                    Text(String file, boolean done, T context) {
+                        this.context = context;
+                    }
+                }
+                class Copy<E> {
+                    final List<E> core;
+                    Copy(List<E> core, boolean noCopy) {
+                        this.core = core;
+                    }
+                }
+                class Computer {
+                    Text<Computer> logText() {
+                        return new Text<>("log", false, this);
+                    }
+                    @SuppressWarnings("unchecked")
+                    static Copy<Object> copy(Object items) {
+                        return new Copy<>((List) items, true);
+                    }
+                }
+                """);
+        contains(kotlin, "items as MutableList<Any>");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins: {@code Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>())} (ExtensionList), a diamond
+     * typed by the call, which the local's type fixes; and {@code Object createCollection(Class type) { return new
+     * ArrayList(); }} (ImmutableListConverter), a raw construction into an Object.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void diamondArgumentAndRawIntoObject() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Extensions<T> {
+                    int count(List<T> items) {
+                        Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>());
+                        instances.addAll(items);
+                        return instances.size();
+                    }
+                    Object createCollection(Class type) {
+                        return new ArrayList();
+                    }
+                }
+                """);
+        contains(kotlin, "val instances: MutableSet<T>");
+        contains(kotlin, "ArrayList<Any?>()");
+        compiles(kotlin);
+    }
+
+    /**
+     * fernflower's ExceptionDeobfuscator: {@code Set<String> exceptions = …collect(Collectors.toSet())} and then
+     * {@code !exceptions.contains(null)}: Kotlin's contains infers its T from the inputs, and a null fits no String.
+     */
+    @Test
+    public void containsNullOfNonNullSet() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.stream.Collectors;
+                class Ranges {
+                    static boolean single(List<String> types) {
+                        Set<String> exceptions = types.stream().collect(Collectors.toSet());
+                        return exceptions.size() == 1 && !exceptions.contains(null);
+                    }
+                }
+                """);
+        contains(kotlin, "contains((null as String?))");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's hudson.util.HttpResponses extends Stapler's, and ListView calls {@code HttpResponses.ok()}, a static of
+     * the library superclass: Kotlin reaches a Java class's statics through that class only.
+     */
+    @Test
+    public void inheritedLibraryStatic() {
+        String kotlin = kotlin("""
+                package a;
+                class Worker extends Thread {
+                    static String current() {
+                        return Worker.currentThread().getName();
+                    }
+                }
+                class View {
+                    String name() {
+                        return Worker.currentThread().getName();
+                    }
+                }
+                """);
+        contains(kotlin, "Thread.currentThread()");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins: {@code a.compareToIgnoreCase(b)} (Functions), {@code annotation.annotationType()} (ExtensionFinder) and
+     * {@code stream.toArray(Computer[]::new)} (ComputerSet), which Kotlin's String, Annotation and arrays lack.
+     */
+    @Test
+    public void jenkinsJdkMembers() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.Annotation;
+                import java.util.*;
+                class Members {
+                    static int compare(String a, String b) {
+                        return a.compareToIgnoreCase(b);
+                    }
+                    static Class<? extends Annotation> type(Annotation annotation) {
+                        return annotation.annotationType();
+                    }
+                    static String[] names(List<String> list) {
+                        return list.stream().toArray(String[]::new);
+                    }
+                    static int[][] grid(List<int[]> rows) {
+                        return rows.stream().toArray(int[][]::new);
+                    }
+                }
+                """);
+        contains(kotlin, "a.compareTo(b, ignoreCase = true)");
+        contains(kotlin, "annotation.annotationClass.java");
+        contains(kotlin, "arrayOfNulls<String>(it)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's MemberUtil.simpleMembers: {@code stream.collect(ArrayList::new, ArrayList::add, ArrayList::addAll)},
      * unbound references to a library generic class: Kotlin wants its type arguments, {@code ArrayList<String>::add}.
      */

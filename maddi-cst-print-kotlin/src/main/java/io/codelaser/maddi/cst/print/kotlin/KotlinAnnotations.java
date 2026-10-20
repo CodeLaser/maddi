@@ -18,6 +18,9 @@ import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
 import io.codelaser.maddi.cst.api.expression.ArrayInitializer;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.IntConstant;
+import io.codelaser.maddi.cst.api.expression.LongConstant;
+import io.codelaser.maddi.cst.api.expression.UnaryOperator;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -95,10 +98,28 @@ final class KotlinAnnotations {
                 // a translated annotation class's array element is an Array property: @Tool(["x"]), not @Tool("x");
                 // a Java annotation's too, when named: only its positional value is a vararg (guava's
                 // @Immutable(containerOf = ["B"]))
-                b.add(elementValue(kv.value(), (translated || !positional) && arrayElement(ae.typeInfo(), kv), q));
+                ParameterizedType primitive = primitiveElement(ae.typeInfo(), kv);
+                b.add(primitive != null && !(kv.value() instanceof ArrayInitializer)
+                        // jenkins's @Extension(ordinal = 1000), a double element: Java widens the int, Kotlin does not
+                        ? widenedConstant(kv.value(), primitive, q)
+                        : elementValue(kv.value(), (translated || !positional) && arrayElement(ae.typeInfo(), kv), q));
             }
         }
         return b.add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /** The element's type, when it is a primitive other than the value's: a widening the value needs. */
+    private static ParameterizedType primitiveElement(io.codelaser.maddi.cst.api.info.TypeInfo annotationType,
+                                                      AnnotationExpression.KV kv) {
+        String key = kv.keyIsDefault() ? "value" : kv.key();
+        ParameterizedType type = annotationType.methods().stream()
+                .filter(m -> m.name().equals(key) && m.parameters().isEmpty()).map(m -> m.returnType())
+                .findFirst().orElse(null);
+        if (type == null || type.arrays() > 0 || !type.isPrimitiveExcludingVoid() || kv.value().parameterizedType() == null
+            || type.equals(kv.value().parameterizedType())) {
+            return null;
+        }
+        return type;
     }
 
     private static boolean arrayElement(io.codelaser.maddi.cst.api.info.TypeInfo annotationType, AnnotationExpression.KV kv) {
@@ -143,6 +164,33 @@ final class KotlinAnnotations {
             return type.arrays() > 0 ? "Array<" + kclass + ">" : kclass;
         }
         return KotlinTypeName.of(type, q);
+    }
+
+    /**
+     * An integer constant into a floating-point element, {@code 1000} as {@code 1000.0}, {@code -1} as {@code -1.0}:
+     * an annotation argument is a constant, which Kotlin does not widen. Other values as {@link
+     * KotlinExpressionPrinter#widened} converts them.
+     */
+    static OutputBuilder widenedConstant(Expression e, ParameterizedType type, Qualification q) {
+        boolean negated = e instanceof UnaryOperator uo && "-".equals(uo.operator().name());
+        Expression literal = negated ? ((UnaryOperator) e).expression() : e;
+        String digits = literal instanceof IntConstant ic ? Integer.toString(ic.constant())
+                : literal instanceof LongConstant lc ? Long.toString(lc.constant()) : null;
+        boolean floating = type.isDouble() || Boolean.TRUE.equals(type.isFloat());
+        if (digits != null && floating) {
+            return new OutputBuilderImpl().add(new TextImpl((negated ? "-" : "") + digits + (type.isDouble() ? ".0" : "f")));
+        }
+        if (digits != null && type.isLong()) return new OutputBuilderImpl().add(new TextImpl((negated ? "-" : "") + digits));
+        return KotlinExpressionPrinter.widened(e, type, q);
+    }
+
+    /** An element's default: {@code String[] value() default ""} is {@code [""]}. */
+    static OutputBuilder elementValue(Expression e, boolean array, ParameterizedType type, Qualification q) {
+        if (type != null && type.arrays() == 0 && type.isPrimitiveExcludingVoid() && e.parameterizedType() != null
+            && !type.equals(e.parameterizedType())) {
+            return widenedConstant(e, type, q);
+        }
+        return elementValue(e, array, q);
     }
 
     /** An element's default: {@code String[] value() default ""} is {@code [""]}. */

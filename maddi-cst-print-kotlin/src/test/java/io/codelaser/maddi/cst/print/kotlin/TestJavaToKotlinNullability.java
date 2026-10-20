@@ -164,6 +164,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's HyperlinkNote extends the raw ConsoleNote: {@code annotate(Object context)} overrides
+     * {@code annotate(T context)}, an Any? through the erased supertype ConsoleNote<Any?>, whatever the verdict says.
+     */
+    @Test
+    @SuppressWarnings("rawtypes")
+    public void overrideOfRawTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Note<T> {
+                    abstract String annotate(T context, int pos);
+                }
+                class Hyperlink extends Note {
+                    @Override
+                    String annotate(Object context, int pos) {
+                        return String.valueOf(context) + pos;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "annotate(context: Any?, pos: Int)");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's UtilsAndCommons: {@code metadataMap = toObj(json, new TypeReference<Map<String, String>>() {})}, the
      * call's T fixed by the anonymous class, into a local whose values are nullable: the supertype takes the target's
      * type, Kotlin's T being invariant.

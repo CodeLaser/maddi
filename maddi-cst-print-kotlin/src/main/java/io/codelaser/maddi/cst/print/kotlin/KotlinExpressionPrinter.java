@@ -388,8 +388,12 @@ public class KotlinExpressionPrinter {
             if (!mc.objectIsImplicit() || !KotlinContext.typeInScope(owner) && !KotlinTypePrinter.fromKotlinSource(owner)) {
                 // SingleClassesTest.collectClasses(f), declared in SingleClassesTestBase: a companion's members are
                 // not inherited, so the declaring type names them
-                TypeInfo named = mc.methodInfo().isStatic() && KotlinNullability.translated(owner)
-                                 && te.parameterizedType().typeInfo() != owner ? owner : te.parameterizedType().typeInfo();
+                // nor does a class of ours give a Java superclass's statics: jenkins's hudson.util.HttpResponses
+                // extends Stapler's, whose ok() is called as HttpResponses.ok()
+                TypeInfo written = te.parameterizedType().typeInfo();
+                TypeInfo named = mc.methodInfo().isStatic() && written != owner
+                                 && (KotlinNullability.translated(owner) || KotlinNullability.translated(written))
+                        ? owner : written;
                 b.add(new TextImpl(KotlinTypeName.staticOwner(named, q))).add(SymbolEnum.DOT);
             }
         } else if (object != null && !mc.objectIsImplicit()) {
@@ -538,10 +542,12 @@ public class KotlinExpressionPrinter {
             for (int i = 1; i < 5; i++) call.add(print(args.get(i), q)).add(SymbolEnum.COMMA);
             return call.add(new TextImpl("ignoreCase =")).add(print(args.getFirst(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())) {
-            return b.add(new TextImpl("equals")).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(print(mc.parameterExpressions().getFirst(), q)).add(SymbolEnum.COMMA)
-                    .add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
+        if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())
+            || KotlinMappedMembers.isCompareToIgnoreCase(mc.methodInfo())) {
+            // jenkins's Functions: a.getName().compareToIgnoreCase(b.getName()), compareTo(…, ignoreCase = true)
+            return b.add(new TextImpl(KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo()) ? "equals" : "compareTo"))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(mc.parameterExpressions().getFirst(), q))
+                    .add(SymbolEnum.COMMA).add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
         String typeArguments = !mc.typeArguments().isEmpty() ? explicitTypeArguments(mc, q)
@@ -1768,6 +1774,11 @@ public class KotlinExpressionPrinter {
                       && KotlinNullability.isNullable(kotlin) ? kotlin.withWildcard(null) : null;
         }
         ParameterizedType argumentType = argument.parameterizedType();
+        if (element != null && unwrap(argument) instanceof NullConstant && element.wildcard() == null
+            && element.typeInfo() != null) {
+            // fernflower's ExceptionDeobfuscator: !exceptions.contains(null) of a Set<String>, which no T fits
+            return element;
+        }
         if (typeVariableLookup(element, argumentType)) return element;
         if (element != null && argumentType != null && element.typeParameter() != null && element.arrays() == 0
             && element.wildcard() == null && argumentType.arrays() == 0
@@ -2040,8 +2051,9 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder intoRawTarget(Expression e, ParameterizedType target,
                                                java.util.function.Supplier<OutputBuilder> print) {
         Expression call = unwrap(e);
+        // an Object target fixes nothing either: jenkins's createCollection(Class) { return new ArrayList(); }
         if (!KotlinContext.translatingJava() || !(call instanceof ConstructorCall || call instanceof MethodCall)
-            || !rawGeneric(target)) {
+            || !rawGeneric(target) && !(call instanceof ConstructorCall && target != null && target.isJavaLangObject())) {
             return print.get();
         }
         boolean added = RAW_TARGET.get().add(call);
@@ -2559,6 +2571,34 @@ public class KotlinExpressionPrinter {
         return kotlin != null ? kotlin : e.parameterizedType();
     }
 
+    /**
+     * {@code type} as Kotlin writes it, each type variable the code cannot name replaced by its bound's erasure, or
+     * {@code Any}: {@code MutableList<E>} of a callee's E is {@code MutableList<Any>}.
+     */
+    private static String outOfScopeErased(ParameterizedType type, Qualification q) {
+        String printed = KotlinTypeName.of(type, q);
+        java.util.Map<String, String> replacements = new java.util.LinkedHashMap<>();
+        collectOutOfScope(type, replacements, q);
+        for (java.util.Map.Entry<String, String> r : replacements.entrySet()) {
+            printed = printed.replaceAll("(?<![\\w.])" + java.util.regex.Pattern.quote(r.getKey()) + "(?![\\w])",
+                    java.util.regex.Matcher.quoteReplacement(r.getValue()));
+        }
+        return printed;
+    }
+
+    private static void collectOutOfScope(ParameterizedType type, java.util.Map<String, String> replacements,
+                                          Qualification q) {
+        if (type == null) return;
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
+        if (tp != null && !KotlinContext.typeParameterInScope(tp)) {
+            ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst().orElse(null);
+            String erased = bound == null || bound.typeInfo() == null ? "Any"
+                    : KotlinTypeName.name(bound.typeInfo(), q) + KotlinTypeName.starProjections(bound.typeInfo());
+            replacements.putIfAbsent(KotlinNames.name(tp.simpleName()), erased);
+        }
+        type.parameters().forEach(p -> collectOutOfScope(p, replacements, q));
+    }
+
     /** {@code type} mentions a type variable the code being printed cannot name: a callee's own. */
     private static boolean mentionsOutOfScope(ParameterizedType type) {
         if (type == null) return false;
@@ -2617,6 +2657,15 @@ public class KotlinExpressionPrinter {
         Expression scope = mr.scope();
         if (mr.methodInfo().isConstructor()) {
             ParameterizedType type = scope.parameterizedType();
+            if (KotlinContext.translatingJava() && type.arrays() > 0) {
+                // jenkins's ComputerSet: stream.toArray(Computer[]::new); Kotlin has no array constructor reference.
+                // An IntFunction making the array, whose elements Java leaves null
+                ParameterizedType component = type.componentType();
+                String primitive = KotlinTypeName.primitiveArray(component);
+                if (primitive != null) return text("{ " + primitive + "(it) }");
+                String element = KotlinTypeName.of(component.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+                return text("{ arrayOfNulls<" + element + ">(it) as Array<" + element + "> }");
+            }
             String name = type.arrays() > 0 ? KotlinTypeName.of(type, q) : KotlinTypeName.name(type.typeInfo(), q);
             if (type.arrays() == 0 && name.contains(".") && mr.methodInfo().parameters().size() <= 2) {
                 // ::java.util.ArrayList is no reference Kotlin can parse
@@ -3752,12 +3801,18 @@ public class KotlinExpressionPrinter {
     private static void registerPattern(InstanceOf io, Qualification q) {
         if (io.patternVariable() == null || io.patternVariable().unnamedPattern()
             || io.patternVariable().localVariable() == null) return;
-        Expression tested = unwrap(io.expression());
+        registerPattern(io.patternVariable().localVariable(), io.expression(), io.testType(), q);
+    }
+
+    /** As {@link #registerPattern(InstanceOf, Qualification)}, for {@code variable} of {@code type} bound by {@code tested}. */
+    static void registerPattern(io.codelaser.maddi.cst.api.variable.LocalVariable variable, Expression testedExpression,
+                                ParameterizedType testType, Qualification q) {
+        Expression tested = unwrap(testedExpression);
         boolean smartCast = tested instanceof VariableExpression ve
                             && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
                                 || ve.variable() instanceof ParameterInfo);
-        String type = KotlinTypeName.of(io.testType(), q);
-        KotlinContext.patternVariable(io.patternVariable().localVariable(), smartCast
+        String type = KotlinTypeName.of(testType, q);
+        KotlinContext.patternVariable(variable, smartCast
                 ? () -> print(tested, q)
                 : () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, tested, q))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
@@ -3803,6 +3858,15 @@ public class KotlinExpressionPrinter {
     /** As Java's cast, to {@code castType}: Java's type with the type argument states of what it initializes. */
     private static OutputBuilder cast(Cast cast, ParameterizedType castType, boolean nullable, Qualification q) {
         if (smartCast(cast)) return print(cast.expression(), q);
+        if (KotlinContext.translatingJava() && castType != cast.parameterizedType() && mentionsOutOfScope(castType)) {
+            // jenkins's new CopyOnWriteList<>((List) items, true), Descriptor.toMap((Iterable) properties): a raw cast
+            // taking the target's arguments, the callee's E or T, which the call cannot name; Java's unchecked
+            // conversion erases it to its bound
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, cast, KotlinContext.describe(cast));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(operand(PrecedenceEnum.CAST, cast.expression(), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                    .add(SpaceEnum.ONE).add(new TextImpl(outOfScopeErased(castType, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         Primitive to = primitive(cast.parameterizedType());
         Primitive from = primitive(cast.expression().parameterizedType());
         if (to != null && cast.parameterizedType().isPrimitiveExcludingVoid() && signaturePolymorphic(cast.expression())) {
