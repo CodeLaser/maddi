@@ -671,4 +671,49 @@ public class TestSourceCodeScan {
         assertEquals("2-21:2-21, 2-25:2-25", commas(r, DetailedSources.TYPE_BOUND_AMPERSANDS));
     }
 
+
+    @Language("java")
+    private static final String INPUT_ENUM_CONSTANTS = """
+            package a;
+
+            public enum E {
+                ONE(new H() {
+                    public String h() {
+                        return U.label(1);
+                    }
+                }),
+                TWO {
+                    public String h() {
+                        return U.label(2);
+                    }
+                };
+
+                E(H h) {
+                }
+
+                E() {
+                }
+            }
+            """;
+
+    /*
+    ⛔ THE CODE OF AN ENUM CONSTANT WAS NEVER SCANNED: its arguments -- an anonymous class passed to the constructor -- and
+    its own class body. A call there had no END_OF_ARGUMENT_LIST, and a consumer adding an argument to it fell back to
+    the start of the call: in closed-core, an enum whose constants each get an anonymous handler, `Util.label()` became
+    `x1til.label()` (codelaser bean.migrate, 2026-10-20).
+    */
+    @Test
+    public void test8_enumConstants() {
+        SourceCodeScan sourceCodeScan = new SourceCodeScan(new RuntimeImpl());
+        SourceCodeScan.Result r = sourceCodeScan.go(INPUT_ENUM_CONSTANTS, false);
+        // the anonymous class passed to ONE: its allocation 'new H()' and the call in its method
+        testArgumentList(entryAt(r, "4-9:8-5"), "4-9:8-5", "END_OF_ARGUMENT_LIST=4-15:4-15");
+        testArgumentList(entryAt(r, "6-20:6-29"), "6-20:6-29", "END_OF_ARGUMENT_LIST=6-29:6-29");
+        // the class body of TWO: the call in its method
+        testArgumentList(entryAt(r, "11-20:11-29"), "11-20:11-29", "END_OF_ARGUMENT_LIST=11-29:11-29");
+    }
+
+    private static Iterator<Map.Entry<Source, Map<Object, Object>>> entryAt(SourceCodeScan.Result r, String compact2) {
+        return r.argumentLists().entrySet().stream().filter(e -> e.getKey().compact2().equals(compact2)).iterator();
+    }
 }
