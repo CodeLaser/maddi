@@ -340,6 +340,15 @@ public class KotlinStatementPrinter {
             // Callable<Void> it implements is a Callable<Unit>
             return b;
         }
+        if (!rs.hasNoValue() && label == null && voidMethod != null
+            && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+            && KotlinMethodPrinter.nonNullOverrideResult(voidMethod)) {
+            // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, as an
+            // expression body's (KotlinMethodPrinter.nullOverride)
+            KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, rs, voidMethod.typeInfo().simpleName() + "."
+                                                                            + voidMethod.name() + "()");
+            return new OutputBuilderImpl().add(new TextImpl("throw NullPointerException()"));
+        }
         if (!rs.hasNoValue()) {
             Expression value = rs.expression();
             OutputBuilder printed;

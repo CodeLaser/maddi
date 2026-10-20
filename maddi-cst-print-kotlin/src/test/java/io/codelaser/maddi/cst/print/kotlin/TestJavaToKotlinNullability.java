@@ -194,6 +194,35 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's LegacySecurityRealm: {@code authenticate} overrides Spring's non-null AuthenticationManager.authenticate,
+     * so its Kotlin result is non-null, and the {@code return null} of its block body cannot be: it throws, as an
+     * expression body's does (a deliberate behaviour change, reported).
+     */
+    @Test
+    public void nullReturnOfANonNullOverrideThrows() {
+        String kotlin = kotlin("""
+                package a;
+                class Auth { }
+                class ContainerAuth extends Auth { }
+                interface Manager {
+                    Auth authenticate(Auth authentication);
+                }
+                class Legacy implements Manager {
+                    @Override public Auth authenticate(Auth authentication) {
+                        if (authentication instanceof ContainerAuth) {
+                            return authentication;
+                        } else {
+                            return null;
+                        }
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun authenticate(authentication: Auth): Auth");
+        contains(kotlin, "throw NullPointerException()");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */

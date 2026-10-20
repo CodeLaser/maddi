@@ -191,7 +191,23 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             case "java.util.List" -> "get".equals(m.name()) || "set".equals(m.name());
             default -> false;
         });
-        return nonNullMember ? "UnsupportedOperationException" : null;
+        return nonNullMember ? "UnsupportedOperationException"
+                : nonNullOverrideResult(methodInfo) ? "NullPointerException" : null;
+    }
+
+    /**
+     * An override whose Kotlin result is non-null, as what it overrides declares it, and not a type variable (which
+     * takes an unchecked cast): jenkins's LegacySecurityRealm.authenticate, overriding Spring's non-null
+     * AuthenticationManager.authenticate, cannot return null.
+     */
+    static boolean nonNullOverrideResult(MethodInfo m) {
+        if (!KotlinContext.translatingJava() || m.isConstructor() || m.overrides().isEmpty()
+            || genericOverridden(m) != null) {
+            return false;
+        }
+        ParameterizedType rt = KotlinNullability.returnType(m);
+        return rt != null && !rt.isVoidOrJavaLangVoid() && !rt.isTypeParameter() && !rt.isPrimitiveExcludingVoid()
+               && !KotlinNullability.isNullable(rt);
     }
 
     /**
