@@ -1315,10 +1315,11 @@ public class KotlinExpressionPrinter {
                     printed.add(receiver(args.get(i), q).add(KotlinNullability.NOT_NULL));
                     continue;
                 }
-                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))
+                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i), false)
                     && widerOverloadOfTheSameName(method, i)) {
                     // jenkins's ArgumentListBuilder: add(a.toString(), false) to add(a: String?, mask) beside
-                    // add(a: Any, mask), the same name: the nullable type picks Java's
+                    // add(a: Any, mask), the same name: the nullable type picks Java's. A cast needs no Kotlin callee:
+                    // its test, builder.add("arg"), compiles against either
                     printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                             .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
                             .add(SpaceEnum.ONE)
@@ -1326,7 +1327,7 @@ public class KotlinExpressionPrinter {
                             .add(SymbolEnum.RIGHT_PARENTHESIS));
                     continue;
                 }
-                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
+                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i), true)) {
                     // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
                     // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin. The
                     // parameter's name picks Java's, whatever state another compilation sees it with
@@ -1940,14 +1941,14 @@ public class KotlinExpressionPrinter {
      * and the argument is non-null: Kotlin finds neither more specific, Java takes the narrower one.
      */
     private static boolean nullableBesideWiderOverload(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
-                                                       Expression argument) {
+                                                       Expression argument, boolean named) {
         if (!KotlinContext.translatingJava() || !KotlinNullability.translated(method.typeInfo())
             || i >= method.parameters().size() || method.parameters().get(i).isVarArgs()) return false;
         // a named argument needs the callee's Kotlin: a test compiles against the Java class where the callee's file
         // does not compile (guava's FauxveridesTest, ImmutableSortedSet.copyOf), so only within its own source set
         io.codelaser.maddi.cst.api.info.MethodInfo caller = KotlinContext.currentMethod();
-        if (caller == null || caller.typeInfo().compilationUnit().sourceSet()
-                              != method.typeInfo().compilationUnit().sourceSet()) return false;
+        if (named && (caller == null || caller.typeInfo().compilationUnit().sourceSet()
+                                        != method.typeInfo().compilationUnit().sourceSet())) return false;
         ParameterInfo p = method.parameters().get(i);
         ParameterizedType type = p.parameterizedType();
         if (type.arrays() != 0 || type.typeInfo() == null || type.typeParameter() != null
