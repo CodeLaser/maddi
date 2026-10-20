@@ -478,6 +478,13 @@ public class KotlinTypeName {
             return KotlinNames.dotted(minimal);
         }
         TypeInfo primary = typeInfo.primaryType();
+        if (primary != null && (minimal.equals(primary.fullyQualifiedName())
+                                || minimal.startsWith(primary.fullyQualifiedName() + "."))
+            && primary.fullyQualifiedName().equals(KotlinContext.importedName(primary.simpleName()))) {
+            // jenkins's {@link jenkins.model.Jenkins} in a Javadoc: Java's qualification then spells the type fully
+            // qualified everywhere, which Kotlin reads as the local `val jenkins` beside it. The file imports it
+            minimal = primary.simpleName() + minimal.substring(primary.fullyQualifiedName().length());
+        }
         String first = minimal.contains(".") ? minimal.substring(0, minimal.indexOf('.')) : minimal;
         String imported = KotlinContext.importedName(first);
         if (primary != null && first.equals(primary.simpleName()) && imported != null

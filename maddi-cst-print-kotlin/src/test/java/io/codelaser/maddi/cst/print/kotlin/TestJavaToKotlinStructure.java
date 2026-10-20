@@ -3280,4 +3280,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("MutableList<E>)"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * jenkins's PluginManager: {@code Jenkins jenkins = Jenkins.get()}, then {@code Jenkins.getAuthentication2()},
+     * in a file whose Javadoc links {@code jenkins.model.Jenkins}, which made Java's qualification spell the type in
+     * full everywhere. Written {@code jenkins.model.Jenkins}, Kotlin resolves {@code jenkins} to the local variable;
+     * the file imports the type, and its simple name is enough.
+     */
+    @Test
+    public void typeNamedAfterAPackageBesideALocalOfThatName() {
+        String kotlin = kotlin("""
+                package hudson;
+                import jenkins.model.Jenkins;
+                /** Lives longer than {@link jenkins.model.Jenkins}. */
+                class PluginManager {
+                    String install() {
+                        Jenkins jenkins = Jenkins.get();
+                        String center = jenkins.getUpdateCenter();
+                        return center + Jenkins.getAuthentication2();
+                    }
+                }
+                """, java.util.Map.of("jenkins.model.Jenkins", """
+                package jenkins.model;
+                public class Jenkins {
+                    public static Jenkins get() { return new Jenkins(); }
+                    public static String getAuthentication2() { return "a"; }
+                    public String getUpdateCenter() { return "u"; }
+                }
+                """));
+        assertFalse(kotlin.contains("jenkins.model.Jenkins."), kotlin);
+    }
 }

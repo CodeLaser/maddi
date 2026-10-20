@@ -2485,7 +2485,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, options);
         contains(kotlin, "object : It<MutableList<T?>>()");
-        contains(kotlin, "object : java.util.function.Supplier<MutableList<T?>>");
+        contains(kotlin, "object : Supplier<MutableList<T?>>");
         compiles(kotlin);
     }
 
