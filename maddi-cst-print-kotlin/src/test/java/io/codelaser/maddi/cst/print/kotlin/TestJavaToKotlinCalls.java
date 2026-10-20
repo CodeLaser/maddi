@@ -729,10 +729,18 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     String name() {
                         return callWithLock(() -> "q" + count);
                     }
+                    static class Named implements ThrowingCallable<String, java.io.IOException> {
+                        public String call() { return "n"; }
+                    }
+                    String typed() throws java.io.IOException {
+                        return callWithLock(new Named());
+                    }
                 }
                 """);
         contains(kotlin, "runWithLock<Throwable>(");
         contains(kotlin, "callWithLock<String, Throwable>(");
+        // a typed argument fixes T: jenkins's channel.call(new GetEnvVars())
+        contains(kotlin, "callWithLock(Named())");
         compiles(kotlin);
     }
 

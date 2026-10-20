@@ -726,12 +726,22 @@ public class KotlinExpressionPrinter {
         List<io.codelaser.maddi.cst.api.info.TypeParameter> throwsOnly = m.typeParameters().stream()
                 .filter(tp -> throwableBound(tp) != null && !CstQueries.mentions(m.returnType(), tp)).toList();
         if (throwsOnly.isEmpty()) return null;
+        // only where a lambda or a reference takes the T: a typed argument fixes it (jenkins's channel.call(new
+        // GetEnvVars()), a Callable<EnvVars, IOException>)
+        List<Expression> args = mc.parameterExpressions();
+        for (int i = 0; i < args.size() && i < m.parameters().size(); i++) {
+            ParameterizedType p = m.parameters().get(i).parameterizedType();
+            if (throwsOnly.stream().anyMatch(tp -> CstQueries.mentions(p, tp))
+                && !(unwrap(args.get(i)) instanceof Lambda) && !(unwrap(args.get(i)) instanceof MethodReference)) {
+                return null;
+            }
+        }
         Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
                 ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
         List<String> printed = new ArrayList<>();
         for (io.codelaser.maddi.cst.api.info.TypeParameter tp : m.typeParameters()) {
             if (throwsOnly.contains(tp)) {
-                printed.add(KotlinTypeName.of(throwableBound(tp).withNullable(
+                printed.add(KotlinTypeName.of(throwableBound(tp).withWildcard(null).withNullable(
                         io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q));
                 continue;
             }
