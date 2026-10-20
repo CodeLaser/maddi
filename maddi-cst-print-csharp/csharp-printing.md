@@ -392,6 +392,11 @@ implements the interface.
   nothing: `T` from a `Class<? extends Acceptor>` is `IAcceptor`, from a `Class<?>` its own bound. Nor does C# infer
   from an implicitly typed lambda's parameters: a type parameter that only parameters given a lambda or a method
   reference mention, `oneKeyGroupBy(key, Group1Mapping0CollectorUniNode::new)`'s `Tuple_`, gets them all too.
+  A variable arity parameter's type parameter comes from the array passed as such, or from elements of one type;
+  elements of different types, and a type parameter nothing else gives, take its bound in the others: `buildMove(a,
+  b)` of `<Solution_, Move_ extends Move<Solution_>>` is `BuildMove<Solution_, IMove<Solution_>>(a, b)`, where
+  Java's `Move_` is the least upper bound. None where a type argument as C# prints it is not its bound's, a captured
+  `VariableListener<Solution_, ?>` for `Listener_ extends VariableListener<Solution_, ChangeEvent_>` (CS0311).
 - **Diamonds.** `new X<>(…)` whose type arguments the parser left as `X`'s own type parameters, out of scope where
   it is created, gets the ones its constructor's arguments give; as a call's argument, else the ones Java inferred
   for its parameter: `share(new Bridge<>(parent), group::setBridge)`'s `S` is `Bridge<NewA>`, which the method

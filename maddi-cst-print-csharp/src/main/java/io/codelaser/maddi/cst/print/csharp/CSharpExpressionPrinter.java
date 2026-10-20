@@ -580,12 +580,74 @@ public final class CSharpExpressionPrinter {
         }
         Map<TypeParameter, ParameterizedType> inferred = new HashMap<>();
         match(method.returnType(), mc.concreteReturnType(), typeParameters, inferred);
-        for (int i = 0; i < method.parameters().size() && i < mc.parameterExpressions().size(); i++) {
+        List<Expression> args = mc.parameterExpressions();
+        for (int i = 0; i < method.parameters().size() && i < args.size(); i++) {
             ParameterInfo p = method.parameters().get(i);
-            if (p.isVarArgs()) break;
-            match(p.parameterizedType(), mc.parameterExpressions().get(i).parameterizedType(), typeParameters, inferred);
+            if (p.isVarArgs()) {
+                varArgs(p.parameterizedType(), args.subList(i, args.size()), typeParameters, inferred);
+                break;
+            }
+            match(p.parameterizedType(), args.get(i).parameterizedType(), typeParameters, inferred);
         }
+        bounds(typeParameters, inferred);
+        if (!meetBounds(typeParameters, inferred, q)) return "";
         return typeArgumentList(typeParameters, inferred, true, q);
+    }
+
+    /**
+     * Each type argument as its generic bound has it, the others substituted, as C# prints them: a captured
+     * {@code VariableListener<Solution_, ?>}, C#'s {@code IVariableListener<object, IChangeEvent>}, is no
+     * {@code Listener_ extends VariableListener<Solution_, ChangeEvent_>} (CS0311), where C#'s CS0411 is as good.
+     */
+    private static boolean meetBounds(List<TypeParameter> typeParameters, Map<TypeParameter, ParameterizedType> inferred,
+                                      Qualification q) {
+        for (TypeParameter tp : typeParameters) {
+            ParameterizedType t = inferred.get(tp);
+            if (t == null || t.wildcard() != null || t.typeInfo() == null) continue;
+            for (ParameterizedType bound : tp.typeBounds()) {
+                if (bound.typeInfo() == null || bound.parameters().isEmpty()) continue;
+                ParameterizedType expected = CstSupertypes.substitute(bound, inferred);
+                ParameterizedType seen = t.typeInfo().equals(bound.typeInfo()) ? t : CstSupertypes.asSeen(t, bound.typeInfo());
+                if (seen == null || CstQueries.mentionsAny(expected, typeParameters)) continue;
+                if (!CSharpTypeName.argument(seen, q).equals(CSharpTypeName.argument(expected, q))) return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * A variable arity parameter's type parameter: from the array passed as such, {@code buildMove(moves.toArray(…))},
+     * else from the elements when they are of one type; elements of different types, {@code buildMove(unassign,
+     * assign)}, leave it to its bound ({@link #bounds}), where Java's is their least upper bound.
+     */
+    private static void varArgs(ParameterizedType formal, List<Expression> args, List<TypeParameter> typeParameters,
+                                Map<TypeParameter, ParameterizedType> inferred) {
+        if (args.size() == 1 && args.getFirst().parameterizedType() != null
+            && args.getFirst().parameterizedType().arrays() == formal.arrays()) {
+            match(formal, args.getFirst().parameterizedType(), typeParameters, inferred);
+            return;
+        }
+        Set<ParameterizedType> elements = new HashSet<>();
+        for (Expression a : args) {
+            if (!(unwrap(a) instanceof NullConstant) && a.parameterizedType() != null) elements.add(a.parameterizedType());
+        }
+        if (elements.size() == 1) match(formal.copyWithFewerArrays(1), elements.iterator().next(), typeParameters, inferred);
+    }
+
+    /**
+     * A type parameter left without a type argument, of one bound in the others: that bound, {@code Move_ extends
+     * Move<Solution_>} with {@code Solution_} inferred.
+     */
+    private static void bounds(List<TypeParameter> typeParameters, Map<TypeParameter, ParameterizedType> inferred) {
+        for (TypeParameter tp : typeParameters) {
+            if (inferred.containsKey(tp) || tp.typeBounds().size() != 1) continue;
+            ParameterizedType bound = tp.typeBounds().getFirst();
+            if (bound.isJavaLangObject() || CstQueries.mentionsAny(bound, List.of(tp))) continue;
+            if (typeParameters.stream().anyMatch(o -> CstQueries.mentionsAny(bound, List.of(o)) && !inferred.containsKey(o))) {
+                continue;
+            }
+            inferred.put(tp, CstSupertypes.substitute(bound, inferred));
+        }
     }
 
     /** A type parameter of {@code method} that no parameter's type mentions as C# has it: C# cannot infer it. */
