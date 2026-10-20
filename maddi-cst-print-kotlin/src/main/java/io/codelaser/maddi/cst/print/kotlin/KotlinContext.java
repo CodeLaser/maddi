@@ -291,9 +291,12 @@ final class KotlinContext {
         return STATE.get().typeInScope(typeInfo);
     }
 
-    /** A type parameter of one of the types being printed, or of the method being printed. */
+    /**
+     * A type parameter of one of the types being printed that Kotlin sees here, or of the method being printed: not the
+     * outer class's in a nested class (jenkins's CopyOnWriteList.ConverterImpl and its E).
+     */
     static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
-        if (STATE.get().typeParameterInScope(typeParameter)) return true;
+        if (STATE.get().typeParameterInScope(typeParameter, KotlinTypePrinter::inner)) return true;
         // an enclosing method's too: guava's MultimapBuilder.enumKeys<K0> creates an EnumMap<K0, …> in the
         // createMap of the anonymous class it returns
         return typeParameter.isMethodTypeParameter()

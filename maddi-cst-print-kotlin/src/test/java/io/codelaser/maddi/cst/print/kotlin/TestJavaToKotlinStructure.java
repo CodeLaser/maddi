@@ -3253,4 +3253,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "(fromString(value.toString())) as T");
         compiles(kotlin);
     }
+
+    /**
+     * jenkins's CopyOnWriteList.ConverterImpl: {@code new CopyOnWriteList(items, true)} of a raw {@code List items},
+     * in a static nested class. The raw list into the constructor's {@code List<E>} is cast to Java's erasure; the
+     * outer class's E is not in scope there.
+     */
+    @Test
+    public void rawArgumentIntoOuterTypeParameterFromNestedClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class CopyOnWriteList<E> {
+                    private final List<E> core;
+                    private CopyOnWriteList(List<E> core, boolean noCopy) { this.core = noCopy ? core : new ArrayList<>(core); }
+                    int size() { return core.size(); }
+                    static final class ConverterImpl {
+                        Object unmarshal(String s) {
+                            List items = new ArrayList();
+                            items.add(s);
+                            return new CopyOnWriteList(items, true);
+                        }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("MutableList<E>)"), kotlin);
+        compiles(kotlin);
+    }
 }

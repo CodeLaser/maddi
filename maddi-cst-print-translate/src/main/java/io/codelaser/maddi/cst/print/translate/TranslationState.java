@@ -79,6 +79,18 @@ public final class TranslationState<C extends PrintMessage.Code> {
         return types.stream().anyMatch(t -> t.typeParameters().contains(typeParameter));
     }
 
+    /**
+     * A type parameter of the innermost type being printed, or of an enclosing one as far as each type in between
+     * {@code seesEnclosing} its enclosing type's: Kotlin's nested (not inner) class does not.
+     */
+    public boolean typeParameterInScope(TypeParameter typeParameter, java.util.function.Predicate<TypeInfo> seesEnclosing) {
+        for (TypeInfo t : types) {
+            if (t.typeParameters().contains(typeParameter)) return true;
+            if (!seesEnclosing.test(t)) return false;
+        }
+        return false;
+    }
+
     public void pushMethod(MethodInfo methodInfo) {
         methods.push(methodInfo);
     }
