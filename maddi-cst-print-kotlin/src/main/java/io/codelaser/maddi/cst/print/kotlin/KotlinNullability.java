@@ -582,7 +582,35 @@ final class KotlinNullability {
         } catch (RuntimeException | AssertionError e) {
             seen = null;
         }
+        if (seen != null && seen.typeInfo() != null) seen = erasedRaw(seen, receiver);
         return seen == null || seen.typeInfo() == null ? declared : substitute(declared, seen);
+    }
+
+    /**
+     * A raw supertype as Java erases it, each type parameter its bound's class or a nullable Object: jenkins's
+     * JellyMap implements a raw Map, a {@code MutableMap<Any?, Any?>}, whose keySet() is a {@code MutableSet<Any?>}.
+     */
+    static ParameterizedType erasedRaw(ParameterizedType seen, ParameterizedType receiver) {
+        TypeInfo raw = seen.typeInfo();
+        if (!KotlinContext.translatingJava() || !seen.parameters().isEmpty() || seen.arrays() > 0
+            || raw.typeParameters().isEmpty() || receiver.typeInfo() == null) {
+            return seen;
+        }
+        // the printer has no runtime: Object is the top of the receiver's superclasses
+        ParameterizedType object = receiver.typeInfo().parentClass();
+        while (object != null && !object.isJavaLangObject() && object.typeInfo() != null) {
+            object = object.typeInfo().parentClass();
+        }
+        if (object == null || !object.isJavaLangObject()) return seen;
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+            ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject() && b.typeInfo() != null)
+                    .findFirst().orElse(null);
+            if (bound != null && !bound.typeInfo().typeParameters().isEmpty()) return seen;
+            arguments.add(bound != null ? bound.typeInfo().asSimpleParameterizedType()
+                    : object.withNullable(NullableState.NULLABLE));
+        }
+        return seen.withParameters(arguments);
     }
 
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver, boolean input) {

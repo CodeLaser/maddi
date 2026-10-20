@@ -164,6 +164,36 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's ExpressionFactory2.JellyMap implements a raw Map: Kotlin forbids {@code MutableMap<*, *>} as a
+     * supertype; Java's erasure is {@code MutableMap<Any?, Any?>}, whose members the raw ones override.
+     */
+    @Test
+    public void rawMapSupertype() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class JellyMap implements Map {
+                    public Object get(Object key) { return key.toString(); }
+                    public void clear() { }
+                    public boolean containsKey(Object key) { return get(key) != null; }
+                    public boolean containsValue(Object value) { return false; }
+                    public Set entrySet() { return new HashSet(); }
+                    public boolean isEmpty() { return false; }
+                    public Set keySet() { return new HashSet(); }
+                    public Object put(Object key, Object value) { return null; }
+                    public void putAll(Map t) { }
+                    public Object remove(Object key) { return null; }
+                    public int size() { return -1; }
+                    public Collection values() { return new ArrayList(); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("key", "value", "t", "get()", "put()", "remove()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "class JellyMap : MutableMap<Any?, Any?>");
+        contains(kotlin, "override fun putAll(t: Map<out Any?, Any?>)");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's ApiTokenStore: {@code Objects.requireNonNullElseGet(expirationDate, LocalDate::now)} of a nullable
      * date, whose T Kotlin infers nullable, and the result with it: Kotlin's elvis.
      */

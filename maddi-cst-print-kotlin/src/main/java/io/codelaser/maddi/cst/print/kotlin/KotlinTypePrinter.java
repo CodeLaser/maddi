@@ -741,8 +741,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
      */
     static String rawSupertype(ParameterizedType supertype, Qualification q) {
-        if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null
-            || KotlinTypeName.isMapped(supertype.typeInfo().fullyQualifiedName())) return null;
+        if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null) return null;
         return KotlinTypeName.erased(supertype, q);
     }
 

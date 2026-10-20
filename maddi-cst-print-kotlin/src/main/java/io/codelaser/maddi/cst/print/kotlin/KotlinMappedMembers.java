@@ -213,6 +213,10 @@ final class KotlinMappedMembers {
                     return null;
                 }
             }
+            // jenkins's JellyMap implements a raw Map: its get(key) is MutableMap<Any?, Any?>'s
+            if (asOwner != null && asOwner.typeInfo() != null) {
+                asOwner = KotlinNullability.erasedRaw(asOwner, methodInfo.typeInfo().asParameterizedType());
+            }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
             if (map) return asOwner.parameters().size() == 2 ? asOwner : null;
