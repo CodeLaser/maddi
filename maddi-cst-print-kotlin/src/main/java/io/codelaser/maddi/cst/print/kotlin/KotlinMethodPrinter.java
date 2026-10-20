@@ -308,6 +308,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
         if (typeOverride == null) {
+            ParameterizedType generic = genericParameter(pi);
+            if (generic != null) {
+                typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(generic.withNullable(declared.nullable()), q));
+            }
+        }
+        if (typeOverride == null) {
             ParameterizedType overridden = erasureOverride(pi);
             if (overridden != null) {
                 typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
@@ -362,6 +368,19 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
         }
         return null;
+    }
+
+    /**
+     * The generic member's parameter type, where the override's takes its type parameters: {@code Class<T>} for
+     * jenkins's raw {@code Class type} of {@code convert(Class<T> type, Object value)}. Null otherwise.
+     */
+    private static ParameterizedType genericParameter(ParameterInfo pi) {
+        MethodInfo genericSuper = genericOverridden(pi.methodInfo());
+        if (genericSuper == null || genericSuper.parameters().size() <= pi.index()) return null;
+        ParameterizedType theirs = genericSuper.parameters().get(pi.index()).parameterizedType();
+        ParameterizedType own = pi.parameterizedType();
+        return theirs.typeInfo() != null && theirs.typeInfo() == own.typeInfo() && theirs.arrays() == own.arrays()
+               && own.parameters().isEmpty() && !theirs.parameters().isEmpty() ? theirs : null;
     }
 
     /** Same type arguments, but {@code ?} in {@code own} where {@code theirs} has a bounded wildcard. */
@@ -816,12 +835,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     /**
      * The generic member a method without type parameters overrides: Java lets {@code Class<AiServiceCompletedEvent>
      * eventClass()} override {@code <T extends AiServiceEvent> Class<T> eventClass()} (unchecked); Kotlin does not, and
-     * the override is printed with the member's type parameters and result, its value cast. Only an abstract method
-     * or one whose body is a single expression, which takes the cast; null otherwise.
+     * the override is printed with the member's type parameters, parameters and result, its values cast (jenkins's
+     * raw {@code Object convert(Class type, Object value)} of beanutils's {@code <T> T convert(Class<T>, Object)});
+     * null otherwise.
      */
-    private MethodInfo genericOverridden(MethodInfo m) {
+    static MethodInfo genericOverridden(MethodInfo m) {
         if (m.isConstructor() || !m.typeParameters().isEmpty() || m.overrides().isEmpty()) return null;
-        if (!m.isAbstract() && (m.methodBody() == null || expressionBody(m.methodBody()) == null)) return null;
+        if (!m.isAbstract() && m.methodBody() == null) return null;
         return m.overrides().stream().filter(o -> !o.typeParameters().isEmpty() && mentionsOwnTypeParameter(o))
                 .findFirst().orElse(null);
     }

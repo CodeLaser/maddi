@@ -346,7 +346,9 @@ public class KotlinStatementPrinter {
             io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
             if (label == null && method != null && !method.isConstructor()) {
                 ParameterizedType returnType = KotlinNullability.returnType(method);
-                OutputBuilder cast = KotlinNullability.typeVariableReturn(method, value, q);
+                io.codelaser.maddi.cst.api.info.MethodInfo genericSuper = KotlinMethodPrinter.genericOverridden(method);
+                OutputBuilder cast = genericSuper != null ? genericReturn(value, genericSuper, q)
+                        : KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
                         KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.assigned(value, returnType, q), q);
             } else if (rs.goToLabel() == null && KotlinContext.LAMBDA_LABEL.equals(label)) {
@@ -361,6 +363,18 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(printed);
         }
         return b;
+    }
+
+    /**
+     * What an unchecked override of a generic member returns, cast to the member's result: jenkins's Secret
+     * converter, {@code return Secret.fromString(value)} from a {@code <T> T convert(…)}.
+     */
+    private static OutputBuilder genericReturn(Expression value, io.codelaser.maddi.cst.api.info.MethodInfo genericSuper,
+                                               Qualification q) {
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinExpressionPrinter.widened(value, null, q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.returnType(genericSuper), q)));
     }
 
     /**

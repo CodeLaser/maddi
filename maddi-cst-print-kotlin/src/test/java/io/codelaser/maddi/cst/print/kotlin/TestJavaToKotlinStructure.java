@@ -3226,4 +3226,31 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun annotate(context: Any): Annotator<Any>");
         compiles(kotlin);
     }
+
+    /**
+     * jenkins's Secret converter: a raw {@code Object convert(Class type, Object value)} with a block body,
+     * overriding beanutils's {@code <T> T convert(Class<T> type, Object value)}. Kotlin's override takes the member's
+     * type parameter and parameter types, and casts what it returns.
+     */
+    @Test
+    public void rawBlockOverrideOfAGenericMember() {
+        String kotlin = kotlin("""
+                package a;
+                interface Converter {
+                    <T> T convert(Class<T> type, Object value);
+                }
+                class Secret {
+                    static Secret fromString(String s) { return new Secret(); }
+                    static final Converter CONVERTER = new Converter() {
+                        @Override public Object convert(Class type, Object value) {
+                            if (value instanceof Secret) return value;
+                            return fromString(value.toString());
+                        }
+                    };
+                }
+                """);
+        contains(kotlin, "override fun <T> convert(type: Class<T>");
+        contains(kotlin, "(fromString(value.toString())) as T");
+        compiles(kotlin);
+    }
 }
