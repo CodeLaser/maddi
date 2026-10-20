@@ -588,6 +588,17 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 @SuppressWarnings("unchecked")
                 static <A> java.util.function.Function<A, A> identity() { return IDENTITY; }
                 static final class Cell<T> { T t; }
+                record Entry<E, V>(E entity, V value) {
+                    static <E, V> Entry<E, V> of(E entity, V value) { return new Entry<>(entity, value); }
+                }
+                static <E> Entry<E, String> unowned() { return Entry.of(null, "x"); }
+                interface Mv<S> { }
+                static final class Unassign<S> implements Mv<S> { }
+                static final class Assign<S> implements Mv<S> { }
+                @SafeVarargs
+                static <S, M extends Mv<S>> Mv<S> build(M... moves) { return moves[0]; }
+                static <S> Mv<S> same(Mv<S> a, Mv<S> b) { return build(a, b); }
+                static <S> Mv<S> mixed(Unassign<S> a, Assign<S> b) { return build(a, b); }
                 static <T> Cell<T> pick(Cell<T>[] cells) { return cells[0]; }
                 @SuppressWarnings("unchecked")
                 static <T> Cell<T> first(Cell<T> c) {
@@ -612,6 +623,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "(Func<int, ISet<V>>) (p0 => new HashSet<V>(p0))");
         // a raw array whose elements are all a Cell<T>: a Cell<T>[]
         contains(cs, "var all = new Cell<T>[1];");
+        // S only in M's bound: C# infers neither from a constraint, both are written; elements of different types
+        // as the bound, where Java's is their least upper bound
+        contains(cs, "Same<S>(IMv<S> a, IMv<S> b) => Build<S, IMv<S>>(a, b);");
+        contains(cs, "Mixed<S>(Unassign<S> a, Assign<S> b) => Build<S, IMv<S>>(a, b);");
+        // E only from null, which gives C# nothing to infer
+        contains(cs, "Entry.Of<E, string>(default, \"x\")");
         // a raw constant lambda returned as the generic type: the lambda, which C# caches per type arguments
         contains(cs, "internal static Func<A, B, A> PickFirst<A, B>() => (a, b) => a;");
         contains(cs, "internal static Func<A, A> Identity<A>() => ");

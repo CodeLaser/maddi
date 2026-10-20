@@ -167,6 +167,8 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                     return new HashMap<>();
                 }
                 static <M, N> Map<M, N> orEmpty(Map<M, N> m) { return m == null ? Map.of() : m; }
+                static <Q> Map<Q, String> fresh(Object hint) { Map<Q, String> m = new HashMap<>(); return m; }
+                static <R> Map<R, String> made() { return fresh(null); }
                 static class Sub<S, U> extends Index<S, U> { }
                 static class Plain<P> { P value; }
             }
@@ -194,6 +196,9 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "where G : notnull");
         // Map.of() is a new Dictionary
         contains(cs, "where M : notnull");
+        // through a call's result, which C# gets written as a type argument: Fresh<R>(null)
+        contains(cs, "where Q : notnull");
+        contains(cs, "where R : notnull");
         assertFalse(cs.contains("where D : notnull"), cs);
         assertFalse(cs.contains("where P : notnull"), cs);
         assertFalse(cs.contains("where V : notnull"), cs);
