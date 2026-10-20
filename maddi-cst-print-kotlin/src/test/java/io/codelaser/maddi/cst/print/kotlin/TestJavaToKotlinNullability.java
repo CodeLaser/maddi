@@ -164,6 +164,39 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's InstallUtil: a block lambda into a {@code Function<Provider<InstallState>, InstallState>} returns
+     * {@code getDefaultInstallState()} early and {@code states.get(current)} last, values Kotlin types nullable, into a
+     * result the verdicts hold non-null: both asserted, as a single-expression lambda's value is.
+     */
+    @Test
+    public void blockLambdaReturnsAsserted() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Function;
+                class Install {
+                    static String fallback() { return null; }
+                    static List<Function<String, String>> chain(String current) {
+                        List<Function<String, String>> filters = new ArrayList<>();
+                        filters.add(input -> {
+                            if (current == null) {
+                                return fallback();
+                            }
+                            Map<String, String> states = new HashMap<>();
+                            states.put("a", "b");
+                            return states.get(current);
+                        });
+                        return filters;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("fallback()", "current"), Set.of("=apply()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "return@lambda fallback()!!");
+        contains(kotlin, "states.get(current)!!");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's HyperlinkNote extends the raw ConsoleNote: {@code annotate(Object context)} overrides
      * {@code annotate(T context)}, an Any? through the erased supertype ConsoleNote<Any?>, whatever the verdict says.
      */

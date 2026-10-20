@@ -301,7 +301,7 @@ public class KotlinStatementPrinter {
         for (int i = 0; i < statements.size(); i++) {
             Statement s = statements.get(i);
             if (i == statements.size() - 1 && s instanceof ReturnStatement rs && rs.goToLabel() == null) {
-                if (!rs.hasNoValue()) printed.add(KotlinExpressionPrinter.print(rs.expression(), q));
+                if (!rs.hasNoValue()) printed.add(KotlinExpressionPrinter.lambdaReturned(rs.expression(), q));
             } else {
                 printed.add(print(s, q));
             }
@@ -349,6 +349,8 @@ public class KotlinStatementPrinter {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
                         KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.assigned(value, returnType, q), q);
+            } else if (rs.goToLabel() == null && KotlinContext.LAMBDA_LABEL.equals(label)) {
+                printed = KotlinExpressionPrinter.lambdaReturned(value, q);
             } else {
                 printed = KotlinExpressionPrinter.print(value, q);
             }

@@ -3289,6 +3289,21 @@ public class KotlinExpressionPrinter {
         return lambda(lambda, samConstructor ? samConstructor(lambda, q) : null, q);
     }
 
+    // the result each enclosing block lambda's returns go into, where the verdicts decide it non-null
+    private static final ThreadLocal<java.util.Deque<java.util.Optional<ParameterizedType>>> LAMBDA_RESULT =
+            ThreadLocal.withInitial(java.util.ArrayDeque::new);
+
+    /**
+     * A value a block lambda returns, into its result: asserted where the verdicts hold the result non-null and Kotlin
+     * types the value nullable, as a single-expression lambda's value is.
+     */
+    static OutputBuilder lambdaReturned(Expression value, Qualification q) {
+        java.util.Optional<ParameterizedType> decided = LAMBDA_RESULT.get().peek();
+        OutputBuilder printed = print(value, q);
+        if (decided == null || decided.isEmpty() || unwrap(value) instanceof ConstructorCall cc && inferred(cc)) return printed;
+        return KotlinNullability.toTarget(value, decided.get(), true, printed, q);
+    }
+
     /** As {@link #lambda(Lambda, boolean, Qualification)}, with {@code sam} as its SAM constructor, or none. */
     private static OutputBuilder lambda(Lambda lambda, String sam, Qualification q) {
         ParameterizedType functional = lambda.concreteFunctionalType();
@@ -3345,7 +3360,16 @@ public class KotlinExpressionPrinter {
                 }
             } else {
                 labelled = hasInnerReturn(statements);
-                OutputBuilder lines = KotlinStatementPrinter.lambdaBody(statements, q);
+                // a block's returns go into the same result: jenkins's InstallUtil, return states.get(current)
+                ParameterizedType decided = KotlinNullability.verdicts().returnType(lambda.methodInfo());
+                LAMBDA_RESULT.get().push(decided != null && !KotlinNullability.isNullable(decided)
+                        ? java.util.Optional.of(decided) : java.util.Optional.empty());
+                OutputBuilder lines;
+                try {
+                    lines = KotlinStatementPrinter.lambdaBody(statements, q);
+                } finally {
+                    LAMBDA_RESULT.get().pop();
+                }
                 inner = reassigned.isEmpty() ? lines : java.util.stream.Stream.concat(reassigned.stream(),
                         java.util.stream.Stream.of(lines)).filter(o -> !o.isEmpty())
                         .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
