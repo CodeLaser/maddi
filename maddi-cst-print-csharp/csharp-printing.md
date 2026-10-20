@@ -439,7 +439,13 @@ implements the interface.
   where a `Set` is expected is `m.KeySet()`, the compatibility library's live view of the keys (`Keys` is only an
   `ICollection`); not of a read-only parameter. A raw array local created raw, `var moves = new Move[n]`, whose stored
   elements are all one type with arguments, `Move<Solution_>`, is that type's array, `new IMove<Solution_>[n]`. A
-  `HashMap`'s or `HashSet`'s load factor is dropped.
+  `Func` or `Action` where the same interface is expected with other type arguments, which C#'s variance does not
+  convert (a type parameter, a value type or `object` narrowed at a position that differs), is wrapped:
+  `(Function<A, Object>) mapping` of a `Function<Object, Object>` is
+  `JavaDelegates.Cast<object, object, A, object>(mapping)`, evaluated once, its arguments and result cast at each
+  call as Java's erasure lets them through; another object, which a comparison by reference does not find equal. Not
+  a lambda or a method reference, nor a target of type parameters out of scope (a generic callee's, a superclass's).
+  A `HashMap`'s or `HashSet`'s load factor is dropped.
 - **Variable arity of the JDK.** An array passed as the arguments themselves, `List.of(names)` of a `String[]`, is
   the collection of its elements, `new List<string>(names)`, as `Arrays.asList` and `Stream.of`; `getMethod(name,
   type)` is `GetMethod(name, new Type[] { type })`. A template's cast of an argument casts the operand,

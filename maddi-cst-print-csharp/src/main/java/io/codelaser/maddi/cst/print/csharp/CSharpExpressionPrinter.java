@@ -152,6 +152,9 @@ public final class CSharpExpressionPrinter {
      * parameters: {@code (T) this} in a self-typed builder is {@code (T) (object) this}.
      */
     private static OutputBuilder cast(Cast cast, Qualification q) {
+        // (Function<A, Object>) mapping of a Function<Object, Object>: no cast C# has, the value wrapped
+        OutputBuilder delegateCast = delegateCast(cast.expression(), unwrap(cast.expression()), cast.parameterizedType(), q);
+        if (delegateCast != null) return delegateCast;
         // a value that may be null keeps its null through a reference cast, in C# as in Java: (T?) x (CS8600)
         // (AiMessage) null, which picks an overload, is (AiMessage?) null
         boolean nullConstant = unwrap(cast.expression()) instanceof NullConstant
@@ -1042,6 +1045,8 @@ public final class CSharpExpressionPrinter {
         if (group != null) return group;
         OutputBuilder widened = widenedDelegate(inner, target, q);
         if (widened != null) return widened;
+        OutputBuilder delegateCast = delegateCast(value, inner, target, q);
+        if (delegateCast != null) return delegateCast;
         // a raw or wildcard use where the type is expected with arguments, ScoreDefinition getScoreDefinition() into a
         // ScoreDefinition<Score_>: Java's unchecked conversion, C#'s cast of the wildcard interface, which the value is
         if (wildcardIntoGeneric(inner, target)) {
@@ -1172,6 +1177,80 @@ public final class CSharpExpressionPrinter {
             b.add(CSharpNullability.NULL_FORGIVING);
         }
         return b;
+    }
+
+    /**
+     * A {@code Func} or {@code Action} where the same functional interface is expected with other type arguments, which
+     * C#'s variance does not convert: a type parameter, a value type, or {@code object} narrowed, at a position that
+     * differs. {@code JavaDelegates.Cast<object, object, A, object>(castJoiner.GetLeftMapping(i))}, which casts the
+     * arguments and the result at each call as Java's unchecked conversion lets them through. Not a lambda or a method
+     * reference, which take the target's type themselves.
+     */
+    private static OutputBuilder delegateCast(Expression value, Expression inner, ParameterizedType target,
+                                              Qualification q) {
+        if (target == null || inner instanceof Lambda || inner instanceof MethodReference || inner instanceof NullConstant) {
+            return null;
+        }
+        ParameterizedType from = inner.parameterizedType();
+        if (from == null || from.arrays() != 0 || target.arrays() != 0 || from.typeInfo() == null
+            || !from.typeInfo().equals(target.typeInfo()) || !CSharpTypeName.libraryDelegate(from.typeInfo())
+            // not a generic callee's parameter, Func<T, R> of Max<T, R>, whose type parameters C# infers, nor a super
+            // constructor's, Func<A, Input_>, of the superclass's
+            || !writableNested(target, List.of()) || !ownTypeParameters(target)) {
+            return null;
+        }
+        List<String> fromArgs = delegateArguments(CSharpTypeName.of(from, q));
+        List<String> toArgs = delegateArguments(CSharpTypeName.of(target, q));
+        if (fromArgs == null || toArgs == null || fromArgs.size() != toArgs.size() || fromArgs.equals(toArgs)) return null;
+        List<String> typeParameters = new ArrayList<>();
+        for (TypeInfo t = CSharpContext.currentType(); t != null; t = CstQueries.enclosing(t)) {
+            t.typeParameters().forEach(tp -> typeParameters.add(CSharpNames.typeParameter(tp)));
+        }
+        MethodInfo method = CSharpContext.currentMethod();
+        if (method != null) method.typeParameters().forEach(tp -> typeParameters.add(CSharpNames.typeParameter(tp)));
+        boolean needed = false;
+        for (int i = 0; i < fromArgs.size(); i++) {
+            String f = fromArgs.get(i);
+            String t = toArgs.get(i);
+            if (f.equals(t)) continue;
+            needed |= typeParameters.contains(f) || typeParameters.contains(t) || "object".equals(f)
+                      || VALUE_TYPE_NAMES.contains(f) || VALUE_TYPE_NAMES.contains(t);
+        }
+        if (!needed) return null;
+        CSharpContext.using(CSharpCompat.NAMESPACE);
+        List<String> arguments = new ArrayList<>(fromArgs);
+        arguments.addAll(toArgs);
+        return new OutputBuilderImpl().add(text("JavaDelegates.Cast<" + String.join(", ", arguments) + ">"))
+                .add(SymbolEnum.LEFT_PARENTHESIS).add(print(value, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    private static final Set<String> VALUE_TYPE_NAMES = Set.of("int", "long", "short", "sbyte", "byte", "char", "bool",
+            "double", "float", "decimal");
+
+    /**
+     * The type arguments of a printed {@code Func<…>} or {@code Action<…>}, at its top level; null for another type, or
+     * one {@code JavaDelegates} has no overload of.
+     */
+    private static List<String> delegateArguments(String printed) {
+        String inside;
+        if (printed.startsWith("Func<") && printed.endsWith(">")) inside = printed.substring(5, printed.length() - 1);
+        else if (printed.startsWith("Action<") && printed.endsWith(">")) inside = printed.substring(7, printed.length() - 1);
+        else return null;
+        List<String> arguments = new ArrayList<>();
+        int depth = 0;
+        int start = 0;
+        for (int i = 0; i < inside.length(); i++) {
+            char c = inside.charAt(i);
+            if (c == '<') depth++;
+            else if (c == '>') depth--;
+            else if (c == ',' && depth == 0) {
+                arguments.add(inside.substring(start, i).strip());
+                start = i + 1;
+            }
+        }
+        arguments.add(inside.substring(start).strip());
+        // JavaDelegates' overloads: a Func of up to three parameters, an Action of up to two
+        return arguments.size() <= (printed.startsWith("Func<") ? 4 : 2) ? arguments : null;
     }
 
     /**
