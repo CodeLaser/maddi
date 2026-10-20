@@ -103,9 +103,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(fieldInfo.name(), fieldInfo.type());
         }
 
+        /** By name, or by simple type and name ({@code "String a"}) where overloads share the name. */
         @Override
         public ParameterizedType parameter(ParameterInfo parameterInfo) {
-            return verdict(parameterInfo.name(), parameterInfo.parameterizedType());
+            ParameterizedType type = parameterInfo.parameterizedType();
+            if (type.typeInfo() != null && nullable.contains(type.typeInfo().simpleName() + " " + parameterInfo.name())) {
+                return type.withNullable(NullableState.NULLABLE);
+            }
+            return verdict(parameterInfo.name(), type);
         }
 
         /** {@code "=x"} in checked: what the body assigns to parameter x may be null. */
@@ -272,6 +277,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("schemes", "authority")), KotlinPrintOptions.NullCheck.ASSERT));
         assertFalse(kotlin.contains("Array<out String>"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's ArgumentListBuilder: {@code add(Object a, boolean mask)} calls {@code add(a.toString(), mask)}, which
+     * Java resolves to {@code add(String a, boolean mask)}. Kotlin finds {@code add(a: Any, …)} and {@code add(a:
+     * String?, …)} equally specific for a String, and the parameter's name is {@code a} in both: a cast to
+     * {@code String?} picks Java's.
+     */
+    @Test
+    public void nullableBesideWiderOverloadOfTheSameParameterName() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class ArgumentListBuilder {
+                    private final List<String> args = new ArrayList<>();
+                    ArgumentListBuilder add(Object a, boolean mask) { return add(a.toString(), mask); }
+                    ArgumentListBuilder add(String a, boolean mask) {
+                        if (a != null) args.add(a);
+                        return this;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("String a")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "as String?)");
         compiles(kotlin);
     }
 

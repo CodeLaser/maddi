@@ -1315,6 +1315,17 @@ public class KotlinExpressionPrinter {
                     printed.add(receiver(args.get(i), q).add(KotlinNullability.NOT_NULL));
                     continue;
                 }
+                if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))
+                    && widerOverloadOfTheSameName(method, i)) {
+                    // jenkins's ArgumentListBuilder: add(a.toString(), false) to add(a: String?, mask) beside
+                    // add(a: Any, mask), the same name: the nullable type picks Java's
+                    printed.add(new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(operand(PrecedenceEnum.CAST, args.get(i), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                            .add(SpaceEnum.ONE)
+                            .add(new TextImpl(KotlinTypeName.of(KotlinNullability.parameterType(method.parameters().get(i)), q)))
+                            .add(SymbolEnum.RIGHT_PARENTHESIS));
+                    continue;
+                }
                 if (hasParameter && nullableBesideWiderOverload(method, i, args.get(i))) {
                     // guava's Ascii.toUpperCase(chars) with a String, to toUpperCase(string: String?) beside
                     // toUpperCase(chars: CharSequence): a String fits both, neither more specific in Kotlin. The
@@ -1949,6 +1960,15 @@ public class KotlinExpressionPrinter {
                 && o.parameters().get(i).parameterizedType().typeInfo() != type.typeInfo()
                 && isSubtype(type.typeInfo(), o.parameters().get(i).parameterizedType().typeInfo(), new java.util.HashSet<>())
                 && !KotlinNullability.isNullable(KotlinNullability.parameterType(o.parameters().get(i))));
+    }
+
+    /** An overload of the same arity whose {@code i}-th parameter has the same name: naming it picks neither. */
+    private static boolean widerOverloadOfTheSameName(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        String name = method.parameters().get(i).name();
+        return method.typeInfo().methods().stream().anyMatch(o -> o != method && o.name().equals(method.name())
+                && o.parameters().size() == method.parameters().size() && o.parameters().get(i).name().equals(name)
+                && o.parameters().get(i).parameterizedType().typeInfo()
+                   != method.parameters().get(i).parameterizedType().typeInfo());
     }
 
     private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
