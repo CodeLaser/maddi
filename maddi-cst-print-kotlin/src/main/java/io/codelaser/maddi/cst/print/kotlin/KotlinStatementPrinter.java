@@ -994,6 +994,18 @@ public class KotlinStatementPrinter {
         return KotlinNames.name(name);
     }
 
+    /** A {@code Void} type argument, at any depth: Kotlin's {@code Unit} in the translation. */
+    private static boolean voidArgument(ParameterizedType type) {
+        return type.parameters().stream().anyMatch(a -> a != null && (a.typeInfo() != null && a.arrays() == 0
+                && "java.lang.Void".equals(a.typeInfo().fullyQualifiedName()) || voidArgument(a)));
+    }
+
+    /** The result of a call to a method of a type not translated: Kotlin sees its Java signature. */
+    private static boolean libraryResult(Expression init) {
+        return KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc
+               && mc.methodInfo() != null && !KotlinNullability.translated(mc.methodInfo().typeInfo());
+    }
+
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
@@ -1035,6 +1047,11 @@ public class KotlinStatementPrinter {
         boolean writeType = !hasInitializer || nullableFromNonNull || nonNullFromSmartCast
                             || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
                                                              || onlyTargetTyped(init) || nullableArgumentOfGenericCall(type, init));
+        // jenkins's HttpResponse<Void> httpResponse = httpClient.send(…): the translation's Void is Unit, the library's
+        // result an HttpResponse<Void!>; Kotlin infers the local's type
+        if (writeType && hasInitializer && !nullableFromNonNull && voidArgument(type) && libraryResult(init)) {
+            writeType = false;
+        }
         if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,

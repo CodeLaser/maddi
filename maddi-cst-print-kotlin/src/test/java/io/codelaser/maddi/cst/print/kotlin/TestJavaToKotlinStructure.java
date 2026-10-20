@@ -3310,4 +3310,38 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """));
         assertFalse(kotlin.contains("jenkins.model.Jenkins."), kotlin);
     }
+
+    /**
+     * jenkins's PluginManager: {@code HttpResponse<Void> httpResponse = httpClient.send(request, discarding())}, its
+     * Void argument nullable (as the verdicts make it there), so that the local's type differs from the call's and is
+     * written. The translation's Void is Unit; the library's result is an {@code HttpResponse<Void!>}, no
+     * {@code HttpResponse<Unit>}: Kotlin infers the local's type.
+     */
+    @Test
+    public void voidArgumentOfALibraryResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.net.URI;
+                import java.net.http.HttpClient;
+                import java.net.http.HttpRequest;
+                import java.lang.annotation.ElementType;
+                import java.lang.annotation.Target;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                class Download {
+                    interface HttpResponse { }
+                    int status(HttpClient httpClient) throws Exception {
+                        HttpRequest request = HttpRequest.newBuilder(URI.create("http://x")).build();
+                        try {
+                            java.net.http.HttpResponse<@Nullable Void> httpResponse = httpClient.send(
+                                    request, java.net.http.HttpResponse.BodyHandlers.discarding());
+                            return httpResponse.statusCode();
+                        } catch (InterruptedException e) {
+                            return -1;
+                        }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("HttpResponse<Unit>"), kotlin);
+        compiles(kotlin);
+    }
 }
