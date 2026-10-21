@@ -249,7 +249,7 @@ public class KotlinExpressionPrinter {
 
     static OutputBuilder variable(Variable v, Qualification q) {
         return switch (v) {
-            case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t)));
+            case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t, q)));
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(KotlinNullability.asserted(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(arrayIndex(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
@@ -260,10 +260,14 @@ public class KotlinExpressionPrinter {
         };
     }
 
-    /** {@code this}, {@code this@Outer}, {@code super}, {@code super<Iface>}. */
-    private static String thisOrSuper(This t) {
+    /**
+     * {@code this}, {@code this@Outer}, {@code super}, {@code super<Iface>}. The interface by the name Kotlin resolves:
+     * jenkins's AbstractProject writes {@code super<ParameterizedJobMixIn.ParameterizedJob>}, a nested interface it does
+     * not import.
+     */
+    private static String thisOrSuper(This t, Qualification q) {
         TypeInfo explicit = t.explicitlyWriteType();
-        if (t.writeSuper()) return explicit == null ? "super" : "super<" + explicit.simpleName() + ">";
+        if (t.writeSuper()) return explicit == null ? "super" : "super<" + KotlinTypeName.name(explicit, q) + ">";
         if (explicit == null && IN_ANONYMOUS_SUPER_ARGUMENTS.get() && t.typeInfo() != null && !t.typeInfo().isAnonymous()) {
             // guava's Joiner.useForNull: new Joiner(this) { … }. In an object expression's supertype call, Kotlin's
             // this is not the enclosing instance
@@ -390,7 +394,7 @@ public class KotlinExpressionPrinter {
         }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || (t.explicitlyWriteType() != null && !mc.objectIsImplicit())) {
-                b.add(new TextImpl(thisOrSuper(t))).add(SymbolEnum.DOT);
+                b.add(new TextImpl(thisOrSuper(t, q))).add(SymbolEnum.DOT);
             }
         } else if (object instanceof TypeExpression te) {
             TypeInfo owner = mc.methodInfo().typeInfo();

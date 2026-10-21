@@ -140,6 +140,28 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String SUPER_OF_A_NESTED_INTERFACE = """
+            package a;
+            class MixIn {
+                interface Job {
+                    default String text() { return "build"; }
+                }
+            }
+            class Project implements MixIn.Job {
+                @Override
+                public String text() { return MixIn.Job.super.text() + "!"; }
+            }
+            """;
+
+    /** jenkins's AbstractProject: {@code super<…>} names a nested interface as Kotlin resolves it, qualified. */
+    @Test
+    public void superOfANestedInterface() {
+        String kotlin = kotlin(SUPER_OF_A_NESTED_INTERFACE);
+        contains(kotlin, "super<MixIn.Job>.text()");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
