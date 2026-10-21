@@ -116,6 +116,30 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
             }
             """;
 
+    @Language("java")
+    private static final String RAW_INNER = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Run<J, R extends Run<J, R>> {
+                class Execution {
+                    void run() { }
+                }
+            }
+            class Runner {
+                private final List<Run.Execution> stack = new ArrayList<>();
+                void push(Run.Execution e) { stack.add(e); e.run(); }
+            }
+            """;
+
+    /** jenkins's RunnerStack: a raw inner class of a generic class, written qualified, takes the outer's arguments. */
+    @Test
+    public void rawInnerClassOfAGenericClass() {
+        String kotlin = kotlin(RAW_INNER);
+        contains(kotlin, "fun push(e: Run<*, *>.Execution)");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {

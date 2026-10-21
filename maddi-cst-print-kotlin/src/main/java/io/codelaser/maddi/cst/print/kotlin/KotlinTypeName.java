@@ -242,7 +242,7 @@ public class KotlinTypeName {
         String fqn = pt.typeInfo().fullyQualifiedName();
         String base = mapped(fqn);
         if (base == null) base = name(pt.typeInfo(), q);
-        if (pt.parameters().isEmpty()) return base + starProjections(pt.typeInfo());
+        if (pt.parameters().isEmpty()) return rawOuter(pt.typeInfo(), base) + starProjections(pt.typeInfo());
         String inner = innerWithOuterArguments(pt, q);
         if (inner != null) return inner;
         StringBuilder sb = new StringBuilder(base).append('<');
@@ -281,6 +281,22 @@ public class KotlinTypeName {
         if (bound == null || bound.isTypeParameter()) return null;
         ParameterizedType erased = bound.withNullable(pt.nullable());
         return pt.arrays() == 0 ? erased : erased.copyWithArrays(pt.arrays());
+    }
+
+    /**
+     * {@code Run<*, *>.RunExecution}: jenkins's raw {@code Run.RunExecution}, an inner class of a generic class written
+     * qualified. Kotlin wants the outer class's type arguments there; a star projection accepts each. {@code base}
+     * unchanged otherwise.
+     */
+    private static String rawOuter(TypeInfo typeInfo, String base) {
+        if (!KotlinContext.translatingJava() || !KotlinTypePrinter.inner(typeInfo) || base.indexOf('<') >= 0
+            || !base.endsWith("." + KotlinNames.name(typeInfo.simpleName()))) {
+            return base;
+        }
+        TypeInfo outer = typeInfo.enclosingTypeStream().skip(1).findFirst().orElse(null);
+        if (outer == null || outer.typeParameters().isEmpty()) return base;
+        int dot = base.length() - KotlinNames.name(typeInfo.simpleName()).length() - 1;
+        return base.substring(0, dot) + starProjections(outer) + base.substring(dot);
     }
 
     /**
