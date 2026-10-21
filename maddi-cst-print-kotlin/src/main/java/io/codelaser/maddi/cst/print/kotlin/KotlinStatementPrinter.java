@@ -986,9 +986,17 @@ public class KotlinStatementPrinter {
             // `use`'s parameter is typed by its receiver, not by the local's verdict: getClassStream(name).use { in ->
             // StructClass.create(in, ...) } has an `in` as nullable as getClassStream's result
             ParameterizedType declared = KotlinNullability.localType(lvc, lvc.localVariable());
-            KotlinContext.localType(lvc.localVariable().simpleName(), declared.withNullable(
+            ParameterizedType useType = declared.withNullable(
                     KotlinNullability.nullableInKotlin(init) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL));
+                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+            KotlinContext.localType(lvc.localVariable().simpleName(), useType);
+            if (wildcardArgument(declared) && !KotlinExpressionPrinter.mentionsOutOfScope(declared)) {
+                // timefold's AbstractScoreDirector: try (var d = factory.createScoreDirectorBuilder()…buildDerived()),
+                // an AbstractScoreDirector<Solution_, Score_, ?> whose ? is bounded by its own type: inferred, the
+                // lambda's parameter is a captured type on whose members K2's substitution overflows. Written out,
+                // even as a star, it is not captured
+                parameter += ": " + KotlinTypeName.of(useType, q);
+            }
         } else if (resource instanceof ExpressionAsStatement eas) {
             receiver = KotlinExpressionPrinter.receiver(eas.expression(), q);
             parameter = null; // an existing variable: still in scope inside the lambda
@@ -1006,6 +1014,10 @@ public class KotlinStatementPrinter {
         if (inner.isEmpty()) return b.add(SymbolEnum.RIGHT_BRACE);
         return b.add(new OutputBuilderImpl().add(GuideImpl.generatorForBlock().start()).add(inner)
                 .add(GuideImpl.generatorForBlock().end())).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    private static boolean wildcardArgument(ParameterizedType type) {
+        return type != null && type.arrays() == 0 && type.parameters().stream().anyMatch(a -> a.wildcard() != null);
     }
 
     // ---------------------------------------------------------------- the rest

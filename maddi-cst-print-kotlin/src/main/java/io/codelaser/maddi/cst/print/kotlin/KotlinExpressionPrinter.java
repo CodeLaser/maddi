@@ -2980,7 +2980,7 @@ public class KotlinExpressionPrinter {
     }
 
     /** {@code type} mentions a type variable the code being printed cannot name: a callee's own. */
-    private static boolean mentionsOutOfScope(ParameterizedType type) {
+    static boolean mentionsOutOfScope(ParameterizedType type) {
         if (type == null) return false;
         if (type.typeParameter() != null && !KotlinContext.typeParameterInScope(type.typeParameter())) return true;
         return type.parameters().stream().anyMatch(KotlinExpressionPrinter::mentionsOutOfScope);

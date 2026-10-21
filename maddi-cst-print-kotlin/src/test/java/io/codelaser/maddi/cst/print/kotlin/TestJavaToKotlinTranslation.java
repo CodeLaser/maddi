@@ -79,6 +79,35 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "catch (e: IOException) {");
     }
 
+    private static final String WILDCARD_RESOURCE = """
+            package a.b;
+            abstract class Director<S, D extends Director<S, D>> implements AutoCloseable {
+                abstract void set(S s);
+                public void close() { }
+            }
+            abstract class Builder<S, D extends Director<S, D>> {
+                abstract D build();
+            }
+            abstract class Factory<S> {
+                abstract Builder<S, ?> builder();
+                void check(S s) {
+                    try (var d = builder().build()) {
+                        d.set(s);
+                    }
+                }
+            }
+            """;
+
+    /**
+     * timefold's AbstractScoreDirector: a resource whose type has a wildcard argument. Left to inference, {@code use}'s
+     * parameter is a captured type, and a member call on it overflows K2's stack; its type is written instead.
+     */
+    @Test
+    public void wildcardResourceTypesUseParameter() {
+        String kotlin = kotlin(WILDCARD_RESOURCE);
+        contains(kotlin, "builder().build().use { d: Director<S, *>");
+    }
+
     @Language("java")
     private static final String CASTS = """
             package a;
