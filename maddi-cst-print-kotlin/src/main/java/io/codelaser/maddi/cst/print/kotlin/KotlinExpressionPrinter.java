@@ -1245,7 +1245,8 @@ public class KotlinExpressionPrinter {
                     lookedUp = null;
                 }
                 if (lookedUp != null) {
-                    if (lookedUp.typeParameter() != null && lookedUp.typeParameter() != args.get(i).parameterizedType().typeParameter()
+                    if (lookedUp.isJavaLangObject()
+                        || lookedUp.typeParameter() != null && lookedUp.typeParameter() != args.get(i).parameterizedType().typeParameter()
                         || unwrap(args.get(i)).parameterizedType().typeInfo() != lookedUp.typeInfo()
                            && KotlinNullability.nullableInKotlin(args.get(i))
                         // map.entries.contains(immutableEntry(key, value)) into a Set<Entry<K, V>>: the extension's
@@ -1898,7 +1899,24 @@ public class KotlinExpressionPrinter {
                         && (element.typeInfo() == argumentType.typeInfo()
                             || element.arrays() == 0
                                && isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>()));
+        if (!found && lookup == method && unrelatedLookup(element, argumentType)) {
+            // jenkins's View: viewItems.contains(currentTask), a Queue.Task in a Collection<TopLevelItem>. The
+            // extension's T would be their common supertype, which is no input type; a cast to the element class
+            // could throw where the object is both. Up to Any?, which is
+            return p;
+        }
         return found ? element : null;
+    }
+
+    /** Element and argument are classes, neither the other's subtype. */
+    private static boolean unrelatedLookup(ParameterizedType element, ParameterizedType argumentType) {
+        return element != null && argumentType != null && element.arrays() == 0 && argumentType.arrays() == 0
+               && element.wildcard() == null && element.typeParameter() == null && argumentType.typeParameter() == null
+               && element.typeInfo() != null && argumentType.typeInfo() != null
+               && !argumentType.isPrimitiveExcludingVoid() && !element.typeInfo().isJavaLangObject()
+               && !argumentType.typeInfo().isJavaLangObject()
+               && !isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>())
+               && !isSubtype(element.typeInfo(), argumentType.typeInfo(), new java.util.HashSet<>());
     }
 
     /**

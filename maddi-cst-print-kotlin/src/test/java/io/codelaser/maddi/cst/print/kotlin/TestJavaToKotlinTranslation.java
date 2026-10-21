@@ -316,6 +316,27 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String UNRELATED_LOOKUP = """
+            package a;
+            import java.util.Collection;
+            interface Item { }
+            interface Task { }
+            class View {
+                boolean contains(Collection<Item> items, Task task) {
+                    return items.contains(task);
+                }
+            }
+            """;
+
+    /** jenkins's View: a lookup of a class unrelated to the element's, which a Task that is an Item would find. */
+    @Test
+    public void lookupOfAnUnrelatedType() {
+        String kotlin = kotlin(UNRELATED_LOOKUP);
+        contains(kotlin, "items.contains((task as Any?))");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
