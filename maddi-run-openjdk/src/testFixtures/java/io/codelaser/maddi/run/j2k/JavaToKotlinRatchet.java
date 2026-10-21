@@ -429,7 +429,9 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
         Path log = dir.resolve("kotlinc.log");
-        Process process = new ProcessBuilder(java.toString(), "-Xmx3g", "-cp", compilerClassPath,
+        // -Xss: K2's type substitution recurses deep on generic-heavy code (timefold's constraint streams), and
+        // overflowed the launcher's default stack
+        Process process = new ProcessBuilder(java.toString(), "-Xmx3g", "-Xss32m", "-cp", compilerClassPath,
                 "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", "@" + argFile.toAbsolutePath())
                 .redirectErrorStream(true).redirectOutput(log.toFile()).start();
         int exit = process.waitFor();
