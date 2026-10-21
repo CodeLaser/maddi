@@ -477,6 +477,27 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's XmlFile: {@code Map<Object, Void> beingWritten}, {@code put(o, null)}: a Void the verdicts make nullable
+     * is a Unit?. Only guava's annotated {@code <@Nullable Void>} is printed Unit, as the unannotated one is.
+     */
+    @Test
+    public void verdictNullableVoidArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Xml {
+                    private final Map<Object, Void> beingWritten = Collections.synchronizedMap(new IdentityHashMap<>());
+                    void write(Object o) {
+                        beingWritten.put(o, null);
+                        beingWritten.remove(o);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("beingWritten<,>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "MutableMap<Any, Unit?>");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's GrpcConnection, {@code synchronized (streamObserver)} of a nullable field, and NacosServiceLoader's
      * {@code instance.getClass()} of a T: Java throws for a null at both; Kotlin's synchronized and javaClass take an
      * Any. Asserted.

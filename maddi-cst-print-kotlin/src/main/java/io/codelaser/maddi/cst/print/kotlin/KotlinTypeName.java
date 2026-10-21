@@ -251,9 +251,13 @@ public class KotlinTypeName {
             ParameterizedType argument = pt.parameters().get(i);
             // ListenableFuture<@Nullable Void> is Kotlin's ListenableFuture<Unit>, as the unannotated one is: a Unit?
             // argument makes the two different types (guava's MoreExecutors, TrustedListenableFutureTask<@Nullable
-            // Void> into a ListenableFuture<Void>), and a Java Void is null either way
+            // Void> into a ListenableFuture<Void>), and a Java Void is null either way. Not a Void the verdicts make
+            // nullable without the annotation: jenkins's XmlFile, Map<Object, Void> beingWritten, put(o, null): Unit?
             if (argument.arrays() == 0 && argument.wildcard() == null && argument.typeInfo() != null
-                && "java.lang.Void".equals(argument.typeInfo().fullyQualifiedName())) {
+                && "java.lang.Void".equals(argument.typeInfo().fullyQualifiedName())
+                && (argument.nullable() != NullableState.NULLABLE || !KotlinContext.translatingJava()
+                    || argument.annotations().stream().anyMatch(ae -> ae.typeInfo() != null
+                        && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName())))) {
                 argument = argument.withNullable(NullableState.NONNULL);
             }
             sb.append(of(argument, q));
