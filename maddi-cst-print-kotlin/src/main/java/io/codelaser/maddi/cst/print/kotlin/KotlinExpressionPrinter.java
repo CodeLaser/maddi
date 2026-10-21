@@ -1411,7 +1411,11 @@ public class KotlinExpressionPrinter {
                 ParameterizedType widenTo = (unwrap(args.get(i)) instanceof ConstructorCall
                                              || unwrap(args.get(i)) instanceof Cast c && unwrap(c.expression()) instanceof NullConstant
                                              // (Entry<Object, Object>[]) EMPTY_ENTRY_ARRAY into an Array<Entry?>
-                                             || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1)
+                                             || unwrap(args.get(i)) instanceof Cast ac && ac.parameterizedType().arrays() == 1
+                                             // jenkins's XStreamDOM: attributes.toArray(new String[0]) into an
+                                             // Array<String?>, toTypedArray<String?>(): arrays are invariant
+                                             || unwrap(args.get(i)) instanceof MethodCall tm && tm.methodInfo() != null
+                                                && (toArray(tm.methodInfo()) || toArrayOf(tm.methodInfo())))
                                             && declared != null ? declared : target;
                 ParameterizedType uncheckedTo = hasParameter && call != null ? uncheckedArgument(call, i, args.get(i), declared)
                         : null;

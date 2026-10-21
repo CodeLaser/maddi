@@ -477,6 +477,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's XStreamDOM.toDOM: new XStreamDOM(tagName, attributes.toArray(new String[0]), …) into a constructor
+     * whose String[] the verdicts make an Array<String?>: Kotlin's arrays are invariant, toTypedArray<String?>().
+     */
+    @Test
+    public void toArrayIntoANullableElementConstructorParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Dom {
+                    private final String tag;
+                    private final String[] attributes;
+                    Dom(String tag, String[] attributes) {
+                        this.tag = tag;
+                        this.attributes = attributes;
+                    }
+                    static Dom of(String tag, List<String> names) {
+                        return new Dom(tag, names.toArray(new String[0]));
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("attributes[]")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "toTypedArray<String?>()");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's RedactSecretJsonInErrorMessageSanitizer and RobustReflectionConverter: for (Object o : …) over a raw
      * List or a Collection<?>. Kotlin's loop variable is an Any?, whatever its verdict: asserted at a dereference and
      * into a non-null parameter.
