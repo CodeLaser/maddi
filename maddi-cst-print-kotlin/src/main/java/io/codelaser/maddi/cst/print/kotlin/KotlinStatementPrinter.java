@@ -428,7 +428,10 @@ public class KotlinStatementPrinter {
             }
         }
         Expression condition = fs.expression();
-        boolean hasCondition = condition != null && !condition.isEmpty();
+        // for (int i = 1; ; i++), whose missing condition the parser makes `true`: no `if (!(true)) break`, which
+        // hides from kotlinc that the loop does not end (jenkins's WorkspaceList.allocate returns from inside it)
+        boolean hasCondition = condition != null && !condition.isEmpty()
+                               && !(KotlinExpressionPrinter.unwrap(condition) instanceof BooleanConstant bc && bc.constant());
         List<Expression> updates = fs.updaters();
         String label = fs.label();
         boolean continues = !updates.isEmpty() && continuesItself(fs);
@@ -891,6 +894,22 @@ public class KotlinStatementPrinter {
             List<ParameterizedType> types = cc.exceptionTypes().isEmpty() ? List.of() : cc.exceptionTypes();
             List<String> names = types.isEmpty() ? List.of("Throwable")
                     : types.stream().map(t -> KotlinTypeName.of(t, q)).toList();
+            io.codelaser.maddi.cst.api.info.TypeInfo common = names.size() > 1 && cc == ts.catchClauses().getLast()
+                    && testsCatchVariable(cc) ? commonSuperclass(types) : null;
+            if (common != null) {
+                // jenkins's AbstractBuild: catch (IOException | RuntimeException e) { if (e instanceof IOException) … }.
+                // One clause per type makes that test impossible in the other, which kotlinc refuses; the common
+                // superclass, the others rethrown, keeps it. Only the last clause: a rethrow skips those after it
+                String name = declare(cc.catchVariable().simpleName());
+                String guard = "if (" + names.stream().map(t -> name + " !is " + t).collect(java.util.stream.Collectors
+                        .joining(" && ")) + ") throw " + name;
+                b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(new TextImpl(name)).add(SymbolEnum.COLON_LABEL)
+                        .add(new TextImpl(KotlinTypeName.name(common, q))).add(SymbolEnum.RIGHT_PARENTHESIS)
+                        .add(SpaceEnum.ONE).add(braces(List.of(new OutputBuilderImpl().add(new TextImpl(guard)),
+                                statementsNoBraces(cc.block(), q))));
+                continue;
+            }
             for (String type : names) { // Kotlin has no multi-catch: one clause per type
                 b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                         .add(new TextImpl(declare(cc.catchVariable().simpleName()))).add(SymbolEnum.COLON_LABEL)
@@ -902,6 +921,35 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(KotlinKeyword.FINALLY).add(SpaceEnum.ONE).add(block(ts.finallyBlock(), q));
         }
         return b;
+    }
+
+    /** The catch clause's block tests its variable's type: {@code e instanceof IOException}. */
+    private static boolean testsCatchVariable(TryStatement.CatchClause cc) {
+        boolean[] found = {false};
+        cc.block().visit((Element e) -> {
+            if (e instanceof InstanceOf io && CstQueries.unwrap(io.expression()) instanceof VariableExpression ve
+                && cc.catchVariable().equals(ve.variable())) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
+    }
+
+    /** The nearest class each of {@code types} extends: {@code Exception} of IOException and RuntimeException. */
+    private static io.codelaser.maddi.cst.api.info.TypeInfo commonSuperclass(List<ParameterizedType> types) {
+        for (ParameterizedType c = types.getFirst(); c != null && c.typeInfo() != null; c = c.typeInfo().parentClass()) {
+            io.codelaser.maddi.cst.api.info.TypeInfo candidate = c.typeInfo();
+            if (types.stream().allMatch(t -> extendsClass(t, candidate))) return candidate;
+        }
+        return null;
+    }
+
+    private static boolean extendsClass(ParameterizedType t, io.codelaser.maddi.cst.api.info.TypeInfo candidate) {
+        for (ParameterizedType c = t; c != null && c.typeInfo() != null; c = c.typeInfo().parentClass()) {
+            if (c.typeInfo() == candidate) return true;
+        }
+        return false;
     }
 
     /**

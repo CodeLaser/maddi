@@ -671,6 +671,29 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return methodInfo.getSetField() != null && methodInfo.getSetField().field() != null;
     }
 
+    /**
+     * A varargs constructor whose parameters become the class header's properties: a record's canonical one, or the
+     * sole constructor of {@link #print}'s primary-constructor rule. Its last parameter is an {@code Array<T>} there, not
+     * a vararg: a data class's primary constructor takes none (jenkins's FilePath.Archive, FilePath.Read).
+     */
+    static boolean varargsAsArray(MethodInfo c) {
+        if (c == null || !c.isConstructor() || c.parameters().isEmpty() || !c.parameters().getLast().isVarArgs()
+            || !KotlinContext.translatingJava()) {
+            return false;
+        }
+        TypeInfo t = c.typeInfo();
+        if (fromKotlinSource(t)) return false;
+        if (t.typeNature().isRecord()) {
+            return c.parameters().size() == t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).count();
+        }
+        List<MethodInfo> constructors = t.constructors().stream().filter(x -> !x.isSynthetic()).toList();
+        if (constructors.size() != 1 || constructors.getFirst() != c) return false;
+        Map<String, FieldInfo> fieldByName = t.fields().stream()
+                .collect(Collectors.toMap(FieldInfo::name, Function.identity(), (a, b) -> a));
+        return c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name())
+                && !KotlinFieldPrinter.renamed(fieldByName.get(p.name()))) && onlyAssignsParameters(c);
+    }
+
     /** The implicit no-arg, empty-body constructor a class gets by default (not written in Kotlin). */
     private static boolean isImplicitDefaultConstructor(MethodInfo c) {
         return c.parameters().isEmpty() && (c.methodBody() == null || c.methodBody().isEmpty());

@@ -249,7 +249,7 @@ public class KotlinExpressionPrinter {
 
     static OutputBuilder variable(Variable v, Qualification q) {
         return switch (v) {
-            case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t)));
+            case This t -> new OutputBuilderImpl().add(new TextImpl(thisOrSuper(t, q)));
             case FieldReference fr -> fieldReference(fr, q);
             case DependentVariable dv -> new OutputBuilderImpl().add(KotlinNullability.asserted(dv.arrayExpression(), q))
                     .add(SymbolEnum.LEFT_BRACKET).add(arrayIndex(dv.indexExpression(), q)).add(SymbolEnum.RIGHT_BRACKET);
@@ -260,10 +260,14 @@ public class KotlinExpressionPrinter {
         };
     }
 
-    /** {@code this}, {@code this@Outer}, {@code super}, {@code super<Iface>}. */
-    private static String thisOrSuper(This t) {
+    /**
+     * {@code this}, {@code this@Outer}, {@code super}, {@code super<Iface>}. The interface by the name Kotlin resolves:
+     * jenkins's AbstractProject writes {@code super<ParameterizedJobMixIn.ParameterizedJob>}, a nested interface it does
+     * not import.
+     */
+    private static String thisOrSuper(This t, Qualification q) {
         TypeInfo explicit = t.explicitlyWriteType();
-        if (t.writeSuper()) return explicit == null ? "super" : "super<" + explicit.simpleName() + ">";
+        if (t.writeSuper()) return explicit == null ? "super" : "super<" + KotlinTypeName.name(explicit, q) + ">";
         if (explicit == null && IN_ANONYMOUS_SUPER_ARGUMENTS.get() && t.typeInfo() != null && !t.typeInfo().isAnonymous()) {
             // guava's Joiner.useForNull: new Joiner(this) { … }. In an object expression's supertype call, Kotlin's
             // this is not the enclosing instance
@@ -390,7 +394,7 @@ public class KotlinExpressionPrinter {
         }
         if (object instanceof VariableExpression ve && ve.variable() instanceof This t) {
             if (t.writeSuper() || (t.explicitlyWriteType() != null && !mc.objectIsImplicit())) {
-                b.add(new TextImpl(thisOrSuper(t))).add(SymbolEnum.DOT);
+                b.add(new TextImpl(thisOrSuper(t, q))).add(SymbolEnum.DOT);
             }
         } else if (object instanceof TypeExpression te) {
             TypeInfo owner = mc.methodInfo().typeInfo();
@@ -1088,7 +1092,8 @@ public class KotlinExpressionPrinter {
      */
     static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
                                    MethodCall call, Qualification q) {
-        if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        boolean asArray = KotlinTypePrinter.varargsAsArray(method);
+        if (args.isEmpty() && !asArray) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
         // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
         // argument is asserted like one for translated code. equals takes Any? everywhere.
@@ -1101,6 +1106,7 @@ public class KotlinExpressionPrinter {
         List<OutputBuilder> printed = new ArrayList<>();
         ParameterizedType constructed = call == null && method != null && method.isConstructor() ? CONSTRUCTED.get() : null;
         for (int i = 0; i < args.size(); i++) {
+            if (asArray && i == method.parameters().size() - 1) break;
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
             }
@@ -1440,6 +1446,7 @@ public class KotlinExpressionPrinter {
                 printed.add(argument);
             }
         }
+        if (asArray && args.size() >= method.parameters().size() - 1) printed.add(varargsArray(args, method, q));
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
@@ -1459,7 +1466,10 @@ public class KotlinExpressionPrinter {
                 .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
-    /** {@code Objects::nonNull}, or {@code x -> x != null}. */
+    /**
+     * {@code Objects::nonNull}, {@code x -> x != null}, or a conjunction with that test: jenkins's LogRotator,
+     * {@code r -> r != null && !shouldKeepRun(r, lsb, lstb)}.
+     */
     private static boolean nonNullPredicate(Expression e) {
         if (e instanceof MethodReference mr) {
             return "nonNull".equals(mr.methodInfo().name())
@@ -1468,12 +1478,17 @@ public class KotlinExpressionPrinter {
         if (e instanceof Lambda l && l.parameters().size() == 1) {
             List<Statement> statements = CstQueries.own(l.methodBody().statements());
             Expression value = CstQueries.returnedValue(statements);
-            return value != null && unwrap(value) instanceof BinaryOperator bo && bo.operator() != null
-                   && "!=".equals(bo.operator().name())
-                   && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), l.parameters().getFirst())
-                       || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), l.parameters().getFirst()));
+            return value != null && nonNullTest(unwrap(value), l.parameters().getFirst());
         }
         return false;
+    }
+
+    private static boolean nonNullTest(Expression value, ParameterInfo p) {
+        if (value instanceof And and) return and.expressions().stream().anyMatch(c -> nonNullTest(unwrap(c), p));
+        if (!(value instanceof BinaryOperator bo) || bo.operator() == null) return false;
+        return "!=".equals(bo.operator().name())
+               && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), p)
+                   || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), p));
     }
 
     private static boolean isParameter(Expression e, ParameterInfo p) {
@@ -2081,6 +2096,30 @@ public class KotlinExpressionPrinter {
      * The array that Java passes as the varargs themselves: Kotlin takes it spread, {@code *names}. That is the last
      * argument in the varargs position, with as many array dimensions as the parameter; not {@code null}.
      */
+    /**
+     * The varargs of a constructor whose Kotlin header takes an {@code Array<T>} ({@link
+     * KotlinTypePrinter#varargsAsArray}): an array as it is, a vararg parameter copied ({@code arrayOf(*openOptions)},
+     * an {@code Array<out T>}), single values as {@code arrayOf<T>(a, b)}, none as {@code emptyArray<T>()}.
+     */
+    private static OutputBuilder varargsArray(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                              Qualification q) {
+        int last = method.parameters().size() - 1;
+        if (spread(args, method, last)) {
+            Expression array = args.get(last);
+            if (vararg(array)) {
+                return new OutputBuilderImpl().add(new TextImpl("arrayOf")).add(SymbolEnum.LEFT_PARENTHESIS).add(SPREAD)
+                        .add(print(array, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+            return KotlinNullability.asserted(array, KotlinPrintCode.ASSERT_INTO_NON_NULL, q);
+        }
+        ParameterizedType element = method.parameters().get(last).parameterizedType().componentType();
+        String type = KotlinTypeName.of(element, q);
+        if (args.size() == last) return text("emptyArray<" + type + ">()");
+        return text("arrayOf<" + type + ">").add(args.subList(last, args.size()).stream().map(e -> widened(e, element, q))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+    }
+
     private static boolean spread(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
         if (method == null || method.parameters().isEmpty() || i != args.size() - 1
             || i != method.parameters().size() - 1) {
@@ -3359,7 +3398,10 @@ public class KotlinExpressionPrinter {
             || type.parameters().stream().anyMatch(p -> p.wildcard() != null)) {
             return null;
         }
-        return KotlinTypeName.of(type, q);
+        // jenkins's VariableResolver NONE = name -> null: a raw type is star-projected, which Kotlin cannot construct;
+        // its erasure, VariableResolver<Any?>, is one of the types the star stands for
+        String erased = KotlinTypeName.erased(type, q);
+        return erased != null ? erased : KotlinTypeName.of(type, q);
     }
 
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
@@ -3663,6 +3705,12 @@ public class KotlinExpressionPrinter {
             Primitive l = primitive(bo.lhs().parameterizedType());
             Primitive r = primitive(bo.rhs().parameterizedType());
             if (l != null && r != null && l != r && l != Primitive.BOOLEAN && r != Primitive.BOOLEAN) {
+                if ((l == Primitive.CHAR || r == Primitive.CHAR) && (rank(l) < 3 && rank(r) < 3)) {
+                    // jenkins's ConsoleCommand: buf[i] == '\r', a byte and a char: Java compares both as ints, and
+                    // Kotlin's Byte and Char have no common type: ch.toInt() == '\r'.code
+                    return new OutputBuilderImpl().add(intOperand(bo.lhs(), q)).add(KotlinSymbols.binary(op))
+                            .add(intOperand(bo.rhs(), q));
+                }
                 boolean widenLeft = rank(l) < rank(r) || l == Primitive.CHAR;
                 OutputBuilder left = widenLeft ? compared(bo.lhs(), bo.rhs().parameterizedType(), q) : operand(bo.precedence(), bo.lhs(), q);
                 OutputBuilder right = widenLeft ? operand(bo.precedence(), bo.rhs(), q) : compared(bo.rhs(), bo.lhs().parameterizedType(), q);

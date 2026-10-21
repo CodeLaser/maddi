@@ -106,6 +106,173 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String BYTE_AND_CHAR = """
+            package a;
+            class C {
+                boolean newline(byte[] buf, int i, short s) {
+                    byte ch = buf[i];
+                    return ch == '\\r' || '\\n' == ch || s != 'x';
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String RAW_INNER = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Run<J, R extends Run<J, R>> {
+                class Execution {
+                    void run() { }
+                }
+            }
+            class Runner {
+                private final List<Run.Execution> stack = new ArrayList<>();
+                void push(Run.Execution e) { stack.add(e); e.run(); }
+            }
+            """;
+
+    /** jenkins's RunnerStack: a raw inner class of a generic class, written qualified, takes the outer's arguments. */
+    @Test
+    public void rawInnerClassOfAGenericClass() {
+        String kotlin = kotlin(RAW_INNER);
+        contains(kotlin, "fun push(e: Run<*, *>.Execution)");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String SUPER_OF_A_NESTED_INTERFACE = """
+            package a;
+            class MixIn {
+                interface Job {
+                    default String text() { return "build"; }
+                }
+            }
+            class Project implements MixIn.Job {
+                @Override
+                public String text() { return MixIn.Job.super.text() + "!"; }
+            }
+            """;
+
+    /** jenkins's AbstractProject: {@code super<…>} names a nested interface as Kotlin resolves it, qualified. */
+    @Test
+    public void superOfANestedInterface() {
+        String kotlin = kotlin(SUPER_OF_A_NESTED_INTERFACE);
+        contains(kotlin, "super<MixIn.Job>.text()");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String VARARG_COMPONENTS = """
+            package a;
+            import java.nio.file.OpenOption;
+            class FilePath {
+                private record Archive(String root, OpenOption... openOptions) {
+                    int count() { return openOptions.length; }
+                }
+                private static class Read {
+                    private final String root;
+                    private final OpenOption[] openOptions;
+                    Read(String root, OpenOption... openOptions) {
+                        this.root = root;
+                        this.openOptions = openOptions;
+                    }
+                    int count() { return openOptions.length; }
+                }
+                int archive(String root, OpenOption... openOptions) {
+                    return new Archive(root, openOptions).count() + new Read(root, openOptions).count()
+                           + new Archive(root).count() + new Read(root).count()
+                           + new Archive(root, java.nio.file.LinkOption.NOFOLLOW_LINKS).count();
+                }
+            }
+            """;
+
+    /** jenkins's FilePath: a varargs record component, and a varargs constructor parameter that is a field. */
+    @Test
+    public void varargComponents() {
+        String kotlin = kotlin(VARARG_COMPONENTS);
+        contains(kotlin, "Archive(root, arrayOf(*openOptions))");
+        contains(kotlin, "Archive(root, emptyArray<OpenOption>())");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String MULTI_CATCH_TESTED = """
+            package a;
+            import java.io.IOException;
+            class Build {
+                static void display(IOException e) { }
+                void tearDown(Runnable r) throws IOException {
+                    try {
+                        if (r == null) throw new IOException("none");
+                        r.run();
+                    } catch (IOException | RuntimeException e) {
+                        if (e instanceof IOException) display((IOException) e);
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's AbstractBuild: a multi-catch whose block tests its variable's type catches their superclass. */
+    @Test
+    public void multiCatchTestingItsVariable() {
+        String kotlin = kotlin(MULTI_CATCH_TESTED);
+        contains(kotlin, "catch (e: Exception)");
+        contains(kotlin, "if (e !is IOException && e !is RuntimeException) throw e");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String ENDLESS_FOR = """
+            package a;
+            import java.util.Set;
+            class Workspaces {
+                String allocate(String base, Set<String> inUse) {
+                    for (int i = 1; ; i++) {
+                        String candidate = i == 1 ? base : base + "@" + i;
+                        if (inUse.contains(candidate)) continue;
+                        return candidate;
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's WorkspaceList: a for without a condition does not end, so nothing need follow it. */
+    @Test
+    public void forWithoutACondition() {
+        String kotlin = kotlin(ENDLESS_FOR);
+        assertFalse(kotlin.contains("if (!(true)) break"), kotlin);
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String RAW_LAMBDA_TARGET = """
+            package a;
+            interface Resolver<V> {
+                @SuppressWarnings("rawtypes")
+                Resolver NONE = name -> null;
+                V resolve(String name);
+            }
+            """;
+
+    /** jenkins's VariableResolver.NONE: a lambda into a raw type constructs its erasure, not a star projection. */
+    @Test
+    public void lambdaIntoARawType() {
+        String kotlin = kotlin(RAW_LAMBDA_TARGET);
+        contains(kotlin, "Resolver<Any?> {");
+        compiles(kotlin);
+    }
+
+    /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
+    @Test
+    public void byteComparedWithAChar() {
+        String kotlin = kotlin(BYTE_AND_CHAR);
+        contains(kotlin, "ch.toInt() == '\\r'.code || '\\n'.code == ch.toInt() || s.toInt() != 'x'.code");
+        compiles(kotlin);
+    }
+
+    @Language("java")
     private static final String FOR_LOOPS = """
             package a;
             class C {
