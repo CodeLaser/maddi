@@ -477,6 +477,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's Node.getLabelCloud: {@code new TagCloud<LabelAtom>(labels, Label::getTiedJobCount)}, the verdicts'
+     * {@code TagCloud<LabelAtom?>}: the WeightFunction takes the nullable element, so the reference asserts it.
+     */
+    @Test
+    public void unboundReferenceIntoANullableConstructedArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Label {
+                    int getTiedJobCount() { return 0; }
+                }
+                class TagCloud<T> {
+                    interface WeightFunction<T> { float weight(T item); }
+                    TagCloud(Iterable<? extends T> all, WeightFunction<T> f) { }
+                }
+                class Node {
+                    Set<Label> labels() { return new HashSet<>(); }
+                    TagCloud<Label> getLabelCloud() {
+                        return new TagCloud<Label>(labels(), Label::getTiedJobCount);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("getLabelCloud()<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "{ it!!.getTiedJobCount().toFloat() }");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's XmlFile: {@code Map<Object, Void> beingWritten}, {@code put(o, null)}: a Void the verdicts make nullable
      * is a Unit?. Only guava's annotated {@code <@Nullable Void>} is printed Unit, as the unannotated one is.
      */

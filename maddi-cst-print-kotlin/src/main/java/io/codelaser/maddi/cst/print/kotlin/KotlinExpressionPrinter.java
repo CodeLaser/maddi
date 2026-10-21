@@ -1174,6 +1174,16 @@ public class KotlinExpressionPrinter {
                 continue;
             }
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
+            if (call == null && constructed != null && i < method.parameters().size()
+                && unwrap(args.get(i)) instanceof MethodReference mr && nullableConstructedArgument(method, i, constructed)) {
+                // jenkins's Node.getLabelCloud: new TagCloud<LabelAtom?>(labels, Label::getTiedJobCount), whose
+                // WeightFunction<T> takes the class's nullable T: { it!!.getTiedJobCount().toFloat() }
+                OutputBuilder asserting = assertingReference(mr, method.parameters().get(i).parameterizedType(), q);
+                if (asserting != null) {
+                    printed.add(asserting);
+                    continue;
+                }
+            }
             if (call != null && unwrap(args.get(i)) instanceof MethodReference mr && nullableStreamElements(method, call)) {
                 OutputBuilder asserting = assertingReference(mr, q);
                 if (asserting != null) {
@@ -1740,6 +1750,44 @@ public class KotlinExpressionPrinter {
         // a Collection<?>'s stream() is a Stream<out Any?> in Kotlin
         ParameterizedType java = call.object().parameterizedType();
         return java != null && java.parameters().size() == 1 && java.parameters().getFirst().isUnboundWildcard();
+    }
+
+    /**
+     * As {@link #assertingReference(MethodReference, Qualification)}; an unbound getter's result converted to the
+     * functional method's primitive, as Java widens it ({@code int getTiedJobCount()} into {@code float weight(T)}).
+     */
+    private static OutputBuilder assertingReference(MethodReference mr, ParameterizedType functional, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (m.isConstructor() || m.isStatic() || !m.parameters().isEmpty() || mappedMember(mr) != null
+            || !(mr.scope() instanceof TypeExpression) || functional.typeInfo() == null) {
+            return assertingReference(mr, q);
+        }
+        io.codelaser.maddi.cst.api.info.MethodInfo sam;
+        try {
+            sam = functional.typeInfo().singleAbstractMethod();
+        } catch (RuntimeException e) {
+            sam = null;
+        }
+        Primitive to = sam == null || sam.returnType() == null ? null : primitive(sam.returnType());
+        Primitive from = m.returnType() == null ? null : primitive(m.returnType());
+        String conversion = to != null && from != null && to != from && sam.returnType().isPrimitiveExcludingVoid()
+                            && m.returnType().isPrimitiveExcludingVoid() ? conversion(from, to) : "";
+        KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
+        return text("{ it!!." + KotlinNames.name(m.name()) + "()" + conversion + " }");
+    }
+
+    /**
+     * The constructor's parameter {@code i} is typed by one of its class's type parameters ({@code WeightFunction<T>}),
+     * and the type constructed takes a nullable argument for it ({@code TagCloud<LabelAtom?>}).
+     */
+    private static boolean nullableConstructedArgument(io.codelaser.maddi.cst.api.info.MethodInfo constructor, int i,
+                                                       ParameterizedType constructed) {
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> own = constructor.typeInfo().typeParameters();
+        if (own.isEmpty() || constructed.parameters().size() != own.size()) return false;
+        ParameterizedType p = constructor.parameters().get(i).parameterizedType();
+        return p.arrays() == 0 && p.parameters().stream().anyMatch(a -> a.typeParameter() != null && a.arrays() == 0
+                && own.contains(a.typeParameter())
+                && KotlinNullability.isNullable(constructed.parameters().get(own.indexOf(a.typeParameter()))));
     }
 
     /**
