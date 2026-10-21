@@ -994,8 +994,8 @@ public class KotlinStatementPrinter {
                 // timefold's AbstractScoreDirector: try (var d = factory.createScoreDirectorBuilder()…buildDerived()),
                 // an AbstractScoreDirector<Solution_, Score_, ?> whose ? is bounded by its own type: inferred, the
                 // lambda's parameter is a captured type on whose members K2's substitution overflows. Written out,
-                // even as a star, it is not captured
-                parameter += ": " + KotlinTypeName.of(useType, q);
+                // as a star, it is not captured; as the wildcard's `out` bound, it still is
+                parameter += ": " + KotlinTypeName.starred(useType, q);
             }
         } else if (resource instanceof ExpressionAsStatement eas) {
             receiver = KotlinExpressionPrinter.receiver(eas.expression(), q);
@@ -1017,7 +1017,7 @@ public class KotlinStatementPrinter {
     }
 
     private static boolean wildcardArgument(ParameterizedType type) {
-        return type != null && type.arrays() == 0 && type.parameters().stream().anyMatch(a -> a.wildcard() != null);
+        return type != null && type.typeInfo() != null && type.arrays() == 0 && type.parameters().stream().anyMatch(a -> a.wildcard() != null);
     }
 
     // ---------------------------------------------------------------- the rest

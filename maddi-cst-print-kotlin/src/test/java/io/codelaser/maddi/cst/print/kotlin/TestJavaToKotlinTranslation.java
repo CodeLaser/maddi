@@ -81,15 +81,15 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
 
     private static final String WILDCARD_RESOURCE = """
             package a.b;
-            abstract class Director<S, D extends Director<S, D>> implements AutoCloseable {
+            abstract class Director<S, F extends Factory<S>> implements AutoCloseable {
                 abstract void set(S s);
                 public void close() { }
             }
-            abstract class Builder<S, D extends Director<S, D>> {
-                abstract D build();
+            abstract class Builder<S, F extends Factory<S>> {
+                abstract Director<S, F> build();
             }
             abstract class Factory<S> {
-                abstract Builder<S, ?> builder();
+                abstract Builder<S, ? extends Factory<S>> builder();
                 void check(S s) {
                     try (var d = builder().build()) {
                         d.set(s);
@@ -100,7 +100,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
 
     /**
      * timefold's AbstractScoreDirector: a resource whose type has a wildcard argument. Left to inference, {@code use}'s
-     * parameter is a captured type, and a member call on it overflows K2's stack; its type is written instead.
+     * parameter is a captured type, and a member call on it overflows K2's stack; its type is written instead, each
+     * wildcard a star: as {@code out Factory<S>} it overflows as well.
      */
     @Test
     public void wildcardResourceTypesUseParameter() {

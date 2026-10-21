@@ -379,6 +379,16 @@ public class KotlinTypeName {
     }
 
     /**
+     * {@code pt} with every wildcard argument a star, its bound dropped: {@code Director<S, *>} for a
+     * {@code Director<S, ? extends Factory<S, ?>>}, where the declaration's bound says the same.
+     */
+    static String starred(ParameterizedType pt, Qualification q) {
+        String arguments = pt.parameters().stream().map(a -> a.wildcard() != null ? "*" : of(a, q))
+                .collect(Collectors.joining(", ", "<", ">"));
+        return nullable(pt, name(pt.typeInfo(), q) + arguments);
+    }
+
+    /**
      * The type of a constructor call, {@code ArrayList<String>}; just {@code ArrayList} where Kotlin must infer the
      * arguments: a raw type, a projection (which a call cannot take), or an unresolved diamond that still carries
      * a type parameter that is not in scope (the class's own, or a called method's).
