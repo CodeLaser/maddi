@@ -376,6 +376,30 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String COMPARING_RECEIVER = """
+            package a;
+            import java.util.Comparator;
+            class Project {
+                String getName() { return "p"; }
+            }
+            class Group {
+                Project upstream() { return new Project(); }
+                Project downstream() { return new Project(); }
+                static final Comparator<Group> NAME_COMPARATOR = Comparator
+                        .comparing((Group g) -> g.upstream().getName())
+                        .thenComparing(g -> g.downstream().getName());
+            }
+            """;
+
+    /** jenkins's DependencyGraph: Comparator.comparing(lambda) as a receiver types the lambda's parameter. */
+    @Test
+    public void comparingAsAReceiver() {
+        String kotlin = kotlin(COMPARING_RECEIVER);
+        contains(kotlin, "g: Group ->");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {

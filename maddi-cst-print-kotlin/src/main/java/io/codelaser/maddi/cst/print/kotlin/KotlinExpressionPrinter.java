@@ -907,6 +907,32 @@ public class KotlinExpressionPrinter {
      * type of the lambda's parameter ({@code F} in {@code Function<F, ? extends T>}), not of its result, which Kotlin
      * infers from the body.
      */
+    // lambdas whose parameters are written with their types
+    private static final ThreadLocal<java.util.Set<Lambda>> TYPED_LAMBDAS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /**
+     * jenkins's DependencyGraph: {@code Comparator.comparing(lhs -> lhs.getUpstreamProject().getName())
+     * .thenComparing(…)}. The lambda's input is a type variable of a static generic method that no other argument
+     * fixes, and Kotlin's {@code { lhs -> … }} gives it no type as a receiver; {@code { lhs: DependencyGroup -> … }}
+     * does, and Kotlin infers the result's from the body. Only where the call has no expected type to fix it (a
+     * receiver), and only types Java has concrete, written where they are in scope.
+     */
+    private static boolean staticLambdaInput(io.codelaser.maddi.cst.api.info.MethodInfo method, MethodCall call, int i,
+                                             Lambda l) {
+        if (!KotlinContext.translatingJava() || !method.isStatic() || method.typeParameters().isEmpty()
+            || !call.typeArguments().isEmpty() || l.parameters().isEmpty() || !noExpectedType(call)) {
+            return false;
+        }
+        ParameterizedType p = method.parameters().get(i).parameterizedType();
+        List<Expression> args = call.parameterExpressions();
+        boolean fixedOnlyHere = method.typeParameters().stream().anyMatch(tp -> lambdaInput(p, tp)
+                && java.util.stream.IntStream.range(0, Math.min(args.size(), method.parameters().size()))
+                .noneMatch(j -> j != i && CstQueries.mentions(method.parameters().get(j).parameterizedType(), tp)));
+        return fixedOnlyHere && l.parameters().stream().map(ParameterInfo::parameterizedType).allMatch(t -> t != null
+                && t.wildcard() == null && t.typeInfo() != null && !mentionsOutOfScope(t));
+    }
+
     private static boolean lambdaInput(ParameterizedType p, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         TypeInfo functional = p.typeInfo();
         if (functional == null || functional.singleAbstractMethod() == null
@@ -1220,10 +1246,13 @@ public class KotlinExpressionPrinter {
                     ParameterizedType t = types.get(j);
                     if (t != null && KotlinNullability.isNullable(t)) KotlinContext.lambdaParameterType(params.get(j), t);
                 }
+                boolean typedParameters = call != null && hasParameter && staticLambdaInput(method, call, i, l);
+                if (typedParameters) TYPED_LAMBDAS.get().add(l);
                 try {
                     printed.add(lambda(l, hasParameter && besideOtherInterface(method, i), q));
                 } finally {
                     if (typed) params.forEach(p -> KotlinContext.lambdaParameterType(p, null));
+                    if (typedParameters) TYPED_LAMBDAS.get().remove(l);
                 }
             } else {
                 ParameterizedType declared = !hasParameter ? mapped ? null : varargsElement(method, i)
@@ -3558,8 +3587,10 @@ public class KotlinExpressionPrinter {
         if (labelled) b.add(new TextImpl(KotlinContext.LAMBDA_LABEL + "@"));
         b.add(SymbolEnum.LEFT_BRACE);
         if (!params.isEmpty()) {
+            boolean typedParameters = TYPED_LAMBDAS.get().contains(lambda);
             b.add(SpaceEnum.ONE).add(params.stream()
-                    .map(p -> new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(p.name()))))
+                    .map(p -> new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(p.name()) + (typedParameters
+                            ? ": " + KotlinTypeName.of(p.parameterizedType(), q) : ""))))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA))).add(SpaceEnum.ONE).add(SymbolEnum.LAMBDA);
         }
         return b.add(SpaceEnum.ONE).add(inner).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
