@@ -980,7 +980,9 @@ public class KotlinExpressionPrinter {
         // jenkins's MorphTagLibrary: return Collections.emptySet() into a Collection<?>, meta = Collections.emptyMap()
         // into a Map<String, ?>, Optional.empty() into an Object: Java binds the variable to Object, where the
         // expected type has a star or nothing that fixes it, and Kotlin cannot infer it
-        boolean objectBound = resultOnly.stream().anyMatch(tp -> concrete.get(tp) != null
+        // guava's Maps: Set<@Nullable Object> keys = Sets.newHashSetWithExpectedSize(n), whose target names the
+        // argument, states included, which Java's binding has not
+        boolean objectBound = !TARGET_FIXED.get().contains(mc) && resultOnly.stream().anyMatch(tp -> concrete.get(tp) != null
                 && concrete.get(tp).isJavaLangObject() && concrete.get(tp).wildcard() == null);
         if (!bounded && !noExpectedType && !objectBound) return null;
         List<String> printed = new ArrayList<>();
@@ -2208,6 +2210,13 @@ public class KotlinExpressionPrinter {
      * an array.
      */
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (unwrap(e) instanceof MethodCall mc && fixingTarget(target) && TARGET_FIXED.get().add(mc)) {
+            try {
+                return assigned(e, target, q);
+            } finally {
+                TARGET_FIXED.get().remove(mc);
+            }
+        }
         java.util.Map.Entry<ConstructorCall, ParameterizedType> typed = targetTypedAnonymous(e, target);
         if (typed == null) return intoRawTarget(e, target, () -> assignedTo(e, target, q));
         ANONYMOUS_SUPERTYPE.get().put(typed.getKey(), typed.getValue());
@@ -2216,6 +2225,16 @@ public class KotlinExpressionPrinter {
         } finally {
             ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
         }
+    }
+
+    // calls initializing or returned into a target with every type argument named: Kotlin infers from it
+    private static final ThreadLocal<java.util.Set<MethodCall>> TARGET_FIXED =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    /** A generic class type whose arguments are all named, no wildcard (guava's {@code Set<@Nullable Object>}). */
+    private static boolean fixingTarget(ParameterizedType target) {
+        return target != null && target.arrays() == 0 && target.typeInfo() != null && !target.parameters().isEmpty()
+               && target.parameters().stream().allMatch(a -> a.wildcard() == null);
     }
 
     // anonymous classes whose supertype's argument is the target of the call they are handed to: see below

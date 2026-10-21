@@ -354,6 +354,10 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                     else meta = Collections.emptyMap();
                     return meta.size();
                 }
+                int none() {
+                    List<Object> keys = Collections.emptyList();
+                    return keys.size();
+                }
                 Object load(String name) {
                     return cache.computeIfAbsent(name, key -> {
                         try {
@@ -373,6 +377,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "Collections.emptySet<");
         contains(kotlin, "Collections.emptyMap<String, ");
         contains(kotlin, "Optional.empty<");
+        // guava's Maps: a target that names the argument fixes it, its state included
+        contains(kotlin, "= Collections.emptyList()");
         compiles(kotlin);
     }
 
