@@ -47,9 +47,9 @@ import java.util.Set;
  */
 final class KotlinNullability {
 
-    /** {@code !!}, glued to its operand. */
+    /** {@code !!}, glued to its operand: no line break in front of it, where it would start a statement. */
     static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
-            new SymbolEnum("!!", SpaceEnum.NONE, SpaceEnum.NONE, null);
+            new SymbolEnum("!!", SpaceEnum.NONE_NO_SPLIT_BEFORE, SpaceEnum.NONE, null);
 
     /**
      * JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). The analysis

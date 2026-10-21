@@ -309,7 +309,17 @@ public class KotlinStatementPrinter {
         for (int i = 0; i < statements.size(); i++) {
             Statement s = statements.get(i);
             if (i == statements.size() - 1 && s instanceof ReturnStatement rs && rs.goToLabel() == null) {
-                if (!rs.hasNoValue()) printed.add(KotlinExpressionPrinter.lambdaReturned(rs.expression(), q));
+                if (rs.hasNoValue()) continue;
+                OutputBuilder value = KotlinExpressionPrinter.lambdaReturned(rs.expression(), q);
+                // (unwrap would strip a Negation itself, an ExpressionWrapper)
+                if (i > 0 && (rs.expression() instanceof Negation n && !n.expression().isNumeric()
+                              || rs.expression() instanceof UnaryOperator uo && uo.operator() != null
+                                 && "!".equals(uo.operator().name()))) {
+                    // timefold's EntityDescriptor: `val d = v as Director<S, *>` then `!d.isPinned(…)`: kotlinc reads the
+                    // `!` line on as the previous one's. Enclosed, it starts the value
+                    value = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(value).add(SymbolEnum.RIGHT_PARENTHESIS);
+                }
+                printed.add(value);
             } else {
                 printed.add(print(s, q));
             }
