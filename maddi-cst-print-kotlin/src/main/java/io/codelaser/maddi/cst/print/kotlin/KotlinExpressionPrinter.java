@@ -1092,7 +1092,8 @@ public class KotlinExpressionPrinter {
      */
     static OutputBuilder arguments(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
                                    MethodCall call, Qualification q) {
-        if (args.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+        boolean asArray = KotlinTypePrinter.varargsAsArray(method);
+        if (args.isEmpty() && !asArray) return new OutputBuilderImpl().add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         // A member of a type Kotlin maps to its own has Kotlin's parameter types: String.indexOf takes a Char there,
         // so no widening; and they are non-null (MutableList<Statement>.add takes a Statement), so a nullable
         // argument is asserted like one for translated code. equals takes Any? everywhere.
@@ -1105,6 +1106,7 @@ public class KotlinExpressionPrinter {
         List<OutputBuilder> printed = new ArrayList<>();
         ParameterizedType constructed = call == null && method != null && method.isConstructor() ? CONSTRUCTED.get() : null;
         for (int i = 0; i < args.size(); i++) {
+            if (asArray && i == method.parameters().size() - 1) break;
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
             }
@@ -1444,6 +1446,7 @@ public class KotlinExpressionPrinter {
                 printed.add(argument);
             }
         }
+        if (asArray && args.size() >= method.parameters().size() - 1) printed.add(varargsArray(args, method, q));
         return printed.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator()));
     }
@@ -2085,6 +2088,30 @@ public class KotlinExpressionPrinter {
      * The array that Java passes as the varargs themselves: Kotlin takes it spread, {@code *names}. That is the last
      * argument in the varargs position, with as many array dimensions as the parameter; not {@code null}.
      */
+    /**
+     * The varargs of a constructor whose Kotlin header takes an {@code Array<T>} ({@link
+     * KotlinTypePrinter#varargsAsArray}): an array as it is, a vararg parameter copied ({@code arrayOf(*openOptions)},
+     * an {@code Array<out T>}), single values as {@code arrayOf<T>(a, b)}, none as {@code emptyArray<T>()}.
+     */
+    private static OutputBuilder varargsArray(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                              Qualification q) {
+        int last = method.parameters().size() - 1;
+        if (spread(args, method, last)) {
+            Expression array = args.get(last);
+            if (vararg(array)) {
+                return new OutputBuilderImpl().add(new TextImpl("arrayOf")).add(SymbolEnum.LEFT_PARENTHESIS).add(SPREAD)
+                        .add(print(array, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
+            return KotlinNullability.asserted(array, KotlinPrintCode.ASSERT_INTO_NON_NULL, q);
+        }
+        ParameterizedType element = method.parameters().get(last).parameterizedType().componentType();
+        String type = KotlinTypeName.of(element, q);
+        if (args.size() == last) return text("emptyArray<" + type + ">()");
+        return text("arrayOf<" + type + ">").add(args.subList(last, args.size()).stream().map(e -> widened(e, element, q))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
+                        SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.defaultGuideGenerator())));
+    }
+
     private static boolean spread(List<Expression> args, io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
         if (method == null || method.parameters().isEmpty() || i != args.size() - 1
             || i != method.parameters().size() - 1) {

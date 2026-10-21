@@ -162,6 +162,40 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String VARARG_COMPONENTS = """
+            package a;
+            import java.nio.file.OpenOption;
+            class FilePath {
+                private record Archive(String root, OpenOption... openOptions) {
+                    int count() { return openOptions.length; }
+                }
+                private static class Read {
+                    private final String root;
+                    private final OpenOption[] openOptions;
+                    Read(String root, OpenOption... openOptions) {
+                        this.root = root;
+                        this.openOptions = openOptions;
+                    }
+                    int count() { return openOptions.length; }
+                }
+                int archive(String root, OpenOption... openOptions) {
+                    return new Archive(root, openOptions).count() + new Read(root, openOptions).count()
+                           + new Archive(root).count() + new Read(root).count()
+                           + new Archive(root, java.nio.file.LinkOption.NOFOLLOW_LINKS).count();
+                }
+            }
+            """;
+
+    /** jenkins's FilePath: a varargs record component, and a varargs constructor parameter that is a field. */
+    @Test
+    public void varargComponents() {
+        String kotlin = kotlin(VARARG_COMPONENTS);
+        contains(kotlin, "Archive(root, arrayOf(*openOptions))");
+        contains(kotlin, "Archive(root, emptyArray<OpenOption>())");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
