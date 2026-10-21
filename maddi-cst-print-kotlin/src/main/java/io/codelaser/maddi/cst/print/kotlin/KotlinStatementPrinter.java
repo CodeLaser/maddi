@@ -359,7 +359,7 @@ public class KotlinStatementPrinter {
                 OutputBuilder cast = genericSuper != null ? genericReturn(value, genericSuper, q)
                         : KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
-                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.assigned(value, returnType, q), q);
+                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.returned(value, returnType, q), q);
             } else if (rs.goToLabel() == null && KotlinContext.LAMBDA_LABEL.equals(label)) {
                 printed = KotlinExpressionPrinter.lambdaReturned(value, q);
             } else {

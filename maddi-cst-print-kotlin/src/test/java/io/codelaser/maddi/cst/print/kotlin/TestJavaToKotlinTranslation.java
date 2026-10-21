@@ -417,6 +417,26 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String LIBRARY_VOID_FUTURE = """
+            package a;
+            import java.util.concurrent.CompletableFuture;
+            import java.util.concurrent.Future;
+            class Session {
+                Future<Void> send(Runnable r) {
+                    return CompletableFuture.runAsync(r);
+                }
+            }
+            """;
+
+    /** jenkins's WebSocketSession: a library's Future<Void> returned as the translation's Future<Unit>. */
+    @Test
+    public void libraryVoidFuture() {
+        String kotlin = kotlin(LIBRARY_VOID_FUTURE);
+        contains(kotlin, "(CompletableFuture.runAsync(r) as Future<Unit>)");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {

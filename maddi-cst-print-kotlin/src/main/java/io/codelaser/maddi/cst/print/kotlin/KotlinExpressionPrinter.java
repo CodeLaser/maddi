@@ -2214,6 +2214,20 @@ public class KotlinExpressionPrinter {
      * {@code Array<out TypeVariable<Class<T>>>}, an {@code Array<out Any?>}. Erased, the cast checks only that it is
      * an array.
      */
+    /**
+     * As {@link #assigned}, for a method's returned value. jenkins's WebSocketSession: return
+     * handler().sendText(text), a library's Future<Void>, Kotlin's Future<Void!>, from a method printed to return
+     * Future<Unit>. Cast as nullIntoVoid's result is: unchecked and erased; get() still returns Java's null. Not for an
+     * initializer: a local's type is then inferred (da2dc68fb)
+     */
+    static OutputBuilder returned(Expression e, ParameterizedType target, Qualification q) {
+        if (!libraryVoidResult(e, target)) return assigned(e, target, q);
+        KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
         if (unwrap(e) instanceof MethodCall mc && fixingTarget(target) && TARGET_FIXED.get().add(mc)) {
             try {
@@ -2230,6 +2244,27 @@ public class KotlinExpressionPrinter {
         } finally {
             ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
         }
+    }
+
+    /**
+     * A library call whose result has a {@code Void} type argument (a {@code CompletableFuture<Void>}), into a type
+     * with one ({@code Future<Void>}): Kotlin's is a Unit there.
+     */
+    private static boolean libraryVoidResult(Expression e, ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || !(unwrap(e) instanceof MethodCall mc) || mc.methodInfo() == null
+            || KotlinNullability.translated(mc.methodInfo().typeInfo())
+            || KotlinTypeName.isMapped(mc.methodInfo().typeInfo().fullyQualifiedName())
+            || target == null || target.arrays() != 0 || target.typeInfo() == null) {
+            return false;
+        }
+        ParameterizedType result = mc.concreteReturnType() != null ? mc.concreteReturnType() : mc.parameterizedType();
+        return result != null && result.arrays() == 0 && result.parameters().stream().anyMatch(KotlinExpressionPrinter::isVoid)
+               && target.parameters().stream().anyMatch(KotlinExpressionPrinter::isVoid);
+    }
+
+    private static boolean isVoid(ParameterizedType t) {
+        return t.arrays() == 0 && t.wildcard() == null && t.typeInfo() != null
+               && "java.lang.Void".equals(t.typeInfo().fullyQualifiedName());
     }
 
     // calls initializing or returned into a target with every type argument named: Kotlin infers from it

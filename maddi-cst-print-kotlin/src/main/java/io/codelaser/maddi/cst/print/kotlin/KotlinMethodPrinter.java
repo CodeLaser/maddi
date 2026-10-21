@@ -164,7 +164,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
                                 KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.assigned(expressionBody, KotlinNullability.returnType(methodInfo),
+                                KotlinExpressionPrinter.returned(expressionBody, KotlinNullability.returnType(methodInfo),
                                         qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
