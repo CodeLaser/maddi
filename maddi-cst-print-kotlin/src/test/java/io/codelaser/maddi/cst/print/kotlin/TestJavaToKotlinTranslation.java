@@ -100,6 +100,11 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                     d.set(s);
                 }
                 abstract java.util.List<? extends Number> numbers();
+                abstract Iterable<?> names();
+                java.util.List<?> copy() {
+                    Iterable<?> i = names();
+                    return java.util.List.of(i);
+                }
                 int first() {
                     var n = numbers();
                     return n.get(0).intValue();
@@ -118,6 +123,7 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "builder().build().use { d: Director<S, *>");
         contains(kotlin, "val d: Director<S, *> = builder().build()");
         assertFalse(kotlin.contains("val n: "), kotlin); // List<*> would lose Number
+        assertFalse(kotlin.contains("val i: "), kotlin); // Iterable<*> would lose the non-null element
     }
 
     @Language("java")

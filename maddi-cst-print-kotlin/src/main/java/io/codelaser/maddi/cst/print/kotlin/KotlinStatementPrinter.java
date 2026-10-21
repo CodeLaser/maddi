@@ -1018,9 +1018,11 @@ public class KotlinStatementPrinter {
     }
 
     /**
-     * {@code type} has a wildcard argument, and each one says no more than its type parameter's bound, so that a star
-     * is the same type: {@code ?}, or timefold's {@code ? extends AbstractScoreDirectorFactory<…>} for a
-     * {@code Factory_ extends AbstractScoreDirectorFactory<…>}. Not a {@code List<? extends Foo>}, whose star loses Foo.
+     * {@code type} has a wildcard argument bounded by its type parameter's own bound, timefold's
+     * {@code ? extends AbstractScoreDirectorFactory<…>} for a {@code Factory_ extends AbstractScoreDirectorFactory<…>},
+     * and every other wildcard is one too or unbound, so that a star is the same type. Not a {@code List<? extends Foo>},
+     * whose star loses Foo; nor guava's {@code Iterable<?> locks = striped.bulkGet(objects)} alone, whose star is an
+     * {@code out Any?} that Lists.newArrayList(locks) rejects, where inference keeps the element non-null.
      */
     private static boolean wildcardArgument(ParameterizedType type) {
         if (type == null || type.typeInfo() == null || type.arrays() > 0
@@ -1030,13 +1032,12 @@ public class KotlinStatementPrinter {
         boolean any = false;
         for (int i = 0; i < type.parameters().size(); i++) {
             ParameterizedType a = type.parameters().get(i);
-            if (a.wildcard() == null) continue;
-            if (!a.isUnboundWildcard()) {
-                List<ParameterizedType> bounds = type.typeInfo().typeParameters().get(i).typeBounds();
-                if (!a.wildcard().isExtendsNoIntersection() || a.typeInfo() == null || bounds.size() != 1
-                    || bounds.getFirst().typeInfo() != a.typeInfo()) {
-                    return false;
-                }
+            // ? extends Object says no more than ?
+            if (a.wildcard() == null || a.isUnboundWildcard() || a.isJavaLangObject()) continue;
+            List<ParameterizedType> bounds = type.typeInfo().typeParameters().get(i).typeBounds();
+            if (!a.wildcard().isExtendsNoIntersection() || a.typeInfo() == null || bounds.size() != 1
+                || bounds.getFirst().typeInfo() != a.typeInfo()) {
+                return false;
             }
             any = true;
         }
