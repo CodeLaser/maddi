@@ -1587,8 +1587,10 @@ public class BitSet : ICloneable
 /// <summary>
 /// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
 /// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
+/// Covariant, as reading is: an iterator of IPositionInList is one of IElementPosition, which Java's
+/// Iterator&lt;? extends ElementPosition&gt; takes.
 /// </summary>
-public interface IJavaIterator<T>
+public interface IJavaIterator<out T>
 {
     bool HasNext();
 
@@ -3808,4 +3810,27 @@ public static class JavaRandoms
 
     /// <summary>Random.nextBytes of Java's signed bytes.</summary>
     public static void NextBytes(this Random random, sbyte[] bytes) => random.NextBytes(MemoryMarshal.Cast<sbyte, byte>(bytes.AsSpan()));
+}
+
+/// <summary>
+/// Java's unchecked conversion of a functional interface to other type arguments, Function&lt;Object, Object&gt; as a
+/// Function&lt;A, Object&gt;: C# converts no Func to another's type arguments (CS0029, CS0030), so the value is wrapped,
+/// evaluated once, its arguments and result cast at each call as Java's erasure has them. Not the same object: one that
+/// the code compares by reference is another.
+/// </summary>
+public static class JavaDelegates
+{
+    public static Func<R2> Cast<R1, R2>(Func<R1> f) => () => (R2) (object) f()!;
+
+    public static Func<P2, R2> Cast<P1, R1, P2, R2>(Func<P1, R1> f) => x => (R2) (object) f((P1) (object) x!)!;
+
+    public static Func<P2, Q2, R2> Cast<P1, Q1, R1, P2, Q2, R2>(Func<P1, Q1, R1> f) =>
+        (x, y) => (R2) (object) f((P1) (object) x!, (Q1) (object) y!)!;
+
+    public static Func<P2, Q2, S2, R2> Cast<P1, Q1, S1, R1, P2, Q2, S2, R2>(Func<P1, Q1, S1, R1> f) =>
+        (x, y, z) => (R2) (object) f((P1) (object) x!, (Q1) (object) y!, (S1) (object) z!)!;
+
+    public static Action<P2> Cast<P1, P2>(Action<P1> f) => x => f((P1) (object) x!);
+
+    public static Action<P2, Q2> Cast<P1, Q1, P2, Q2>(Action<P1, Q1> f) => (x, y) => f((P1) (object) x!, (Q1) (object) y!);
 }

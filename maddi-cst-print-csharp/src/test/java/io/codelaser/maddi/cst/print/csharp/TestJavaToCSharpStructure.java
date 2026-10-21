@@ -592,6 +592,10 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     static <E, V> Entry<E, V> of(E entity, V value) { return new Entry<>(entity, value); }
                 }
                 static <E> Entry<E, String> unowned() { return Entry.of(null, "x"); }
+                @SuppressWarnings("unchecked")
+                static <A> java.util.function.Function<A, Object> narrowed(java.util.function.Function<Object, Object> m) {
+                    return (java.util.function.Function<A, Object>) m;
+                }
                 interface Mv<S> { }
                 static final class Unassign<S> implements Mv<S> { }
                 static final class Assign<S> implements Mv<S> { }
@@ -627,6 +631,8 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // as the bound, where Java's is their least upper bound
         contains(cs, "Same<S>(IMv<S> a, IMv<S> b) => Build<S, IMv<S>>(a, b);");
         contains(cs, "Mixed<S>(Unassign<S> a, Assign<S> b) => Build<S, IMv<S>>(a, b);");
+        // a Func of other type arguments, which C# does not cast: wrapped, its argument cast at each call
+        contains(cs, "Narrowed<A>(Func<object, object> m) => JavaDelegates.Cast<object, object, A, object>(\nm);");
         // E only from null, which gives C# nothing to infer
         contains(cs, "Entry.Of<E, string>(default, \"x\")");
         // a raw constant lambda returned as the generic type: the lambda, which C# caches per type arguments
