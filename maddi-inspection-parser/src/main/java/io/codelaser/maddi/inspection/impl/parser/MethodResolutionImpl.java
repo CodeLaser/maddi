@@ -472,11 +472,11 @@ public class MethodResolutionImpl implements MethodResolution {
                                                                      ParameterizedType outsideContext,
                                                                      TypeParameterMap extra) {
         List<Integer> erased = new ArrayList<>(unparsedArguments.size());
-        for (Map.Entry<Integer, Expression> entry : evaluatedExpressions.entrySet()) {
-            if (entry.getValue() instanceof ErasedExpression) {
-                erased.add(entry.getKey());
+        evaluatedExpressions.forEach((key, value) -> {
+            if (value instanceof ErasedExpression) {
+                erased.add(key);
             }
-        }
+        });
         if (erased.isEmpty()) return; // there are no erased expressions to re-evaluate
         Map<MethodTypeParameterMap, Integer> scores = new HashMap<>();
         int bestScore = Integer.MAX_VALUE;
