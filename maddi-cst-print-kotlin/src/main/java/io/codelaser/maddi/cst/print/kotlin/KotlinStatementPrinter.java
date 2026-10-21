@@ -1026,7 +1026,9 @@ public class KotlinStatementPrinter {
         ParameterizedType type = KotlinNullability.localType(fe, lv);
         // Kotlin types the loop variable from the iterable: a nullable element makes it nullable, whatever its verdict
         ParameterizedType element = KotlinNullability.elementType(fe.expression());
-        ParameterizedType iterable = KotlinNullability.kotlinType(fe.expression());
+        // a library call's result has no Kotlin type of the verdicts' here: Java's (jenkins's getJSONArray(k))
+        ParameterizedType iterable = KotlinNullability.kotlinType(fe.expression()) != null
+                ? KotlinNullability.kotlinType(fe.expression()) : fe.expression().parameterizedType();
         // a raw List's element is Java's Object (its E erased), Kotlin's Any? (List<*>)
         boolean raw = iterable != null && iterable.arrays() == 0 && iterable.typeInfo() != null
                       && iterable.parameters().isEmpty() && !iterable.typeInfo().typeParameters().isEmpty();
