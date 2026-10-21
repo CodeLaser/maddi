@@ -39,6 +39,16 @@ public record Kotlinc(int jvmTarget,
         return List.of();
     }
 
+    @Override
+    public String kotlinLanguageVersion() {
+        return languageVersion;
+    }
+
+    @Override
+    public String kotlinApiVersion() {
+        return apiVersion;
+    }
+
     /**
      * Build a {@link Kotlinc} from the labelled DEBUG lines the kotlin-maven-plugin emits (which give source
      * <i>directories</i> and put the main output on the test classpath rather than using {@code -Xfriend-paths}).

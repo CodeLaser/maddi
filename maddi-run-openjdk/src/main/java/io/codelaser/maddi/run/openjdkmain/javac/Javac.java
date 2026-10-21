@@ -28,7 +28,8 @@ public record Javac(int sourceRelease,
                     String encoding,
                     List<String> addModules,
                     List<String> addExports,
-                    List<String> warningFlags) implements CompileInvocation {
+                    List<String> warningFlags,
+                    boolean enablePreview) implements CompileInvocation {
     public static class Builder {
         int sourceRelease;
         int targetRelease;
@@ -47,6 +48,7 @@ public record Javac(int sourceRelease,
         List<String> addModules = List.of();
         final List<String> addExports = new ArrayList<>();
         final Set<String> warningFlags = new LinkedHashSet<>();
+        boolean enablePreview;
 
         // the builder's lists stay changeable after build(): the record keeps copies
         private static List<String> copy(List<String> list) {
@@ -58,7 +60,7 @@ public record Javac(int sourceRelease,
                     destination, generatedHeadersDestination, generatedSourceFilesDestination,
                     copy(classpath), copy(modulePath), sourcePath, List.copyOf(sourceFiles),
                     processorPath, annotationProcessing,
-                    encoding, addModules, List.copyOf(addExports), List.copyOf(warningFlags));
+                    encoding, addModules, List.copyOf(addExports), List.copyOf(warningFlags), enablePreview);
         }
     }
 
@@ -89,6 +91,9 @@ public record Javac(int sourceRelease,
             String option = split[i];
             if (option.endsWith(".java")) {
                 builder.sourceFiles.add(option);
+            } else if ("--enable-preview".equals(option)) {
+                // a flag without a value: the language level's preview features, with -source/--release N
+                builder.enablePreview = true;
             } else if (PluginSourceSets.isWarningFlag(option)) {
                 // ⛔ BEFORE the -X branch below, which would swallow every -Xlint in silence. -Werror and -nowarn
                 // would fall through to the final `else` and be logged as unknown. This is javac's OWN line, so

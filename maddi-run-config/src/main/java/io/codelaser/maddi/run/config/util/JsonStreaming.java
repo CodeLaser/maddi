@@ -159,6 +159,16 @@ public class JsonStreaming {
             if (warningFlagsNode != null) {
                 for (JsonNode f : warningFlagsNode) warningFlags.add(f.asText());
             }
+            // absent in every configuration written before the language facts were kept: <= 0 / false / null,
+            // "not stated", which is what they mean when present and unset
+            JsonNode languageLevelNode = node.get("languageLevel");
+            int languageLevel = languageLevelNode == null ? 0 : languageLevelNode.asInt(0);
+            boolean enablePreview = getBoolean(node, "enablePreview");
+            String kotlinLanguageVersion = getString(node, "kotlinLanguageVersion", null);
+            String kotlinApiVersion = getString(node, "kotlinApiVersion", null);
+            JsonNode jvmTargetNode = node.get("jvmTarget");
+            int jvmTarget = jvmTargetNode == null ? 0 : jvmTargetNode.asInt(0);
+            String jdkHome = getString(node, "jdkHome", null);
             SourceSet ssi = new SourceSetImpl.Builder().setName(name)
                     .setBuildUnit(buildUnit)
                     .setSourceDirectories(sourceDirectories)
@@ -173,6 +183,12 @@ public class JsonStreaming {
                     .setAddModules(List.copyOf(addModules))
                     .setAddExports(List.copyOf(addExports))
                     .setWarningFlags(List.copyOf(warningFlags))
+                    .setLanguageLevel(languageLevel)
+                    .setEnablePreview(enablePreview)
+                    .setKotlinLanguageVersion(kotlinLanguageVersion)
+                    .setKotlinApiVersion(kotlinApiVersion)
+                    .setJvmTarget(jvmTarget)
+                    .setJdkHome(jdkHome)
                     .build();
             String fingerPrintToString = getString(node, "fingerPrint", "");
             if (!fingerPrintToString.isBlank()) {
@@ -220,6 +236,14 @@ public class JsonStreaming {
             // conditional, like every optional field above: a configuration that states neither is written
             // exactly as it was before these existed, so old and new writers agree on old corpora
             if (value.sourceRelease() > 0) gen.writeNumberField("sourceRelease", value.sourceRelease());
+            if (value.languageLevel() > 0) gen.writeNumberField("languageLevel", value.languageLevel());
+            if (value.enablePreview()) gen.writeBooleanField("enablePreview", true);
+            if (value.kotlinLanguageVersion() != null) {
+                gen.writeStringField("kotlinLanguageVersion", value.kotlinLanguageVersion());
+            }
+            if (value.kotlinApiVersion() != null) gen.writeStringField("kotlinApiVersion", value.kotlinApiVersion());
+            if (value.jvmTarget() > 0) gen.writeNumberField("jvmTarget", value.jvmTarget());
+            if (value.jdkHome() != null) gen.writeStringField("jdkHome", value.jdkHome());
             if (!value.warningFlags().isEmpty()) {
                 gen.writeArrayFieldStart("warningFlags");
                 for (String f : value.warningFlags()) gen.writeString(f);

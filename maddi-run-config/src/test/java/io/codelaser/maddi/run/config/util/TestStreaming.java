@@ -218,4 +218,70 @@ public class TestStreaming {
         Assertions.assertEquals("/tmp/aapi", copyHints.updatedHintsDir());
         Assertions.assertEquals("a.b", copyHints.updatedHintsPackage());
     }
+
+    /**
+     * The compile command's language facts survive the copy Builder (field by field, so a forgotten one would be
+     * dropped in silence) and the input-configuration JSON; a set that states none writes no key for them.
+     */
+    @Test
+    public void testLanguageFactsSurvive() throws JsonProcessingException {
+        SourceSet java = new SourceSetImpl.Builder().setName("core-main").setUri(URI.create("file:/repo/core"))
+                .setLanguageLevel(21).setEnablePreview(true).build();
+        SourceSet kotlin = new SourceSetImpl.Builder().setName("app-main").setUri(URI.create("file:/repo/app"))
+                .setKotlinLanguageVersion("1.9").setKotlinApiVersion("1.9").setJvmTarget(17).setJdkHome("/jdk/17")
+                .build();
+        SourceSet silent = new SourceSetImpl.Builder().setName("says-nothing").setUri(URI.create("file:/repo/other"))
+                .build();
+
+        SourceSet renamed = new SourceSetImpl.Builder(kotlin).setName("renamed").build();
+        Assertions.assertEquals("1.9", renamed.kotlinLanguageVersion());
+        Assertions.assertEquals("1.9", renamed.kotlinApiVersion());
+        Assertions.assertEquals(17, renamed.jvmTarget());
+        Assertions.assertEquals("/jdk/17", renamed.jdkHome());
+        SourceSet renamedJava = new SourceSetImpl.Builder(java).setName("renamed-java").build();
+        Assertions.assertEquals(21, renamedJava.languageLevel());
+        Assertions.assertTrue(renamedJava.enablePreview());
+
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        InputConfiguration inputConfiguration = new InputConfigurationImpl(Path.of("."),
+                List.of(java, kotlin, silent), List.of(), Path.of("/"), 0);
+        String json = objectMapper.writeValueAsString(inputConfiguration);
+        InputConfiguration copy = objectMapper.readerFor(InputConfiguration.class).readValue(json);
+
+        Assertions.assertEquals(21, copy.sourceSets().get(0).languageLevel());
+        Assertions.assertTrue(copy.sourceSets().get(0).enablePreview());
+        Assertions.assertNull(copy.sourceSets().get(0).kotlinLanguageVersion());
+        Assertions.assertEquals("1.9", copy.sourceSets().get(1).kotlinLanguageVersion());
+        Assertions.assertEquals("1.9", copy.sourceSets().get(1).kotlinApiVersion());
+        Assertions.assertEquals(17, copy.sourceSets().get(1).jvmTarget());
+        Assertions.assertEquals("/jdk/17", copy.sourceSets().get(1).jdkHome());
+        Assertions.assertEquals(0, copy.sourceSets().get(1).languageLevel());
+        SourceSet none = copy.sourceSets().get(2);
+        Assertions.assertEquals(0, none.languageLevel());
+        Assertions.assertFalse(none.enablePreview());
+        Assertions.assertNull(none.kotlinLanguageVersion());
+        Assertions.assertNull(none.kotlinApiVersion());
+        Assertions.assertEquals(0, none.jvmTarget());
+        Assertions.assertNull(none.jdkHome());
+        for (String key : List.of("languageLevel", "enablePreview", "kotlinLanguageVersion", "kotlinApiVersion",
+                "jvmTarget", "jdkHome")) {
+            Assertions.assertEquals(1, json.split("\"" + key + "\"", -1).length - 1, key + " only where stated: " + json);
+        }
+    }
+
+    @Test
+    public void testLanguageFactsAbsentInAnOlderConfiguration() throws JsonProcessingException {
+        ObjectMapper objectMapper = JsonStreaming.objectMapper();
+        String json = "{\"workingDirectory\":\".\",\"classPathParts\":[],\"sourceSets\":["
+                      + "{\"name\":\"main\",\"uri\":\"file:/x\",\"sourceRelease\":21}],\"alternativeJREDirectory\":null}";
+        SourceSet set = objectMapper.readerFor(InputConfiguration.class).<InputConfiguration>readValue(json)
+                .sourceSets().getFirst();
+        Assertions.assertEquals(21, set.sourceRelease());
+        Assertions.assertEquals(0, set.languageLevel());
+        Assertions.assertFalse(set.enablePreview());
+        Assertions.assertNull(set.kotlinLanguageVersion());
+        Assertions.assertNull(set.kotlinApiVersion());
+        Assertions.assertEquals(0, set.jvmTarget());
+        Assertions.assertNull(set.jdkHome());
+    }
 }

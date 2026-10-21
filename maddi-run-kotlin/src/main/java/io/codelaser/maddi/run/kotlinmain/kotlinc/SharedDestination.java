@@ -27,8 +27,9 @@ import java.util.stream.Stream;
  * <p>One module, one source set, both languages: which is what {@code MixedProjectInspector} expects of a mixed
  * module (mixed-language-integration.md §2). The language of a file is its extension, not its invocation.
  *
- * <p>javac supplies the Java options (release, exports, warning flags, encoding), kotlinc the Kotlin ones
- * (module name, friend paths); class paths and source directories are the union, kotlinc's first.
+ * <p>javac supplies the Java options (release, language level, preview, exports, warning flags, encoding), kotlinc
+ * the Kotlin ones (module name, friend paths, language and API version, JVM target, JDK home); class paths and
+ * source directories are the union, kotlinc's first.
  */
 record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements CompileInvocation {
 
@@ -103,6 +104,36 @@ record SharedDestination(Kotlinc kotlinc, CompileInvocation javac) implements Co
     @Override
     public int effectiveRelease() {
         return javac.effectiveRelease();
+    }
+
+    @Override
+    public int languageLevel() {
+        return javac.languageLevel();
+    }
+
+    @Override
+    public boolean enablePreview() {
+        return javac.enablePreview();
+    }
+
+    @Override
+    public String kotlinLanguageVersion() {
+        return kotlinc.kotlinLanguageVersion();
+    }
+
+    @Override
+    public String kotlinApiVersion() {
+        return kotlinc.kotlinApiVersion();
+    }
+
+    @Override
+    public int jvmTarget() {
+        return kotlinc.jvmTarget();
+    }
+
+    @Override
+    public String jdkHome() {
+        return kotlinc.jdkHome();
     }
 
     @Override
