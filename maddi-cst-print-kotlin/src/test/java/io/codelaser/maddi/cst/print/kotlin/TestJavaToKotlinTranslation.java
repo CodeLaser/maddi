@@ -280,6 +280,15 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                 @SuppressWarnings("unchecked")
                 ConfigurationDescriptor() { super(self()); }
             }
+            abstract class Decorator<T> {
+                protected Decorator(Class<? extends T> clazz) { }
+                @SuppressWarnings("rawtypes")
+                protected static Class self() { return Decorator.class; }
+            }
+            class PageDecorator extends Decorator<PageDecorator> {
+                @SuppressWarnings("unchecked")
+                PageDecorator() { super(self()); }
+            }
             """;
 
     /** jenkins's GlobalConfiguration: a raw Class into the supertype's Class<T>, a T no name here gives. */
@@ -287,6 +296,8 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     public void rawClassIntoASupertypeParameter() {
         String kotlin = kotlin(RAW_CLASS_INTO_SUPER);
         contains(kotlin, "Descriptor<Configuration>(uncheckedClass(Descriptor.self()))");
+        // PageDecorator: into a Class<? extends T>
+        contains(kotlin, "Decorator<PageDecorator>(uncheckedClass(Decorator.self()))");
         contains(kotlin, "private fun <T> uncheckedClass(value: Class<*>): Class<T>");
         compiles(kotlin);
     }

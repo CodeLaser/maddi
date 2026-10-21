@@ -2081,12 +2081,17 @@ public class KotlinExpressionPrinter {
             @Suppress("UNCHECKED_CAST")
             private fun <T> uncheckedClass(value: Class<*>): Class<T> = value as Class<T>""";
 
-    /** {@code Class<T>} of a class's type parameter (not a method's, which nothing would fix for the helper). */
+    /**
+     * {@code Class<T>} or {@code Class<? extends T>} (jenkins's {@code Descriptor(Class<? extends T>)}) of a class's
+     * type parameter (not a method's, which nothing would fix for the helper).
+     */
     private static boolean classOfClassTypeParameter(ParameterizedType target) {
         return target.arrays() == 0 && target.typeInfo() != null
                && "java.lang.Class".equals(target.typeInfo().fullyQualifiedName())
                && target.parameters().size() == 1 && target.parameters().getFirst().isTypeParameter()
-               && target.parameters().getFirst().wildcard() == null
+               && (target.parameters().getFirst().wildcard() == null
+                   || !target.parameters().getFirst().wildcard().isUnbound()
+                      && !target.parameters().getFirst().wildcard().isSuper())
                && !target.parameters().getFirst().typeParameter().isMethodTypeParameter();
     }
 
