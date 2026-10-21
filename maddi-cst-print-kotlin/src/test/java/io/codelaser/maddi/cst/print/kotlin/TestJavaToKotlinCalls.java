@@ -802,6 +802,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                     static int compare(String a, String b) {
                         return a.compareToIgnoreCase(b);
                     }
+                    static boolean same(String a, Map<String, String> m) {
+                        return a.compareToIgnoreCase(m.get("k")) == 0 || a.equalsIgnoreCase(m.get("k"));
+                    }
                     static Class<? extends Annotation> type(Annotation annotation) {
                         return annotation.annotationType();
                     }
@@ -814,6 +817,9 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
                 }
                 """);
         contains(kotlin, "a.compareTo(b, ignoreCase = true)");
+        // PluginWrapper: Kotlin's compareTo takes a String, where Java's throws on null; its equals takes a String?
+        contains(kotlin, "a.compareTo(m.get(\"k\")!!, ignoreCase = true)");
+        contains(kotlin, "a.equals(m.get(\"k\"), ignoreCase = true)");
         contains(kotlin, "annotation.annotationClass.java");
         contains(kotlin, "arrayOfNulls<String>(it)");
         compiles(kotlin);

@@ -557,9 +557,13 @@ public class KotlinExpressionPrinter {
         }
         if (KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo())
             || KotlinMappedMembers.isCompareToIgnoreCase(mc.methodInfo())) {
-            // jenkins's Functions: a.getName().compareToIgnoreCase(b.getName()), compareTo(…, ignoreCase = true)
-            return b.add(new TextImpl(KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo()) ? "equals" : "compareTo"))
-                    .add(SymbolEnum.LEFT_PARENTHESIS).add(print(mc.parameterExpressions().getFirst(), q))
+            // jenkins's Functions: a.getName().compareToIgnoreCase(b.getName()), compareTo(…, ignoreCase = true).
+            // Kotlin's equals takes a String?, as Java's does; its compareTo a String, where Java's throws on null
+            boolean equals = KotlinMappedMembers.isEqualsIgnoreCase(mc.methodInfo());
+            Expression other = mc.parameterExpressions().getFirst();
+            return b.add(new TextImpl(equals ? "equals" : "compareTo")).add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(!equals && !(unwrap(other) instanceof NullConstant) && KotlinNullability.nullableInKotlin(other)
+                            ? KotlinNullability.asserted(other, KotlinPrintCode.ASSERT_INTO_NON_NULL, q) : print(other, q))
                     .add(SymbolEnum.COMMA).add(new TextImpl("ignoreCase = true")).add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         // Iterators.<@Nullable Entry<K, V>>getNext(it, null): the type-use annotation's state, as in a class header
