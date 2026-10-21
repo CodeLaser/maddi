@@ -246,6 +246,24 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String RAW_LAMBDA_TARGET = """
+            package a;
+            interface Resolver<V> {
+                @SuppressWarnings("rawtypes")
+                Resolver NONE = name -> null;
+                V resolve(String name);
+            }
+            """;
+
+    /** jenkins's VariableResolver.NONE: a lambda into a raw type constructs its erasure, not a star projection. */
+    @Test
+    public void lambdaIntoARawType() {
+        String kotlin = kotlin(RAW_LAMBDA_TARGET);
+        contains(kotlin, "Resolver<Any?> {");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {

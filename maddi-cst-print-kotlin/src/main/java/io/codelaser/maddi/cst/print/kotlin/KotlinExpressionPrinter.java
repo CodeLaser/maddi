@@ -3390,7 +3390,10 @@ public class KotlinExpressionPrinter {
             || type.parameters().stream().anyMatch(p -> p.wildcard() != null)) {
             return null;
         }
-        return KotlinTypeName.of(type, q);
+        // jenkins's VariableResolver NONE = name -> null: a raw type is star-projected, which Kotlin cannot construct;
+        // its erasure, VariableResolver<Any?>, is one of the types the star stands for
+        String erased = KotlinTypeName.erased(type, q);
+        return erased != null ? erased : KotlinTypeName.of(type, q);
     }
 
     private static OutputBuilder lambda(Lambda lambda, Qualification q) {
