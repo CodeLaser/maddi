@@ -252,10 +252,15 @@ public class KotlinTypeName {
             // ListenableFuture<@Nullable Void> is Kotlin's ListenableFuture<Unit>, as the unannotated one is: a Unit?
             // argument makes the two different types (guava's MoreExecutors, TrustedListenableFutureTask<@Nullable
             // Void> into a ListenableFuture<Void>), and a Java Void is null either way. Not a Void the verdicts make
-            // nullable without the annotation: jenkins's XmlFile, Map<Object, Void> beingWritten, put(o, null): Unit?
+            // nullable in a java.util collection or map without the annotation, where the null is a stored value:
+            // jenkins's XmlFile, Map<Object, Void> beingWritten, put(o, null): Unit?. Elsewhere (a Callable<Void>,
+            // a visitor's Void) the anonymous classes and futures it meets are printed Unit
             if (argument.arrays() == 0 && argument.wildcard() == null && argument.typeInfo() != null
                 && "java.lang.Void".equals(argument.typeInfo().fullyQualifiedName())
                 && (argument.nullable() != NullableState.NULLABLE || !KotlinContext.translatingJava()
+                    || !pt.typeInfo().fullyQualifiedName().startsWith("java.util.")
+                    || pt.typeInfo().fullyQualifiedName().startsWith("java.util.concurrent.")
+                       && !pt.typeInfo().fullyQualifiedName().contains("Map")
                     || argument.annotations().stream().anyMatch(ae -> ae.typeInfo() != null
                         && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName())))) {
                 argument = argument.withNullable(NullableState.NONNULL);

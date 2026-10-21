@@ -522,10 +522,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     static void all(Collection<?> items) {
                         for (Object obj : items) use(obj);
                     }
+                    @SuppressWarnings({"rawtypes", "serial"})
+                    static class JsonArray extends ArrayList { }
+                    static void json(JsonArray array) {
+                        for (Object element : array) use(element);
+                    }
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "o!!.javaClass");
         contains(kotlin, "use(obj!!)");
+        // jenkins's JSONArray: a class of its own over a raw List
+        contains(kotlin, "use(element!!)");
         compiles(kotlin);
     }
 
@@ -565,15 +572,20 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         String kotlin = kotlin("""
                 package a;
                 import java.util.*;
+                import java.util.concurrent.Callable;
                 class Xml {
                     private final Map<Object, Void> beingWritten = Collections.synchronizedMap(new IdentityHashMap<>());
-                    void write(Object o) {
+                    private final Callable<Void> task = () -> null;
+                    void write(Object o) throws Exception {
                         beingWritten.put(o, null);
                         beingWritten.remove(o);
+                        task.call();
                     }
                 }
-                """, new KotlinPrintOptions(new ByName(Set.of("beingWritten<,>")), KotlinPrintOptions.NullCheck.ASSERT));
+                """, new KotlinPrintOptions(new ByName(Set.of("beingWritten<,>", "task<>")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "MutableMap<Any, Unit?>");
+        // jenkins's Queue, Label: elsewhere the anonymous classes and futures a Void meets are printed Unit
+        contains(kotlin, "Callable<Unit>");
         compiles(kotlin);
     }
 

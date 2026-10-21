@@ -1030,7 +1030,11 @@ public class KotlinStatementPrinter {
         // a raw List's element is Java's Object (its E erased), Kotlin's Any? (List<*>)
         boolean raw = iterable != null && iterable.arrays() == 0 && iterable.typeInfo() != null
                       && iterable.parameters().isEmpty() && !iterable.typeInfo().typeParameters().isEmpty();
-        if (raw) element = null;
+        // jenkins's JSONArray, a class of its own implementing a raw List: its Iterable's E, in scope nowhere here
+        if (raw || element != null && element.typeParameter() != null && element.arrays() == 0
+                   && !KotlinContext.typeParameterInScope(element.typeParameter())) {
+            element = null;
+        }
         if (element != null && element.typeInfo() != null && element.arrays() == type.arrays()) {
             // the element's own type arguments too (for (entry in map.entries): an Entry<K, V?>)
             KotlinContext.localType(lv.simpleName(), KotlinNullability.isNullable(element) || KotlinNullability.isNullable(type)
