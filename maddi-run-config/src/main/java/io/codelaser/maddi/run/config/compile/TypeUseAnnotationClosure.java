@@ -117,20 +117,19 @@ public class TypeUseAnnotationClosure {
             for (SourceSet dependency : sourceSet.dependencies()) {
                 Map<String, String> annotations = carries.get(dependency);
                 if (annotations == null) continue;
-                for (Map.Entry<String, String> e : annotations.entrySet()) {
-                    String annotation = e.getKey();
-                    if (visible.contains(annotation) || resolvableFromTheJdk(annotation)) continue;
+                annotations.forEach((annotation, value) -> {
+                    if (visible.contains(annotation) || resolvableFromTheJdk(annotation)) return;
                     SourceSet provider = pickProvider(annotation, provides, visible, modular);
                     if (provider == null) {
-                        unresolved.add(new Unresolved(sourceSet.name(), annotation, dependency.name(), e.getValue(),
+                        unresolved.add(new Unresolved(sourceSet.name(), annotation, dependency.name(), value,
                                 provides.values().stream().noneMatch(p -> p.contains(annotation))
                                         ? "no classpath part declares it"
                                         : "its only provider(s) would shadow types already resolved here"));
-                        continue;
+                        return;
                     }
                     extra.add(provider);
                     visible.addAll(provides.get(provider));
-                }
+                });
             }
             if (extra.isEmpty()) {
                 result.add(sourceSet);
