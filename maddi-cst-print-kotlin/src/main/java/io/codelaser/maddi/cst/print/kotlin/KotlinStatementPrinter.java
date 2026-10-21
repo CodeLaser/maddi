@@ -428,7 +428,10 @@ public class KotlinStatementPrinter {
             }
         }
         Expression condition = fs.expression();
-        boolean hasCondition = condition != null && !condition.isEmpty();
+        // for (int i = 1; ; i++), whose missing condition the parser makes `true`: no `if (!(true)) break`, which
+        // hides from kotlinc that the loop does not end (jenkins's WorkspaceList.allocate returns from inside it)
+        boolean hasCondition = condition != null && !condition.isEmpty()
+                               && !(KotlinExpressionPrinter.unwrap(condition) instanceof BooleanConstant bc && bc.constant());
         List<Expression> updates = fs.updaters();
         String label = fs.label();
         boolean continues = !updates.isEmpty() && continuesItself(fs);

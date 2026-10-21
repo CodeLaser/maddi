@@ -223,6 +223,29 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String ENDLESS_FOR = """
+            package a;
+            import java.util.Set;
+            class Workspaces {
+                String allocate(String base, Set<String> inUse) {
+                    for (int i = 1; ; i++) {
+                        String candidate = i == 1 ? base : base + "@" + i;
+                        if (inUse.contains(candidate)) continue;
+                        return candidate;
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's WorkspaceList: a for without a condition does not end, so nothing need follow it. */
+    @Test
+    public void forWithoutACondition() {
+        String kotlin = kotlin(ENDLESS_FOR);
+        assertFalse(kotlin.contains("if (!(true)) break"), kotlin);
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
