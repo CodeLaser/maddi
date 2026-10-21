@@ -2985,4 +2985,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "g.one(null)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Finalizer: {@code Class<?> c = ref.get(); if (c == null) return null;} with a non-null verdict for c. A
+     * wildcard local is written with stars (timefold), but not as non-null over a nullable initializer: inferred,
+     * {@code Class<*>?}, it is smart-cast by the check.
+     */
+    @Test
+    public void wildcardLocalOverANullableInitializer() {
+        String kotlin = kotlin("""
+                package a.b;
+                abstract class F {
+                    abstract Class<?> ref();
+                    java.lang.reflect.Method method() throws Exception {
+                        Class<?> c = ref();
+                        if (c == null) return null;
+                        return c.getMethod("m");
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("ref()", "method()"), Set.of("c")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "val c = ref()");
+    }
 }
