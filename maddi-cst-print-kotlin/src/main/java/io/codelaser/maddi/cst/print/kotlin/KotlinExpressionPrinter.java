@@ -1174,6 +1174,17 @@ public class KotlinExpressionPrinter {
                 continue;
             }
             // an argument converts to the parameter's interface by itself; no SAM constructor needed
+            if (hasParameterFor(method, i) && unwrap(args.get(i)) instanceof MethodReference br
+                && KotlinNullability.boxedAbiOnlyResult(br.methodInfo())) {
+                // jenkins's IdStrategy: applyPatternRepeatedly(…, this::convertPseudoUnicode) into a
+                // Function<String, Char>, of a Character result printed Char? for its JVM signature, which the
+                // verdicts hold non-null: { this.convertPseudoUnicode(it)!! }
+                OutputBuilder asserting = resultAssertingReference(br, q);
+                if (asserting != null) {
+                    printed.add(asserting);
+                    continue;
+                }
+            }
             if (call == null && constructed != null && i < method.parameters().size()
                 && unwrap(args.get(i)) instanceof MethodReference mr && nullableConstructedArgument(method, i, constructed)) {
                 // jenkins's Node.getLabelCloud: new TagCloud<LabelAtom?>(labels, Label::getTiedJobCount), whose
@@ -1778,6 +1789,38 @@ public class KotlinExpressionPrinter {
                             && m.returnType().isPrimitiveExcludingVoid() ? conversion(from, to) : "";
         KotlinContext.message(KotlinPrintCode.ASSERT_AT_DEREFERENCE, mr, KotlinContext.describe(mr));
         return text("{ it!!." + KotlinNames.name(m.name()) + "()" + conversion + " }");
+    }
+
+    private static boolean hasParameterFor(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
+        return method != null && i < method.parameters().size() && !method.parameters().get(i).isVarArgs();
+    }
+
+    /**
+     * A reference as a lambda whose result is asserted: {@code { this.m(it)!! }}, {@code { Owner.m(it)!! }},
+     * {@code { it.m()!! }}. Null for any other shape.
+     */
+    private static OutputBuilder resultAssertingReference(MethodReference mr, Qualification q) {
+        io.codelaser.maddi.cst.api.info.MethodInfo m = mr.methodInfo();
+        if (m.isConstructor() || mappedMember(mr) != null) return null;
+        String name = KotlinNames.name(m.name());
+        String call;
+        if (mr.scope() instanceof TypeExpression te) {
+            if (m.isStatic() && m.parameters().size() == 1) {
+                call = KotlinTypeName.staticOwner(te.parameterizedType().typeInfo(), q) + "." + name + "(it)";
+            } else if (!m.isStatic() && m.parameters().isEmpty()) {
+                call = "it." + name + "()";
+            } else {
+                return null;
+            }
+        } else if (!m.isStatic() && m.parameters().size() == 1) {
+            KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE).add(receiver(mr.scope(), q))
+                    .add(SymbolEnum.DOT).add(new TextImpl(name + "(it)!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
+        } else {
+            return null;
+        }
+        KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, mr, KotlinContext.describe(mr));
+        return text("{ " + call + "!! }");
     }
 
     /**

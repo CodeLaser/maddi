@@ -477,6 +477,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's IdStrategy: {@code applyPatternRepeatedly(…, this::convertPseudoUnicode)}, whose {@code Character}
+     * result is printed {@code Char?} for its JVM signature, into a {@code Function<String, Character>}, Kotlin's
+     * {@code Function<String, Char>}: the verdicts hold it non-null, and the reference asserts it.
+     */
+    @Test
+    public void referenceToABoxedAbiResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.Function;
+                public class Ids {
+                    public Character convert(String group) {
+                        return (char) Integer.parseInt(group.substring(1), 16);
+                    }
+                    public String apply(String id, Function<String, Character> converter) {
+                        return id + converter.apply(id);
+                    }
+                    public String fromFilename(String filename) {
+                        return apply(filename, this::convert);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun convert(group: String): Char?");
+        contains(kotlin, "{ this.convert(it)!! }");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's RedactSecretJsonInErrorMessageSanitizer: the verdicts know the loop variable non-null, as Java does,
      * where Kotlin's over a raw List is an Any? that no fact smart-casts: still asserted.
      */

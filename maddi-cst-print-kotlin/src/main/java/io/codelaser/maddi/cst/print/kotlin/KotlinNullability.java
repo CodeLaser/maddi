@@ -169,6 +169,19 @@ final class KotlinNullability {
                 .collect(java.util.stream.Collectors.joining(","));
     }
 
+    /**
+     * A boxed result printed nullable for the JVM signature's sake ({@link #boxedAbi}) only: the verdicts hold it
+     * non-null (jenkins's IdStrategy.convertPseudoUnicode, {@code Character} from a {@code (char)} cast).
+     */
+    static boolean boxedAbiOnlyResult(MethodInfo methodInfo) {
+        if (methodInfo == null || methodInfo.isConstructor() || methodInfo.returnType() == null
+            || !isBoxed(methodInfo.returnType()) || !boxedAbi(methodInfo, MethodInfo::returnType)) {
+            return false;
+        }
+        ParameterizedType verdict = verdicts().returnType(methodInfo);
+        return verdict == null || !isNullable(verdict);
+    }
+
     private static boolean isBoxed(ParameterizedType type) {
         return type.arrays() == 0 && type.typeInfo() != null && type.isBoxedExcludingVoid();
     }
