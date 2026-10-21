@@ -477,6 +477,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's RedactSecretJsonInErrorMessageSanitizer and RobustReflectionConverter: for (Object o : …) over a raw
+     * List or a Collection<?>. Kotlin's loop variable is an Any?, whatever its verdict: asserted at a dereference and
+     * into a non-null parameter.
+     */
+    @Test
+    public void loopVariableOverARawOrStarCollection() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Redact {
+                    static void use(Object x) { System.out.println(x.hashCode()); }
+                    @SuppressWarnings("rawtypes")
+                    static String names(List items) {
+                        StringBuilder sb = new StringBuilder();
+                        for (Object o : items) sb.append(o.getClass().getName());
+                        return sb.toString();
+                    }
+                    static void all(Collection<?> items) {
+                        for (Object obj : items) use(obj);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "o!!.javaClass");
+        contains(kotlin, "use(obj!!)");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's Node.getLabelCloud: {@code new TagCloud<LabelAtom>(labels, Label::getTiedJobCount)}, the verdicts'
      * {@code TagCloud<LabelAtom?>}: the WeightFunction takes the nullable element, so the reference asserts it.
      */

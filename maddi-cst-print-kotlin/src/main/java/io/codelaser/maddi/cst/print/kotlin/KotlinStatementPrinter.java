@@ -1026,11 +1026,22 @@ public class KotlinStatementPrinter {
         ParameterizedType type = KotlinNullability.localType(fe, lv);
         // Kotlin types the loop variable from the iterable: a nullable element makes it nullable, whatever its verdict
         ParameterizedType element = KotlinNullability.elementType(fe.expression());
+        ParameterizedType iterable = KotlinNullability.kotlinType(fe.expression());
+        // a raw List's element is Java's Object (its E erased), Kotlin's Any? (List<*>)
+        boolean raw = iterable != null && iterable.arrays() == 0 && iterable.typeInfo() != null
+                      && iterable.parameters().isEmpty() && !iterable.typeInfo().typeParameters().isEmpty();
+        if (raw) element = null;
         if (element != null && element.typeInfo() != null && element.arrays() == type.arrays()) {
             // the element's own type arguments too (for (entry in map.entries): an Entry<K, V?>)
             KotlinContext.localType(lv.simpleName(), KotlinNullability.isNullable(element) || KotlinNullability.isNullable(type)
                     ? element.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : element);
         } else if (KotlinNullability.isNullable(element) && !KotlinNullability.isNullable(type)) {
+            KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+        } else if (element == null && type.arrays() == 0 && type.isJavaLangObject() && iterable != null
+                   && iterable.arrays() == 0) {
+            // jenkins's RedactSecretJsonInErrorMessageSanitizer: for (Object o : jsonArray) over a raw JSONArray, and
+            // RobustReflectionConverter's over a Collection<?>: Kotlin's loop variable is an Any?, whatever its verdict,
+            // and is asserted where it goes into a non-null
             KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
         }
         return name;
