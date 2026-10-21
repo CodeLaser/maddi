@@ -1175,11 +1175,13 @@ public class KotlinStatementPrinter {
             b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
         } else if (hasInitializer && KotlinContext.translatingJava() && wildcardArgument(type)
                    && !KotlinExpressionPrinter.mentionsOutOfScope(type)
-                   && (KotlinNullability.isNullable(type) || !KotlinNullability.nullableInKotlin(init))) {
+                   && (KotlinNullability.isNullable(type)
+                       || !KotlinNullability.nullableInKotlin(init) && !libraryResult(init))) {
             // timefold's AbstractScoreDirector: var d = factory.createScoreDirectorBuilder()…buildDerived(), as use's
             // parameter above: inferred, a captured type on whose members K2 overflows; written, each wildcard a star.
-            // Not over a nullable initializer the verdict calls non-null: guava's Finalizer, Class<?> c = ref.get(),
-            // checks c for null after, which an inferred Class<*>? allows
+            // Not over a nullable initializer the verdict calls non-null, nor non-null over a library result, whose
+            // state is Kotlin's: guava's Finalizer, Class<?> c = ref.get(), a T? for Kotlin, checks c for null after,
+            // which an inferred Class<*>? allows
             writeType = true;
             b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.starred(type, q)));
         }
