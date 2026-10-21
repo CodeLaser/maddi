@@ -163,9 +163,24 @@ public class ParameterInfoImpl implements ParameterInfo {
         return inspection.get().isFinal();
     }
 
+    // @IgnoreModifications (road §050): idempotent memo state, disclaimed -- the VariableImpl.cachedHash precedent.
+    // The name holds the method's full signature, and the prepwork analysis keys every statement's variable data by it
+    // (VariableDataImpl.vicByFqn): built anew on every call, each statement kept its own copy, N parameters times N
+    // statements copies of a name that grows with N. Constructors of 150 parameters on a closed-core corpus filled a
+    // 24 GB heap while parsing. Interned, as FieldReferenceImpl's name is (CodeLaser/maddi-mod#16). Kept only once the
+    // method is committed: while it is built its signature can still gain parameters.
+    @IgnoreModifications
+    private volatile String fullyQualifiedName;
+
     @Override
     public String fullyQualifiedName() {
-        return methodInfo.fullyQualifiedName() + ":" + index + ":" + simpleName();
+        String fqn = fullyQualifiedName;
+        if (fqn != null) return fqn;
+        fqn = methodInfo.fullyQualifiedName() + ":" + index + ":" + simpleName();
+        if (!methodInfo.hasBeenInspected()) return fqn;
+        fqn = fqn.intern();
+        fullyQualifiedName = fqn;
+        return fqn;
     }
 
     @Override
