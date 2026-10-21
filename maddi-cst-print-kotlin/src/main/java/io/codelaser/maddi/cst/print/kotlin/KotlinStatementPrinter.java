@@ -990,7 +990,8 @@ public class KotlinStatementPrinter {
                     KotlinNullability.nullableInKotlin(init) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
                             : io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
             KotlinContext.localType(lvc.localVariable().simpleName(), useType);
-            if (wildcardArgument(declared) && !KotlinExpressionPrinter.mentionsOutOfScope(declared)) {
+            if (KotlinContext.translatingJava() && wildcardArgument(declared)
+                && !KotlinExpressionPrinter.mentionsOutOfScope(declared)) {
                 // timefold's AbstractScoreDirector: try (var d = factory.createScoreDirectorBuilder()…buildDerived()),
                 // an AbstractScoreDirector<Solution_, Score_, ?> whose ? is bounded by its own type: inferred, the
                 // lambda's parameter is a captured type on whose members K2's substitution overflows. Written out,
@@ -1016,8 +1017,30 @@ public class KotlinStatementPrinter {
                 .add(GuideImpl.generatorForBlock().end())).add(SymbolEnum.RIGHT_BRACE);
     }
 
+    /**
+     * {@code type} has a wildcard argument, and each one says no more than its type parameter's bound, so that a star
+     * is the same type: {@code ?}, or timefold's {@code ? extends AbstractScoreDirectorFactory<…>} for a
+     * {@code Factory_ extends AbstractScoreDirectorFactory<…>}. Not a {@code List<? extends Foo>}, whose star loses Foo.
+     */
     private static boolean wildcardArgument(ParameterizedType type) {
-        return type != null && type.typeInfo() != null && type.arrays() == 0 && type.parameters().stream().anyMatch(a -> a.wildcard() != null);
+        if (type == null || type.typeInfo() == null || type.arrays() > 0
+            || type.parameters().size() != type.typeInfo().typeParameters().size()) {
+            return false;
+        }
+        boolean any = false;
+        for (int i = 0; i < type.parameters().size(); i++) {
+            ParameterizedType a = type.parameters().get(i);
+            if (a.wildcard() == null) continue;
+            if (!a.isUnboundWildcard()) {
+                List<ParameterizedType> bounds = type.typeInfo().typeParameters().get(i).typeBounds();
+                if (!a.wildcard().isExtendsNoIntersection() || a.typeInfo() == null || bounds.size() != 1
+                    || bounds.getFirst().typeInfo() != a.typeInfo()) {
+                    return false;
+                }
+            }
+            any = true;
+        }
+        return any;
     }
 
     // ---------------------------------------------------------------- the rest
@@ -1148,7 +1171,15 @@ public class KotlinStatementPrinter {
         if (writeType && hasInitializer && !nullableFromNonNull && voidArgument(type) && libraryResult(init)) {
             writeType = false;
         }
-        if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+        if (writeType) {
+            b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+        } else if (hasInitializer && KotlinContext.translatingJava() && wildcardArgument(type)
+                   && !KotlinExpressionPrinter.mentionsOutOfScope(type)) {
+            // timefold's AbstractScoreDirector: var d = factory.createScoreDirectorBuilder()…buildDerived(), as use's
+            // parameter above: inferred, a captured type on whose members K2 overflows; written, each wildcard a star
+            writeType = true;
+            b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.starred(type, q)));
+        }
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,
             // and the uses that follow need no `!!` (kotlinc 2.4; the use-site facts assume the assignment's cast)

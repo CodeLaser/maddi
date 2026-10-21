@@ -95,18 +95,29 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                         d.set(s);
                     }
                 }
+                void local(S s) {
+                    var d = builder().build();
+                    d.set(s);
+                }
+                abstract java.util.List<? extends Number> numbers();
+                int first() {
+                    var n = numbers();
+                    return n.get(0).intValue();
+                }
             }
             """;
 
     /**
      * timefold's AbstractScoreDirector: a resource whose type has a wildcard argument. Left to inference, {@code use}'s
      * parameter is a captured type, and a member call on it overflows K2's stack; its type is written instead, each
-     * wildcard a star: as {@code out Factory<S>} it overflows as well.
+     * wildcard a star: as {@code out Factory<S>} it overflows as well. So for an inferred local.
      */
     @Test
     public void wildcardResourceTypesUseParameter() {
         String kotlin = kotlin(WILDCARD_RESOURCE);
         contains(kotlin, "builder().build().use { d: Director<S, *>");
+        contains(kotlin, "val d: Director<S, *> = builder().build()");
+        assertFalse(kotlin.contains("val n: "), kotlin); // List<*> would lose Number
     }
 
     @Language("java")
