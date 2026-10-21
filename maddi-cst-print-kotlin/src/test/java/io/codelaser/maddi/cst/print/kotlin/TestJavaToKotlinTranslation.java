@@ -337,6 +337,45 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String OBJECT_BOUND_FACTORIES = """
+            package a;
+            import java.util.*;
+            import java.util.concurrent.ConcurrentHashMap;
+            class Morph {
+                private final Map<String, Object> cache = new ConcurrentHashMap<>();
+                Collection<?> exclusions(Object exclusion) {
+                    if (exclusion == null) return Collections.emptySet();
+                    return (Collection<?>) exclusion;
+                }
+                int size(Object attribute) {
+                    Map<String, ?> meta;
+                    if (attribute instanceof Map) meta = (Map<String, ?>) attribute;
+                    else meta = Collections.emptyMap();
+                    return meta.size();
+                }
+                Object load(String name) {
+                    return cache.computeIfAbsent(name, key -> {
+                        try {
+                            return Class.forName(key);
+                        } catch (ClassNotFoundException e) {
+                            return Optional.empty();
+                        }
+                    });
+                }
+            }
+            """;
+
+    /** jenkins's MorphTagLibrary, CachingClassLoader: a factory's variable Java binds to Object, Kotlin cannot. */
+    @Test
+    public void objectBoundFactories() {
+        String kotlin = kotlin(OBJECT_BOUND_FACTORIES);
+        contains(kotlin, "Collections.emptySet<");
+        contains(kotlin, "Collections.emptyMap<String, ");
+        contains(kotlin, "Optional.empty<");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {

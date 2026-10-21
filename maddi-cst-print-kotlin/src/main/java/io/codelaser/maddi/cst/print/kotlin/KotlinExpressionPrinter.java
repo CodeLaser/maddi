@@ -949,9 +949,14 @@ public class KotlinExpressionPrinter {
         boolean unfixable = RAW_TARGET.get().contains(mc)
                             || resultOnly.stream().anyMatch(tp -> !CstQueries.mentions(m.returnType(), tp));
         boolean noExpectedType = unfixable || noExpectedType(mc);
-        if (!bounded && !noExpectedType) return null;
         Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> concrete = mc.concreteReturnType() == null
                 ? Map.of() : m.returnType().formalToConcrete(mc.concreteReturnType());
+        // jenkins's MorphTagLibrary: return Collections.emptySet() into a Collection<?>, meta = Collections.emptyMap()
+        // into a Map<String, ?>, Optional.empty() into an Object: Java binds the variable to Object, where the
+        // expected type has a star or nothing that fixes it, and Kotlin cannot infer it
+        boolean objectBound = resultOnly.stream().anyMatch(tp -> concrete.get(tp) != null
+                && concrete.get(tp).isJavaLangObject() && concrete.get(tp).wildcard() == null);
+        if (!bounded && !noExpectedType && !objectBound) return null;
         List<String> printed = new ArrayList<>();
         for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
             ParameterizedType t = concrete.get(tp);
