@@ -682,7 +682,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             return false;
         }
         TypeInfo t = c.typeInfo();
-        if (fromKotlinSource(t)) return false;
+        // a library's constructor keeps Java's varargs: jenkins's Messages, new Localizable(holder, key, arg0, arg1)
+        if (fromKotlinSource(t) || !KotlinNullability.translated(t)) return false;
         if (t.typeNature().isRecord()) {
             return c.parameters().size() == t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).count();
         }
