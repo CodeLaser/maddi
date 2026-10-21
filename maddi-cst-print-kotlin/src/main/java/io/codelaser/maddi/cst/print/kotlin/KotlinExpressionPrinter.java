@@ -1466,7 +1466,10 @@ public class KotlinExpressionPrinter {
                 .add(SpaceEnum.ONE).add(new TextImpl("it!!")).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
-    /** {@code Objects::nonNull}, or {@code x -> x != null}. */
+    /**
+     * {@code Objects::nonNull}, {@code x -> x != null}, or a conjunction with that test: jenkins's LogRotator,
+     * {@code r -> r != null && !shouldKeepRun(r, lsb, lstb)}.
+     */
     private static boolean nonNullPredicate(Expression e) {
         if (e instanceof MethodReference mr) {
             return "nonNull".equals(mr.methodInfo().name())
@@ -1475,12 +1478,17 @@ public class KotlinExpressionPrinter {
         if (e instanceof Lambda l && l.parameters().size() == 1) {
             List<Statement> statements = CstQueries.own(l.methodBody().statements());
             Expression value = CstQueries.returnedValue(statements);
-            return value != null && unwrap(value) instanceof BinaryOperator bo && bo.operator() != null
-                   && "!=".equals(bo.operator().name())
-                   && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), l.parameters().getFirst())
-                       || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), l.parameters().getFirst()));
+            return value != null && nonNullTest(unwrap(value), l.parameters().getFirst());
         }
         return false;
+    }
+
+    private static boolean nonNullTest(Expression value, ParameterInfo p) {
+        if (value instanceof And and) return and.expressions().stream().anyMatch(c -> nonNullTest(unwrap(c), p));
+        if (!(value instanceof BinaryOperator bo) || bo.operator() == null) return false;
+        return "!=".equals(bo.operator().name())
+               && (unwrap(bo.rhs()) instanceof NullConstant && isParameter(bo.lhs(), p)
+                   || unwrap(bo.lhs()) instanceof NullConstant && isParameter(bo.rhs(), p));
     }
 
     private static boolean isParameter(Expression e, ParameterInfo p) {

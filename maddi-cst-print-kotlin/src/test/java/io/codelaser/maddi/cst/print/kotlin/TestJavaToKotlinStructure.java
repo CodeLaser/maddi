@@ -662,7 +662,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             class F {
                 boolean any(List<String> names, Map<String, List<String>> m, String x) {
                     return names.stream().map(m::get).filter(Objects::nonNull).anyMatch(l -> l.contains(x))
-                           || names.stream().map(m::get).filter(l -> l != null).anyMatch(l -> l.isEmpty());
+                           || names.stream().map(m::get).filter(l -> l != null).anyMatch(l -> l.isEmpty())
+                           || names.stream().map(m::get).filter(l -> l != null && l.size() > 1).anyMatch(l -> l.isEmpty());
                 }
             }
             """;
@@ -673,6 +674,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(NON_NULL_FILTER);
         contains(kotlin, "filter(Objects ::nonNull).map { it!! }");
         contains(kotlin, "filter( { l -> l != null }).map { it!! }");
+        // jenkins's LogRotator: the test in a conjunction
+        contains(kotlin, "l.size > 1 }).map { it!! }");
+        compiles(kotlin);
     }
 
     @Language("java")
