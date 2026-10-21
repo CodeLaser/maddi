@@ -196,6 +196,33 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String MULTI_CATCH_TESTED = """
+            package a;
+            import java.io.IOException;
+            class Build {
+                static void display(IOException e) { }
+                void tearDown(Runnable r) throws IOException {
+                    try {
+                        if (r == null) throw new IOException("none");
+                        r.run();
+                    } catch (IOException | RuntimeException e) {
+                        if (e instanceof IOException) display((IOException) e);
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's AbstractBuild: a multi-catch whose block tests its variable's type catches their superclass. */
+    @Test
+    public void multiCatchTestingItsVariable() {
+        String kotlin = kotlin(MULTI_CATCH_TESTED);
+        contains(kotlin, "catch (e: Exception)");
+        contains(kotlin, "if (e !is IOException && e !is RuntimeException) throw e");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
