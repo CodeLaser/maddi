@@ -4108,6 +4108,13 @@ public class KotlinExpressionPrinter {
             // taking the target's arguments, the callee's E or T, which the call cannot name; Java's unchecked
             // conversion erases it to its bound
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, cast, KotlinContext.describe(cast));
+            if (classOfClassTypeParameter(castType)) {
+                // jenkins's Jobs: new DescriptorList<>((Class) JobProperty.class) into DescriptorList<T>'s Class<T>,
+                // whose recursive bound erases to no Class the constructor takes: Kotlin infers the helper's T
+                KotlinContext.fileHelper(UNCHECKED_CLASS_DECLARATION);
+                return new OutputBuilderImpl().add(new TextImpl("uncheckedClass")).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(print(cast.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(operand(PrecedenceEnum.CAST, cast.expression(), q)).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
                     .add(SpaceEnum.ONE).add(new TextImpl(outOfScopeErased(castType, q))).add(SymbolEnum.RIGHT_PARENTHESIS);

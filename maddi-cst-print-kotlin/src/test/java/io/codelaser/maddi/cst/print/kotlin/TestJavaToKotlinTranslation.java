@@ -291,6 +291,31 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String RAW_CLASS_CAST = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            interface Describable<T extends Describable<T>> { }
+            class DescriptorList<T extends Describable<T>> extends ArrayList<String> {
+                private final Class<T> type;
+                DescriptorList(Class<T> type) { this.type = type; }
+            }
+            abstract class Property<J> implements Describable<Property<?>> { }
+            class Jobs {
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                static final List<String> PROPERTIES = new DescriptorList<Property<?>>((Class) Property.class);
+            }
+            """;
+
+    /** jenkins's Jobs: an explicit raw (Class) cast into a class's Class<T> whose bound is recursive. */
+    @Test
+    public void explicitRawClassCast() {
+        String kotlin = kotlin(RAW_CLASS_CAST);
+        contains(kotlin, "uncheckedClass(Property::class.java)");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
