@@ -3663,6 +3663,12 @@ public class KotlinExpressionPrinter {
             Primitive l = primitive(bo.lhs().parameterizedType());
             Primitive r = primitive(bo.rhs().parameterizedType());
             if (l != null && r != null && l != r && l != Primitive.BOOLEAN && r != Primitive.BOOLEAN) {
+                if ((l == Primitive.CHAR || r == Primitive.CHAR) && (rank(l) < 3 && rank(r) < 3)) {
+                    // jenkins's ConsoleCommand: buf[i] == '\r', a byte and a char: Java compares both as ints, and
+                    // Kotlin's Byte and Char have no common type: ch.toInt() == '\r'.code
+                    return new OutputBuilderImpl().add(intOperand(bo.lhs(), q)).add(KotlinSymbols.binary(op))
+                            .add(intOperand(bo.rhs(), q));
+                }
                 boolean widenLeft = rank(l) < rank(r) || l == Primitive.CHAR;
                 OutputBuilder left = widenLeft ? compared(bo.lhs(), bo.rhs().parameterizedType(), q) : operand(bo.precedence(), bo.lhs(), q);
                 OutputBuilder right = widenLeft ? operand(bo.precedence(), bo.rhs(), q) : compared(bo.rhs(), bo.lhs().parameterizedType(), q);

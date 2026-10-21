@@ -106,6 +106,25 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String BYTE_AND_CHAR = """
+            package a;
+            class C {
+                boolean newline(byte[] buf, int i, short s) {
+                    byte ch = buf[i];
+                    return ch == '\\r' || '\\n' == ch || s != 'x';
+                }
+            }
+            """;
+
+    /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
+    @Test
+    public void byteComparedWithAChar() {
+        String kotlin = kotlin(BYTE_AND_CHAR);
+        contains(kotlin, "ch.toInt() == '\\r'.code || '\\n'.code == ch.toInt() || s.toInt() != 'x'.code");
+        compiles(kotlin);
+    }
+
+    @Language("java")
     private static final String FOR_LOOPS = """
             package a;
             class C {
