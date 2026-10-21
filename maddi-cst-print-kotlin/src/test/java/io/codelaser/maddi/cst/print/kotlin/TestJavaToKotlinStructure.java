@@ -939,6 +939,33 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's Fingerprint.getFacets: Iterators.sequence(facets.iterator(), transientFacets.iterator()), whose
+     * translated varargs parameter is a MutableIterator: what is iterated stays mutable.
+     */
+    @Test
+    public void readOnlyNotIntoATranslatedIteratorVarargs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Its {
+                    static Iterator<String> both(Collection<String> a, Collection<String> b) {
+                        return sequence(a.iterator(), b.iterator());
+                    }
+                    @SafeVarargs
+                    private static <T> Iterator<T> sequence(Iterator<? extends T>... iterators) {
+                        List<T> all = new ArrayList<>();
+                        for (Iterator<? extends T> it : iterators) while (it.hasNext()) all.add(it.next());
+                        return all.iterator();
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun both(a: MutableCollection<String>, b: MutableCollection<String>)");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow: {@code Entry[] entries = n == entryArray.length
      * ? entryArray : new Entry[n]}, an invariant local: entryArray escapes through the conditional, and stays invariant.
      */

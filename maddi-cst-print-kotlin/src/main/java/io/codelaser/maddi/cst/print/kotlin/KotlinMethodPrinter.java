@@ -701,6 +701,12 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (index >= callee.parameters().size() - 1 && p.isVarArgs()) {
             // Objects.hash(name, items): an element of Object... takes any collection
             ParameterizedType element = p.parameterizedType().arrays() == 1 ? p.parameterizedType().componentType() : null;
+            // jenkins's Iterators.sequence(Iterator<? extends T>... iterators), translated: MutableIterator elements
+            if (element != null && element.arrays() == 0 && element.typeInfo() != null
+                && KotlinTypeName.mutableOnly(element.typeInfo().fullyQualifiedName())
+                && KotlinNullability.translated(callee.typeInfo())) {
+                return false;
+            }
             return element != null && (element.typeParameter() != null ? element.typeParameter().isMethodTypeParameter()
                     : KotlinTypeName.readOnly(element, null).equals(KotlinTypeName.of(element, null)));
         }
