@@ -2023,6 +2023,19 @@ public class KotlinExpressionPrinter {
     }
 
     private static final String MOCKITO_MATCHED = "mockitoMatched";
+    private static final String UNCHECKED_CLASS_DECLARATION = """
+            @Suppress("UNCHECKED_CAST")
+            private fun <T> uncheckedClass(value: Class<*>): Class<T> = value as Class<T>""";
+
+    /** {@code Class<T>} of a class's type parameter (not a method's, which nothing would fix for the helper). */
+    private static boolean classOfClassTypeParameter(ParameterizedType target) {
+        return target.arrays() == 0 && target.typeInfo() != null
+               && "java.lang.Class".equals(target.typeInfo().fullyQualifiedName())
+               && target.parameters().size() == 1 && target.parameters().getFirst().isTypeParameter()
+               && target.parameters().getFirst().wildcard() == null
+               && !target.parameters().getFirst().typeParameter().isMethodTypeParameter();
+    }
+
     private static final String MOCKITO_MATCHED_DECLARATION = """
             @Suppress("UNCHECKED_CAST")
             private fun <T> mockitoMatched(value: T?): T = value as T""";
@@ -2458,6 +2471,15 @@ public class KotlinExpressionPrinter {
             // FastSparseSet<Integer>[] empty = FastSparseSet.EMPTY_ARRAY: Java's unchecked conversion is Kotlin's
             // unchecked cast; an Array<FastSparseSet<*>?> is no Array<FastSparseSet<Int>?>
             String cast = KotlinTypeName.of(target, q);
+            if (mentionsOutOfScope(target) && classOfClassTypeParameter(target)
+                && rawValueType(e).typeInfo() == target.typeInfo()) {
+                // jenkins's GlobalConfiguration: super((Class) Descriptor.self()) into Descriptor<T>'s Class<T>, a T
+                // the supertype fixes but no name here does. Kotlin infers the helper's T from the parameter
+                KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+                KotlinContext.fileHelper(UNCHECKED_CLASS_DECLARATION);
+                return new OutputBuilderImpl().add(new TextImpl("uncheckedClass")).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(print(e, q)).add(SymbolEnum.RIGHT_PARENTHESIS);
+            }
             if (mentionsOutOfScope(target)) {
                 // nacos's queryOne(jdbcTemplate, sql, ClassUtils.findClassByName(name)) into the callee's Class<R>,
                 // an R not in scope here: Java infers it from the raw Class's erasure, Object. A Class's is an

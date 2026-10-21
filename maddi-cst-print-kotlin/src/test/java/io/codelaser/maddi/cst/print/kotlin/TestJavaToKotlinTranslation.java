@@ -264,6 +264,33 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    @Language("java")
+    private static final String RAW_CLASS_INTO_SUPER = """
+            package a;
+            abstract class Descriptor<T> {
+                private final Class<T> clazz;
+                protected Descriptor(Class<T> clazz) { this.clazz = clazz; }
+                @SuppressWarnings("rawtypes")
+                protected static Class self() { return Descriptor.class; }
+                Class<T> clazz() { return clazz; }
+            }
+            class Configuration {
+            }
+            class ConfigurationDescriptor extends Descriptor<Configuration> {
+                @SuppressWarnings("unchecked")
+                ConfigurationDescriptor() { super(self()); }
+            }
+            """;
+
+    /** jenkins's GlobalConfiguration: a raw Class into the supertype's Class<T>, a T no name here gives. */
+    @Test
+    public void rawClassIntoASupertypeParameter() {
+        String kotlin = kotlin(RAW_CLASS_INTO_SUPER);
+        contains(kotlin, "Descriptor<Configuration>(uncheckedClass(Descriptor.self()))");
+        contains(kotlin, "private fun <T> uncheckedClass(value: Class<*>): Class<T>");
+        compiles(kotlin);
+    }
+
     /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
     @Test
     public void byteComparedWithAChar() {
