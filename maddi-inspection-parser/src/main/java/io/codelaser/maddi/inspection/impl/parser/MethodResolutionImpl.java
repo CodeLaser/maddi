@@ -935,11 +935,11 @@ public class MethodResolutionImpl implements MethodResolution {
                     }
                 }
             }
-            for (Map.Entry<ParameterizedType, List<MethodTypeParameterMap>> entry : perPt.entrySet()) {
-                if (!mostSpecific.contains(entry.getKey().erased())) {
-                    entry.getValue().forEach(methodCandidates::remove);
+            perPt.forEach((key, value) -> {
+                if (!mostSpecific.contains(key.erased())) {
+                    value.forEach(methodCandidates::remove);
                 }
-            }
+            });
         }
     }
 
