@@ -175,12 +175,20 @@ public class KotlinStatementPrinter {
                     .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                     .add(test(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
-            case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
-                    .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(declareForEach(fe)))
-                    .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
-                    .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                    .add(SpaceEnum.ONE).add(forEachBody(fe, q)));
+            case ForEachStatement fe -> loop(fe, q, () -> {
+                String loopVariable = fe.initializer().localVariable().simpleName();
+                boolean wasRaw = KotlinNullability.RAW_LOOP_VARIABLES.get().contains(loopVariable);
+                try {
+                    return new OutputBuilderImpl()
+                            .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(new TextImpl(declareForEach(fe)))
+                            .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
+                            .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                            .add(SpaceEnum.ONE).add(forEachBody(fe, q));
+                } finally {
+                    if (!wasRaw) KotlinNullability.RAW_LOOP_VARIABLES.get().remove(loopVariable);
+                }
+            });
             case ForStatement fs -> forStatement(fs, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
             case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
@@ -1049,6 +1057,7 @@ public class KotlinStatementPrinter {
             // RobustReflectionConverter's over a Collection<?>: Kotlin's loop variable is an Any?, whatever its verdict,
             // and is asserted where it goes into a non-null
             KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+            KotlinNullability.RAW_LOOP_VARIABLES.get().add(lv.simpleName());
         }
         return name;
     }

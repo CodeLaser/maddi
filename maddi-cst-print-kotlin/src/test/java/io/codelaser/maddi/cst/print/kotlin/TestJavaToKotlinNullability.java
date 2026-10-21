@@ -477,6 +477,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
     }
 
     /**
+     * jenkins's RedactSecretJsonInErrorMessageSanitizer: the verdicts know the loop variable non-null, as Java does,
+     * where Kotlin's over a raw List is an Any? that no fact smart-casts: still asserted.
+     */
+    @Test
+    public void rawLoopVariableKnownNonNullByTheVerdicts() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Redact {
+                    @SuppressWarnings("rawtypes")
+                    static int names(List items, Set<String> keys) {
+                        for (Object o : items) {
+                            if (o instanceof String) keys.add((String) o);
+                            else System.out.println("Unsupported type " + o.getClass().getName());
+                        }
+                        return keys.size();
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("o")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "o!!.javaClass");
+        compiles(kotlin);
+    }
+
+    /**
      * jenkins's XStreamDOM.toDOM: new XStreamDOM(tagName, attributes.toArray(new String[0]), …) into a constructor
      * whose String[] the verdicts make an Array<String?>: Kotlin's arrays are invariant, toTypedArray<String?>().
      */

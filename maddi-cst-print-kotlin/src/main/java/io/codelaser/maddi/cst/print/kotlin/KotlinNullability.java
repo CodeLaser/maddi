@@ -449,6 +449,12 @@ final class KotlinNullability {
         return type != null && type.nullable() == NullableState.NULLABLE;
     }
 
+    /**
+     * The loop variables over a raw or star-projected collection being printed: Kotlin's {@code Any?}, which the
+     * verdicts, holding the variable non-null, do not know (jenkins's RedactSecretJsonInErrorMessageSanitizer).
+     */
+    static final ThreadLocal<Set<String>> RAW_LOOP_VARIABLES = ThreadLocal.withInitial(java.util.HashSet::new);
+
     /** Kotlin will type this value as nullable. */
     static boolean nullableInKotlin(Expression e) {
         if (!KotlinContext.translatingJava()) return false; // Kotlin source wrote its own ?. and !!
@@ -464,6 +470,9 @@ final class KotlinNullability {
                 case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()))
                                           && !(KotlinFieldPrinter.printsAsVal(fr.fieldInfo()) && knownNonNull(fr));
                 case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi, ve);
+                // a loop variable over a raw collection is nullable in Kotlin only: no verdict fact smart-casts it
+                case LocalVariable lv when RAW_LOOP_VARIABLES.get().contains(lv.simpleName()) ->
+                        !KotlinSmartCasts.asserted(lv, ve);
                 case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv, ve);
                 // nor does it smart-cast an element read: only the element's state counts
                 case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
