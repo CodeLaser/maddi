@@ -959,4 +959,37 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "join(other, *emptyArray())");
         contains(kotlin, "join(other, *arrayOf(joiner))");
     }
+
+    /**
+     * timefold's EntityDescriptor: {@code SequencedCollection<VariableDescriptor<Solution_>>
+     * getDeclaredVariableDescriptors()} returns a List. Java 21's List is a SequencedCollection; Kotlin's mapped
+     * MutableList is not one for kotlinc, so the value is cast (a Java class, LinkedHashSet, needs none).
+     */
+    @Test
+    public void mappedCollectionIntoSequencedCollection() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                import java.util.LinkedHashSet;
+                import java.util.List;
+                import java.util.SequencedCollection;
+                class D {
+                    List<String> names = new ArrayList<>();
+                    SequencedCollection<String> seen;
+                    SequencedCollection<String> names() {
+                        return names;
+                    }
+                    void remember() {
+                        seen = names;
+                    }
+                    SequencedCollection<String> set() {
+                        return new LinkedHashSet<String>();
+                    }
+                }
+                """);
+        contains(kotlin, "(names as SequencedCollection<String>)");
+        contains(kotlin, "seen = (names as SequencedCollection<String>)");
+        contains(kotlin, "LinkedHashSet<String>()");
+        compiles(kotlin);
+    }
 }

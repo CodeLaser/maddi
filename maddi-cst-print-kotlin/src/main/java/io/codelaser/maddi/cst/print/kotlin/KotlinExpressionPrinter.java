@@ -2375,6 +2375,12 @@ public class KotlinExpressionPrinter {
     }
 
     static OutputBuilder assigned(Expression e, ParameterizedType target, Qualification q) {
+        if (mappedIntoSequenced(e, target)) {
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
+                    .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                    .add(new TextImpl(KotlinTypeName.of(target, q))).add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (unwrap(e) instanceof MethodCall mc && fixingTarget(target) && TARGET_FIXED.get().add(mc)) {
             try {
                 return assigned(e, target, q);
@@ -2390,6 +2396,22 @@ public class KotlinExpressionPrinter {
         } finally {
             ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
         }
+    }
+
+    /**
+     * A value of a collection type Kotlin maps to its own (List, Set, Collection) into one of Java 21's sequenced
+     * interfaces: timefold's {@code SequencedCollection<VariableDescriptor<Solution_>> getDeclaredVariableDescriptors()}
+     * returns a List. Java's List is a SequencedCollection, Kotlin's MutableList is not one for kotlinc; the cast
+     * holds at run time. A Java class (LinkedHashSet) is one already.
+     */
+    private static boolean mappedIntoSequenced(Expression e, ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || target == null || target.arrays() != 0 || target.typeInfo() == null
+            || !target.typeInfo().fullyQualifiedName().startsWith("java.util.Sequenced")) {
+            return false;
+        }
+        ParameterizedType value = KotlinNullability.kotlinType(e);
+        return value != null && value.arrays() == 0 && value.typeInfo() != null
+               && KotlinTypeName.isMapped(value.typeInfo().fullyQualifiedName());
     }
 
     /**
