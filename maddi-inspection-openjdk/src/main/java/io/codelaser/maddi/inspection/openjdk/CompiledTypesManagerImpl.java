@@ -44,6 +44,8 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     private volatile boolean strictOnDisabledMiss; // throw instead of log-and-null; a run-level policy, set once
     private final Set<String> distinctMissesAfterDrop = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final LongAdder totalMissesAfterDrop = new LongAdder();
+    private final Set<String> warnedDisambiguations = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final LongAdder disambiguations = new LongAdder();
 
     public CompiledTypesManagerImpl(SourceSet javaBase, InfoByFqn infoByFqn) {
         this.javaBase = javaBase;
@@ -62,6 +64,11 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
     /** When the loader is disabled, throw on a miss (fail loud) instead of logging and returning null. */
     public void setStrictOnDisabledMiss(boolean strictOnDisabledMiss) {
         this.strictOnDisabledMiss = strictOnDisabledMiss;
+    }
+
+    /** How often {@link #typeIfLoaded} has chosen another source set's copy than the flat registry's, in total. */
+    public long disambiguations() {
+        return disambiguations.sum();
     }
 
     /** How many distinct FQNs could not be resolved after the AST was dropped (0 == the drop was safe). */
@@ -153,10 +160,19 @@ public class CompiledTypesManagerImpl implements CompiledTypesManager {
         if (!flat.equals(sourceSetAware)) {
             // TypeInfo equality is (fqn, source set), so this is exactly the same-name-in-two-source-sets case:
             // the flat map's arbitrary winner was about to be handed to a caller that asked as another set
-            LOGGER.warn("SOURCE-SET DISAMBIGUATION: {} exists in more than one source set; {} asked, answering with"
-                        + " {} rather than the flat registry's {}", fullyQualifiedName, sourceSetOfRequest.name(),
-                    sourceSetAware.compilationUnit().sourceSet().name(),
-                    flat.compilationUnit().sourceSet() == null ? "stub" : flat.compilationUnit().sourceSet().name());
+            // once per (type, asking set, answer, flat winner) for the life of the registry: the same lookup repeats
+            // on every reparse, and was 90,000 identical lines a day in the refactor server's log (2026-10-22)
+            disambiguations.increment();
+            String answer = sourceSetAware.compilationUnit().sourceSet().name();
+            String flatName = flat.compilationUnit().sourceSet() == null ? "stub" : flat.compilationUnit().sourceSet().name();
+            boolean first = warnedDisambiguations.add(fullyQualifiedName + "\0" + sourceSetOfRequest.name() + "\0"
+                                                      + answer + "\0" + flatName);
+            if (first || LOGGER.isDebugEnabled()) {
+                String msg = "SOURCE-SET DISAMBIGUATION: {} exists in more than one source set; {} asked, answering with"
+                             + " {} rather than the flat registry's {}" + (first ? " (logged once; repeats at DEBUG)" : "");
+                if (first) LOGGER.warn(msg, fullyQualifiedName, sourceSetOfRequest.name(), answer, flatName);
+                else LOGGER.debug(msg, fullyQualifiedName, sourceSetOfRequest.name(), answer, flatName);
+            }
         }
         return sourceSetAware;
     }

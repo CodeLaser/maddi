@@ -186,13 +186,13 @@ public class InfoByFqn {
                 if (!prev.compilationUnit().sourceSet().equals(typeInfo.compilationUnit().sourceSet())) {
                     singleTypeByFqn.remove(fqn);
                     multiTypeByFqn.put(fqn, List.of(prev, typeInfo));
-                    LOGGER.info("Create multi: {}", typeInfo.descriptor());
+                    LOGGER.debug("Create multi: {}", typeInfo.descriptor());
                 } else {
                     throw new UnsupportedOperationException("Duplicating type " + typeInfo);
                 }
             } else if ((list = multiTypeByFqn.get(fqn)) != null) {
                 multiTypeByFqn.put(fqn, Stream.concat(list.stream(), Stream.of(typeInfo)).toList());
-                LOGGER.info("Appended to multi: {}", typeInfo.descriptor());
+                LOGGER.debug("Appended to multi: {}", typeInfo.descriptor());
             }
         } else if (prev != null) {
             LOGGER.info("Overwriting type {}, {} -> {}", typeInfo,
