@@ -913,4 +913,24 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         String kotlin = kotlin(GENERIC_OVERRIDE_CALL);
         contains(kotlin, "val values = getValue<MutableList<Any>>(entity)");
     }
+
+    /**
+     * timefold's {@code var variable = genuineVariable()}, a {@code <Value_> MetaModel<Value_>}: Java binds the
+     * result-only Value_ to Object; Kotlin's untyped local gives the call no expected type to infer it from.
+     */
+    @Test
+    public void untypedLocalOfAResultOnlyTypeParameter() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                abstract class M {
+                    abstract <V> List<V> make();
+                    int n() {
+                        var l = make();
+                        return l.size();
+                    }
+                }
+                """);
+        contains(kotlin, "val l = make<Any>()");
+    }
 }

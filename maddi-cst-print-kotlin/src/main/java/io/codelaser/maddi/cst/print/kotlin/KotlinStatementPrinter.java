@@ -1203,12 +1203,16 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
         }
         if (hasInitializer) {
+            java.util.function.Supplier<OutputBuilder> value = () ->
+                    KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
+                    ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
+                                                       ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
+                                                       : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
+                    : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.assigned(init, type, q), q);
+            // an untyped local gives its initializer no expected type: timefold's var variable = genuineVariable(),
+            // a <Value_> GenuineVariableMetaModel<Solution_, Entity_, Value_>, names Java's Object for Value_
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
-                         ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
-                                                            ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
-                                                            : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
-                         : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.assigned(init, type, q), q));
+                    .add(writeType ? value.get() : KotlinExpressionPrinter.withoutExpectedType(init, value));
             if (!writeType) {
                 // Kotlin infers an untyped local's type from its initializer, type arguments and element states
                 // included (val params = f.getLstOperands(): a List<Exprent?> whatever the local's verdict says);
