@@ -261,9 +261,20 @@ final class KotlinNullability {
      guava's Ordering<@Nullable Object> arbitrary(), returning the field ARBITRARY_ORDERING, printed as
      Ordering<Any> beside the field's Ordering<Any?> once the field kept its annotations (maddi#145).
      */
+    /**
+     * The method's result with the nullable type arguments it declares, and those its overridden members declare:
+     * timefold's BiConstraintCollector declares {@code Function<ResultContainer_, @Nullable Result_> finisher()}, and
+     * AndThenBiCollector's {@code Function<ResultContainer_, Result_>} override is no subtype of it for Kotlin, Java's
+     * Function being invariant there.
+     */
     private static ParameterizedType withDeclaredArgumentStates(MethodInfo methodInfo, ParameterizedType type) {
-        return KotlinContext.translatingJava()
-                ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(methodInfo.returnType())) : type;
+        if (!KotlinContext.translatingJava()) return type;
+        ParameterizedType result = withDeclaredArgumentStates(type,
+                KotlinTypePrinter.declaredArguments(methodInfo.returnType()));
+        for (MethodInfo overridden : methodInfo.overrides()) {
+            result = withDeclaredArgumentStates(result, KotlinTypePrinter.declaredArguments(overridden.returnType()));
+        }
+        return result;
     }
 
     /**

@@ -3098,4 +3098,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "return (list) as V");
         compiles(kotlin);
     }
+
+    /**
+     * timefold's collectors: BiConstraintCollector declares {@code Function<ResultContainer_, @Nullable Result_>
+     * finisher()}, and AndThenBiCollector's override returns a plain {@code Function<ResultContainer_, Result_>}.
+     * Java's Function is invariant for Kotlin: the override takes the member's declared argument states.
+     */
+    @Test
+    public void overrideTakesTheMembersDeclaredArgumentStates() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.function.Function;
+                import org.jspecify.annotations.Nullable;
+                interface Collector<C, R> {
+                    Function<C, @Nullable R> finisher();
+                }
+                class AndThen<C, R> implements Collector<C, R> {
+                    @Override
+                    public Function<C, R> finisher() {
+                        return c -> null;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun finisher(): Function<C, R?>");
+        compiles(kotlin, List.of("org/jspecify/annotations"));
+    }
 }
