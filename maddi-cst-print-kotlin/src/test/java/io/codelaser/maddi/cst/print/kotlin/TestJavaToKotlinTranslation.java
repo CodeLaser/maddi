@@ -992,4 +992,25 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "LinkedHashSet<String>()");
         compiles(kotlin);
     }
+
+    /**
+     * timefold's scores: {@code o instanceof HardSoftScore(var otherHardScore, var otherSoftScore)}. Kotlin's is
+     * deconstructs nothing; each bound variable is the smart-cast value's component.
+     */
+    @Test
+    public void recordPattern() {
+        String kotlin = kotlin("""
+                package a.b;
+                record Score(long hard, long soft) {
+                    boolean same(Object o) {
+                        if (o instanceof Score(var otherHard, var otherSoft)) {
+                            return hard == otherHard && soft == otherSoft;
+                        }
+                        return false;
+                    }
+                }
+                """);
+        contains(kotlin, "hard == o.hard && soft == o.soft");
+        compiles(kotlin);
+    }
 }

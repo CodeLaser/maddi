@@ -4353,9 +4353,52 @@ public class KotlinExpressionPrinter {
      * {@code (x as T)}. The cast is safe, but re-evaluates {@code x}: fine for the field reads and getters it meets.
      */
     private static void registerPattern(InstanceOf io, Qualification q) {
-        if (io.patternVariable() == null || io.patternVariable().unnamedPattern()
-            || io.patternVariable().localVariable() == null) return;
+        if (io.patternVariable() == null || io.patternVariable().unnamedPattern()) return;
+        if (io.patternVariable().localVariable() == null) {
+            registerRecordPattern(io.patternVariable(), io.expression(), q);
+            return;
+        }
         registerPattern(io.patternVariable().localVariable(), io.expression(), io.testType(), q);
+    }
+
+    /**
+     * {@code o instanceof HardSoftScore(var otherHardScore, var otherSoftScore)}: Kotlin's {@code is} deconstructs
+     * nothing, so each bound variable prints as the tested value's component, {@code o.hardScore}, the record being
+     * a data class with a property per component (timefold's scores' equals). Nested record patterns recurse.
+     */
+    private static void registerRecordPattern(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                              Expression testedExpression, Qualification q) {
+        if (pattern.recordType() == null || pattern.patterns() == null || pattern.patterns().isEmpty()) return;
+        Expression tested = unwrap(testedExpression);
+        boolean smartCast = tested instanceof VariableExpression ve
+                            && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                                || ve.variable() instanceof ParameterInfo);
+        String type = KotlinTypeName.of(pattern.recordType(), q);
+        registerComponents(pattern, smartCast ? () -> print(tested, q)
+                : () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, tested, q))
+                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
+                .add(SymbolEnum.RIGHT_PARENTHESIS), q);
+    }
+
+    private static void registerComponents(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                           java.util.function.Supplier<OutputBuilder> record, Qualification q) {
+        TypeInfo recordType = pattern.recordType() == null ? null : pattern.recordType().typeInfo();
+        if (recordType == null || pattern.patterns() == null) return;
+        List<io.codelaser.maddi.cst.api.info.FieldInfo> components = recordType.fields().stream()
+                .filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+        if (components.size() != pattern.patterns().size()) return;
+        for (int i = 0; i < components.size(); i++) {
+            io.codelaser.maddi.cst.api.element.RecordPattern sub = pattern.patterns().get(i);
+            String name = KotlinNames.name(components.get(i).name());
+            java.util.function.Supplier<OutputBuilder> component = () -> record.get().add(SymbolEnum.DOT)
+                    .add(new TextImpl(name));
+            if (sub.unnamedPattern()) continue;
+            if (sub.localVariable() != null) {
+                KotlinContext.patternVariable(sub.localVariable(), component);
+            } else {
+                registerComponents(sub, component, q);
+            }
+        }
     }
 
     /** As {@link #registerPattern(InstanceOf, Qualification)}, for {@code variable} of {@code type} bound by {@code tested}. */
