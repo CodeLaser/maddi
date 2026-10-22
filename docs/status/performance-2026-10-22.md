@@ -54,8 +54,36 @@ its hash on every call: `ParameterizedTypeImpl` recursing through its type argum
 `ObjectCreationVariableImpl` adding its `fqn` string on top. The change caches each hash. It keeps the same values, so
 hash-ordered iteration, and with it the analyzer's determinism, is unchanged.
 
-Results: §4.
+Results on guava: §4.
 
-## 4. After hash caching
+## 4. After hash caching (guava)
 
-To be filled in by the guava run.
+maddi `18ed7a80a`, maddi-mod `3158698c`. Same machine and options as §2.
+
+| guava | before | after | change |
+|---|---|---|---|
+| wall | 746 s | 730 s | −2.1% |
+| JVM | 716 s | 697 s | −2.7% |
+| CPU-s | 3699 | 3517 | −4.9% |
+| allocation samples (2 MB each) | 1,800,181 | 1,573,316 | −12.6% |
+| `ObjectCreationVariableImpl.hashCode` | 6.0% | 0.2% | |
+| `ParameterizedTypeImpl.hashCode` | 6.6% | 0.1% | |
+| `TypeParameterImpl.hashCode` | 2.3% | 0.0% | |
+| `HashMap.getNode` | 13.3% | 13.2% | |
+| `LinkGraph.compute` | 35.3% | 33.1% | |
+| J2K: compiling files / type errors | 603 / 12 | 603 / 12 | unchanged |
+
+What it means:
+- The hash methods are gone from the profile, but they were worth less than their rows add up to. The shares are
+  inclusive and overlap: `ObjectCreationVariableImpl.hashCode` contains `ParameterizedTypeImpl.hashCode`. The
+  `HashMap` lookups and the `equals` calls around them remain.
+- The run is parallel (5 cores busy), so the CPU saved shows only in part on the wall clock.
+- Noise: the two baseline runs differed by 5 s (751 s, 746 s). One run each side, so the wall figure is indicative.
+- Timefold, where the hashes were 16–17% each, should gain more. It was not measured here.
+
+Next levers, in order of share:
+- The link graph computation and its incremental fixpoint engine: 31–33% inclusive on guava, 53–56% on timefold.
+  This is algorithmic work.
+- `HashMap` traffic in that engine: `getNode` 13%.
+- GC: 8% on guava, about 20% on jenkins and langchain4j. Driven by `Util.scopeVariables` and `FieldReferenceImpl`
+  construction (`computeFqn`).
