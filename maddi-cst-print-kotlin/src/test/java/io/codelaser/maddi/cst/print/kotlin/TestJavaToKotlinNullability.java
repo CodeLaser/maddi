@@ -3224,4 +3224,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of("super:Names")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "class Names : ArrayList<String?>()");
     }
+
+    /**
+     * jenkins's ProcessTree: {@code parse(m, size, envVars::addLine)} on a lazily cached, nullable field. Java's bound
+     * reference evaluates its receiver and throws on null where it is created; Kotlin rejects a bound reference on a
+     * nullable receiver. Asserted: {@code envVars!!::addLine}.
+     */
+    @Test
+    public void boundReferenceOnANullableReceiver() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                import java.util.List;
+                import java.util.function.Consumer;
+                class Cache {
+                    List<String> lines;
+                    static void parse(Consumer<String> sink) { sink.accept("x"); }
+                    List<String> lines() {
+                        if (lines != null) return lines;
+                        lines = new ArrayList<>();
+                        parse(lines::add);
+                        return lines;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("lines")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "parse(lines!!::add)");
+        compiles(kotlin);
+    }
 }

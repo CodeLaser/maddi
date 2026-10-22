@@ -3187,7 +3187,9 @@ public class KotlinExpressionPrinter {
             }
             b.add(new TextImpl(name));
         } else {
-            b.add(receiver(scope, q));
+            // jenkins's ProcessTree: parse(m, size, envVars::addLine) on a nullable cached field. Kotlin binds no
+            // reference to a nullable receiver; Java's throws on null where it is created, as `!!` does
+            b.add(KotlinNullability.asserted(scope, KotlinPrintCode.ASSERT_AT_DEREFERENCE, q));
         }
         return b.add(new TextImpl("::" + KotlinNames.name(mr.methodInfo().name())));
     }
