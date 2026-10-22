@@ -2367,7 +2367,7 @@ public class KotlinExpressionPrinter {
      * initializer: a local's type is then inferred (da2dc68fb)
      */
     static OutputBuilder returned(Expression e, ParameterizedType target, Qualification q) {
-        if (!libraryVoidResult(e, target)) return assigned(e, target, q);
+        if (!libraryVoidResult(e, target) && !libraryNullFilter(e, target)) return assigned(e, target, q);
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
@@ -2390,6 +2390,28 @@ public class KotlinExpressionPrinter {
         } finally {
             ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
         }
+    }
+
+    /**
+     * A library call filtering nullable elements with {@code Objects::nonNull}, into non-null ones: jenkins's
+     * Iterators.removeNull, {@code return Iterators.filter(itr, Objects::nonNull)} of an {@code Iterator<T?>} into
+     * an {@code Iterator<T>}. Kotlin types the result as the argument, {@code UnmodifiableIterator<T?>}; the filter is
+     * Java's unchecked narrowing.
+     */
+    private static boolean libraryNullFilter(Expression e, ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || !(unwrap(e) instanceof MethodCall mc) || mc.methodInfo() == null
+            || KotlinNullability.translated(mc.methodInfo().typeInfo()) || target == null || target.arrays() != 0
+            || target.typeInfo() == null || target.parameters().isEmpty()
+            || target.parameters().stream().anyMatch(KotlinNullability::isNullable)) {
+            return false;
+        }
+        boolean filter = mc.parameterExpressions().stream().anyMatch(a -> unwrap(a) instanceof MethodReference mr
+                && mr.methodInfo() != null && "nonNull".equals(mr.methodInfo().name())
+                && "java.util.Objects".equals(mr.methodInfo().typeInfo().fullyQualifiedName()));
+        return filter && mc.parameterExpressions().stream().anyMatch(a -> {
+            ParameterizedType t = KotlinNullability.kotlinType(a);
+            return t != null && t.arrays() == 0 && t.parameters().stream().anyMatch(KotlinNullability::isNullable);
+        });
     }
 
     /**

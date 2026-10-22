@@ -3026,4 +3026,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of("args<>")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "args.toTypedArray<String?>()");
     }
+
+    /**
+     * jenkins's Iterators.removeNull: {@code return Iterators.filter(itr, Objects::nonNull)} with an
+     * {@code Iterator<T?>} verdict for itr and an {@code Iterator<T>} result. Kotlin types the filtered iterator as
+     * its argument, {@code UnmodifiableIterator<T?>}: the null filter is Java's unchecked narrowing, cast here.
+     */
+    @Test
+    public void libraryNullFilterIntoNonNullElements() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a.b;
+                import java.util.Iterator;
+                import java.util.Objects;
+                class I {
+                    static <T> Iterator<T> removeNull(Iterator<T> itr) {
+                        return com.google.common.collect.Iterators.filter(itr, Objects::nonNull);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("itr<>")), KotlinPrintOptions.NullCheck.ASSERT),
+                "com/google/common/collect", "com/google/common/base");
+        contains(kotlin, "as MutableIterator<T>)");
+        compiles(kotlin, List.of("com/google/common/collect", "com/google/common/base"));
+    }
 }
