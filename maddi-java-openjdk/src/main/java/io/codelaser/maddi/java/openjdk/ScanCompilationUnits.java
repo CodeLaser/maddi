@@ -440,9 +440,9 @@ public class ScanCompilationUnits {
                     CharSequence content = contentByUnit.get(unit);
                     futures.put(unit, task1Executor.submit(() -> new SourceCodeScan(runtime).go(content, isModule)));
                 }
-                for (Map.Entry<CompilationUnitTree, Future<SourceCodeScan.Result>> e : futures.entrySet()) {
+                futures.forEach((failedUnit, value) -> {
                     try {
-                        scanResults.put(e.getKey(), e.getValue().get());
+                        scanResults.put(failedUnit, value.get());
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(ie);
@@ -456,7 +456,6 @@ public class ScanCompilationUnits {
                         if (!diagnosticCollector.ignoreErrors()) {
                             throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
                         }
-                        CompilationUnitTree failedUnit = e.getKey();
                         URI failedUri = failedUnit.getSourceFile() == null ? null : failedUnit.getSourceFile().toUri();
                         // The pre-scan fails both on constructs javac accepts but congocc's grammar chokes on (a
                         // grammar gap -- keep the unit, detailed sources degrade) AND on genuinely unparseable source.
@@ -470,7 +469,7 @@ public class ScanCompilationUnits {
                                     failedUri == null ? "?" : failedUri, cause.toString());
                         }
                     }
-                }
+                });
             }
         }
         return scanResults;
