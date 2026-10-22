@@ -3007,4 +3007,23 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "val c = ref.get()");
     }
+
+    /**
+     * jenkins's CLICommand: {@code p.parseArgument(args.toArray(new String[0]))} with a {@code List<String?>} verdict
+     * for args. {@code toTypedArray<String>()} does not apply to it; the array takes the receiver's element state,
+     * which a library's varargs parameter accepts (args4j's; String.join's here).
+     */
+    @Test
+    public void toArrayOfNullableElements() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                class C {
+                    String main(List<String> args) {
+                        return String.join(",", args.toArray(new String[0]));
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("args<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "args.toTypedArray<String?>()");
+    }
 }

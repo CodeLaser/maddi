@@ -450,9 +450,15 @@ public class KotlinExpressionPrinter {
             // state of what it initializes
             ParameterizedType array = mc.parameterExpressions().getFirst().parameterizedType();
             ParameterizedType expected = expectedElement(mc);
+            // nor does a non-null element apply to nullable ones: jenkins's CLICommand, a List<String?> args into
+            // args4j's parseArgument(String...) as args.toTypedArray<String?>()
+            ParameterizedType receiver = KotlinNullability.kotlinType(object);
+            boolean nullableElements = receiver != null && receiver.arrays() == 0 && receiver.parameters().size() == 1
+                                       && KotlinNullability.isNullable(receiver.parameters().getFirst());
             String element = expected != null ? KotlinTypeName.of(expected, q)
                     : array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
-                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+                    .withNullable(nullableElements ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             if (element != null && uncheckedElement(object, mc.parameterExpressions().getFirst())) {
                 // guava's JdkBackedImmutableMultiset: entries.toArray((Entry<E>[]) new Entry<?>[0]) on a
                 // Collection<? extends Entry<? extends E>>: Java's cast is unchecked, and so is the receiver's here,
