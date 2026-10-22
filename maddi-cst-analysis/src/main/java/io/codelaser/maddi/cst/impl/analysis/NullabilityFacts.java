@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
@@ -185,6 +186,15 @@ public interface NullabilityFacts {
      */
     default boolean nonNullTypeParameter(TypeParameter typeParameter) {
         return false;
+    }
+
+    /**
+     * A class's superclass, with the verdict's states on its type arguments: jenkins' {@code OwnerContext extends
+     * LinkedList<String>}, whose own methods add null ({@code addFirst(owner)}), is a {@code LinkedList<String?>}.
+     * The printer writes it in the class header. Null: no verdict, the declared superclass as it is.
+     */
+    default ParameterizedType parentClass(TypeInfo typeInfo) {
+        return null;
     }
 
     /**
