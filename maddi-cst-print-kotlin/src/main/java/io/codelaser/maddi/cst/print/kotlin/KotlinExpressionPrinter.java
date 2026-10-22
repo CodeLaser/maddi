@@ -1178,6 +1178,20 @@ public class KotlinExpressionPrinter {
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
             }
+            // timefold's UniConstraintStream: join(otherStream, new BiJoiner[] { joiner }), a raw array into
+            // BiJoiner<A, B>... joiners. Its star element, Array<BiJoiner<*, *>>, is no Array<out BiJoiner<A, B>>:
+            // Kotlin infers the element from the parameter
+            if (spread(args, method, i) && emptyReferenceArray(args.get(i)) != null
+                && rawComponent(emptyReferenceArray(args.get(i)))) {
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(new TextImpl("emptyArray()")));
+                continue;
+            }
+            if (spread(args, method, i) && unwrap(args.get(i)) instanceof ConstructorCall raw
+                && raw.arrayInitializer() != null && raw.parameterizedType().arrays() == 1
+                && rawComponent(raw.parameterizedType().componentType())) {
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(arrayInitializer(raw.arrayInitializer(), null, q)));
+                continue;
+            }
             if (spread(args, method, i) && emptyReferenceArray(args.get(i)) != null) {
                 // jenkins's DirScanner.Glob: this(includes, excludes, true, new OpenOption[0]) into vararg
                 // openOptions: OpenOption. arrayOfNulls<OpenOption>(0) is an Array<OpenOption?>; an empty array holds
@@ -3477,6 +3491,12 @@ public class KotlinExpressionPrinter {
         }
         return new OutputBuilderImpl().add(new TextImpl("arrayOfNulls<" + KotlinTypeName.of(element, q) + ">"))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(size).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /** A raw use of a generic type, {@code BiJoiner} of {@code new BiJoiner[0]}. */
+    private static boolean rawComponent(ParameterizedType component) {
+        return component != null && component.arrays() == 0 && component.typeInfo() != null
+               && !component.typeInfo().typeParameters().isEmpty() && component.parameters().isEmpty();
     }
 
     /** {@code intArrayOf(1, 2)}, {@code arrayOf<String>("a")}; nested initializers recurse with the element type. */

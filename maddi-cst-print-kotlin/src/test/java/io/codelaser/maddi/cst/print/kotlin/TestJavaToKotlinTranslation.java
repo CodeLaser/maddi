@@ -933,4 +933,30 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "val l = make<Any>()");
     }
+
+    /**
+     * timefold's UniConstraintStream: {@code join(otherStream, new BiJoiner[] { joiner })} and
+     * {@code new BiJoiner[0]}, raw arrays into {@code BiJoiner<A, B>... joiners}. A star element,
+     * {@code arrayOf<BiJoiner<*, *>>}, is no {@code Array<out BiJoiner<A, B>>}; Kotlin infers the element instead.
+     */
+    @Test
+    public void rawArrayIntoGenericVarargs() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Joiner<A, B> { }
+                interface Stream<A> {
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other) {
+                        return join(other, new Joiner[0]);
+                    }
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other, Joiner<A, B> joiner) {
+                        return join(other, new Joiner[] { joiner });
+                    }
+                    <B> Stream<B> join(Stream<B> other, Joiner<A, B>... joiners);
+                }
+                """);
+        contains(kotlin, "join(other, *emptyArray())");
+        contains(kotlin, "join(other, *arrayOf(joiner))");
+    }
 }
