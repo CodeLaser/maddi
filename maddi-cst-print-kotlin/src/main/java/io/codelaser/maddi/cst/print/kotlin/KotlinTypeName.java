@@ -333,7 +333,8 @@ public class KotlinTypeName {
     }
 
     /**
-     * A raw type as Java erases it: each type parameter's bound, {@code Any?} for none ({@code Subscriber<Event>} of
+     * A raw type as Java erases it: each type parameter's bound, {@code Any?} for none, {@code Any} for none where the
+     * verdicts hold the parameter non-null ({@code Subscriber<Event>} of
      * nacos's raw {@code Subscriber}, {@code MutableMap<Any?, Any?>} of a raw Map). A generic bound is star-projected,
      * which a type argument may be. Null when {@code raw} is not a raw generic type.
      */
@@ -350,7 +351,9 @@ public class KotlinTypeName {
             ParameterizedType bound = tps.get(i).typeBounds().stream().filter(b -> !b.isJavaLangObject()).findFirst()
                     .orElse(null);
             if (bound == null || bound.typeInfo() == null) {
-                sb.append("Any?");
+                // Any where the verdicts bound the parameter non-null: timefold's raw SelectionFilter NOOP is a
+                // SelectionFilter<Any, Any>, its Solution_ : Any rejecting an Any?
+                sb.append(nonNullClassTypeParameter(tps.get(i)) ? "Any" : "Any?");
             } else {
                 String b = of(bound.typeInfo().asSimpleParameterizedType(), q);
                 int blt = b.indexOf('<');

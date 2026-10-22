@@ -3172,4 +3172,25 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun <S : Any> inner(): Sorter<S, T>");
         contains(kotlin, "override fun <S : Any> inner(): Sorter<S, T>");
     }
+
+    /**
+     * timefold's CompositeSelectionFilter: {@code static final SelectionFilter NOOP = (scoreDirector, selection) ->
+     * true;}, a raw SAM type whose Solution_ the verdicts hold non-null. Erased, it is {@code Any} there, not the
+     * {@code Any?} the bound rejects.
+     */
+    @Test
+    public void rawTypeErasesANonNullParameterToAny() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Filter<Solution_, T> {
+                    boolean accept(Solution_ solution, T selection);
+                }
+                class Filters {
+                    @SuppressWarnings("rawtypes")
+                    static final Filter NOOP = (solution, selection) -> true;
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("<Solution_>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "Filter<Any, Any?>");
+    }
 }
