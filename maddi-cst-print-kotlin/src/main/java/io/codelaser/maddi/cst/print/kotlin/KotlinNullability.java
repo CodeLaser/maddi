@@ -897,6 +897,13 @@ final class KotlinNullability {
                 value, KotlinContext.describe(value));
         OutputBuilder assertedValue = KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
         KotlinSmartCasts.assertedAt(value);
+        if (KotlinExpressionPrinter.mappedIntoSequenced(value, target)) {
+            // the cast `printed` carries, around the assertion: return declaredVariableDescriptorList!! as
+            // SequencedCollection<…> (timefold's EntityDescriptor)
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(assertedValue).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         return assertedValue;
     }
 

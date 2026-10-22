@@ -3123,4 +3123,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "override fun finisher(): Function<C, R?>");
         compiles(kotlin, List.of("org/jspecify/annotations"));
     }
+
+    /**
+     * timefold's EntityDescriptor: {@code if (list != null) return list;} with a nullable field, into a
+     * SequencedCollection result: asserted, and cast as a non-null List is (Kotlin's MutableList is no
+     * SequencedCollection for kotlinc).
+     */
+    @Test
+    public void assertedMappedCollectionIntoSequenced() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                import java.util.SequencedCollection;
+                class D {
+                    List<String> names;
+                    SequencedCollection<String> names() {
+                        return names;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("names")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(names!! as SequencedCollection<String>)");
+        compiles(kotlin);
+    }
 }

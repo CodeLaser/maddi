@@ -2404,7 +2404,7 @@ public class KotlinExpressionPrinter {
      * returns a List. Java's List is a SequencedCollection, Kotlin's MutableList is not one for kotlinc; the cast
      * holds at run time. A Java class (LinkedHashSet) is one already.
      */
-    private static boolean mappedIntoSequenced(Expression e, ParameterizedType target) {
+    static boolean mappedIntoSequenced(Expression e, ParameterizedType target) {
         if (!KotlinContext.translatingJava() || target == null || target.arrays() != 0 || target.typeInfo() == null
             || !target.typeInfo().fullyQualifiedName().startsWith("java.util.Sequenced")) {
             return false;
