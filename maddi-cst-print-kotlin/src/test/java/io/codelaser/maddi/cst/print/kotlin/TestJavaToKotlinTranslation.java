@@ -879,4 +879,84 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "Base.collect(s).size");
         contains(kotlin, "as java.lang.String).stripTrailing()");
     }
+
+    private static final String GENERIC_OVERRIDE_CALL = """
+            package a.b;
+            import java.util.List;
+            class Descriptor {
+                Object value;
+                @SuppressWarnings("unchecked")
+                public <V> V getValue(Object entity) {
+                    return (V) value;
+                }
+            }
+            class ListDescriptor extends Descriptor {
+                List<Object> list;
+                @Override
+                public List<Object> getValue(Object entity) {
+                    return list;
+                }
+                int size(Object entity) {
+                    var values = getValue(entity);
+                    return values.size();
+                }
+            }
+            """;
+
+    /**
+     * timefold's ListVariableDescriptor: {@code List<Object> getValue(Object)} overrides {@code <V> V getValue(Object)},
+     * printed with the member's type parameter (Kotlin's override cannot drop it); a call takes Java's result as the
+     * type argument, which Kotlin cannot infer without an expected type.
+     */
+    @Test
+    public void callOfAGenericOverride() {
+        String kotlin = kotlin(GENERIC_OVERRIDE_CALL);
+        contains(kotlin, "val values = getValue<MutableList<Any>>(entity)");
+    }
+
+    /**
+     * timefold's {@code var variable = genuineVariable()}, a {@code <Value_> MetaModel<Value_>}: Java binds the
+     * result-only Value_ to Object; Kotlin's untyped local gives the call no expected type to infer it from.
+     */
+    @Test
+    public void untypedLocalOfAResultOnlyTypeParameter() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                abstract class M {
+                    abstract <V> List<V> make();
+                    int n() {
+                        var l = make();
+                        return l.size();
+                    }
+                }
+                """);
+        contains(kotlin, "val l = make<Any>()");
+    }
+
+    /**
+     * timefold's UniConstraintStream: {@code join(otherStream, new BiJoiner[] { joiner })} and
+     * {@code new BiJoiner[0]}, raw arrays into {@code BiJoiner<A, B>... joiners}. A star element,
+     * {@code arrayOf<BiJoiner<*, *>>}, is no {@code Array<out BiJoiner<A, B>>}; Kotlin infers the element instead.
+     */
+    @Test
+    public void rawArrayIntoGenericVarargs() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Joiner<A, B> { }
+                interface Stream<A> {
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other) {
+                        return join(other, new Joiner[0]);
+                    }
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other, Joiner<A, B> joiner) {
+                        return join(other, new Joiner[] { joiner });
+                    }
+                    <B> Stream<B> join(Stream<B> other, Joiner<A, B>... joiners);
+                }
+                """);
+        contains(kotlin, "join(other, *emptyArray())");
+        contains(kotlin, "join(other, *arrayOf(joiner))");
+    }
 }

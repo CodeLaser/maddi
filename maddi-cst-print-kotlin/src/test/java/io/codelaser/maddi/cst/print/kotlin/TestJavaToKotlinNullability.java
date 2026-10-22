@@ -121,11 +121,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     : null;
         }
 
-        /** {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one). */
+        /**
+         * {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one).
+         * {@code "T.m()"}: T's m only, where an override shares the name.
+         */
         @Override
         public ParameterizedType returnType(MethodInfo methodInfo) {
             if (checked.contains("=" + methodInfo.name() + "()")) {
                 return methodInfo.returnType().withNullable(NullableState.NONNULL);
+            }
+            if (nullable.contains(methodInfo.typeInfo().simpleName() + "." + methodInfo.name() + "()")) {
+                return methodInfo.returnType().withNullable(NullableState.NULLABLE);
             }
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
@@ -3006,5 +3012,90 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of("method()"), Set.of("c")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "val c = ref.get()");
+    }
+
+    /**
+     * jenkins's CLICommand: {@code p.parseArgument(args.toArray(new String[0]))} with a {@code List<String?>} verdict
+     * for args. {@code toTypedArray<String>()} does not apply to it; the array takes the receiver's element state,
+     * which a library's varargs parameter accepts (args4j's; String.join's here).
+     */
+    @Test
+    public void toArrayOfNullableElements() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                class C {
+                    String main(List<String> args) {
+                        return String.join(",", args.toArray(new String[0]));
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("args<>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "args.toTypedArray<String?>()");
+    }
+
+    /**
+     * jenkins's Iterators.removeNull: {@code return Iterators.filter(itr, Objects::nonNull)} with an
+     * {@code Iterator<T?>} verdict for itr and an {@code Iterator<T>} result. Kotlin types the filtered iterator as
+     * its argument, {@code UnmodifiableIterator<T?>}: the null filter is Java's unchecked narrowing, cast here.
+     */
+    @Test
+    public void libraryNullFilterIntoNonNullElements() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a.b;
+                import java.util.Iterator;
+                import java.util.Objects;
+                class I {
+                    static <T> Iterator<T> removeNull(Iterator<T> itr) {
+                        return com.google.common.collect.Iterators.filter(itr, Objects::nonNull);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("itr<>")), KotlinPrintOptions.NullCheck.ASSERT),
+                "com/google/common/collect", "com/google/common/base");
+        contains(kotlin, "as MutableIterator<T>)");
+        compiles(kotlin, List.of("com/google/common/collect", "com/google/common/base"));
+    }
+
+    /**
+     * timefold's ListVariableDescriptor: {@code List<Object> getValue(Object)} overrides a nullable
+     * {@code <V> V getValue(Object)}, and is printed with V. Its own result is non-null, which Kotlin's override may
+     * narrow to: {@code Value_}, not the member's {@code Value_?}, so that getValue<MutableList<Any>>(entity).size
+     * needs no assertion.
+     */
+    @Test
+    public void genericOverrideNarrowsToNonNull() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                class Descriptor {
+                    Object value;
+                    @SuppressWarnings("unchecked")
+                    public <V> V getValue(Object entity) {
+                        return (V) value;
+                    }
+                }
+                class ListDescriptor extends Descriptor {
+                    List<Object> list = new java.util.ArrayList<>();
+                    @Override
+                    public List<Object> getValue(Object entity) {
+                        return list;
+                    }
+                    int size(Object entity) {
+                        return getValue(entity).size();
+                    }
+                }
+                class LoggedDescriptor extends Descriptor {
+                    List<Object> list = new java.util.ArrayList<>();
+                    @Override
+                    public List<Object> getValue(Object entity) {
+                        System.out.println(entity);
+                        return list;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("Descriptor.getValue()", "value")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun <V> getValue(entity: Any): V = (list) as V");
+        contains(kotlin, "getValue<MutableList<Any>>(entity).size");
+        contains(kotlin, "return (list) as V");
+        compiles(kotlin);
     }
 }

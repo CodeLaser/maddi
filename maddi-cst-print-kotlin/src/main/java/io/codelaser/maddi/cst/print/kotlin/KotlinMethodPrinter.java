@@ -114,7 +114,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
 
         if (!methodInfo.isConstructor()) {
             MethodInfo genericSuper = genericOverridden(methodInfo);
-            ParameterizedType rt = KotlinNullability.returnType(genericSuper != null ? genericSuper : methodInfo);
+            ParameterizedType rt = genericSuper != null ? genericOverrideResult(methodInfo, genericSuper)
+                    : KotlinNullability.returnType(methodInfo);
             // the body throws instead of returning null: the override keeps Kotlin's non-null result
             if (rt != null && !methodInfo.isAbstract() && methodInfo.methodBody() != null
                 && nullOverride(expressionBody(methodInfo.methodBody())) != null) {
@@ -158,7 +159,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         .add(SymbolEnum.LEFT_PARENTHESIS)
                         .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
                         .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                        .add(new TextImpl(KotlinTypeName.of(KotlinNullability.returnType(genericSuper), qualification)));
+                        .add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo, genericSuper), qualification)));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -874,6 +875,19 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (!m.isAbstract() && m.methodBody() == null) return null;
         return m.overrides().stream().filter(o -> !o.typeParameters().isEmpty() && mentionsOwnTypeParameter(o))
                 .findFirst().orElse(null);
+    }
+
+    /**
+     * The result of {@code m}, printed with the generic member's: that member's type, non-null where {@code m}'s own
+     * result is (an override may narrow V? to V). timefold's ListVariableDescriptor.getValue returns its list, so
+     * getValue<MutableList<Any?>>(entity).size needs no assertion.
+     */
+    static ParameterizedType genericOverrideResult(MethodInfo m, MethodInfo genericSuper) {
+        ParameterizedType rt = KotlinNullability.returnType(genericSuper);
+        ParameterizedType own = KotlinNullability.returnType(m);
+        return rt != null && own != null && KotlinNullability.isNullable(rt) && !KotlinNullability.isNullable(own)
+               && !own.isPrimitiveExcludingVoid()
+                ? rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL) : rt;
     }
 
     private static boolean mentionsOwnTypeParameter(MethodInfo o) {

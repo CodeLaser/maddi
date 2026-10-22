@@ -450,9 +450,15 @@ public class KotlinExpressionPrinter {
             // state of what it initializes
             ParameterizedType array = mc.parameterExpressions().getFirst().parameterizedType();
             ParameterizedType expected = expectedElement(mc);
+            // nor does a non-null element apply to nullable ones: jenkins's CLICommand, a List<String?> args into
+            // args4j's parseArgument(String...) as args.toTypedArray<String?>()
+            ParameterizedType receiver = KotlinNullability.kotlinType(object);
+            boolean nullableElements = receiver != null && receiver.arrays() == 0 && receiver.parameters().size() == 1
+                                       && KotlinNullability.isNullable(receiver.parameters().getFirst());
             String element = expected != null ? KotlinTypeName.of(expected, q)
                     : array == null || array.arrays() != 1 ? null : KotlinTypeName.of(array.componentType()
-                    .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+                    .withNullable(nullableElements ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
+                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
             if (element != null && uncheckedElement(object, mc.parameterExpressions().getFirst())) {
                 // guava's JdkBackedImmutableMultiset: entries.toArray((Entry<E>[]) new Entry<?>[0]) on a
                 // Collection<? extends Entry<? extends E>>: Java's cast is unchecked, and so is the receiver's here,
@@ -960,6 +966,9 @@ public class KotlinExpressionPrinter {
      */
     private static String resultOnlyTypeArguments(MethodCall mc, Qualification q) {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        io.codelaser.maddi.cst.api.info.MethodInfo generic = KotlinContext.translatingJava()
+                ? KotlinMethodPrinter.genericOverridden(m) : null;
+        if (generic != null) return overriddenTypeArguments(mc, generic, q);
         List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
         if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
         // an empty varargs fixes nothing: nacos's List columnList = CollectionUtils.list()
@@ -1007,6 +1016,34 @@ public class KotlinExpressionPrinter {
                 printed.add("Any");
                 continue;
             }
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * A call of a method printed with the type parameters of the generic member it overrides
+     * ({@link KotlinMethodPrinter#genericOverridden}): timefold's {@code List<Object> getValue(Object)} of
+     * ListVariableDescriptor, printed {@code fun <Value_> getValue(entity: Any?): Value_}. Java's result is the
+     * method's own; Kotlin infers a result-only type parameter from an expected type only, so the call names it,
+     * {@code getValue<MutableList<Any?>>(entity)}. Null where a parameter mentions one (Kotlin infers it from the
+     * argument) or Java's result does not bind each one.
+     */
+    private static String overriddenTypeArguments(MethodCall mc, io.codelaser.maddi.cst.api.info.MethodInfo generic,
+                                                  Qualification q) {
+        ParameterizedType concrete = mc.concreteReturnType() != null ? mc.concreteReturnType()
+                : mc.methodInfo().returnType();
+        if (concrete == null || generic.returnType() == null) return null;
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = generic.typeParameters();
+        if (generic.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), typeParameters))) {
+            return null;
+        }
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> bound =
+                generic.returnType().formalToConcrete(concrete);
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType t = bound.get(tp);
+            if (t == null || t.wildcard() != null || mentionsOutOfScope(t)) return null;
             printed.add(KotlinTypeName.of(t, q));
         }
         return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
@@ -1146,6 +1183,20 @@ public class KotlinExpressionPrinter {
             if (asArray && i == method.parameters().size() - 1) break;
             if (call != null && unwrap(args.get(i)) instanceof Lambda lambda) {
                 KotlinNullability.inferLambdaParameters(lambda, method, i, call);
+            }
+            // timefold's UniConstraintStream: join(otherStream, new BiJoiner[] { joiner }), a raw array into
+            // BiJoiner<A, B>... joiners. Its star element, Array<BiJoiner<*, *>>, is no Array<out BiJoiner<A, B>>:
+            // Kotlin infers the element from the parameter
+            if (spread(args, method, i) && emptyReferenceArray(args.get(i)) != null
+                && rawComponent(emptyReferenceArray(args.get(i)))) {
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(new TextImpl("emptyArray()")));
+                continue;
+            }
+            if (spread(args, method, i) && unwrap(args.get(i)) instanceof ConstructorCall raw
+                && raw.arrayInitializer() != null && raw.parameterizedType().arrays() == 1
+                && rawComponent(raw.parameterizedType().componentType())) {
+                printed.add(new OutputBuilderImpl().add(SPREAD).add(arrayInitializer(raw.arrayInitializer(), null, q)));
+                continue;
             }
             if (spread(args, method, i) && emptyReferenceArray(args.get(i)) != null) {
                 // jenkins's DirScanner.Glob: this(includes, excludes, true, new OpenOption[0]) into vararg
@@ -2316,7 +2367,7 @@ public class KotlinExpressionPrinter {
      * initializer: a local's type is then inferred (da2dc68fb)
      */
     static OutputBuilder returned(Expression e, ParameterizedType target, Qualification q) {
-        if (!libraryVoidResult(e, target)) return assigned(e, target, q);
+        if (!libraryVoidResult(e, target) && !libraryNullFilter(e, target)) return assigned(e, target, q);
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, e, KotlinContext.describe(e));
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, e, q))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
@@ -2339,6 +2390,28 @@ public class KotlinExpressionPrinter {
         } finally {
             ANONYMOUS_SUPERTYPE.get().remove(typed.getKey());
         }
+    }
+
+    /**
+     * A library call filtering nullable elements with {@code Objects::nonNull}, into non-null ones: jenkins's
+     * Iterators.removeNull, {@code return Iterators.filter(itr, Objects::nonNull)} of an {@code Iterator<T?>} into
+     * an {@code Iterator<T>}. Kotlin types the result as the argument, {@code UnmodifiableIterator<T?>}; the filter is
+     * Java's unchecked narrowing.
+     */
+    private static boolean libraryNullFilter(Expression e, ParameterizedType target) {
+        if (!KotlinContext.translatingJava() || !(unwrap(e) instanceof MethodCall mc) || mc.methodInfo() == null
+            || KotlinNullability.translated(mc.methodInfo().typeInfo()) || target == null || target.arrays() != 0
+            || target.typeInfo() == null || target.parameters().isEmpty()
+            || target.parameters().stream().anyMatch(KotlinNullability::isNullable)) {
+            return false;
+        }
+        boolean filter = mc.parameterExpressions().stream().anyMatch(a -> unwrap(a) instanceof MethodReference mr
+                && mr.methodInfo() != null && "nonNull".equals(mr.methodInfo().name())
+                && "java.util.Objects".equals(mr.methodInfo().typeInfo().fullyQualifiedName()));
+        return filter && mc.parameterExpressions().stream().anyMatch(a -> {
+            ParameterizedType t = KotlinNullability.kotlinType(a);
+            return t != null && t.arrays() == 0 && t.parameters().stream().anyMatch(KotlinNullability::isNullable);
+        });
     }
 
     /**
@@ -3446,6 +3519,12 @@ public class KotlinExpressionPrinter {
         }
         return new OutputBuilderImpl().add(new TextImpl("arrayOfNulls<" + KotlinTypeName.of(element, q) + ">"))
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(size).add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /** A raw use of a generic type, {@code BiJoiner} of {@code new BiJoiner[0]}. */
+    private static boolean rawComponent(ParameterizedType component) {
+        return component != null && component.arrays() == 0 && component.typeInfo() != null
+               && !component.typeInfo().typeParameters().isEmpty() && component.parameters().isEmpty();
     }
 
     /** {@code intArrayOf(1, 2)}, {@code arrayOf<String>("a")}; nested initializers recurse with the element type. */
