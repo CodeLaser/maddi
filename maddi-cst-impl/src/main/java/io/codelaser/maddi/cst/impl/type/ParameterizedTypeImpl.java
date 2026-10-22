@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -66,6 +67,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final List<AnnotationExpression> annotations;
     // an array's element type, when it carries a state or annotations of its own (componentType()); else null
     private final ParameterizedType component;
+    // hashCode(), cached once every part of it is final (hashStable()); String.hash's race-safe scheme
+    @IgnoreModifications
+    private int hash;
+    @IgnoreModifications
+    private boolean hashIsZero;
 
     public ParameterizedTypeImpl(TypeParameter typeParameter, int arrays) {
         this(null, typeParameter, List.of(), arrays, null);
@@ -218,7 +224,38 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         // hash. Keeping it out leaves every type's hash unchanged from before nullability existed, so
         // hash-ordered collections across the analyzer keep their iteration order (Java types are all
         // UNSPECIFIED anyway). Types differing only in nullability simply share a hash bucket.
-        return Objects.hash(typeParameter, typeInfo, arrays, stableWildcardHash(wildcard), parameters);
+        // Objects.hash(typeParameter, typeInfo, arrays, stableWildcardHash(wildcard), parameters), the same value
+        // without its argument array, and cached: the profile of 2026-10-22 (docs/status/performance-2026-10-22.md)
+        // had it at 16% of timefold's CPU, recomputed through the type arguments on every call.
+        int h = hash;
+        if (h != 0 || hashIsZero) return h;
+        h = 31 + Objects.hashCode(typeParameter);
+        h = 31 * h + Objects.hashCode(typeInfo);
+        h = 31 * h + arrays;
+        h = 31 * h + stableWildcardHash(wildcard);
+        h = 31 * h + parameters.hashCode();
+        if (hashParts()) {
+            if (h == 0) hashIsZero = true;
+            else hash = h;
+        }
+        return h;
+    }
+
+    /**
+     * The hash is final once its parts' are: a method's type parameter hashes its method, whose name is final only
+     * once inspected. Not cached before.
+     */
+    private boolean hashParts() {
+        if (typeParameter != null && !(typeParameter instanceof TypeParameterImpl tp && tp.hashStable())) return false;
+        for (ParameterizedType p : parameters) {
+            if (!(p instanceof ParameterizedTypeImpl pti && pti.hashStable())) return false;
+        }
+        return true;
+    }
+
+    boolean hashStable() {
+        hashCode();
+        return hash != 0 || hashIsZero;
     }
 
     /**
