@@ -960,6 +960,9 @@ public class KotlinExpressionPrinter {
      */
     private static String resultOnlyTypeArguments(MethodCall mc, Qualification q) {
         io.codelaser.maddi.cst.api.info.MethodInfo m = mc.methodInfo();
+        io.codelaser.maddi.cst.api.info.MethodInfo generic = KotlinContext.translatingJava()
+                ? KotlinMethodPrinter.genericOverridden(m) : null;
+        if (generic != null) return overriddenTypeArguments(mc, generic, q);
         List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = m.typeParameters();
         if (typeParameters.isEmpty() || !KotlinContext.translatingJava() || m.returnType() == null) return null;
         // an empty varargs fixes nothing: nacos's List columnList = CollectionUtils.list()
@@ -1007,6 +1010,34 @@ public class KotlinExpressionPrinter {
                 printed.add("Any");
                 continue;
             }
+            printed.add(KotlinTypeName.of(t, q));
+        }
+        return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));
+    }
+
+    /**
+     * A call of a method printed with the type parameters of the generic member it overrides
+     * ({@link KotlinMethodPrinter#genericOverridden}): timefold's {@code List<Object> getValue(Object)} of
+     * ListVariableDescriptor, printed {@code fun <Value_> getValue(entity: Any?): Value_}. Java's result is the
+     * method's own; Kotlin infers a result-only type parameter from an expected type only, so the call names it,
+     * {@code getValue<MutableList<Any?>>(entity)}. Null where a parameter mentions one (Kotlin infers it from the
+     * argument) or Java's result does not bind each one.
+     */
+    private static String overriddenTypeArguments(MethodCall mc, io.codelaser.maddi.cst.api.info.MethodInfo generic,
+                                                  Qualification q) {
+        ParameterizedType concrete = mc.concreteReturnType() != null ? mc.concreteReturnType()
+                : mc.methodInfo().returnType();
+        if (concrete == null || generic.returnType() == null) return null;
+        List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = generic.typeParameters();
+        if (generic.parameters().stream().anyMatch(p -> CstQueries.mentionsAny(p.parameterizedType(), typeParameters))) {
+            return null;
+        }
+        Map<io.codelaser.maddi.cst.api.type.NamedType, ParameterizedType> bound =
+                generic.returnType().formalToConcrete(concrete);
+        List<String> printed = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : typeParameters) {
+            ParameterizedType t = bound.get(tp);
+            if (t == null || t.wildcard() != null || mentionsOutOfScope(t)) return null;
             printed.add(KotlinTypeName.of(t, q));
         }
         return printed.stream().collect(java.util.stream.Collectors.joining(", ", "<", ">"));

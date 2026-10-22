@@ -879,4 +879,38 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "Base.collect(s).size");
         contains(kotlin, "as java.lang.String).stripTrailing()");
     }
+
+    private static final String GENERIC_OVERRIDE_CALL = """
+            package a.b;
+            import java.util.List;
+            class Descriptor {
+                Object value;
+                @SuppressWarnings("unchecked")
+                public <V> V getValue(Object entity) {
+                    return (V) value;
+                }
+            }
+            class ListDescriptor extends Descriptor {
+                List<Object> list;
+                @Override
+                public List<Object> getValue(Object entity) {
+                    return list;
+                }
+                int size(Object entity) {
+                    var values = getValue(entity);
+                    return values.size();
+                }
+            }
+            """;
+
+    /**
+     * timefold's ListVariableDescriptor: {@code List<Object> getValue(Object)} overrides {@code <V> V getValue(Object)},
+     * printed with the member's type parameter (Kotlin's override cannot drop it); a call takes Java's result as the
+     * type argument, which Kotlin cannot infer without an expected type.
+     */
+    @Test
+    public void callOfAGenericOverride() {
+        String kotlin = kotlin(GENERIC_OVERRIDE_CALL);
+        contains(kotlin, "val values = getValue<MutableList<Any>>(entity)");
+    }
 }
