@@ -374,7 +374,7 @@ public class KotlinStatementPrinter {
             if (label == null && method != null && !method.isConstructor()) {
                 ParameterizedType returnType = KotlinNullability.returnType(method);
                 io.codelaser.maddi.cst.api.info.MethodInfo genericSuper = KotlinMethodPrinter.genericOverridden(method);
-                OutputBuilder cast = genericSuper != null ? genericReturn(value, genericSuper, q)
+                OutputBuilder cast = genericSuper != null ? genericReturn(value, method, genericSuper, q)
                         : KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
                         KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.returned(value, returnType, q), q);
@@ -396,12 +396,12 @@ public class KotlinStatementPrinter {
      * What an unchecked override of a generic member returns, cast to the member's result: jenkins's Secret
      * converter, {@code return Secret.fromString(value)} from a {@code <T> T convert(…)}.
      */
-    private static OutputBuilder genericReturn(Expression value, io.codelaser.maddi.cst.api.info.MethodInfo genericSuper,
-                                               Qualification q) {
+    private static OutputBuilder genericReturn(Expression value, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                               io.codelaser.maddi.cst.api.info.MethodInfo genericSuper, Qualification q) {
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(KotlinExpressionPrinter.widened(value, null, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                .add(new TextImpl(KotlinTypeName.of(KotlinNullability.returnType(genericSuper), q)));
+                .add(new TextImpl(KotlinTypeName.of(KotlinMethodPrinter.genericOverrideResult(method, genericSuper), q)));
     }
 
     /**

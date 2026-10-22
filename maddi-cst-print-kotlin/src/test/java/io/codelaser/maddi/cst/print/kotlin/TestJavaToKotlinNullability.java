@@ -121,11 +121,17 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     : null;
         }
 
-        /** {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one). */
+        /**
+         * {@code "=m()"} in checked: m's return is decided non-null (a verdict, not the absence of one).
+         * {@code "T.m()"}: T's m only, where an override shares the name.
+         */
         @Override
         public ParameterizedType returnType(MethodInfo methodInfo) {
             if (checked.contains("=" + methodInfo.name() + "()")) {
                 return methodInfo.returnType().withNullable(NullableState.NONNULL);
+            }
+            if (nullable.contains(methodInfo.typeInfo().simpleName() + "." + methodInfo.name() + "()")) {
+                return methodInfo.returnType().withNullable(NullableState.NULLABLE);
             }
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
@@ -3047,5 +3053,49 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 "com/google/common/collect", "com/google/common/base");
         contains(kotlin, "as MutableIterator<T>)");
         compiles(kotlin, List.of("com/google/common/collect", "com/google/common/base"));
+    }
+
+    /**
+     * timefold's ListVariableDescriptor: {@code List<Object> getValue(Object)} overrides a nullable
+     * {@code <V> V getValue(Object)}, and is printed with V. Its own result is non-null, which Kotlin's override may
+     * narrow to: {@code Value_}, not the member's {@code Value_?}, so that getValue<MutableList<Any>>(entity).size
+     * needs no assertion.
+     */
+    @Test
+    public void genericOverrideNarrowsToNonNull() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                class Descriptor {
+                    Object value;
+                    @SuppressWarnings("unchecked")
+                    public <V> V getValue(Object entity) {
+                        return (V) value;
+                    }
+                }
+                class ListDescriptor extends Descriptor {
+                    List<Object> list = new java.util.ArrayList<>();
+                    @Override
+                    public List<Object> getValue(Object entity) {
+                        return list;
+                    }
+                    int size(Object entity) {
+                        return getValue(entity).size();
+                    }
+                }
+                class LoggedDescriptor extends Descriptor {
+                    List<Object> list = new java.util.ArrayList<>();
+                    @Override
+                    public List<Object> getValue(Object entity) {
+                        System.out.println(entity);
+                        return list;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("Descriptor.getValue()", "value")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun <V> getValue(entity: Any): V = (list) as V");
+        contains(kotlin, "getValue<MutableList<Any>>(entity).size");
+        contains(kotlin, "return (list) as V");
+        compiles(kotlin);
     }
 }
