@@ -777,6 +777,17 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * projections a raw type is elsewhere; Java's erasure, each type parameter's bound, is
      * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
      */
+    /**
+     * The superclass as the header writes it: the verdicts' where they type its arguments (jenkins's
+     * DiskSpaceMonitorDescriptor, whose own code puts null into its superclass's slot, extends
+     * AbstractAsyncNodeMonitorDescriptor<DiskSpace?>), the declared one otherwise.
+     */
+    static ParameterizedType parentClass(TypeInfo typeInfo) {
+        ParameterizedType verdict = KotlinContext.translatingJava()
+                ? KotlinNullability.verdicts().parentClass(typeInfo) : null;
+        return verdict != null ? verdict : typeInfo.parentClass();
+    }
+
     static String rawSupertype(ParameterizedType supertype, Qualification q) {
         if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null) return null;
         return KotlinTypeName.erased(supertype, q);
@@ -789,7 +800,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (sameName == null) sameName = innerOfAGenericOuter(q);
             String raw = sameName == null ? rawSupertype(typeInfo.parentClass(), q) : null;
             OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
-                    : raw != null ? raw : KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
+                    : raw != null ? raw : KotlinTypeName.of(declaredArguments(parentClass(typeInfo)), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }

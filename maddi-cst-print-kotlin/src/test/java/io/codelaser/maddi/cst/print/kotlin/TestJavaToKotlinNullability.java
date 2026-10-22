@@ -136,6 +136,18 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
 
+        /** {@code "super:C"}: class C's superclass with a nullable first type argument. */
+        @Override
+        public ParameterizedType parentClass(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
+            ParameterizedType parent = typeInfo.parentClass();
+            if (!nullable.contains("super:" + typeInfo.simpleName()) || parent == null || parent.parameters().isEmpty()) {
+                return null;
+            }
+            java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(parent.parameters());
+            arguments.set(0, arguments.getFirst().withNullable(NullableState.NULLABLE));
+            return parent.withParameters(arguments);
+        }
+
         /** {@code "!x"} in checked: local x is asserted at its declaration. */
         @Override
         public boolean assertedAtDeclaration(MethodInfo method, Element declaration, LocalVariable variable) {
@@ -3192,5 +3204,24 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("<Solution_>")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "Filter<Any, Any?>");
+    }
+
+    /**
+     * jenkins's DiskSpaceMonitorDescriptor: its own code puts null into its superclass's slot, and the verdicts
+     * (NullabilityFacts.parentClass) make it extend AbstractAsyncNodeMonitorDescriptor<DiskSpace?>. The header writes
+     * it so, which its override of monitor(): Map<Computer, DiskSpace?> needs.
+     */
+    @Test
+    public void superclassTakesTheVerdictsArguments() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                class Names extends ArrayList<String> {
+                    void addMissing() {
+                        add(null);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("super:Names")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "class Names : ArrayList<String?>()");
     }
 }
