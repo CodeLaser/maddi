@@ -3145,4 +3145,31 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "(names!! as SequencedCollection<String>)");
         compiles(kotlin);
     }
+
+    /**
+     * timefold's SelectionSorterAdapter: {@code SelectionSorter<?, T> getInnerSorter()} overrides
+     * {@code <S> SelectionSorter<S, T> getInnerSorter()}, whose S the verdicts hold non-null. The override is printed
+     * with the member's S (Kotlin's cannot drop it), and with its bound: Kotlin wants an override's bounds equal.
+     */
+    @Test
+    public void genericOverrideTakesTheMembersBound() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Sorter<A, B> { }
+                interface Holder<T> {
+                    <S> Sorter<S, T> inner();
+                }
+                class Adapter<T> implements Holder<T> {
+                    Sorter<?, T> sorter;
+                    Adapter(Sorter<?, T> sorter) { this.sorter = sorter; }
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public Sorter<?, T> inner() {
+                        return sorter;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("<S>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun <S : Any> inner(): Sorter<S, T>");
+        contains(kotlin, "override fun <S : Any> inner(): Sorter<S, T>");
+    }
 }
