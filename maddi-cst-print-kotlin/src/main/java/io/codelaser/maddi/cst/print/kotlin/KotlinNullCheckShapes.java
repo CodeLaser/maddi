@@ -163,7 +163,7 @@ final class KotlinNullCheckShapes {
         Expression u = unwrap(e);
         if (u instanceof VariableExpression ve) return ve.variable() instanceof FieldReference && plainRead(ve.variable());
         return u instanceof MethodCall mc && mc.parameterExpressions().isEmpty() && mc.methodInfo() != null
-               && mc.methodInfo().isNonModifying() && !mc.methodInfo().isStatic()
+               && KotlinContext.options().modification().nonModifying(mc.methodInfo()) && !mc.methodInfo().isStatic()
                && (mc.object() == null || unwrap(mc.object()) instanceof VariableExpression s
                                           && (s.variable() instanceof This || s.variable() instanceof LocalVariable
                                               || s.variable() instanceof ParameterInfo));

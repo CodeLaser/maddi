@@ -3292,7 +3292,7 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
      */
     @Test
     public void nullTestedGetterInOneCondition() {
-        String kotlin = kotlin("""
+        String source = """
                 package a.b;
                 import java.util.List;
                 class C {
@@ -3312,11 +3312,14 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     boolean labelled(String n) { return label != null && label.contains(n); }
                     boolean modifying() { return next() != null && !next().isEmpty(); }
                 }
-                """, new KotlinPrintOptions(new ByName(Set.of("items", "name", "label", "getItems()", "getName()", "next()")),
-                KotlinPrintOptions.NullCheck.ASSERT), type -> type.methodStream()
+                """;
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("items", "name", "label", "getItems()", "getName()", "next()")),
+                KotlinPrintOptions.NullCheck.ASSERT);
+        java.util.function.Consumer<io.codelaser.maddi.cst.api.info.TypeInfo> nonModifying = type -> type.methodStream()
                 .filter(m -> m.name().startsWith("get"))
                 .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
-                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE));
+        String kotlin = kotlin(source, options, nonModifying);
         contains(kotlin, "!getItems().isNullOrEmpty()");
         contains(kotlin, "other.getItems().isNullOrEmpty()");
         contains(kotlin, "getName()?.startsWith(n) == true");
@@ -3327,5 +3330,10 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "label?.contains(n) == true");
         contains(kotlin, "next() != null && !next()!!.isEmpty()");
         compiles(kotlin);
+        // without the modification analysis, Java's two calls (the same class in a package of its own: a second parse)
+        String without = kotlin(source.replace("package a.b;", "package a.c;"), options.withModification(io.codelaser.maddi.cst.impl.analysis.ModificationFacts.NONE),
+                nonModifying);
+        contains(without, "getName() != null && getName()!!.startsWith(n)");
+        contains(without, "label?.contains(n) == true");
     }
 }
