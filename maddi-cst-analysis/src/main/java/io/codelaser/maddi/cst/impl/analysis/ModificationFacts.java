@@ -59,11 +59,6 @@ public interface ModificationFacts {
             return methodInfo.isNonModifying();
         }
 
-        @Override
-        public boolean unmodified(ParameterInfo parameterInfo) {
-            return parameterInfo.isUnmodified();
-        }
-
         /*
         The same reading as the analyzer's DynamicImmutabilityInference.ofMethodCall: IMMUTABLE_METHOD at least
         immutable-HC is a claim about the result only where it is not the shallow analyzer's fallback from the declared
@@ -99,11 +94,6 @@ public interface ModificationFacts {
 
     /** No code modifies the collection the field holds: no element is added or removed (its elements may change). */
     default boolean structurallyUnmodified(FieldInfo fieldInfo) {
-        return false;
-    }
-
-    /** The method modifies nothing the parameter holds: not the object, nor what it holds ({@code UNMODIFIED_PARAMETER}). */
-    default boolean unmodified(ParameterInfo parameterInfo) {
         return false;
     }
 

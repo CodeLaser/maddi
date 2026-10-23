@@ -66,7 +66,6 @@ public class KotlinStatementPrinter {
             lines.add(printed);
             return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
         } finally {
-            KotlinSmartCasts.endStatement(s);
             KotlinContext.popStatement();
         }
     }
