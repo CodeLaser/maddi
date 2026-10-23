@@ -8,6 +8,7 @@ module io.codelaser.maddi.run.openjdkmain {
     requires io.codelaser.maddi.cst.impl;
     requires io.codelaser.maddi.cst.print.kotlin;
     requires io.codelaser.maddi.cst.print.csharp;
+    requires io.codelaser.maddi.cst.print.rust;
     requires io.codelaser.maddi.inspection.api;
     requires io.codelaser.maddi.inspection.openjdk;
     requires io.codelaser.maddi.inspection.resource;

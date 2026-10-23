@@ -1,0 +1,123 @@
+# Printing the CST as Rust
+
+`maddi-cst-print-rust` prints a CST, parsed from Java, as a Rust library crate. It is the third Java-to-X printer,
+beside `maddi-cst-print-kotlin` and `maddi-cst-print-csharp`. The work item is CodeLaser/maddi#167. The printer is
+**experimental**.
+
+## Aim
+
+The other two printers aim at a translation that reads as if it had been written by hand. This one has a second aim
+first: to be an **oracle for the linking engine**. Rust's rule is *aliasing XOR mutability*; the Road to
+Immutability splits the same idea over modification (rule 1) and independence (rule 3). So the verdicts become the
+ownership modes of the signatures, and rustc's borrow checker judges the bodies against them.
+
+| verdict | Rust |
+|---|---|
+| non-modifying method | `&self` |
+| modifying method | `&mut self` |
+| `@Finalizer` | `self` |
+| parameter not kept (independent), unmodified | `&T` (`&str` for a string) |
+| parameter not kept, modified | `&mut T` |
+| parameter kept (dependent, or independent with hidden content) | `T`, moved in |
+| result sharing the receiver's accessible content (dependent) | `&T` |
+| nullable | `Option<T>` |
+
+`RustFacts` is the seam: `RustFacts.STORED` reads the stored properties, `RustFacts.of` adds the nullability pass's
+report, and a test can supply any verdict it likes, a wrong one included.
+
+## Strict on purpose
+
+Nothing is softened to please the borrow checker: no `clone()`, no `Rc<RefCell<…>>`. Where rustc rejects the
+output, it says where a verdict and the code disagree:
+
+| rustc says | reading |
+|---|---|
+| E0596, E0594: cannot borrow or assign behind a `&` reference | a non-modifying (or unmodified) verdict the body contradicts: the **analyzer** is wrong |
+| E0382: use of a moved value | a dependent parameter: Java shares the object, Rust does not; the verdict is right, the **printer** needs another representation (`Rc`, a clone) |
+| E0597, E0716: does not live long enough | a missed dependence |
+| E0502, E0499: overlapping borrows | aliasing plus modification |
+
+`TestJavaToRustOwnership` pins the first two: the same Java compiles with the right verdicts, fails with E0596/E0594
+when `add` is declared non-modifying, and fails with E0382 where a constructor keeps the caller's list.
+
+The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source class or
+record the analysis calls `@Immutable` (without hidden content), which derives `Clone`. A named string is cloned where
+it is stored again, a borrowed immutable object (`map.get(k)`) where an owned one is expected, and a stream over them
+is `.iter().cloned()`. A type with hidden content (`@Immutable(hc=true)`) is not: its clone would copy what Java
+shares, so the mismatch stays for rustc to report.
+
+A dependent result that is a *new* container of the receiver's mutable elements (`orders.stream().toList()`) is
+`Vec<&T>` in Rust, not the `&Vec<T>` the signature says: rustc reports it, but that one is the printer's (the
+verdict does not say whether the container or only its elements are shared).
+
+rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do compiles. Clippy's
+`needless_pass_by_ref_mut` and `unused_mut` give the other direction.
+
+### Findings so far
+
+Analyzer issues the oracle found, each with a minimal repro:
+
+- CodeLaser/maddi-mod#58: `stream().map(Order::customer).toList()` is dependent where the same map with a lambda is
+  independent (E0515).
+- CodeLaser/maddi-mod#59: modifying a map's value (`products.get(k).put(…)`) leaves the deep
+  `NON_MODIFYING_METHOD` true (E0596).
+- CodeLaser/maddi-mod#60: `Collections.unmodifiableList(field)` is independent; a read-only view of a mutable
+  collection is dependent (E0507). `UNMODIFIABLE_VIEW_METHOD` cannot stand in for it: it marks any unmodifiable
+  result, a fresh one too.
+
+## Shape
+
+- A package is a module (`a.b` → `src/a_b.rs`), declared in `src/lib.rs`; `Cargo.toml` beside `src/`.
+- A class is a `struct` and an inherent `impl`; each source interface it implements, and each interface those
+  extend, gets an `impl Trait for`. An interface is a `trait`; a value of its type is a `Box<dyn Trait>`, a borrowed
+  one `&dyn Trait`. A call of a trait's method from another module imports the trait.
+- An interface method's verdict is the union over its implementations, or unknown and so modifying. Rust makes an
+  impl repeat the trait's signature, so an implementation with other verdicts (`&self` where the trait has
+  `&mut self`) is an inherent method with its own, and the trait's method delegates to it: the body is still judged
+  against its own verdict, and `self.m()` resolves to the inherent method first.
+- A source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by `super(…)`,
+  and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent to a method
+  the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
+- A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
+- An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
+- A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
+- A constructor is an associated `fn new… -> Self`. A body that only assigns fields gives one `Self { … }`; anything
+  else builds `this` at the fields' empty values, runs the body on it, and returns it.
+- Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and
+  call.
+- A `static final` constant is an associated `const`; other static state is reported (`STATIC_STATE`).
+- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
+- A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
+  cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
+- `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
+  because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
+  (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
+- A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
+  `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
+- `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
+- `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
+  (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
+- The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
+  `String`, and a table of methods (`RustJdk`). An index is a `usize` in Rust: `i as usize`, and a size goes back to
+  `i32`, so the arithmetic around it stays Java's. Java's implicit numeric widening is spelled out.
+
+The printer writes Rust text directly, not through the `OutputElement` IR the Kotlin and C# printers share: one Java
+type is several Rust items, which the one-declaration shape of `TypePrinter` does not fit, and `rustfmt` formats
+the result better than a generic formatter would.
+
+## Not yet
+
+Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` and type patterns outside `equals`,
+try/catch (`TRY_BODY_ONLY`), static mutable state, generic bounds (`T: Clone + PartialEq`), sorting and collectors
+beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
+`UNSUPPORTED` message.
+
+## Running it
+
+```bash
+maddi --compile-log build.log --translate rust --translate-output rust-crate
+cd rust-crate && cargo build
+```
+
+The tests compile their samples with `rustc` when it is on the `PATH`, and are skipped otherwise.
