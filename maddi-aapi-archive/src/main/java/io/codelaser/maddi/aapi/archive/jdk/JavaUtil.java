@@ -1737,48 +1737,48 @@ public class JavaUtil {
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> Collection<T> unmodifiableCollection(
-            /*@Independent[M]*/ @NotNull @NotModified Collection<? extends T> c) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Collection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> SequencedCollection<T> unmodifiableSequencedCollection(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedCollection<? extends T> c) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedCollection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ @NotNull @NotModified Set<? extends T> s) { return null; }
+        @UnmodifiableView static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Set<? extends T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> SequencedSet<T> unmodifiableSequencedSet(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedSet<? extends T> s) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedSet<? extends T> s) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ @NotNull @NotModified SortedSet<T> s) { return null; }
+        @UnmodifiableView static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SortedSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> NavigableSet<T> unmodifiableNavigableSet(
-            /*@Independent[M]*/ @NotNull @NotModified NavigableSet<T> s) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) NavigableSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> List<T> unmodifiableList(/*@Independent[M]*/ @NotNull @NotModified List<? extends T> list) { return null; }
+        @UnmodifiableView static <T> List<T> unmodifiableList(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) List<? extends T> list) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> Map<K, V> unmodifiableMap(
-            /*@Independent[M]*/ @NotNull @NotModified Map<? extends K, ? extends V> m) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Map<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> SequencedMap<K, V> unmodifiableSequencedMap(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedMap<? extends K, ? extends V> m) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedMap<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> SortedMap<K, V> unmodifiableSortedMap(
-            /*@Independent[M]*/ @NotNull @NotModified SortedMap<K, ? extends V> m) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SortedMap<K, ? extends V> m) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(
-            /*@Independent[M]*/ @NotNull @NotModified NavigableMap<K, ? extends V> m) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) NavigableMap<K, ? extends V> m) {
             return null;
         }
 

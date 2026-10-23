@@ -301,6 +301,9 @@ immutability verdicts are derived.
   (the JDK's 19 view factories are `@NotModified @Independent(dependentReturnValue = true)`). The reachability pass
   does not follow plain `≡` from a local; a local initialised with such a call follows the callee's `rv.§m ≡ p.§m`
   link to the argument (`ShadowModificationPass.projectViewLocal`, gate `NOVIEWLOCAL`).
+  The unmodifiable views (`Collections.unmodifiable*`, 11) carry the same parameter annotation (CodeLaser/maddi-mod#60),
+  and independence judges a plain `≡` between modification faces as the whole field (`LinkToField.linkedType`):
+  `return Collections.unmodifiableList(this.list)` is dependent, a read-only view of a mutable list.
 - A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
