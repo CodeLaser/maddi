@@ -3268,13 +3268,19 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                     String g(String context) { return context == null ? null : wrap(context).trim(); }
                     Integer h(String text) { return text != null ? text.length() : null; }
                     Runnable r(String text) { return text != null ? () -> wrap(text) : null; }
+                    static class Holder { String value; }
+                    String field(Holder holder) { return holder != null ? holder.value : null; }
+                    Integer length(int[] values) { return values != null ? values.length : null; }
                 }
-                """, new KotlinPrintOptions(new ByName(Set.of("context", "text", "f()", "g()", "h()", "r()")),
+                """, new KotlinPrintOptions(new ByName(Set.of("context", "text", "holder", "values", "value", "f()", "g()", "h()", "r()",
+                        "field()", "length()")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "context?.let { wrap(it) }");
         contains(kotlin, "context?.let { wrap(it).trim() }");
         contains(kotlin, "text?.length");
         contains(kotlin, "if (text != null)");
+        contains(kotlin, "holder?.value");
+        contains(kotlin, "values?.size");
         compiles(kotlin);
     }
 }

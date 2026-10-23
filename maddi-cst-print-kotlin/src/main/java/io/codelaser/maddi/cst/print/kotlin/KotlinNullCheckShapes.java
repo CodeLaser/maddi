@@ -30,7 +30,8 @@ import io.codelaser.maddi.cst.api.variable.Variable;
  * Java's null-check conditionals that Kotlin writes with an operator (CodeLaser/maddi#140, item 1):
  * <ul>
  *     <li>{@code x != null ? x : d} and {@code x == null ? d : x} are {@code x ?: d};</li>
- *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)};</li>
+ *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)}; so for a
+ *     field read, {@code x?.f}, and an array's length, {@code x?.size};</li>
  *     <li>{@code x != null ? f(x) : null}, x a local or a parameter, is {@code x?.let { f(it) }} (#164).</li>
  * </ul>
  * Only where the Kotlin means what the Java does. {@code x} is a read of a local, a parameter or a field of
@@ -47,8 +48,8 @@ final class KotlinNullCheckShapes {
     record Elvis(Expression value, Expression otherwise) {
     }
 
-    /** {@code receiver?.call}: the call is the conditional's non-null branch, on {@code receiver} */
-    record SafeCall(Expression receiver, MethodCall call) {
+    /** {@code receiver?.call}: the call (or field read, or array length) is the conditional's non-null branch */
+    record SafeCall(Expression receiver, Expression call) {
     }
 
     static Elvis elvis(InlineConditional ic) {
@@ -64,7 +65,16 @@ final class KotlinNullCheckShapes {
     static SafeCall safeCall(InlineConditional ic) {
         Tested tested = tested(ic);
         if (tested == null || !(unwrap(tested.whenNull()) instanceof NullConstant)) return null;
-        if (!(unwrap(tested.whenNonNull()) instanceof MethodCall mc) || mc.objectIsImplicit() || mc.object() == null
+        Expression nonNull = unwrap(tested.whenNonNull());
+        // jenkins's ProxyConfiguration: jenkins != null ? jenkins.proxy : null, jenkins?.proxy
+        Expression scope = nonNull instanceof VariableExpression fv && fv.variable() instanceof FieldReference fr
+                           && !fr.fieldInfo().isStatic() && fr.scope() != null ? fr.scope()
+                : nonNull instanceof io.codelaser.maddi.cst.api.expression.ArrayLength al ? al.scope() : null;
+        if (scope != null) {
+            return unwrap(scope) instanceof VariableExpression sv && sv.variable().equals(tested.variable().variable())
+                    ? new SafeCall(scope, nonNull) : null;
+        }
+        if (!(nonNull instanceof MethodCall mc) || mc.objectIsImplicit() || mc.object() == null
             || !(unwrap(mc.object()) instanceof VariableExpression ve)
             || !ve.variable().equals(tested.variable().variable())) {
             return null;
