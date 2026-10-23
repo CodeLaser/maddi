@@ -342,7 +342,8 @@ final class KotlinMappedMembers {
      * An interface's {@code int ordinal()} or {@code String name()}, which an enum implements by java.lang.Enum's
      * (guava's BloomFilter.Strategy, implemented by the BloomFilterStrategies enum): Kotlin's Enum has the properties,
      * and a {@code fun ordinal()} in the enum would clash with them on the JVM. A property in the interface too, which
-     * Enum's implements; an override of it is one.
+     * Enum's implements; an override of it is one. Only where an enum translated with it implements the interface: a
+     * property's JVM getter is getName(), which a Java class's name() no longer overrides.
      */
     static boolean enumProperty(MethodInfo methodInfo) {
         if (methodInfo.isStatic() || methodInfo.isConstructor() || !methodInfo.parameters().isEmpty()
@@ -350,6 +351,9 @@ final class KotlinMappedMembers {
         // an interface being translated: a library's (java.nio's FileAttribute.name()) keeps its function
         return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream()).anyMatch(m -> m.typeInfo().isInterface()
                 && KotlinNullability.translated(m.typeInfo()) && m.parameters().isEmpty()
+                // only where an enum implements it: langchain4j's Guardrail.name(), a default method, stays a function,
+                // which the Java tests' WrappedInputGuardrail overrides as name()
+                && KotlinContext.options().world().implementedByEnum(m.typeInfo())
                 && ("ordinal".equals(m.name()) && m.returnType().isInt()
                     || "name".equals(m.name()) && m.returnType().typeInfo() != null && m.returnType().arrays() == 0
                        && "java.lang.String".equals(m.returnType().typeInfo().fullyQualifiedName())));

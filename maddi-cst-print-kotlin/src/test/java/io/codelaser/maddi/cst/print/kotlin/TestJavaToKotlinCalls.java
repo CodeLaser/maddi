@@ -1211,6 +1211,31 @@ public class TestJavaToKotlinCalls extends CommonJavaToKotlin {
         compiles(kotlin);
     }
 
+    /**
+     * langchain4j's Guardrail: {@code default String name()}, which no enum implements, stays a function. As a
+     * property its JVM getter would be getName(), and the Java tests' {@code WrappedInputGuardrail.name()} would
+     * override nothing.
+     */
+    @Test
+    public void interfaceNameWithoutAnEnumStaysAFunction() {
+        String kotlin = kotlin("""
+                package a;
+                class Guard {
+                    interface Guardrail { default String name() { return getClass().getSimpleName(); } }
+                    static final class Wrapped implements Guardrail {
+                        private final Guardrail inner;
+                        Wrapped(Guardrail inner) { this.inner = inner; }
+                        @Override public String name() { return inner.name(); }
+                    }
+                    static int length(Guardrail g) { return g.name().length(); }
+                }
+                """);
+        contains(kotlin, "fun name(): String");
+        contains(kotlin, "override fun name(): String");
+        contains(kotlin, "g.name().length");
+        compiles(kotlin);
+    }
+
     /** guava's TempFileCreator: java.nio's FileAttribute declares name(), a library's function, overridden as one. */
     @Test
     public void libraryInterfaceNameStaysAFunction() {
