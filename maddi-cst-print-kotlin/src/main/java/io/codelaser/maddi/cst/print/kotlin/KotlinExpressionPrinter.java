@@ -1493,8 +1493,19 @@ public class KotlinExpressionPrinter {
                 // Map<String, ResponseHandler>, whose raw V fixes no type arguments
                 Expression arg = args.get(i);
                 OutputBuilder widenedArgument = intoRawTarget(arg, declared, () -> widened(arg, widenTo, q));
-                OutputBuilder argument = KotlinNullability.toTarget(args.get(i), declared, argumentTranslated,
-                        widenedArgument, q);
+                // langchain4j's getOrDefault(parameters.modelName(), modelName) into <T> getOrDefault(T?, T): the
+                // callee's unbounded T is instantiated nullable at this call, as Java's erasure lets the null through;
+                // `!!` would throw
+                boolean calleeTypeVariable = hasParameter && declared != null && declared.arrays() == 0
+                                             && declared.typeParameter() != null
+                                             && method.typeParameters().contains(declared.typeParameter())
+                                             && method != KotlinContext.currentMethod()
+                                             && KotlinNullability.translated(method.typeInfo())
+                                             && declared.typeParameter().typeBounds().stream()
+                                                     .allMatch(ParameterizedType::isJavaLangObject)
+                                             && !KotlinMethodPrinter.nonNullBound(method, declared.typeParameter());
+                OutputBuilder argument = calleeTypeVariable ? widenedArgument
+                        : KotlinNullability.toTarget(args.get(i), declared, argumentTranslated, widenedArgument, q);
                 if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
                                      || nullableElementsParameter(method, i, args.get(i)))) {
                     KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, args.get(i), KotlinContext.describe(args.get(i)));

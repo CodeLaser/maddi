@@ -971,6 +971,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;
         if (typeArgumentOfParameter(methodInfo, tp)) return false;
+        // langchain4j's getOrDefault(T value, T defaultValue): a plain T parameter takes a caller's nullable instantiation
+        if (methodInfo.parameters().stream().anyMatch(p -> {
+            ParameterizedType pt = KotlinNullability.parameterType(p);
+            return pt.typeParameter() == tp && pt.arrays() == 0 && !KotlinNullability.isNullable(pt);
+        })) {
+            return false;
+        }
         return methodInfo.parameters().stream().anyMatch(p -> {
             ParameterizedType pt = KotlinNullability.parameterType(p);
             ParameterizedType element = p.isVarArgs() && pt.arrays() > 0 ? pt.componentType() : pt;

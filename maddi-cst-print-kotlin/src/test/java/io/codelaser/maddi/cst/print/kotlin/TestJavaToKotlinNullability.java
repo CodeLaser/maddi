@@ -2341,16 +2341,22 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 static <T> T getOrDefault(T value, java.util.function.Supplier<T> supplier) {
                     return value != null ? value : supplier.get();
                 }
+                static <T> T orDefault(T value, T defaultValue) {
+                    return value != null ? value : defaultValue;
+                }
+                static String name(String given, String fallback) { return orDefault(given, fallback); }
             }
             """;
 
     /**
      * A nullable {@code T?} parameter beside a non-null {@code T} result: Kotlin's unbounded T would take the nullable
-     * argument's type, and the result with it. {@code T : Any} keeps the result non-null at the call site.
+     * argument's type, and the result with it. {@code T : Any} keeps the result non-null at the call site. Not where
+     * another parameter is a plain {@code T}: a caller may instantiate T nullable through it.
      */
     @Test
     public void nonNullResultOfNullableTypeParameter() {
-        String kotlin = kotlin(NON_NULL_RESULT_OF_NULLABLE_T, new KotlinPrintOptions(new ByName(Set.of("object", "values[]", "value")),
+        String kotlin = kotlin(NON_NULL_RESULT_OF_NULLABLE_T, new KotlinPrintOptions(new ByName(Set.of("object", "values[]", "value",
+                "given", "fallback", "name()")),
                 KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "fun <T : Any> ensureNotNull(`object`: T?, name: String): T");
         contains(kotlin, "fun <T : Any> firstNotNull(vararg values: T?): T");
@@ -2359,6 +2365,11 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun <T> getOrDefault(value: T?, supplier: java.util.function.Supplier<T>): T");
         // an elvis (#140): its type is supplier.get()'s, T, so no cast
         contains(kotlin, "): T = value ?: supplier.get()");
+        // a plain T parameter is where a nullable instantiation enters: langchain4j's Utils.getOrDefault(value,
+        // defaultValue), called with a nullable default
+        contains(kotlin, "fun <T> orDefault(value: T?, defaultValue: T): T");
+        contains(kotlin, "= orDefault(given, fallback)");
+        compiles(kotlin);
     }
 
     @Language("java")
