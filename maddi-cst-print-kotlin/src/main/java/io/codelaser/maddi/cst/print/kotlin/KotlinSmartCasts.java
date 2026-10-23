@@ -85,10 +85,13 @@ final class KotlinSmartCasts {
      * A getter call printed as a local val ({@link KotlinValCopies}): {@code val exprents = stat.getExprents()} before
      * the statement, {@code exprents} for each call of the getter on the same receiver after it.
      *
-     * @param receiver the receiver's variable, or {@link #THIS}
-     * @param type     the call's Kotlin type, the val's
+     * @param receiver      the receiver's variable, or {@link #THIS}
+     * @param type          the call's Kotlin type, the val's
+     * @param statementOnly the copy prints the calls in its statement only, not those after it: the getter's field
+     *                      can change, though not in the statement (CodeLaser/maddi#164)
      */
-    record Copy(String name, io.codelaser.maddi.cst.api.info.MethodInfo getter, Object receiver, ParameterizedType type) {
+    record Copy(String name, io.codelaser.maddi.cst.api.info.MethodInfo getter, Object receiver, ParameterizedType type,
+                boolean statementOnly) {
         boolean copies(io.codelaser.maddi.cst.api.expression.MethodCall call) {
             return call.methodInfo() == getter && call.parameterExpressions().isEmpty() && receiver.equals(receiverKey(call));
         }
@@ -212,6 +215,13 @@ final class KotlinSmartCasts {
     static void declare(Copy copy, Statement statement) {
         Frame frame = blockOf(statement);
         if (frame != null) frame.copies().put(copy, statement);
+    }
+
+    /** {@code statement} is printed: the copies that serve only it end. */
+    static void endStatement(Statement statement) {
+        for (Frame frame : FRAMES.get()) {
+            frame.copies().entrySet().removeIf(e -> e.getValue() == statement && e.getKey().statementOnly());
+        }
     }
 
     /** The copies declared before {@code statement}: a second print of it declares them again. */
