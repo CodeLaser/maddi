@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  *   that then no longer compiles, until the rest does: {@code bytecodeFiles}, a drop-in replacement for their Java
  *   all the way to the class file;</li>
  *   <li>the corpus's test classes run, in a child JVM with JUnit's console launcher, once against the original
- *   classes (a baseline kept beside the test classes, run again only when they or the class path change) and once
+ *   classes (a baseline kept in ~/.cache, run again only when they or the class path change) and once
  *   with the Kotlin classes in front of them: {@code testsPassing}. The original's count, and each
  *   test that passes there and fails with Kotlin, go into the report and {@code tests/}.</li>
  *   <li>the test sources are translated too, and compiled to class files against the Kotlin main classes, leaving
@@ -678,14 +678,14 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
     }
 
     /**
-     * The tests on the original classes, the report's baseline. No translation changes it, so it is kept beside the
-     * test classes, in {@code .maddi-j2k-baseline/}, under a hash of what it ran: the class files of the class path's
-     * directories, its jars by name and size (not by path: each workspace has its own Gradle cache), the JVM's
-     * version. A rebuilt corpus, a new library or runner runs it again;
-     * a baseline with a package that timed out is not kept. Guava's takes some 25 minutes.
+     * The tests on the original classes, the report's baseline. No translation changes it, so it is kept in
+     * {@code ~/.cache/maddi-j2k-baseline/}, outside the corpus's checkout, under a hash of what it ran: the class
+     * files of the class path's directories, its jars by name and size (not by path: each workspace has its own
+     * Gradle cache), the JVM's version. A rebuilt corpus, a new library or runner runs it again; a baseline with a
+     * package that timed out is not kept. Guava's takes some 25 minutes.
      */
     private static Tests baseline(Corpus corpus, Path testClasses, String runner, Path dir) throws Exception {
-        Path cache = testClasses.toAbsolutePath().getParent().resolve(".maddi-j2k-baseline")
+        Path cache = Path.of(System.getProperty("user.home"), ".cache", "maddi-j2k-baseline")
                 .resolve(baselineKey(testClassPath(corpus, null, testClasses, runner), corpus.junit4()));
         if (Files.isRegularFile(cache)) {
             try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.BufferedInputStream(
