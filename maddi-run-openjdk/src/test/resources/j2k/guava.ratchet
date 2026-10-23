@@ -12,10 +12,14 @@
 # classes in front (com.google.common.util hangs in util.concurrent, so the package times out; a class that fails to
 # initialize removes whole suites from collect, cache and io); of the test files, 315 compile against the Kotlin
 # classes, and with those 587,454 pass.
+# 2026-10-23, measured at maddi 23ac0ff34 (the printer's guava and langchain4j work since the first record): no
+# printer crashes, all 610 files syntax-clean, 473 compiling (584 type errors, 372 of them null into a non-null type),
+# 368 to class files, 407 test files to class files. The tests no longer run here: their counts were reported only,
+# and the three passes took the ratchet past the slowTest gate's hour (maddi-mod's guava-nullability ratchets them).
 types	610
-printerCrashes	2
-syntaxErrors	14
-syntaxCleanFiles	607
-compilingFiles	355
-bytecodeFiles	280
-testBytecodeFiles	315
+printerCrashes	0
+syntaxErrors	0
+syntaxCleanFiles	610
+compilingFiles	473
+bytecodeFiles	368
+testBytecodeFiles	407
