@@ -301,9 +301,14 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         });
         long compiling = syntaxClean.stream().filter(f -> !withErrors.contains(f)).count();
 
-        // compile 3: the compiling files to class files, leaving out what the back end rejects
+        // compile 3: the compiling files to class files, leaving out what the back end rejects, and what the
+        // original classes, the tests' among them, cannot extend
+        Optional<SourceSet> testSet = corpus.test() != null ? Optional.of(corpus.test())
+                : corpus.config().sourceSets().stream().filter(SourceSet::test).findFirst();
+        List<String> behind = new ArrayList<>(withOriginals);
+        testSet.map(t -> Path.of(t.uri())).filter(Files::isDirectory).ifPresent(t -> behind.add(t.toString()));
         List<Path> compilingList = syntaxClean.stream().filter(f -> !withErrors.contains(f)).toList();
-        Bytecode bytecode = toBytecode(compilingList, withOriginals, out.resolve("compile-classes"));
+        Bytecode bytecode = toBytecode(compilingList, withOriginals, behind, out.resolve("compile-classes"));
 
         Map<String, Long> measured = new LinkedHashMap<>();
         measured.put("types", (long) corpus.types().size());
@@ -315,8 +320,6 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
         // the corpus's own tests, against the original classes and with the Kotlin classes in front of them
         String testReport = "";
-        Optional<SourceSet> testSet = corpus.test() != null ? Optional.of(corpus.test())
-                : corpus.config().sourceSets().stream().filter(SourceSet::test).findFirst();
         String runner = System.getProperty("maddi.test.junitConsoleClasspath");
         String vintage = System.getProperty("maddi.test.junitVintageClasspath");
         if (corpus.junit4() && runner != null && vintage != null && !vintage.isBlank()) {
@@ -336,7 +339,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 testClassPath.add(bytecode.classes.toAbsolutePath().toString());
                 testClassPath.add(Path.of(corpus.main().uri()).toString());
                 testClassPath.add(testClasses.toString());
-                testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
+                testBytecode = toBytecode(tests.files, testClassPath, testClassPath, out.resolve("compile-tests"));
                 affected = affected(testBytecode.classes, testClasses);
             }
             Tests original = null, rest = null;
@@ -502,15 +505,26 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
 
     /**
      * Compile 3. A round that fails leaves out the files with errors, and the next round compiles the rest: a file
-     * that needs one left out now fails in turn (against the original class, which lacks the Kotlin's members).
+     * that needs one left out now fails in turn (against the original class, which lacks the Kotlin's members). So
+     * does a round whose classes an original Java class cannot extend ({@link #finalOverridden}): one in a directory
+     * of {@code behind}, the class path the Kotlin classes will stand in front of when the tests run.
      */
-    private static Bytecode toBytecode(List<Path> files, List<String> classPath, Path dir) throws Exception {
+    private static Bytecode toBytecode(List<Path> files, List<String> classPath, List<String> behind, Path dir)
+            throws Exception {
         List<Path> remaining = new ArrayList<>(files);
         List<List<Path>> leftOut = new ArrayList<>();
         for (int round = 0; round < 20 && !remaining.isEmpty(); round++) {
             deleteRecursively(dir);
             Compiled c = compile(remaining, classPath, dir);
-            if (c.exitCode == 0) return new Bytecode(remaining, dir.resolve("classes"), leftOut);
+            if (c.exitCode == 0) {
+                Map<Path, String> overridden = finalOverridden(remaining, dir.resolve("classes"), behind);
+                if (overridden.isEmpty()) return new Bytecode(remaining, dir.resolve("classes"), leftOut);
+                Files.write(dir.resolveSibling(dir.getFileName() + "-round" + (round + 1) + ".log"),
+                        overridden.entrySet().stream().map(e -> e.getKey() + ": " + e.getValue()).toList());
+                leftOut.add(List.copyOf(new TreeSet<>(overridden.keySet())));
+                remaining.removeAll(overridden.keySet());
+                continue;
+            }
             Set<Path> failing = c.errors.stream().map(d -> d.file).collect(Collectors.toCollection(TreeSet::new));
             c.crashes.forEach(x -> {
                 Matcher m = CRASHED_ON.matcher(x);
@@ -527,6 +541,83 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         deleteRecursively(dir);
         Files.createDirectories(dir.resolve("classes"));
         return new Bytecode(List.of(), dir.resolve("classes"), leftOut);
+    }
+
+    /**
+     * The Kotlin files of which an original Java class, one that stays, extends a class and overrides a final method
+     * of, with why. Kotlin makes the JVM method of a mapped property final ({@code val size} in a
+     * {@code java.util.AbstractMap}: a final {@code size()} calling {@code getSize()}), so the Java subclass fails to
+     * load with an IncompatibleClassChangeError, and every class that touches it with it: guava's HashBiMap over a
+     * Kotlin Maps.IteratorBasedAbstractMap took {@code FreshValueGenerator}, and whole suites, down. Such a file is
+     * not a drop-in replacement for its Java. The original classes are the directories of {@code behind}.
+     */
+    private static Map<Path, String> finalOverridden(List<Path> files, Path kotlinClasses, List<String> behind)
+            throws IOException {
+        Map<String, Path> kotlin = classesByName(kotlinClasses);
+        Map<String, Path> originals = new HashMap<>();
+        for (String entry : behind) {
+            if (Files.isDirectory(Path.of(entry))) classesByName(Path.of(entry)).forEach(originals::putIfAbsent);
+        }
+        Map<Path, String> found = new TreeMap<>();
+        for (Map.Entry<String, Path> original : originals.entrySet()) {
+            if (kotlin.containsKey(original.getKey())) continue;
+            java.lang.classfile.ClassModel model = java.lang.classfile.ClassFile.of().parse(original.getValue());
+            Set<String> declared = model.methods().stream().filter(JavaToKotlinRatchet::overridable)
+                    .map(m -> m.methodName().stringValue() + m.methodType().stringValue())
+                    .collect(Collectors.toSet());
+            Optional<java.lang.classfile.constantpool.ClassEntry> superclass = model.superclass();
+            while (superclass.isPresent()) {
+                String name = superclass.get().asInternalName();
+                Path file = kotlin.containsKey(name) ? kotlin.get(name) : originals.get(name);
+                if (file == null) break; // the JDK's, a library's
+                java.lang.classfile.ClassModel superModel = java.lang.classfile.ClassFile.of().parse(file);
+                if (kotlin.containsKey(name)) {
+                    for (java.lang.classfile.MethodModel m : superModel.methods()) {
+                        String signature = m.methodName().stringValue() + m.methodType().stringValue();
+                        if (overridable(m) && (m.flags().flagsMask() & java.lang.classfile.ClassFile.ACC_FINAL) != 0
+                            && declared.contains(signature)) {
+                            Path source = source(superModel, name, files);
+                            if (source != null) {
+                                found.putIfAbsent(source, original.getKey().replace('/', '.') + " overrides "
+                                        + name.replace('/', '.') + "." + signature + ", final in the Kotlin");
+                            }
+                        }
+                    }
+                }
+                superclass = superModel.superclass();
+            }
+        }
+        return found;
+    }
+
+    private static boolean overridable(java.lang.classfile.MethodModel m) {
+        int flags = m.flags().flagsMask();
+        return (flags & (java.lang.classfile.ClassFile.ACC_STATIC | java.lang.classfile.ClassFile.ACC_PRIVATE)) == 0
+               && !m.methodName().stringValue().startsWith("<");
+    }
+
+    /** The .kt file a Kotlin class came from: its package's directory and its SourceFile attribute. */
+    private static Path source(java.lang.classfile.ClassModel model, String internalName, List<Path> files) {
+        Optional<String> sourceFile = model.findAttribute(java.lang.classfile.Attributes.sourceFile())
+                .map(a -> a.sourceFile().stringValue());
+        if (sourceFile.isEmpty()) return null;
+        int slash = internalName.lastIndexOf('/');
+        String relative = (slash < 0 ? "" : internalName.substring(0, slash + 1)) + sourceFile.get();
+        return files.stream().filter(f -> f.toString().replace(java.io.File.separatorChar, '/').endsWith("/" + relative))
+                .findFirst().orElse(null);
+    }
+
+    /** The class files under {@code dir}, by internal name ({@code com/google/common/collect/Maps$Foo}). */
+    private static Map<String, Path> classesByName(Path dir) throws IOException {
+        Map<String, Path> byName = new HashMap<>();
+        if (!Files.isDirectory(dir)) return byName;
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path f : walk.filter(p -> p.toString().endsWith(".class")).toList()) {
+                String name = dir.relativize(f).toString().replace(java.io.File.separatorChar, '/');
+                byName.put(name.substring(0, name.length() - ".class".length()), f);
+            }
+        }
+        return byName;
     }
 
     private static String bytecodeReport(Bytecode bytecode, String title) {
