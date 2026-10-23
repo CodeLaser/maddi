@@ -3347,4 +3347,26 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(without, "getName() != null && getName()!!.startsWith(n)");
         contains(without, "label?.contains(n) == true");
     }
+
+    /**
+     * fernflower's ConverterHelperTest: {@code String.format(message, className, element)} with nullable arguments.
+     * Java's static takes them, and prints "null"; {@code !!} would throw. List.of's E takes none
+     * ({@link #nullableIntoListOfAsserted}).
+     */
+    @Test
+    public void nullableIntoStaticOfMappedType() {
+        String kotlin = kotlin("""
+                package a;
+                class F {
+                    static String check(boolean ok, String className, String element) {
+                        String m = ok ? "a %s %s" : "b %s %s";
+                        return String.format(m, className, element);
+                    }
+                    static String plain(String className) { return String.valueOf(className); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("className", "element")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "java.lang.String.format(m, className, element)");
+        assertFalse(kotlin.contains("className!!"), kotlin);
+        compiles(kotlin);
+    }
 }

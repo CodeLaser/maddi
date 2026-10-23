@@ -1335,6 +1335,11 @@ public class KotlinExpressionPrinter {
                 boolean argumentTranslated = translated
                                              || hasParameter && KotlinNullability.libraryNonNullParameter(method.parameters().get(i));
                 if (constructed != null) declared = constructedArgument(method, declared, constructed);
+                // a static of a mapped type takes Java's nulls where its parameter is no type variable: fernflower's
+                // ConverterHelperTest formats a null with String.format(String, Object...); List.of's E takes none
+                if (mappedType && method.isStatic() && declared != null && declared.typeParameter() == null) {
+                    argumentTranslated = false;
+                }
                 if (call != null) {
                     ParameterizedType seen = KotlinNullability.throughReceiver(declared, call, true);
                     // the receiver's type argument is a declaration of ours, even on a library member (queue.add);
