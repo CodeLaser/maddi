@@ -212,8 +212,16 @@ final class RustTypePrinter {
             }
             hashCode |= isHashCode(m);
             TypeInfo trait = implementedTrait(m);
-            if (trait != null) byTrait.computeIfAbsent(trait, t -> new ArrayList<>()).add(m);
-            else inherent.append(method(m));
+            if (trait != null) {
+                byTrait.computeIfAbsent(trait, t -> new ArrayList<>()).add(m);
+                // its own verdicts differ from the trait's: an inherent method with them, which the trait's delegates to
+                MethodInfo declared2 = traitMethod(m, trait);
+                if (declared2 != null && !shape(m).equals(shape(declared2))) {
+                    inherent.append(method(m));
+                }
+            } else {
+                inherent.append(method(m));
+            }
         }
         if (!inherent.isEmpty()) {
             sb.append("\nimpl").append(generics).append(" ").append(name).append(generics).append(" {\n")
@@ -225,7 +233,14 @@ final class RustTypePrinter {
             String trait = RustTypes.owned(traitType, context, typeInfo).replaceFirst("^Box<dyn (.*)>$", "$1");
             sb.append("\nimpl").append(generics).append(" ").append(trait).append(" for ").append(name)
                     .append(generics).append(" {\n");
-            for (MethodInfo m : e.getValue()) sb.append(method(m, true));
+            for (MethodInfo m : e.getValue()) {
+                MethodInfo declared2 = traitMethod(m, e.getKey());
+                if (declared2 != null && !shape(m).equals(shape(declared2))) {
+                    sb.append(delegate(m, declared2));
+                } else {
+                    sb.append(method(m, true));
+                }
+            }
             sb.append("}\n");
         }
         if (equals != null) sb.append(partialEq(equals, name, generics));
@@ -261,6 +276,41 @@ final class RustTypePrinter {
         } finally {
             context.method = null;
         }
+    }
+
+    /** The signature without the parameters' names, which may differ between the trait and the impl. */
+    private String shape(MethodInfo m) {
+        return signature(m, false).replaceAll("(mut )?r?#?[a-z_][a-z0-9_]*: ", "");
+    }
+
+    /** The method of {@code trait} that {@code m} implements. */
+    private static MethodInfo traitMethod(MethodInfo m, TypeInfo trait) {
+        return m.overrides().stream().filter(o -> o.typeInfo() == trait).findFirst().orElse(null);
+    }
+
+    /**
+     * The trait's method, with the trait's receiver and parameters, calling the inherent method that has the
+     * implementation's own: the interface's verdict is the union over its implementations (or unknown, so
+     * modifying), and Rust requires the impl to repeat the trait's signature. A borrowed parameter of the
+     * implementation is borrowed from the trait's owned one.
+     */
+    private String delegate(MethodInfo m, MethodInfo declared) {
+        List<String> args = new ArrayList<>();
+        for (int i = 0; i < m.parameters().size(); i++) {
+            ParameterInfo own = m.parameters().get(i);
+            ParameterInfo theirs = declared.parameters().get(i);
+            String name = RustNames.snake(theirs.name());
+            boolean copy = RustTypes.isCopy(own.parameterizedType());
+            Passing want = context.facts.passing(own);
+            Passing have = context.facts.passing(theirs);
+            if (!copy && have == Passing.OWNED && want == Passing.SHARED) name = "&" + name;
+            else if (!copy && have == Passing.OWNED && want == Passing.EXCLUSIVE) name = "&mut " + name;
+            args.add(name);
+        }
+        boolean self = context.facts.receiver(m) != Receiver.NONE;
+        String call = "Self::" + RustNames.method(m) + "(" + (self ? "self" + (args.isEmpty() ? "" : ", ") : "")
+                      + String.join(", ", args) + ")";
+        return INDENT + signature(declared, false) + " {\n" + INDENT + INDENT + call + "\n" + INDENT + "}\n";
     }
 
     /** A source interface the method implements, directly or through an interface it extends. */

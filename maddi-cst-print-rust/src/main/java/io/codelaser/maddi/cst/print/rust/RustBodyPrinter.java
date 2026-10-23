@@ -183,9 +183,16 @@ final class RustBodyPrinter {
         } else if (held == Held.PLACE) {
             held = Held.VALUE;
         }
+        if (mutated && held == Held.SHARED && text.contains(".get(")) {
+            // map.get(k) modified through the local: the mutable lookup
+            int at = text.lastIndexOf(".get(");
+            text = text.substring(0, at) + ".get_mut(" + text.substring(at + ".get(".length());
+            held = Held.EXCLUSIVE;
+        }
         if (nullable && !value.nullable && !(init instanceof NullConstant)) text = "Some(" + text + ")";
         locals.put(lv, held);
-        boolean mut = reassigned || mutated && held == Held.VALUE;
+        // an Option is unwrapped with as_mut() to modify what it holds, which needs a mutable binding
+        boolean mut = reassigned || mutated && (held == Held.VALUE || nullable);
         String type = init instanceof NullConstant
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true) : "";
         return "let " + (mut ? "mut " : "") + name + type + " = " + text;
@@ -233,7 +240,7 @@ final class RustBodyPrinter {
         Printed collection = expression(fe.expression());
         boolean mutated = mutated(lv);
         String iterator;
-        if (collection.text.endsWith(".keys()") || collection.text.endsWith(".values()")) {
+        if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
         } else {
             iterator = collection.text + (mutated ? ".iter_mut()" : ".iter()");
@@ -572,6 +579,9 @@ final class RustBodyPrinter {
             case ArrayLength al -> value(expression(al.scope()).text + ".len() as i32");
             case Lambda lambda -> lambda(lambda);
             case SwitchExpression se -> switchExpression(se);
+            case And and -> value(and.expressions().stream().map(this::operand).collect(Collectors.joining(" && ")));
+            case Or or -> value(or.expressions().stream().map(this::operand).collect(Collectors.joining(" || ")));
+            case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
             case MethodReference mr -> methodReference(mr);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
         };
@@ -649,8 +659,10 @@ final class RustBodyPrinter {
         String target = expression(a.target()).text;
         if (a.prefixPrimitiveOperator() != null || a.binaryOperator() != null && a.value() == null) {
             String op = a.assignmentOperatorIsPlus() ? " += 1" : " -= 1";
-            if (!statement) return unsupported(a, "increment inside an expression");
-            return target + op;
+            if (statement) return target + op;
+            // i++ as a value: a block that increments and gives the old value (++i: the new one)
+            if (Boolean.TRUE.equals(a.prefixPrimitiveOperator())) return "{ " + target + op + "; " + target + " }";
+            return "{ let v = " + target + "; " + target + op + "; v }";
         }
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         Printed value = widen(expression(a.value()), a.value(), a.target().parameterizedType());
@@ -761,7 +773,8 @@ final class RustBodyPrinter {
     /** An operand of an operator: a borrowed value compares and computes as the value itself. */
     private String operand(Expression e) {
         Printed p = expression(e);
-        boolean binary = e instanceof BinaryOperator || e instanceof InlineConditional || e instanceof Assignment;
+        boolean binary = e instanceof BinaryOperator || e instanceof InlineConditional || e instanceof Assignment
+                         || e instanceof And || e instanceof Or;
         String text = binary ? "(" + p.text + ")" : p.text;
         if (p.nullable) {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
@@ -787,7 +800,10 @@ final class RustBodyPrinter {
                 format.append(sc.constant().replace("{", "{{").replace("}", "}}"));
             } else {
                 format.append("{}");
-                args.add(expression(part).text);
+                Printed p = expression(part);
+                // Java prints a null as "null"
+                args.add(p.nullable ? p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"
+                        : p.text);
             }
         }
         return value("format!(" + stringLiteral(format.toString())
@@ -985,6 +1001,9 @@ final class RustBodyPrinter {
 
     /** {@code p} where an owned value is expected: moved, except that a borrowed string becomes a new one. */
     private String owned(Printed p, ParameterizedType type) {
+        if (RustTypes.isString(type) && p.nullable && (p.held == Held.STR || p.held == Held.SHARED)) {
+            return p.text + ".map(|s| s.to_string())";
+        }
         if (RustTypes.isString(type) && (p.held == Held.STR || p.held == Held.SHARED)) return p.text + ".to_string()";
         // a string is immutable in Java: sharing it and copying it cannot be told apart, so a named one is cloned
         // rather than moved, and its later uses stay valid
@@ -1008,6 +1027,27 @@ final class RustBodyPrinter {
 
     String text(Expression e) {
         return expression(e).text;
+    }
+
+    Printed printed(Expression e) {
+        return expression(e);
+    }
+
+    /** The object of a call: a nullable one unwrapped, as Java would throw a NullPointerException. */
+    String receiver(Expression e, boolean modifying) {
+        Printed p = expression(e);
+        if (!p.nullable) return p.text;
+        context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
+        return p.text + (modifying ? ".as_mut().unwrap()" : ".as_ref().unwrap()");
+    }
+
+    /** A two-parameter lambda over a map's entries: Rust's iterator gives one {@code (k, v)} tuple. */
+    String tupleLambda(Expression e) {
+        String text = expression(e).text;
+        if (e instanceof Lambda l && l.methodInfo().parameters().size() == 2) {
+            return text.replaceFirst("^\\|([^|]*)\\|", "|($1)|");
+        }
+        return text;
     }
 
     String borrowed(Expression e) {

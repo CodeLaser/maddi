@@ -48,6 +48,10 @@ public enum RustPrintCode implements PrintMessage.Code {
     REFERENCE_CAST(Severity.ERROR),
     /** A string's length or character index: Rust counts UTF-8 bytes where Java counts UTF-16 units. */
     STRING_UNITS(Severity.BEHAVIOUR_CHANGE),
+    /** {@code BigDecimal}: an {@code f64}, binary floating point where Java computes in exact decimals. */
+    BIGDECIMAL_AS_F64(Severity.BEHAVIOUR_CHANGE),
+    /** {@code String.format}: Java's specifiers as {@code format!}'s; one without a counterpart is printed as is. */
+    FORMAT(Severity.INFO),
     /** {@code >>>}: printed as {@code >>} on the unsigned type. */
     UNSIGNED_SHIFT(Severity.INFO);
 
