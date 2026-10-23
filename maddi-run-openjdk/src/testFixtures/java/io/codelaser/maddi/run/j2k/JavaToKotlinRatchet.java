@@ -73,7 +73,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  *   that then no longer compiles, until the rest does: {@code bytecodeFiles}, a drop-in replacement for their Java
  *   all the way to the class file;</li>
  *   <li>the corpus's test classes run, in a child JVM with JUnit's console launcher, once against the original
- *   classes and once with the Kotlin classes in front of them: {@code testsPassing}. The original's count, and each
+ *   classes (a baseline kept in ~/.cache, run again only when they or the class path change) and once
+ *   with the Kotlin classes in front of them: {@code testsPassing}. The original's count, and each
  *   test that passes there and fails with Kotlin, go into the report and {@code tests/}.</li>
  *   <li>the test sources are translated too, and compiled to class files against the Kotlin main classes, leaving
  *   out what does not compile as in 3 (its original test class stays): {@code testBytecodeFiles};</li>
@@ -98,8 +99,16 @@ import static org.junit.jupiter.api.Assertions.fail;
  * @param ratchetFile  the recorded numbers, relative to the module directory; null for a measurement that is not
  *                     ratcheted ({@link #measureOnly})
  * @param reportedOnly the metrics this run measures and reports without ratcheting
+ * @param runTests     whether the corpus's tests run (stages 4 and 6); without, the test sources are still translated
+ *                     and compiled (stage 5). For a run that would only report the test counts and cannot afford them:
+ *                     guava's three passes over its 865,000 tests take over an hour
  */
-public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> reportedOnly) {
+public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> reportedOnly, boolean runTests) {
+
+    /** The tests run. */
+    public JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> reportedOnly) {
+        this(name, ratchetFile, reportedOnly, true);
+    }
 
     /** The test counts: what a translation without verdicts reports and does not ratchet. */
     public static final Set<String> TESTS = Set.of("testsPassing", "translatedTestsPassing");
@@ -312,15 +321,16 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (corpus.junit4() && runner != null && vintage != null && !vintage.isBlank()) {
             runner = runner + java.io.File.pathSeparator + vintage;
         }
-        boolean compileOnly = compileOnly();
+        boolean compileOnly = compileOnly() || !runTests;
         if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri()))
             && (compileOnly || runner != null && !runner.isBlank())) {
             Path testClasses = Path.of(testSet.get().uri());
             Tests original = null;
             if (compileOnly) {
-                testReport = "\ntests: not run (compile only: " + COMPILE_ONLY + ")\n";
+                testReport = "\ntests: not run (" + (runTests ? "compile only: " + COMPILE_ONLY
+                        : "this run's test counts would be reported only, and cost over an hour") + ")\n";
             } else {
-                original = runTests(corpus, null, testClasses, runner, out.resolve("tests/original"));
+                original = baseline(corpus, testClasses, runner, out.resolve("tests/original"));
                 Tests kotlin = runTests(corpus, List.of(bytecode.classes), testClasses, runner, out.resolve("tests/kotlin"));
                 measured.put("testsPassing", (long) kotlin.passed.size());
                 testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
@@ -618,16 +628,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                                   List<String> selection, int minutes, boolean failOnTimeout) throws Exception {
         deleteRecursively(dir);
         Files.createDirectories(dir);
-        List<String> cp = new ArrayList<>();
-        if (kotlinClasses != null) {
-            kotlinClasses.forEach(k -> cp.add(k.toAbsolutePath().toString()));
-            cp.add(stdlib());
-        }
-        cp.add(Path.of(corpus.main().uri()).toString());
-        cp.add(testClasses.toString());
-        cp.addAll(libraries(corpus.config()));
-        if (corpus.siblings()) cp.addAll(siblingClasses(corpus));
-        cp.addAll(Arrays.asList(runner.split(java.io.File.pathSeparator)));
+        List<String> cp = testClassPath(corpus, kotlinClasses, testClasses, runner);
         Path argFile = dir.resolve("java.args");
         Files.write(argFile, List.of("-cp", "\"" + String.join(java.io.File.pathSeparator, cp) + "\""));
         Path java = Path.of(System.getProperty("java.home"), "bin", "java");
@@ -659,6 +660,94 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                     concat(tests.skipped(), vintage.skipped()));
         }
         return tests;
+    }
+
+    /** The test JVM's class path: the Kotlin classes, when given, in front of the originals they replace. */
+    private static List<String> testClassPath(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner) {
+        List<String> cp = new ArrayList<>();
+        if (kotlinClasses != null) {
+            kotlinClasses.forEach(k -> cp.add(k.toAbsolutePath().toString()));
+            cp.add(stdlib());
+        }
+        cp.add(Path.of(corpus.main().uri()).toString());
+        cp.add(testClasses.toString());
+        cp.addAll(libraries(corpus.config()));
+        if (corpus.siblings()) cp.addAll(siblingClasses(corpus));
+        cp.addAll(Arrays.asList(runner.split(java.io.File.pathSeparator)));
+        return cp;
+    }
+
+    /**
+     * The tests on the original classes, the report's baseline. No translation changes it, so it is kept in
+     * {@code ~/.cache/maddi-j2k-baseline/}, outside the corpus's checkout, under a hash of what it ran: the class
+     * files of the class path's directories, its jars by name and size (not by path: each workspace has its own
+     * Gradle cache), the JVM's version. A rebuilt corpus, a new library or runner runs it again; a baseline with a
+     * package that timed out is not kept. Guava's takes some 25 minutes.
+     */
+    private static Tests baseline(Corpus corpus, Path testClasses, String runner, Path dir) throws Exception {
+        Path cache = Path.of(System.getProperty("user.home"), ".cache", "maddi-j2k-baseline")
+                .resolve(baselineKey(testClassPath(corpus, null, testClasses, runner), corpus.junit4()));
+        if (Files.isRegularFile(cache)) {
+            try (java.io.DataInputStream in = new java.io.DataInputStream(new java.io.BufferedInputStream(
+                    Files.newInputStream(cache)))) {
+                Tests tests = new Tests(readList(in), readList(in), readList(in));
+                LOGGER.info("tests on the original classes: the baseline in {}", cache);
+                return tests;
+            } catch (IOException corrupt) {
+                LOGGER.warn("cannot read the baseline {}, running it: {}", cache, corrupt.toString());
+            }
+        }
+        Tests tests = runTests(corpus, null, testClasses, runner, dir);
+        if (tests.failed().stream().noneMatch(t -> t.endsWith("(timed out after 20 minutes)"))) {
+            try {
+                Files.createDirectories(cache.getParent());
+                Path tmp = Files.createTempFile(cache.getParent(), "baseline", ".tmp");
+                try (java.io.DataOutputStream out = new java.io.DataOutputStream(new java.io.BufferedOutputStream(
+                        Files.newOutputStream(tmp)))) {
+                    writeList(out, tests.passed());
+                    writeList(out, tests.failed());
+                    writeList(out, tests.skipped());
+                }
+                Files.move(tmp, cache, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException notKept) {
+                LOGGER.warn("baseline not kept in {}: {}", cache, notKept.toString());
+            }
+        }
+        return tests;
+    }
+
+    private static String baselineKey(List<String> classPath, boolean junit4) throws Exception {
+        java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+        java.util.function.Consumer<String> add = v -> md.update((v + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        add.accept(System.getProperty("java.version"));
+        add.accept(String.valueOf(junit4));
+        for (String entry : classPath) {
+            Path path = Path.of(entry);
+            if (Files.isDirectory(path)) {
+                try (Stream<Path> walk = Files.walk(path)) {
+                    for (Path f : walk.filter(Files::isRegularFile).sorted().toList()) {
+                        add.accept(path.relativize(f).toString());
+                        md.update(Files.readAllBytes(f));
+                    }
+                }
+            } else if (Files.isRegularFile(path)) {
+                add.accept(path.getFileName() + " " + Files.size(path));
+            }
+        }
+        return HexFormat.of().formatHex(md.digest());
+    }
+
+    private static void writeList(java.io.DataOutputStream out, List<String> list) throws IOException {
+        out.writeInt(list.size());
+        for (String s : list) out.writeUTF(s);
+    }
+
+    private static List<String> readList(java.io.DataInputStream in) throws IOException {
+        int n = in.readInt();
+        List<String> list = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) list.add(in.readUTF());
+        return list;
     }
 
     /**
