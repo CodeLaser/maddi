@@ -24,6 +24,11 @@ import io.codelaser.maddi.cst.print.translate.PrintMessage.Severity;
 public enum RustPrintCode implements PrintMessage.Code {
     /** A superclass other than {@code Object}: Rust has no class inheritance. The inherited members are missing. */
     INHERITANCE(Severity.ERROR),
+    /**
+     * A source superclass: a {@code base} field holds the parent's state, and inherited fields and methods are reached
+     * through it. A call from the parent to a method the subclass overrides stays in the parent: no dynamic dispatch.
+     */
+    INHERITANCE_AS_COMPOSITION(Severity.LOSS),
     /** A static field that is not a constant: Rust has no mutable statics without {@code unsafe}. Left out. */
     STATIC_STATE(Severity.ERROR),
     /** An enum constant with arguments or a body: printed as a plain variant. */

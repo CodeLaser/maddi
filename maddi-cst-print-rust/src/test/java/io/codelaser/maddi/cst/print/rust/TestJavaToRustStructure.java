@@ -208,4 +208,89 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
         return types;
     }
+
+    @Language("java")
+    private static final String CONTROLLERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Controllers {
+                public interface Validatable {
+                    boolean isValid();
+                }
+
+                public static class Base {
+                    private final List<String> log = new ArrayList<>();
+                    protected final String name;
+
+                    public Base(String name) {
+                        this.name = name;
+                    }
+
+                    public void audit(String what) {
+                        log.add(name + ": " + what);
+                    }
+
+                    public int logSize() {
+                        return log.size();
+                    }
+                }
+
+                public static class Orders extends Base implements Validatable {
+                    private int count;
+
+                    public Orders() {
+                        super("orders");
+                    }
+
+                    public void place() {
+                        count++;
+                        audit("placed");
+                    }
+
+                    public boolean isValid() {
+                        return count >= 0 && name.length() > 0;
+                    }
+                }
+
+                public static int sizeOf(Orders orders) {
+                    return orders.logSize();
+                }
+            }
+            """;
+
+    /**
+     * A superclass is a {@code base} field; inherited members are reached through it. The interface method has no
+     * verdict, so its trait takes {@code &mut self}; the implementation's own {@code &self} is an inherent method the
+     * trait's delegates to.
+     */
+    @DisplayName("inheritance as composition, trait impl delegating to the implementation's own verdicts: compiles")
+    @Test
+    public void inheritance() throws Exception {
+        List<TypeInfo> types = parse(CONTROLLERS);
+        TypeInfo controllers = types.getFirst();
+        TypeInfo base = controllers.findSubType("Base");
+        TypeInfo orders = controllers.findSubType("Orders");
+        modifying(base, "audit");
+        nonModifying(base, "logSize");
+        borrowed(method(base, "audit").parameters().getFirst());
+        modifying(orders, "place");
+        nonModifying(orders, "isValid");
+        borrowed(method(controllers, "sizeOf").parameters().getFirst());
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "pub base: ControllersBase,");
+        contains(rust, "base: ControllersBase::new(\"orders\".to_string()),");
+        contains(rust, "self.base.audit(\"placed\");");
+        contains(rust, "self.base.name.len() as i32 > 0");
+        contains(rust, "return orders.base.log_size();");
+        contains(rust, """
+                fn is_valid(&mut self) -> bool {
+                    Self::is_valid(self)
+                }""");
+        contains(rust, "pub fn is_valid(&self) -> bool {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

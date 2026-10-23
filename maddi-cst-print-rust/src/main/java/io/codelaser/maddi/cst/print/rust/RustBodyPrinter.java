@@ -649,8 +649,12 @@ final class RustBodyPrinter {
             }
             return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
         }
-        String scope = fr.scopeIsThis() || fr.isDefaultScope() ? context.receiver : dereference(expression(fr.scope()));
-        return new Printed(scope + "." + RustNames.snake(f.name()), Held.PLACE, nullable);
+        boolean own = fr.scopeIsThis() || fr.isDefaultScope();
+        String scope = own ? context.receiver : dereference(expression(fr.scope()));
+        TypeInfo scopeType = own ? context.type : fr.scope().parameterizedType().typeInfo();
+        // an inherited field is in the base
+        String path = scopeType == null ? "" : RustTypePrinter.basePath(scopeType, f.owner());
+        return new Printed(scope + path + "." + RustNames.snake(f.name()), Held.PLACE, nullable);
     }
 
     /** A nullable value dereferenced: Java would throw a NullPointerException, Rust panics in {@code unwrap()}. */
@@ -930,10 +934,19 @@ final class RustBodyPrinter {
             }
             call = prefix + "::" + name + "(" + args + ")";
         } else {
-            String object = mc.object() == null || mc.objectIsImplicit() || mc.object() instanceof VariableExpression ve
-                                                                          && ve.variable() instanceof This
-                    ? context.receiver : dereference(expression(mc.object()));
-            call = object + "." + name + "(" + args + ")";
+            // a trait's method is callable where the trait is in scope
+            TypeInfo trait = callee.typeInfo().isInterface() ? callee.typeInfo() : RustTypePrinter.implementedTrait(callee);
+            if (trait != null) {
+                String module = RustNames.module(trait.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(trait));
+            }
+            boolean own = mc.object() == null || mc.objectIsImplicit()
+                          || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This;
+            String object = own ? context.receiver : dereference(expression(mc.object()));
+            TypeInfo objectType = own ? context.type : mc.object().parameterizedType().typeInfo();
+            // an inherited method is the base's; super.m() too
+            String path = objectType == null ? "" : RustTypePrinter.basePath(objectType, callee.typeInfo());
+            call = object + path + "." + name + "(" + args + ")";
         }
         boolean nullable = !callee.isVoid() && RustFacts.nullable(context.facts.returnType(callee));
         if (callee.isVoid() || RustTypes.isCopy(callee.returnType())) return new Printed(call, Held.VALUE, nullable);

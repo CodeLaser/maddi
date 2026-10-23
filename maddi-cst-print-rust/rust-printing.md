@@ -56,8 +56,16 @@ rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do 
 ## Shape
 
 - A package is a module (`a.b` → `src/a_b.rs`), declared in `src/lib.rs`; `Cargo.toml` beside `src/`.
-- A class is a `struct` and an inherent `impl`; each source interface it implements gets an `impl Trait for`. An
-  interface is a `trait`; a value of its type is a `Box<dyn Trait>`, a borrowed one `&dyn Trait`.
+- A class is a `struct` and an inherent `impl`; each source interface it implements, and each interface those
+  extend, gets an `impl Trait for`. An interface is a `trait`; a value of its type is a `Box<dyn Trait>`, a borrowed
+  one `&dyn Trait`. A call of a trait's method from another module imports the trait.
+- An interface method's verdict is the union over its implementations, or unknown and so modifying. Rust makes an
+  impl repeat the trait's signature, so an implementation with other verdicts (`&self` where the trait has
+  `&mut self`) is an inherent method with its own, and the trait's method delegates to it: the body is still judged
+  against its own verdict, and `self.m()` resolves to the inherent method first.
+- A source superclass is composition (`INHERITANCE_AS_COMPOSITION`): a `base: Parent` field built by `super(…)`,
+  and an inherited field or method is reached through `.base` (`super.m()` too). A call from the parent to a method
+  the subclass overrides stays in the parent; a subclass is not accepted where the parent is expected.
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
@@ -75,6 +83,9 @@ rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do 
 - A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
+- `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
+  (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
   `String`, and a table of methods (`RustJdk`). An index is a `usize` in Rust: `i as usize`, and a size goes back to
   `i32`, so the arithmetic around it stays Java's. Java's implicit numeric widening is spelled out.
@@ -85,7 +96,7 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Class inheritance (`INHERITANCE`), anonymous and local classes, `instanceof` and type patterns outside `equals`,
+Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` and type patterns outside `equals`,
 try/catch (`TRY_BODY_ONLY`), static mutable state, generic bounds (`T: Clone + PartialEq`), sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

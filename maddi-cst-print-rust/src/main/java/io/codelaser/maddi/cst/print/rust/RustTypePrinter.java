@@ -57,6 +57,9 @@ final class RustTypePrinter {
 
     private final RustContext context;
 
+    /** The parent's type when the struct being printed has a source superclass: its {@code base} field. */
+    private String base;
+
     RustTypePrinter(RustContext context) {
         this.context = context;
     }
@@ -147,7 +150,7 @@ final class RustTypePrinter {
         }
         sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
         for (MethodInfo m : typeInfo.methods()) {
-            if (!m.isSynthetic()) sb.append(method(m));
+            if (!m.isSynthetic() && !m.isStaticInitializer() && !m.isInstanceInitializer()) sb.append(method(m));
         }
         return sb.append("}\n").toString();
     }
@@ -155,10 +158,14 @@ final class RustTypePrinter {
     private String structType(TypeInfo typeInfo) {
         boolean record = typeInfo.typeNature().isRecord();
         ParameterizedType parent = typeInfo.parentClass();
-        if (parent != null && !parent.typeInfo().isJavaLangObject() && !parent.typeInfo().fullyQualifiedName()
+        TypeInfo base = sourceParent(typeInfo);
+        if (base != null) {
+            context.message(RustPrintCode.INHERITANCE_AS_COMPOSITION, typeInfo, base.fullyQualifiedName());
+        } else if (parent != null && !parent.typeInfo().isJavaLangObject() && !parent.typeInfo().fullyQualifiedName()
                 .equals("java.lang.Record")) {
             context.message(RustPrintCode.INHERITANCE, typeInfo, parent.typeInfo().fullyQualifiedName());
         }
+        this.base = base == null ? null : RustTypes.owned(parent, context, typeInfo);
         List<FieldInfo> fields = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
         String name = RustNames.type(typeInfo);
         String generics = generics(typeInfo.typeParameters());
@@ -168,6 +175,7 @@ final class RustTypePrinter {
         if (record) sb.append("#[derive(Debug, Clone, PartialEq)]\n");
         else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(generics).append(" {\n");
+        if (this.base != null) sb.append(INDENT).append("pub base: ").append(this.base).append(",\n");
         for (FieldInfo f : fields) {
             sb.append(INDENT).append(record || !f.access().isPrivate() ? "pub " : "").append(RustNames.snake(f.name()))
                     .append(": ").append(fieldType(f)).append(",\n");
@@ -209,6 +217,11 @@ final class RustTypePrinter {
         boolean hashCode = false;
         for (MethodInfo m : typeInfo.methods()) {
             if (m.isSynthetic()) continue;
+            if (m.isStaticInitializer() || m.isInstanceInitializer()) {
+                context.message(RustPrintCode.STATIC_STATE, m, m.isStaticInitializer() ? "static initializer"
+                        : "instance initializer");
+                continue;
+            }
             if (isEquals(m)) {
                 equals = m;
                 continue;
@@ -281,6 +294,40 @@ final class RustTypePrinter {
         }
     }
 
+    /** The parent's state in the subclass's literal: the {@code super(…)} call, or the parent's no-argument one. */
+    private String baseValue(List<Statement> statements, RustBodyPrinter printer) {
+        String owner = base.replaceFirst("<.*$", "");
+        if (statements != null) {
+            for (Statement s : statements) {
+                if (s instanceof ExplicitConstructorInvocation eci && eci.isSuper() && eci.methodInfo() != null) {
+                    return owner + "::" + RustNames.method(eci.methodInfo()) + "("
+                           + printer.arguments(eci.parameterExpressions(), eci.methodInfo()) + ")";
+                }
+            }
+        }
+        return owner + "::new()";
+    }
+
+    /** The superclass, when it is a source class: its state becomes a {@code base} field. */
+    static TypeInfo sourceParent(TypeInfo typeInfo) {
+        ParameterizedType parent = typeInfo.parentClass();
+        if (parent == null || parent.typeInfo() == null) return null;
+        TypeInfo p = parent.typeInfo();
+        if (p.isJavaLangObject() || p.compilationUnit().externalLibrary() || p.isInterface()) return null;
+        return p;
+    }
+
+    /** {@code .base.base}: the path from an object of {@code from} to the part that {@code owner} declares. */
+    static String basePath(TypeInfo from, TypeInfo owner) {
+        StringBuilder sb = new StringBuilder();
+        TypeInfo t = from;
+        while (t != null && t != owner) {
+            t = sourceParent(t);
+            sb.append(".base");
+        }
+        return t == owner ? sb.toString() : "";
+    }
+
     /** The signature without the parameters' names, which may differ between the trait and the impl. */
     private String shape(MethodInfo m) {
         return signature(m, false).replaceAll("(mut )?r?#?[a-z_][a-z0-9_]*: ", "");
@@ -317,7 +364,7 @@ final class RustTypePrinter {
     }
 
     /** A source interface the method implements, directly or through an interface it extends. */
-    private static TypeInfo implementedTrait(MethodInfo m) {
+    static TypeInfo implementedTrait(MethodInfo m) {
         Set<TypeInfo> traits = new java.util.HashSet<>();
         superInterfaces(m.typeInfo(), traits);
         for (MethodInfo o : m.overrides()) {
@@ -364,6 +411,7 @@ final class RustTypePrinter {
     private String defaultConstructor(List<FieldInfo> fields, List<String> phantom) {
         StringBuilder sb = new StringBuilder(INDENT + "pub fn new() -> Self {\n");
         sb.append(INDENT).append(INDENT).append("Self {\n");
+        if (base != null) sb.append(INDENT.repeat(3)).append("base: ").append(baseValue(null, null)).append(",\n");
         for (FieldInfo f : fields) {
             sb.append(INDENT.repeat(3)).append(RustNames.snake(f.name())).append(": ").append(initial(f)).append(",\n");
         }
@@ -437,6 +485,9 @@ final class RustTypePrinter {
                     if (assignedField(s, fields) == null) lets.append(printer.statement(s, 2));
                 }
                 sb.append(lets).append(pad).append("Self {\n");
+                if (base != null) {
+                    sb.append(pad).append(INDENT).append("base: ").append(baseValue(statements, printer)).append(",\n");
+                }
                 for (FieldInfo f : fields) {
                     Expression value = assigned.get(f);
                     String text = value == null ? initial(f) : fieldValue(printer, f, value);
@@ -448,6 +499,9 @@ final class RustTypePrinter {
             }
             // the general shape: build 'this' at the empty values, run the body on it
             sb.append(pad).append("let mut this = Self {\n");
+            if (base != null) {
+                sb.append(pad).append(INDENT).append("base: ").append(baseValue(statements, printer)).append(",\n");
+            }
             for (FieldInfo f : fields) {
                 sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(initial(f)).append(",\n");
             }
@@ -481,7 +535,7 @@ final class RustTypePrinter {
         Map<FieldInfo, Expression> assigned = new LinkedHashMap<>();
         for (Statement s : statements) {
             if (s instanceof ExplicitConstructorInvocation eci) {
-                if (!eci.isSuper() || !eci.parameterExpressions().isEmpty()) return null;
+                if (!eci.isSuper()) return null;
                 continue;
             }
             FieldInfo f = assignedField(s, fields);
