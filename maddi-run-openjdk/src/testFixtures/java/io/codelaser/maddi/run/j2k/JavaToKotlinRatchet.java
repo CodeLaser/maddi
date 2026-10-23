@@ -79,7 +79,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  *   <li>the test sources are translated too, and compiled to class files against the Kotlin main classes, leaving
  *   out what does not compile as in 3 (its original test class stays): {@code testBytecodeFiles};</li>
  *   <li>the tests run once more, the translated test classes and the Kotlin main classes in front of the originals:
- *   {@code translatedTestsPassing}, Kotlin tests judging the Kotlin translation.</li>
+ *   {@code translatedTestsPassing}, Kotlin tests judging the Kotlin translation. Only the test classes this can
+ *   change run again: those translated, and those that use one; the others' outcome is the previous stage's.</li>
  * </ol>
  * The tests run when the corpus has a built test source set and the test JVM has
  * {@code -Dmaddi.test.junitConsoleClasspath} (the {@code junitConsole} configuration beside {@code kotlinCompiler});
@@ -325,36 +326,52 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         if (testSet.isPresent() && Files.isDirectory(Path.of(testSet.get().uri()))
             && (compileOnly || runner != null && !runner.isBlank())) {
             Path testClasses = Path.of(testSet.get().uri());
-            Tests original = null;
+            // the tests translated as well (compile 4), first: which test classes they change decides what the
+            // translated-test run runs again
+            Printed tests = testTranslation == null ? null : testTranslation.get();
+            Bytecode testBytecode = null;
+            Set<String> affected = Set.of();
+            if (tests != null) {
+                List<String> testClassPath = new ArrayList<>(classPath);
+                testClassPath.add(bytecode.classes.toAbsolutePath().toString());
+                testClassPath.add(Path.of(corpus.main().uri()).toString());
+                testClassPath.add(testClasses.toString());
+                testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
+                affected = affected(testBytecode.classes, testClasses);
+            }
+            Tests original = null, rest = null;
             if (compileOnly) {
                 testReport = "\ntests: not run (" + (runTests ? "compile only: " + COMPILE_ONLY
                         : "this run's test counts would be reported only, and cost over an hour") + ")\n";
             } else {
                 original = baseline(corpus, testClasses, runner, out.resolve("tests/original"));
-                Tests kotlin = runTests(corpus, List.of(bytecode.classes), testClasses, runner, out.resolve("tests/kotlin"));
+                // in two runs, the test classes the translated tests change and the rest, which the translated-test
+                // run then takes as they are
+                List<Path> kotlinClasses = List.of(bytecode.classes);
+                Path dir = out.resolve("tests/kotlin");
+                rest = runTests(corpus, kotlinClasses, testClasses, runner, dir.resolve("rest"),
+                        affected.isEmpty() ? null : new Only(affected, false));
+                Tests kotlin = rest.plus(affected.isEmpty() ? Tests.NONE : runTests(corpus, kotlinClasses, testClasses,
+                        runner, dir.resolve("affected"), new Only(affected, true)));
                 measured.put("testsPassing", (long) kotlin.passed.size());
                 testReport = testReport(original, kotlin, out.resolve("tests"), "with Kotlin");
             }
 
-            // the tests translated as well: Kotlin tests against the Kotlin translation
-            if (testTranslation == null) {
+            if (tests == null) {
                 testReport += "\ntest sources translated: none given (compile 4 and the translated tests left out)\n";
             } else {
-                Printed tests = testTranslation.get();
-                List<String> testClassPath = new ArrayList<>(classPath);
-                testClassPath.add(bytecode.classes.toAbsolutePath().toString());
-                testClassPath.add(Path.of(corpus.main().uri()).toString());
-                testClassPath.add(testClasses.toString());
-                Bytecode testBytecode = toBytecode(tests.files, testClassPath, out.resolve("compile-tests"));
                 measured.put("testBytecodeFiles", (long) testBytecode.files.size());
                 testReport += "\ntest sources translated: " + corpus.testTypes().size() + " types, "
                               + tests.crashes.size() + " printer crashes" + bytecodeReport(testBytecode, "compile 4 (the "
                               + "test sources to class files)");
                 if (!compileOnly) {
-                    Tests translated = runTests(corpus, List.of(testBytecode.classes, bytecode.classes), testClasses,
-                            runner, out.resolve("tests/translated"));
+                    Tests translated = rest.plus(affected.isEmpty() ? Tests.NONE : runTests(corpus,
+                            List.of(testBytecode.classes, bytecode.classes), testClasses, runner,
+                            out.resolve("tests/translated"), new Only(affected, true)));
                     measured.put("translatedTestsPassing", (long) translated.passed.size());
-                    testReport += testReport(original, translated, out.resolve("tests"), "translated tests");
+                    testReport += testReport(original, translated, out.resolve("tests"), "translated tests")
+                                  + "  run again with the translated tests: " + affected.size()
+                                  + " test classes (translated, or using one); the others as with Kotlin\n";
                 }
                 if (!tests.crashes.isEmpty()) testReport += "  test printer crashes:\n" + tests.crashes.stream()
                         .map(c -> "    " + c + "\n").collect(Collectors.joining());
@@ -529,6 +546,94 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * their identifier, so these are lists.
      */
     private record Tests(List<String> passed, List<String> failed, List<String> skipped) {
+        static final Tests NONE = new Tests(List.of(), List.of(), List.of());
+
+        Tests plus(Tests other) {
+            return new Tests(concat(passed, other.passed), concat(failed, other.failed), concat(skipped, other.skipped));
+        }
+    }
+
+    /**
+     * The test classes a run selects: {@code classes} (top-level names, with their nested classes) when
+     * {@code those}, else all others. JUnit's default class name pattern still applies, so the two runs together
+     * select what one run without this does.
+     */
+    private record Only(Set<String> classes, boolean those) {
+        // the console launcher's default --include-classname, which an --include-classname of our own replaces
+        private static final String STANDARD = "(?:Test.*|.+[.$]Test.*|.*Tests?)";
+
+        List<String> arguments() {
+            String names = classes.stream().sorted().map(Pattern::quote)
+                    .collect(Collectors.joining("|", "(?:", ")(?:\\$.*)?"));
+            return those ? List.of("--include-classname", "^(?=" + STANDARD + "$)" + names + "$")
+                    : List.of("--exclude-classname", "^" + names + "$");
+        }
+
+        /** A chunk ({@link #testChunks}) holds none of the selected classes: nothing to run. */
+        boolean noneIn(List<String> chunk) {
+            if (!those) return false;
+            return classes.stream().map(c -> c.lastIndexOf('.') < 0 ? "" : c.substring(0, c.lastIndexOf('.')))
+                    .noneMatch(pkg -> within(pkg, chunk.get(1)) && java.util.stream.IntStream.range(2, chunk.size())
+                            .filter(i -> "--exclude-package".equals(chunk.get(i - 1)))
+                            .noneMatch(i -> within(pkg, chunk.get(i))));
+        }
+
+        private static boolean within(String pkg, String outer) {
+            return pkg.equals(outer) || pkg.startsWith(outer + ".");
+        }
+    }
+
+    // a class's name in its class file, internal (com/google/common/base/Ascii) or, in a string, binary
+    private static final Pattern CLASS_NAME = Pattern.compile("[A-Za-z_$][\\w$]*(?:[/.][A-Za-z_$][\\w$]*)+");
+
+    /**
+     * The test classes whose tests may come out differently with the translated test classes in front: those
+     * translated, and those that name one in their class files (a helper, a suite listing the class), directly or
+     * through another, by top-level name. Every other test class runs the same code with the Kotlin main classes
+     * alone. A name only looked like one (a string, a prefix) only adds a class, which then runs again too.
+     */
+    private static Set<String> affected(Path translatedClasses, Path testClasses) throws IOException {
+        Set<String> affected = new HashSet<>(classFiles(translatedClasses).keySet());
+        Map<String, Set<String>> named = new HashMap<>();
+        for (Map.Entry<String, List<Path>> e : classFiles(testClasses).entrySet()) {
+            Set<String> names = new HashSet<>();
+            for (Path f : e.getValue()) {
+                String bytes = new String(Files.readAllBytes(f), java.nio.charset.StandardCharsets.ISO_8859_1);
+                Matcher m = CLASS_NAME.matcher(bytes);
+                while (m.find()) names.add(topLevel(m.group().replace('/', '.')));
+            }
+            named.put(e.getKey(), names);
+        }
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (Map.Entry<String, Set<String>> e : named.entrySet()) {
+                if (!affected.contains(e.getKey()) && e.getValue().stream().anyMatch(affected::contains)) {
+                    affected.add(e.getKey());
+                    grew = true;
+                }
+            }
+        }
+        return affected;
+    }
+
+    /** The class files under {@code dir}, by the top-level class they belong to. */
+    private static Map<String, List<Path>> classFiles(Path dir) throws IOException {
+        Map<String, List<Path>> byTopLevel = new TreeMap<>();
+        if (!Files.isDirectory(dir)) return byTopLevel;
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path f : walk.filter(p -> p.toString().endsWith(".class")).toList()) {
+                String name = dir.relativize(f).toString().replace(java.io.File.separatorChar, '.');
+                byTopLevel.computeIfAbsent(topLevel(name.substring(0, name.length() - ".class".length())),
+                        k -> new ArrayList<>()).add(f);
+            }
+        }
+        return byTopLevel;
+    }
+
+    private static String topLevel(String binaryName) {
+        int dollar = binaryName.indexOf('$');
+        return dollar < 0 ? binaryName : binaryName.substring(0, dollar);
     }
 
     private static List<String> concat(List<String> a, List<String> b) {
@@ -543,11 +648,13 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * With {@code kotlinClasses}, those come first on the class path, in front of the original classes they replace,
      * test classes included: the launcher finds a test by the original's name and loads the Kotlin one.
      */
-    private static Tests runTests(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner, Path dir)
-            throws Exception {
+    private static Tests runTests(Corpus corpus, List<Path> kotlinClasses, Path testClasses, String runner, Path dir,
+                                  Only only) throws Exception {
+        List<String> filter = only == null ? List.of() : only.arguments();
         if (!corpus.junit4()) {
-            return runTests(corpus, kotlinClasses, testClasses, runner, dir,
-                    List.of("--scan-classpath", testClasses.toString()), 60, true);
+            List<String> selection = new ArrayList<>(List.of("--scan-classpath", testClasses.toString()));
+            selection.addAll(filter);
+            return runTests(corpus, kotlinClasses, testClasses, runner, dir, selection, 60, true);
         }
         // guava's suite (865,681 tests) one package at a time, each in its own JVM with its own limit: a translated
         // class that hangs a test (a latch never counted down) costs that package's tests, which then pass on the
@@ -556,11 +663,13 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         Files.createDirectories(dir);
         List<String> passed = new ArrayList<>(), failed = new ArrayList<>(), skipped = new ArrayList<>();
         for (List<String> chunk : testChunks(testClasses)) {
+            if (only != null && only.noneIn(chunk)) continue;
             String pkg = chunk.get(1);
             // scan only the test classes: a package selector also scans the jars, and with them guava-testlib's
             // tests and jimfs's file system provider, which fails to load beside some translated classes
             List<String> selection = new ArrayList<>(List.of("--scan-classpath", testClasses.toString()));
             selection.addAll(chunk);
+            selection.addAll(filter);
             Tests tests = runTests(corpus, kotlinClasses, testClasses, runner, dir.resolve(pkg), selection, 20, false);
             if (tests == null) {
                 failed.add(pkg + " (timed out after 20 minutes)");
@@ -697,7 +806,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 LOGGER.warn("cannot read the baseline {}, running it: {}", cache, corrupt.toString());
             }
         }
-        Tests tests = runTests(corpus, null, testClasses, runner, dir);
+        Tests tests = runTests(corpus, null, testClasses, runner, dir, null);
         if (tests.failed().stream().noneMatch(t -> t.endsWith("(timed out after 20 minutes)"))) {
             try {
                 Files.createDirectories(cache.getParent());
