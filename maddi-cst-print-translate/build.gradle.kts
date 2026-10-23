@@ -19,7 +19,7 @@ java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25
 }
-// What the Java-to-X printers (maddi-cst-print-kotlin, maddi-cst-print-csharp) share: the print messages, the
+// What the Java-to-X printers (maddi-cst-print-kotlin, maddi-cst-print-csharp, maddi-cst-print-rust) share: the print messages, the
 // per-thread state of a file's printing, and queries on the CST that do not depend on the target language.
 dependencies {
     api(project(":maddi-cst-api"))
