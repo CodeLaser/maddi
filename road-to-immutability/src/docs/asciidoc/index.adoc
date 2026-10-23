@@ -1,7 +1,7 @@
 = The Road to Immutability
 Bart Naudts <bart.naudts@codelaser.io>
 :url-repo: https://codelaser.io/maddi
-:revnumber: 5
+:revnumber: 6
 :revdate: {docdate}
 :doctype: book
 :source-highlighter: rouge
@@ -47,10 +47,12 @@ Bart Naudts <bart.naudts@codelaser.io>
 :nn: pass:normal[ `@NotNull` ]
 :nnContent: pass:normal[ `@NotNull(content=true)` ]
 :nullable: pass:normal[ `@Nullable` ]
+:nullMarked: pass:normal[ `@NullMarked` ]
 :only:  pass:normal[ `@Only` ]
 :singleton: pass:normal[ `@Singleton` ]
 :sse: pass:normal[ `@StaticSideEffects` ]
 :testMark: pass:normal[ `@TestMark` ]
+:unmodifiableView: pass:normal[ `@UnmodifiableView` ]
 :utilityClass: pass:normal[ `@UtilityClass` ]
 
 :y: icon:check[role="green"]
@@ -107,6 +109,10 @@ include::{includedir}/070-modification-part2.adoc[leveloffset=+1]
 <<<
 
 include::{includedir}/080-hidden-content.adoc[leveloffset=+1]
+
+<<<
+
+include::{includedir}/085-nullability.adoc[leveloffset=+1]
 
 <<<
 

@@ -1,27 +1,23 @@
 # maddi
 
-> **Three repositories.** Since 2026-09-30 maddi is split by tier
-> ([plan](docs/roadmap/split-maddi-into-three-repositories.md)): this repository holds the **base** (CST, front
-> ends, inspection, call graph, the run drivers, the `AnalysisEngine` interface, and `corpus/`, the corpus tooling);
-> [**maddi-mod**](https://github.com/CodeLaser/maddi-mod) holds the modification analysis (`maddi-modification-*`,
-> `maddi-aapi-parser`, `maddi-run-analysis`, the analysis tests); and
-> [**maddi-dist**](https://github.com/CodeLaser/maddi-dist) holds what users install (daemon and IDE plugins, the
-> Gradle and Maven plugins, the `maddi` / `maddi-kotlin` CLI distributions, `dogfood/`). Modules named below that
-> are not in this checkout live in those siblings, checked out next to it (`../maddi-mod`, `../maddi-dist`).
-
 [![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)](https://github.com/CodeLaser/maddi/actions/workflows/build.yml)
 
-**maddi works out what is actually immutable in your Java codebase — and tells you why it isn't.**
+**maddi is a whole-program analysis engine for Java and Kotlin.** At its core is a *linking engine*: for every
+field, parameter, return value and local, it works out which objects flow where, and which of them share state. Three applications are built on the same facts:
 
-It is a whole-program static analyzer for Java (and Kotlin, via a shared syntax tree). You do not
-write annotations; maddi *computes* them. It reads your sources and classpath, follows how objects
-flow between fields, parameters and return values, and derives `@Immutable`, `@Container`,
-`@Modified` and `@Independent` for every type, method and field.
+- **Modification and immutability.** Which methods modify what. Which types are `@Immutable`, `@Container` or
+  `@Independent`, at what level, and what stops them from going higher.
+- **Nullability.** Which declarations can hold `null`, and, at every dereference, whether the value can be null
+  there.
+- **Translation.** Idiomatic Kotlin from a whole Java program, with nullability and read-only collections decided by
+  the analyses. Java → C# is experimental.
 
-## Why not just "immutable or not"
+Java and Kotlin parse to the same, fully resolved, **eventually immutable** common syntax tree, on which the linking engine runs.
 
-Real code is rarely deeply immutable, and a yes/no verdict throws away everything useful. maddi
-computes a **level**, so it can tell you how far you got and what stopped you.
+## Modification and immutability
+
+Real code is rarely deeply immutable, and a yes/no verdict throws away everything useful. maddi computes a
+**level**, so it can tell you how far you got and what stopped you.
 
 ```java
 public final class Config {
@@ -37,154 +33,215 @@ public final class Config {
 }
 ```
 
-> `@FinalFields @Container` — the field is final and nothing here modifies it, but the caller still
-> holds the map it passed in. maddi sees the field and the parameter sharing one *modification
-> component*, so anyone outside can still change this object's state after it is built.
+> `@FinalFields @Container`: the field is final and nothing here modifies it, but the caller still holds the map it
+> passed in. maddi sees the field and the parameter sharing one *modification component*, so anyone outside can
+> still change this object's state after it is built.
 
 Change line (1) to `Map.copyOf(settings)` and the verdict moves up a level:
 
-> `@Immutable(hc=true) @Container` — after the copy the only link left runs to the map's
-> *elements*, not to the map itself. `hc=true` ("hidden content") records the one honest caveat:
-> those elements are of a type parameter the `Config` class cannot see into. Not hc-free `@Immutable`, 
-> but immutable from `Config`'s point of view.
+> `@Immutable(hc=true) @Container`: after the copy, the only link left runs to the map's *elements*, not to the map
+> itself. `hc=true` ("hidden content") records the one honest caveat: those elements are of a type parameter the
+> `Config` class cannot see into. That is not hc-free `@Immutable`, but it is immutable from `Config`'s point of view.
 
-That distinction is the point of the project. A tool that answers "not immutable" for both versions
-has told you nothing about the difference between them.
+A tool that answers "not immutable" for both versions has told you nothing about the difference between them.
 
-The four levels are `@Mutable` → `@FinalFields` → `@Immutable(hc=true)` → `@Immutable`, plus a
-separate independence axis and **eventual immutability** for the builder/freeze pattern
-(`@Mark`, `@Only`, `@Immutable(after=…)`) — types that are mutable while being constructed and
-immutable ever after. The concepts are developed in full in the book,
-[*The Road to Immutability*](https://www.codelaser.io/maddi/road/); the
-[condensed digest](road-to-immutability/llm-summary.md) is the fastest way in.
+The four levels are `@Mutable` → `@FinalFields` → `@Immutable(hc=true)` → `@Immutable`. Independence is a
+separate axis. **Eventual immutability** covers the builder/freeze pattern (`@Mark`, `@Only`,
+`@Immutable(after=…)`): types that are mutable while being constructed and immutable ever after. The booklet
+[*The Road to Immutability*](https://www.codelaser.io/maddi/road/) develops the concepts in full.
 
-## Install
+## Nullability
 
-Since `0.9.1` there is one analysis engine and three ways to run it: a Gradle plugin, a Maven
-plugin, and a self-contained command line. All three need a recent JDK (the analyzer runs on
-current Java; development happens on JDK 26).
+The nullability pass can run after the modification analysis, on the same link facts. It decides, for every field,
+parameter, method return and type argument, whether it can hold `null`. The annotated APIs that come with maddi
+seed it, and they are generated from JSpecify's annotated JDK. A library marked `@NullMarked` is honoured.
 
-**Gradle** — from the
-[Gradle Plugin Portal](https://plugins.gradle.org/plugin/io.codelaser.maddi.analyzer):
+Its verdicts are what the translations print: `T` or `T?` in Kotlin, `T` or `T?` under `#nullable enable` in C#,
+and `!!` or `!` where the analysis knows a value is there but the types cannot say so.
+
+## Translation
+
+The same command line that analyses a project can translate its main sources to Kotlin or C#. Take this input:
+
+```java
+public class Inventory {
+    public record Item(String name, int count) { }
+    private final Map<String, Item> items = new HashMap<>();
+
+    public Item find(String name) { return items.get(name); }
+
+    public static int total(List<Item> list) {
+        int sum = 0;
+        for (Item item : list) sum += item.count();
+        return sum;
+    }
+
+    public List<String> names() { return new ArrayList<>(items.keySet()); }
+    // ...
+}
+```
+
+`maddi --translate kotlin` prints, leaving out the same members:
+
+```kotlin
+open class Inventory {
+    private val items: MutableMap<String, Item> = HashMap<String, Item>()
+
+    open fun find(name: String): Item? = items.get(name)
+
+    open fun names(): MutableList<String> = ArrayList<String>(items.keys)
+
+    @JvmRecord data class Item(val name: String, val count: Int)
+
+    companion object {
+        @JvmStatic fun total(list: List<Item>): Int {
+            var sum = 0
+            for (item in list) { sum += item.count }
+            return sum
+        }
+    }
+    // ...
+}
+```
+
+Kotlin has no static methods: the static `total` moves into the class's `companion object`. `maddi --translate csharp`
+prints:
+
+```csharp
+public sealed class Inventory {
+    private readonly IDictionary<string, Item> items = new Dictionary<string, Item>();
+
+    public Item? Find(string name) => items.Get(name);
+
+    public static int Total(IReadOnlyList<Item> list) {
+        int sum = 0;
+        foreach (Item item in list) { sum += item.Count; }
+        return sum;
+    }
+
+    public List<string> Names() => new List<string>(items.Keys);
+
+    public sealed record Item(string Name, int Count);
+    // ...
+}
+```
+
+`find` returns `Item?` because `Map.get` can return null and nothing in between excludes it. `total` gets a
+read-only `List<Item>` and `IReadOnlyList<Item>` because the modification analysis shows it never modifies the
+list. `names` returns a fresh list the caller owns, so it stays mutable.
+
+The translation works on the whole program, not one file at a time. It is measured on six open-source corpora: each
+is printed as Kotlin and compiled with `kotlinc`. The C# output is compiled with Roslyn.
+
+| Java → Kotlin | files | compiling |
+|---|---|---|
+| Fernflower | 199 | 198 |
+| LangChain4j core | 346 | 346 |
+| Guava | 610 | 603 |
+| Nacos client API | 274 | 271 |
+| Jenkins core | 1,329 | 1,271 |
+| Timefold Solver core | 1,583 | 1,361 |
+
+| Java → C# (experimental) | files | compiling |
+|---|---|---|
+| Fernflower | 199 | 185 |
+| LangChain4j core | 346 | 301 |
+| Timefold Solver core | 1,583 | 1,324 |
+
+## Languages
+
+- **Java** through javac's own front end, up to **JDK 27**. It is exercised on many open-source projects and one
+  closed-source codebase of about 3M lines.
+- **Kotlin** through the K2 compiler front end. Below the front end the stack is shared: prepwork, the linking
+  engine and the analyzer treat a lowered Kotlin body like a Java one, with no Kotlin-specific paths. Test tiers of
+  Kotlin/Java fixture pairs check that both get the same verdicts. Mixed Java/Kotlin projects are analysed as one
+  program. The gap that remains is in the library contracts: the Kotlin stdlib's annotated API is smaller than the
+  JDK's.
+
+## Where it stands (0.9.5)
+
+| Part | State |
+|---|---|
+| Concepts, and the book | Stable |
+| Java front end | Robust, on JDK 27 |
+| Kotlin front end | Close to parity with Java; ships in the `maddi-kotlin` CLI |
+| Linking engine; modification and immutability analysis | Runs to a certified fixpoint on the proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
+| Nullability | New in 0.9.5; reaches users through the translations |
+| Java → Kotlin translation | New in 0.9.5; whole-program, measured on six corpora |
+| Java → C# translation | New in 0.9.5; experimental |
+| Gradle and Maven plugins, CLI | Published |
+| IDE plugins (IntelliJ, Eclipse, VS Code) | Build from source only |
+
+What changed since 0.9.1: [release notes](docs/project/release-notes-0.9.5.md).
+
+The engine is stable on everything we run it on, and your codebase will contain Java the corpus does not. If maddi
+mis-parses, crashes, translates wrongly, or computes something you can argue is wrong, please open an issue. That is
+exactly the report we want.
+
+## Get it
+
+There is one engine and three ways to run it. They need JDK 25 or later to run; the Kotlin distribution needs JDK 26
+or later. The details, the IDE plugins included, are in
+[maddi-dist's README](https://github.com/CodeLaser/maddi-dist#readme).
+
+**Gradle**: [`io.codelaser.maddi.analyzer`](https://plugins.gradle.org/plugin/io.codelaser.maddi.analyzer) on
+the Gradle Plugin Portal.
 
 ```kotlin
 plugins {
     java
-    id("io.codelaser.maddi.analyzer") version "0.9.1"
-}
-
-maddi {
-    analysisSteps = "modification"   // parse -> prep -> modification -> write results
+    id("io.codelaser.maddi.analyzer") version "0.9.5"
 }
 ```
 
-```bash
-./gradlew maddi-analyzer     # one result .json per package, under build/maddi
-```
+**Maven**: `io.codelaser:maddi-mvnplugin` on Maven Central, goal prefix `maddi`.
 
-The plugin derives the source sets and classpath from the Gradle model and forks a worker JVM with
-the flags the analyzer needs — nothing else to configure.
-
-**Maven** — `io.codelaser:maddi-mvnplugin` on Maven Central, goal prefix `maddi`, five goals
-(`run`, `write-input-configuration`, `statistics`, `write-analysis-hints`,
-`compile-analysis-hints`). The JVM running Maven needs the javac `--add-exports` flags for the
-analysis goals; set them once in `.mvn/jvm.config` or `MAVEN_OPTS` — the
-[user manual](https://www.codelaser.io/maddi/manual/) lists them.
-
-**Command line, for any build system** — two self-contained zips on the
-[latest release](https://github.com/CodeLaser/maddi/releases/latest):
-
-- `maddi-<version>.zip` — the Java analyzer, launcher `bin/maddi`
-- `maddi-kotlin-<version>.zip` — Java **and** Kotlin, launcher `bin/maddi-kotlin`
-
-`bin/maddi-kotlin` takes the **same command line** as `bin/maddi` and is a strict superset of it:
-given a project with no `.kt` file it runs the Java analyzer and behaves identically, and given
-one with Kotlin it runs both front ends over a shared core. Take the small zip for a Java-only
-build (85 MB of K2 compiler jars is the price of the Kotlin one); take the Kotlin zip for
-anything mixed, and use one tool. An option the mixed pipeline cannot honour yet — writing
-analysis results, incremental analysis, the hints compiler, all of which need a Kotlin codec
-round trip — is **refused by name**, never run as a no-op. So is `--translate`, which translates
-Java: on a project with Kotlin sources there is no single Java program to translate.
-
-Unpack and run: every jar rides along in `lib/`, and the required JVM flags are baked into the
-launcher. Kotlin support ships only this way — it depends on JetBrains K2 artifacts that are not
-on Maven Central, so it cannot be a resolvable library.
-
-To point the CLI at your project, capture what the build actually compiled and hand it to maddi —
-no build-tool integration needed:
+**Command line, for any build system**: two self-contained zips on the
+[latest release](https://github.com/CodeLaser/maddi/releases/latest). `maddi-<version>.zip` analyses Java;
+`maddi-kotlin-<version>.zip` takes the same command line and adds Kotlin. To point the CLI at a project, capture
+what the build compiled and hand it over:
 
 ```bash
 ./gradlew :your-module:compileJava --debug 2>&1 | grep 'Compiler arguments:' > build.log
 maddi --compile-log build.log --analysis-steps modification --analysis-results-dir out
-```
-
-The same command line translates the project's main sources to Kotlin or C#, with the nullability
-analysis's verdicts deciding what may be null (`String?`, `string?`) and where a `!!` is needed:
-
-```bash
 maddi --compile-log build.log --translate kotlin --translate-output kotlin-src
 maddi --compile-log build.log --translate csharp --translate-output csharp-src   # with a Translated.csproj
 ```
 
-`--analysis-steps none` translates without the analysis. `translation-report.txt` in the output
-lists the printer's crashes and messages; a crash leaves that one file out and exits non-zero.
-
-More worked examples, including two bundled Maven build logs you can run without checking the
-projects out: [`maddi-run-openjdk/running-examples.md`](maddi-run-openjdk/running-examples.md).
-Configuration, analysis hints, error reporting and exit codes are covered in the
-[user manual](https://www.codelaser.io/maddi/manual/).
+The [user manual](https://www.codelaser.io/maddi/manual/) covers configuration, analysis hints, error reporting and
+exit codes. [`maddi-run-openjdk/running-examples.md`](maddi-run-openjdk/running-examples.md) has more worked
+examples.
 
 ## The annotations
 
-The one thing your own code compiles against is the annotations library. It is on Maven Central,
-targets Java 17, and is **Apache-2.0** licensed — you can depend on it without taking on the
-analyzer's LGPL:
+The one thing your own code could compile against is the annotations library. It is on Maven Central, targets Java 17,
+and is **Apache-2.0** licensed, so you can depend on it without taking on the analyzer's LGPL:
 
 ```kotlin
-implementation("io.codelaser:maddi-annotation:0.9.1")   // Gradle
+implementation("io.codelaser:maddi-annotation:0.9.5")   // Gradle
 ```
 
 ```xml
 <dependency>                                            <!-- Maven -->
   <groupId>io.codelaser</groupId>
   <artifactId>maddi-annotation</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.5</version>
 </dependency>
 ```
 
-That gives you `@Immutable`, `@Container`, `@Independent`, `@Modified` and friends, with **no
-dependencies at all** — useful as documentation and as contracts on your interfaces even before you
-run the analyzer, since maddi verifies them against what it computes.
+That gives you `@Immutable`, `@Container`, `@Independent`, `@Modified` and the rest, with **no dependencies at
+all**. They are useful as documentation, and as contracts on your interfaces even before you run the analyzer, since
+maddi verifies them against what it computes.
 
-If you also want the "eventually final" support classes (`SetOnce`, `Freezable`, `EventuallyFinal`,
-`Lazy`, `FirstThen`), depend on `io.codelaser:maddi-annotation`'s companion instead:
+If you also want the "eventually final" support classes (`SetOnce`, `Freezable`, `EventuallyFinal`, `Lazy`,
+`FirstThen`), depend on `maddi-support` instead. It declares exactly one dependency, on `maddi-annotation`, and
+re-exports it:
 
 ```kotlin
-implementation("io.codelaser:maddi-support:0.9.1")      // annotations arrive with it
+implementation("io.codelaser:maddi-support:0.9.5")      // annotations arrive with it
 ```
 
-`maddi-support` declares exactly one dependency, on `maddi-annotation`, and re-exports it — so if you
-were already using `maddi-support` before the two were split, nothing changes for you.
-
 > Versions up to `0.8.2` were LGPL-3.0; `0.9.0` onward is Apache-2.0.
-
-## Status — August 2026
-
-`0.9.1` is the first release where everything above is installable: the Gradle plugin on the
-Plugin Portal, the Maven plugin and the annotations on Maven Central, the CLI distributions on
-GitHub Releases. Where each part stands:
-
-| Part | State |
-|---|---|
-| Concepts, and the book | Stable |
-| Parser / resolver (javac front end) | Robust; exercised on many open-source projects and one closed-source 3M-line codebase |
-| Modification & immutability analysis | Runs to a certified fixpoint on a proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
-| Gradle / Maven plugins | Published in 0.9.1; both validated against a corpus of real multi-module builds |
-| Kotlin front end | Works; ships only via the `maddi-kotlin` CLI distribution, which takes the same command line as `maddi` |
-
-The engine is stable on everything we run it on — and your codebase will contain Java the corpus
-does not. If maddi mis-parses, crashes, or computes something you can argue is wrong, that is
-exactly the report we want: please open an issue.
 
 ## Documentation
 
@@ -192,46 +249,61 @@ exactly the report we want: please open an issue.
 |---|---|
 | Understand the concepts (levels, modification, linking, independence) | [*The Road to Immutability*](https://www.codelaser.io/maddi/road/); in-repo: the [condensed digest](road-to-immutability/llm-summary.md) and the [book sources](road-to-immutability/src/docs/asciidoc/) |
 | Run maddi on your own project | the [user manual](https://www.codelaser.io/maddi/manual/) ([sources](maddi-manual/src/docs/asciidoc/)) |
-| Understand the codebase (pipeline, ~40 modules, where to start) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Understand the translations | [`kotlin-printing.md`](maddi-cst-print-kotlin/kotlin-printing.md), [`csharp-printing.md`](maddi-cst-print-csharp/csharp-printing.md) |
+| Understand the codebase (pipeline, module map, where to start) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Build, test, contribute | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | Work on it with an AI assistant | [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md) |
 
-Cross-module design notes and plans are indexed in [`docs/README.md`](docs/README.md).
+Cross-module design notes and plans for all three repositories are indexed in [`docs/README.md`](docs/README.md).
+
+## Three repositories
+
+Since 2026-09-30 maddi is split by tier ([plan](docs/roadmap/split-maddi-into-three-repositories.md)):
+
+| Repository | Holds | Depends on |
+|---|---|---|
+| **maddi** (this one) | the base: CST, the Java and Kotlin front ends, inspection, call graph, the run drivers, the printers (Java, Kotlin, C#), the `AnalysisEngine` interface, the annotated APIs, and `corpus/`, the corpus tooling | nothing above it |
+| [maddi-mod](https://github.com/CodeLaser/maddi-mod) | the analyses: the linking engine, the modification analyzer, the nullability pass, the analysis-hints parser, and the corpus ratchets | the base only |
+| [maddi-dist](https://github.com/CodeLaser/maddi-dist) | what users install: the CLI distributions, the Gradle and Maven plugins, the IDE daemon and plugins, `dogfood/` | compiles against the base only; carries maddi-mod at run time |
+
+Modules named in this repository's documents that are not in this checkout live in those siblings, checked out next
+to it (`../maddi-mod`, `../maddi-dist`).
 
 ## Building from source
 
+Check the three repositories out side by side, then build in the one you need:
+
 ```bash
-git clone https://github.com/CodeLaser/maddi.git && cd maddi
-./gradlew build                                  # compile + fast tests
+git clone https://github.com/CodeLaser/maddi.git
+git clone https://github.com/CodeLaser/maddi-mod.git
+git clone https://github.com/CodeLaser/maddi-dist.git
+
+cd maddi && ./gradlew build                          # the base: compile + fast tests
+cd ../maddi-dist && ./gradlew :maddi-cli:installDist # the `maddi` CLI, in maddi-cli/build/install/maddi
 ```
 
-Requires a recent JDK on `JAVA_HOME` (no Gradle toolchain provisioning). A self-contained first
-run — maddi analyzing its own CST API against `java.base`:
+Development happens on JDK 27, with no Gradle toolchain provisioning: the JDK on `JAVA_HOME` builds. A first run of
+the CLI you just built, on a directory of Java sources:
 
 ```bash
-./gradlew :maddi-cli:run --args="\
-    --jmod=java.base \
-    --source=$PWD/maddi-cst-api/src/main/java \
-    --analysis-steps=prep"
+maddi-cli/build/install/maddi/bin/maddi --jmod=java.base --source=<dir> \
+    --analysis-steps modification --translate kotlin --translate-output out
 ```
 
 > Embedding the openjdk front end in your own code? Read
-> [`maddi-inspection-openjdk/parsing-stability.md`](maddi-inspection-openjdk/parsing-stability.md)
-> first — javac is not thread-safe, and that document is the authoritative guide to deterministic
-> runs.
+> [`maddi-inspection-openjdk/parsing-stability.md`](maddi-inspection-openjdk/parsing-stability.md) first: javac is
+> not thread-safe, and that document is the authoritative guide to deterministic runs.
 
 ## Background
 
-maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until it was archived.
-The root Java package was `org.e2immu.*`, after the predecessor; it became
-`io.codelaser.maddi.*` in 0.9.1 — see [`docs/project/release-notes-0.9.1.md`](docs/project/release-notes-0.9.1.md).
+maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until it was archived. The root Java
+package was `org.e2immu.*`, after the predecessor; it became `io.codelaser.maddi.*` in 0.9.1 (see
+[`docs/project/release-notes-0.9.1.md`](docs/project/release-notes-0.9.1.md)).
 
-maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at
-[CodeLaser](https://codelaser.io), and is and will remain open source. The **analyzer** is
-LGPL-3.0. The **annotations** (`maddi-annotation`, with `maddi-support`) — the only artifacts your
-own code compiles against — are **Apache-2.0** from 0.9.0 onward, so depending on them carries no
-obligation. CodeLaser's commercial Refactor product is built on this engine; the engine stays here,
-under this licence. Questions, use cases and criticism are all welcome — mail, or open an issue.
+maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at [CodeLaser](https://codelaser.io), and is
+and will remain open source. The **analyzer** is LGPL-3.0. The **annotations** (`maddi-annotation`, with
+`maddi-support`), the only artifacts your own code compiles against, are **Apache-2.0** from 0.9.0 onward, so
+depending on them carries no obligation. CodeLaser's commercial Refactor product is built on maddi. Questions, use cases and criticism are all welcome: mail, or open an issue.
 
 ___
 

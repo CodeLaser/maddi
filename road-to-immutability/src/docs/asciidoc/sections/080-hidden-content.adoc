@@ -13,12 +13,12 @@ Let's go back to `NonEmptyImmutableList`, first defined in <<abstract-methods>>:
 @ImmutableContainer
 interface NonEmptyImmutableList<T> extends HasSize {
 
-    // implicitly present: @NotModified
+    // contracted: @NotModified, see the section on abstract methods
     @Independent(hc=true)
     T first();
 
-    // implicitly present: @NotModified
-    void visit(@Independent(hc=true) Consumer<T> consumer); // implicitly present: @NotModified
+    // contracted: @NotModified
+    void visit(@Independent(hc=true) Consumer<T> consumer);
 
     @NotModified
     @Override
@@ -113,8 +113,11 @@ These types are for generic use; one should never use them to represent some spe
 are of concern to the current type.
 Therefore, we make this annotation implicit in exactly this context.
 
-IMPORTANT: A parameter of a formal functional interface type of `java.util.function`
-will be marked {ignoreModifications} implicitly.
+IMPORTANT: In the annotated APIs, a parameter of functional interface type -- the `java.util.function` family, and any
+`@FunctionalInterface` that extends or resembles one -- is marked {ignoreModifications} implicitly, unless annotated
+{modified}.
+For source methods, the analyzer follows the lambda's own links instead (<<link-system>>): what a lambda modifies is
+attributed to the objects it reaches, not to the functional-interface parameter it travels in.
 
 Looking at the more general case of a `forEach` implementation iterating over a list or array, we therefore end up with:
 
@@ -143,11 +146,11 @@ Let us apply the `visit` method of `NonEmptyImmutableList` to `StringBuilder`:
 [source,java]
 ----
 static void print(@NotModified NonEmptyImmutableList<StringBuilder> list) {
-    one.visit(System.out::println); // <1>
+    list.visit(System.out::println); // <1>
 }
 
 static void addNewLine(@Modified NonEmptyImmutableList<StringBuilder> list) {
-    one.visit(sb -> sb.append("\n")); // <2>
+    list.visit(sb -> sb.append("\n")); // <2>
 }
 ----
 
@@ -164,7 +167,7 @@ It may help to see the for-loop written out, if we temporarily assume that we ha
 ----
 static void addNewLine(@Modified NonEmptyImmutableList<StringBuilder> list) {
     for(StringBuilder sb: list) {
-        sb.append("\n"));
+        sb.append("\n");
     }
 }
 ----
@@ -215,14 +218,14 @@ static String useAddNewLine(@NotModified StringBuilder input) { // <1>
     NonEmptyList<StringBuilder> list = new One<>();
     list.setFirst(input);
     addNewLine(list);
-    return list.getFirst().toString();
+    return list.first().toString();
 }
 
 static String useReplace(@NotModified StringBuilder input) {
     NonEmptyList<StringBuilder> list = new One<>();
     list.setFirst(input);
     replace(list); // <2>
-    return list.getFirst().toString();
+    return list.first().toString();
 }
 ----
 
@@ -370,6 +373,10 @@ interface Iterable<T> {
 }
 ----
 
+NOTE: The annotated JDK keeps `Iterable` at {container}: an `Iterator` has `remove`, and an attempt to annotate `Iterable`
+{immutableContainerHC} was reverted after a corpus run (2026-09).
+The annotation above states what the interface _means_; a source type implementing it is judged on its own.
+
 First, creating an iterator should never be a modifying operation on a type.
 Typically, as we explore in the next section, it implies creating a subtype, static or not, of the type implementing `Iterable`.
 Second, the iterator itself is independent of the fields of the implementing type, but has the ability to return its hidden content.
@@ -477,8 +484,7 @@ public class ImmutableArray<T> implements Iterable<T> {
     @Container
     @Independent(hc=true)
     static class IteratorImpl implements Iterator<T> {
-        @Modified
-        private int i;
+        private int i; // variable
 
         private final T[] elements;
 

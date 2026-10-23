@@ -19,6 +19,7 @@ Three rules govern them:
   A guarded overwrite facility (`TolerantWrite`) exists for the few places that legitimately refine a
   value (cycle breaking, below), and it enforces monotonicity: a verdict may become more precise, never
   contradict itself.
+  The one sanctioned exception is the modification cutover after the fixpoint (<<after-the-fixpoint>>).
 * Undecided is a first-class state.
   An analyzer component that cannot conclude — because a field's type is not yet decided, a supertype is
   still open, a callee's summary is missing — returns "no value" and will simply be visited again.
@@ -57,7 +58,8 @@ On large code bases the worklist typically collapses from tens of thousands of e
 within two or three passes.
 
 The loop may run in parallel: independent elements of the analysis order are processed by a small thread
-pool (bounded by the machine's cores).
+pool (at most eight threads, two fewer than the machine has cores; `PARALLEL=n` overrides, and small runs
+stay sequential).
 Parallelism is behaviorally almost — not perfectly — transparent: the vast majority of verdicts are
 scheduling-independent, and the few known non-confluent shapes (a constructor whose modification verdict
 depends on whether a sibling was decided in the same pass) are tracked explicitly and resolve to the
@@ -126,10 +128,11 @@ proving-ground code bases settle into full immutability distributions.
 A static analyzer that dies on the first pathological method is useless on real code.
 The engine's fault-tolerance policy, refined over the corpus work, has three tiers:
 
-* _statement- and method-level containment_: an exception while linking one statement abandons that
-  method's source-level analysis and degrades it to its shallow summary — the element stays alive at
-  reduced precision;
-* _cycle protection with a tight ceiling_: run-away closures are cut off early and degrade the same way
+* _method-level containment_: an exception while linking a method marks it _degraded_
+  (`DEGRADED_ANALYSIS_METHOD`): it carries no links, counts as modifying, and its outputs are unspecified to
+  the nullability pass — the element stays alive, pessimistically;
+* _cycle protection with a tight ceiling_: run-away closures are cut off early and fall back to the method's
+  shallow summary, at reduced precision
   (an early experiment with a generous ceiling let one module's analysis grind from seconds to half an
   hour before the tight-ceiling-plus-fallback design was adopted);
 * _guards at the boundaries_: unrepresentable link shapes are skipped at the point of production, and
@@ -138,6 +141,51 @@ The engine's fault-tolerance policy, refined over the corpus work, has three tie
 Finally, most non-default behaviors — disabling the worklist, disabling parallelism, disabling cycle
 breaking, dumping the per-element verdict fingerprint — are reachable through environment gates, which is
 how the A/B verification workflow and the regression hunts of the development process are driven.
+
+[#after-the-fixpoint]
+== After the fixpoint: the reachability passes
+
+Two conclusions are deliberately _not_ computed inside the iteration: the propagation of modification along
+call chains deeper than the summaries carry it, and nullability.
+Both have the same shape — a seed, and a closure over the links — and both were tried inside the loop first.
+There, a value written in an early pass froze the optimistic answer (unmodified, not null) before the
+evidence against it had arrived, and the write-once discipline then kept it.
+They run instead as _reachability passes_ over the converged link facts.
+
+The modification pass (`ShadowModificationPass`, MODREACH) is a _cutover_: it re-derives which methods,
+parameters and fields are modified from primitive evidence and the converged links, downgrades the frozen
+optimistic values it contradicts — the one place a verdict is allowed to get worse, past `TolerantWrite` —
+freezes the three modification properties, clears the immutability, independence and container verdicts
+derived from them, and lets the loop re-derive and re-certify.
+A chain deeper than one round reaches takes another, up to three (`MODREACH_ROUNDS`).
+The production engine runs it by default.
+
+The nullability pass (`NullabilityPass`) is the one-shot one: complete facts, after the cutover, every value
+written once.
+The chapter on <<nullability>> describes what it computes.
+Mechanically:
+
+* its _nodes_ are the fields, parameters, return values and locals of the analyzed code, plus a node per
+  type argument and per array element of each;
+* its _seeds_ are the null literals, the fields that can hold their default value, the arrays created empty,
+  the library results declared nullable, and the nullable contracts;
+* its _edges_ are the direct links of each method's variable data, the argument links of each call site, and
+  the override chains;
+* its _guards_ are the per-statement facts of a forward walk over every method body — which variables are
+  known not to be `null` where — and an edge is not taken where its source is guarded.
+
+The pass runs in rounds.
+A round trusts no analyzed method's return value; the next round treats every return value the previous one
+found unreached as a non-null value at its call sites, and drops the edges from those sites.
+Dropping edges only shrinks what `null` reaches, so the trusted set grows monotonically; a round also hands
+the next the preconditions it found, and there are at most five.
+The verdicts go into the same property store as everything else (`NULLABILITY_FIELD`,
+`NULLABILITY_PARAMETER`, `NULLABILITY_METHOD`), from where the Java decorator, the Kotlin and C# printers
+and the IDE read them.
+
+What the pass needs from the iteration is set by one configuration switch (`nullability`): the link engine
+keeps the null markers in the method summaries and records the argument links at every call.
+Both change the summaries' content and are off unless asked for, under the golden rule below.
 
 == A note on scale
 

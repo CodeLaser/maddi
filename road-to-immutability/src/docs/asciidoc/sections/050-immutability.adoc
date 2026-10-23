@@ -146,6 +146,7 @@ Note that:
 
 * We state that all primitive types are immutable, as is `java.lang.Object`.
 Whilst this is fairly obvious in the case of primitives, immutability for `Object` requires us to either ignore the methods related to synchronization, or to assume that its implementation (for it is not an abstract type) has no fields.
+Being extensible, `Object` is immutable _with_ hidden content: the annotated JDK writes {immutableContainerHC}.
 * A consequence of rule 1 is that all methods in an immutable type must be {nm}.
 * A field whose type is an unbound type parameter, can locally be considered to be of immutable type, and therefore need not be private.
 This is because the type parameter could be substituted by `java.lang.Object`, which we have just declared to be immutable.
@@ -161,7 +162,7 @@ All other types must extend from it.
 This typically means that all methods that assign or modify fields become off-limits after calling this marker method.
 Eventuality for rules 2 and 3 seems too far-fetched.
 We address the topic of eventual immutability fully in the section <<eventual-immutability>>.
-* When the type has fields which allow hidden content, or the type is extendable (see <<extendability>>), the extra parameter `hc=true` will be added to the annotation.
+* When the type has fields which allow hidden content, or the type is extendable (a class that is neither `final` nor `sealed`, or an interface; see <<inheritance>>), the extra parameter `hc=true` will be added to the annotation.
 The presence of this parameter is for instructive purposes only.
 
 Let us go to examples immediately.
@@ -455,16 +456,17 @@ The analyzer simply treats the parameterized type `T` as if it were the type `E`
 In the case of an unbound parameter type, only the public methods of `java.lang.Object` are accessible.
 By definition, the type belongs to the hidden content, as defined in <<accessible-hidden-content>>.
 
-The analyzer recognizes types that can be replaced by an unbound parameter type, when they are used _transparently_, and therefore belong to the hidden content: no methods are called on it, save the ones from `java.lang.Object`; none of its fields are accessed, and it is not used as an argument to parameters where anything more specific than
+A type can be used _transparently_, as if it were an unbound parameter type: no methods are called on it, save the ones from `java.lang.Object`; none of its fields are accessed, and it is not used as an argument to parameters where anything more specific than
 `java.lang.Object` is required.
-It will issue a warning, and internally treat the type as an unbound parameter type, and hence {immutableContainer}, even if the type is obviously modifiable.
+Such a type could be replaced by a type parameter, and would then belong to the hidden content.
+The analyzer does not make that replacement for you: it judges the type as written, and a transparently used `Set` is still a `Set` that the constructor stores and a getter returns.
 
 The following trivial example should clarify:
 
 .Example {counter:example}, a type used transparently in a class
 [source,java]
 ----
-@ImmutableContainer(hc=true)
+@FinalFields @Container // <1>
 public class OddPair {
 
     private final Set<String> set;
@@ -480,8 +482,10 @@ public class OddPair {
 }
 ----
 
+<1> The constructor stores what it is given and the getters return it: dependent, so {finalFields} (rule 3).
+
 Nowhere in `OddPair` do we make actual use of the fact that `set` is of type `Set`, or `sb` is of type `StringBuilder`.
-The analyzer encourages you to replace `Set` by some unbound parameter type, say `K`, and `StringBuilder` by some other, say `V`.
+Replace `Set` by some unbound parameter type, say `K`, and `StringBuilder` by some other, say `V`, and the verdict becomes {immutableContainerHC}.
 The result is, of course, the type `Pair` as defined <<type-pair,earlier>>.
 
 Making a concrete choice for a type parameter may have an effect on the immutability status, as will be explained in
@@ -511,7 +515,8 @@ class ImplementsMarker implements Marker { }
 class ExtendsEmptyClass extends ImplementsMarker { }
 ----
 
-<1> Because interfaces are meant to be extended, adding `hc=true` is completely superfluous.
+<1> Interfaces, and classes that are neither `final` nor `sealed`, are extensible, so the analyzer writes `hc=true` on every type in this example.
+We leave it out of the interface examples of this chapter and the next, for brevity.
 
 Things only become interesting when methods enter the picture.
 Annotation-wise, we stipulate that
@@ -599,8 +604,8 @@ interface NonEmptyImmutableList<T> extends HasSize {
 Even if the concrete choice for `T` is modifiable, the independence rule must be satisfied.
 <2> The parameter `consumer` would normally be {modified}, which would break the {container} property that we wish for
 `NonEmptyImmutableList`.
-However, as detailed and explained in <<hidden-content>>, the abstract types in `java.util.function` receive an implicit
-{ignoreModifications} annotation.
+However, as detailed and explained in <<hidden-content>>, the annotated APIs give parameters of functional interface type an
+implicit {ignoreModifications} annotation.
 <3> The hidden content of the type is exposed to the outside world via the `accept` method in the consumer, similarly to being exposed via the return value of the `first` method.
 <4> Computed, because it is not an abstract method.
 It must (and does) agree with the {nm} status of `HasSize.isEmpty()`.
@@ -710,7 +715,8 @@ static class OneWithOne<T> implements NonEmptyList<T> {
 }
 ----
 
-Obviously, an {immutableContainer} implementation is not possible: the immutability status of an extension (`OneWithOne`, `One`) cannot be better than that of the type it is extending from (`NonEmptyList`).
+Obviously, an {immutableContainer} implementation is not possible.
+The immutability status of a class cannot be better than that of its superclass; an interface's own verdict is not passed down (its abstract methods are re-read in each implementation's cone, see <<convergence>>), but here `setFirst` is modifying in every implementation of `NonEmptyList`, so the conclusion is the same.
 
 We end the section by showing how concrete implementations of the `accept` method in `Consumer` can make modifications.
 First, modifications to the parameter:
@@ -1009,7 +1015,7 @@ The guard's two landing sites carry different consequences, and this is the whol
 | the escape lands on... | consequence
 
 | the type's own _accessible_ content
-| *caps immutability* -- unsound to ignore (the separation check)
+| *reported* as a confinement warning (`ignore-modifications-not-confined`, the separation check): unsound to ignore, and left to the designer; the analyzer does not cap the verdict
 
 | _global / static_ state you do not own
 | does *not* cap immutability (it inspects only your fields) -- but is a real outward effect, flagged {sse}
@@ -1028,6 +1034,7 @@ add, `println` is {sse}; with it, the effect is sanctioned hidden content.
 
 For a source method the analyzer _computes_ the {sse}: it sees the assignment to, or the modifying call on,
 another type's static field.
+(The computation is behind the `SSE` environment gate until a broader corpus A/B clears it; the containment arm of the guard is silent without it.)
 But the sharpest escape is invisible from source.
 `System.setOut(other)` replaces the process-wide `System.out`; nothing in the JDK source the analyzer can reach
 says so, and its own body is empty to us.
@@ -1056,7 +1063,7 @@ library method itself), and on a source method it is _computed_, never trusted f
 [#value-based-classes]
 == Value-based classes
 
-Quoting from the JDK 8 documentation, value-based classes are
+Quoting from the JDK documentation (the definition has been sharpened since JDK 8), value-based classes are
 
 . final and immutable (though may contain references to mutable objects);
 . have implementations of equals, hashCode, and toString which are computed solely from the instance's state and not from its identity or the state of any other object or variable;
@@ -1082,7 +1089,7 @@ public class HasUniqueIdentifier<K> {
     public final K k;
     public final int identifier;
 
-    @NotModified
+    @IgnoreModifications // as in the section on static side effects
     private static final AtomicInteger generator = new AtomicInteger();
 
     public HasUniqueIdentifier(K k) {
@@ -1131,5 +1138,102 @@ class SetBasedContainer4<T> {
 
 Whilst `Set` in general is not {immutable}, the `data` field itself is.
 
-The computations that the analyzer needs to track dynamic type annotations, are similar to those it needs to compute eventual immutability.
-We introduce them in the next chapter.
+The analyzer computes them with the machinery that also propagates eventual immutability (<<eventual-immutability>>): the verdict travels with the value.
+
+[#unmodifiable-views]
+== Unmodifiable views
+
+`Collections.unmodifiableList(list)` returns a _view_: an object that never adds anything to or removes
+anything from the list it wraps, and that throws when asked to.
+It is not immutable.
+Whoever still holds `list` can change it, and the view shows the change.
+The chapter on <<linking-dependence>> introduced views as the place where linking stops being a matter of
+following assignments; here we ask what the definitions of this chapter make of them.
+
+Run the view's type through the rules.
+Its one field is final (rule 0), nothing in the type modifies it (rule 1), it is private (rule 2) — and the
+constructor stores the list it is given, so the field is dependent on a parameter, and rule 3 fails.
+The verdict is {finalFields}.
+That verdict is correct and not very informative: {finalFields} does not say whether rule 1 failed or only
+rule 3 did, and the difference is exactly what matters to anyone holding the view.
+A `Bag` with an `add` method is {finalFields} too.
+
+So the analyzer records the weaker fact on its own, beside immutability and never derived from it:
+
+****
+*Definition*: a type is *unmodifiable* when nothing is added to or removed from an instance through any
+reference to it: rule 0, and rule 1 in its structural reading (the fields themselves and their accessible
+content; the hidden content may change), decided before rule 3.
+
+*Definition*: a method is an *unmodifiable view*, marked {unmodifiableView}, when every object it returns
+is of unmodifiable type, or at least {immutableHC}.
+****
+
+An {immutableHC} type is unmodifiable by implication; the converse does not hold, and that is the point:
+{unmodifiableView} is what a view may claim and {immutableHC} is what it may not.
+The annotation says nothing about {container} either.
+The name follows JetBrains' annotation of the same meaning.
+
+On a method without a body, {unmodifiableView} is a contract.
+The annotated JDK carries it on the eleven `Collections.unmodifiable*` factories.
+On a method with a body, the analyzer computes it from the values the method returns: a call to a method
+with the property, an instance of an unmodifiable type, a value that is at least {immutableHC}, a field
+proven to hold one, or `null`.
+On a bodiless declaration with implementations, it is the fold over the implementations, as for the other
+method properties of <<abstract-methods>>.
+
+.Example {counter:example}, unmodifiable views
+[source,java]
+----
+@FinalFields
+static class View { // <1>
+    private final List<String> list;
+    View(List<String> list) { this.list = list; }
+    String get(int i) { return list.get(i); }
+    int size() { return list.size(); }
+}
+
+@FinalFields
+static class Bag { // <2>
+    private final List<String> list = new ArrayList<>();
+    @Modified void add(String s) { list.add(s); }
+    int size() { return list.size(); }
+}
+
+@FinalFields
+static class Wraps {
+    private final List<String> list = new ArrayList<>();
+
+    @UnmodifiableView
+    List<String> view() { return Collections.unmodifiableList(list); } // <3>
+
+    List<String> copy() { return new ArrayList<>(list); } // <4>
+
+    @UnmodifiableView
+    List<String> both(boolean b) { return b ? Collections.unmodifiableList(list) : null; }
+
+    @UnmodifiableView
+    View asView() { return new View(list); } // <5>
+
+    @UnmodifiableView
+    List<String> chained() { return view(); }
+
+    @ImmutableContainer(hc=true)
+    List<String> frozen() { return List.copyOf(list); } // <6>
+}
+----
+
+<1> Rules 0, 1 and 2 hold, rule 3 fails: {finalFields}, and an unmodifiable type.
+<2> Rule 1 fails: {finalFields}, and not unmodifiable.
+<3> The contract on `Collections.unmodifiableList` travels to the caller.
+<4> A fresh, modifiable copy: nothing to claim.
+<5> An instance of an unmodifiable type.
+<6> The stronger fact, when it holds: a copy that is immutable with hidden content, as in
+<<dynamic-type-annotations>>.
+
+Neither property feeds the immutability, independence or container analyses; the lattice of this chapter is
+unchanged.
+Their consumer is the translation into Kotlin, whose collection types distinguish `List<String>` from
+`MutableList<String>`: a field that is only ever given an unmodifiable view, and a method that returns one,
+print with the read-only type, while the call itself stays `Collections.unmodifiableList(..)`, because
+Kotlin's `listOf` would copy.
