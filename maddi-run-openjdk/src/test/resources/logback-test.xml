@@ -1,0 +1,9 @@
+<!-- The tests' logging: INFO, for the J2K ratchets' reports. Without this file logback's default is DEBUG for
+     everything, and the Kotlin printer's formatter logs every split point and method body (1.8 million lines for
+     guava). -->
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern></encoder>
+    </appender>
+    <root level="INFO"><appender-ref ref="STDOUT"/></root>
+</configuration>
