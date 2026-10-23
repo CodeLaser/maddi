@@ -2656,8 +2656,8 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun elvisFlipped(s: String?): String = s ?: \"none\"");
         contains(kotlin, "fun safeCall(s: String?): Int? = s?.length");
         contains(kotlin, "= (s?.trim())!!");
-        // the argument reads s: kept, ?. gives it no smart cast
-        contains(kotlin, "if (s != null) s.plus(s) else null");
+        // the argument reads s, which ?. gives no smart cast: a let (#164)
+        contains(kotlin, "s?.let { it.plus(it) }");
         // a call is evaluated twice in Java, once by ?:: kept
         contains(kotlin, "if (name() != null) name() else \"x\"");
         contains(kotlin, "fun objectsEquals(a: String, b: String): Boolean = a == b");
@@ -3249,6 +3249,32 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("lines")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "parse(lines!!::add)");
+        compiles(kotlin);
+    }
+
+    /**
+     * #164: {@code x != null ? f(x) : null}, x a nullable local or parameter used in f's arguments, is Kotlin's
+     * {@code x?.let { f(it) }} (jenkins's PluginManager: {@code context != null ?
+     * ServletContextWrapper.toJakartaServletContext(context) : null}). A call on x stays {@code x?.m()}; a body with a
+     * lambda stays an if, where {@code it} would be ambiguous.
+     */
+    @Test
+    public void nullGuardedArgumentIsLet() {
+        String kotlin = kotlin("""
+                package a.b;
+                class C {
+                    static String wrap(String s) { return "<" + s + ">"; }
+                    String f(String context) { return context != null ? wrap(context) : null; }
+                    String g(String context) { return context == null ? null : wrap(context).trim(); }
+                    Integer h(String text) { return text != null ? text.length() : null; }
+                    Runnable r(String text) { return text != null ? () -> wrap(text) : null; }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("context", "text", "f()", "g()", "h()", "r()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "context?.let { wrap(it) }");
+        contains(kotlin, "context?.let { wrap(it).trim() }");
+        contains(kotlin, "text?.length");
+        contains(kotlin, "if (text != null)");
         compiles(kotlin);
     }
 }

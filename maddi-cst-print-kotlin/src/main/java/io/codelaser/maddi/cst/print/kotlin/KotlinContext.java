@@ -308,6 +308,18 @@ final class KotlinContext {
         PATTERNS.get().put(variable.simpleName(), replacement);
     }
 
+    /** {@code body}, with {@code variable} printed as {@code replacement} while it runs (a let's {@code it}). */
+    static <T> T withPatternVariable(Variable variable, Supplier<OutputBuilder> replacement, Supplier<T> body) {
+        Map<String, Supplier<OutputBuilder>> patterns = PATTERNS.get();
+        Supplier<OutputBuilder> previous = patterns.put(variable.simpleName(), replacement);
+        try {
+            return body.get();
+        } finally {
+            if (previous == null) patterns.remove(variable.simpleName());
+            else patterns.put(variable.simpleName(), previous);
+        }
+    }
+
     static Supplier<OutputBuilder> patternVariable(Variable variable) {
         return PATTERNS.get().get(variable.simpleName());
     }

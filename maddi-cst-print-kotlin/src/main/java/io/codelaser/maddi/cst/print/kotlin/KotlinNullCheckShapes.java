@@ -30,7 +30,8 @@ import io.codelaser.maddi.cst.api.variable.Variable;
  * Java's null-check conditionals that Kotlin writes with an operator (CodeLaser/maddi#140, item 1):
  * <ul>
  *     <li>{@code x != null ? x : d} and {@code x == null ? d : x} are {@code x ?: d};</li>
- *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)}.</li>
+ *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)};</li>
+ *     <li>{@code x != null ? f(x) : null}, x a local or a parameter, is {@code x?.let { f(it) }} (#164).</li>
  * </ul>
  * Only where the Kotlin means what the Java does. {@code x} is a read of a local, a parameter or a field of
  * {@code this}: Java reads it twice, Kotlin once, and nothing runs in between. The arguments of the call do not
@@ -78,6 +79,39 @@ final class KotlinNullCheckShapes {
             if (mentions[0]) return null;
         }
         return new SafeCall(mc.object(), mc);
+    }
+
+    /** {@code variable?.let { body }}: {@code body} with the variable as {@code it}, the conditional's non-null branch */
+    record Let(VariableExpression variable, Expression body, boolean bodyWhenTrue) {
+    }
+
+    /**
+     * {@code x != null ? f(x) : null}: jenkins's PluginManager, {@code context != null ?
+     * ServletContextWrapper.toJakartaServletContext(context) : null}. Only a local or a parameter, which nothing in
+     * the body can change between the test and its reads (a field could be, by a call in the body: #164's next step,
+     * the analysis's non-modifying methods); not where the conditional is {@code x ?: null} or {@code x?.m()} already;
+     * not where the body has a lambda or a nested let of its own, whose {@code it} would be ambiguous.
+     */
+    static Let let(InlineConditional ic) {
+        Tested tested = tested(ic);
+        if (tested == null || !(unwrap(tested.whenNull()) instanceof NullConstant)) return null;
+        Variable variable = tested.variable().variable();
+        if (!(variable instanceof LocalVariable) && !(variable instanceof ParameterInfo)) return null;
+        Expression body = tested.whenNonNull();
+        if (unwrap(body) instanceof VariableExpression ve && ve.variable().equals(variable)) return null;
+        if (safeCall(ic) != null) return null;
+        boolean[] mentions = {false};
+        boolean[] blocked = {false};
+        body.visit((Element e) -> {
+            if (e instanceof VariableExpression v && v.variable().equals(variable)) mentions[0] = true;
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda
+                || e instanceof InlineConditional nested && nested != ic && let(nested) != null) {
+                blocked[0] = true;
+            }
+            return !blocked[0];
+        });
+        if (!mentions[0] || blocked[0]) return null;
+        return new Let(tested.variable(), body, unwrap(ic.ifTrue()) == unwrap(body));
     }
 
     private record Tested(VariableExpression variable, Expression whenNull, Expression whenNonNull) {

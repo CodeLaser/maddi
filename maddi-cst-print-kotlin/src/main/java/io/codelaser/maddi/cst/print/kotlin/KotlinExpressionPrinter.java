@@ -2720,6 +2720,10 @@ public class KotlinExpressionPrinter {
         if (e instanceof InlineConditional ic && target != null && KotlinNullCheckShapes.safeCall(ic) != null) {
             return print(ic, q);
         }
+        if (e instanceof InlineConditional ic && target != null && KotlinNullCheckShapes.let(ic) != null) {
+            KotlinNullCheckShapes.Let let = KotlinNullCheckShapes.let(ic);
+            return let(let, ic, () -> branch(let.body(), () -> arrayBranch(let.body(), target, q), q), q);
+        }
         if (e instanceof InlineConditional ic && target != null && !isElvis(ic)) {
             // each branch converted to what the whole initializes: if (m != null) ArrayList<Pair?>(m) else null
             return new OutputBuilderImpl().add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
@@ -4697,6 +4701,8 @@ public class KotlinExpressionPrinter {
                     () -> print(safeCall.call(), q));
             if (printed != null) return printed;
         }
+        KotlinNullCheckShapes.Let let = KotlinNullCheckShapes.let(ic);
+        if (let != null) return let(let, ic, () -> print(let.body(), q), q);
         return new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                 .add(condition(ic, q)).add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE)
@@ -4705,6 +4711,23 @@ public class KotlinExpressionPrinter {
                 .add(KotlinKeyword.ELSE).add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenFalse(ic.condition()),
                         () -> branch(ic.ifFalse(), () -> print(ic.ifFalse(), q), q)));
+    }
+
+    /**
+     * {@code x?.let { body }} (#164): the body printed with x as {@code it}, known non-null there as in the
+     * conditional's branch.
+     */
+    private static OutputBuilder let(KotlinNullCheckShapes.Let let, InlineConditional ic,
+                                     java.util.function.Supplier<OutputBuilder> body, Qualification q) {
+        KotlinSmartCasts.Facts nonNull = let.bodyWhenTrue()
+                ? KotlinSmartCasts.whenTrue(ic.condition()) : KotlinSmartCasts.whenFalse(ic.condition());
+        OutputBuilder printedBody = KotlinContext.withPatternVariable(let.variable().variable(),
+                () -> new OutputBuilderImpl().add(new TextImpl("it")),
+                () -> KotlinSmartCasts.withTypes(nonNull, body));
+        return new OutputBuilderImpl().add(print(let.variable(), q))
+                .add(new SymbolEnum("?.", SpaceEnum.NO_SPACE_SPLIT_ALLOWED, SpaceEnum.NONE, null))
+                .add(new TextImpl("let")).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_BRACE).add(SpaceEnum.ONE)
+                .add(printedBody).add(SpaceEnum.ONE).add(SymbolEnum.RIGHT_BRACE);
     }
 
     // the right operand in parentheses when it binds looser than '+': '?:' binds tighter than comparison, equality,
