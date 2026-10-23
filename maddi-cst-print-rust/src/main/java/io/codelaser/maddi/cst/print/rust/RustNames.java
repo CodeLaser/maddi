@@ -85,6 +85,16 @@ public final class RustNames {
         return index <= 0 ? "" : "_" + (index + 1);
     }
 
+    /** An enum constant as a variant: {@code DARK_GREEN} becomes {@code DarkGreen}. */
+    public static String variant(String constant) {
+        StringBuilder sb = new StringBuilder();
+        for (String part : constant.toLowerCase().split("_")) {
+            if (part.isEmpty()) continue;
+            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        }
+        return sb.toString();
+    }
+
     /** The module of a package: {@code com.example.util} becomes {@code com_example_util}. */
     public static String module(String packageName) {
         return packageName.isEmpty() ? "root" : identifier(packageName.replace('.', '_'));

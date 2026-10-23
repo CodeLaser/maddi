@@ -40,10 +40,15 @@ output, it says where a verdict and the code disagree:
 `TestJavaToRustOwnership` pins the first two: the same Java compiles with the right verdicts, fails with E0596/E0594
 when `add` is declared non-modifying, and fails with E0382 where a constructor keeps the caller's list.
 
-The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source record
-the analysis calls `@Immutable` (without hidden content). A named string is cloned where it is stored again, and a
-borrowed record (`map.get(k)`) is cloned where an owned one is expected. A record with hidden content
-(`@Immutable(hc=true)`) is not: its clone would copy what Java shares, so the mismatch stays for rustc to report.
+The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source class or
+record the analysis calls `@Immutable` (without hidden content), which derives `Clone`. A named string is cloned where
+it is stored again, a borrowed immutable object (`map.get(k)`) where an owned one is expected, and a stream over them
+is `.iter().cloned()`. A type with hidden content (`@Immutable(hc=true)`) is not: its clone would copy what Java
+shares, so the mismatch stays for rustc to report.
+
+A dependent result that is a *new* container of the receiver's mutable elements (`orders.stream().toList()`) is
+`Vec<&T>` in Rust, not the `&Vec<T>` the signature says: rustc reports it, but that one is the printer's (the
+verdict does not say whether the container or only its elements are shared).
 
 rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do compiles. Clippy's
 `needless_pass_by_ref_mut` and `unused_mut` give the other direction.
@@ -61,6 +66,15 @@ rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do 
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and
   call.
 - A `static final` constant is an associated `const`; other static state is reported (`STATIC_STATE`).
+- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
+- A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
+  cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
+- `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
+  because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
+  (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
+- A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
+  `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
+- `sb.append(a).append(b)` is one `push_str`/`push` per append.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
   `String`, and a table of methods (`RustJdk`). An index is a `usize` in Rust: `i as usize`, and a size goes back to
   `i32`, so the arithmetic around it stays Java's. Java's implicit numeric widening is spelled out.
@@ -71,9 +85,9 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Class inheritance (`INHERITANCE`), anonymous and local classes, `instanceof`, switch, try/catch (`TRY_BODY_ONLY`),
-method references, static mutable state, generic bounds (`T: Clone + PartialEq`), `equals`/`hashCode` as
-`PartialEq`/`Hash`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
+Class inheritance (`INHERITANCE`), anonymous and local classes, `instanceof` and type patterns outside `equals`,
+try/catch (`TRY_BODY_ONLY`), static mutable state, generic bounds (`T: Clone + PartialEq`), sorting and collectors
+beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.
 
 ## Running it

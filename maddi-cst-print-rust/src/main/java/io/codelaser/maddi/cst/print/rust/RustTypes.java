@@ -77,10 +77,14 @@ final class RustTypes {
         return type.typeInfo() != null && type.arrays() == 0 && "String".equals(mapped(type.typeInfo()));
     }
 
-    /** A source record: immutable, and printed with {@code #[derive(Clone)]}. */
-    static boolean isRecord(ParameterizedType type) {
+    /**
+     * A source class or record the facts call {@code @Immutable} (no hidden content): printed with
+     * {@code #[derive(Clone)]}, and cloned where an owned value is expected, as a string is.
+     */
+    static boolean isImmutableValue(ParameterizedType type, RustFacts facts) {
         TypeInfo ti = type.typeInfo();
-        return type.arrays() == 0 && ti != null && ti.typeNature().isRecord() && !ti.compilationUnit().externalLibrary();
+        return type.arrays() == 0 && ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
+               && !ti.typeNature().isEnum() && facts.immutable(ti);
     }
 
     /** Copied rather than moved or borrowed: a primitive, a boxed primitive, a plain enum. */

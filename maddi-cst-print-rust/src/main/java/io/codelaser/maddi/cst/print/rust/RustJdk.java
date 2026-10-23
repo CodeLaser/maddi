@@ -61,6 +61,25 @@ final class RustJdk {
             return printStream("err".equals(fr.fieldInfo().name()), mc, printer);
         }
         String o = printer.text(mc.object());
+        if ("java.lang.Enum".equals(fqn)) {
+            return switch (name + "/" + args.size()) {
+                case "ordinal/0" -> value(o + ".ordinal()");
+                case "name/0", "toString/0" -> RustBodyPrinter.printed(o + ".name()", Held.STR, false);
+                default -> null;
+            };
+        }
+        if (fqn.startsWith("java.util.stream.")) return stream(o, fqn, name, args, printer);
+        if ("stream/0".equals(name + "/" + args.size()) && "Vec".equals(RustTypes.mapped(owner))) {
+            // values the stream may hand on as copies: a primitive, a string, an @Immutable class
+            List<io.codelaser.maddi.cst.api.type.ParameterizedType> ps = mc.object().parameterizedType().parameters();
+            io.codelaser.maddi.cst.api.type.ParameterizedType element = ps.isEmpty() ? null : ps.getFirst();
+            if (element != null && RustTypes.isCopy(element)) return value(o + ".iter().copied()");
+            if (element != null && (RustTypes.isString(element)
+                                    || RustTypes.isImmutableValue(element, printer.context().facts))) {
+                return value(o + ".iter().cloned()");
+            }
+            return value(o + ".iter()");
+        }
         String collection = RustTypes.mapped(owner);
         if ("String".equals(collection)) return string(o, name, args, printer, mc);
         if ("java.lang.Object".equals(fqn)) {
@@ -94,6 +113,7 @@ final class RustJdk {
             case "java.util.Objects.requireNonNull/1", "java.util.Objects.requireNonNull/2" ->
                     same(printer.text(args.getFirst()));
             case "java.lang.Integer.parseInt/1" -> value(printer.text(args.getFirst()) + ".parse::<i32>().unwrap()");
+            case "java.lang.Integer.hashCode/1", "java.lang.Long.hashCode/1" -> value(printer.text(args.getFirst()));
             case "java.lang.Long.parseLong/1" -> value(printer.text(args.getFirst()) + ".parse::<i64>().unwrap()");
             case "java.lang.String.valueOf/1", "java.lang.Integer.toString/1", "java.lang.Long.toString/1" ->
                     value(operand(printer, args.getFirst()) + ".to_string()");
@@ -102,12 +122,23 @@ final class RustJdk {
             case "java.util.Optional.of/1", "java.util.Optional.ofNullable/1" ->
                     value("Some(" + printer.ownedText(args.getFirst()) + ")");
             default -> {
+                if (fqn.equals("java.util.Objects") && name.equals("hash")) yield hash(args, printer);
                 if (fqn.equals("java.util.List") && name.equals("of")) {
                     yield value("vec![" + String.join(", ", args.stream().map(printer::ownedText).toList()) + "]");
                 }
                 yield null;
             }
         };
+    }
+
+    /**
+     * {@code Objects.hash(a, b)}: each value hashed into std's default hasher. The numbers differ from Java's, which
+     * only matters to code that depends on them.
+     */
+    private static Printed hash(List<Expression> args, RustBodyPrinter printer) {
+        StringBuilder sb = new StringBuilder("{ let mut h = std::hash::DefaultHasher::new(); ");
+        for (Expression a : args) sb.append("std::hash::Hash::hash(").append(printer.reference(a)).append(", &mut h); ");
+        return value(sb.append("std::hash::Hasher::finish(&h) as i32 }").toString());
     }
 
     /** {@code System.out.println(x)}: a call on the field {@code System.out}. */
@@ -142,7 +173,68 @@ final class RustJdk {
             case "substring/1" -> value(o + "[" + printer.index(args.getFirst()) + "..].to_string()");
             case "substring/2" -> value(o + "[" + printer.index(args.get(0)) + ".." + printer.index(args.get(1))
                                         + "].to_string()");
-            case "append/1" -> value(o + ".push_str(&" + printer.text(args.getFirst()) + ".to_string())");
+            case "append/1" -> value(append(o, args.getFirst(), printer));
+            default -> null;
+        };
+    }
+
+    /** {@code sb.append(x)}: a char is pushed, a string pushed as a {@code &str}, anything else formatted first. */
+    static String append(String target, Expression arg, RustBodyPrinter printer) {
+        io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
+        if (type.isPrimitiveExcludingVoid() && type.typeInfo().isChar()) return target + ".push(" + printer.text(arg) + ")";
+        if (RustTypes.isString(type)) return target + ".push_str(" + printer.reference(arg) + ")";
+        return target + ".push_str(&" + operand(printer, arg) + ".to_string())";
+    }
+
+    /**
+     * A stream as an iterator. Java's {@code distinct} keeps the first of equal elements, in order; Rust's iterators
+     * have no such adapter, so the elements are folded into a vector.
+     */
+    private static Printed stream(String o, String fqn, String name, List<Expression> args, RustBodyPrinter printer) {
+        String sum = switch (fqn) {
+            case "java.util.stream.LongStream" -> "i64";
+            case "java.util.stream.DoubleStream" -> "f64";
+            default -> "i32";
+        };
+        return switch (name + "/" + args.size()) {
+            case "map/1", "mapToInt/1", "mapToLong/1", "mapToDouble/1", "mapToObj/1" ->
+                    value(o + ".map(" + printer.text(args.getFirst()) + ")");
+            case "filter/1" -> value(o + ".filter(" + printer.text(args.getFirst()) + ")");
+            case "anyMatch/1" -> value(o + ".any(" + printer.text(args.getFirst()) + ")");
+            case "allMatch/1" -> value(o + ".all(" + printer.text(args.getFirst()) + ")");
+            case "noneMatch/1" -> value("!" + o + ".any(" + printer.text(args.getFirst()) + ")");
+            case "forEach/1" -> value(o + ".for_each(" + printer.text(args.getFirst()) + ")");
+            case "distinct/0" ->
+                    value(o + ".fold(Vec::new(), |mut v, x| { if !v.contains(&x) { v.push(x); } v }).into_iter()");
+            case "toList/0" -> value(o + ".collect::<Vec<_>>()");
+            case "count/0" -> value(o + ".count() as i64");
+            case "sum/0" -> value(o + ".sum::<" + sum + ">()");
+            case "collect/1" -> isToList(args.getFirst()) ? value(o + ".collect::<Vec<_>>()") : null;
+            default -> null;
+        };
+    }
+
+    private static boolean isToList(Expression collector) {
+        return collector instanceof MethodCall c && "java.util.stream.Collectors".equals(c.methodInfo().typeInfo()
+                .fullyQualifiedName()) && ("toList".equals(c.methodInfo().name())
+                                           || "toUnmodifiableList".equals(c.methodInfo().name()));
+    }
+
+    /** A JDK method reference's body, the parameters named: {@code String::length} is {@code x.len() as i32}. */
+    static String reference(MethodInfo m, List<String> params) {
+        String key = m.typeInfo().fullyQualifiedName() + "." + m.name() + "/" + params.size();
+        return switch (key) {
+            case "java.lang.String.length/1" -> params.getFirst() + ".len() as i32";
+            case "java.lang.String.isEmpty/1" -> params.getFirst() + ".is_empty()";
+            case "java.lang.String.toUpperCase/1" -> params.getFirst() + ".to_uppercase()";
+            case "java.lang.String.toLowerCase/1" -> params.getFirst() + ".to_lowercase()";
+            case "java.lang.String.trim/1", "java.lang.String.strip/1" -> params.getFirst() + ".trim().to_string()";
+            case "java.lang.String.valueOf/1", "java.lang.Object.toString/1", "java.lang.Integer.toString/1" ->
+                    params.getFirst() + ".to_string()";
+            case "java.lang.Integer.parseInt/1" -> params.getFirst() + ".parse::<i32>().unwrap()";
+            case "java.lang.Integer.intValue/1" -> "*" + params.getFirst();
+            case "java.util.Objects.nonNull/1" -> params.getFirst() + ".is_some()";
+            case "java.util.Objects.isNull/1" -> params.getFirst() + ".is_none()";
             default -> null;
         };
     }

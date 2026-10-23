@@ -119,29 +119,34 @@ final class RustTypePrinter {
         if (!plainEnum(typeInfo)) context.message(RustPrintCode.ENUM_WITH_STATE, typeInfo, typeInfo.simpleName());
         List<String> variants = typeInfo.fields().stream()
                 .filter(f -> f.isStatic() && f.type().typeInfo() == typeInfo)
-                .map(f -> camel(f.name())).toList();
+                .map(f -> RustNames.variant(f.name())).toList();
         StringBuilder sb = new StringBuilder(doc(typeInfo));
         sb.append("#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n")
                 .append(visibility(typeInfo.isPrivate())).append("enum ").append(RustNames.type(typeInfo)).append(" {\n");
         variants.forEach(v -> sb.append(INDENT).append(v).append(",\n"));
         sb.append("}\n");
-        List<MethodInfo> methods = typeInfo.methods().stream().filter(m -> !m.isSynthetic()).toList();
-        if (!methods.isEmpty()) {
-            sb.append("\nimpl ").append(RustNames.type(typeInfo)).append(" {\n");
-            for (MethodInfo m : methods) sb.append(method(m));
-            sb.append("}\n");
+        // what java.lang.Enum gives every enum: values(), ordinal(), name()
+        List<String> constants = typeInfo.fields().stream()
+                .filter(f -> f.isStatic() && f.type().typeInfo() == typeInfo).map(FieldInfo::name).toList();
+        int n = variants.size();
+        sb.append("\nimpl ").append(RustNames.type(typeInfo)).append(" {\n");
+        sb.append(INDENT).append("pub const VALUES: [Self; ").append(n).append("] = [")
+                .append(variants.stream().map(v -> "Self::" + v).collect(Collectors.joining(", "))).append("];\n");
+        sb.append(INDENT).append("pub fn values() -> [Self; ").append(n).append("] {\n").append(INDENT).append(INDENT)
+                .append("Self::VALUES\n").append(INDENT).append("}\n");
+        sb.append(INDENT).append("pub fn ordinal(self) -> i32 {\n").append(INDENT).append(INDENT)
+                .append("self as i32\n").append(INDENT).append("}\n");
+        sb.append(INDENT).append("pub fn name(self) -> &'static str {\n").append(INDENT).append(INDENT)
+                .append("match self {\n");
+        for (int i = 0; i < n; i++) {
+            sb.append(INDENT.repeat(3)).append("Self::").append(variants.get(i)).append(" => \"")
+                    .append(constants.get(i)).append("\",\n");
         }
-        return sb.toString();
-    }
-
-    /** {@code RED} becomes {@code Red}: Rust's variants are camel case. */
-    private static String camel(String constant) {
-        StringBuilder sb = new StringBuilder();
-        for (String part : constant.toLowerCase().split("_")) {
-            if (part.isEmpty()) continue;
-            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1));
+        sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        for (MethodInfo m : typeInfo.methods()) {
+            if (!m.isSynthetic()) sb.append(method(m));
         }
-        return sb.toString();
+        return sb.append("}\n").toString();
     }
 
     private String structType(TypeInfo typeInfo) {
@@ -158,6 +163,7 @@ final class RustTypePrinter {
 
         StringBuilder sb = new StringBuilder(doc(typeInfo));
         if (record) sb.append("#[derive(Debug, Clone, PartialEq)]\n");
+        else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(generics).append(" {\n");
         for (FieldInfo f : fields) {
             sb.append(INDENT).append(record || !f.access().isPrivate() ? "pub " : "").append(RustNames.snake(f.name()))
@@ -196,8 +202,15 @@ final class RustTypePrinter {
                 if (!declared.contains(f.name())) inherent.append(accessor(f));
             }
         }
+        MethodInfo equals = null;
+        boolean hashCode = false;
         for (MethodInfo m : typeInfo.methods()) {
             if (m.isSynthetic()) continue;
+            if (isEquals(m)) {
+                equals = m;
+                continue;
+            }
+            hashCode |= isHashCode(m);
             TypeInfo trait = implementedTrait(m);
             if (trait != null) byTrait.computeIfAbsent(trait, t -> new ArrayList<>()).add(m);
             else inherent.append(method(m));
@@ -215,7 +228,39 @@ final class RustTypePrinter {
             for (MethodInfo m : e.getValue()) sb.append(method(m, true));
             sb.append("}\n");
         }
+        if (equals != null) sb.append(partialEq(equals, name, generics));
+        if (hashCode) {
+            if (equals != null) sb.append("\nimpl").append(generics).append(" Eq for ").append(name).append(generics)
+                    .append(" {}\n");
+            sb.append("\nimpl").append(generics).append(" std::hash::Hash for ").append(name).append(generics)
+                    .append(" {\n").append(INDENT).append("fn hash<H: std::hash::Hasher>(&self, state: &mut H) {\n")
+                    .append(INDENT).append(INDENT).append("state.write_i32(self.hash_code());\n").append(INDENT)
+                    .append("}\n}\n");
+        }
         return sb.toString();
+    }
+
+    /** {@code boolean equals(Object)}: Rust's {@code PartialEq}, whose other side is already of this type. */
+    static boolean isEquals(MethodInfo m) {
+        return "equals".equals(m.name()) && !m.isStatic() && m.parameters().size() == 1
+               && m.parameters().getFirst().parameterizedType().typeInfo() != null
+               && m.parameters().getFirst().parameterizedType().typeInfo().isJavaLangObject()
+               && m.returnType().isBoolean();
+    }
+
+    private static boolean isHashCode(MethodInfo m) {
+        return "hashCode".equals(m.name()) && !m.isStatic() && m.parameters().isEmpty() && m.returnType().isInt();
+    }
+
+    private String partialEq(MethodInfo equals, String name, String generics) {
+        context.method = equals;
+        try {
+            String body = new RustBodyPrinter(context).equalsBody(equals, 2);
+            return "\nimpl" + generics + " PartialEq for " + name + generics + " {\n" + INDENT
+                   + "fn eq(&self, other: &Self) -> bool {\n" + body + INDENT + "}\n}\n";
+        } finally {
+            context.method = null;
+        }
     }
 
     /** A source interface the method implements, directly or through an interface it extends. */

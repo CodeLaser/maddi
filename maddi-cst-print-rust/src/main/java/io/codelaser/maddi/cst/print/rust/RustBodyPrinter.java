@@ -69,6 +69,8 @@ final class RustBodyPrinter {
     /** How each local of the method is held, from its declaration. */
     private final Map<LocalVariable, Held> locals = new HashMap<>();
     private final Map<LocalVariable, Boolean> nullableLocals = new HashMap<>();
+    /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
+    private final Map<Variable, String> aliases = new HashMap<>();
 
     RustBodyPrinter(RustContext context) {
         this.context = context;
@@ -87,7 +89,7 @@ final class RustBodyPrinter {
         String pad = INDENT.repeat(depth);
         String label = statement.label() == null ? "" : "'" + RustNames.snake(statement.label()) + ": ";
         return switch (statement) {
-            case ExpressionAsStatement es -> pad + expressionStatement(es.expression()) + ";\n";
+            case ExpressionAsStatement es -> pad + expressionStatement(es.expression(), pad) + ";\n";
             case LocalVariableCreation lvc -> localVariables(lvc, pad);
             case ReturnStatement rs -> pad + returnStatement(rs) + ";\n";
             case IfElseStatement ife -> pad + ifElse(ife, depth) + "\n";
@@ -110,6 +112,8 @@ final class RustBodyPrinter {
                 context.message(RustPrintCode.TRY_BODY_ONLY, ts, null);
                 yield pad + "{\n" + statements(ts.block(), depth + 1) + pad + "}\n";
             }
+            case SwitchStatementNewStyle sw -> pad + label + switchNewStyle(sw, depth) + "\n";
+            case SwitchStatementOldStyle sw -> pad + label + switchOldStyle(sw, depth) + "\n";
             case SynchronizedStatement ss -> {
                 context.message(RustPrintCode.SYNCHRONIZED, ss, null);
                 yield pad + "{\n" + statements(ss.block(), depth + 1) + pad + "}\n";
@@ -119,8 +123,32 @@ final class RustBodyPrinter {
     }
 
     private String expressionStatement(Expression e) {
+        return expressionStatement(e, INDENT);
+    }
+
+    private String expressionStatement(Expression e, String pad) {
         if (e instanceof Assignment a) return assignment(a, true);
+        List<MethodCall> appends = appendChain(e);
+        if (appends != null) {
+            // sb.append(a).append(b): Java returns the builder, Rust's push_str nothing; one statement per append
+            String target = expression(appends.getFirst().object()).text;
+            return appends.stream().map(mc -> RustJdk.append(target, mc.parameterExpressions().getFirst(), this))
+                    .collect(Collectors.joining(";\n" + pad));
+        }
         return expression(e).text;
+    }
+
+    /** {@code sb.append(a).append(b)…} on a {@code StringBuilder}, innermost first; {@code null} otherwise. */
+    private static List<MethodCall> appendChain(Expression e) {
+        List<MethodCall> chain = new ArrayList<>();
+        Expression current = e;
+        while (current instanceof MethodCall mc && "append".equals(mc.methodInfo().name())
+               && mc.parameterExpressions().size() == 1
+               && "java.lang.StringBuilder".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+            chain.addFirst(mc);
+            current = mc.object();
+        }
+        return chain.size() > 1 ? chain : null;
     }
 
     private String localVariables(LocalVariableCreation lvc, String pad) {
@@ -275,6 +303,246 @@ final class RustBodyPrinter {
         return expression(e).text;
     }
 
+    // ---- equals as PartialEq
+
+    /**
+     * The body of {@code equals(Object o)} as {@code eq(&self, other: &Self)}. Rust's types already guarantee what
+     * the usual preamble tests ({@code this == o}, {@code o == null}, {@code getClass()}, {@code instanceof}): those
+     * statements are left out, and {@code o}, its pattern variable and its cast are {@code other}.
+     */
+    String equalsBody(MethodInfo equals, int depth) {
+        ParameterInfo o = equals.parameters().getFirst();
+        aliases.put(o, "other");
+        StringBuilder sb = new StringBuilder();
+        for (Statement s : equals.methodBody().statements()) {
+            if (s instanceof IfElseStatement ife && preamble(ife, o)) continue;
+            if (s instanceof IfElseStatement ife && ife.expression() instanceof InstanceOf io && pattern(io, o)) {
+                // if (o instanceof T t) { return …; } return false;
+                sb.append(statements(ife.block(), depth));
+                continue;
+            }
+            if (s instanceof LocalVariableCreation lvc && lvc.otherLocalVariables().isEmpty()
+                && CstQueries.unwrap(lvc.localVariable().assignmentExpression()) instanceof Cast c
+                && isVariable(c.expression(), o)) {
+                aliases.put(lvc.localVariable(), "other");
+                continue;
+            }
+            sb.append(statement(s, depth));
+        }
+        return sb.toString();
+    }
+
+    /** An {@code if} without else whose block only returns a constant, and whose test only looks at identity and type. */
+    private boolean preamble(IfElseStatement ife, ParameterInfo o) {
+        if (ife.elseBlock() != null && !ife.elseBlock().statements().isEmpty()) return false;
+        List<Statement> then = ife.block().statements();
+        if (then.size() != 1 || !(then.getFirst() instanceof ReturnStatement rs)
+            || !(rs.expression() instanceof BooleanConstant)) {
+            return false;
+        }
+        boolean[] other = {false};
+        ife.expression().visit(e -> {
+            switch (e) {
+                case InstanceOf io -> pattern(io, o);
+                case MethodCall mc when !"getClass".equals(mc.methodInfo().name()) -> other[0] = true;
+                case VariableExpression ve when !(ve.variable() instanceof This) && !o.equals(ve.variable()) ->
+                        other[0] = true;
+                default -> {
+                }
+            }
+            return !other[0];
+        });
+        return !other[0];
+    }
+
+    /** {@code o instanceof T t}: {@code t} is {@code other}. */
+    private boolean pattern(InstanceOf io, ParameterInfo o) {
+        if (!isVariable(io.expression(), o)) return false;
+        if (io.patternVariable() != null && io.patternVariable().localVariable() != null) {
+            aliases.put(io.patternVariable().localVariable(), "other");
+        }
+        return true;
+    }
+
+    private static boolean isVariable(Expression e, Variable v) {
+        return CstQueries.unwrap(e) instanceof VariableExpression ve && v.equals(ve.variable());
+    }
+
+    // ---- switch as match
+
+    /** {@code match selector { A | B => { … } _ => {} }}: a switch statement does nothing for a missing case. */
+    private String switchNewStyle(SwitchStatementNewStyle sw, int depth) {
+        String pad = INDENT.repeat(depth);
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        List<Expression> labels = new ArrayList<>();
+        boolean hasDefault = false;
+        for (SwitchEntry entry : sw.entries()) {
+            if (entry.patternVariable() != null) return unsupported(entry, "pattern in a switch") + ";";
+            boolean isDefault = isDefault(entry.conditions());
+            hasDefault |= isDefault;
+            entry.conditions().stream().filter(c -> !c.isEmpty()).forEach(labels::add);
+            String head = isDefault ? "_" : caseLabels(entry.conditions());
+            List<Statement> body = entry.statement() instanceof Block b ? CstQueries.own(b.statements())
+                    : List.of(entry.statement());
+            sb.append(pad).append(INDENT).append(head).append(" => ").append(arm(withoutFinalBreak(body), depth + 1));
+        }
+        if (!hasDefault && !exhaustive(sw.expression(), labels)) sb.append(pad).append(INDENT).append("_ => {}\n");
+        return sb.append(pad).append("}").toString();
+    }
+
+    /**
+     * Java's groups of labels, each with its statements up to the next group; a group that does not end in a jump
+     * falls through, and gets the following groups' statements copied up to the first that does.
+     */
+    private String switchOldStyle(SwitchStatementOldStyle sw, int depth) {
+        String pad = INDENT.repeat(depth);
+        List<CstQueries.SwitchGroup> groups = CstQueries.switchGroups(sw);
+        StringBuilder sb = new StringBuilder("match " + selector(sw.expression()) + " {\n");
+        List<Expression> labels = new ArrayList<>();
+        boolean hasDefault = false;
+        for (int i = 0; i < groups.size(); i++) {
+            List<Statement> arm = new ArrayList<>(groups.get(i).own());
+            for (int j = i + 1; j < groups.size() && !endsInJump(arm); j++) arm.addAll(groups.get(j).own());
+            List<Expression> conditions = groups.get(i).labels().stream()
+                    .map(SwitchStatementOldStyle.SwitchLabel::literal).toList();
+            boolean isDefault = conditions.stream().anyMatch(c -> c == null || c.isEmpty());
+            hasDefault |= isDefault;
+            if (!isDefault) labels.addAll(conditions);
+            String head = isDefault ? "_" : caseLabels(conditions);
+            sb.append(pad).append(INDENT).append(head).append(" => ").append(arm(withoutFinalBreak(arm), depth + 1));
+        }
+        if (!hasDefault && !exhaustive(sw.expression(), labels)) sb.append(pad).append(INDENT).append("_ => {}\n");
+        return sb.append(pad).append("}").toString();
+    }
+
+    /** The statements of an arm, in braces. A {@code break} inside would leave the enclosing loop in Rust. */
+    private String arm(List<Statement> body, int depth) {
+        String pad = INDENT.repeat(depth);
+        StringBuilder sb = new StringBuilder("{\n");
+        for (Statement s : body) {
+            if (breaksOutOfSwitch(s)) context.message(RustPrintCode.UNSUPPORTED, s, "break inside a switch arm");
+            sb.append(statement(s, depth + 1));
+        }
+        return sb.append(pad).append("}\n").toString();
+    }
+
+    /** {@code match selector { A => value, … }}: Java's switch expression is exhaustive. */
+    private Printed switchExpression(SwitchExpression se) {
+        int depth = 2;
+        String pad = INDENT.repeat(depth);
+        StringBuilder sb = new StringBuilder("match " + selector(se.selector()) + " {\n");
+        List<Expression> labels = new ArrayList<>();
+        boolean hasDefault = false;
+        for (SwitchEntry entry : se.entries()) {
+            if (entry.patternVariable() != null) return value(unsupported(entry, "pattern in a switch"));
+            boolean isDefault = isDefault(entry.conditions());
+            hasDefault |= isDefault;
+            entry.conditions().stream().filter(c -> !c.isEmpty()).forEach(labels::add);
+            String head = isDefault ? "_" : caseLabels(entry.conditions());
+            sb.append(pad).append(INDENT).append(head).append(" => ")
+                    .append(armValue(entry.statement(), se.parameterizedType(), depth + 1)).append(",\n");
+        }
+        if (!hasDefault && !exhaustive(se.selector(), labels)) {
+            sb.append(pad).append(INDENT).append("_ => unreachable!(),\n");
+        }
+        return value(sb.append(pad).append("}").toString());
+    }
+
+    /** The value of an arm of a switch expression: its expression, or a block whose last statement yields. */
+    private String armValue(Statement s, ParameterizedType type, int depth) {
+        switch (s) {
+            case ExpressionAsStatement es -> {
+                return armExpression(es.expression(), type);
+            }
+            case YieldStatement ys -> {
+                return armExpression(ys.expression(), type);
+            }
+            case ThrowStatement ts -> {
+                return throwStatement(ts);
+            }
+            case Block b -> {
+                List<Statement> body = CstQueries.own(b.statements());
+                if (body.size() == 1) return armValue(body.getFirst(), type, depth);
+                String pad = INDENT.repeat(depth);
+                StringBuilder sb = new StringBuilder("{\n");
+                for (int i = 0; i < body.size(); i++) {
+                    Statement st = body.get(i);
+                    if (i == body.size() - 1 && st instanceof YieldStatement ys) {
+                        sb.append(pad).append(INDENT).append(armExpression(ys.expression(), type)).append("\n");
+                    } else {
+                        sb.append(statement(st, depth + 1));
+                    }
+                }
+                return sb.append(pad).append("}").toString();
+            }
+            default -> {
+                return unsupported(s, s.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private String armExpression(Expression e, ParameterizedType type) {
+        Printed p = widen(expression(e), e, type);
+        return RustTypes.isCopy(type) ? p.text : owned(p, type);
+    }
+
+    /** The selector: a string is matched as a {@code &str}, a nullable value unwrapped as Java would throw. */
+    private String selector(Expression selector) {
+        String text = operand(selector);
+        return RustTypes.isString(selector.parameterizedType()) ? text + ".as_str()" : text;
+    }
+
+    private String caseLabels(List<Expression> conditions) {
+        return conditions.stream().filter(c -> c != null && !c.isEmpty()).map(this::caseLabel)
+                .collect(Collectors.joining(" | "));
+    }
+
+    /** A case label: an enum constant, written unqualified in Java, is the variant's path in Rust. */
+    private String caseLabel(Expression c) {
+        if (c instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.fieldInfo().isStatic()
+            && fr.fieldInfo().owner().typeNature().isEnum()) {
+            return field(fr).text;
+        }
+        return expression(c).text;
+    }
+
+    private static boolean isDefault(List<Expression> conditions) {
+        return conditions.isEmpty() || conditions.stream().anyMatch(Expression::isEmpty);
+    }
+
+    /** Rust wants every value matched; a switch over all the constants of an enum needs no wildcard. */
+    private static boolean exhaustive(Expression selector, List<Expression> labels) {
+        TypeInfo ti = selector.parameterizedType().typeInfo();
+        if (ti == null || !ti.typeNature().isEnum()) return false;
+        long constants = ti.fields().stream().filter(f -> f.isStatic() && f.type().typeInfo() == ti).count();
+        return labels.size() >= constants;
+    }
+
+    private static List<Statement> withoutFinalBreak(List<Statement> statements) {
+        if (!statements.isEmpty() && statements.getLast() instanceof BreakStatement bs && bs.goToLabel() == null) {
+            return statements.subList(0, statements.size() - 1);
+        }
+        return statements;
+    }
+
+    private static boolean endsInJump(List<Statement> statements) {
+        if (statements.isEmpty()) return false;
+        Statement last = statements.getLast();
+        return last instanceof BreakStatement || last instanceof ContinueStatement || last instanceof ReturnStatement
+               || last instanceof ThrowStatement || last instanceof Block b && endsInJump(b.statements());
+    }
+
+    /** An unlabeled {@code break} that leaves the switch, not a loop inside the arm. */
+    private static boolean breaksOutOfSwitch(Statement s) {
+        boolean[] found = {false};
+        s.visit(e -> {
+            if (e instanceof BreakStatement bs && bs.goToLabel() == null) found[0] = true;
+            return !found[0] && !(e instanceof LoopStatement) && !(e instanceof SwitchStatementNewStyle)
+                   && !(e instanceof SwitchStatementOldStyle) && !(e instanceof Lambda);
+        });
+        return found[0];
+    }
+
     // ---- expressions
 
     private Printed expression(Expression e) {
@@ -303,6 +571,8 @@ final class RustBodyPrinter {
             case Cast c -> cast(c);
             case ArrayLength al -> value(expression(al.scope()).text + ".len() as i32");
             case Lambda lambda -> lambda(lambda);
+            case SwitchExpression se -> switchExpression(se);
+            case MethodReference mr -> methodReference(mr);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
         };
     }
@@ -312,6 +582,8 @@ final class RustBodyPrinter {
     }
 
     private Printed variable(Variable variable, Element where) {
+        String alias = aliases.get(variable);
+        if (alias != null) return new Printed(alias, Held.SHARED, false);
         return switch (variable) {
             case This ignored -> {
                 Receiver receiver = context.method == null ? Receiver.EXCLUSIVE : context.facts.receiver(context.method);
@@ -356,6 +628,9 @@ final class RustBodyPrinter {
             if (owner != context.type && !owner.compilationUnit().externalLibrary()) {
                 String module = RustNames.module(owner.packageName());
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(owner));
+            }
+            if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
+                return value(prefix + "::" + RustNames.variant(f.name()));
             }
             return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
         }
@@ -562,6 +837,38 @@ final class RustBodyPrinter {
         }
     }
 
+    /**
+     * A method reference as a closure: {@code Order::customer} is {@code |x| x.customer()}, {@code Type::of} is
+     * {@code |x| Type::of(x)}, {@code this::add} is {@code |x| self.add(x)}.
+     */
+    private Printed methodReference(MethodReference mr) {
+        MethodInfo m = mr.methodInfo();
+        int n = mr.concreteParameterTypes().size();
+        List<String> params = new ArrayList<>();
+        for (int i = 0; i < n; i++) params.add(n == 1 ? "x" : "x" + (i + 1));
+        String closure = "|" + String.join(", ", params) + "| ";
+        if (m.typeInfo().compilationUnit().externalLibrary()) {
+            String jdk = RustJdk.reference(m, params);
+            if (jdk != null) return value(closure + jdk);
+            return value(unsupported(mr, "method reference " + m.fullyQualifiedName()));
+        }
+        String owner = m.typeInfo() == context.type ? "Self" : RustNames.type(m.typeInfo());
+        if (m.typeInfo() != context.type) {
+            String module = RustNames.module(m.typeInfo().packageName());
+            if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(m.typeInfo()));
+        }
+        String name = RustNames.method(m);
+        if (m.isConstructor() || m.isStatic()) {
+            return value(closure + owner + "::" + name + "(" + String.join(", ", params) + ")");
+        }
+        if (mr.scope() instanceof TypeExpression) {
+            // unbound: the first parameter is the object
+            if (params.isEmpty()) return value(unsupported(mr, "method reference without parameters"));
+            return value(closure + params.getFirst() + "." + name + "(" + String.join(", ", params.subList(1, n)) + ")");
+        }
+        return value(closure + expression(mr.scope()).text + "." + name + "(" + String.join(", ", params) + ")");
+    }
+
     // ---- calls
 
     private Printed methodCall(MethodCall mc) {
@@ -573,6 +880,10 @@ final class RustBodyPrinter {
             String object = mc.object() == null || mc.objectIsImplicit() ? context.receiver : expression(mc.object()).text;
             return value(object + "." + RustNames.snake(callee.name()) + "(" + arguments(mc.parameterExpressions(), null)
                          + ")");
+        }
+        if (RustTypePrinter.isEquals(callee) && mc.object() != null && !mc.objectIsImplicit()) {
+            return value(adapt(expression(mc.object()), Held.SHARED) + " == "
+                         + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED));
         }
         String name = RustNames.method(callee);
         String args = arguments(mc.parameterExpressions(), callee);
@@ -680,10 +991,10 @@ final class RustBodyPrinter {
         if (RustTypes.isString(type) && (p.held == Held.PLACE || p.held == Held.VALUE && isName(p.text))) {
             return p.text + ".clone()";
         }
-        // an @Immutable record (no hidden content) derives Clone, and a copy cannot be told from the shared object:
-        // a borrowed one is copied where an owned one is expected. Any other type stays a mismatch for rustc to report.
-        if (RustTypes.isRecord(type) && context.facts.immutable(type.typeInfo())
-            && (p.held == Held.SHARED || p.held == Held.PLACE)) {
+        // an @Immutable class or record (no hidden content) derives Clone, and a copy cannot be told from the shared
+        // object: a borrowed one is copied where an owned one is expected. Any other type stays a mismatch for rustc.
+        if (RustTypes.isImmutableValue(type, context.facts) && (p.held == Held.SHARED || p.held == Held.PLACE
+                                                               || p.held == Held.VALUE && isName(p.text))) {
             return p.text + (p.nullable ? ".cloned()" : ".clone()");
         }
         return p.text;
@@ -715,7 +1026,10 @@ final class RustBodyPrinter {
 
     String index(Expression e) {
         if (e instanceof IntConstant ic) return Integer.toString(ic.constant());
-        return operand(e) + " as usize";
+        String text = operand(e);
+        // a size, which went to i32 for Java's arithmetic, is a usize already
+        if (text.endsWith(".len() as i32")) return text.substring(0, text.length() - " as i32".length());
+        return text + " as usize";
     }
 
     static Printed printed(String text, Held held, boolean nullable) {
@@ -769,6 +1083,9 @@ final class RustBodyPrinter {
                 }
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
                        && isLocal(fr.scope(), lv)) {
+                found[0] = true;
+            } else if (e instanceof Assignment a && a.target().variable() instanceof DependentVariable dv
+                       && isLocal(dv.arrayExpression(), lv)) {
                 found[0] = true;
             }
             return !found[0];
