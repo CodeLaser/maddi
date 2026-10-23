@@ -811,7 +811,9 @@ final class KotlinNullability {
             return false;
         }
         NullableState explicit = io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(pi);
-        if (explicit != null) return explicit == NullableState.NONNULL;
+        // String.format(String, @NotNull(nullableArguments = 0) Object... args): the annotation is the array's, its
+        // elements take null (fernflower's ConverterHelperTest formats a null class name)
+        if (explicit != null) return explicit == NullableState.NONNULL && !pi.isVarArgs();
         return !pi.parameterizedType().isTypeParameter()
                && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(pi.methodInfo());
     }
