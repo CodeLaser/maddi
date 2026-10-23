@@ -168,4 +168,72 @@ public class TestJavaToRustStatements extends CommonJavaToRust {
         contains(rust, "return a == b;");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String ALIASING = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Aliasing {
+                private final Map<String, Integer> counts = new HashMap<>();
+                private final Map<String, Object> data = new HashMap<>();
+                private String mode = "a";
+                private int changes;
+
+                public void setMode(String m) {
+                    String old = mode;
+                    mode = m;
+                    record(old, m);
+                }
+
+                public void record(String from, String to) {
+                    changes++;
+                }
+
+                public void touch() {
+                    record(mode, "b");
+                }
+
+                public void bump(String key) {
+                    counts.put(key, counts.getOrDefault(key, 0) + 1);
+                }
+
+                public void put(String key, int value) {
+                    data.put(key, value);
+                }
+
+                public int get(String key) {
+                    return (int) data.get(key);
+                }
+
+                public boolean isMode(String m) {
+                    return "a".equals(data.get(m));
+                }
+            }
+            """;
+
+    /** Java's aliasing of immutable values, which Rust's borrows would reject: copies; Object as Box<dyn Any>. */
+    @DisplayName("a string kept across an assignment, a field passed to a &mut self method, Object values: compiles")
+    @Test
+    public void aliasing() throws Exception {
+        List<TypeInfo> types = parse(ALIASING);
+        TypeInfo aliasing = types.getFirst();
+        modifying(aliasing, "setMode", "record", "touch", "bump", "put");
+        nonModifying(aliasing, "get", "isMode");
+        for (String m : List.of("setMode", "bump", "put", "get", "isMode")) {
+            borrowed(method(aliasing, m).parameters().getFirst());
+        }
+        borrowed(method(aliasing, "record").parameters().get(0));
+        borrowed(method(aliasing, "record").parameters().get(1));
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "let old = self.mode.clone();");
+        contains(rust, "self.record(&self.mode.clone(), \"b\");");
+        contains(rust, "{ let v = self.counts.get(key).copied().unwrap_or(0) + 1; self.counts.insert(key.to_string(), v) }");
+        contains(rust, "self.data.insert(key.to_string(), Box::new(value));");
+        contains(rust, "return *self.data.get(key).unwrap().downcast_ref::<i32>().unwrap();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

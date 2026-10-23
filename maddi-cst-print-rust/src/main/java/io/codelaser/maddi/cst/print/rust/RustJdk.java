@@ -268,7 +268,7 @@ final class RustJdk {
         Printed a = printer.printed(arg);
         io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
         boolean object = type.typeInfo() != null && type.typeInfo().isJavaLangObject();
-        String self = "&" + paren(o) + "[..]";
+        String self = o.startsWith("\"") ? o : "&" + paren(o) + "[..]";
         String test = object ? "v.downcast_ref::<String>().map_or(false, |s| s.as_str() == " + self + ")"
                 : "v.as_str() == " + self;
         if (a.nullable()) return value(a.text() + ".as_ref().map_or(false, |v| " + test + ")");
@@ -541,8 +541,16 @@ final class RustJdk {
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
-            case "put/2" -> value(o + ".insert(" + printer.ownedAs(args.get(0), typeArgument(mc, 0)) + ", "
-                                  + printer.ownedAs(args.get(1), typeArgument(mc, 1)) + ")");
+            case "put/2" -> {
+                String key = printer.ownedAs(args.get(0), typeArgument(mc, 0));
+                String v = printer.ownedAs(args.get(1), typeArgument(mc, 1));
+                // the value reads the map being modified (m.put(k, m.get(k) + 1)): computed before the exclusive borrow
+                String root = o.replaceFirst("[.\\[(].*$", "");
+                if (java.util.regex.Pattern.compile("\\b" + java.util.regex.Pattern.quote(root) + "\\b").matcher(v).find()) {
+                    yield value("{ let v = " + v + "; " + o + ".insert(" + key + ", v) }");
+                }
+                yield value(o + ".insert(" + key + ", " + v + ")");
+            }
             // Java's null for an absent key is Rust's None
             case "get/1" -> copyValues(mc)
                     ? RustBodyPrinter.printed(o + ".get(" + printer.reference(args.getFirst()) + ").copied()", Held.VALUE, true)

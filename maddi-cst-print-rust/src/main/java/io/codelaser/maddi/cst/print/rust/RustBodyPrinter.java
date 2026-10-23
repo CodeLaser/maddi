@@ -176,7 +176,12 @@ final class RustBodyPrinter {
         boolean mutated = mutated(lv);
         String text = value.text;
         Held held = value.held;
-        if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
+        if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
+                                   || RustTypes.isImmutableValue(lv.parameterizedType(), context.facts))) {
+            // an immutable value: the local is a copy, so that the field may be assigned while it lives
+            text = text + ".clone()";
+            held = Held.VALUE;
+        } else if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
             // an element or a field: the local refers to it, as Java's reference does
             text = (mutated ? "&mut " : "&") + text;
             held = mutated ? Held.EXCLUSIVE : Held.SHARED;
@@ -963,7 +968,9 @@ final class RustBodyPrinter {
                          + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED));
         }
         String name = RustNames.method(callee);
-        String args = arguments(mc.parameterExpressions(), callee);
+        boolean exclusive = !callee.isStatic() && context.facts.receiver(callee) == Receiver.EXCLUSIVE;
+        String args = exclusive ? withoutSelfBorrows(mc.parameterExpressions(), callee)
+                : arguments(mc.parameterExpressions(), callee);
         String call;
         if (callee.isStatic()) {
             TypeInfo owner = callee.typeInfo();
@@ -1024,6 +1031,30 @@ final class RustBodyPrinter {
         }
         String name = constructor == null ? "new" : RustNames.method(constructor);
         return value(owner + "::" + name + "(" + arguments(cc.parameterExpressions(), constructor) + ")");
+    }
+
+    /**
+     * The arguments of a call that borrows {@code self} exclusively: a string read from {@code self} is passed as a
+     * copy, as a borrow of it could not live beside the exclusive one (Java shares an immutable string freely).
+     */
+    private String withoutSelfBorrows(List<Expression> arguments, MethodInfo callee) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < arguments.size(); i++) {
+            Expression a = arguments.get(i);
+            Printed p = expression(a);
+            ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
+            boolean fromSelf = p.text.startsWith(context.receiver + ".") && RustTypes.isString(a.parameterizedType())
+                               && !p.text.contains("(");
+            if (pi != null && fromSelf && context.facts.passing(pi) == Passing.SHARED) {
+                String text = "&" + p.text + ".clone()";
+                boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
+                if (p.nullable) text = p.text + ".clone().as_deref()";
+                out.add(nullable && !p.nullable ? "Some(" + text + ")" : text);
+            } else {
+                out.add(pi == null ? p.text : argument(p, pi, a));
+            }
+        }
+        return String.join(", ", out);
     }
 
     /** The arguments, each adapted to the parameter it is passed to. Without a callee: as they are. */
