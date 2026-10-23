@@ -153,7 +153,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
 
     /**
      * nacos's DefaultGrpcClientConfig: {@code private String name} beside {@code name()} of the RpcClientConfig
-     * interface, a property in Kotlin: the field is renamed, as an enum's is.
+     * interface. No enum implements the interface, so its {@code name()} stays a function, and the field keeps its
+     * name beside it (where it is a property, the field is renamed, as an enum's is).
      */
     @Test
     public void nameFieldBesideNameProperty() {
@@ -173,7 +174,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        contains(kotlin, "_name");
+        contains(kotlin, "private var name: String = \"grpc\"");
+        contains(kotlin, "override fun name(): String = this.name");
         compiles(kotlin);
     }
 
