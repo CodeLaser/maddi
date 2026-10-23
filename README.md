@@ -3,8 +3,7 @@
 [![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)](https://github.com/CodeLaser/maddi/actions/workflows/build.yml)
 
 **maddi is a whole-program analysis engine for Java and Kotlin.** At its core is a *linking engine*: for every
-field, parameter, return value and local, it works out which objects flow where, and which of them share state.
-You write no annotations; maddi computes them. Three applications are built on the same facts:
+field, parameter, return value and local, it works out which objects flow where, and which of them share state. Three applications are built on the same facts:
 
 - **Modification and immutability.** Which methods modify what. Which types are `@Immutable`, `@Container` or
   `@Independent`, at what level, and what stops them from going higher.
@@ -12,6 +11,8 @@ You write no annotations; maddi computes them. Three applications are built on t
   there.
 - **Translation.** Idiomatic Kotlin from a whole Java program, with nullability and read-only collections decided by
   the analyses. Java → C# is experimental.
+
+Java and Kotlin parse to the same, fully resolved, **eventually immutable** common syntax tree, on which the linking engine runs.
 
 ## Modification and immutability
 
@@ -46,13 +47,12 @@ A tool that answers "not immutable" for both versions has told you nothing about
 
 The four levels are `@Mutable` → `@FinalFields` → `@Immutable(hc=true)` → `@Immutable`. Independence is a
 separate axis. **Eventual immutability** covers the builder/freeze pattern (`@Mark`, `@Only`,
-`@Immutable(after=…)`): types that are mutable while being constructed and immutable ever after. The book,
-[*The Road to Immutability*](https://www.codelaser.io/maddi/road/), develops the concepts in full; the
-[condensed digest](road-to-immutability/llm-summary.md) is the fastest way in.
+`@Immutable(after=…)`): types that are mutable while being constructed and immutable ever after. The booklet
+[*The Road to Immutability*](https://www.codelaser.io/maddi/road/) develops the concepts in full.
 
 ## Nullability
 
-The nullability pass runs after the modification analysis, on the same link facts. It decides, for every field,
+The nullability pass can run after the modification analysis, on the same link facts. It decides, for every field,
 parameter, method return and type argument, whether it can hold `null`. The annotated APIs that come with maddi
 seed it, and they are generated from JSpecify's annotated JDK. A library marked `@NullMarked` is honoured.
 
@@ -61,7 +61,7 @@ and `!!` or `!` where the analysis knows a value is there but the types cannot s
 
 ## Translation
 
-The same command line that analyses a project translates its main sources to Kotlin or C#. Take this input:
+The same command line that analyses a project can translate its main sources to Kotlin or C#. Take this input:
 
 ```java
 public class Inventory {
@@ -81,55 +81,72 @@ public class Inventory {
 }
 ```
 
-`maddi --translate kotlin` prints the following, shown here as an excerpt:
+`maddi --translate kotlin` prints, leaving out the same members:
 
 ```kotlin
-open fun find(name: String): Item? = items.get(name)
+open class Inventory {
+    private val items: MutableMap<String, Item> = HashMap<String, Item>()
 
-@JvmRecord data class Item(val name: String, val count: Int)
+    open fun find(name: String): Item? = items.get(name)
 
-companion object {
-    @JvmStatic fun total(list: List<Item>): Int {
-        var sum = 0
-        for (item in list) { sum += item.count }
-        return sum
+    open fun names(): MutableList<String> = ArrayList<String>(items.keys)
+
+    @JvmRecord data class Item(val name: String, val count: Int)
+
+    companion object {
+        @JvmStatic fun total(list: List<Item>): Int {
+            var sum = 0
+            for (item in list) { sum += item.count }
+            return sum
+        }
     }
+    // ...
 }
-
-open fun names(): MutableList<String> = ArrayList<String>(items.keys)
 ```
 
-`maddi --translate csharp` prints:
+Kotlin has no static methods: the static `total` moves into the class's `companion object`. `maddi --translate csharp`
+prints:
 
 ```csharp
-public Item? Find(string name) => items.Get(name);
+public sealed class Inventory {
+    private readonly IDictionary<string, Item> items = new Dictionary<string, Item>();
 
-public static int Total(IReadOnlyList<Item> list) { ... }
+    public Item? Find(string name) => items.Get(name);
 
-public List<string> Names() => new List<string>(items.Keys);
+    public static int Total(IReadOnlyList<Item> list) {
+        int sum = 0;
+        foreach (Item item in list) { sum += item.Count; }
+        return sum;
+    }
 
-public sealed record Item(string Name, int Count);
+    public List<string> Names() => new List<string>(items.Keys);
+
+    public sealed record Item(string Name, int Count);
+    // ...
+}
 ```
 
 `find` returns `Item?` because `Map.get` can return null and nothing in between excludes it. `total` gets a
 read-only `List<Item>` and `IReadOnlyList<Item>` because the modification analysis shows it never modifies the
 list. `names` returns a fresh list the caller owns, so it stays mutable.
 
-The translation works on the whole program, not one file at a time. Corpus ratchets pin it on real projects. Each
-one prints the corpus, compiles the result with `kotlinc` or Roslyn, and, for Kotlin, runs the project's own tests
-against the translated classes:
+The translation works on the whole program, not one file at a time. It is measured on six open-source corpora: each
+is printed as Kotlin and compiled with `kotlinc`. The C# output is compiled with Roslyn.
 
-| Java → Kotlin | files compiling | tests passing: Kotlin classes / original Java |
+| Java → Kotlin | files | compiling |
 |---|---|---|
-| Fernflower | 199 of 199 | 264 / 264 |
-| LangChain4j core | 346 of 346 | 1,106 / 1,111 (the 5 differences are by design) |
-| Guava | 389 of 610 pinned; 603 of 610 in the latest measurement | 862,912 / 865,124 (at the pinned state) |
+| Fernflower | 199 | 198 |
+| LangChain4j core | 346 | 346 |
+| Guava | 610 | 603 |
+| Nacos client API | 274 | 271 |
+| Jenkins core | 1,329 | 1,271 |
+| Timefold Solver core | 1,583 | 1,361 |
 
-| Java → C# (experimental) | files compiling |
-|---|---|
-| Fernflower | 185 of 199 |
-| LangChain4j core | 301 of 346 |
-| Timefold Solver core | 1,324 of 1,583 |
+| Java → C# (experimental) | files | compiling |
+|---|---|---|
+| Fernflower | 199 | 185 |
+| LangChain4j core | 346 | 301 |
+| Timefold Solver core | 1,583 | 1,324 |
 
 ## Languages
 
@@ -150,7 +167,7 @@ against the translated classes:
 | Kotlin front end | Close to parity with Java; ships in the `maddi-kotlin` CLI |
 | Linking engine; modification and immutability analysis | Runs to a certified fixpoint on the proving-ground corpus (Timefold, LangChain4j, Fernflower, Guava, ActiveMQ, Jenkins, Camel) |
 | Nullability | New in 0.9.5; reaches users through the translations |
-| Java → Kotlin translation | New in 0.9.5; whole-program, ratcheted on three corpora |
+| Java → Kotlin translation | New in 0.9.5; whole-program, measured on six corpora |
 | Java → C# translation | New in 0.9.5; experimental |
 | Gradle and Maven plugins, CLI | Published |
 | IDE plugins (IntelliJ, Eclipse, VS Code) | Build from source only |
@@ -197,7 +214,7 @@ examples.
 
 ## The annotations
 
-The one thing your own code compiles against is the annotations library. It is on Maven Central, targets Java 17,
+The one thing your own code could compile against is the annotations library. It is on Maven Central, targets Java 17,
 and is **Apache-2.0** licensed, so you can depend on it without taking on the analyzer's LGPL:
 
 ```kotlin
@@ -286,8 +303,7 @@ package was `org.e2immu.*`, after the predecessor; it became `io.codelaser.maddi
 maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at [CodeLaser](https://codelaser.io), and is
 and will remain open source. The **analyzer** is LGPL-3.0. The **annotations** (`maddi-annotation`, with
 `maddi-support`), the only artifacts your own code compiles against, are **Apache-2.0** from 0.9.0 onward, so
-depending on them carries no obligation. CodeLaser's commercial Refactor product is built on this engine; the engine
-stays here, under this licence. Questions, use cases and criticism are all welcome: mail, or open an issue.
+depending on them carries no obligation. CodeLaser's commercial Refactor product is built on maddi. Questions, use cases and criticism are all welcome: mail, or open an issue.
 
 ___
 

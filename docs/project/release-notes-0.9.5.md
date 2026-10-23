@@ -21,28 +21,27 @@ annotations compiles against 0.9.5 unchanged. Two changes to the command line ca
   - `List` or `MutableList`, and `val` or `var`, from the modification facts;
   - data classes from records, and expression bodies;
   - JSpecify and type-use `@Nullable` annotations in the input are kept.
-- **Measured on whole corpora.** Ratchets print each corpus, compile it with `kotlinc`, and run the corpus's own tests
-  against the Kotlin classes:
+- **Measured on whole corpora.** Six open-source corpora are printed as Kotlin and compiled with `kotlinc`:
 
-  | corpus | files compiling | tests passing: Kotlin classes / original Java |
+  | corpus | files | compiling |
   |---|---|---|
-  | Fernflower | 199 of 199 | 264 / 264 |
-  | LangChain4j core | 346 of 346 | 1,106 / 1,111 |
-  | Guava | 389 of 610 pinned; 603 of 610 in the latest compile-only measurement | 862,912 / 865,124 |
-
-  The five LangChain4j differences are by design. Kotlin checks a vararg array for null on entry, and a record's
-  own null check is replaced by Kotlin's.
+  | Fernflower | 199 | 198 |
+  | LangChain4j core | 346 | 346 |
+  | Guava | 610 | 603 |
+  | Nacos client API | 274 | 271 |
+  | Jenkins core | 1,329 | 1,271 |
+  | Timefold Solver core | 1,583 | 1,361 |
 
 ## Java → C# translation (experimental)
 
 - **`--translate csharp --translate-output <dir>`** writes C# under `#nullable enable` and a `Translated.csproj`.
   Roslyn judges the output:
 
-  | corpus | files compiling |
-  |---|---|
-  | Fernflower | 185 of 199 |
-  | LangChain4j core | 301 of 346 |
-  | Timefold Solver core | 1,324 of 1,583 |
+  | corpus | files | compiling |
+  |---|---|---|
+  | Fernflower | 199 | 185 |
+  | LangChain4j core | 346 | 301 |
+  | Timefold Solver core | 1,583 | 1,324 |
 
 - The JDK is mapped onto the .NET base library: collections, LINQ for streams, `java.time` and concurrency. Where
   there is no counterpart, a small compatibility layer is written next to the output.
