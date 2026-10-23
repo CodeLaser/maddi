@@ -4012,8 +4012,19 @@ public class KotlinExpressionPrinter {
     private static OutputBuilder binaryOperator(BinaryOperator bo, Qualification q) {
         String op = bo.operator().name();
         if ("&&".equals(op) || "||".equals(op)) {
-            OutputBuilder idiom = nullOrEmpty(bo.lhs(), bo.rhs(), "||".equals(op), q);
+            boolean or = "||".equals(op);
+            OutputBuilder idiom = nullGuarded(bo.lhs(), bo.rhs(), or, q);
             if (idiom != null) return idiom;
+            // a && G != null && G.m(): Java's (a && G != null) && G.m(), the pair in the left operand's right one
+            if (unwrap(bo.lhs()) instanceof BinaryOperator inner && inner.operator() != null
+                && op.equals(inner.operator().name())) {
+                OutputBuilder pair = KotlinSmartCasts.withTypes(!or ? KotlinSmartCasts.whenTrue(inner.lhs())
+                        : KotlinSmartCasts.whenFalse(inner.lhs()), () -> nullGuarded(inner.rhs(), bo.rhs(), or, q));
+                if (pair != null) {
+                    return new OutputBuilderImpl().add(operand(bo.precedence(), inner.lhs(), q)).add(KotlinSymbols.binary(op))
+                            .add(pair);
+                }
+            }
             // x is T && x.m(): the right-hand side runs where the left one is true (false for ||), and knows its tests
             OutputBuilder left = operand(bo.precedence(), bo.lhs(), q);
             OutputBuilder right = KotlinSmartCasts.withTypes("&&".equals(op) ? KotlinSmartCasts.whenTrue(bo.lhs())
@@ -4221,38 +4232,82 @@ public class KotlinExpressionPrinter {
      */
     private static OutputBuilder junction(List<Expression> operands, io.codelaser.maddi.cst.api.expression.Precedence precedence,
                                           boolean and, Qualification q) {
-        if (operands.size() == 2) {
-            OutputBuilder idiom = nullOrEmpty(operands.get(0), operands.get(1), !and, q);
-            if (idiom != null) return idiom;
-        }
         List<OutputBuilder> printed = new ArrayList<>();
         KotlinSmartCasts.Facts known = new KotlinSmartCasts.Facts();
-        for (Expression operand : operands) {
+        for (int i = 0; i < operands.size(); i++) {
+            Expression operand = operands.get(i);
             KotlinSmartCasts.Facts before = new KotlinSmartCasts.Facts(new java.util.HashMap<>(known.types()),
                     new java.util.HashSet<>(known.nonNull()));
-            printed.add(KotlinSmartCasts.withTypes(before, () -> condition(precedence, operand, q)));
-            KotlinSmartCasts.Facts more = and ? KotlinSmartCasts.whenTrue(operand) : KotlinSmartCasts.whenFalse(operand);
-            known.types().putAll(more.types());
-            known.nonNull().addAll(more.nonNull());
+            // a pair of adjacent operands, x != null && x.m(): one Kotlin expression
+            Expression next = i + 1 < operands.size() ? operands.get(i + 1) : null;
+            OutputBuilder pair = next == null ? null
+                    : KotlinSmartCasts.withTypes(before, () -> nullGuarded(operand, next, !and, q));
+            if (pair != null) {
+                if (operands.size() == 2) return pair;
+                printed.add(pair);
+            } else {
+                printed.add(KotlinSmartCasts.withTypes(before, () -> condition(precedence, operand, q)));
+            }
+            for (Expression e : pair != null ? List.of(operand, next) : List.of(operand)) {
+                KotlinSmartCasts.Facts more = and ? KotlinSmartCasts.whenTrue(e) : KotlinSmartCasts.whenFalse(e);
+                known.types().putAll(more.types());
+                known.nonNull().addAll(more.nonNull());
+            }
+            if (pair != null) i++;
         }
         return printed.stream().collect(OutputBuilderImpl.joining(and ? SymbolEnum.LOGICAL_AND : SymbolEnum.LOGICAL_OR));
     }
 
+    /** {@code x != null && P(x)} (or {@code x == null || P(x)}) as one Kotlin expression; null when it is none. */
+    private static OutputBuilder nullGuarded(Expression first, Expression second, boolean or, Qualification q) {
+        OutputBuilder idiom = nullOrEmpty(first, second, or, q);
+        return idiom != null ? idiom : guardedCall(first, second, or, q);
+    }
+
+    /**
+     * #164: {@code x != null && x.m(a)} as {@code x?.m(a) == true}; with {@code !x.m(a)}, {@code == false}; for
+     * {@code x == null || x.m(a)}, {@code != false}, and {@code != true} with the negation. For an x that Kotlin types
+     * nullable and cannot smart-cast, which {@link KotlinNullCheckShapes#readOnceAsTwice} reads once for Java's twice:
+     * otherwise {@code x!!.m(a)}. m answers a {@code boolean}, and its arguments do not mention x.
+     */
+    private static OutputBuilder guardedCall(Expression first, Expression second, boolean or, Qualification q) {
+        if (!KotlinContext.translatingJava()) return null;
+        Expression tested = nullTest(first, or);
+        if (tested == null || !KotlinNullCheckShapes.readOnceAsTwice(tested) || !KotlinNullability.nullableInKotlin(tested)) {
+            return null;
+        }
+        Expression inner = negated(second);
+        boolean negation = inner != null;
+        if (!(unwrap(negation ? inner : second) instanceof MethodCall mc) || mc.objectIsImplicit() || mc.object() == null
+            || !KotlinNullCheckShapes.sameValue(mc.object(), tested) || mc.methodInfo() == null
+            || !mc.methodInfo().returnType().isBoolean()
+            || mc.parameterExpressions().stream().anyMatch(a -> KotlinNullCheckShapes.mentions(a, tested))) {
+            return null;
+        }
+        OutputBuilder call = KotlinNullability.withSafeReceiver(mc.object(), () -> print(mc, q));
+        if (call == null) return null;
+        return call.add(KotlinSymbols.binary(or ? "!=" : "==")).add(new TextImpl(Boolean.toString(or == negation)));
+    }
+
     /**
      * {@code x == null || x.isEmpty()} as {@code x.isNullOrEmpty()}, and {@code x != null && !x.isEmpty()} as
-     * {@code !x.isNullOrEmpty()}, for a variable x of a String, CharSequence, collection or map type; null otherwise.
+     * {@code !x.isNullOrEmpty()}, for a variable x of a String, CharSequence, collection or map type, or a getter that
+     * {@link KotlinNullCheckShapes#readOnceAsTwice} reads once; null otherwise.
      * Kotlin's extension takes a nullable receiver, so neither x's verdict nor a {@code !!} matters.
      */
     private static OutputBuilder nullOrEmpty(Expression first, Expression second, boolean or, Qualification q) {
         Expression tested = nullTest(first, or);
-        if (tested == null || !(unwrap(tested) instanceof VariableExpression ve)) return null;
-        Expression emptyTest = or ? second : negated(second);
-        if (!(emptyTest != null && unwrap(emptyTest) instanceof MethodCall mc) || !"isEmpty".equals(mc.methodInfo().name())
-            || !mc.parameterExpressions().isEmpty() || mc.object() == null
-            || !(unwrap(mc.object()) instanceof VariableExpression receiver) || !ve.variable().equals(receiver.variable())) {
+        if (tested == null || !(unwrap(tested) instanceof VariableExpression
+                                || KotlinNullCheckShapes.readOnceAsTwice(tested))) {
             return null;
         }
-        ParameterizedType type = ve.variable().parameterizedType();
+        Expression emptyTest = or ? second : negated(second);
+        if (!(emptyTest != null && unwrap(emptyTest) instanceof MethodCall mc) || !"isEmpty".equals(mc.methodInfo().name())
+            || !mc.parameterExpressions().isEmpty() || mc.object() == null || mc.objectIsImplicit()
+            || !KotlinNullCheckShapes.sameValue(mc.object(), tested)) {
+            return null;
+        }
+        ParameterizedType type = unwrap(tested).parameterizedType();
         if (type == null || type.arrays() > 0 || type.typeInfo() == null
             || !(type.isJavaLangString() || "java.lang.CharSequence".equals(type.typeInfo().fullyQualifiedName())
                  || KotlinReadOnly.isCollection(type))) {
@@ -4260,7 +4315,7 @@ public class KotlinExpressionPrinter {
         }
         OutputBuilder b = new OutputBuilderImpl();
         if (!or) b.add(SymbolEnum.UNARY_BOOLEAN_NOT);
-        return b.add(print(ve, q)).add(SymbolEnum.DOT).add(new TextImpl("isNullOrEmpty"))
+        return b.add(print(tested, q)).add(SymbolEnum.DOT).add(new TextImpl("isNullOrEmpty"))
                 .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
     }
 

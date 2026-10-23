@@ -3283,4 +3283,49 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "values?.size");
         compiles(kotlin);
     }
+
+    /**
+     * #164: a nullable value tested and used in one condition, read once with {@code ?.}. fernflower's
+     * {@code first.getExprents() != null && !first.getExprents().isEmpty()}. A getter only where the analysis has it
+     * non-modifying: Java calls it twice, Kotlin once. A field of {@code this} reads the same twice, as nothing runs
+     * in between. Within a longer chain too; not for a call that may modify.
+     */
+    @Test
+    public void nullTestedGetterInOneCondition() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                class C {
+                    private List<String> items;
+                    private String name;
+                    private String label;
+                    List<String> getItems() { return items; }
+                    String getName() { return name; }
+                    String next() { label = label + "x"; return label; }
+                    boolean some() { return getItems() != null && !getItems().isEmpty(); }
+                    boolean none(C other) { return other.getItems() == null || other.getItems().isEmpty(); }
+                    boolean named(String n) { return getName() != null && getName().startsWith(n); }
+                    boolean unnamed(String n) { return getName() != null && !getName().startsWith(n); }
+                    boolean open(String n) { return getName() == null || getName().startsWith(n); }
+                    boolean closed(String n) { return getName() == null || !getName().startsWith(n); }
+                    boolean both(boolean a, String n) { return a && getName() != null && getName().endsWith(n); }
+                    boolean labelled(String n) { return label != null && label.contains(n); }
+                    boolean modifying() { return next() != null && !next().isEmpty(); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("items", "name", "label", "getItems()", "getName()", "next()")),
+                KotlinPrintOptions.NullCheck.ASSERT), type -> type.methodStream()
+                .filter(m -> m.name().startsWith("get"))
+                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+        contains(kotlin, "!getItems().isNullOrEmpty()");
+        contains(kotlin, "other.getItems().isNullOrEmpty()");
+        contains(kotlin, "getName()?.startsWith(n) == true");
+        contains(kotlin, "getName()?.startsWith(n) == false");
+        contains(kotlin, "getName()?.startsWith(n) != false");
+        contains(kotlin, "getName()?.startsWith(n) != true");
+        contains(kotlin, "a && getName()?.endsWith(n) == true");
+        contains(kotlin, "label?.contains(n) == true");
+        contains(kotlin, "next() != null && !next()!!.isEmpty()");
+        compiles(kotlin);
+    }
 }
