@@ -36,8 +36,8 @@ A `*` after a variable means it is (or may be) modified at that point: `box*.t`.
 The unit of exchange between methods is the _method link summary_ (`MethodLinkedVariables`): how a method's
 return value, parameters and receiver relate, plus which of them it modifies.
 For example, the summary of a setter `void set(X x)` on a one-field holder reads
-`[0:box*.t←1:x*] --> -`: parameter `x` is assigned into the receiver's field, both are marked modified,
-and there are no return-value links.
+`[0:box*.t←1:x*, 1:x*→0:box*.t] --> -`: parameter `x` is assigned into the receiver's field (the link and its
+reciprocal), both are marked modified, and there are no return-value links.
 Summaries are computed once per method and then _applied_ at every call site, translating the callee's
 formal `this` and parameters into the actual receiver and arguments.
 
@@ -86,6 +86,17 @@ into the consumer", and the lifting engine substitutes the lambda's parameter by
 When the lambda is not yet known (a method that merely receives a `Consumer` and applies it), the
 application is recorded symbolically and resolved later, at the caller that supplies the concrete lambda.
 
+Alternatives are linked apart and then joined (since 2026-09): the then- and else-blocks of an `if` are each
+linked from their own copy of the graph as it stood before the statement, and the graph after the statement is
+the union of the states the blocks end in, plus the state before when there is no `else`.
+An assignment is a strong update that erases its target's edges, and linked into one shared graph the
+else-block erased what the then-block had established.
+The union is not re-closed, since a then-else composition describes no execution; a variable stays in an
+assignment group (next section but one) only when every alternative puts it there, and is otherwise evicted,
+with an assignment edge to the group's representative.
+Switches, loops and `try` are still linked sequentially; the gate `NOFORK` restores sequential linking for an
+A/B.
+
 == The closure: facts, witnesses, and an incremental fixpoint
 
 Links compose: from `a ← b` and `b ∈ c.§xs` follows `a ∈ c.§xs`.
@@ -115,8 +126,8 @@ Two practical notes on this machinery:
 
 == The shared-variable collapse
 
-The system as described so far has a scaling problem, and solving it is the most substantial recent change
-to the link engine.
+The system as described so far has a scaling problem, and solving it was a substantial change to the link
+engine (2026-07).
 Consider a builder-style method that threads one object through many locals: every local is assigned from
 the previous one, every field of the object is reachable from every local, and the naive link set grows as
 (locals × fields × natures) — the _part-of link explosion_.
@@ -150,7 +161,9 @@ the de-facto specification.
 == Null as a value in the link graph
 
 The chapter on <<nullability>> describes nullability as reachability over the links.
-Four things in the link engine make that possible, all of them inert for the modification analysis:
+Four things in the link engine make that possible.
+Only the provenance bit is inert for the modification analysis; keeping markers in the summaries changes them,
+so that, and the argument links, are off unless the nullability configuration asks for them:
 
 * `null` enters the graph as any constant does: a _constant marker_ variable (written `$_ce0`, `$_ce1`, …
   in the engine's output) whose expression is the null literal.
@@ -171,6 +184,7 @@ Four things in the link engine make that possible, all of them inert for the mod
   symmetric, transitive and path-insensitive.
   Nullability wants provenance — which literal, call or variable flows into which position, at which
   statement — and reads the direct links.
+  The bit lives in the run only: a summary decoded from stored results reads as direct.
 
 The virtual fields name the content positions: `list.§xs` is the list's type argument, the key and value
 slices of `map.§kvs` are the map's two, `box.t` is the holder's `T`, and an array element `a[i]` is the

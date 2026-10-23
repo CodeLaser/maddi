@@ -61,13 +61,14 @@ We write them in Kotlin's notation, which has a place for every one of them: `Ma
 non-null map with non-null keys and nullable values; `String?[]` is a non-null array whose elements may be
 `null`.
 
-In Java, type-use annotations say the same (`Map<String, @Nullable String>`, `@Nullable String[]`), and
-the analyzer writes them when asked for a flavour that supports them.
+In Java, type-use annotations say the same (`Map<String, @Nullable String>`, `@Nullable String[]`).
+The analyzer's Java output writes the top-level state today, and an array's element state in a type-use flavour;
+the type arguments reach Java only through {maddi}'s own `nullableArguments`, and the Kotlin and C# types in full.
 The {maddi} annotations are declaration annotations, and summarize the content in two ways:
 
 * {nnContent} states that the value is not null, and neither is any of its content: no `null` elements in
 the array or collection, no `null` keys or values in the map.
-This is the shape the annotated APIs use for factories such as `List.of` and `Map.copyOf`.
+This is the shape the annotated APIs use for factories such as `List.of` and `Map.of`.
 * `+@NotNull(nullableArguments={1})+` and its {nullable} counterpart name the type arguments, by position,
 that may hold `null`, one level deep; on an array type, position `0` stands for the elements.
 The annotated JDK writes this where JSpecify annotates a type argument: `Collection.toArray()` returns
@@ -156,7 +157,7 @@ class Registry {
 <6> `find(key)` is evaluated only where `key` is known not to be `null`, so nothing flows into `find`'s
 parameter; the local `e` is nullable, and the dereference `e.size()` is guarded.
 
-Callouts 6 shows the second half of the computation.
+Callout 6 shows the second half of the computation.
 Links are not path-sensitive — after `if (x == null) x = "default";` the variable `x` still links to the
 `null` — so the analyzer walks every method body a second time, in statement order, and records at each
 statement which locals, parameters and fields of `this` are _known not to be null_ there: after
@@ -201,8 +202,9 @@ Whatever the caller passes, `null` throws.
 
 The analyzer trusts its own conclusions in rounds: a method whose return value no `null` reaches is, in
 the next round, a non-null value wherever it is called, and the links from its call sites can be dropped.
-Each round only shrinks what `null` reaches, so the rounds stop on their own, and the result is sound in
-the sense that a round's reachability over-approximates the real flow.
+Each round only shrinks what `null` reaches, so the rounds stop on their own, after five at most; a round also
+hands the next the preconditions it found, so that an argument to one is known not to be `null` after the call.
+The result is sound in the sense that a round's reachability over-approximates the real flow.
 
 === Content, computed
 
@@ -221,14 +223,14 @@ type is invariant in its arguments.
 ----
 class Grid {
     private final String[] cells = new String[9];           // String?[]      <1>
-    private final List<String> history = new ArrayList<>(); // MutableList<String?>  <3>
+    private final List<String> history = new ArrayList<>(); // MutableList<String?>  <2>
 
     public void play(int cell, @NotNull String mark) {
         cells[cell] = mark;
     }
 
     public void record(int cell) {
-        history.add(cells[cell]); // <2>
+        history.add(cells[cell]); // <3>
     }
 
     @Nullable
@@ -239,8 +241,8 @@ class Grid {
 ----
 
 <1> An array created without an initializer: its elements start out `null`.
-<2> An element of `cells` is read and added to the list.
-<3> The list's elements are therefore nullable.
+<2> The list's elements are nullable, because of callout 3.
+<3> An element of `cells` is read and added to the list.
 <4> An element read: the return value is nullable.
 
 The one rule the analyzer adds on top of the links is for arrays that are _filled before they are read_:
@@ -274,8 +276,10 @@ from.
 
 For Java, the analyzer writes the verdicts as annotations in a flavour of your choice: JSpecify, JetBrains,
 the Checker Framework, JSR-305, or the {maddi} annotations of this document.
-Under the `@NullMarked` reading only {nullable} is written; a method with an unspecified parameter or
-return value is marked `@NullUnmarked` so that nothing is claimed by omission.
+Under the `@NullMarked` reading only {nullable} is written.
+In the JSpecify flavour, the only one with an unmarked annotation, a method with an unspecified parameter or return
+value is marked `@NullUnmarked` so that nothing is claimed by omission, and an unspecified field, which cannot be
+unmarked on its own, is written {nullable}, the reading that is safe for whoever reads it.
 A position that already carries a null annotation is a contract and is left alone.
 
 For Kotlin and C#, the verdicts become the types: `T` or `T?`, `Map<String, String?>`, `String?[]`.
@@ -306,9 +310,12 @@ numbers kept apart because they cost differently: _unsafe_, inferred not null wh
 and _noise_, inferred nullable where Guava says not null.
 The trivial baselines frame the result: "everything not null" is 2,515 unsafe, "everything nullable"
 13,272 noise.
-In the closed-world reading the inference agrees on 13,300 of the 15,787 top-level positions, with
-about 350 unsafe and 250 noise (measured 2026-10-07); the open-world reading halves the unsafe count at the
+In the first closed-world measurement of 2026-10-07 the inference agreed on 13,306 of the 15,787 top-level
+positions, with 354 unsafe and 233 noise; the open-world reading more than halved the unsafe count, to 166, at the
 price of leaving a quarter of the positions unspecified.
+Later measurements score more positions (type arguments, array elements) against richer JDK contracts, generated
+from JSpecify's annotated JDK, which moves both columns: on 2026-10-13 the closed world stood at 341 unsafe and the
+open world at 211.
 What remains on the unsafe side is, in the main, Guava's own API design: public parameters it declares
 `@Nullable` on principle, which no caller in Guava ever passes `null` to.
 

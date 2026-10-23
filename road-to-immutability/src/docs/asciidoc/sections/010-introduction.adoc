@@ -37,7 +37,7 @@ I did not consult or research the literature, and I realize I may be duplicating
 [#assumptions]
 == Assumptions
 
-We discuss the Java language, version 8 and higher.
+We discuss the Java language, version 17 and higher.
 We have already indicated that we believe that Java offers too much freedom to programmers.
 In this section, we impose some limits that are not critical to the substance of the discussion, but facilitate reasoning.
 Think of them as low-hanging fruit programming guidelines:

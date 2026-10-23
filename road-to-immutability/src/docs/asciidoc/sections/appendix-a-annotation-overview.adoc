@@ -22,13 +22,14 @@ is only useful for mutable or {immutableHC} types
 Recall that abstract types always have hidden content, so the `hc=true` is always implicitly present on
 {independent} and {immutable}, {immutableContainer} on the type.
 We generally do not write `hc=false`, as that is the default value in the annotation.
-The analyzer will complain when `hc=false` is present on the {immutable} annotation of an abstract type.
+An {immutable} annotation on an abstract type is read as `hc=true` whatever it says.
 
-To support the user, a warning will be raised when the independence value on the type is incompatible with
-that on its methods, parameters and fields.
+The analyzer warns when the annotations along a type hierarchy are inconsistent, and when an immutable type has
+modified members; it does not compare the independence on the type with that on its methods, parameters and fields.
 
-In a {container} type, all {fluent} methods and all void methods are assumed to be {modified}.
-Change this by explicitly marking the method {nm} or {sse}.
+A {fluent} method is assumed to be {modified}, in every type; a method of a type that is at least {immutableHC} is
+{nm}; otherwise a method without a body takes the modification of the methods it overrides.
+Change this by explicitly marking the method {nm} or {modified}.
 
 Parameters of a non-modifying method are {independent} by default, regardless of an independence annotation on the type.
 This can be overwritten by {independentAbsent} or {independentHC} when the method exposes parts of the fields' object graph via its parameters.
@@ -50,11 +51,11 @@ It is never derived from the immutability annotations, and does not feed them.
 
 Following its definition, {utilityClass} on a type implies {immutable}.
 
-In application mode, the analyzer will regard every class that is never extended as effectively final.
-This property is only relevant when the type is immutable; the absence of `hc=true` is a marker.
+A class that is neither `final` nor `sealed` is extensible, and therefore carries hidden content; the analyzer does
+not infer effective finality from the absence of subtypes in the code it sees.
 
-Parameters of "official" functional interface type (i.e., the type is a functional interface type in the package
-`java.util.function`) have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
+Parameters of functional interface type -- the `java.util.function` family, and any `@FunctionalInterface` that
+extends or resembles one -- have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
 
 A parameter or return value of reference type that carries no null annotation is _unspecified_ (see
 <<nullability>>): it inherits the nullability of the method it overrides, where there is one, and otherwise the
@@ -64,10 +65,9 @@ Primitives, {fluent} methods and enum constants are {nn}.
 type arguments (or, for an array, position `0` for the elements) that may hold `null`.
 
 A factory method is a static method returning an object of the type of the class.
-Independence of a factory method is always with respect to the method's parameters, rather than to the type.
-Independence of a factory method's parameters corresponds to the immutability of the parameter type.
-These two rules also apply to any static method in an immutable type.
-Note that utility classes are classes that are deeply immutable and cannot be instantiated, so it applies to their static methods.
+The return value of a static method that is not a factory is {independent}; a factory's return value is judged against its parameters.
+A parameter of a factory, or of any modifying method, is {independent} when its type is immutable; otherwise it takes the strongest of the independence contracted on the type, inherited from an overridden method, or implied by the immutability of the parameter type.
+Note that utility classes are classes that are deeply immutable and cannot be instantiated, so this applies to their static methods.
 
 In general, annotations are inherited on types, methods and parameters.
 The properties can deviate,
@@ -78,7 +78,5 @@ but not from right to left
 - a type deriving from an immutable type does not need to be immutable; however, a type deriving from a
 non-immutable type can never be immutable
 
-When a method has a single statement, returning a constant value, the `@ImmutableContainer("value")` is implicit.
-Similarly, when a field is explicitly final (it has the `final` modifier) and it has an initializer, then both {final}
-and, if relevant, `@ImmutableContainer("value")`, is implicit.
+When a field is explicitly final (it has the `final` modifier), {final} is implicit.
 

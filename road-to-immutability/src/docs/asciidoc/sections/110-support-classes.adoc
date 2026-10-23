@@ -1,13 +1,13 @@
 [[support-classes]]
 = Support classes
 
-The `maddi-support` library (in whichever version it comes) contains a small selection of support
+The `maddi-support` library contains a small selection of support
 types: the eventually immutable building blocks that you can use in your project, irrespective
 of whether you want analyzer support or not.
 The annotations themselves live in a separate library, `maddi-annotation`, which is the single
 dependency `maddi-support` declares.
-That split is also a licence boundary: the annotations are Apache-2.0, so that annotating your code
-commits you to nothing, while the analyzer and its support types are LGPL-3.0.
+That split is also a licence boundary: the annotations and the support types -- the two artifacts your own code
+compiles against -- are Apache-2.0 (from 0.9.0), so that using them commits you to nothing, while the analyzer is LGPL-3.0.
 
 We discuss a selection of the building blocks here.
 
@@ -20,26 +20,27 @@ single boolean, which is at the same time the data and the guard:
 .Example {counter:example}, most of `io.codelaser.maddi.support.FlipSwitch`
 [source,java]
 ----
-@ImmutableContainer(after="t")
-public class FlipSwitch {
+@ImmutableContainer(after="isSet")
+public final class FlipSwitch {
 
-    @Final(after="t")
-    private volatile boolean t;
+    @Final(after="isSet")
+    private volatile boolean isSet;
 
-    @Mark("t")
-    @Modified
+    @Mark("isSet")
     public void set() {
-        if (t) throw new IllegalStateException("Already set");
-        t = true;
+        synchronized (this) {
+            if (isSet) throw new IllegalStateException("Already set");
+            isSet = true;
+        }
     }
 
-    @TestMark("t")
+    @TestMark("isSet")
     @NotModified
     public boolean isSet() {
-        return t;
+        return isSet;
     }
 
-    @Mark("t") // <1>
+    @Mark("isSet") // <1>
     @Modified
     public void copy(FlipSwitch other) {
         if (other.isSet()) set();
@@ -70,10 +71,12 @@ public class SetOnce<T> {
     @Modified
     public void set(@NotNull @Independent(hc=true) T t) {
         if (t == null) throw new NullPointerException("Null not allowed");
-        if (this.t != null) {
-            throw new IllegalStateException("Already set: have " + this.t + ", try to set " + t);
+        synchronized (this) {
+            if (this.t != null) {
+                throw new IllegalStateException("Already set: have " + this.t + ", try to set " + t);
+            }
+            this.t = t;
         }
-        this.t = t;
     }
 
     @Only(after="t")
@@ -93,20 +96,20 @@ public class SetOnce<T> {
         return t != null;
     }
 
-    @Independent(hc=true) // <1>
+    @Independent // <1>
+    @NotNull
     @NotModified
-    public T getOrDefault(T defaultValue) {
+    public T getOrDefault(@NotNull T alternative) {
         if (isSet()) return get();
-        return defaultValue;
+        return Objects.requireNonNull(alternative);
     }
 }
 ----
 
-<1> Even if it is only linked to the hidden content conditionally.
+<1> Computed fully {independent}, stronger than the {independentHC} one would write by hand for a method that may
+return the hidden content; `TestBookIndependenceOfSupportTypes` pins the verdict.
 
-The analyzer relies heavily on this type, with additional support to allow setting multiple times, with exactly
-the same value.
-This can be ascertained with a helper method, which, as noted in the previous section, also gets the {mark} annotation.
+The analyzer relies heavily on this type.
 
 [#support-eventuallyfinal]
 == EventuallyFinal
@@ -310,8 +313,8 @@ public class SetOnceMap<K, V> extends Freezable {
 }
 ----
 
-<1> The analyzer will warn for a potential null pointer exception here, not (yet) making the connection between
-`isSet` and `containsKey`.
+<1> The result is {nn} because of `requireNonNull`; the nullability pass (<<nullability>>) does not make the connection
+between `isSet` and `containsKey`.
 <2> Implicitly, the parameter `K k` is {independent}, because the method is {nm}.
 
 The code analyzer makes frequent use of this type, often with an additional guard that allows repeatedly putting
@@ -369,7 +372,7 @@ public class Lazy<T> {
 <3> `supplier` is read once, into a local. Reading the field twice is a race rather than a nicety: two threads
 find `t` null, the first completes and empties `supplier`, and the second dereferences what it re-reads as null.
 <4> Here `t`, part of the hidden content, links to `supplier`, as explained in <<content-linking>>.
-The statement also causes the {nncontent} annotation, as defined in <<nullable-section>> and <<identity-and-fluent>>.
+The statement also causes the {nnContent} annotation, as defined in <<nullable-section>> and <<identity-and-fluent>>.
 It publishes the value _before_ the next line empties the supplier, so a reader that sees `supplier == null` has
 already seen `t`.
 <5> After the transition from mutable to effectively immutable, the field `supplier` moves out of the picture.
@@ -403,6 +406,8 @@ immutable types.
 NOTE: *Not implemented.* The two `@Independent(hc=true)` annotations that this argument arrives at — on the
 field `supplier`, and on the constructor parameter it travels from — are not computed today: the analyzer
 concludes `@Dependent` at both positions.
+The two `@NotNull(content=true)` beside them are not in the shipped source either; the listing shows the intended
+annotations.
 It does so whether or not `supplier` is emptied, so the augmented rule 2 is not what is stopping it.
 `get()` is annotated as printed.
 The measurement is in `TestBookIndependenceOfSupportTypes`, which runs this listing beside the shipped code and
@@ -419,11 +424,24 @@ value, and transitions to another:
 ----
 @ImmutableContainer(hc=true, after="first")
 public class FirstThen<S, T> {
+
+    @Final(after="first")
     private volatile S first;
+
+    @Final(after="first")
     private volatile T then;
 
+    private FirstThen(S s, T t) {
+        this.first = s;
+        this.then = t;
+    }
+
     public FirstThen(@NotNull @Independent(hc=true) S first) {
-        this.first = Objects.requireNonNull(first);
+        this(Objects.requireNonNull(first), null);
+    }
+
+    public static <S, T> FirstThen<S, T> then(T t) { // <1>
+        return new FirstThen<>(null, Objects.requireNonNull(t));
     }
 
     @TestMark(value="first", before=true)
@@ -431,7 +449,7 @@ public class FirstThen<S, T> {
     public boolean isFirst() {
         return first != null;
     }
-    
+
     @TestMark(value="first")
     @NotModified
     public boolean isSet() {
@@ -439,7 +457,7 @@ public class FirstThen<S, T> {
     }
 
     @Mark("first")
-    public void set(@Independent(hc=true) @NotNull T then) {
+    public void set(@NotNull @Independent(hc=true) T then) {
         Objects.requireNonNull(then);
         synchronized (this) {
             if (first == null) throw new IllegalStateException("Already set");
@@ -450,29 +468,26 @@ public class FirstThen<S, T> {
 
     @Only(before="first")
     @Independent(hc=true)
-    @NotModified 
-    @NotNull 
+    @NotModified
+    @NotNull
     public S getFirst() {
-        if (first == null)
-            throw new IllegalStateException("Then has been set"); // <1>
-        S s = first;
-        if (s == null) throw new NullPointerException();
-        return s;
+        if (first == null) throw new IllegalStateException();
+        return first;
     }
 
     @Only(after="first")
     @Independent(hc=true)
-    @NotModified 
-    @NotNull 
+    @NotModified
+    @NotNull
     public T get() {
         if (first != null) throw new IllegalStateException("Not yet set"); // <2>
-        T t = then;
-        if (t == null) throw new NullPointerException();
-        return t;
+        assert then != null;
+        return then;
     }
 
-    @Override // <3>
-    public boolean equals(@Nullable Object o) {
+    @Override
+    @NotModified // <3>
+    public boolean equals(@NotNull(absent=true) Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         FirstThen<?, ?> firstThen = (FirstThen<?, ?>) o;
@@ -480,23 +495,18 @@ public class FirstThen<S, T> {
                 Objects.equals(then, firstThen.then);
     }
 
-    @Override // <3>
+    @Override
+    @NotModified
     public int hashCode() {
         return Objects.hash(first, then);
     }
 }
 ----
 
-<1> This is a bit convoluted.
-The precondition is on the field `first`, and the current implementation of the precondition analyzer requires
-an explicit check on the field.
-Because this field is not final, we cannot assume that it is still null after the initial check; therefore,
-we assign it to a local variable, and do another null check to guarantee that the result that we return is `@NotNull`.
-
-<2> Largely in line with the previous comment: we stick to the precondition on `first`, and have to check `then`
-to guarantee that the result is `@NotNull`.
-<3> The `equals` and `hashCode` methods inherit the {nm} annotation from `java.lang.Object`.
-
-Note that if we were to annotate the methods as contracts, rather than relying on the analyzer to detect them, we could have a slightly more efficient implementation.
+<1> A factory that starts in the _then_ state: the object is born after its own mark.
+<2> The precondition is tested on `first`, not on `then`, so that the {only} annotation is recognized; the `assert`
+carries the {nn} of the result.
+<3> `equals` and `hashCode` are {nm}, as `java.lang.Object` contracts them; the `@NotNull(absent=true)` on the parameter
+records that `equals` accepts `null`.
 
 
