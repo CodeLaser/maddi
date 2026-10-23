@@ -1508,7 +1508,10 @@ public class KotlinExpressionPrinter {
                                              && KotlinNullability.translated(method.typeInfo())
                                              && declared.typeParameter().typeBounds().stream()
                                                      .allMatch(ParameterizedType::isJavaLangObject)
-                                             && !KotlinMethodPrinter.nonNullBound(method, declared.typeParameter());
+                                             && !KotlinMethodPrinter.nonNullBound(method, declared.typeParameter())
+                                             // the signature says where null goes: another parameter is a T?. Without
+                                             // verdicts none is, and Kotlin would infer T nullable for the result too
+                                             && nullableSibling(method, i, declared.typeParameter());
                 OutputBuilder argument = calleeTypeVariable ? widenedArgument
                         : KotlinNullability.toTarget(args.get(i), declared, argumentTranslated, widenedArgument, q);
                 if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
@@ -1790,6 +1793,17 @@ public class KotlinExpressionPrinter {
      * An argument passed as one of the varargs: {@code runtime(format, key, value)} into {@code vararg args: Any}, the
      * element's type with its verdict. Null when {@code i} is no varargs position.
      */
+    /** Another parameter than the i-th is typed {@code tp?}: {@code getOrDefault(value: T?, defaultValue: T)}. */
+    private static boolean nullableSibling(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
+                                           io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        for (int j = 0; j < method.parameters().size(); j++) {
+            if (j == i) continue;
+            ParameterizedType pt = KotlinNullability.parameterType(method.parameters().get(j));
+            if (pt.typeParameter() == tp && pt.arrays() == 0 && KotlinNullability.isNullable(pt)) return true;
+        }
+        return false;
+    }
+
     private static ParameterizedType varargsElement(io.codelaser.maddi.cst.api.info.MethodInfo method, int i) {
         if (method == null || method.parameters().isEmpty()) return null;
         ParameterInfo last = method.parameters().getLast();
