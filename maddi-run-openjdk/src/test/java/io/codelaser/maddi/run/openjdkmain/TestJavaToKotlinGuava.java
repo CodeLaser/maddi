@@ -28,7 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link JavaToKotlinRatchet}, with no nullability verdicts.
  * <p>
  * Why guava: generic collections, caches and concurrency utilities, about twice langchain4j-core's size, with a test
- * suite of over 860,000 JUnit 3 and 4 tests (guava-tests), which the vintage engine runs one package at a time.
+ * suite of over 860,000 JUnit 3 and 4 tests (guava-tests), which the vintage engine runs one package at a time. Not
+ * here: the test sources are translated and compiled to class files, the tests do not run.
  */
 @Tag("slow")
 public class TestJavaToKotlinGuava {
@@ -37,7 +38,9 @@ public class TestJavaToKotlinGuava {
     public void test() throws Exception {
         JavaToKotlinRatchet.Corpus corpus = JavaToKotlinRatchet.parse("guava");
         assertTrue(corpus.types().size() > 500, "only " + corpus.types().size() + " primary types");
-        new JavaToKotlinRatchet("guava", Path.of("src/test/resources/j2k/guava.ratchet"), JavaToKotlinRatchet.TESTS)
-                .run(corpus, KotlinPrintOptions.DEFAULT);
+        // the tests' counts would be reported only, and their three passes take over an hour: maddi-mod's
+        // TestJavaToKotlinGuavaNullability runs and ratchets them
+        new JavaToKotlinRatchet("guava", Path.of("src/test/resources/j2k/guava.ratchet"), JavaToKotlinRatchet.TESTS,
+                false).run(corpus, KotlinPrintOptions.DEFAULT);
     }
 }
