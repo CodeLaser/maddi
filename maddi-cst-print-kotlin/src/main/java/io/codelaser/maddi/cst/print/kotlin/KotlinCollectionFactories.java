@@ -27,7 +27,8 @@ import java.util.stream.Collectors;
 
 /**
  * Java's immutable collection factories as Kotlin's (CodeLaser/maddi#141): {@code List.of(a, b)} is
- * {@code listOf(a, b)}, {@code List.of()} is {@code emptyList()}, {@code Map.of(k, v)} is {@code mapOf(k to v)}. Only
+ * {@code listOf(a, b)}, {@code List.of()} is {@code emptyList()}, {@code Map.of(k, v)} is {@code mapOf(k to v)}; a Set.of
+ * or Map.of of two elements or more stays Java's, whose iteration order is not Kotlin's. Only
  * where the value lands in a read-only position ({@link KotlinReadOnly#boundToReadOnly}): Kotlin's factories return
  * read-only types, and in a {@code MutableList} position Java's call stays, an immutable list typed mutable as in
  * Java. This is a table of names; whether a call's result is immutable is the archive's
@@ -47,10 +48,24 @@ final class KotlinCollectionFactories {
     static boolean applies(MethodCall mc) {
         return mc.methodInfo() != null && mc.methodInfo().isStatic() && "of".equals(mc.methodInfo().name())
                && FACTORIES.containsKey(mc.methodInfo().typeInfo().fullyQualifiedName())
+               && keepsOrder(mc)
                && (!"java.util.Map".equals(mc.methodInfo().typeInfo().fullyQualifiedName())
                    || mc.parameterExpressions().size() % 2 == 0
                       && mc.parameterExpressions().stream().noneMatch(KotlinCollectionFactories::typedByTarget))
                && KotlinReadOnly.boundToReadOnly(mc);
+    }
+
+    /*
+    Java's Set.of and Map.of iterate in an order of their own, salted per JVM; Kotlin's setOf and mapOf in insertion
+    order. Code may depend on the first without knowing: langchain4j's ContentTest compares a Map.of with another Map.of
+    entry by entry, which holds in Java (one JVM, one salt) and fails half the time with mapOf on one side. With two
+    elements or more, Java's call stays; List.of keeps its order in both.
+     */
+    private static boolean keepsOrder(MethodCall mc) {
+        String owner = mc.methodInfo().typeInfo().fullyQualifiedName();
+        int n = mc.parameterExpressions().size();
+        return "java.util.List".equals(owner) || "java.util.Set".equals(owner) && n <= 1 && !mc.methodInfo().isVarargs()
+               || "java.util.Map".equals(owner) && n <= 2;
     }
 
     /*

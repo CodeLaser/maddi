@@ -1792,7 +1792,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             notModified(type, "size");
         });
         contains(kotlin, "private val names: List<String>");
-        contains(kotlin, "private val counts: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)");
+        // Map.of's iteration order is Java's own, not mapOf's insertion order: Java's call stays
+        contains(kotlin, "private val counts: Map<String, Int> = java.util.Map.of(\"a\", 1, \"b\", 2)");
         contains(kotlin, "private val none: Set<String> = emptySet()");
         contains(kotlin, "fun names(): List<String> = names");
         contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
