@@ -212,6 +212,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         .add(KotlinKeyword.CONSTRUCTOR));
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
+                                .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
                                 .add(propertyVisibility(fieldByName.get(p.name())))
                                 // a record's component is read through its accessor, x(): a data class property. A
                                 // private property has no accessors, and @JvmField none to replace

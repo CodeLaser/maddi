@@ -29,6 +29,17 @@ import io.codelaser.maddi.cst.impl.output.*;
  */
 public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implements FieldPrinter {
 
+    /**
+     * Java's {@code volatile} and {@code transient}, which Kotlin writes as annotations on the property's field: an
+     * {@code AtomicLongFieldUpdater} refuses a field that is not volatile (guava's AtomicDouble).
+     */
+    static OutputBuilder jvmModifiers(FieldInfo fieldInfo) {
+        OutputBuilder builder = new OutputBuilderImpl();
+        if (fieldInfo.isVolatile()) builder.add(new TextImpl("@Volatile")).add(SpaceEnum.ONE);
+        if (fieldInfo.isTransient()) builder.add(new TextImpl("@Transient")).add(SpaceEnum.ONE);
+        return builder;
+    }
+
     @Override
     public OutputBuilder print(Qualification qualification, boolean asParameterInPrimaryConstructor) {
         boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
@@ -48,7 +59,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo);
         boolean lateinit = needsDefault && zero == null;
-        builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification));
+        builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification)).add(jvmModifiers(fieldInfo));
         if (!isConst() && !visibility.equals(java.util.Optional.of(KeywordImpl.PRIVATE))) {
             boolean clash = accessorClash(fieldInfo, isVal);
             if (lateinit && clash) {

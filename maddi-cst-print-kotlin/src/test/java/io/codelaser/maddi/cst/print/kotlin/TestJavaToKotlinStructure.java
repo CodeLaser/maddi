@@ -3438,4 +3438,26 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "private fun helper(): Int");
         assertFalse(kotlin.contains("@JvmStatic private fun helper"), kotlin);
     }
+
+    /**
+     * Java's {@code volatile} and {@code transient} as Kotlin's {@code @Volatile} and {@code @Transient}: guava's
+     * AtomicDouble hands its volatile field to an {@code AtomicLongFieldUpdater}, which refuses any other.
+     */
+    @Test
+    public void volatileAndTransientFields() {
+        String kotlin = kotlin("""
+                package a.v;
+                import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+                class Counter implements java.io.Serializable {
+                    private transient volatile long value;
+                    private static final AtomicLongFieldUpdater<Counter> UPDATER =
+                            AtomicLongFieldUpdater.newUpdater(Counter.class, "value");
+                    private transient String cache;
+                    long increment() { return UPDATER.incrementAndGet(this); }
+                }
+                """);
+        contains(kotlin, "@Volatile @Transient private var value: Long = 0L");
+        contains(kotlin, "@Transient private lateinit var cache: String");
+        compiles(kotlin);
+    }
 }
