@@ -3405,4 +3405,33 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "*emptyArray<OpenOption>()");
         compiles(kotlin);
     }
+
+    /**
+     * langchain4j's DefaultContentAggregatorTest: a bare {@code @MethodSource} names its factory by the test's own name,
+     * a private static. JUnit looks for it among the test class's statics: {@code @JvmStatic}, private as in Java.
+     */
+    @Test
+    public void privateMethodSourceFactoryIsJvmStatic() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a;
+                import java.util.stream.Stream;
+                import org.junit.jupiter.params.ParameterizedTest;
+                import org.junit.jupiter.params.provider.MethodSource;
+                class AggregatorTest {
+                    @ParameterizedTest
+                    @MethodSource
+                    void empty(String query) { }
+                    private static Stream<String> empty() { return Stream.of("a"); }
+                    @ParameterizedTest
+                    @MethodSource("named")
+                    void other(String query) { }
+                    private static Stream<String> named() { return Stream.of("b"); }
+                    private static int helper() { return 1; }
+                }
+                """, KotlinPrintOptions.DEFAULT, "org/junit/jupiter/params");
+        contains(kotlin, "@JvmStatic private fun empty(): Stream<String>");
+        contains(kotlin, "@JvmStatic private fun named(): Stream<String>");
+        contains(kotlin, "private fun helper(): Int");
+        assertFalse(kotlin.contains("@JvmStatic private fun helper"), kotlin);
+    }
 }

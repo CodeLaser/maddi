@@ -60,8 +60,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);
-        if (KotlinContext.translatingJava() && methodInfo.isStatic() && visibility.isEmpty()) {
-            // in the companion object: Java code calls it as C.m(), not C.Companion.m()
+        if (KotlinContext.translatingJava() && methodInfo.isStatic()
+            && (visibility.isEmpty() || methodSourceFactory(methodInfo))) {
+            // in the companion object: Java code calls it as C.m(), not C.Companion.m(); and JUnit looks for a
+            // @MethodSource factory, private or not, as a static of the test class
             b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
         }
         visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
@@ -947,6 +949,29 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         }
         return root.typeParameters().contains(rootTp) && rootTp.typeBounds().stream().anyMatch(b -> b.annotations().stream()
                 .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName())));
+    }
+
+    /**
+     * langchain4j's DefaultContentAggregatorTest: {@code @ParameterizedTest @MethodSource void test(Map m)} beside its
+     * {@code private static Stream<Arguments> test()}. JUnit finds the factory by name, the annotation's or by default
+     * the test's own, among the class's statics: a private companion function without {@code @JvmStatic} is not one.
+     */
+    private static boolean methodSourceFactory(MethodInfo methodInfo) {
+        if (!methodInfo.parameters().isEmpty()) return false;
+        return methodInfo.typeInfo().methods().stream().anyMatch(test -> test.annotations().stream()
+                .filter(a -> "org.junit.jupiter.params.provider.MethodSource".equals(a.typeInfo().fullyQualifiedName()))
+                .anyMatch(a -> {
+                    List<String> names = new java.util.ArrayList<>();
+                    a.keyValuePairs().forEach(kv -> kv.value().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                        if (e instanceof io.codelaser.maddi.cst.api.expression.StringConstant sc) {
+                            String name = sc.constant();
+                            names.add(name.substring(name.indexOf('#') + 1));
+                        }
+                        return true;
+                    }));
+                    if (names.isEmpty()) names.add(test.name());
+                    return names.contains(methodInfo.name());
+                }));
     }
 
     /** A constructor, or a static, private or final method that overrides nothing: its signature is its own. */
