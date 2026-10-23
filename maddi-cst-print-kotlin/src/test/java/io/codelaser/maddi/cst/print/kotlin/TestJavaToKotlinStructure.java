@@ -3409,6 +3409,10 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     /**
      * langchain4j's DefaultContentAggregatorTest: a bare {@code @MethodSource} names its factory by the test's own name,
      * a private static. JUnit looks for it among the test class's statics: {@code @JvmStatic}, private as in Java.
+     * The api package too, as its own source set: the params classes refer to ExtensionContext, TestTemplate and
+     * ExtendWith, and under the test runner the params package resolves to junit-platform-console-standalone (no
+     * junit-jupiter-params on that class path), while javac loads those from junit-jupiter-api, which a class-path
+     * source set must then be named after (maddi test gate, 2026-10-23).
      */
     @Test
     public void privateMethodSourceFactoryIsJvmStatic() throws java.io.IOException {
@@ -3428,7 +3432,7 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     private static Stream<String> named() { return Stream.of("b"); }
                     private static int helper() { return 1; }
                 }
-                """, KotlinPrintOptions.DEFAULT, "org/junit/jupiter/params");
+                """, KotlinPrintOptions.DEFAULT, "org/junit/jupiter/params", "org/junit/jupiter/api");
         contains(kotlin, "@JvmStatic private fun empty(): Stream<String>");
         contains(kotlin, "@JvmStatic private fun named(): Stream<String>");
         contains(kotlin, "private fun helper(): Int");
