@@ -52,6 +52,7 @@ Bart Naudts <bart.naudts@codelaser.io>
 :singleton: pass:normal[ `@Singleton` ]
 :sse: pass:normal[ `@StaticSideEffects` ]
 :testMark: pass:normal[ `@TestMark` ]
+:unmodifiableView: pass:normal[ `@UnmodifiableView` ]
 :utilityClass: pass:normal[ `@UtilityClass` ]
 
 :y: icon:check[role="green"]

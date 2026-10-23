@@ -43,6 +43,11 @@ You must still use {independentHC} to indicate communication of hidden content.
 
 Methods marked {fluent} are always {independent}, because returning the type itself does not expose any additional information.
 
+{unmodifiableView} on a bodiless method is a contract that its result is an object nothing is added to or removed from
+through that reference (<<unmodifiable-views>>): weaker than {immutableHC} on the result, which a view must not claim,
+and unrelated to {container}.
+It is never derived from the immutability annotations, and does not feed them.
+
 Following its definition, {utilityClass} on a type implies {immutable}.
 
 In application mode, the analyzer will regard every class that is never extended as effectively final.

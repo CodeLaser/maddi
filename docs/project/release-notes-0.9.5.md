@@ -89,6 +89,11 @@ annotations compiles against 0.9.5 unchanged. Two changes to the command line ca
   enclosing instance.
 - Eventual immutability: after the mark, what a value shares decides its verdict, not its type.
 - A captured parameter counts as a field for independence. A view shares the modification of the collection it views.
+- **`@UnmodifiableView`**, a new annotation in `maddi-annotation`, on a method whose result is an object nothing is
+  added to or removed from through that reference, such as `Collections.unmodifiableList(list)`. It is weaker than
+  `@Immutable(hc=true)`, which a view must not claim. A contract on bodiless methods (the JDK's `Collections.unmodifiable*`
+  carry it); computed from the returned values for a method with a body. The Kotlin translation reads it for `List`
+  versus `MutableList`.
 
 ## Annotated APIs
 

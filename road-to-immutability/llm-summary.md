@@ -47,6 +47,16 @@ chapter only when detail is missing here.
     printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
     The book's §"Propagating modifications" (080) describes it; the step back from a modified container to its
     elements (`useAddNewLine`) is still not computed.
+- **Unmodifiable views** (2026-10-15, CodeLaser/maddi-mod#52; book §050 "Unmodifiable views"): a fact beside
+  immutability, never derived from it. `UNMODIFIABLE_TYPE`: rule 0 + the structural rule 1, decided BEFORE the rule-3
+  (dependence) cap that stops `Collections.unmodifiableList`'s view type at FINAL_FIELDS (which cannot tell "rule 1
+  failed" from "only rule 3 failed"); implied by IMMUTABLE_HC; says nothing about hidden content or `@Container`.
+  `UNMODIFIABLE_VIEW_METHOD` / `@UnmodifiableView` (METHOD only; JetBrains' name): the result is such an object. A
+  contract on bodiless methods (the 11 `Collections.unmodifiable*` in the archive), computed from the returned values
+  for a body (a call with the property, an instance of an unmodifiable type, an immutable-HC value, a field proven to
+  hold one, `null`), folded over implementations. Read by nothing in the immutability/independence/container
+  analyses; consumer: the Kotlin printer's `List` vs `MutableList` (`ModificationFacts.unmodifiableResult`), the call
+  staying Java's (`listOf` would copy).
 - **Independence** is a separate axis from immutability: it captures whether a method's return
   value/parameters expose (parts of) the receiver's content. `@Independent` (nothing shared),
   `@Independent(hc=true)` (only hidden content shared), dependent (mutable content shared).
