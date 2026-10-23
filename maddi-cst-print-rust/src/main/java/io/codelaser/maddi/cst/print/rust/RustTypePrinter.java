@@ -99,9 +99,12 @@ final class RustTypePrinter {
                 context.message(RustPrintCode.UNSUPPORTED, m, "static method of an interface");
                 continue;
             }
-            sb.append(INDENT).append(signature(m, false));
             Block body = m.methodBody();
-            if (m.isAbstract() || body == null || body.isEmpty()) sb.append(";\n");
+            boolean bodyless = m.isAbstract() || body == null || body.isEmpty();
+            // a declaration without a body has no bindings: no 'mut' on its parameters
+            String signature = signature(m, false);
+            sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut (\\w+): ", "$1: ") : signature);
+            if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
         }
         return sb.append("}\n").toString();
@@ -315,14 +318,20 @@ final class RustTypePrinter {
 
     /** A source interface the method implements, directly or through an interface it extends. */
     private static TypeInfo implementedTrait(MethodInfo m) {
+        Set<TypeInfo> traits = new java.util.HashSet<>();
+        superInterfaces(m.typeInfo(), traits);
         for (MethodInfo o : m.overrides()) {
             TypeInfo t = o.typeInfo();
-            if (t.isInterface() && !t.compilationUnit().externalLibrary()
-                && m.typeInfo().interfacesImplemented().stream().anyMatch(i -> i.typeInfo() == t)) {
-                return t;
-            }
+            if (t.isInterface() && !t.compilationUnit().externalLibrary() && traits.contains(t)) return t;
         }
         return null;
+    }
+
+    /** The interfaces a type implements, and those they extend: Rust wants an impl for each supertrait too. */
+    private static void superInterfaces(TypeInfo typeInfo, Set<TypeInfo> into) {
+        for (ParameterizedType i : typeInfo.interfacesImplemented()) {
+            if (i.typeInfo() != null && into.add(i.typeInfo())) superInterfaces(i.typeInfo(), into);
+        }
     }
 
     /** Rust rejects a type parameter no field uses: those get a {@code PhantomData} field. */
@@ -461,9 +470,7 @@ final class RustTypePrinter {
     }
 
     private String fieldValue(RustBodyPrinter printer, FieldInfo f, Expression value) {
-        boolean nullable = RustFacts.nullable(context.facts.field(f));
-        String text = RustTypes.isCopy(f.type()) ? printer.text(value) : printer.ownedText(value);
-        return nullable && !"None".equals(text) ? "Some(" + text + ")" : text;
+        return printer.fieldValue(value, f.type(), RustFacts.nullable(context.facts.field(f)));
     }
 
     /**

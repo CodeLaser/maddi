@@ -50,6 +50,8 @@ public enum RustPrintCode implements PrintMessage.Code {
     STRING_UNITS(Severity.BEHAVIOUR_CHANGE),
     /** {@code BigDecimal}: an {@code f64}, binary floating point where Java computes in exact decimals. */
     BIGDECIMAL_AS_F64(Severity.BEHAVIOUR_CHANGE),
+    /** {@code LocalDateTime}, {@code Instant}: a {@code SystemTime}, an instant without Java's calendar fields. */
+    TIME_AS_SYSTEM_TIME(Severity.BEHAVIOUR_CHANGE),
     /** {@code String.format}: Java's specifiers as {@code format!}'s; one without a counterpart is printed as is. */
     FORMAT(Severity.INFO),
     /** {@code >>>}: printed as {@code >>} on the unsigned type. */

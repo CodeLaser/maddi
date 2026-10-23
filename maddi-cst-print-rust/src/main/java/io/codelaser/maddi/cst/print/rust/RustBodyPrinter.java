@@ -215,6 +215,11 @@ final class RustBodyPrinter {
             text = owned(value, method.returnType());
         }
         if (nullable && !value.nullable && !(e instanceof NullConstant)) text = "Some(" + text + ")";
+        if (!nullable && value.nullable) {
+            // the verdict says the result is never null: Java's value is used as it is, Rust's unwrapped
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
+            text = text + ".unwrap()";
+        }
         return "return " + text;
     }
 
@@ -799,7 +804,9 @@ final class RustBodyPrinter {
             if (part instanceof StringConstant sc) {
                 format.append(sc.constant().replace("{", "{{").replace("}", "}}"));
             } else {
-                format.append("{}");
+                // a value without Display (a SystemTime) is formatted with Debug
+                format.append("SystemTime".equals(part.parameterizedType().typeInfo() == null ? null
+                        : RustTypes.mapped(part.parameterizedType().typeInfo())) ? "{:?}" : "{}");
                 Printed p = expression(part);
                 // Java prints a null as "null"
                 args.add(p.nullable ? p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"
@@ -865,6 +872,12 @@ final class RustBodyPrinter {
         String closure = "|" + String.join(", ", params) + "| ";
         if (m.typeInfo().compilationUnit().externalLibrary()) {
             String jdk = RustJdk.reference(m, params);
+            // an entry's key or value is a reference into the map: a copy, or a clone for a string
+            if (jdk != null && (jdk.endsWith(".0") || jdk.endsWith(".1"))) {
+                ParameterizedType result = mr.concreteReturnType();
+                if (RustTypes.isCopy(result)) jdk = "*" + jdk;
+                else if (RustTypes.isString(result) || RustTypes.isImmutableValue(result, context.facts)) jdk += ".clone()";
+            }
             if (jdk != null) return value(closure + jdk);
             return value(unsupported(mr, "method reference " + m.fullyQualifiedName()));
         }
@@ -893,6 +906,10 @@ final class RustBodyPrinter {
             Printed mapped = RustJdk.call(mc, this);
             if (mapped != null) return mapped;
             context.message(RustPrintCode.UNMAPPED_JDK_CALL, mc, callee.fullyQualifiedName());
+            if (callee.isStatic()) {
+                return value(RustTypes.owned(callee.typeInfo().asSimpleParameterizedType(), context, mc) + "::"
+                             + RustNames.snake(callee.name()) + "(" + arguments(mc.parameterExpressions(), null) + ")");
+            }
             String object = mc.object() == null || mc.objectIsImplicit() ? context.receiver : expression(mc.object()).text;
             return value(object + "." + RustNames.snake(callee.name()) + "(" + arguments(mc.parameterExpressions(), null)
                          + ")");
@@ -1062,6 +1079,25 @@ final class RustBodyPrinter {
 
     String ownedText(Expression e) {
         return owned(expression(e), e.parameterizedType());
+    }
+
+    /**
+     * {@code e} stored where a {@code target} is held: owned, and boxed when the target is {@code Object}
+     * ({@code Box<dyn Any>}) and the value is not.
+     */
+    String ownedAs(Expression e, ParameterizedType target) {
+        String text = ownedText(e);
+        boolean toObject = target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject()
+                           && target.arrays() == 0;
+        boolean fromObject = e.parameterizedType().typeInfo() != null && e.parameterizedType().typeInfo().isJavaLangObject();
+        return toObject && !fromObject && !(e instanceof NullConstant) ? "Box::new(" + text + ")" : text;
+    }
+
+    /** What a field of {@code type} is initialized with: owned, and in {@code Some} when the field is nullable. */
+    String fieldValue(Expression e, ParameterizedType type, boolean nullable) {
+        Printed p = expression(e);
+        String text = RustTypes.isCopy(type) ? p.text : owned(p, type);
+        return nullable && !p.nullable && !(e instanceof NullConstant) ? "Some(" + text + ")" : text;
     }
 
     String index(Expression e) {

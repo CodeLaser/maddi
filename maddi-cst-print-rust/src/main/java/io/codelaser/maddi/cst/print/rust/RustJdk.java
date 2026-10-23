@@ -77,6 +77,15 @@ final class RustJdk {
             // a functional interface is a Box<dyn Fn…>: calling its method calls it
             return value("(" + o + ")(" + String.join(", ", args.stream().map(printer::text).toList()) + ")");
         }
+        if ("SystemTime".equals(RustTypes.mapped(owner))) {
+            return switch (name + "/" + args.size()) {
+                case "isBefore/1" -> value(o + " < " + printer.text(args.getFirst()));
+                case "isAfter/1" -> value(o + " > " + printer.text(args.getFirst()));
+                case "equals/1" -> value(o + " == " + printer.text(args.getFirst()));
+                case "toString/0" -> value("format!(\"{:?}\", " + o + ")");
+                default -> null;
+            };
+        }
         if ("java.lang.Boolean".equals(fqn) && "equals".equals(name)) {
             return value(o + " == " + printer.text(args.getFirst()));
         }
@@ -137,6 +146,11 @@ final class RustJdk {
             case "java.lang.Character.isLowerCase/1" -> value(operand(printer, args.getFirst()) + ".is_lowercase()");
             case "java.lang.System.currentTimeMillis/0" -> value("(std::time::SystemTime::now().duration_since("
                                                                  + "std::time::UNIX_EPOCH).unwrap().as_millis() as i64)");
+            case "java.time.LocalDateTime.now/0", "java.time.Instant.now/0" -> {
+                printer.context().message(RustPrintCode.TIME_AS_SYSTEM_TIME, mc, null);
+                printer.context().use("std::time::SystemTime");
+                yield value("SystemTime::now()");
+            }
             case "java.lang.System.nanoTime/0" -> value("(std::time::SystemTime::now().duration_since("
                                                         + "std::time::UNIX_EPOCH).unwrap().as_nanos() as i64)");
             case "java.math.BigDecimal.valueOf/1" -> {
@@ -471,7 +485,7 @@ final class RustJdk {
     private static Printed vec(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
-            case "add/1" -> value(o + ".push(" + printer.ownedText(args.getFirst()) + ")");
+            case "add/1" -> value(o + ".push(" + printer.ownedAs(args.getFirst(), typeArgument(mc, 0)) + ")");
             case "add/2" -> value(o + ".insert(" + printer.index(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
             case "get/1" -> RustBodyPrinter.printed(o + "[" + printer.index(args.getFirst()) + "]", Held.PLACE, false);
             case "set/2" -> value(o + "[" + printer.index(args.get(0)) + "] = " + printer.ownedText(args.get(1)));
@@ -500,7 +514,8 @@ final class RustJdk {
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
-            case "put/2" -> value(o + ".insert(" + printer.ownedText(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
+            case "put/2" -> value(o + ".insert(" + printer.ownedAs(args.get(0), typeArgument(mc, 0)) + ", "
+                                  + printer.ownedAs(args.get(1), typeArgument(mc, 1)) + ")");
             // Java's null for an absent key is Rust's None
             case "get/1" -> copyValues(mc)
                     ? RustBodyPrinter.printed(o + ".get(" + printer.reference(args.getFirst()) + ").copied()", Held.VALUE, true)
@@ -570,6 +585,11 @@ final class RustJdk {
             case "ifPresent/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
             default -> null;
         };
+    }
+
+    private static io.codelaser.maddi.cst.api.type.ParameterizedType typeArgument(MethodCall mc, int i) {
+        List<io.codelaser.maddi.cst.api.type.ParameterizedType> ps = mc.object().parameterizedType().parameters();
+        return i < ps.size() ? ps.get(i) : null;
     }
 
     /** A map whose values are copied out: {@code get} gives an {@code Option<V>}, not an {@code Option<&V>}. */

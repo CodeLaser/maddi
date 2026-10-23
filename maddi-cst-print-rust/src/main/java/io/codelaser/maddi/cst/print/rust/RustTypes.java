@@ -49,6 +49,8 @@ final class RustTypes {
             Map.entry("java.lang.Boolean", new Mapped("bool", null)),
             Map.entry("java.lang.Character", new Mapped("char", null)),
             Map.entry("java.math.BigDecimal", new Mapped("f64", null)),
+            Map.entry("java.time.LocalDateTime", new Mapped("SystemTime", "std::time::SystemTime")),
+            Map.entry("java.time.Instant", new Mapped("SystemTime", "std::time::SystemTime")),
             Map.entry("java.util.Collection", new Mapped("Vec", null)),
             Map.entry("java.lang.Iterable", new Mapped("Vec", null)),
             Map.entry("java.util.List", new Mapped("Vec", null)),
@@ -94,6 +96,7 @@ final class RustTypes {
         TypeInfo ti = type.typeInfo();
         if (ti.isPrimitiveExcludingVoid() || ti.isBoxedExcludingVoid()) return true;
         if ("java.math.BigDecimal".equals(ti.fullyQualifiedName())) return true;
+        if ("SystemTime".equals(mapped(ti))) return true;
         return ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti);
     }
 
