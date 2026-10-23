@@ -136,6 +136,18 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
             return verdict(methodInfo.name() + "()", methodInfo.returnType());
         }
 
+        /** {@code "super:C"}: class C's superclass with a nullable first type argument. */
+        @Override
+        public ParameterizedType parentClass(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo) {
+            ParameterizedType parent = typeInfo.parentClass();
+            if (!nullable.contains("super:" + typeInfo.simpleName()) || parent == null || parent.parameters().isEmpty()) {
+                return null;
+            }
+            java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(parent.parameters());
+            arguments.set(0, arguments.getFirst().withNullable(NullableState.NULLABLE));
+            return parent.withParameters(arguments);
+        }
+
         /** {@code "!x"} in checked: local x is asserted at its declaration. */
         @Override
         public boolean assertedAtDeclaration(MethodInfo method, Element declaration, LocalVariable variable) {
@@ -3143,6 +3155,100 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 }
                 """, new KotlinPrintOptions(new ByName(Set.of("names")), KotlinPrintOptions.NullCheck.ASSERT));
         contains(kotlin, "(names!! as SequencedCollection<String>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * timefold's SelectionSorterAdapter: {@code SelectionSorter<?, T> getInnerSorter()} overrides
+     * {@code <S> SelectionSorter<S, T> getInnerSorter()}, whose S the verdicts hold non-null. The override is printed
+     * with the member's S (Kotlin's cannot drop it), and with its bound: Kotlin wants an override's bounds equal.
+     */
+    @Test
+    public void genericOverrideTakesTheMembersBound() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Sorter<A, B> { }
+                interface Holder<T> {
+                    <S> Sorter<S, T> inner();
+                }
+                class Adapter<T> implements Holder<T> {
+                    Sorter<?, T> sorter;
+                    Adapter(Sorter<?, T> sorter) { this.sorter = sorter; }
+                    @Override
+                    @SuppressWarnings("unchecked")
+                    public Sorter<?, T> inner() {
+                        return sorter;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("<S>")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun <S : Any> inner(): Sorter<S, T>");
+        contains(kotlin, "override fun <S : Any> inner(): Sorter<S, T>");
+    }
+
+    /**
+     * timefold's CompositeSelectionFilter: {@code static final SelectionFilter NOOP = (scoreDirector, selection) ->
+     * true;}, a raw SAM type whose Solution_ the verdicts hold non-null. Erased, it is {@code Any} there, not the
+     * {@code Any?} the bound rejects.
+     */
+    @Test
+    public void rawTypeErasesANonNullParameterToAny() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Filter<Solution_, T> {
+                    boolean accept(Solution_ solution, T selection);
+                }
+                class Filters {
+                    @SuppressWarnings("rawtypes")
+                    static final Filter NOOP = (solution, selection) -> true;
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of(), Set.of("<Solution_>")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "Filter<Any, Any?>");
+    }
+
+    /**
+     * jenkins's DiskSpaceMonitorDescriptor: its own code puts null into its superclass's slot, and the verdicts
+     * (NullabilityFacts.parentClass) make it extend AbstractAsyncNodeMonitorDescriptor<DiskSpace?>. The header writes
+     * it so, which its override of monitor(): Map<Computer, DiskSpace?> needs.
+     */
+    @Test
+    public void superclassTakesTheVerdictsArguments() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                class Names extends ArrayList<String> {
+                    void addMissing() {
+                        add(null);
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("super:Names")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "class Names : ArrayList<String?>()");
+    }
+
+    /**
+     * jenkins's ProcessTree: {@code parse(m, size, envVars::addLine)} on a lazily cached, nullable field. Java's bound
+     * reference evaluates its receiver and throws on null where it is created; Kotlin rejects a bound reference on a
+     * nullable receiver. Asserted: {@code envVars!!::addLine}.
+     */
+    @Test
+    public void boundReferenceOnANullableReceiver() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                import java.util.List;
+                import java.util.function.Consumer;
+                class Cache {
+                    List<String> lines;
+                    static void parse(Consumer<String> sink) { sink.accept("x"); }
+                    List<String> lines() {
+                        if (lines != null) return lines;
+                        lines = new ArrayList<>();
+                        parse(lines::add);
+                        return lines;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("lines")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "parse(lines!!::add)");
         compiles(kotlin);
     }
 }

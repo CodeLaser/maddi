@@ -84,15 +84,17 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         } else {
             b.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
             MethodInfo genericSuper = genericOverridden(methodInfo);
-            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = genericSuper != null
-                    ? genericSuper.typeParameters() : methodInfo.typeParameters();
+            // the type parameters' declaration: the generic member's, where the override borrows them (timefold's
+            // SelectionSorterAdapter.getInnerSorter() takes ValueRangeSorter's <S : Any>; Kotlin wants equal bounds)
+            MethodInfo declaring = genericSuper != null ? genericSuper : methodInfo;
+            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = declaring.typeParameters();
             if (!typeParameters.isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(typeParameters.stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
-                                                                             + (nonNullBoundOfTypeVariable(methodInfo, tp) ? " & Any" : "")
-                                                                             + (nonNullBound(methodInfo, tp)
-                                                                                || methodInfo.overrides().isEmpty()
+                                                                             + (nonNullBoundOfTypeVariable(declaring, tp) ? " & Any" : "")
+                                                                             + (nonNullBound(declaring, tp)
+                                                                                || declaring.overrides().isEmpty()
                                                                                    && KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
