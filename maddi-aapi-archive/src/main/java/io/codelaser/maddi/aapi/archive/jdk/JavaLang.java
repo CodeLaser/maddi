@@ -2590,7 +2590,9 @@ public class JavaLang {
         @IgnoreModifications @NotNull static final PrintStream out = null;
         @IgnoreModifications @NotNull static final PrintStream err = null;
         //public interface Logger
-        @Independent
+        // a @Container, as slf4j's Logger (libs/log/OrgSlf4j): log calls read their arguments; the calls modify, and
+        // carry @IgnoreModifications
+        @Container @Independent
         class Logger {
             //public enum Level extends Enum<Level>
             class Level {
