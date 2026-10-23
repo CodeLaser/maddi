@@ -50,10 +50,13 @@
 # gets more files compiling lowers them. maddi-mod's fernflower-nullability ratchets them. With a record whose accessor
 # implements an interface's method printed without @JvmRecord, no lateinit for a boxed or type-variable field, Java's
 # char and byte promotions, and boxed types nullable in signatures Java calls: 96 files compiling, 88 to class files.
+# 2026-10-23, the Kotlin printer fixes of the langchain4j work (no `!!` into a callee's unbounded T beside a T?
+# parameter, library parameters' explicit nullability, Set.of/Map.of keeping Java's order, private @MethodSource
+# factories @JvmStatic, among others), measured at maddi 1e0fd69d0: 99 files compiling, 91 to class files, 28 test files.
 types	199
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	199
-compilingFiles	96
-bytecodeFiles	88
-testBytecodeFiles	22
+compilingFiles	99
+bytecodeFiles	91
+testBytecodeFiles	28
