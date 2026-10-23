@@ -49,6 +49,8 @@ public enum RustPrintCode implements PrintMessage.Code {
     SYNCHRONIZED(Severity.LOSS),
     /** A dereference of a value the nullability verdicts call nullable: {@code .unwrap()}, Java's NPE as a panic. */
     UNWRAP_AT_DEREFERENCE(Severity.INFO),
+    /** A cast of an {@code Object}: {@code downcast_ref}, which panics where Java throws ClassCastException. */
+    DOWNCAST(Severity.INFO),
     /** A reference cast: Rust has no downcast of a struct; the value is printed uncast. */
     REFERENCE_CAST(Severity.ERROR),
     /** A string's length or character index: Rust counts UTF-8 bytes where Java counts UTF-16 units. */

@@ -260,6 +260,14 @@ final class RustTypePrinter {
             sb.append("}\n");
         }
         if (equals != null) sb.append(partialEq(equals, name, generics));
+        if (hasToString(typeInfo)) {
+            // Java's string conversion calls toString(): Rust's Display, through the inherent to_string
+            sb.append("\nimpl").append(generics).append(" std::fmt::Display for ").append(name).append(generics)
+                    .append(" {\n").append(INDENT)
+                    .append("fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n")
+                    .append(INDENT).append(INDENT).append("write!(f, \"{}\", ").append(name).append("::to_string(self))\n")
+                    .append(INDENT).append("}\n}\n");
+        }
         if (hashCode) {
             if (equals != null) sb.append("\nimpl").append(generics).append(" Eq for ").append(name).append(generics)
                     .append(" {}\n");
@@ -277,6 +285,12 @@ final class RustTypePrinter {
                && m.parameters().getFirst().parameterizedType().typeInfo() != null
                && m.parameters().getFirst().parameterizedType().typeInfo().isJavaLangObject()
                && m.returnType().isBoolean();
+    }
+
+    /** The type declares {@code String toString()}. */
+    static boolean hasToString(TypeInfo typeInfo) {
+        return typeInfo.methods().stream().anyMatch(m -> "toString".equals(m.name()) && !m.isStatic()
+                                                         && m.parameters().isEmpty() && !m.isAbstract());
     }
 
     private static boolean isHashCode(MethodInfo m) {

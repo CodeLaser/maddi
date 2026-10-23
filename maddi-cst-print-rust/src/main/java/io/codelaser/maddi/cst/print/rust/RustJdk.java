@@ -216,7 +216,8 @@ final class RustJdk {
         String name = mc.methodInfo().name();
         String macro = ("println".equals(name) ? (err ? "eprintln" : "println") : (err ? "eprint" : "print")) + "!";
         if (mc.parameterExpressions().isEmpty()) return value(macro + "()");
-        return value(macro + "(\"{}\", " + printer.text(mc.parameterExpressions().getFirst()) + ")");
+        String[] d = printer.display(mc.parameterExpressions().getFirst());
+        return value(macro + "(\"" + d[0] + "\", " + d[1] + ")");
     }
 
     private static Printed string(String o, String name, List<Expression> args, RustBodyPrinter printer,
@@ -228,7 +229,7 @@ final class RustJdk {
                 yield value(o + ".len() as i32");
             }
             case "isEmpty/0" -> value(o + ".is_empty()");
-            case "equals/1" -> value(o + " == " + printer.text(args.getFirst()));
+            case "equals/1" -> stringEquals(o, args.getFirst(), printer);
             case "contains/1" -> value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
             case "startsWith/1" -> value(o + ".starts_with(" + printer.reference(args.getFirst()) + ")");
             case "endsWith/1" -> value(o + ".ends_with(" + printer.reference(args.getFirst()) + ")");
@@ -260,12 +261,31 @@ final class RustJdk {
         };
     }
 
+    /**
+     * {@code s.equals(x)}: Java's false for a null or a non-string {@code x}; an {@code Object} is downcast first.
+     */
+    private static Printed stringEquals(String o, Expression arg, RustBodyPrinter printer) {
+        Printed a = printer.printed(arg);
+        io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
+        boolean object = type.typeInfo() != null && type.typeInfo().isJavaLangObject();
+        String self = "&" + paren(o) + "[..]";
+        String test = object ? "v.downcast_ref::<String>().map_or(false, |s| s.as_str() == " + self + ")"
+                : "v.as_str() == " + self;
+        if (a.nullable()) return value(a.text() + ".as_ref().map_or(false, |v| " + test + ")");
+        if (object) return value("{ let v = &" + a.text() + "; " + test + " }");
+        return value(o + " == " + a.text());
+    }
+
     /** {@code sb.append(x)}: a char is pushed, a string pushed as a {@code &str}, anything else formatted first. */
     static String append(String target, Expression arg, RustBodyPrinter printer) {
         io.codelaser.maddi.cst.api.type.ParameterizedType type = arg.parameterizedType();
         if (type.isPrimitiveExcludingVoid() && type.typeInfo().isChar()) return target + ".push(" + printer.text(arg) + ")";
-        if (RustTypes.isString(type)) return target + ".push_str(" + printer.reference(arg) + ")";
-        return target + ".push_str(&" + operand(printer, arg) + ".to_string())";
+        if (RustTypes.isString(type) && !printer.printed(arg).nullable()) {
+            return target + ".push_str(" + printer.reference(arg) + ")";
+        }
+        if (type.isPrimitiveExcludingVoid()) return target + ".push_str(&" + operand(printer, arg) + ".to_string())";
+        String[] d = printer.display(arg);
+        return target + ".push_str(&format!(\"" + d[0] + "\", " + d[1] + "))";
     }
 
     /**
@@ -384,6 +404,8 @@ final class RustJdk {
         StringBuilder out = new StringBuilder();
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("%([-#+ 0,(]*)(\\d+)?(\\.\\d+)?([a-zA-Z%])").matcher(f);
         int at = 0;
+        int conversions = 0;
+        List<String> shown = new java.util.ArrayList<>();
         while (m.find()) {
             out.append(braces(f.substring(at, m.start())));
             at = m.end();
@@ -392,6 +414,7 @@ final class RustJdk {
                 case "%" -> out.append('%');
                 case "n" -> out.append('\n');
                 case "s", "d", "f", "S", "x", "X", "c", "b", "e" -> {
+                    int argIndex = ++conversions;
                     String spec = (flags.contains("-") ? "<" : "") + (flags.contains("0") ? "0" : "")
                                   + (width == null ? "" : width) + (precision == null ? "" : precision)
                                   + switch (conversion) {
@@ -400,7 +423,10 @@ final class RustJdk {
                                         case "e" -> "e";
                                         default -> "";
                                     };
-                    out.append(spec.isEmpty() ? "{}" : "{:" + spec + "}");
+                    String[] d = argIndex < args.size() ? printer.display(args.get(argIndex)) : new String[]{"{}", ""};
+                    if (argIndex < args.size()) shown.add(d[1]);
+                    if (d[0].equals("{}")) out.append(spec.isEmpty() ? "{}" : "{:" + spec + "}");
+                    else out.append(d[0]);
                 }
                 default -> {
                     printer.context().message(RustPrintCode.FORMAT, mc, m.group());
@@ -410,7 +436,8 @@ final class RustJdk {
         }
         out.append(braces(f.substring(at)));
         String text = RustBodyPrinter.stringLiteral(out.toString());
-        List<String> rest = args.subList(1, args.size()).stream().map(printer::text).toList();
+        List<String> rest = shown.size() == args.size() - 1 ? shown
+                : args.subList(1, args.size()).stream().map(printer::text).toList();
         return value("format!(" + text + (rest.isEmpty() ? "" : ", " + String.join(", ", rest)) + ")");
     }
 

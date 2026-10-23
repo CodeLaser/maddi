@@ -94,6 +94,8 @@ public interface RustFacts extends NullabilityFacts {
             if (method.isStatic() || method.isConstructor() || method.isVoid()) return false;
             Value.Independent independent = method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.class);
+            // not UNMODIFIABLE_VIEW_METHOD: it marks any unmodifiable result (a fresh string or list too), not only a
+            // view of the receiver's state
             return independent != null && independent.isDependent();
         }
 

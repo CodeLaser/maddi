@@ -194,7 +194,9 @@ final class RustBodyPrinter {
         // an Option is unwrapped with as_mut() to modify what it holds, which needs a mutable binding
         boolean mut = reassigned || mutated && (held == Held.VALUE || nullable);
         String type = init instanceof NullConstant
-                ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true) : "";
+                ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true)
+                : mentionsObject(lv.parameterizedType()) && held == Held.VALUE
+                ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable) : "";
         return "let " + (mut ? "mut " : "") + name + type + " = " + text;
     }
 
@@ -792,11 +794,17 @@ final class RustBodyPrinter {
         return text;
     }
 
+    /** Both branches of the same type: when one may be null, the other is wrapped in {@code Some}. */
     private Printed inlineConditional(InlineConditional ic) {
         boolean string = RustTypes.isString(ic.parameterizedType());
-        String t = string ? owned(expression(ic.ifTrue()), ic.parameterizedType()) : expression(ic.ifTrue()).text;
-        String f = string ? owned(expression(ic.ifFalse()), ic.parameterizedType()) : expression(ic.ifFalse()).text;
-        return value("if " + condition(ic.condition()) + " { " + t + " } else { " + f + " }");
+        Printed pt = expression(ic.ifTrue());
+        Printed pf = expression(ic.ifFalse());
+        String t = string ? owned(pt, ic.parameterizedType()) : pt.text;
+        String f = string ? owned(pf, ic.parameterizedType()) : pf.text;
+        boolean nullable = pt.nullable || pf.nullable;
+        if (nullable && !pt.nullable) t = "Some(" + t + ")";
+        if (nullable && !pf.nullable) f = "Some(" + f + ")";
+        return new Printed("if " + condition(ic.condition()) + " { " + t + " } else { " + f + " }", Held.VALUE, nullable);
     }
 
     private Printed stringConcat(BinaryOperator bo) {
@@ -808,17 +816,41 @@ final class RustBodyPrinter {
             if (part instanceof StringConstant sc) {
                 format.append(sc.constant().replace("{", "{{").replace("}", "}}"));
             } else {
-                // a value without Display (a SystemTime) is formatted with Debug
-                format.append("SystemTime".equals(part.parameterizedType().typeInfo() == null ? null
-                        : RustTypes.mapped(part.parameterizedType().typeInfo())) ? "{:?}" : "{}");
-                Printed p = expression(part);
-                // Java prints a null as "null"
-                args.add(p.nullable ? p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"
-                        : p.text);
+                String[] d = display(part);
+                format.append(d[0]);
+                args.add(d[1]);
             }
         }
         return value("format!(" + stringLiteral(format.toString())
                      + (args.isEmpty() ? "" : ", " + String.join(", ", args)) + ")");
+    }
+
+    /**
+     * A value in a format string, as Java's string conversion prints it as far as Rust can: {@code "null"} for a
+     * null, an enum's name, Debug for what has no Display (a collection, a SystemTime), a class's address when it
+     * has no {@code toString()}. {@code {spec, text}}.
+     */
+    String[] display(Expression e) {
+        Printed p = expression(e);
+        ParameterizedType type = e.parameterizedType();
+        if (p.nullable) {
+            return new String[]{"{}", p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"};
+        }
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || type.isPrimitiveExcludingVoid()) return new String[]{"{}", p.text};
+        if (type.arrays() > 0) return new String[]{"{:?}", p.text};
+        if (ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti)) return new String[]{"{}", p.text + ".name()"};
+        String mapped = RustTypes.mapped(ti);
+        if (mapped != null) {
+            boolean debug = java.util.Set.of("Vec", "HashSet", "BTreeSet", "HashMap", "BTreeMap", "VecDeque", "Option",
+                    "SystemTime").contains(mapped);
+            return new String[]{debug ? "{:?}" : "{}", p.text};
+        }
+        if (!ti.compilationUnit().externalLibrary() && !ti.isInterface()) {
+            if (ti.typeNature().isRecord()) return new String[]{"{:?}", p.text};
+            if (!RustTypePrinter.hasToString(ti)) return new String[]{"{:p}", adapt(p, Held.SHARED)};
+        }
+        return new String[]{"{}", p.text};
     }
 
     private static void flattenConcat(Expression e, List<Expression> parts) {
@@ -840,6 +872,14 @@ final class RustBodyPrinter {
     private Printed cast(Cast c) {
         ParameterizedType to = c.parameterizedType();
         Printed inner = expression(c.expression());
+        ParameterizedType from = c.expression().parameterizedType();
+        if (from.typeInfo() != null && from.typeInfo().isJavaLangObject() && from.arrays() == 0) {
+            // a Box<dyn Any>: downcast, a panic where Java throws
+            context.message(RustPrintCode.DOWNCAST, c, to.fullyQualifiedName());
+            String target = RustTypes.owned(to, context, c);
+            String text = inner.text + (inner.nullable ? ".unwrap()" : "") + ".downcast_ref::<" + target + ">().unwrap()";
+            return RustTypes.isCopy(to) ? value("*" + text) : new Printed(text, Held.SHARED, false);
+        }
         if (to.isPrimitiveExcludingVoid() && to.arrays() == 0) {
             if (to.typeInfo().isChar()) {
                 return value("char::from_u32((" + inner.text + ") as u32).unwrap()");
@@ -1031,6 +1071,7 @@ final class RustBodyPrinter {
 
     /** {@code p} where an owned value is expected: moved, except that a borrowed string becomes a new one. */
     private String owned(Printed p, ParameterizedType type) {
+        if ("None".equals(p.text)) return p.text;
         if (RustTypes.isString(type) && p.nullable && (p.held == Held.STR || p.held == Held.SHARED)) {
             return p.text + ".map(|s| s.to_string())";
         }
@@ -1047,6 +1088,15 @@ final class RustBodyPrinter {
             return p.text + (p.nullable ? ".cloned()" : ".clone()");
         }
         return p.text;
+    }
+
+    /**
+     * {@code Map<String, Object>}: Rust infers a collection's element type from its first insert ({@code Box<f64>}),
+     * so the declaration states it ({@code Box<dyn Any>}).
+     */
+    private static boolean mentionsObject(ParameterizedType type) {
+        if (type.typeInfo() != null && type.typeInfo().isJavaLangObject()) return true;
+        return type.parameters().stream().anyMatch(RustBodyPrinter::mentionsObject);
     }
 
     private static boolean isName(String text) {
