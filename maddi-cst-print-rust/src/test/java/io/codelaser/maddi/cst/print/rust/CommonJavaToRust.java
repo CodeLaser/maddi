@@ -173,6 +173,10 @@ public abstract class CommonJavaToRust {
         method(type, name).analysis().set(PropertyImpl.INDEPENDENT_METHOD, ValueImpl.IndependentImpl.INDEPENDENT);
     }
 
+    protected static void immutable(TypeInfo type, Value.Immutable immutable) {
+        type.analysis().set(PropertyImpl.IMMUTABLE_TYPE, immutable);
+    }
+
     /** Line by line, indentation ignored. */
     protected static void contains(String rust, String expected) {
         assertTrue(strip(rust).contains(strip(expected)), () -> "expected\n" + expected + "\nin\n" + rust);

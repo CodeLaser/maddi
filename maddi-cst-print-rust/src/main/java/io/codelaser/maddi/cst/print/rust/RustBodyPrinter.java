@@ -673,15 +673,17 @@ final class RustBodyPrinter {
     }
 
     /** {@code p} where an owned value is expected: moved, except that a borrowed string becomes a new one. */
-    private static String owned(Printed p, ParameterizedType type) {
+    private String owned(Printed p, ParameterizedType type) {
         if (RustTypes.isString(type) && (p.held == Held.STR || p.held == Held.SHARED)) return p.text + ".to_string()";
         // a string is immutable in Java: sharing it and copying it cannot be told apart, so a named one is cloned
         // rather than moved, and its later uses stay valid
         if (RustTypes.isString(type) && (p.held == Held.PLACE || p.held == Held.VALUE && isName(p.text))) {
             return p.text + ".clone()";
         }
-        // a record is immutable too, and derives Clone: a borrowed one is copied where an owned one is expected
-        if (RustTypes.isRecord(type) && (p.held == Held.SHARED || p.held == Held.PLACE)) {
+        // an @Immutable record (no hidden content) derives Clone, and a copy cannot be told from the shared object:
+        // a borrowed one is copied where an owned one is expected. Any other type stays a mismatch for rustc to report.
+        if (RustTypes.isRecord(type) && context.facts.immutable(type.typeInfo())
+            && (p.held == Held.SHARED || p.held == Held.PLACE)) {
             return p.text + (p.nullable ? ".cloned()" : ".clone()");
         }
         return p.text;

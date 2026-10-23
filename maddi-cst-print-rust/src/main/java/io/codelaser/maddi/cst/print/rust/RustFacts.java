@@ -19,6 +19,7 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -97,6 +98,13 @@ public interface RustFacts extends NullabilityFacts {
         }
 
         @Override
+        public boolean immutable(TypeInfo typeInfo) {
+            Value.Immutable immutable = typeInfo.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE,
+                    ValueImpl.ImmutableImpl.class);
+            return immutable != null && immutable.isImmutable();
+        }
+
+        @Override
         public ParameterizedType field(FieldInfo fieldInfo) {
             return NullabilityFacts.STORED.field(fieldInfo);
         }
@@ -134,6 +142,11 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
+            public boolean immutable(TypeInfo typeInfo) {
+                return ownership.immutable(typeInfo);
+            }
+
+            @Override
             public ParameterizedType field(FieldInfo fieldInfo) {
                 return nullability.field(fieldInfo);
             }
@@ -166,6 +179,15 @@ public interface RustFacts extends NullabilityFacts {
 
     /** The method returns part of its receiver's accessible content: its result type is a borrow, {@code &T}. */
     default boolean resultBorrowsReceiver(MethodInfo method) {
+        return false;
+    }
+
+    /**
+     * {@code @Immutable}, without hidden content: a copy cannot be told from the shared object, so a borrowed value of
+     * this type may be cloned where an owned one is expected. With hidden content ({@code @Immutable(hc=true)}) a clone
+     * would also copy what Java shares, and could hide a wrong independence verdict.
+     */
+    default boolean immutable(TypeInfo typeInfo) {
         return false;
     }
 

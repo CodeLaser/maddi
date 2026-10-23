@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -163,9 +164,34 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
             """;
 
     /** The end-to-end demo of #167: a record's accessors, its borrowed string, a copied record, collected keys. */
-    @DisplayName("record accessors and constructor, a record copied out of a map, a map's keys collected: compiles")
+    @DisplayName("record accessors and constructor, an @Immutable record copied out of a map, a map's keys collected")
     @Test
     public void recordsInAMap() throws Exception {
+        List<TypeInfo> types = stock(ValueImpl.ImmutableImpl.IMMUTABLE);
+        String rust = module("a.b");
+        contains(rust, "pub fn new(name: &str, count: i32) -> Self {");
+        contains(rust, "name: name.to_string()");
+        contains(rust, "pub fn count(&self) -> i32 {");
+        contains(rust, "return self.items.get(name).cloned();");
+        contains(rust, "return self.items.keys().cloned().collect();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    /**
+     * With hidden content, a copy would duplicate what Java shares, and hide a wrong independent verdict on
+     * {@code find}: no clone, and rustc reports the borrow where an owned value was promised.
+     */
+    @DisplayName("a record with hidden content is not copied: rustc's E0308 at the independent result")
+    @Test
+    public void recordWithHiddenContentIsNotCopied() throws Exception {
+        stock(ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        String rust = module("a.b");
+        contains(rust, "return self.items.get(name);");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().anyMatch(e -> e.contains("E0308")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    private List<TypeInfo> stock(Value.Immutable itemImmutable) throws Exception {
         List<TypeInfo> types = parse(STOCK);
         TypeInfo stock = types.getFirst();
         TypeInfo item = stock.findSubType("Item");
@@ -176,15 +202,10 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         independentResult(stock, "find");
         independentResult(stock, "names");
         borrowed(item.constructors().getFirst().parameters().getFirst());
+        immutable(item, itemImmutable);
 
         RustTranslator.Result result = translate(types, nullable(Set.of("old", "find()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
-        String rust = module("a.b");
-        contains(rust, "pub fn new(name: &str, count: i32) -> Self {");
-        contains(rust, "name: name.to_string()");
-        contains(rust, "pub fn count(&self) -> i32 {");
-        contains(rust, "return self.items.get(name).cloned();");
-        contains(rust, "return self.items.keys().cloned().collect();");
-        assertEquals(List.of(), rustcErrors(), rust);
+        return types;
     }
 }

@@ -40,9 +40,10 @@ output, it says where a verdict and the code disagree:
 `TestJavaToRustOwnership` pins the first two: the same Java compiles with the right verdicts, fails with E0596/E0594
 when `add` is declared non-modifying, and fails with E0382 where a constructor keeps the caller's list.
 
-The exceptions are the immutable values: a `String`, and a source record. Sharing and copying them cannot be told
-apart, so a named string is cloned where it is stored again, and a borrowed record (`map.get(k)`) is cloned where an
-owned one is expected.
+The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source record
+the analysis calls `@Immutable` (without hidden content). A named string is cloned where it is stored again, and a
+borrowed record (`map.get(k)`) is cloned where an owned one is expected. A record with hidden content
+(`@Immutable(hc=true)`) is not: its clone would copy what Java shares, so the mismatch stays for rustc to report.
 
 rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do compiles. Clippy's
 `needless_pass_by_ref_mut` and `unused_mut` give the other direction.
