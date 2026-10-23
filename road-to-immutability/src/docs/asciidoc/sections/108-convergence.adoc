@@ -139,6 +139,43 @@ Finally, most non-default behaviors — disabling the worklist, disabling parall
 breaking, dumping the per-element verdict fingerprint — are reachable through environment gates, which is
 how the A/B verification workflow and the regression hunts of the development process are driven.
 
+[#after-the-fixpoint]
+== After the fixpoint: the reachability passes
+
+Two conclusions are deliberately _not_ computed inside the iteration: the propagation of modification along
+call chains deeper than the summaries carry it, and nullability.
+Both have the same shape — a seed, and a closure over the links — and both were tried inside the loop first.
+There, a value written in an early pass froze the optimistic answer (unmodified, not null) before the
+evidence against it had arrived, and the write-once discipline then kept it.
+They run instead as _reachability passes_ over the certified fixpoint: one pass, complete facts, every
+value written once.
+
+The nullability pass (`NullabilityPass`) is the larger of the two, and the chapter on <<nullability>>
+describes what it computes.
+Mechanically:
+
+* its _nodes_ are the fields, parameters, return values and locals of the analyzed code, plus a node per
+  type argument and per array element of each;
+* its _seeds_ are the null literals, the fields that can hold their default value, the arrays created empty,
+  the library results declared nullable, and the nullable contracts;
+* its _edges_ are the direct links of each method's variable data, the argument links of each call site, and
+  the override chains;
+* its _guards_ are the per-statement facts of a forward walk over every method body — which variables are
+  known not to be `null` where — and an edge is not taken where its source is guarded.
+
+The pass runs in rounds.
+A round trusts no analyzed method's return value; the next round treats every return value the previous one
+found unreached as a non-null value at its call sites, and drops the edges from those sites.
+Dropping edges only shrinks what `null` reaches, so the trusted set grows monotonically and the rounds
+stop by themselves, in practice within five.
+The verdicts go into the same property store as everything else (`NULLABILITY_FIELD`,
+`NULLABILITY_PARAMETER`, `NULLABILITY_METHOD`), from where the Java decorator, the Kotlin and C# printers
+and the IDE read them.
+
+What the pass needs from the iteration is set by one configuration switch (`nullability`): the link engine
+keeps the null markers in the method summaries and records the argument links at every call.
+Both change the summaries' content and are off unless asked for, under the golden rule below.
+
 == A note on scale
 
 For calibration, on current hardware the analyzer processes, certified, code bases in the range of

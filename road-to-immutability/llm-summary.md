@@ -200,6 +200,46 @@ immutability verdicts are derived.
 - **Golden rule**: engine/performance changes are accepted only with a byte-identical FPDUMP A/B
   (modulo the documented constructor non-confluence). Speed never buys verdict changes.
 
+## Nullability (chapter 085; `maddi-modification-analyzer` package `nullability`, docs/design/nullability.md in maddi-mod)
+
+- **Three states** (`NullableState`): `NULLABLE`, `NONNULL`, `UNSPECIFIED` ("nobody said"; NOT a synonym for
+  nullable). Properties `NULLABILITY_FIELD/PARAMETER/METHOD` (value `Value.Nullability`: the state of the
+  value and, recursively, of each type argument; an array's one argument is its elements: `String?[]` is
+  `N(Q)`). `NOT_NULL_*` is GONE (2026-10-06). Locals get verdicts too (`Report.local`).
+- **Reachability over the converged link facts**, a one-shot pass AFTER certification (`NullabilityPass`,
+  modelled on the modification reachability pass): seeds (null literals; fields that can hold the default
+  value; `new T[n]`; library nullable results from the hints; nullable contracts; by default a parameter/field
+  compared with null — `Policy.nullTests`) → edges (direct links in each method's variable data, per-call
+  argument links, override chains: one parameter nullability per chain, returns narrow downward) → reached =
+  NULLABLE, unreached = `Policy.unreached` (NONNULL in the `@NullMarked` reading). Rounds: an unreached
+  analysed return is trusted non-null at its call sites next round (monotone, ≤5).
+- **Use-site facts** (`NonNullFacts`, flow-sensitive forward walk per method): known-non-null locals,
+  parameters and fields of `this` per statement (null tests, dereferences, `requireNonNull`, null-check
+  predicates `NullPredicates`, assignments of non-null values; `&&`/`||`/`?:` inside a statement). An edge
+  is not taken where its source is guarded. `kotlinSmartCasts()` restricts to what Kotlin derives.
+- **Content**: `Content(node)` for array elements, `Arg(node, i)` per type argument, from the hidden-content
+  variables (`list.§$s` = arg 0, `map.§$$s[-1]`/`[-2]` = keys/values, `box.t`) and writes into a generic
+  receiver (`add`, `put`); flows between generic values tie the slots both ways (invariance).
+- **World** (`Policy.world`): `CLOSED` (default; a parameter no analysed call passes null to is NONNULL),
+  `OPEN` (outside-callable parameters UNSPECIFIED unless a *precondition*: dereferenced/required/rejected on
+  every normal exit). Preconditions are computed per override family and reported with the calls that may
+  pass null (`Report.preconditions`, `nullArguments`).
+- **Contracts**: JSpecify/JetBrains/Checker/JSR-305/Lombok annotations and `@NullMarked` scope are read
+  (`DeclaredNullability`); a nullable contract seeds, a non-null one stops null (the caller's error). The JDK
+  hints carry JSpecify's annotated JDK, one level down (`nullableArguments`).
+- **Presets**: `NULL_MARKED` (Java annotations), `KOTLIN` (= NULL_MARKED + `assertContentWrites`,
+  `callResults`, `assertAtDeclaration`, `libraryCallbacks`: the printer asserts `!!` at a content write or a
+  declaration instead of making the slot nullable; each moves an NPE, never removes one), C# = KOTLIN +
+  `preconditionsNonNull`. `CAUTIOUS` leaves unreached UNSPECIFIED.
+- **Engine support, inert for modification** (ch. 105 §Null as a value): null constant markers `$_ceN`;
+  `LinkComputer.Options.nullConstantReturns` keeps a marker-only return in the summary; a marker composes
+  as assigned-from only, never as a member; `Link.derived()` (direct vs closure-composed), the pass reads
+  direct links; `trackObjectCreations` for per-call argument links. All switched on by the analyzer's
+  `Configuration.nullability()`; off by default (FPDUMP golden rule).
+- **Oracle**: guava's own JSpecify annotations, scored as *unsafe* (inferred NONNULL, declared nullable)
+  and *noise* (the reverse); baselines all-non-null 2,515 unsafe, all-nullable 13,272 noise, over 15,787
+  top-level positions. Second oracle: kotlinc/Roslyn on the translated corpora (the J2K/C# ratchets).
+
 ## Engine facts an LLM should not re-derive wrongly
 
 - Compare `TypeInfo`/`MethodInfo`/`FieldInfo` with `==` (single instance per FQN + source set).
@@ -231,12 +271,12 @@ immutability verdicts are derived.
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
   an optimistic @Independent (since 2026-09).
-- **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
-  Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
-  `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
-  `DecoratorImpl`) but never inferred. `@Singleton` and `@ExtensionClass` exist in `maddi-support`
-  but have no property and are read by nothing. The chapter carries per-section status markers as
-  of 2026-07-23.
+- **Chapter "Other annotations" is mostly aspirational — do not assume those annotations work.**
+  Only `@Identity`/`@Fluent` are computed there (`TypeModIndyAnalyzerImpl`). `@UtilityClass` and
+  `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by `DecoratorImpl`) but never
+  inferred. `@Singleton` and `@ExtensionClass` exist in `maddi-support` but have no property and are read
+  by nothing. `@NotNull`/`@Nullable` left the chapter on 2026-10-23: they ARE computed, by the nullability
+  pass (chapter 085 below).
 - **The reachability pass (MODREACH) follows no element link for a parameter**: its E1/E2 projections walk
   assignment links only, so under MODREACH the published DEEP `UNMODIFIED_PARAMETER` of a walkable body never
   records an element-only modification (`for (Item i : items) i.touch()` reads unmodified); the fixpoint's
@@ -269,7 +309,7 @@ immutability verdicts are derived.
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
 045 linking & dependence · 050 immutability · 060 eventual (contracted, not computed; see note) ·
-070 modification part 2 · 080 hidden content.
+070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)

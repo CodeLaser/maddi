@@ -22,6 +22,10 @@ An easy way to envisage the life cycle of an object is to assume that it consist
 We set out to show that there are different forms of immutability, from very strict deep immutability to weak guarantees of non-modification, that can be made visible in the code.
 We believe that code complexity can be greatly reduced when the software engineer is permanently aware of the modification state of objects.
 
+The machinery that computes modification — the _linking_ of the chapters on <<linking-dependence>> and <<hidden-content>>, which tracks where objects flow — answers a second question just as well: where can `null` turn up?
+The chapter on <<nullability>> is about that question.
+It is the first application of the engine beyond immutability, and the one that makes the translation of a Java program into Kotlin's or C#'s nullable type systems possible.
+
 The {maddi} project consists of a set of definitions, a static code analyzer to compute and enforce rules and definitions, and IDE support to visualize the results without cluttering.
 Using {maddi} in your project will help to maintain higher coding standards, the ultimate beneficiary being code that will survive longer.
 

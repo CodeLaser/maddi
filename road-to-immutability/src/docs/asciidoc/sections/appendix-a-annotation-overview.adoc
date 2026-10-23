@@ -51,7 +51,12 @@ This property is only relevant when the type is immutable; the absence of `hc=tr
 Parameters of "official" functional interface type (i.e., the type is a functional interface type in the package
 `java.util.function`) have the {ignoreModifications} annotation, unless explicitly overwritten by {modified}.
 
-The default nullable annotation for parameters and return values of non-primitive type is {nullable}.
+A parameter or return value of reference type that carries no null annotation is _unspecified_ (see
+<<nullability>>): it inherits the nullability of the method it overrides, where there is one, and otherwise the
+analyzer claims nothing.
+Primitives, {fluent} methods and enum constants are {nn}.
+{nnContent} makes the value and all of its content not null; `nullableArguments` names, by position, the
+type arguments (or, for an array, position `0` for the elements) that may hold `null`.
 
 A factory method is a static method returning an object of the type of the class.
 Independence of a factory method is always with respect to the method's parameters, rather than to the type.

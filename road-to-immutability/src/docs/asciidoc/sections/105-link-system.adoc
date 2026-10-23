@@ -146,6 +146,37 @@ The reconstruction techniques have their own catalogue in the module
 (`sv-reconstruction-techniques.md`); the summary-level behavior is pinned by the link test suite, which is
 the de-facto specification.
 
+[#null-in-the-link-graph]
+== Null as a value in the link graph
+
+The chapter on <<nullability>> describes nullability as reachability over the links.
+Four things in the link engine make that possible, all of them inert for the modification analysis:
+
+* `null` enters the graph as any constant does: a _constant marker_ variable (written `$_ce0`, `$_ce1`, …
+  in the engine's output) whose expression is the null literal.
+  `x = null` gives `x ← $_ce0`; `list.add(null)` gives `list.§xs ∋ $_ce0`.
+* A marker composes only as something a variable is _assigned from_: `y ← x` and `x ← $_ce0` give
+  `y ← $_ce0`, so a local that carries a `null` to the return value is seen.
+  It never composes as a _member_: `∋` is written for a read as for a write, and letting the marker through
+  would make `null` an element of every map a `null` was merely read _from_.
+  A container takes a `null` only on a direct link from a literal argument.
+* Under the nullability configuration, a return value whose only link is to a marker keeps it in the method
+  summary — `[-] --> find←$_ce0` reads "`find` may return `null`" — where the summary would otherwise be
+  emptied, and every call site records the links of its arguments.
+  A `return null` thereby crosses the call, and an argument reaches the callee's parameter.
+* Every link carries a _provenance_ bit: _direct_ when the statement's own evaluation inserted it — an
+  assignment, a callee's summary applied at the call site, a field or element access — and _derived_ when
+  the closure or the shared-variable reconstruction composed it.
+  Modification does not need the distinction: it wants the alias-and-containment relation, which is
+  symmetric, transitive and path-insensitive.
+  Nullability wants provenance — which literal, call or variable flows into which position, at which
+  statement — and reads the direct links.
+
+The virtual fields name the content positions: `list.§xs` is the list's type argument, the key and value
+slices of `map.§kvs` are the map's two, `box.t` is the holder's `T`, and an array element `a[i]` is the
+array's.
+That is how `Map<String, String?>` is a verdict and not a guess.
+
 == Reading the output
 
 For the curious, the fastest way to build intuition is to read summaries off real methods.

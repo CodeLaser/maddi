@@ -151,4 +151,6 @@ side by side (see the [README](../../README.md#building-from-source)). Developme
 - [`kotlin-printing.md`](../../maddi-cst-print-kotlin/kotlin-printing.md) and
   [`csharp-printing.md`](../../maddi-cst-print-csharp/csharp-printing.md), for how the translations work.
 - The [user manual](https://www.codelaser.io/maddi/manual/) and the book,
-  [*The Road to Immutability*](https://www.codelaser.io/maddi/road/).
+  [*The Road to Immutability*](https://www.codelaser.io/maddi/road/), which gains a chapter on nullability
+  ([sources](../../road-to-immutability/src/docs/asciidoc/sections/085-nullability.adoc)): the definitions, what the
+  analyzer computes and how, and the closed and open world.

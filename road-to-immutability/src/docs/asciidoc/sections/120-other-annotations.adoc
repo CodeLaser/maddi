@@ -10,8 +10,9 @@ We discuss them briefly, and refer to the user manual for an in-depth analysis.
 
 Everything after them is **not implemented** at present, with one partial exception:
 
-* {nn} / {nullable} and {utilityClass} are read as *contracts* — from explicit annotations and from
-annotated APIs — but are never inferred from your code;
+* {nn} / {nullable} are **computed**, and have moved to their own chapter, <<nullability>>;
+* {utilityClass} is read as a *contract* — from explicit annotations and from annotated APIs — but is
+never inferred from your code;
 * {finalizer} is read as a contract, and its *modification semantics* — a finalizer call does not count
 as a modification of the receiver — are implemented and load-bearing in the modification engine (see
 <<finalizers>>); the three life-cycle *sequencing rules* below are not enforced;
@@ -68,69 +69,6 @@ class Builder {
     public static final Set<String> one23 = new Builder().add(1).add(2).add(3).add("go").build();
 }
 ----
-
-[#nullable-section]
-== Nullable, not null
-
-NOTE: *Not implemented.* Not-null values that arrive from explicit annotations or from annotated APIs are
-stored and propagated, but the computational inference described in this section — context not-null, field
-not-null, external not-null — is not part of the analyzer.
-
-Nullability is a standard static code analyzer topic, which we approach from a computational side: the analyzer
-infers where possible, the user adds annotations to abstract methods.
-The complement of not-null (marked {nn}) is nullable (marked {nullable}).
-
-* A method marked {nn} will never return a null result.
-This is very standard.
-* Calling a parameter marked {nn} will result in a null pointer exception at some point during the object life-cycle.
-* A {nn} or {nullable} annotation on a field is a consequence of not-null computations on the assignments to the field.
-
-To be able to compute the not-null of parameters, we must specify some sort of flow or direction to break
-chicken-and-egg situations.
-We compute in the following order:
-
-. context not-null of parameters: do parameters occur in a not-null context?
-. field not-null: has the field been assigned a value (or values) that are possibly null? does the field
-occur in a not-null context?
-. external not-null of parameters linked to fields: once the first two have been computed, warnings can be given
-when a parameter, assigned to a nullable field, occurs in a not-null context
-
-=== Higher order not-null
-
-We use the annotation {nnContent} to indicate that none of the object's fields can be null.
-This concept is useful when working with collections.
-
-Consider the following {nn} variants on the `List` API:
-
-.Example {counter:example}, {nn} annotations on `Collection`
-[source,java]
-----
-boolean add(@NotNull E e);
-boolean addAll(@NotNull(content=true) Collection<? extends E> collection);
-@NotNull(content=true) static <E> List<E> copyOf(@NotNull(content=true) Collection<? extends E> collection);
-@NotNull(content=true) Iterator<E> iterator();
-----
-
-They effectively block the use of null elements in the collection.
-As a consequence, looping over the elements will not give potential null pointer warnings.
-
-NOTE: This is purely an opinion: we'd rather not use null as elements of a collection.
-You are free to annotate differently!
-
-Higher orders are possible as well.
-A second level would be useful when working with entry sets:
-
-.Example {counter:example}, {nn} annotations on `Map`
-[source,java]
-----
-V put(@NotNull K key, @NotNull V value);
-@NotNull static <K, V> Map<K, V> copyOf(@NotNull Map<? extends K, ? extends V> map);
-@NotNull(content2=true) Set<Map.Entry<K, V>> entrySet();
-----
-
-Note how the map copy is only {nn}, while the entry set is not null, the entries in this set are not null,
-and the keys and values are neither.
-There is currently no plan to implement beyond {nnContent}, however.
 
 [#finalizers]
 == Finalizers

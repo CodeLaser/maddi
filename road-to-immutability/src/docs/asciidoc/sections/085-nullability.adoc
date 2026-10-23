@@ -1,0 +1,319 @@
+[[nullability]]
+= Nullability
+
+Up to now, this document has been about one question: who can modify what?
+The analyzer answers it by computing where objects flow — between fields, parameters, return values and the
+hidden content of containers — and the chapters on <<linking-dependence>> and <<hidden-content>> describe
+that flow in terms of _links_.
+`null` is a value like any other, and it flows along the same links.
+This chapter asks the second question the link engine can answer: where can `null` turn up?
+
+Nullability is a standard topic for static analyzers, and we approach it from the computational side, as
+we do immutability: the analyzer _infers_ where `null` can be, and the user adds annotations only where
+there is no code to infer from, on abstract methods and in the annotated APIs.
+The verdicts have two applications.
+The first is Java: `@Nullable` and `@NonNull` annotations, in the flavour of your choice, on fields,
+parameters and return values.
+The second is translation into a language whose type system has nullability built in: a Java `String`
+becomes a Kotlin `String` or `String?`, and every dereference of a possibly-null value becomes `?.`,
+`!!` or `?:`.
+The same verdicts drive the C# translation's nullable reference types.
+
+[#nullable-section]
+== Definitions
+
+Every position that can hold a reference — a field, a parameter, a method's return value, a local
+variable, and, as we will see, the elements of an array and the type arguments of a generic type — is in
+one of three states.
+
+****
+*Definition*: a position is *nullable*, marked {nullable}, when the value `null` can reach it.
+****
+
+****
+*Definition*: a position is *not null*, marked {nn}, when `null` cannot reach it.
+On a method, the return value is never `null`.
+On a field, the field never holds `null` once construction has finished.
+On a parameter, passing `null` is illegal: the method guarantees an exception.
+****
+
+The third state is *unspecified*: nobody has said anything, and the analyzer does not claim anything.
+Unspecified is not a synonym for nullable.
+It is the state of a library method with no annotation and no source, of a type variable `T` outside its
+instantiation, and of the outputs of a method the analyzer could not analyze.
+What an unspecified position means to a consumer is a matter of reading: in the `@NullMarked` reading, which
+the JSpecify annotations define and which Kotlin applies to its own code, an unannotated position is not
+null, and only {nullable} is ever written.
+The analyzer's default output follows that reading.
+
+Note the asymmetry between the first two definitions and the third.
+Nullable and not null are both claims about the program; unspecified is the absence of a claim.
+The analyzer's job is to turn as many unspecified positions as it can into one of the two claims, and
+to be honest about the rest.
+
+=== Content
+
+A collection, a map, an array or a holder has content, and the content has a nullability of its own.
+A `List<String>` that is never `null` may still hold `null` elements; a `Map` may have non-null keys and
+nullable values.
+The analyzer tracks one state per type argument, recursively, and one for the elements of an array.
+We write them in Kotlin's notation, which has a place for every one of them: `Map<String, String?>` is a
+non-null map with non-null keys and nullable values; `String?[]` is a non-null array whose elements may be
+`null`.
+
+In Java, type-use annotations say the same (`Map<String, @Nullable String>`, `@Nullable String[]`), and
+the analyzer writes them when asked for a flavour that supports them.
+The {maddi} annotations are declaration annotations, and summarize the content in two ways:
+
+* {nnContent} states that the value is not null, and neither is any of its content: no `null` elements in
+the array or collection, no `null` keys or values in the map.
+This is the shape the annotated APIs use for factories such as `List.of` and `Map.copyOf`.
+* `+@NotNull(nullableArguments={1})+` and its {nullable} counterpart name the type arguments, by position,
+that may hold `null`, one level deep; on an array type, position `0` stands for the elements.
+The annotated JDK writes this where JSpecify annotates a type argument: `Collection.toArray()` returns
+`+@NotNull(nullableArguments={0}) Object[]+`, an array that is never `null` but whose elements may be.
+
+=== Contracts
+
+On an abstract method, on an interface, and in the annotated APIs, a null annotation is a _contract_, as
+every annotation in this document is in those positions.
+A contract does two things.
+A {nullable} contract is a _seed_: the analyzer takes the annotated position as a place where `null` can
+come from, and follows it from there.
+A {nn} contract is a _barrier_: `null` does not travel through it.
+A caller that passes `null` to a {nn} parameter is in error, and the analyzer reports the call rather than
+weakening the parameter.
+
+The analyzer reads the null annotations of the common families as contracts — JSpecify, JetBrains, the
+Checker Framework, JSR-305 and `javax.annotation`, Lombok's `@NonNull` — including the scope of
+`@NullMarked` and `@NullUnmarked`.
+A library that is `@NullMarked` therefore needs no annotated API for its nullability.
+The annotated APIs that ship with the analyzer carry the JDK's nullability, generated from JSpecify's
+annotated JDK, down to the type arguments and array elements: `Map.get` may return `null`,
+`Map.of` may not, `Collection.toArray()` may hold `null` elements.
+
+== What the analyzer computes
+
+The analyzer computes nullability as _reachability_: it collects the places where `null` enters the program,
+the _seeds_, and follows the links until nothing more is reached.
+A position that is reached is {nullable}; a position that is not reached is {nn}, or unspecified where the
+analyzer has no right to a claim.
+
+The seeds are:
+
+* the literal `null`, assigned, returned, passed as an argument, stored in an array or a collection;
+* a field that can still hold Java's default value: not final, no initializer, and not assigned by every
+constructor;
+* an array created without an initializer, `new String[n]`;
+* a library method's nullable result, by contract: `Map.get`, `Queue.poll`, `System.getProperty`,
+`BufferedReader.readLine`, and their relatives;
+* a {nullable} contract on a source declaration;
+* and, by default, a parameter or field that the code itself compares with `null`.
+The author of `if (key == null)` expects `null` there, even when no caller in sight passes it.
+
+The links carry the seeds onward: from an argument to the callee's parameter, from a return value to the
+variable that receives it, from a parameter or a local into a field, from a field into a return value, and
+along the override chain, where a parameter has one nullability for the whole chain and a return value may
+be narrowed by an override but not widened.
+An example:
+
+.Example {counter:example}, computed nullability
+[source,java]
+----
+class Registry {
+    private final Map<String, Entry> entries = new HashMap<>();
+
+    @Nullable
+    private Entry last; // <1>
+
+    public void register(@NotNull String key, @NotNull Entry entry) { // <2>
+        entries.put(key, entry);
+        last = entry;
+    }
+
+    @Nullable
+    public Entry find(@NotNull String key) { // <3>
+        return entries.get(key);
+    }
+
+    @Nullable
+    public Entry last() { // <4>
+        return last;
+    }
+
+    public int size(@Nullable String key) { // <5>
+        Entry e = key == null ? last : find(key); // <6>
+        return e == null ? 0 : e.size();
+    }
+}
+----
+
+<1> `last` is not final, has no initializer, and no constructor assigns it: it can hold Java's default value.
+<2> No call in the program passes `null` here; see <<null-who-calls>> for what that is worth.
+<3> The annotated JDK declares `Map.get` nullable; the result is returned directly.
+<4> The field's `null` flows into the return value.
+<5> The parameter is compared with `null`: the author expects it.
+<6> `find(key)` is evaluated only where `key` is known not to be `null`, so nothing flows into `find`'s
+parameter; the local `e` is nullable, and the dereference `e.size()` is guarded.
+
+Callouts 6 shows the second half of the computation.
+Links are not path-sensitive — after `if (x == null) x = "default";` the variable `x` still links to the
+`null` — so the analyzer walks every method body a second time, in statement order, and records at each
+statement which locals, parameters and fields of `this` are _known not to be null_ there: after
+`if (v == null) return;`, inside `if (v != null)` and in the `else` of `v == null`, after a dereference
+`v.m()` (which would have thrown), after `Objects.requireNonNull(v)` or a null-check predicate such as
+`isNotBlank(v)`, after `v = new X()`, inside the right-hand operand of `v != null && ...`, and in the branch
+of `?:` that the condition excludes `null` from.
+An assignment forgets the fact; a loop, a `try` and a `switch` keep only the facts about variables they do
+not assign; two branches that both continue keep what both established.
+A link is then not followed where its source is known not to be `null` at the statement that makes it,
+and an argument known not to be `null` carries nothing to the parameter.
+
+.Example {counter:example}, flow sensitivity
+[source,java]
+----
+class Cache {
+    @Nullable
+    private Map<String, Node> nodes; // <1>
+
+    @NotNull
+    private Map<String, Node> nodes() {
+        Map<String, Node> m = nodes;
+        if (m == null) { // <2>
+            m = new HashMap<>();
+            nodes = m;
+        }
+        return m; // <3>
+    }
+
+    public int count(@NotNull Node node) { // <4>
+        return node.children().size() + nodes().size();
+    }
+}
+----
+
+<1> Lazily created: the field holds `null` until the first call to `nodes()`.
+<2> The local `m` starts nullable, from the field.
+<3> On both paths out of the `if`, `m` is known not to be `null`: on one it was assigned a fresh map, on
+the other the test excluded `null`.
+<4> The parameter is dereferenced on every path through the method: a _precondition_.
+Whatever the caller passes, `null` throws.
+
+The analyzer trusts its own conclusions in rounds: a method whose return value no `null` reaches is, in
+the next round, a non-null value wherever it is called, and the links from its call sites can be dropped.
+Each round only shrinks what `null` reaches, so the rounds stop on their own, and the result is sound in
+the sense that a round's reachability over-approximates the real flow.
+
+=== Content, computed
+
+The content positions are computed by the same reachability, over the links the chapter on
+<<hidden-content>> introduced.
+A `null` added to a list, `list.add(null)`, lands in the list's hidden content, the virtual field that
+stands for its elements, and from there in the list's first type argument; a `null` value `put` into a map
+lands in its value slice; `new String[n]` seeds the array's elements; reading an element, `x = a[i]` or
+`for (String s : list)`, carries the content's nullability into the variable.
+Wherever an array or a generic value flows, the content positions at both ends are tied: a `List<String?>`
+assigned to a field makes the field's type argument nullable too, because in Java and in Kotlin a generic
+type is invariant in its arguments.
+
+.Example {counter:example}, content nullability (Kotlin notation in the comments)
+[source,java]
+----
+class Grid {
+    private final String[] cells = new String[9];           // String?[]      <1>
+    private final List<String> history = new ArrayList<>(); // MutableList<String?>  <3>
+
+    public void play(int cell, @NotNull String mark) {
+        cells[cell] = mark;
+    }
+
+    public void record(int cell) {
+        history.add(cells[cell]); // <2>
+    }
+
+    @Nullable
+    public String at(int cell) { // <4>
+        return cells[cell];
+    }
+}
+----
+
+<1> An array created without an initializer: its elements start out `null`.
+<2> An element of `cells` is read and added to the list.
+<3> The list's elements are therefore nullable.
+<4> An element read: the return value is nullable.
+
+The one rule the analyzer adds on top of the links is for arrays that are _filled before they are read_:
+`T[] a = new T[n]; for (int i = 0; i < n; i++) a[i] = f(i);` leaves no `null` behind, and the creation is
+not a seed when the loop that follows it directly writes every element.
+
+[#null-who-calls]
+== Who calls?
+
+The verdict on a parameter depends on a question the code cannot answer: are the calls the analyzer sees
+_all_ the calls?
+For an application analyzed together with its callers, they are, and a parameter that no call passes
+`null` to is not null: this is the _closed world_, and the default.
+For a library, they are not: its users are callers the analyzer never sees, and so is the JDK, which calls
+back `Comparator.compare` and `equals(Object)` with whatever it likes.
+
+In the _open world_, a parameter of a method that can be called from outside — public, or protected in an
+extensible type, in a type reachable from outside — that no `null` reaches is left unspecified, and so is
+every position it flows into.
+The one exception is the precondition of the second example: a parameter that the body dereferences,
+hands to a {nn} parameter, or rejects with `if (p == null) throw ...` on every normal path is not null
+whoever the caller is, since a `null` argument throws anyway.
+
+Preconditions are a fact about the program that is worth having on its own.
+The analyzer computes them per override family — in a closed world, a call to an overridable method runs
+some member of the family, so the position is a precondition only when every member with a body throws
+there — and reports the calls that may pass `null` into one: that is where a `NullPointerException` comes
+from.
+
+== Applications
+
+For Java, the analyzer writes the verdicts as annotations in a flavour of your choice: JSpecify, JetBrains,
+the Checker Framework, JSR-305, or the {maddi} annotations of this document.
+Under the `@NullMarked` reading only {nullable} is written; a method with an unspecified parameter or
+return value is marked `@NullUnmarked` so that nothing is claimed by omission.
+A position that already carries a null annotation is a contract and is left alone.
+
+For Kotlin and C#, the verdicts become the types: `T` or `T?`, `Map<String, String?>`, `String?[]`.
+The translation then has choices to make that the Java annotations do not have, because a Kotlin program
+must compile.
+Where a value is nullable only through a library contract — the result of `Map.get`, say — and is written
+into a collection, the translation keeps the collection's element type non-null and asserts at the write,
+`list.add(map.get(k)!!)`, rather than turning every later read of a `List<X?>` into a `!!`.
+Where a local that `null` can reach is dereferenced unconditionally a few lines further down, the
+translation asserts at the declaration, `val block = blocks.getWithKey(j)!!`, and the local is non-null
+from there on.
+Each such choice moves an exception, never removes one: the `NullPointerException` the Java program would
+have thrown at the dereference is thrown at the write or at the declaration instead.
+The translation reports every place where it made one.
+
+The flow-sensitive facts serve the translation twice.
+Kotlin _smart-casts_ a `val` after a null test, so a `!!` is unnecessary where Kotlin itself sees the
+variable as not null; the analyzer keeps a second set of facts restricted to what Kotlin derives — no fact
+from `requireNonNull`, from `assert`, from a Java call's result, or about a `var` property — and the
+translation drops the `!!` exactly there.
+
+== Measuring it
+
+Immutability has no external oracle; nullability does.
+Guava is `@NullMarked`, with some 16,000 annotated positions in its public and internal API.
+The analyzer infers Guava's nullability with those annotations hidden, and compares per position, in two
+numbers kept apart because they cost differently: _unsafe_, inferred not null where Guava says nullable,
+and _noise_, inferred nullable where Guava says not null.
+The trivial baselines frame the result: "everything not null" is 2,515 unsafe, "everything nullable"
+13,272 noise.
+In the closed-world reading the inference agrees on 13,300 of the 15,787 top-level positions, with
+about 350 unsafe and 250 noise (measured 2026-10-07); the open-world reading halves the unsafe count at the
+price of leaving a quarter of the positions unspecified.
+What remains on the unsafe side is, in the main, Guava's own API design: public parameters it declares
+`@Nullable` on principle, which no caller in Guava ever passes `null` to.
+
+The second oracle is the compiler: a corpus translated to Kotlin either compiles or it does not, and the
+project's own tests either pass against the translated classes or they do not.
+That is the ratchet the translation work is measured by.
+
+// ensure a newline at the end
