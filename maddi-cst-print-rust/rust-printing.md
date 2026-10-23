@@ -53,6 +53,18 @@ verdict does not say whether the container or only its elements are shared).
 rustc catches unsound verdicts, not imprecise ones: a `&mut` where `&` would do compiles. Clippy's
 `needless_pass_by_ref_mut` and `unused_mut` give the other direction.
 
+### Findings so far
+
+Analyzer issues the oracle found, each with a minimal repro:
+
+- CodeLaser/maddi-mod#58: `stream().map(Order::customer).toList()` is dependent where the same map with a lambda is
+  independent (E0515).
+- CodeLaser/maddi-mod#59: modifying a map's value (`products.get(k).put(…)`) leaves the deep
+  `NON_MODIFYING_METHOD` true (E0596).
+- CodeLaser/maddi-mod#60: `Collections.unmodifiableList(field)` is independent; a read-only view of a mutable
+  collection is dependent (E0507). `UNMODIFIABLE_VIEW_METHOD` cannot stand in for it: it marks any unmodifiable
+  result, a fresh one too.
+
 ## Shape
 
 - A package is a module (`a.b` → `src/a_b.rs`), declared in `src/lib.rs`; `Cargo.toml` beside `src/`.
