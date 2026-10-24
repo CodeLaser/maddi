@@ -185,6 +185,11 @@ final class RustBodyPrinter {
             // an immutable value: the local is a copy, so that the field may be assigned while it lives
             text = text + ".clone()";
             held = Held.VALUE;
+        } else if (held == Held.SHARED && RustTypes.isString(lv.parameterizedType()) && !(init instanceof NullConstant)
+                   && !(CstQueries.unwrap(init) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo)) {
+            // a string borrowed out of a lookup ('(String) b.get("sku")'): a copy, which ends the borrow of what holds it
+            text = text + (value.nullable ? ".cloned()" : ".clone()");
+            held = Held.VALUE;
         } else if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
             // an element or a field: the local refers to it, as Java's reference does
             text = (mutated ? "&mut " : "&") + text;
