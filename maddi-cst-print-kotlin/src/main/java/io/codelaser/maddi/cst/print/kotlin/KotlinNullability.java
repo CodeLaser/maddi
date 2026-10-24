@@ -525,11 +525,16 @@ final class KotlinNullability {
                && (nullableInKotlin(cast.expression()) || platformResult(cast.expression()));
     }
 
-    /** A call of a library method whose result is not known non-null: Kotlin checks nothing, and null comes through. */
+    /**
+     * A call of a library method that reads an untyped slot, its result an {@code Object} or a type variable and not
+     * known non-null: Kotlin checks nothing, and a null stored there comes through (Unsafe.getAndSetObject,
+     * AtomicReference.getAndSet). Not a typed factory's result, {@code (Set) Collections.unmodifiableSet(…)}, which
+     * is never null and may flow on into a non-null result (guava's Multisets).
+     */
     private static boolean platformResult(Expression e) {
         return KotlinContext.translatingJava() && KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc
                && mc.methodInfo() != null && !mc.methodInfo().isConstructor() && mc.methodInfo().returnType() != null
-               && !mc.methodInfo().returnType().isPrimitiveExcludingVoid()
+               && (mc.methodInfo().returnType().isJavaLangObject() || mc.methodInfo().returnType().isTypeParameter())
                && !translated(mc.methodInfo().typeInfo())
                && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(mc.methodInfo()) != NullableState.NONNULL
                && !io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(mc.methodInfo());

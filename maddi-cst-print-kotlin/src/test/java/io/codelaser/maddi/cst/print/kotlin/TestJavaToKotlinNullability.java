@@ -3388,4 +3388,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         contains(kotlin, "fun swap(update: String): String? = ref.getAndSet(update) as String?");
         compiles(kotlin);
     }
+
+    /**
+     * guava's Multisets.UnmodifiableMultiset: {@code entrySet = (Set) unmodifiableSet(delegate.entrySet())}, a raw cast
+     * of a typed library result into a nullable field, whose value is also returned non-null: the field's type
+     * arguments, not {@code MutableSet<*>}, and non-null, as the factory never returns null.
+     */
+    @Test
+    public void rawCastOfLibraryResultIntoNullableField() {
+        String kotlin = kotlin("""
+                package a.r;
+                import java.util.Collections;
+                import java.util.HashMap;
+                import java.util.Map;
+                import java.util.Set;
+                class Entries<E> {
+                    private Set<Map.Entry<E, E>> entries;
+                    private final Map<E, E> delegate = new HashMap<>();
+                    Set<Map.Entry<E, E>> entries() {
+                        Set<Map.Entry<E, E>> es = entries;
+                        return es == null ? entries = (Set) Collections.unmodifiableSet(delegate.entrySet()) : es;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("entries", "es")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("MutableSet<*>"), kotlin);
+        compiles(kotlin);
+    }
 }

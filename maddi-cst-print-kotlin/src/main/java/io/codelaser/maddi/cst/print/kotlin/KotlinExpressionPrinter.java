@@ -2671,10 +2671,6 @@ public class KotlinExpressionPrinter {
                     .withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
-        if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
-            // String factory = (String) properties.get(key): Java's cast lets the null through
-            return cast(c, true, q);
-        }
         if (unwrap(e) instanceof Cast c && target != null && !target.parameters().isEmpty()
             && c.parameterizedType().typeInfo() != null && c.parameterizedType().typeInfo() == target.typeInfo()
             && c.parameterizedType().arrays() == target.arrays()
@@ -2691,6 +2687,11 @@ public class KotlinExpressionPrinter {
             // unchecked, Kotlin's Collector<*, *, *> does not; the cast takes the type arguments of what it initializes
             ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
+        }
+        if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
+            // String factory = (String) properties.get(key): Java's cast lets the null through. After the two above,
+            // which keep the target's type arguments: guava's Multisets, entrySet = (Set) unmodifiableSet(…)
+            return cast(c, true, q);
         }
         if (target != null && unwrap(e) instanceof MethodCall mc && optionalFactory(mc) && target.typeInfo() != null
             && "java.util.Optional".equals(target.typeInfo().fullyQualifiedName()) && target.arrays() == 0
