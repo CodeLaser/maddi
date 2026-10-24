@@ -207,7 +207,7 @@ final class RustTypePrinter {
         this.base = base == null ? null : RustTypes.owned(parent, context, typeInfo);
         List<FieldInfo> fields = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
         String name = RustNames.type(typeInfo);
-        String generics = generics(typeInfo.typeParameters());
+        String generics = generics(typeInfo.typeParameters(), context.borrows.hasLifetime(typeInfo));
         List<String> phantom = phantomTypeParameters(typeInfo, fields);
 
         StringBuilder sb = new StringBuilder(doc(typeInfo));
@@ -404,8 +404,8 @@ final class RustTypePrinter {
             ParameterInfo theirs = declared.parameters().get(i);
             String name = RustNames.snake(theirs.name());
             boolean copy = RustTypes.isCopy(own.parameterizedType());
-            Passing want = context.facts.passing(own);
-            Passing have = context.facts.passing(theirs);
+            Passing want = context.passing(own);
+            Passing have = context.passing(theirs);
             if (!copy && have == Passing.OWNED && want == Passing.SHARED) name = "&" + name;
             else if (!copy && have == Passing.OWNED && want == Passing.EXCLUSIVE) name = "&mut " + name;
             args.add(name);
@@ -442,6 +442,11 @@ final class RustTypePrinter {
     }
 
     private String fieldType(FieldInfo f) {
+        RustTypes.Form borrowed = context.borrows.fields(f.owner()).get(f);
+        if (borrowed != null) {
+            String type = RustTypes.type(f.type(), borrowed, context, f).replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
+            return RustTypes.option(type, RustFacts.nullable(context.facts.field(f)));
+        }
         return RustTypes.option(RustTypes.owned(f.type(), context, f), RustFacts.nullable(context.facts.field(f)));
     }
 
@@ -534,7 +539,7 @@ final class RustTypePrinter {
         for (int i = 0; i < fields.size(); i++) {
             String name = RustNames.snake(fields.get(i).name());
             boolean borrowedString = canonical != null && RustTypes.isString(fields.get(i).type())
-                                     && context.facts.passing(canonical.parameters().get(i)) != Passing.OWNED;
+                                     && context.passing(canonical.parameters().get(i)) != Passing.OWNED;
             values.add(borrowedString ? name + ": " + name + ".to_string()" : name);
         }
         String names = String.join(", ", values);
@@ -593,7 +598,9 @@ final class RustTypePrinter {
                 }
                 for (FieldInfo f : fields) {
                     Expression value = assigned.get(f);
-                    String text = value == null ? initial(f) : fieldValue(printer, f, value);
+                    String text = value == null ? initial(f)
+                            : context.borrows.fields(f.owner()).containsKey(f) ? printer.text(value)
+                            : fieldValue(printer, f, value);
                     sb.append(pad).append(INDENT).append(RustNames.snake(f.name())).append(": ").append(text).append(",\n");
                 }
                 phantom.forEach(tp -> sb.append(pad).append(INDENT).append("_").append(tp.toLowerCase())
@@ -726,6 +733,9 @@ final class RustTypePrinter {
     private String resultType(MethodInfo m) {
         if (m.isVoid()) return "";
         Receiver receiver = context.facts.receiver(m);
+        if (context.facts.fluent(m) && (receiver == Receiver.SHARED || receiver == Receiver.EXCLUSIVE)) {
+            return receiver == Receiver.SHARED ? " -> &Self" : " -> &mut Self";
+        }
         boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
                           && !RustTypes.isCopy(m.returnType());
         String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
@@ -746,13 +756,15 @@ final class RustTypePrinter {
         if (RustTypes.isCopy(type)) {
             rust = RustTypes.owned(type, context, p);
         } else {
-            Passing passing = context.facts.passing(p);
+            Passing passing = context.passing(p);
             Form form = switch (passing) {
                 case SHARED -> Form.SHARED;
                 case EXCLUSIVE -> Form.EXCLUSIVE;
                 case OWNED -> Form.OWNED;
             };
             rust = RustTypes.type(type, form, context, p);
+            // stored in a borrowed field: the borrow lives as long as the object
+            if (context.borrows.parameter(p) != null) rust = rust.replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
             // an owned value the method modifies needs a mutable binding
             mut |= passing == Passing.OWNED && !p.isUnmodified();
         }
@@ -771,8 +783,16 @@ final class RustTypePrinter {
     // ---- small things
 
     private static String generics(List<TypeParameter> typeParameters) {
-        if (typeParameters.isEmpty()) return "";
-        return "<" + typeParameters.stream().map(TypeParameter::simpleName).collect(Collectors.joining(", ")) + ">";
+        return generics(typeParameters, false);
+    }
+
+    /** With {@code lifetime}, the struct's {@code 'a} first: it has borrowed fields (see {@link RustBorrows}). */
+    private static String generics(List<TypeParameter> typeParameters, boolean lifetime) {
+        if (typeParameters.isEmpty() && !lifetime) return "";
+        List<String> names = new ArrayList<>();
+        if (lifetime) names.add(RustBorrows.LIFETIME);
+        typeParameters.forEach(tp -> names.add(tp.simpleName()));
+        return "<" + String.join(", ", names) + ">";
     }
 
     private static String visibility(boolean isPrivate) {

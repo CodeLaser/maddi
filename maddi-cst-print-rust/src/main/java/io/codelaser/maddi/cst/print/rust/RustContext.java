@@ -31,6 +31,8 @@ import java.util.TreeSet;
  */
 final class RustContext {
     final RustFacts facts;
+    /** The dependent fields printed as borrows with a lifetime. */
+    final RustBorrows borrows;
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
@@ -49,6 +51,19 @@ final class RustContext {
     RustContext(RustFacts facts, String module) {
         this.facts = facts;
         this.module = module;
+        this.borrows = new RustBorrows(facts);
+    }
+
+    /**
+     * How a parameter is passed: as the facts say, except a constructor parameter stored in a borrowed field, which is
+     * that borrow (see {@link RustBorrows}).
+     */
+    RustFacts.Passing passing(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+        RustTypes.Form borrowed = borrows.parameter(parameter);
+        if (borrowed != null) {
+            return borrowed == RustTypes.Form.SHARED ? RustFacts.Passing.SHARED : RustFacts.Passing.EXCLUSIVE;
+        }
+        return facts.passing(parameter);
     }
 
     void use(String path) {

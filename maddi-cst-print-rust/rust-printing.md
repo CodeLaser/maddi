@@ -19,7 +19,10 @@ ownership modes of the signatures, and rustc's borrow checker judges the bodies 
 | parameter not kept (independent), unmodified | `&T` (`&str` for a string) |
 | parameter not kept, modified | `&mut T` |
 | parameter kept (dependent, or independent with hidden content) | `T`, moved in |
+| dependent field: every constructor stores a dependent parameter in it | `&'a T` (`&'a mut T` when modified), `struct View<'a>` |
 | result sharing the receiver's accessible content (dependent) | `&T` |
+| result that is the hidden content (independent with hidden content, a type parameter) | `&T` |
+| fluent method (`return this`) | `&Self` / `&mut Self` |
 | nullable | `Option<T>` |
 
 `RustFacts` is the seam: `RustFacts.STORED` reads the stored properties, `RustFacts.of` adds the nullability pass's
@@ -37,8 +40,33 @@ output, it says where a verdict and the code disagree:
 | E0597, E0716: does not live long enough | a missed dependence |
 | E0502, E0499: overlapping borrows | aliasing plus modification |
 
-`TestJavaToRustOwnership` pins the first two: the same Java compiles with the right verdicts, fails with E0596/E0594
-when `add` is declared non-modifying, and fails with E0382 where a constructor keeps the caller's list.
+`TestJavaToRustOwnership` pins the first and the last: the same Java compiles with the right verdicts, fails with
+E0596/E0594 when `add` is declared non-modifying, and fails with E0502 where a constructor keeps the caller's list
+and the caller modifies it while the holder lives: dependent and modifiable from outside, what Rust refuses without
+`RefCell`.
+
+### The table of #167, row by row
+
+`TestJavaToRustMapping` takes the mapping of the issue row by row: a Java example, the verdicts the analysis computes
+for it, the Rust they print as, and rustc's judgement, with a counterpart (the neighbouring verdict and rustc's error
+for it) where there is one. The same examples were run through the CLI (`--analysis-steps modification --translate
+rust`), so the verdicts are the analyzer's, not only the test's.
+
+| row | status | evidence |
+|---|---|---|
+| `@NotModified` parameter → `&T` | holds | `parametersAndReceivers` |
+| `@Modified` parameter → `&mut T` | holds, also through the elements | `parametersAndReceivers`; called unmodified: E0596 |
+| non-modifying method → `&self`, modifying → `&mut self` | holds | `parametersAndReceivers`, `TestJavaToRustOwnership` |
+| `@Container` → `&`, never `&mut` | holds | `container`: only the non-container method has a `&mut` |
+| independent constructor parameter | holds as `&T`, copied by the constructor (not an owned `T`) | `independentConstructorParameter`; called dependent: E0382 |
+| dependent field → lifetime | holds | `dependentField` (outliving the list: E0515), `dependentFieldIsBorrowed` (modified meanwhile: E0502) |
+| hidden content → generic `T` | holds: no bounds needed, the hidden content handed out as `&T` | `hiddenContent` |
+| `@Immutable(hc=true)` → `Rc<T>`/`Arc<T>` | not printed | a new object over the shared hidden content (`Pair.swap`) is E0507 |
+| `@Finalizer` → `self` | holds | `finalizer`: a call after the finalizer is E0382 |
+| `@Mark`/`@Only` → typestate | not printed | |
+| `@IgnoreModifications` → interior mutability | not printed | |
+| `@StaticSideEffects` → `static mut` | not printed | static state is `STATIC_STATE` |
+| nullable → `Option<T>` | holds | `nullability` |
 
 The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source class or
 record the analysis calls `@Immutable` (without hidden content), which derives `Clone`. A named string is cloned where
@@ -85,6 +113,11 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
+- A dependent field (`RustBorrows`): final, without initializer, of a type that is moved rather than copied, and
+  assigned a dependent parameter by every constructor, is a borrow with the struct's lifetime: `struct View<'a> {
+  list: &'a Vec<String> }`, `&'a mut` when the object modifies it. The constructor takes that borrow, and the caller
+  passes `&l`. Records keep their owned components. A struct with a lifetime, like a generic one, is called by its
+  name rather than `Self`, which would fix the impl's lifetime or type arguments.
 - A constructor is an associated `fn new… -> Self`. A body that only assigns fields gives one `Self { … }`; anything
   else builds `this` at the fields' empty values, runs the body on it, and returns it.
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and

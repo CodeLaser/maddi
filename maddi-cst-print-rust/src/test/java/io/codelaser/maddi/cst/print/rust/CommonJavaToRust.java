@@ -177,6 +177,26 @@ public abstract class CommonJavaToRust {
         type.analysis().set(PropertyImpl.IMMUTABLE_TYPE, immutable);
     }
 
+    /** No method modifies the object the field holds. */
+    protected static void unmodifiedField(TypeInfo type, String name) {
+        type.getFieldByName(name, true).analysis().set(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    /** A parameter the method modifies, and does not keep: {@code &mut T}. */
+    protected static void modified(ParameterInfo parameter) {
+        parameter.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        parameter.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT);
+    }
+
+    protected static void finalizer(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.FINALIZER_METHOD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    /** The method returns {@code this}. */
+    protected static void fluent(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);
+    }
+
     /** Line by line, indentation ignored. */
     protected static void contains(String rust, String expected) {
         assertTrue(strip(rust).contains(strip(expected)), () -> "expected\n" + expected + "\nin\n" + rust);

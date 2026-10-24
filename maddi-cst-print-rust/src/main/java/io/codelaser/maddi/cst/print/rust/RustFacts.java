@@ -36,7 +36,8 @@ import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
  *     <li>a parameter the method does not keep (fully independent) is borrowed, {@code &T} when unmodified and
  *     {@code &mut T} when modified; one it keeps (dependent, or independent with hidden content: stored) is moved in,
  *     {@code T};</li>
- *     <li>a result that shares the receiver's accessible content (dependent) is a borrow of it, {@code &T}.</li>
+ *     <li>a result that shares the receiver's accessible content (dependent) is a borrow of it, {@code &T}; so is a
+ *     result that is its hidden content, a value of a type parameter (independent with hidden content).</li>
  * </ul>
  * The printer does not soften a verdict with a {@code clone()} or an {@code Rc<RefCell<…>>}: rustc's borrow checker
  * judges the bodies against the signatures, and where it rejects one, the verdict or the printer is wrong.
@@ -96,7 +97,15 @@ public interface RustFacts extends NullabilityFacts {
                     ValueImpl.IndependentImpl.class);
             // not UNMODIFIABLE_VIEW_METHOD: it marks any unmodifiable result (a fresh string or list too), not only a
             // view of the receiver's state
-            return independent != null && independent.isDependent();
+            if (independent == null) return false;
+            // independent with hidden content, and the result is the hidden content itself: the object shared, a
+            // borrow of it ('T get()')
+            return independent.isDependent() || independent.isIndependentHc() && method.returnType().isTypeParameter();
+        }
+
+        @Override
+        public boolean fluent(MethodInfo method) {
+            return method.isFluent();
         }
 
         @Override
@@ -149,6 +158,11 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
+            public boolean fluent(MethodInfo method) {
+                return ownership.fluent(method);
+            }
+
+            @Override
             public boolean immutable(TypeInfo typeInfo) {
                 return ownership.immutable(typeInfo);
             }
@@ -191,6 +205,11 @@ public interface RustFacts extends NullabilityFacts {
 
     /** The method returns part of its receiver's accessible content: its result type is a borrow, {@code &T}. */
     default boolean resultBorrowsReceiver(MethodInfo method) {
+        return false;
+    }
+
+    /** The method returns its receiver ({@code return this}): a borrow of it, {@code &Self} or {@code &mut Self}. */
+    default boolean fluent(MethodInfo method) {
         return false;
     }
 
