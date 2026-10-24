@@ -62,7 +62,9 @@ public enum RustPrintCode implements PrintMessage.Code {
     /** {@code String.format}: Java's specifiers as {@code format!}'s; one without a counterpart is printed as is. */
     FORMAT(Severity.INFO),
     /** {@code >>>}: printed as {@code >>} on the unsigned type. */
-    UNSIGNED_SHIFT(Severity.INFO);
+    UNSIGNED_SHIFT(Severity.INFO),
+    /** {@code x == null} where the nullability verdicts call {@code x} non-null: the constant outcome. */
+    NULL_CHECK_OF_NON_NULL(Severity.INFO);
 
     private final Severity severity;
 

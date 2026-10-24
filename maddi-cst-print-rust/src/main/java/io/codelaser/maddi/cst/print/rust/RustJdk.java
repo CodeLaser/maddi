@@ -245,7 +245,12 @@ final class RustJdk {
             case "substring/2" -> value(o + "[" + printer.index(args.get(0)) + ".." + printer.index(args.get(1))
                                         + "].to_string()");
             case "append/1" -> value(append(o, args.getFirst(), printer));
-            case "equalsIgnoreCase/1" -> value(o + ".eq_ignore_ascii_case(" + printer.reference(args.getFirst()) + ")");
+            case "equalsIgnoreCase/1" -> {
+                // false for a null argument, as in Java
+                Printed a = printer.printed(args.getFirst());
+                if (!a.nullable()) yield value(o + ".eq_ignore_ascii_case(" + printer.reference(args.getFirst()) + ")");
+                yield value(a.text() + ".as_ref().map_or(false, |v| " + o + ".eq_ignore_ascii_case(v))");
+            }
             case "isBlank/0" -> value(o + ".trim().is_empty()");
             case "repeat/1" -> value(o + ".repeat(" + printer.index(args.getFirst()) + ")");
             case "indexOf/1" -> value(o + ".find(" + pattern(args.getFirst(), printer) + ").map(|i| i as i32).unwrap_or(-1)");

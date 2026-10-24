@@ -33,8 +33,10 @@ import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -69,6 +71,8 @@ final class RustBodyPrinter {
     /** How each local of the method is held, from its declaration. */
     private final Map<LocalVariable, Held> locals = new HashMap<>();
     private final Map<LocalVariable, Boolean> nullableLocals = new HashMap<>();
+    /** the methods of the lambdas printed as closures: their parameters are an element or a reference to one */
+    private final Set<MethodInfo> closures = new HashSet<>();
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -630,6 +634,9 @@ final class RustBodyPrinter {
         String name = RustNames.snake(pi.name());
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
         if (RustTypes.isCopy(pi.parameterizedType())) return new Printed(name, Held.VALUE, nullable);
+        // Rust hands a closure the element ('map' over '.cloned()') or a reference to it ('filter'): a place, which
+        // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
+        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, nullable);
         Passing passing = context.facts.passing(pi);
         Held held = switch (passing) {
             case SHARED -> RustTypes.isString(pi.parameterizedType()) ? Held.STR : Held.SHARED;
@@ -709,7 +716,14 @@ final class RustBodyPrinter {
         if (("==".equals(op) || "!=".equals(op))
             && (bo.lhs() instanceof NullConstant || bo.rhs() instanceof NullConstant)) {
             Expression other = bo.lhs() instanceof NullConstant ? bo.rhs() : bo.lhs();
-            return value(expression(other).text + ("==".equals(op) ? ".is_none()" : ".is_some()"));
+            Printed p = expression(other);
+            if (!p.nullable && !(other instanceof NullConstant) && !other.parameterizedType().isPrimitiveExcludingVoid()
+                && !isObject(other.parameterizedType())) {
+                // a defensive check of a value the verdicts call non-null: its outcome under them
+                context.message(RustPrintCode.NULL_CHECK_OF_NON_NULL, bo, p.text);
+                return value("==".equals(op) ? "false" : "true");
+            }
+            return value(p.text + ("==".equals(op) ? ".is_none()" : ".is_some()"));
         }
         if (">>>".equals(op)) {
             context.message(RustPrintCode.UNSIGNED_SHIFT, bo, null);
@@ -718,7 +732,10 @@ final class RustBodyPrinter {
                          + ") as " + type);
         }
         ParameterizedType common = promoted(bo, op);
-        return value(promotedOperand(bo.lhs(), common) + " " + op + " " + promotedOperand(bo.rhs(), common));
+        String lhs = promotedOperand(bo.lhs(), common);
+        // 'n as i32 < 3' reads as the start of generic arguments
+        if (op.startsWith("<") && AS_CAST.matcher(lhs).find()) lhs = "(" + lhs + ")";
+        return value(lhs + " " + op + " " + promotedOperand(bo.rhs(), common));
     }
 
     /**
@@ -787,10 +804,46 @@ final class RustBodyPrinter {
     }
 
     /** An operand of an operator: a borrowed value compares and computes as the value itself. */
+    private static final java.util.regex.Pattern AS_CAST = java.util.regex.Pattern.compile(" as [\\w:<>]+$");
+
+    private static boolean isObject(ParameterizedType type) {
+        return type.typeInfo() != null && type.typeInfo().isJavaLangObject() && type.arrays() == 0;
+    }
+
+    /** Whether {@code text} has an operator outside parentheses, brackets, braces, closures and string literals. */
+    static boolean topLevelOperator(String text) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') i++;
+                else if (c == '"') inString = false;
+                continue;
+            }
+            switch (c) {
+                case '"' -> inString = true;
+                case '(', '[', '{' -> depth++;
+                case ')', ']', '}' -> depth--;
+                case '|' -> {
+                    if (depth == 0) return true;
+                }
+                case ' ' -> {
+                    if (depth == 0 && i + 1 < text.length() && "=!<>&|+-*/%^".indexOf(text.charAt(i + 1)) >= 0) {
+                        return true;
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        return false;
+    }
+
     private String operand(Expression e) {
         Printed p = expression(e);
         boolean binary = e instanceof BinaryOperator || e instanceof InlineConditional || e instanceof Assignment
-                         || e instanceof And || e instanceof Or;
+                         || e instanceof And || e instanceof Or || topLevelOperator(p.text);
         String text = binary ? "(" + p.text + ")" : p.text;
         if (p.nullable) {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
@@ -900,6 +953,7 @@ final class RustBodyPrinter {
         String params = m.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
         Expression single = lambda.singleExpression();
         MethodInfo outer = context.method;
+        closures.add(m);
         try {
             context.method = m;
             if (single != null) return value("|" + params + "| " + expression(single).text);
@@ -937,14 +991,14 @@ final class RustBodyPrinter {
         }
         String name = RustNames.method(m);
         if (m.isConstructor() || m.isStatic()) {
-            return value(closure + owner + "::" + name + "(" + String.join(", ", params) + ")");
+            return value(closure + owner + "::" + name + "(" + passed(params, m) + ")");
         }
         if (mr.scope() instanceof TypeExpression) {
             // unbound: the first parameter is the object
             if (params.isEmpty()) return value(unsupported(mr, "method reference without parameters"));
-            return value(closure + params.getFirst() + "." + name + "(" + String.join(", ", params.subList(1, n)) + ")");
+            return value(closure + params.getFirst() + "." + name + "(" + passed(params.subList(1, n), m) + ")");
         }
-        return value(closure + expression(mr.scope()).text + "." + name + "(" + String.join(", ", params) + ")");
+        return value(closure + expression(mr.scope()).text + "." + name + "(" + passed(params, m) + ")");
     }
 
     // ---- calls
@@ -1053,6 +1107,27 @@ final class RustBodyPrinter {
             } else {
                 out.add(pi == null ? p.text : argument(p, pi, a));
             }
+        }
+        return String.join(", ", out);
+    }
+
+    /** A method reference's closure parameters, each a place (see {@link #parameter}), adapted to the callee's. */
+    private String passed(List<String> names, MethodInfo callee) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            if (i >= callee.parameters().size()) {
+                out.add(names.get(i));
+                continue;
+            }
+            ParameterInfo pi = callee.parameters().get(i);
+            Printed p = new Printed(names.get(i), Held.PLACE, false);
+            ParameterizedType type = pi.parameterizedType();
+            String text = RustTypes.isCopy(type) ? p.text : switch (context.facts.passing(pi)) {
+                case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
+                case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
+                case OWNED -> owned(p, type);
+            };
+            out.add(RustFacts.nullable(context.facts.parameter(pi)) ? "Some(" + text + ")" : text);
         }
         return String.join(", ", out);
     }
