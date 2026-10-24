@@ -179,6 +179,19 @@ final class RustTypes {
         };
     }
 
+    /** The parameter types of the closure a JDK functional interface stands for; {@code null} for another type. */
+    static List<String> closureParameters(ParameterizedType type, RustContext context, Element where) {
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || !isFunctional(ti)) return null;
+        List<ParameterizedType> args = type.parameters();
+        return switch (ti.simpleName()) {
+            case "Runnable", "Supplier" -> List.of();
+            case "Consumer", "Function", "Predicate", "UnaryOperator" -> List.of(borrowed(args, 0, context, where));
+            case "BiConsumer", "BiFunction" -> List.of(borrowed(args, 0, context, where), borrowed(args, 1, context, where));
+            default -> null;
+        };
+    }
+
     private static String arg(List<ParameterizedType> args, int i, RustContext context, Element where) {
         return i < args.size() ? owned(args.get(i), context, where) : "()";
     }

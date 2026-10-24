@@ -112,7 +112,44 @@ final class RustTypePrinter {
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
         }
-        return sb.append("}\n").toString();
+        sb.append("}\n");
+        MethodInfo sam = functionalMethod(typeInfo);
+        if (sam != null && context.facts.receiver(sam) != Receiver.OWNED && !context.facts.resultBorrowsReceiver(sam)) {
+            // a lambda implements the interface: every closure of the method's shape implements the trait
+            boolean mutable = context.facts.receiver(sam) == Receiver.EXCLUSIVE;
+            String signature = signature(sam, false).replaceAll("\\bmut (\\w+): ", "$1: ");
+            String names = sam.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
+            sb.append("\nimpl<F: ").append(mutable ? "FnMut(" : "Fn(")
+                    .append(String.join(", ", closureParameters(typeInfo, context))).append(")")
+                    .append(resultType(sam)).append("> ").append(RustNames.type(typeInfo)).append(" for F {\n")
+                    .append(INDENT).append(signature).append(" {\n")
+                    .append(INDENT).append(INDENT).append("(*self)(").append(names).append(")\n")
+                    .append(INDENT).append("}\n}\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * The method of a source interface a lambda may implement: its only method, abstract, without type parameters, in
+     * an interface without type parameters or source super-interfaces. {@code null} for another type.
+     */
+    static MethodInfo functionalMethod(TypeInfo ti) {
+        if (ti == null || !ti.isInterface() || ti.compilationUnit().externalLibrary() || !ti.typeParameters().isEmpty()
+            || ti.interfacesImplemented().stream().anyMatch(i -> !i.typeInfo().compilationUnit().externalLibrary())) {
+            return null;
+        }
+        List<MethodInfo> methods = ti.methods().stream().filter(m -> !m.isSynthetic() && !m.isStatic()).toList();
+        if (methods.size() != 1) return null;
+        MethodInfo m = methods.getFirst();
+        return m.isAbstract() && m.typeParameters().isEmpty() ? m : null;
+    }
+
+    /** The parameter types of {@link #functionalMethod}, as its trait declares them. */
+    static List<String> closureParameters(TypeInfo ti, RustContext context) {
+        MethodInfo m = functionalMethod(ti);
+        if (m == null) return null;
+        RustTypePrinter printer = new RustTypePrinter(context);
+        return m.parameters().stream().map(p -> printer.parameter(m, p).replaceFirst("^(mut )?\\w+: ", "")).toList();
     }
 
     private String supertraits(TypeInfo typeInfo) {
@@ -680,15 +717,19 @@ final class RustTypePrinter {
         };
         String params = parameters(m);
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
-        String result = "";
-        if (!m.isVoid()) {
-            boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
-                              && !RustTypes.isCopy(m.returnType());
-            String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
-            result = " -> " + RustTypes.option(type, RustFacts.nullable(context.facts.returnType(m)));
-        }
+        String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + "fn " + RustNames.method(m) + generics(m.typeParameters())
                + "(" + all + ")" + result;
+    }
+
+    /** {@code " -> T"}, or empty for a void method. */
+    private String resultType(MethodInfo m) {
+        if (m.isVoid()) return "";
+        Receiver receiver = context.facts.receiver(m);
+        boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
+                          && !RustTypes.isCopy(m.returnType());
+        String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
+        return " -> " + RustTypes.option(type, RustFacts.nullable(context.facts.returnType(m)));
     }
 
     private String parameters(MethodInfo m) {

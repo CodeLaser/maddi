@@ -107,6 +107,11 @@ Analyzer issues the oracle found, each with a minimal repro:
   either way. A comparator (`comparing`, `comparingByValue`, `reversed`, `thenComparing`, a two-parameter lambda) is
   the `|a, b| -> Ordering` closure `sort_by`, `max_by`, `min_by` take; its key extractor is applied inline, as a
   closure literal called on the spot leaves rustc without its parameter's type.
+- A source interface with one abstract method is a trait that every closure of its method's shape implements
+  (`impl<F: Fn(&str)> Listener for F`). A lambda or method reference passed, stored or assigned where a functional
+  interface is expected has its parameters typed, which rustc cannot infer for a `dyn` target; a kept one is a
+  `Box::new(...)`. A stored listener that captures `self` mutably (an observer registering itself) is aliasing plus
+  modification: rustc's E0500/E0501, which the strict printer leaves.
 - `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
   `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
 - A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in

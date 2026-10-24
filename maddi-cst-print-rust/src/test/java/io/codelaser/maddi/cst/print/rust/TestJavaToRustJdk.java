@@ -98,4 +98,56 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "destination.as_ref().map_or(false, |v| \"express\".eq_ignore_ascii_case(v))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String EVENTS = """
+            package a.b;
+            public class Events {
+                public interface Listener {
+                    void on(String event);
+                }
+
+                public interface Factory {
+                    String make(String a, int n);
+                }
+
+                public static void fire(Listener listener, String event) {
+                    listener.on(event);
+                }
+
+                public static void start() {
+                    fire(e -> System.out.println(e), "start");
+                }
+
+                public static String made() {
+                    Factory f = (a, n) -> a.repeat(n);
+                    return f.make("x", 3);
+                }
+            }
+            """;
+
+    /** A closure implements a source interface with one method: a blanket impl, and the closure's parameters typed. */
+    @DisplayName("lambdas implementing source functional interfaces: compiles")
+    @Test
+    public void events() throws Exception {
+        List<TypeInfo> types = parse(EVENTS);
+        TypeInfo events = types.getFirst();
+        TypeInfo listener = events.findSubType("Listener");
+        TypeInfo factory = events.findSubType("Factory");
+        nonModifying(listener, "on");
+        nonModifying(factory, "make");
+        borrowed(method(listener, "on").parameters().getFirst());
+        borrowed(method(factory, "make").parameters().getFirst());
+        independentResult(factory, "make");
+        method(events, "fire").parameters().forEach(CommonJavaToRust::borrowed);
+
+        RustTranslator.Result result = translate(types);
+        assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
+        String rust = module("a.b");
+        contains(rust, "impl<F: Fn(&str)> EventsListener for F {");
+        contains(rust, "impl<F: Fn(&str, i32) -> String> EventsFactory for F {");
+        contains(rust, "Self::fire(&|e: &str| { println!(\"{}\", e); }, \"start\");");
+        contains(rust, "let f = |a: &str, n: i32| a.repeat(n as usize);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

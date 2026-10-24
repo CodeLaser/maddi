@@ -73,6 +73,11 @@ final class RustBodyPrinter {
     private final Map<LocalVariable, Boolean> nullableLocals = new HashMap<>();
     /** the methods of the lambdas printed as closures: their parameters are an element or a reference to one */
     private final Set<MethodInfo> closures = new HashSet<>();
+    /**
+     * The functional interface the closure being printed implements, when it is passed, stored or assigned as one:
+     * its parameters are typed, which rustc cannot infer for a {@code dyn} target.
+     */
+    private ParameterizedType closureTarget;
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -174,7 +179,8 @@ final class RustBodyPrinter {
             String type = RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable);
             return "let " + (reassigned ? "mut " : "") + name + ": " + type;
         }
-        Printed value = widen(expression(init), init, lv.parameterizedType());
+        Printed value = isClosure(init) && lv.parameterizedType().isFunctionalInterface()
+                ? closure(init, lv.parameterizedType()) : widen(expression(init), init, lv.parameterizedType());
         nullable |= value.nullable;
         nullableLocals.put(lv, nullable);
         boolean mutated = mutated(lv);
@@ -974,7 +980,9 @@ final class RustBodyPrinter {
 
     private Printed lambda(Lambda lambda) {
         MethodInfo m = lambda.methodInfo();
-        String params = m.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
+        List<String> types = closureParameters();
+        List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
+        String params = typed(names, types);
         Expression single = lambda.singleExpression();
         MethodInfo outer = context.method;
         closures.add(m);
@@ -1022,9 +1030,41 @@ final class RustBodyPrinter {
         int n = mr.concreteParameterTypes().size();
         List<String> params = new ArrayList<>();
         for (int i = 0; i < n; i++) params.add(n == 1 ? "x" : "x" + (i + 1));
+        List<String> types = closureParameters();
         String body = methodReferenceBody(mr, params);
         if (body == null) return value(unsupported(mr, "method reference " + mr.methodInfo().fullyQualifiedName()));
-        return value("|" + String.join(", ", params) + "| " + body);
+        return value("|" + typed(params, types) + "| " + body);
+    }
+
+    /** The parameter types of the closure {@link #closureTarget} asks for, consumed; {@code null} when there is none. */
+    private List<String> closureParameters() {
+        ParameterizedType target = closureTarget;
+        closureTarget = null;
+        if (target == null || target.typeInfo() == null) return null;
+        if (target.typeInfo().compilationUnit().externalLibrary()) return RustTypes.closureParameters(target, context, null);
+        return RustTypePrinter.closureParameters(target.typeInfo(), context);
+    }
+
+    private static String typed(List<String> names, List<String> types) {
+        if (types == null || types.size() != names.size()) return String.join(", ", names);
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) out.add(names.get(i) + ": " + types.get(i));
+        return String.join(", ", out);
+    }
+
+    private static boolean isClosure(Expression e) {
+        Expression c = CstQueries.unwrap(e);
+        return c instanceof Lambda || c instanceof MethodReference;
+    }
+
+    /** {@code e}, a lambda or method reference, as a closure implementing {@code target}. */
+    private Printed closure(Expression e, ParameterizedType target) {
+        closureTarget = target;
+        try {
+            return expression(e);
+        } finally {
+            closureTarget = null;
+        }
     }
 
     /** The call a method reference makes, its parameters named {@code params}; {@code null} when not printable. */
@@ -1211,6 +1251,15 @@ final class RustBodyPrinter {
 
     private String argument(Printed p, ParameterInfo pi, Expression argument) {
         ParameterizedType type = pi.parameterizedType();
+        if (isClosure(argument) && type.isFunctionalInterface()) {
+            Printed c = closure(argument, type);
+            // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
+            return switch (context.facts.passing(pi)) {
+                case OWNED -> "Box::new(" + c.text + ")";
+                case SHARED -> "&" + c.text;
+                case EXCLUSIVE -> "&mut " + c.text;
+            };
+        }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
         String text;
@@ -1351,6 +1400,9 @@ final class RustBodyPrinter {
      * ({@code Box<dyn Any>}) and the value is not.
      */
     String ownedAs(Expression e, ParameterizedType target) {
+        if (target != null && isClosure(e) && target.isFunctionalInterface()) {
+            return "Box::new(" + closure(e, target).text + ")";
+        }
         Printed p = expression(e);
         String text = owned(p, e.parameterizedType());
         if (p.nullable && !(e instanceof NullConstant)) {
@@ -1366,6 +1418,10 @@ final class RustBodyPrinter {
 
     /** What a field of {@code type} is initialized with: owned, and in {@code Some} when the field is nullable. */
     String fieldValue(Expression e, ParameterizedType type, boolean nullable) {
+        if (isClosure(e) && type.isFunctionalInterface()) {
+            String boxed = "Box::new(" + closure(e, type).text + ")";
+            return nullable ? "Some(" + boxed + ")" : boxed;
+        }
         Printed p = expression(e);
         String text = RustTypes.isCopy(type) ? p.text : owned(p, type);
         return nullable && !p.nullable && !(e instanceof NullConstant) ? "Some(" + text + ")" : text;
