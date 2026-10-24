@@ -140,23 +140,26 @@ public class TestJavaToRustOwnership extends CommonJavaToRust {
             """;
 
     /**
-     * The constructor keeps the caller's list (dependent), and the caller goes on modifying it: Java's aliasing, which
-     * Rust does not allow on a moved value. The verdict is right; this is where the printer must choose another
-     * representation ({@code Rc<RefCell<…>>}), and rustc's E0382 says exactly where.
+     * The constructor keeps the caller's list (dependent), and the caller goes on modifying it: Java's aliasing plus
+     * modification, the case that stops a type at {@code @FinalFields}. The dependent field is a borrow with a
+     * lifetime, so Rust refuses exactly that: the caller's modification while the holder lives is rustc's E0502. The
+     * verdicts are right; Java's program needs another representation in Rust ({@code Rc<RefCell<…>>}).
      */
-    @DisplayName("a dependent parameter is moved in; the caller's later use is rustc's E0382")
+    @DisplayName("a dependent field is a borrow; the caller's modification while it lives is rustc's E0502")
     @Test
-    public void dependentParameterIsMoved() throws Exception {
+    public void dependentFieldIsBorrowed() throws Exception {
         List<TypeInfo> types = parse(HOLDER);
         TypeInfo holder = types.getFirst();
         nonModifying(holder, "size");
+        unmodifiedField(holder, "list");
         MethodInfo constructor = holder.constructors().getFirst();
         kept(constructor.parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
         translate(types);
         String rust = module("a.b");
-        contains(rust, "pub fn new(list: Vec<String>) -> Self {");
-        contains(rust, "Self {\nlist: list,\n}");
+        contains(rust, "pub struct Holder<'a> {\nlist: &'a Vec<String>,\n}");
+        contains(rust, "pub fn new(list: &'a Vec<String>) -> Self {");
+        contains(rust, "let h = Holder::new(&l);");
         List<String> errors = rustcErrors();
-        assertTrue(errors.stream().anyMatch(e -> e.contains("E0382")), () -> String.join("\n", errors) + "\n" + rust);
+        assertTrue(errors.stream().anyMatch(e -> e.contains("E0502")), () -> String.join("\n", errors) + "\n" + rust);
     }
 }

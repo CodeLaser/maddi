@@ -58,8 +58,10 @@ public abstract class CommonJavaToRust {
         javaInspector = new JavaInspectorImpl();
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
+        SourceSet annotation = SourceSetImpl.sourceSetOf(io.codelaser.maddi.annotation.Immutable.class);
+        SourceSet support = SourceSetImpl.sourceSetOf(io.codelaser.maddi.support.SetOnce.class, annotation);
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").build());
+                .addClassPath("jmod:java.base").addClassPathParts(annotation, support).build());
         javaInspector.onlyPreload();
     }
 
@@ -175,6 +177,45 @@ public abstract class CommonJavaToRust {
 
     protected static void immutable(TypeInfo type, Value.Immutable immutable) {
         type.analysis().set(PropertyImpl.IMMUTABLE_TYPE, immutable);
+    }
+
+    /** No method modifies the object the field holds. */
+    protected static void unmodifiedField(TypeInfo type, String name) {
+        type.getFieldByName(name, true).analysis().set(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    /** A parameter the method modifies, and does not keep: {@code &mut T}. */
+    protected static void modified(ParameterInfo parameter) {
+        parameter.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        parameter.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT);
+    }
+
+    protected static void finalizer(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.FINALIZER_METHOD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    /** {@code @Mark}, {@code @Only(before/after)} of the transition of {@code label}. */
+    protected static void mark(TypeInfo type, String name, String label) {
+        method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
+                new ValueImpl.EventualImpl(java.util.Set.of(label), true, null, null));
+    }
+
+    protected static void only(TypeInfo type, String name, String label, boolean after) {
+        method(type, name).analysis().set(PropertyImpl.EVENTUAL_METHOD,
+                new ValueImpl.EventualImpl(java.util.Set.of(label), false, after, null));
+    }
+
+    protected static void ignoreModifications(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.IGNORE_MODIFICATION_METHOD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    protected static void staticSideEffects(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.STATIC_SIDE_EFFECTS_METHOD, ValueImpl.BoolImpl.TRUE);
+    }
+
+    /** The method returns {@code this}. */
+    protected static void fluent(TypeInfo type, String name) {
+        method(type, name).analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);
     }
 
     /** Line by line, indentation ignored. */

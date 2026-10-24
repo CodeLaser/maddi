@@ -31,6 +31,11 @@ public enum RustPrintCode implements PrintMessage.Code {
     INHERITANCE_AS_COMPOSITION(Severity.LOSS),
     /** A static field that is not a constant: Rust has no mutable statics without {@code unsafe}. Left out. */
     STATIC_STATE(Severity.ERROR),
+    /**
+     * An eventually immutable type ({@code @Mark}, {@code @Only}) as a typestate: a state parameter on the struct, the
+     * mark consuming the object. A mark called on anything but a local variable is {@link #UNSUPPORTED}.
+     */
+    TYPESTATE(Severity.INFO),
     /** An enum constant with arguments or a body: printed as a plain variant. */
     ENUM_WITH_STATE(Severity.LOSS),
     /** A JDK type without a Rust counterpart in the mapping: printed by its simple name, which will not resolve. */

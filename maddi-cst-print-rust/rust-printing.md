@@ -19,7 +19,10 @@ ownership modes of the signatures, and rustc's borrow checker judges the bodies 
 | parameter not kept (independent), unmodified | `&T` (`&str` for a string) |
 | parameter not kept, modified | `&mut T` |
 | parameter kept (dependent, or independent with hidden content) | `T`, moved in |
+| dependent field: every constructor stores a dependent parameter in it | `&'a T` (`&'a mut T` when modified), `struct View<'a>` |
 | result sharing the receiver's accessible content (dependent) | `&T` |
+| result that is the hidden content (independent with hidden content, a type parameter) | `&T` |
+| fluent method (`return this`) | `&Self` / `&mut Self` |
 | nullable | `Option<T>` |
 
 `RustFacts` is the seam: `RustFacts.STORED` reads the stored properties, `RustFacts.of` adds the nullability pass's
@@ -37,8 +40,36 @@ output, it says where a verdict and the code disagree:
 | E0597, E0716: does not live long enough | a missed dependence |
 | E0502, E0499: overlapping borrows | aliasing plus modification |
 
-`TestJavaToRustOwnership` pins the first two: the same Java compiles with the right verdicts, fails with E0596/E0594
-when `add` is declared non-modifying, and fails with E0382 where a constructor keeps the caller's list.
+`TestJavaToRustOwnership` pins the first and the last: the same Java compiles with the right verdicts, fails with
+E0596/E0594 when `add` is declared non-modifying, and fails with E0502 where a constructor keeps the caller's list
+and the caller modifies it while the holder lives: dependent and modifiable from outside, what Rust refuses without
+`RefCell`.
+
+### The table of #167, row by row
+
+`TestJavaToRustMapping` takes the mapping of the issue row by row: a Java example, the verdicts the analysis computes
+for it, the Rust they print as, and rustc's judgement, with a counterpart (the neighbouring verdict and rustc's error
+for it) where there is one. The same examples were run through the CLI (`--analysis-steps modification --translate
+rust`, with `maddi-support` on the class path and `SSE` set), so the verdicts are the analyzer's, not only the test's.
+With the analyzer's verdicts every example compiles but one: `Client.twice()` calls `Counter.next()`, which modifies
+its own type's static state. The analysis counts only another type's static state as a static side effect, so
+`twice()` gets no verdict, and rustc's E0133 says the effect escapes to the caller all the same.
+
+| row | status | evidence |
+|---|---|---|
+| `@NotModified` parameter → `&T` | holds | `parametersAndReceivers` |
+| `@Modified` parameter → `&mut T` | holds, also through the elements | `parametersAndReceivers`; called unmodified: E0596 |
+| non-modifying method → `&self`, modifying → `&mut self` | holds | `parametersAndReceivers`, `TestJavaToRustOwnership` |
+| `@Container` → `&`, never `&mut` | holds | `container`: only the non-container method has a `&mut` |
+| independent constructor parameter | holds as `&T`, copied by the constructor (not an owned `T`) | `independentConstructorParameter`; called dependent: E0382 |
+| dependent field → lifetime | holds | `dependentField` (outliving the list: E0515), `dependentFieldIsBorrowed` (modified meanwhile: E0502) |
+| hidden content → generic `T` | holds: no bounds needed, the hidden content handed out as `&T` | `hiddenContent` |
+| `@Immutable(hc=true)` → `Rc<T>` | holds: held as `Rc`, its hidden content cloned under `T: Clone` | `immutableHcShared`: two holders share one pair |
+| `@Finalizer` → `self` | holds | `finalizer`: a call after the finalizer is E0382 |
+| `@Mark`/`@Only` → typestate | holds | `typestate`: reading before the mark, and a second mark, are E0599 |
+| `@IgnoreModifications` → interior mutability | holds: `&self` over a `RefCell` | `ignoreModifications`; without the verdict, the logging `&self` caller is E0596 |
+| `@StaticSideEffects` → `static mut`, `unsafe fn` | holds | `staticSideEffects`; without the verdicts, the callers are E0133 |
+| nullable → `Option<T>` | holds | `nullability` |
 
 The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source class or
 record the analysis calls `@Immutable` (without hidden content), which derives `Clone`. A named string is cloned where
@@ -85,6 +116,24 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A record is a `struct` with public fields, derived `Debug, Clone, PartialEq`, a positional `new`, and accessors.
 - An enum without state is a plain `enum` deriving `Copy`; its constants become camel-case variants.
 - A nested type is an item of its own, named after its enclosing types (`Outer.Inner` → `OuterInner`).
+- A dependent field (`RustBorrows`): final, without initializer, of a type that is moved rather than copied, and
+  assigned a dependent parameter by every constructor, is a borrow with the struct's lifetime: `struct View<'a> {
+  list: &'a Vec<String> }`, `&'a mut` when the object modifies it. The constructor takes that borrow, and the caller
+  passes `&l`. Records keep their owned components. A struct with a lifetime, like a generic one, is called by its
+  name rather than `Self`, which would fix the impl's lifetime or type arguments.
+- An eventually immutable type (`RustTypestate`: a `@Mark`, one transition) is a typestate: `struct Config<S =
+  Before>` with a `PhantomData<S>`; constructors, statics and `@Only(before)` methods in `impl Config<Before>`, a
+  method of either state in `impl<S> Config<S>`, `@Only(after)` methods in `impl Config<After>`. The mark takes
+  `mut self`, runs its body, and moves the fields into a `Config<After>`; a mark called on a local rebinds it (`let
+  mut c = c.set_name(..)`), on anything else it is `UNSUPPORTED`. maddi's `SetOnce<T>` is an `Option<T>`.
+- `@IgnoreModifications` on a method (`RustCells`): the method takes `&self`, the fields it modifies are
+  `RefCell<T>`: `borrow_mut()` in it, `borrow()` in another `&self` method, `get_mut()` in a `&mut self` one. A
+  conflicting borrow is a run-time `BorrowMutError`, the price of the annotation.
+- `@Immutable(hc=true)`: an `Rc<T>` wherever it is held, `Rc::new` at construction, cloned (shared) where Java
+  shares it; its hidden content is cloned under a `T: Clone` bound on the impls.
+- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`; a method
+  with the `@StaticSideEffects` verdict, or touching its own type's static state, is an `unsafe fn` with an `unsafe`
+  body; a method call on a non-`Copy` static goes through `&raw mut`, as Rust 2024 refuses a reference to it.
 - A constructor is an associated `fn new… -> Self`. A body that only assigns fields gives one `Self { … }`; anything
   else builds `this` at the fields' empty values, runs the body on it, and returns it.
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and
@@ -92,7 +141,7 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A `static final` constant is an associated `const`. A `static final` field whose object no method modifies (the
   `UNMODIFIED_FIELD` verdict), of a type Rust can share between threads, and untouched by a static initializer, is a
   module-level `static OWNER_NAME: LazyLock<T>`, built on first use and read-only: a wrong verdict is rustc's E0596.
-  Other static state is reported (`STATIC_STATE`).
+  Other static state is a `static mut` (see below) or reported (`STATIC_STATE`).
 - An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
 - A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
   cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
@@ -134,7 +183,7 @@ the result better than a generic formatter would.
 ## Not yet
 
 Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` and type patterns outside `equals`,
-try/catch (`TRY_BODY_ONLY`), static mutable state, generic bounds (`T: Clone + PartialEq`), sorting and collectors
+try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.
 

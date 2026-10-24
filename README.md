@@ -10,7 +10,8 @@ field, parameter, return value and local, it works out which objects flow where,
 - **Nullability.** Which declarations can hold `null`, and, at every dereference, whether the value can be null
   there.
 - **Translation.** Idiomatic Kotlin from a whole Java program, with nullability and read-only collections decided by
-  the analyses. Java → C# is experimental.
+  the analyses. Java → C# is experimental. Java → Rust is an experiment: the modification and independence verdicts
+  become Rust's ownership modes, and rustc's borrow checker judges them.
 
 Java and Kotlin parse to the same, fully resolved, **eventually immutable** common syntax tree, on which the linking engine runs.
 
@@ -148,6 +149,37 @@ is printed as Kotlin and compiled with `kotlinc`. The C# output is compiled with
 | LangChain4j core | 346 | 301 |
 | Timefold Solver core | 1,583 | 1,324 |
 
+### Java → Rust: the verdicts as ownership
+
+Rust's rule is *aliasing XOR mutability*. The Road to Immutability splits the same idea in two: modification is the
+mutability half, independence the aliasing half. So `maddi --translate rust` prints the verdicts as Rust's ownership
+modes, and the same `Inventory` becomes:
+
+```rust
+impl Inventory {
+    pub fn find(&self, name: &str) -> Option<InventoryItem> {
+        return self.items.get(name).cloned();
+    }
+    pub fn total(list: &Vec<InventoryItem>) -> i32 { /* ... */ }
+    pub fn names(&self) -> Vec<String> { /* ... */ }
+    pub fn add(&mut self, name: &str, count: i32) { /* ... */ }
+}
+```
+
+`find` and `names` are `&self` because they modify nothing; `add` is `&mut self`. `total` borrows its list, `&Vec`,
+because it neither modifies nor keeps it. `Item` is `@Immutable`, so a copy of it cannot be told from the shared
+object, and `find` hands out a clone.
+
+The mapping goes further: a dependent field is a borrow with a lifetime, `@Finalizer` takes `self` by value, an
+eventually immutable type is a typestate, `@IgnoreModifications` is a `RefCell`, `@Immutable(hc=true)` is shared as
+an `Rc`. [CodeLaser/maddi#167](https://github.com/CodeLaser/maddi/issues/167) has the table, with a test for each
+row.
+
+The point is less the translation than the check. The printer does not soften anything with `clone()` or
+`Rc<RefCell<…>>`, so when rustc rejects the output, a verdict and the code disagree, at the exact line: `&self` on a
+method that modifies is E0596. The rejections found six analyzer bugs so far. The design note is
+[`maddi-cst-print-rust/rust-printing.md`](maddi-cst-print-rust/rust-printing.md).
+
 ## Languages
 
 - **Java** through javac's own front end, up to **JDK 27**. It is exercised on many open-source projects and one
@@ -169,6 +201,7 @@ is printed as Kotlin and compiled with `kotlinc`. The C# output is compiled with
 | Nullability | New in 0.9.5; reaches users through the translations |
 | Java → Kotlin translation | New in 0.9.5; whole-program, measured on six corpora |
 | Java → C# translation | New in 0.9.5; experimental |
+| Java → Rust translation | Experimental; an oracle for the modification and independence verdicts |
 | Gradle and Maven plugins, CLI | Published |
 | IDE plugins (IntelliJ, Eclipse, VS Code) | Build from source only |
 
