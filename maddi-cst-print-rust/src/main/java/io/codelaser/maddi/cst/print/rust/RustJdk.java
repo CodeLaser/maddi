@@ -691,7 +691,10 @@ final class RustJdk {
             case "orElse/1" -> value(o + ".unwrap_or(" + printer.ownedText(args.getFirst()) + ")");
             case "orElseGet/1" -> value(o + ".unwrap_or_else(" + printer.text(args.getFirst()) + ")");
             case "orElseThrow/1" -> value(o + ".unwrap()");
-            case "map/1" -> new Printed(r + ".map(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
+            case "map/1" -> {
+                Printed f = printer.optionalMapper(args.getFirst());
+                yield new Printed(r + (f.nullable() ? ".and_then(" : ".map(") + f.text() + ")", Held.VALUE, true);
+            }
             case "filter/1" -> new Printed(r + ".filter(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
             case "ifPresent/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
             default -> null;

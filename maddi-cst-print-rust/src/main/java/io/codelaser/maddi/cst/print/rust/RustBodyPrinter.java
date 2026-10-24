@@ -78,6 +78,8 @@ final class RustBodyPrinter {
      * its parameters are typed, which rustc cannot infer for a {@code dyn} target.
      */
     private ParameterizedType closureTarget;
+    /** The lambda being printed is Optional.map's function: a nullable result stays an Option ({@code and_then}). */
+    private boolean optionalResult;
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -981,6 +983,8 @@ final class RustBodyPrinter {
     private Printed lambda(Lambda lambda) {
         MethodInfo m = lambda.methodInfo();
         List<String> types = closureParameters();
+        boolean optional = optionalResult;
+        optionalResult = false;
         List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
         String params = typed(names, types);
         Expression single = lambda.singleExpression();
@@ -990,8 +994,21 @@ final class RustBodyPrinter {
             context.method = m;
             if (single != null) {
                 // a Consumer's body is a statement: 'map.put(k, v)' returns a value Rust's 'for_each' does not take
-                String body = expression(single).text;
-                return value("|" + params + "| " + (m.noReturnValue() ? "{ " + body + "; }" : body));
+                Printed p = expression(single);
+                String body = p.text;
+                if (m.noReturnValue()) return value("|" + params + "| { " + body + "; }");
+                if (p.nullable && optional) {
+                    // Optional.map's function may return null: an empty Optional, Rust's and_then over an Option
+                    String owned = p.held == Held.SHARED && (RustTypes.isString(single.parameterizedType())
+                            || RustTypes.isImmutableValue(single.parameterizedType(), context.facts)) ? ".cloned()" : "";
+                    return new Printed("|" + params + "| " + body + owned, Held.VALUE, true);
+                }
+                if (p.nullable) {
+                    // an element is never an Option: Java's null in the result, a panic here
+                    context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, single, body);
+                    body = owned(new Printed(body + ".unwrap()", p.held, false), single.parameterizedType());
+                }
+                return value("|" + params + "| " + body);
             }
             return value("|" + params + "| {\n" + statements(m.methodBody(), 1) + "}");
         } finally {
@@ -1055,6 +1072,16 @@ final class RustBodyPrinter {
     private static boolean isClosure(Expression e) {
         Expression c = CstQueries.unwrap(e);
         return c instanceof Lambda || c instanceof MethodReference;
+    }
+
+    /** Optional.map's function: {@code nullable} when its result may be null, and it is then {@code and_then}'s. */
+    Printed optionalMapper(Expression e) {
+        optionalResult = true;
+        try {
+            return expression(e);
+        } finally {
+            optionalResult = false;
+        }
     }
 
     /** {@code e}, a lambda or method reference, as a closure implementing {@code target}. */
