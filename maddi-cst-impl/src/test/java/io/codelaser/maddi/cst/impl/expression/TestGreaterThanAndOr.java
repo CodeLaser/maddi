@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 /*
 NOTE: there are some rules commented out in EvalOr
@@ -173,5 +174,41 @@ public class TestGreaterThanAndOr extends CommonTest {
         Expression e2 = r.greater(l, m, true);
         assertEquals("l>=m", e2.toString());
         assertEquals("l>m", r.and(e1, e2).toString());
+    }
+
+    // maddi#170: two strict comparisons on one bound miss the bound itself
+    @Test
+    public void strictPairOnDoubleIsNotATautology() {
+        Expression lt = r.less(l, r.newDouble(2.5), false);
+        Expression gt = r.greater(l, r.newDouble(2.5), false);
+        assertEquals("l<2.5||l>2.5", r.or(lt, gt).toString());
+        Expression lt3 = r.less(l, r.newDouble(3), false);
+        Expression gt3 = r.greater(l, r.newDouble(3), false);
+        assertEquals("l<3.0||l>3", r.or(lt3, gt3).toString());
+    }
+
+    // maddi#170: one side admitting equality closes the gap
+    @Test
+    public void nonStrictPairOnDoubleIsATautology() {
+        assertEquals("true", r.or(r.less(l, r.newDouble(2.5), true), r.greater(l, r.newDouble(2.5), false)).toString());
+        assertEquals("true", r.or(r.less(l, r.newDouble(2.5), false), r.greater(l, r.newDouble(2.5), true)).toString());
+        assertEquals("true", r.or(r.less(l, r.newDouble(2.5), true), r.greater(l, r.newDouble(2.5), true)).toString());
+    }
+
+    // maddi#170: integer-valued bounds on a double do not get the integer rule: 3.5 lies between 3.0 and 4.0
+    @Test
+    public void integerBoundsOnDoubleLeaveAGap() {
+        Expression or = r.or(r.less(l, r.newDouble(3), true), r.greater(l, r.newDouble(4), true));
+        assertNotEquals("true", or.toString());
+    }
+
+    // the integer rule itself is unchanged
+    @Test
+    public void integerPairs() {
+        assertEquals("k<3||k>=4", r.or(r.less(k, r.newInt(3), false), r.greater(k, r.newInt(3), false)).toString());
+        assertEquals("true", r.or(r.less(k, r.newInt(3), true), r.greater(k, r.newInt(3), true)).toString());
+        assertEquals("true", r.or(r.less(k, r.newInt(4), true), r.greater(k, r.newInt(5), true)).toString());
+        assertEquals("true", r.or(r.less(k, r.newInt(5), false), r.greater(k, r.newInt(4), false)).toString());
+        assertEquals("true", r.or(r.less(k, r.newInt(5), false), r.greater(k, r.newInt(5), true)).toString());
     }
 }

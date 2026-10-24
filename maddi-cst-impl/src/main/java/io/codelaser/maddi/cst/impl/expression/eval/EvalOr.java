@@ -242,7 +242,9 @@ public class EvalOr {
             if (xb0.x().equals(xb1.x())) {
 
                 // x>=a || x <= a-1
-                if (xb0.lessThan() == !xb1.lessThan() && orComparisonTrue(xb0.lessThan(), xb0.b(), xb1.b())) {
+                if (xb0.lessThan() == !xb1.lessThan()
+                    && orComparisonTrue(xb0.lessThan(), xb0.b(), xb1.b(), gt0.allowEquals(), gt1.allowEquals(),
+                        xb0.x().parameterizedType().isMathematicallyInteger())) {
                     return new R(true, runtime.constantTrue());
                 }
                 // x<=a || x<=b --> x<=max(a,b)
@@ -293,18 +295,30 @@ public class EvalOr {
         return NO_CHANGE;
     }
 
-    protected boolean orComparisonTrue(boolean d0IsLt, double d0, double d1) {
+    /*
+     x <= d0 || x >= d1 (d0IsLt), or x >= d0 || x <= d1: does the pair cover every value of x?
+
+     For a mathematically integer x with integer bounds, GreaterThanZero.extract has folded a strict upper bound into
+     the bound (x < 4 is x <= 3), so the upper side is non-strict; a strict lower bound (x > 3) is x >= 4. The pair
+     covers everything when the lower bound is at most one above the upper.
+     Otherwise, x is a real (or a bound is not an integer, so nothing was folded): only touching bounds, d0 == d1,
+     with at least one side admitting equality. Two strict comparisons on the same bound, l < 2.5 || l > 2.5, miss
+     2.5 itself (maddi#170); before, they evaluated to true, and so did l <= 3.0 || l >= 4.0, which took the integer
+     rule because its bounds happened to be integers. A real pair that overlaps (l < 3 || l > 2) is left alone, as
+     before.
+     */
+    protected boolean orComparisonTrue(boolean d0IsLt, double d0, double d1, boolean eq0, boolean eq1,
+                                       boolean integerVariable) {
         boolean i0 = IntUtil.isMathematicalInteger(d0);
         boolean i1 = IntUtil.isMathematicalInteger(d1);
-        if (i0 && i1) {
-            if (d0IsLt) {
-                //d0IsLt == true: x <= 4 || x >= 5
-                return d1 - 1 <= d0; // 5-1<=4, 3-1<=4 but not 10-1<=4
-            }
-            // d0IsLt == false: x >= 4 || x <= 3
-            return d0 - 1 <= d1; // 4-1 <= 3  1-1<=3 but not 10-1<= 3
+        if (integerVariable && i0 && i1) {
+            double upper = d0IsLt ? d0 : d1;
+            double lower = d0IsLt ? d1 : d0;
+            boolean lowerAllowsEquals = d0IsLt ? eq1 : eq0;
+            double lowest = lowerAllowsEquals ? lower : lower + 1;
+            return lowest - 1 <= upper; // x <= 4 || x >= 5 covers all, x <= 4 || x >= 6 misses 5
         }
-        return d0 == d1;
+        return d0 == d1 && (eq0 || eq1);
     }
 
     protected void recursivelyAdd(ArrayList<Expression> concat, List<Expression> collect) {
