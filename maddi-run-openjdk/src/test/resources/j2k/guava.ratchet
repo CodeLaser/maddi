@@ -16,10 +16,12 @@
 # printer crashes, all 610 files syntax-clean, 473 compiling (584 type errors, 372 of them null into a non-null type),
 # 368 to class files, 407 test files to class files. The tests no longer run here: their counts were reported only,
 # and the three passes took the ratchet past the slowTest gate's hour (maddi-mod's guava-nullability ratchets them).
+# 2026-10-24, compile 3 leaves out a Kotlin class an original Java class cannot extend (Kotlin's final size() bridge
+# under HashBiMap, which failed to load): 360 files to class files, 8 fewer, as many as are drop-in replacements.
 types	610
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	610
 compilingFiles	473
-bytecodeFiles	368
+bytecodeFiles	360
 testBytecodeFiles	407
