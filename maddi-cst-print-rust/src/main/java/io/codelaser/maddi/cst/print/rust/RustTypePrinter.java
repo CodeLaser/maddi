@@ -77,6 +77,8 @@ final class RustTypePrinter {
         } finally {
             context.type = outer;
         }
+        sb.append(statics);
+        statics.setLength(0);
         for (TypeInfo sub : typeInfo.subTypes()) {
             if (sub.isSynthetic()) continue;
             sb.append("\n").append(print(sub));
@@ -110,7 +112,44 @@ final class RustTypePrinter {
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
         }
-        return sb.append("}\n").toString();
+        sb.append("}\n");
+        MethodInfo sam = functionalMethod(typeInfo);
+        if (sam != null && context.facts.receiver(sam) != Receiver.OWNED && !context.facts.resultBorrowsReceiver(sam)) {
+            // a lambda implements the interface: every closure of the method's shape implements the trait
+            boolean mutable = context.facts.receiver(sam) == Receiver.EXCLUSIVE;
+            String signature = signature(sam, false).replaceAll("\\bmut (\\w+): ", "$1: ");
+            String names = sam.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
+            sb.append("\nimpl<F: ").append(mutable ? "FnMut(" : "Fn(")
+                    .append(String.join(", ", closureParameters(typeInfo, context))).append(")")
+                    .append(resultType(sam)).append("> ").append(RustNames.type(typeInfo)).append(" for F {\n")
+                    .append(INDENT).append(signature).append(" {\n")
+                    .append(INDENT).append(INDENT).append("(*self)(").append(names).append(")\n")
+                    .append(INDENT).append("}\n}\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * The method of a source interface a lambda may implement: its only method, abstract, without type parameters, in
+     * an interface without type parameters or source super-interfaces. {@code null} for another type.
+     */
+    static MethodInfo functionalMethod(TypeInfo ti) {
+        if (ti == null || !ti.isInterface() || ti.compilationUnit().externalLibrary() || !ti.typeParameters().isEmpty()
+            || ti.interfacesImplemented().stream().anyMatch(i -> !i.typeInfo().compilationUnit().externalLibrary())) {
+            return null;
+        }
+        List<MethodInfo> methods = ti.methods().stream().filter(m -> !m.isSynthetic() && !m.isStatic()).toList();
+        if (methods.size() != 1) return null;
+        MethodInfo m = methods.getFirst();
+        return m.isAbstract() && m.typeParameters().isEmpty() ? m : null;
+    }
+
+    /** The parameter types of {@link #functionalMethod}, as its trait declares them. */
+    static List<String> closureParameters(TypeInfo ti, RustContext context) {
+        MethodInfo m = functionalMethod(ti);
+        if (m == null) return null;
+        RustTypePrinter printer = new RustTypePrinter(context);
+        return m.parameters().stream().map(p -> printer.parameter(m, p).replaceFirst("^(mut )?\\w+: ", "")).toList();
     }
 
     private String supertraits(TypeInfo typeInfo) {
@@ -406,10 +445,60 @@ final class RustTypePrinter {
         return RustTypes.option(RustTypes.owned(f.type(), context, f), RustFacts.nullable(context.facts.field(f)));
     }
 
+    /** The module-level items a type's static state becomes: printed after the type's own items. */
+    private final StringBuilder statics = new StringBuilder();
+
+    /**
+     * A {@code static final} field that is not a constant, whose object no method modifies, and that no static
+     * initializer touches: a module-level {@code static}, built on first use ({@code LazyLock}), shared read-only. Its
+     * type must be shareable between threads ({@code Sync}): not a {@code dyn} value.
+     */
+    static boolean lazyStatic(FieldInfo f, RustContext context) {
+        if (!f.isStatic() || !f.isFinal() || f.initializer() == null || f.initializer().isEmpty()
+            || constant(f) || !context.facts.unmodified(f)) {
+            return false;
+        }
+        String type = RustTypes.owned(f.type(), context, f);
+        if (type.contains("dyn ") || type.contains("Rc<") || type.contains("RefCell<")) return false;
+        boolean[] touched = {false};
+        for (MethodInfo m : f.owner().methods()) {
+            if (!m.isStaticInitializer() || m.methodBody() == null) continue;
+            m.methodBody().visit(e -> {
+                if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                    && ve.variable() instanceof io.codelaser.maddi.cst.api.variable.FieldReference fr
+                    && fr.fieldInfo() == f) {
+                    touched[0] = true;
+                }
+                return !touched[0];
+            });
+        }
+        return !touched[0];
+    }
+
+    /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
+    static String staticName(FieldInfo f) {
+        return RustNames.constant(RustNames.type(f.owner()) + "_" + f.name());
+    }
+
+    /** A {@code static final} primitive or string with a literal value: an associated {@code const}. */
+    static boolean constant(FieldInfo f) {
+        return f.isFinal() && f.initializer() instanceof ConstantExpression<?>
+               && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type()));
+    }
+
     private String staticField(FieldInfo f) {
         Expression init = f.initializer();
-        boolean constant = f.isFinal() && init instanceof ConstantExpression<?>
-                           && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type()));
+        boolean constant = constant(f);
+        if (!constant && lazyStatic(f, context)) {
+            String type = RustTypes.owned(f.type(), context, f);
+            String value = new RustBodyPrinter(context).ownedAs(init, f.type());
+            statics.append("\n/// Translated from the static field `").append(f.owner().fullyQualifiedName()).append(".")
+                    .append(f.name()).append("`: built on first use, read-only.\n")
+                    .append(visibility(f.access().isPrivate())).append("static ").append(staticName(f))
+                    .append(": std::sync::LazyLock<").append(type).append("> = std::sync::LazyLock::new(|| ")
+                    .append(value).append(");\n");
+            return "";
+        }
         if (!constant) {
             context.message(RustPrintCode.STATIC_STATE, f, f.name());
             return INDENT + "// static " + f.name() + ": not translated\n";
@@ -628,15 +717,19 @@ final class RustTypePrinter {
         };
         String params = parameters(m);
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
-        String result = "";
-        if (!m.isVoid()) {
-            boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
-                              && !RustTypes.isCopy(m.returnType());
-            String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
-            result = " -> " + RustTypes.option(type, RustFacts.nullable(context.facts.returnType(m)));
-        }
+        String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + "fn " + RustNames.method(m) + generics(m.typeParameters())
                + "(" + all + ")" + result;
+    }
+
+    /** {@code " -> T"}, or empty for a void method. */
+    private String resultType(MethodInfo m) {
+        if (m.isVoid()) return "";
+        Receiver receiver = context.facts.receiver(m);
+        boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
+                          && !RustTypes.isCopy(m.returnType());
+        String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
+        return " -> " + RustTypes.option(type, RustFacts.nullable(context.facts.returnType(m)));
     }
 
     private String parameters(MethodInfo m) {

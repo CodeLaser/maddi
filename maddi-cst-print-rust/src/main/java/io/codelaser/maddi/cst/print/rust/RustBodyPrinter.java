@@ -33,8 +33,10 @@ import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -69,6 +71,15 @@ final class RustBodyPrinter {
     /** How each local of the method is held, from its declaration. */
     private final Map<LocalVariable, Held> locals = new HashMap<>();
     private final Map<LocalVariable, Boolean> nullableLocals = new HashMap<>();
+    /** the methods of the lambdas printed as closures: their parameters are an element or a reference to one */
+    private final Set<MethodInfo> closures = new HashSet<>();
+    /**
+     * The functional interface the closure being printed implements, when it is passed, stored or assigned as one:
+     * its parameters are typed, which rustc cannot infer for a {@code dyn} target.
+     */
+    private ParameterizedType closureTarget;
+    /** The lambda being printed is Optional.map's function: a nullable result stays an Option ({@code and_then}). */
+    private boolean optionalResult;
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -170,7 +181,8 @@ final class RustBodyPrinter {
             String type = RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable);
             return "let " + (reassigned ? "mut " : "") + name + ": " + type;
         }
-        Printed value = widen(expression(init), init, lv.parameterizedType());
+        Printed value = isClosure(init) && lv.parameterizedType().isFunctionalInterface()
+                ? closure(init, lv.parameterizedType()) : widen(expression(init), init, lv.parameterizedType());
         nullable |= value.nullable;
         nullableLocals.put(lv, nullable);
         boolean mutated = mutated(lv);
@@ -180,6 +192,11 @@ final class RustBodyPrinter {
                                    || RustTypes.isImmutableValue(lv.parameterizedType(), context.facts))) {
             // an immutable value: the local is a copy, so that the field may be assigned while it lives
             text = text + ".clone()";
+            held = Held.VALUE;
+        } else if (held == Held.SHARED && RustTypes.isString(lv.parameterizedType()) && !(init instanceof NullConstant)
+                   && !(CstQueries.unwrap(init) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo)) {
+            // a string borrowed out of a lookup ('(String) b.get("sku")'): a copy, which ends the borrow of what holds it
+            text = text + (value.nullable ? ".cloned()" : ".clone()");
             held = Held.VALUE;
         } else if (held == Held.PLACE && !RustTypes.isCopy(lv.parameterizedType())) {
             // an element or a field: the local refers to it, as Java's reference does
@@ -255,7 +272,9 @@ final class RustBodyPrinter {
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
         } else {
-            iterator = collection.text + (mutated ? ".iter_mut()" : ".iter()");
+            // a nullable collection is unwrapped: Option's own iter() would go over the collection, once
+            String c = collection.nullable ? receiver(fe.expression(), mutated) : collection.text;
+            iterator = c + (mutated ? ".iter_mut()" : ".iter()");
         }
         boolean copy = RustTypes.isCopy(lv.parameterizedType());
         locals.put(lv, copy ? Held.VALUE : mutated ? Held.EXCLUSIVE : Held.SHARED);
@@ -630,6 +649,10 @@ final class RustBodyPrinter {
         String name = RustNames.snake(pi.name());
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
         if (RustTypes.isCopy(pi.parameterizedType())) return new Printed(name, Held.VALUE, nullable);
+        // Rust hands a closure the element ('map' over '.cloned()') or a reference to it ('filter'): a place, which
+        // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
+        // an element is never an Option: the collections hold their values as they are
+        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, false);
         Passing passing = context.facts.passing(pi);
         Held held = switch (passing) {
             case SHARED -> RustTypes.isString(pi.parameterizedType()) ? Held.STR : Held.SHARED;
@@ -653,6 +676,12 @@ final class RustBodyPrinter {
             }
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
                 return value(prefix + "::" + RustNames.variant(f.name()));
+            }
+            if (!owner.compilationUnit().externalLibrary() && RustTypePrinter.lazyStatic(f, context)) {
+                String name = RustTypePrinter.staticName(f);
+                String module = RustNames.module(owner.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                return new Printed(name, Held.PLACE, nullable);
             }
             return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
         }
@@ -682,7 +711,14 @@ final class RustBodyPrinter {
         }
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         Printed value = widen(expression(a.value()), a.value(), a.target().parameterizedType());
-        if (!statement) return unsupported(a, "assignment inside an expression");
+        if (!statement) {
+            // '(idx = s.indexOf(x)) != -1': assigned, then read
+            if (a.assignmentOperator() == null && RustTypes.isCopy(a.target().parameterizedType())
+                && a.target() instanceof VariableExpression) {
+                return "{ " + target + " = " + value.text + "; " + target + " }";
+            }
+            return unsupported(a, "assignment inside an expression");
+        }
         ParameterizedType targetType = a.target().parameterizedType();
         if ("+=".equals(operator) && RustTypes.isString(targetType)) {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
@@ -709,7 +745,13 @@ final class RustBodyPrinter {
         if (("==".equals(op) || "!=".equals(op))
             && (bo.lhs() instanceof NullConstant || bo.rhs() instanceof NullConstant)) {
             Expression other = bo.lhs() instanceof NullConstant ? bo.rhs() : bo.lhs();
-            return value(expression(other).text + ("==".equals(op) ? ".is_none()" : ".is_some()"));
+            Printed p = expression(other);
+            if (!p.nullable && !(other instanceof NullConstant) && !other.parameterizedType().isPrimitiveExcludingVoid()) {
+                // a defensive check of a value the verdicts call non-null: its outcome under them
+                context.message(RustPrintCode.NULL_CHECK_OF_NON_NULL, bo, p.text);
+                return value("==".equals(op) ? "false" : "true");
+            }
+            return value(p.text + ("==".equals(op) ? ".is_none()" : ".is_some()"));
         }
         if (">>>".equals(op)) {
             context.message(RustPrintCode.UNSIGNED_SHIFT, bo, null);
@@ -718,7 +760,10 @@ final class RustBodyPrinter {
                          + ") as " + type);
         }
         ParameterizedType common = promoted(bo, op);
-        return value(promotedOperand(bo.lhs(), common) + " " + op + " " + promotedOperand(bo.rhs(), common));
+        String lhs = promotedOperand(bo.lhs(), common);
+        // 'n as i32 < 3' reads as the start of generic arguments
+        if (op.startsWith("<") && AS_CAST.matcher(lhs).find()) lhs = "(" + lhs + ")";
+        return value(lhs + " " + op + " " + promotedOperand(bo.rhs(), common));
     }
 
     /**
@@ -787,10 +832,46 @@ final class RustBodyPrinter {
     }
 
     /** An operand of an operator: a borrowed value compares and computes as the value itself. */
+    private static final java.util.regex.Pattern AS_CAST = java.util.regex.Pattern.compile(" as [\\w:<>]+$");
+
+    private static boolean isObject(ParameterizedType type) {
+        return type.typeInfo() != null && type.typeInfo().isJavaLangObject() && type.arrays() == 0;
+    }
+
+    /** Whether {@code text} has an operator outside parentheses, brackets, braces, closures and string literals. */
+    static boolean topLevelOperator(String text) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (inString) {
+                if (c == '\\') i++;
+                else if (c == '"') inString = false;
+                continue;
+            }
+            switch (c) {
+                case '"' -> inString = true;
+                case '(', '[', '{' -> depth++;
+                case ')', ']', '}' -> depth--;
+                case '|' -> {
+                    if (depth == 0) return true;
+                }
+                case ' ' -> {
+                    if (depth == 0 && i + 1 < text.length() && "=!<>&|+-*/%^".indexOf(text.charAt(i + 1)) >= 0) {
+                        return true;
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        return false;
+    }
+
     private String operand(Expression e) {
         Printed p = expression(e);
         boolean binary = e instanceof BinaryOperator || e instanceof InlineConditional || e instanceof Assignment
-                         || e instanceof And || e instanceof Or;
+                         || e instanceof And || e instanceof Or || topLevelOperator(p.text);
         String text = binary ? "(" + p.text + ")" : p.text;
         if (p.nullable) {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
@@ -838,10 +919,14 @@ final class RustBodyPrinter {
     String[] display(Expression e) {
         Printed p = expression(e);
         ParameterizedType type = e.parameterizedType();
+        if (p.nullable && isObject(type)) {
+            return new String[]{"{}", p.text + ".as_ref().map(|v| crate::jrt::to_string(v)).unwrap_or_else(|| \"null\".to_string())"};
+        }
         if (p.nullable) {
             return new String[]{"{}", p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"};
         }
         TypeInfo ti = type.typeInfo();
+        if (isObject(type)) return new String[]{"{}", "crate::jrt::to_string(" + adapt(p, Held.SHARED) + ")"};
         if (ti == null || type.isPrimitiveExcludingVoid()) return new String[]{"{}", p.text};
         if (type.arrays() > 0) return new String[]{"{:?}", p.text};
         if (ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti)) return new String[]{"{}", p.text + ".name()"};
@@ -897,12 +982,34 @@ final class RustBodyPrinter {
 
     private Printed lambda(Lambda lambda) {
         MethodInfo m = lambda.methodInfo();
-        String params = m.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
+        List<String> types = closureParameters();
+        boolean optional = optionalResult;
+        optionalResult = false;
+        List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
+        String params = typed(names, types);
         Expression single = lambda.singleExpression();
         MethodInfo outer = context.method;
+        closures.add(m);
         try {
             context.method = m;
-            if (single != null) return value("|" + params + "| " + expression(single).text);
+            if (single != null) {
+                // a Consumer's body is a statement: 'map.put(k, v)' returns a value Rust's 'for_each' does not take
+                Printed p = expression(single);
+                String body = p.text;
+                if (m.noReturnValue()) return value("|" + params + "| { " + body + "; }");
+                if (p.nullable && optional) {
+                    // Optional.map's function may return null: an empty Optional, Rust's and_then over an Option
+                    String owned = p.held == Held.SHARED && (RustTypes.isString(single.parameterizedType())
+                            || RustTypes.isImmutableValue(single.parameterizedType(), context.facts)) ? ".cloned()" : "";
+                    return new Printed("|" + params + "| " + body + owned, Held.VALUE, true);
+                }
+                if (p.nullable) {
+                    // an element is never an Option: Java's null in the result, a panic here
+                    context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, single, body);
+                    body = owned(new Printed(body + ".unwrap()", p.held, false), single.parameterizedType());
+                }
+                return value("|" + params + "| " + body);
+            }
             return value("|" + params + "| {\n" + statements(m.methodBody(), 1) + "}");
         } finally {
             context.method = outer;
@@ -910,15 +1017,88 @@ final class RustBodyPrinter {
     }
 
     /**
+     * {@code fn} applied to the values named {@code args}, in parentheses: a lambda's single expression with its
+     * parameters standing for them, a method reference's call; anything else is called. A closure literal called on
+     * the spot ({@code (|x| x.f())(a)}) leaves rustc without the type of its parameter.
+     */
+    String applied(Expression fn, List<String> args) {
+        Expression f = CstQueries.unwrap(fn);
+        if (f instanceof Lambda l && l.singleExpression() != null && l.methodInfo().parameters().size() == args.size()) {
+            List<ParameterInfo> ps = l.methodInfo().parameters();
+            for (int i = 0; i < ps.size(); i++) aliases.put(ps.get(i), args.get(i));
+            try {
+                return "(" + expression(l.singleExpression()).text + ")";
+            } finally {
+                ps.forEach(aliases::remove);
+            }
+        }
+        if (f instanceof MethodReference mr && mr.concreteParameterTypes().size() == args.size()) {
+            String body = methodReferenceBody(mr, args);
+            if (body != null) return "(" + body + ")";
+        }
+        return "(" + expression(fn).text + ")(" + String.join(", ", args) + ")";
+    }
+
+    /**
      * A method reference as a closure: {@code Order::customer} is {@code |x| x.customer()}, {@code Type::of} is
      * {@code |x| Type::of(x)}, {@code this::add} is {@code |x| self.add(x)}.
      */
     private Printed methodReference(MethodReference mr) {
-        MethodInfo m = mr.methodInfo();
         int n = mr.concreteParameterTypes().size();
         List<String> params = new ArrayList<>();
         for (int i = 0; i < n; i++) params.add(n == 1 ? "x" : "x" + (i + 1));
-        String closure = "|" + String.join(", ", params) + "| ";
+        List<String> types = closureParameters();
+        String body = methodReferenceBody(mr, params);
+        if (body == null) return value(unsupported(mr, "method reference " + mr.methodInfo().fullyQualifiedName()));
+        return value("|" + typed(params, types) + "| " + body);
+    }
+
+    /** The parameter types of the closure {@link #closureTarget} asks for, consumed; {@code null} when there is none. */
+    private List<String> closureParameters() {
+        ParameterizedType target = closureTarget;
+        closureTarget = null;
+        if (target == null || target.typeInfo() == null) return null;
+        if (target.typeInfo().compilationUnit().externalLibrary()) return RustTypes.closureParameters(target, context, null);
+        return RustTypePrinter.closureParameters(target.typeInfo(), context);
+    }
+
+    private static String typed(List<String> names, List<String> types) {
+        if (types == null || types.size() != names.size()) return String.join(", ", names);
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) out.add(names.get(i) + ": " + types.get(i));
+        return String.join(", ", out);
+    }
+
+    private static boolean isClosure(Expression e) {
+        Expression c = CstQueries.unwrap(e);
+        return c instanceof Lambda || c instanceof MethodReference;
+    }
+
+    /** Optional.map's function: {@code nullable} when its result may be null, and it is then {@code and_then}'s. */
+    Printed optionalMapper(Expression e) {
+        optionalResult = true;
+        try {
+            return expression(e);
+        } finally {
+            optionalResult = false;
+        }
+    }
+
+    /** {@code e}, a lambda or method reference, as a closure implementing {@code target}. */
+    private Printed closure(Expression e, ParameterizedType target) {
+        closureTarget = target;
+        try {
+            return expression(e);
+        } finally {
+            closureTarget = null;
+        }
+    }
+
+    /** The call a method reference makes, its parameters named {@code params}; {@code null} when not printable. */
+    private String methodReferenceBody(MethodReference mr, List<String> params) {
+        MethodInfo m = mr.methodInfo();
+        int n = params.size();
+        String closure = "";
         if (m.typeInfo().compilationUnit().externalLibrary()) {
             String jdk = RustJdk.reference(m, params);
             // an entry's key or value is a reference into the map: a copy, or a clone for a string
@@ -927,8 +1107,7 @@ final class RustBodyPrinter {
                 if (RustTypes.isCopy(result)) jdk = "*" + jdk;
                 else if (RustTypes.isString(result) || RustTypes.isImmutableValue(result, context.facts)) jdk += ".clone()";
             }
-            if (jdk != null) return value(closure + jdk);
-            return value(unsupported(mr, "method reference " + m.fullyQualifiedName()));
+            return jdk;
         }
         String owner = m.typeInfo() == context.type ? "Self" : RustNames.type(m.typeInfo());
         if (m.typeInfo() != context.type) {
@@ -937,14 +1116,14 @@ final class RustBodyPrinter {
         }
         String name = RustNames.method(m);
         if (m.isConstructor() || m.isStatic()) {
-            return value(closure + owner + "::" + name + "(" + String.join(", ", params) + ")");
+            return closure + owner + "::" + name + "(" + passed(params, m) + ")";
         }
         if (mr.scope() instanceof TypeExpression) {
             // unbound: the first parameter is the object
-            if (params.isEmpty()) return value(unsupported(mr, "method reference without parameters"));
-            return value(closure + params.getFirst() + "." + name + "(" + String.join(", ", params.subList(1, n)) + ")");
+            if (params.isEmpty()) return null;
+            return closure + params.getFirst() + "." + name + "(" + passed(params.subList(1, n), m) + ")";
         }
-        return value(closure + expression(mr.scope()).text + "." + name + "(" + String.join(", ", params) + ")");
+        return closure + expression(mr.scope()).text + "." + name + "(" + passed(params, m) + ")";
     }
 
     // ---- calls
@@ -1045,14 +1224,39 @@ final class RustBodyPrinter {
             ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
             boolean fromSelf = p.text.startsWith(context.receiver + ".") && RustTypes.isString(a.parameterizedType())
                                && !p.text.contains("(");
-            if (pi != null && fromSelf && context.facts.passing(pi) == Passing.SHARED) {
+            // a string borrowed from a local or a lookup may be borrowed from self too ('let sku = self.m.get(k)'):
+            // copied, as an immutable string can be
+            boolean borrowed = p.held == Held.SHARED && RustTypes.isString(a.parameterizedType())
+                               && !(a instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo);
+            if (pi != null && (fromSelf || borrowed) && context.facts.passing(pi) == Passing.SHARED) {
                 String text = "&" + p.text + ".clone()";
                 boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
-                if (p.nullable) text = p.text + ".clone().as_deref()";
+                if (p.nullable) text = p.text + (fromSelf ? ".clone().as_deref()" : ".cloned().as_deref()");
                 out.add(nullable && !p.nullable ? "Some(" + text + ")" : text);
             } else {
                 out.add(pi == null ? p.text : argument(p, pi, a));
             }
+        }
+        return String.join(", ", out);
+    }
+
+    /** A method reference's closure parameters, each a place (see {@link #parameter}), adapted to the callee's. */
+    private String passed(List<String> names, MethodInfo callee) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            if (i >= callee.parameters().size()) {
+                out.add(names.get(i));
+                continue;
+            }
+            ParameterInfo pi = callee.parameters().get(i);
+            Printed p = new Printed(names.get(i), Held.PLACE, false);
+            ParameterizedType type = pi.parameterizedType();
+            String text = RustTypes.isCopy(type) ? p.text : switch (context.facts.passing(pi)) {
+                case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
+                case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
+                case OWNED -> owned(p, type);
+            };
+            out.add(RustFacts.nullable(context.facts.parameter(pi)) ? "Some(" + text + ")" : text);
         }
         return String.join(", ", out);
     }
@@ -1074,6 +1278,15 @@ final class RustBodyPrinter {
 
     private String argument(Printed p, ParameterInfo pi, Expression argument) {
         ParameterizedType type = pi.parameterizedType();
+        if (isClosure(argument) && type.isFunctionalInterface()) {
+            Printed c = closure(argument, type);
+            // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
+            return switch (context.facts.passing(pi)) {
+                case OWNED -> "Box::new(" + c.text + ")";
+                case SHARED -> "&" + c.text;
+                case EXCLUSIVE -> "&mut " + c.text;
+            };
+        }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
         String text;
@@ -1088,7 +1301,23 @@ final class RustBodyPrinter {
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
         if (!nullable && p.nullable) return text + ".unwrap()";
+        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.facts.passing(pi) == Passing.SHARED) {
+            return nullableBorrow(p, argument, RustTypes.isString(type));
+        }
         return text;
+    }
+
+    /**
+     * A nullable value where an {@code Option<&T>} ({@code Option<&str>}) is expected: {@code None} for null, a borrow
+     * of an owned {@code Option<T>}'s content, a borrowed string's {@code &String} as {@code &str}.
+     */
+    private static String nullableBorrow(Printed p, Expression argument, boolean string) {
+        if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
+        return switch (p.held) {
+            case STR -> p.text;
+            case VALUE, PLACE -> p.text + (string ? ".as_deref()" : ".as_ref()");
+            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| s.as_str())" : p.text;
+        };
     }
 
     /** {@code p} where {@code target} is expected: a value or place is borrowed; a borrow is passed as it is. */
@@ -1146,6 +1375,10 @@ final class RustBodyPrinter {
 
     /** The object of a call: a nullable one unwrapped, as Java would throw a NullPointerException. */
     String receiver(Expression e, boolean modifying) {
+        if (modifying) {
+            String inPlace = RustJdk.getOrDefaultMut(e, this);
+            if (inPlace != null) return inPlace;
+        }
         Printed p = expression(e);
         if (!p.nullable) return p.text;
         context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
@@ -1156,7 +1389,21 @@ final class RustBodyPrinter {
     String tupleLambda(Expression e) {
         String text = expression(e).text;
         if (e instanceof Lambda l && l.methodInfo().parameters().size() == 2) {
-            return text.replaceFirst("^\\|([^|]*)\\|", "|($1)|");
+            // a map's entries are references: a copied key or value is taken out by the pattern
+            List<String> ps = new ArrayList<>();
+            for (ParameterInfo p : l.methodInfo().parameters()) {
+                ps.add((RustTypes.isCopy(p.parameterizedType()) ? "&" : "") + RustNames.snake(p.name()));
+            }
+            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+                    "|(" + String.join(", ", ps) + ")|"));
+        }
+        if (e instanceof MethodReference mr && mr.concreteParameterTypes().size() == 2) {
+            List<String> ps = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                ps.add((RustTypes.isCopy(mr.concreteParameterTypes().get(i)) ? "&" : "") + "x" + (i + 1));
+            }
+            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+                    "|(" + String.join(", ", ps) + ")|"));
         }
         return text;
     }
@@ -1180,7 +1427,16 @@ final class RustBodyPrinter {
      * ({@code Box<dyn Any>}) and the value is not.
      */
     String ownedAs(Expression e, ParameterizedType target) {
-        String text = ownedText(e);
+        if (target != null && isClosure(e) && target.isFunctionalInterface()) {
+            return "Box::new(" + closure(e, target).text + ")";
+        }
+        Printed p = expression(e);
+        String text = owned(p, e.parameterizedType());
+        if (p.nullable && !(e instanceof NullConstant)) {
+            // a collection's values are not Options: Java's null in a map is a panic here
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
+            text = text + ".unwrap()";
+        }
         boolean toObject = target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject()
                            && target.arrays() == 0;
         boolean fromObject = e.parameterizedType().typeInfo() != null && e.parameterizedType().typeInfo().isJavaLangObject();
@@ -1189,6 +1445,10 @@ final class RustBodyPrinter {
 
     /** What a field of {@code type} is initialized with: owned, and in {@code Some} when the field is nullable. */
     String fieldValue(Expression e, ParameterizedType type, boolean nullable) {
+        if (isClosure(e) && type.isFunctionalInterface()) {
+            String boxed = "Box::new(" + closure(e, type).text + ")";
+            return nullable ? "Some(" + boxed + ")" : boxed;
+        }
         Printed p = expression(e);
         String text = RustTypes.isCopy(type) ? p.text : owned(p, type);
         return nullable && !p.nullable && !(e instanceof NullConstant) ? "Some(" + text + ")" : text;

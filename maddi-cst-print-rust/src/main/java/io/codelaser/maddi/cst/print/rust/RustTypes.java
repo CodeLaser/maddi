@@ -71,7 +71,10 @@ final class RustTypes {
             Map.entry("java.util.Queue", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.Deque", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.ArrayDeque", new Mapped("VecDeque", "std::collections::VecDeque")),
-            Map.entry("java.util.Optional", new Mapped("Option", null)));
+            Map.entry("java.util.Optional", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalInt", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalLong", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalDouble", new Mapped("Option", null)));
 
     private RustTypes() {
     }
@@ -173,6 +176,19 @@ final class RustTypes {
                 context.message(RustPrintCode.UNMAPPED_JDK, where, type.typeInfo().fullyQualifiedName());
                 yield "dyn Fn()";
             }
+        };
+    }
+
+    /** The parameter types of the closure a JDK functional interface stands for; {@code null} for another type. */
+    static List<String> closureParameters(ParameterizedType type, RustContext context, Element where) {
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || !isFunctional(ti)) return null;
+        List<ParameterizedType> args = type.parameters();
+        return switch (ti.simpleName()) {
+            case "Runnable", "Supplier" -> List.of();
+            case "Consumer", "Function", "Predicate", "UnaryOperator" -> List.of(borrowed(args, 0, context, where));
+            case "BiConsumer", "BiFunction" -> List.of(borrowed(args, 0, context, where), borrowed(args, 1, context, where));
+            default -> null;
         };
     }
 

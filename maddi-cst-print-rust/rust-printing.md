@@ -64,6 +64,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - CodeLaser/maddi-mod#60: `Collections.unmodifiableList(field)` is independent; a read-only view of a mutable
   collection is dependent (E0507). `UNMODIFIABLE_VIEW_METHOD` cannot stand in for it: it marks any unmodifiable
   result, a fresh one too.
+- CodeLaser/maddi-mod#62: element modification one level beyond #59 (a map in a list in a map, `values()` iterated,
+  a cast `Object` value) is missed by the deep verdict (E0596).
+- CodeLaser/maddi-mod#63: the reachability pass did not walk a switch expression's `case -> { ... }` arm (E0596).
+- CodeLaser/maddi-mod#64: `new HashMap<>(field)` over immutable keys and values is dependent (E0515).
 
 ## Shape
 
@@ -85,7 +89,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   else builds `this` at the fields' empty values, runs the body on it, and returns it.
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and
   call.
-- A `static final` constant is an associated `const`; other static state is reported (`STATIC_STATE`).
+- A `static final` constant is an associated `const`. A `static final` field whose object no method modifies (the
+  `UNMODIFIED_FIELD` verdict), of a type Rust can share between threads, and untouched by a static initializer, is a
+  module-level `static OWNER_NAME: LazyLock<T>`, built on first use and read-only: a wrong verdict is rustc's E0596.
+  Other static state is reported (`STATIC_STATE`).
 - An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
 - A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
   cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
@@ -95,6 +102,24 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- A closure's parameter is the element (`map` over `.cloned()`) or a reference to it (`filter`): it is passed as `&x`
+  where a borrow is expected and `x.clone()` where an owned string is, which deref coercion and auto-deref accept
+  either way. A comparator (`comparing`, `comparingByValue`, `reversed`, `thenComparing`, a two-parameter lambda) is
+  the `|a, b| -> Ordering` closure `sort_by`, `max_by`, `min_by` take; its key extractor is applied inline, as a
+  closure literal called on the spot leaves rustc without its parameter's type.
+- A source interface with one abstract method is a trait that every closure of its method's shape implements
+  (`impl<F: Fn(&str)> Listener for F`). A lambda or method reference passed, stored or assigned where a functional
+  interface is expected has its parameters typed, which rustc cannot infer for a `dyn` target; a kept one is a
+  `Box::new(...)`. A stored listener that captures `self` mutably (an observer registering itself) is aliasing plus
+  modification: rustc's E0500/E0501, which the strict printer leaves.
+- `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
+  `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
+- A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in
+  a collection, whose values are never Options, is unwrapped (`UNWRAP_AT_DEREFERENCE`); `x == null` of a value the
+  verdicts call non-null is its constant outcome (`NULL_CHECK_OF_NON_NULL`).
+- `map.getOrDefault(k, d).put(...)` modifies in place: `get_mut(k).unwrap_or(&mut d)`. A string borrowed from a
+  lookup is copied into its local, and into the arguments of a `&mut self` call, which ends the borrow of its
+  holder; a string is immutable, so the copy cannot be told from the shared one.
 - An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.

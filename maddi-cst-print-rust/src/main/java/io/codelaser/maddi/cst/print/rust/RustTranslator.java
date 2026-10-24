@@ -93,12 +93,43 @@ public final class RustTranslator {
             files.add(file.toAbsolutePath().normalize());
             lib.append("pub mod ").append(module.name()).append(";\n");
         }
+        lib.append("pub mod jrt;\n");
+        Path jrt = src.resolve("jrt.rs");
+        Files.writeString(jrt, JRT);
+        files.add(jrt.toAbsolutePath().normalize());
         Path librs = src.resolve("lib.rs");
         Files.writeString(librs, lib.toString());
         files.add(librs.toAbsolutePath().normalize());
         Files.writeString(out.resolve("Cargo.toml"), cargoToml());
         return new Result(files, crashes, messages);
     }
+
+    /** What the translation needs of Java's runtime that {@code std} has no counterpart for. */
+    static final String JRT = """
+            // Java's runtime, as far as the translated crate needs it.
+            #![allow(dead_code)]
+
+            use std::any::Any;
+
+            /// `String.valueOf(Object)` of a `Box<dyn Any>`: the values the translation boxes, else the type's name.
+            pub fn to_string(v: &Box<dyn Any>) -> String {
+                let v: &dyn Any = &**v;
+                if let Some(s) = v.downcast_ref::<String>() { return s.clone(); }
+                if let Some(s) = v.downcast_ref::<&str>() { return s.to_string(); }
+                if let Some(x) = v.downcast_ref::<i32>() { return x.to_string(); }
+                if let Some(x) = v.downcast_ref::<i64>() { return x.to_string(); }
+                if let Some(x) = v.downcast_ref::<f64>() { return x.to_string(); }
+                if let Some(x) = v.downcast_ref::<bool>() { return x.to_string(); }
+                if let Some(x) = v.downcast_ref::<char>() { return x.to_string(); }
+                if let Some(x) = v.downcast_ref::<Vec<String>>() { return format!("[{}]", x.join(", ")); }
+                "java.lang.Object".to_string()
+            }
+
+            /// `String.hashCode()`: Java's polynomial over the UTF-16 units.
+            pub fn string_hash_code(s: &str) -> i32 {
+                s.encode_utf16().fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
+            }
+            """;
 
     static String cargoToml() {
         return """
