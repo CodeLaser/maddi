@@ -95,6 +95,19 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- A closure's parameter is the element (`map` over `.cloned()`) or a reference to it (`filter`): it is passed as `&x`
+  where a borrow is expected and `x.clone()` where an owned string is, which deref coercion and auto-deref accept
+  either way. A comparator (`comparing`, `comparingByValue`, `reversed`, `thenComparing`, a two-parameter lambda) is
+  the `|a, b| -> Ordering` closure `sort_by`, `max_by`, `min_by` take; its key extractor is applied inline, as a
+  closure literal called on the spot leaves rustc without its parameter's type.
+- `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
+  `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
+- A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in
+  a collection, whose values are never Options, is unwrapped (`UNWRAP_AT_DEREFERENCE`); `x == null` of a value the
+  verdicts call non-null is its constant outcome (`NULL_CHECK_OF_NON_NULL`).
+- `map.getOrDefault(k, d).put(...)` modifies in place: `get_mut(k).unwrap_or(&mut d)`. A string borrowed from a
+  lookup is copied into its local, and into the arguments of a `&mut self` call, which ends the borrow of its
+  holder; a string is immutable, so the copy cannot be told from the shared one.
 - An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
