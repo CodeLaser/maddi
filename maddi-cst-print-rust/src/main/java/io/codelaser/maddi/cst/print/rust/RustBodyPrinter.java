@@ -264,7 +264,9 @@ final class RustBodyPrinter {
         if (RustJdk.isIterator(collection.text)) {
             iterator = collection.text;
         } else {
-            iterator = collection.text + (mutated ? ".iter_mut()" : ".iter()");
+            // a nullable collection is unwrapped: Option's own iter() would go over the collection, once
+            String c = collection.nullable ? receiver(fe.expression(), mutated) : collection.text;
+            iterator = c + (mutated ? ".iter_mut()" : ".iter()");
         }
         boolean copy = RustTypes.isCopy(lv.parameterizedType());
         locals.put(lv, copy ? Held.VALUE : mutated ? Held.EXCLUSIVE : Held.SHARED);
@@ -641,7 +643,8 @@ final class RustBodyPrinter {
         if (RustTypes.isCopy(pi.parameterizedType())) return new Printed(name, Held.VALUE, nullable);
         // Rust hands a closure the element ('map' over '.cloned()') or a reference to it ('filter'): a place, which
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
-        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, nullable);
+        // an element is never an Option: the collections hold their values as they are
+        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, false);
         Passing passing = context.facts.passing(pi);
         Held held = switch (passing) {
             case SHARED -> RustTypes.isString(pi.parameterizedType()) ? Held.STR : Held.SHARED;
@@ -694,7 +697,14 @@ final class RustBodyPrinter {
         }
         String operator = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
         Printed value = widen(expression(a.value()), a.value(), a.target().parameterizedType());
-        if (!statement) return unsupported(a, "assignment inside an expression");
+        if (!statement) {
+            // '(idx = s.indexOf(x)) != -1': assigned, then read
+            if (a.assignmentOperator() == null && RustTypes.isCopy(a.target().parameterizedType())
+                && a.target() instanceof VariableExpression) {
+                return "{ " + target + " = " + value.text + "; " + target + " }";
+            }
+            return unsupported(a, "assignment inside an expression");
+        }
         ParameterizedType targetType = a.target().parameterizedType();
         if ("+=".equals(operator) && RustTypes.isString(targetType)) {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
@@ -895,6 +905,9 @@ final class RustBodyPrinter {
     String[] display(Expression e) {
         Printed p = expression(e);
         ParameterizedType type = e.parameterizedType();
+        if (p.nullable && isObject(type)) {
+            return new String[]{"{}", p.text + ".as_ref().map(|v| crate::jrt::to_string(v)).unwrap_or_else(|| \"null\".to_string())"};
+        }
         if (p.nullable) {
             return new String[]{"{}", p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"};
         }
@@ -973,15 +986,46 @@ final class RustBodyPrinter {
     }
 
     /**
+     * {@code fn} applied to the values named {@code args}, in parentheses: a lambda's single expression with its
+     * parameters standing for them, a method reference's call; anything else is called. A closure literal called on
+     * the spot ({@code (|x| x.f())(a)}) leaves rustc without the type of its parameter.
+     */
+    String applied(Expression fn, List<String> args) {
+        Expression f = CstQueries.unwrap(fn);
+        if (f instanceof Lambda l && l.singleExpression() != null && l.methodInfo().parameters().size() == args.size()) {
+            List<ParameterInfo> ps = l.methodInfo().parameters();
+            for (int i = 0; i < ps.size(); i++) aliases.put(ps.get(i), args.get(i));
+            try {
+                return "(" + expression(l.singleExpression()).text + ")";
+            } finally {
+                ps.forEach(aliases::remove);
+            }
+        }
+        if (f instanceof MethodReference mr && mr.concreteParameterTypes().size() == args.size()) {
+            String body = methodReferenceBody(mr, args);
+            if (body != null) return "(" + body + ")";
+        }
+        return "(" + expression(fn).text + ")(" + String.join(", ", args) + ")";
+    }
+
+    /**
      * A method reference as a closure: {@code Order::customer} is {@code |x| x.customer()}, {@code Type::of} is
      * {@code |x| Type::of(x)}, {@code this::add} is {@code |x| self.add(x)}.
      */
     private Printed methodReference(MethodReference mr) {
-        MethodInfo m = mr.methodInfo();
         int n = mr.concreteParameterTypes().size();
         List<String> params = new ArrayList<>();
         for (int i = 0; i < n; i++) params.add(n == 1 ? "x" : "x" + (i + 1));
-        String closure = "|" + String.join(", ", params) + "| ";
+        String body = methodReferenceBody(mr, params);
+        if (body == null) return value(unsupported(mr, "method reference " + mr.methodInfo().fullyQualifiedName()));
+        return value("|" + String.join(", ", params) + "| " + body);
+    }
+
+    /** The call a method reference makes, its parameters named {@code params}; {@code null} when not printable. */
+    private String methodReferenceBody(MethodReference mr, List<String> params) {
+        MethodInfo m = mr.methodInfo();
+        int n = params.size();
+        String closure = "";
         if (m.typeInfo().compilationUnit().externalLibrary()) {
             String jdk = RustJdk.reference(m, params);
             // an entry's key or value is a reference into the map: a copy, or a clone for a string
@@ -990,8 +1034,7 @@ final class RustBodyPrinter {
                 if (RustTypes.isCopy(result)) jdk = "*" + jdk;
                 else if (RustTypes.isString(result) || RustTypes.isImmutableValue(result, context.facts)) jdk += ".clone()";
             }
-            if (jdk != null) return value(closure + jdk);
-            return value(unsupported(mr, "method reference " + m.fullyQualifiedName()));
+            return jdk;
         }
         String owner = m.typeInfo() == context.type ? "Self" : RustNames.type(m.typeInfo());
         if (m.typeInfo() != context.type) {
@@ -1000,14 +1043,14 @@ final class RustBodyPrinter {
         }
         String name = RustNames.method(m);
         if (m.isConstructor() || m.isStatic()) {
-            return value(closure + owner + "::" + name + "(" + passed(params, m) + ")");
+            return closure + owner + "::" + name + "(" + passed(params, m) + ")";
         }
         if (mr.scope() instanceof TypeExpression) {
             // unbound: the first parameter is the object
-            if (params.isEmpty()) return value(unsupported(mr, "method reference without parameters"));
-            return value(closure + params.getFirst() + "." + name + "(" + passed(params.subList(1, n), m) + ")");
+            if (params.isEmpty()) return null;
+            return closure + params.getFirst() + "." + name + "(" + passed(params.subList(1, n), m) + ")";
         }
-        return value(closure + expression(mr.scope()).text + "." + name + "(" + passed(params, m) + ")");
+        return closure + expression(mr.scope()).text + "." + name + "(" + passed(params, m) + ")";
     }
 
     // ---- calls
@@ -1264,7 +1307,21 @@ final class RustBodyPrinter {
     String tupleLambda(Expression e) {
         String text = expression(e).text;
         if (e instanceof Lambda l && l.methodInfo().parameters().size() == 2) {
-            return text.replaceFirst("^\\|([^|]*)\\|", "|($1)|");
+            // a map's entries are references: a copied key or value is taken out by the pattern
+            List<String> ps = new ArrayList<>();
+            for (ParameterInfo p : l.methodInfo().parameters()) {
+                ps.add((RustTypes.isCopy(p.parameterizedType()) ? "&" : "") + RustNames.snake(p.name()));
+            }
+            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+                    "|(" + String.join(", ", ps) + ")|"));
+        }
+        if (e instanceof MethodReference mr && mr.concreteParameterTypes().size() == 2) {
+            List<String> ps = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                ps.add((RustTypes.isCopy(mr.concreteParameterTypes().get(i)) ? "&" : "") + "x" + (i + 1));
+            }
+            return text.replaceFirst("^\\|([^|]*)\\|", java.util.regex.Matcher.quoteReplacement(
+                    "|(" + String.join(", ", ps) + ")|"));
         }
         return text;
     }
@@ -1288,7 +1345,13 @@ final class RustBodyPrinter {
      * ({@code Box<dyn Any>}) and the value is not.
      */
     String ownedAs(Expression e, ParameterizedType target) {
-        String text = ownedText(e);
+        Printed p = expression(e);
+        String text = owned(p, e.parameterizedType());
+        if (p.nullable && !(e instanceof NullConstant)) {
+            // a collection's values are not Options: Java's null in a map is a panic here
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
+            text = text + ".unwrap()";
+        }
         boolean toObject = target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject()
                            && target.arrays() == 0;
         boolean fromObject = e.parameterizedType().typeInfo() != null && e.parameterizedType().typeInfo().isJavaLangObject();

@@ -71,7 +71,10 @@ final class RustTypes {
             Map.entry("java.util.Queue", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.Deque", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.ArrayDeque", new Mapped("VecDeque", "std::collections::VecDeque")),
-            Map.entry("java.util.Optional", new Mapped("Option", null)));
+            Map.entry("java.util.Optional", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalInt", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalLong", new Mapped("Option", null)),
+            Map.entry("java.util.OptionalDouble", new Mapped("Option", null)));
 
     private RustTypes() {
     }
