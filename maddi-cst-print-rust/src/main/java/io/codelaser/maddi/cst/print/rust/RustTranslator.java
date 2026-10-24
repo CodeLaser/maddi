@@ -111,6 +111,11 @@ public final class RustTranslator {
 
             use std::any::Any;
 
+            /// The state of an eventually immutable object before its `@Mark` (typestate).
+            pub struct Before;
+            /// The state of an eventually immutable object after its `@Mark`.
+            pub struct After;
+
             /// `String.valueOf(Object)` of a `Box<dyn Any>`: the values the translation boxes, else the type's name.
             pub fn to_string(v: &Box<dyn Any>) -> String {
                 let v: &dyn Any = &**v;

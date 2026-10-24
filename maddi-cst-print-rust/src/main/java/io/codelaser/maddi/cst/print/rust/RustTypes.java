@@ -72,6 +72,8 @@ final class RustTypes {
             Map.entry("java.util.Deque", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.ArrayDeque", new Mapped("VecDeque", "std::collections::VecDeque")),
             Map.entry("java.util.Optional", new Mapped("Option", null)),
+            // maddi's own eventually final holder: set once (@Mark), read after (@Only(after))
+            Map.entry("io.codelaser.maddi.support.SetOnce", new Mapped("Option", null)),
             Map.entry("java.util.OptionalInt", new Mapped("Option", null)),
             Map.entry("java.util.OptionalLong", new Mapped("Option", null)),
             Map.entry("java.util.OptionalDouble", new Mapped("Option", null)));
@@ -88,9 +90,21 @@ final class RustTypes {
      * {@code #[derive(Clone)]}, and cloned where an owned value is expected, as a string is.
      */
     static boolean isImmutableValue(ParameterizedType type, RustFacts facts) {
+        if (type.arrays() > 0) return false;
+        if (type.isTypeParameter()) {
+            // the hidden content of an @Immutable(hc=true) type, which its impl bounds by Clone
+            var owner = type.typeParameter().getOwner();
+            return owner.isLeft() && facts.immutableHc(owner.getLeft());
+        }
         TypeInfo ti = type.typeInfo();
-        return type.arrays() == 0 && ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
-               && !ti.typeNature().isEnum() && facts.immutable(ti);
+        return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface()
+               && !ti.typeNature().isEnum() && (facts.immutable(ti) || facts.immutableHc(ti));
+    }
+
+    /** {@code @Immutable(hc=true)} source class or record: held as an {@code Rc}, cloned to share it. */
+    static boolean isShared(TypeInfo ti, RustFacts facts) {
+        return ti != null && !ti.compilationUnit().externalLibrary() && !ti.isInterface() && !ti.typeNature().isEnum()
+               && facts.immutableHc(ti);
     }
 
     /** Copied rather than moved or borrowed: a primitive, a boxed primitive, a plain enum. */
@@ -228,10 +242,18 @@ final class RustTypes {
                         type.parameters().stream().map(p -> owned(p, context, where))).collect(Collectors.joining(", ")) + ">";
             }
         }
-        if (type.parameters().isEmpty()) return base;
-        if ("String".equals(base)) return base;
-        return base + "<" + type.parameters().stream().map(p -> owned(p, context, where))
-                .collect(Collectors.joining(", ")) + ">";
+        String named;
+        if (type.parameters().isEmpty() || "String".equals(base)) {
+            named = base;
+        } else {
+            named = base + "<" + type.parameters().stream().map(p -> owned(p, context, where))
+                    .collect(Collectors.joining(", ")) + ">";
+        }
+        if (isShared(ti, context.facts)) {
+            context.use("std::rc::Rc");
+            return "Rc<" + named + ">";
+        }
+        return named;
     }
 
     static String primitive(TypeInfo ti) {

@@ -178,17 +178,19 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
     }
 
     /**
-     * With hidden content, a copy would duplicate what Java shares, and hide a wrong independent verdict on
-     * {@code find}: no clone, and rustc reports the borrow where an owned value was promised.
+     * With hidden content, a copy would duplicate what Java shares: the record is held as an {@code Rc}, whose clone
+     * is a share. The map holds {@code Rc}s, and {@code find} hands out another reference to the same object.
      */
-    @DisplayName("a record with hidden content is not copied: rustc's E0308 at the independent result")
+    @DisplayName("an @Immutable(hc=true) record is shared as an Rc: the result is a clone of the Rc: compiles")
     @Test
-    public void recordWithHiddenContentIsNotCopied() throws Exception {
+    public void recordWithHiddenContentIsShared() throws Exception {
         stock(ValueImpl.ImmutableImpl.IMMUTABLE_HC);
         String rust = module("a.b");
-        contains(rust, "return self.items.get(name);");
-        List<String> errors = rustcErrors();
-        assertTrue(errors.stream().anyMatch(e -> e.contains("E0308")), () -> String.join("\n", errors) + "\n" + rust);
+        contains(rust, "items: HashMap<String, Rc<StockItem>>,");
+        contains(rust, "pub fn find(&self, name: &str) -> Option<Rc<StockItem>> {");
+        contains(rust, "return self.items.get(name).cloned();");
+        contains(rust, "self.items.insert(name.to_string(), Rc::new(StockItem::new(name, total)));");
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 
     private List<TypeInfo> stock(Value.Immutable itemImmutable) throws Exception {

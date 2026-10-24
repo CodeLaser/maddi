@@ -28,6 +28,8 @@ dependencies {
     api(project(":maddi-cst-analysis"))
     // what the Java-to-X printers share: print messages, CST queries
     api(project(":maddi-cst-print-translate"))
+    // Either, in the CST API's signatures (TypeParameter.getOwner); SetOnce, in the tests' typestate examples
+    implementation(project(":maddi-support"))
     // the tests print Java parsed by the openjdk front end (Java -> Rust translation)
     testImplementation(project(":maddi-inspection-api"))
     testImplementation(project(":maddi-inspection-openjdk"))

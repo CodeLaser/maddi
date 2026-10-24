@@ -15,6 +15,7 @@
 module io.codelaser.maddi.cst.print.rust {
     requires io.codelaser.maddi.cst.api;
     requires io.codelaser.maddi.cst.impl;
+    requires io.codelaser.maddi.support;
     requires transitive io.codelaser.maddi.cst.analysis;
     requires transitive io.codelaser.maddi.cst.print.translate;
 

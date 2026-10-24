@@ -139,6 +139,14 @@ final class RustBodyPrinter {
 
     private String expressionStatement(Expression e, String pad) {
         if (e instanceof Assignment a) return assignment(a, true);
+        if (e instanceof MethodCall mc && context.facts.side(mc.methodInfo()) == RustFacts.Side.MARK
+            && RustTypestate.typestate(mc.methodInfo().typeInfo(), context)) {
+            // the mark of a typestate consumes the object and returns it in its after state: the local is rebound
+            if (mc.object() instanceof VariableExpression ve && ve.variable() instanceof LocalVariable lv) {
+                return "let mut " + RustNames.snake(lv.simpleName()) + " = " + expression(e).text;
+            }
+            context.message(RustPrintCode.UNSUPPORTED, e, "the mark of a typestate on anything but a local variable");
+        }
         List<MethodCall> appends = appendChain(e);
         if (appends != null) {
             // sb.append(a).append(b): Java returns the builder, Rust's push_str nothing; one statement per append
@@ -682,6 +690,14 @@ final class RustBodyPrinter {
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
                 return value(prefix + "::" + RustNames.variant(f.name()));
             }
+            if (RustTypePrinter.mutableStaticValue(f, context) != null) {
+                // Java's static state: a static mut, touched inside the unsafe body of the method
+                String name = RustTypePrinter.staticName(f);
+                String module = RustNames.module(owner.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                // Rust 2024 refuses a reference to a static mut: a method call on one goes through a raw pointer
+                return new Printed(RustTypes.isCopy(f.type()) ? name : "(*&raw mut " + name + ")", Held.PLACE, nullable);
+            }
             if (!owner.compilationUnit().externalLibrary() && RustTypePrinter.lazyStatic(f, context)) {
                 String name = RustTypePrinter.staticName(f);
                 String module = RustNames.module(owner.packageName());
@@ -695,7 +711,16 @@ final class RustBodyPrinter {
         TypeInfo scopeType = own ? context.type : fr.scope().parameterizedType().typeInfo();
         // an inherited field is in the base
         String path = scopeType == null ? "" : RustTypePrinter.basePath(scopeType, f.owner());
-        return new Printed(scope + path + "." + RustNames.snake(f.name()), Held.PLACE, nullable);
+        String place = scope + path + "." + RustNames.snake(f.name());
+        if (own && context.cells.isCell(f)) {
+            // a RefCell: directly where the object is held exclusively, else borrowed for the statement
+            MethodInfo m = context.method;
+            Receiver receiver = m == null || "this".equals(context.receiver) ? Receiver.EXCLUSIVE : context.facts.receiver(m);
+            String access = receiver == Receiver.EXCLUSIVE ? ".get_mut()"
+                    : context.facts.ignoreModifications(m) || receiver == Receiver.OWNED ? ".borrow_mut()" : ".borrow()";
+            place = "(*" + place + access + ")";
+        }
+        return new Printed(place, Held.PLACE, nullable);
     }
 
     /** A nullable value dereferenced: Java would throw a NullPointerException, Rust panics in {@code unwrap()}. */
@@ -1181,7 +1206,10 @@ final class RustBodyPrinter {
         }
         boolean nullable = !callee.isVoid() && RustFacts.nullable(context.facts.returnType(callee));
         if (callee.isVoid() || RustTypes.isCopy(callee.returnType())) return new Printed(call, Held.VALUE, nullable);
-        boolean borrows = context.facts.resultBorrowsReceiver(callee) && context.facts.receiver(callee) != Receiver.NONE;
+        boolean borrows = context.facts.resultBorrowsReceiver(callee) && context.facts.receiver(callee) != Receiver.NONE
+                          // a record's own accessor, which RustTypePrinter.accessor prints as a borrow
+                          || callee.isSynthetic() && callee.typeInfo().typeNature().isRecord() && callee.parameters().isEmpty()
+                             && !callee.isStatic();
         Held held = !borrows ? Held.VALUE : RustTypes.isString(callee.returnType()) ? Held.STR : Held.SHARED;
         return new Printed(call, held, nullable);
     }
@@ -1216,7 +1244,13 @@ final class RustBodyPrinter {
             if (!module.equals(context.module)) context.use("crate::" + module + "::" + RustNames.type(ti));
         }
         String name = constructor == null ? "new" : RustNames.method(constructor);
-        return value(owner + "::" + name + "(" + arguments(cc.parameterExpressions(), constructor) + ")");
+        String call = owner + "::" + name + "(" + arguments(cc.parameterExpressions(), constructor) + ")";
+        // @Immutable(hc=true): the new object is held as an Rc, and shared by cloning that
+        if (RustTypes.isShared(ti, context.facts)) {
+            context.use("std::rc::Rc");
+            return value("Rc::new(" + call + ")");
+        }
+        return value(call);
     }
 
     /**
@@ -1284,7 +1318,9 @@ final class RustBodyPrinter {
     }
 
     private String argument(Printed p, ParameterInfo pi, Expression argument) {
-        ParameterizedType type = pi.parameterizedType();
+        // a type parameter takes the argument's own type: Pair<String>'s T is a String, owned
+        ParameterizedType type = pi.parameterizedType().isTypeParameter() && argument.parameterizedType().typeInfo() != null
+                ? argument.parameterizedType() : pi.parameterizedType();
         if (isClosure(argument) && type.isFunctionalInterface()) {
             Printed c = closure(argument, type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn

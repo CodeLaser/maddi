@@ -124,6 +124,7 @@ final class RustJdk {
             };
         }
         if (collection == null) return null;
+        if ("io.codelaser.maddi.support.SetOnce".equals(fqn)) return setOnce(o, name, args, printer);
         return switch (collection) {
             case "Vec" -> vec(o, name, args, printer, mc);
             case "HashMap", "BTreeMap" -> map(o, name, args, printer, mc);
@@ -680,6 +681,16 @@ final class RustJdk {
         };
     }
 
+    /** maddi's {@code SetOnce}: an {@code Option}, set by its {@code @Mark}, read by its {@code @Only(after)}. */
+    private static Printed setOnce(String o, String name, List<Expression> args, RustBodyPrinter printer) {
+        return switch (name + "/" + args.size()) {
+            case "set/1" -> value(o + " = Some(" + printer.ownedText(args.getFirst()) + ")");
+            case "get/0", "get/1" -> RustBodyPrinter.printed(o + ".as_ref().unwrap()", Held.SHARED, false);
+            case "isSet/0" -> value(o + ".is_some()");
+            default -> null;
+        };
+    }
+
     private static Printed option(String o, String name, List<Expression> args, RustBodyPrinter printer, Held held) {
         int n = args.size();
         // a borrowed or stored Option is not taken: its closures see a reference to the value
@@ -808,6 +819,7 @@ final class RustJdk {
             if (RustTypes.isString(a.parameterizedType())) return value(printer.text(a) + ".parse::<f64>().unwrap()");
             return value("(" + printer.text(a) + " as f64)");
         }
+        if ("Option".equals(mapped)) return value("None");
         if (args.isEmpty() || args.getFirst().parameterizedType().isPrimitiveExcludingVoid()) {
             // new ArrayList<>(), new ArrayList<>(capacity)
             RustTypes.owned(cc.parameterizedType(), printer.context(), cc); // registers the 'use'

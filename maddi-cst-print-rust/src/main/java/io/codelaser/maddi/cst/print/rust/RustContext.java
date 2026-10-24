@@ -33,6 +33,8 @@ final class RustContext {
     final RustFacts facts;
     /** The dependent fields printed as borrows with a lifetime. */
     final RustBorrows borrows;
+    /** The fields that methods with {@code @IgnoreModifications} modify, printed as {@code RefCell}s. */
+    final RustCells cells;
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
@@ -52,6 +54,7 @@ final class RustContext {
         this.facts = facts;
         this.module = module;
         this.borrows = new RustBorrows(facts);
+        this.cells = new RustCells(facts);
     }
 
     /**

@@ -56,6 +56,21 @@ public interface RustFacts extends NullabilityFacts {
         OWNED
     }
 
+    /**
+     * The side of an eventually immutable type's transition a method belongs to ({@code @Mark}, {@code @Only}): Rust's
+     * typestate, a state parameter on the struct.
+     */
+    enum Side {
+        /** Either state; also a {@code @TestMark}. */
+        ANY,
+        /** {@code @Only(before=…)} */
+        BEFORE,
+        /** {@code @Only(after=…)} */
+        AFTER,
+        /** {@code @Mark}: the transition, consuming the object before and returning it after. */
+        MARK
+    }
+
     /** How a reference-typed parameter is passed. A primitive is always copied. */
     enum Passing {
         /** {@code &T}: read, not kept. */
@@ -79,6 +94,8 @@ public interface RustFacts extends NullabilityFacts {
         public Receiver receiver(MethodInfo method) {
             if (method.isStatic() || method.isConstructor()) return Receiver.NONE;
             if (method.isFinalizer()) return Receiver.OWNED;
+            // its modifications are not the caller's concern: interior mutability (RustCells)
+            if (method.isIgnoreModification()) return Receiver.SHARED;
             return method.isNonModifying() ? Receiver.SHARED : Receiver.EXCLUSIVE;
         }
 
@@ -109,10 +126,43 @@ public interface RustFacts extends NullabilityFacts {
         }
 
         @Override
+        public boolean ignoreModifications(MethodInfo method) {
+            return method.isIgnoreModification();
+        }
+
+        @Override
+        public boolean staticSideEffects(MethodInfo method) {
+            return method.analysis().getOrDefault(PropertyImpl.STATIC_SIDE_EFFECTS_METHOD, ValueImpl.BoolImpl.FALSE)
+                    .isTrue();
+        }
+
+        @Override
+        public Side side(MethodInfo method) {
+            Value.Eventual eventual = method.analysis().getOrDefault(PropertyImpl.EVENTUAL_METHOD,
+                    ValueImpl.EventualImpl.NOT_EVENTUAL);
+            if (eventual.isMark()) return Side.MARK;
+            if (eventual.isOnly()) return Boolean.TRUE.equals(eventual.after()) ? Side.AFTER : Side.BEFORE;
+            return Side.ANY;
+        }
+
+        @Override
+        public java.util.Set<String> marks(MethodInfo method) {
+            return method.analysis().getOrDefault(PropertyImpl.EVENTUAL_METHOD,
+                    ValueImpl.EventualImpl.NOT_EVENTUAL).fields();
+        }
+
+        @Override
         public boolean immutable(TypeInfo typeInfo) {
             Value.Immutable immutable = typeInfo.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE,
                     ValueImpl.ImmutableImpl.class);
             return immutable != null && immutable.isImmutable();
+        }
+
+        @Override
+        public boolean immutableHc(TypeInfo typeInfo) {
+            Value.Immutable immutable = typeInfo.analysis().getOrNull(PropertyImpl.IMMUTABLE_TYPE,
+                    ValueImpl.ImmutableImpl.class);
+            return immutable != null && immutable.isImmutableHC();
         }
 
         @Override
@@ -163,8 +213,33 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
+            public boolean ignoreModifications(MethodInfo method) {
+                return ownership.ignoreModifications(method);
+            }
+
+            @Override
+            public boolean staticSideEffects(MethodInfo method) {
+                return ownership.staticSideEffects(method);
+            }
+
+            @Override
+            public Side side(MethodInfo method) {
+                return ownership.side(method);
+            }
+
+            @Override
+            public java.util.Set<String> marks(MethodInfo method) {
+                return ownership.marks(method);
+            }
+
+            @Override
             public boolean immutable(TypeInfo typeInfo) {
                 return ownership.immutable(typeInfo);
+            }
+
+            @Override
+            public boolean immutableHc(TypeInfo typeInfo) {
+                return ownership.immutableHc(typeInfo);
             }
 
             @Override
@@ -208,6 +283,28 @@ public interface RustFacts extends NullabilityFacts {
         return false;
     }
 
+    /** {@code @IgnoreModifications}: the method's modifications are not its callers' concern (see RustCells). */
+    default boolean ignoreModifications(MethodInfo method) {
+        return false;
+    }
+
+    /**
+     * {@code @StaticSideEffects}: the method modifies static state, directly or through a method that does. Rust's
+     * {@code unsafe fn}, which propagates to its callers the same way.
+     */
+    default boolean staticSideEffects(MethodInfo method) {
+        return false;
+    }
+
+    default Side side(MethodInfo method) {
+        return Side.ANY;
+    }
+
+    /** The fields of the transition {@link #side} refers to: the label of {@code @Mark} and {@code @Only}. */
+    default java.util.Set<String> marks(MethodInfo method) {
+        return java.util.Set.of();
+    }
+
     /** The method returns its receiver ({@code return this}): a borrow of it, {@code &Self} or {@code &mut Self}. */
     default boolean fluent(MethodInfo method) {
         return false;
@@ -219,6 +316,15 @@ public interface RustFacts extends NullabilityFacts {
      * would also copy what Java shares, and could hide a wrong independence verdict.
      */
     default boolean immutable(TypeInfo typeInfo) {
+        return false;
+    }
+
+    /**
+     * {@code @Immutable(hc=true)}: immutable, with hidden content. Sharing the object needs no lock and no
+     * {@code RefCell}: an {@code Rc<T>}, whose clone is a share, as Java's reference is; its hidden content is shared
+     * by cloning, under a {@code Clone} bound (an {@code Rc} again, or a copy that cannot be told apart).
+     */
+    default boolean immutableHc(TypeInfo typeInfo) {
         return false;
     }
 

@@ -278,6 +278,54 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String PAIR = """
+            package a.b;
+            public record Pair<T>(T left, T right) {
+                public Pair<T> swap() { return new Pair<>(right, left); }
+            }
+            class Holder {
+                private final Pair<String> pair;
+                Holder(Pair<String> pair) { this.pair = pair; }
+                String left() { return pair.left(); }
+                static String use() {
+                    Pair<String> p = new Pair<>("a", "b");
+                    Holder h1 = new Holder(p);
+                    Holder h2 = new Holder(p.swap());
+                    Holder h3 = new Holder(p);
+                    return h1.left() + h2.left() + h3.left();
+                }
+            }
+            """;
+
+    /**
+     * Row 9: an {@code @Immutable(hc=true)} object is shared without a lock or a {@code RefCell}: an {@code Rc}, which
+     * two holders keep at once, as they keep the same Java object. Its hidden content is shared by cloning, under a
+     * {@code Clone} bound: {@code swap} builds a new pair over the same two values.
+     */
+    @DisplayName("row 9: @Immutable(hc=true) is shared as Rc<T>, its hidden content cloned under T: Clone: compiles")
+    @Test
+    public void immutableHcShared() throws Exception {
+        List<TypeInfo> types = parse(PAIR);
+        TypeInfo pair = types.stream().filter(t -> t.simpleName().equals("Pair")).findFirst().orElseThrow();
+        TypeInfo holder = types.stream().filter(t -> t.simpleName().equals("Holder")).findFirst().orElseThrow();
+        immutable(pair, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(pair, "swap");
+        independentResult(pair, "swap");
+        pair.constructors().getFirst().parameters()
+                .forEach(p -> kept(p, ValueImpl.IndependentImpl.INDEPENDENT_HC));
+        nonModifying(holder, "left");
+        kept(holder.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "impl<T: Clone> Pair<T> {");
+        contains(rust, "pub fn swap(&self) -> Rc<Pair<T>> {");
+        contains(rust, "return Rc::new(Pair::new(self.right.clone(), self.left.clone()));");
+        contains(rust, "pair: Rc<Pair<String>>,");
+        contains(rust, "let h1 = Self::new(p.clone());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String FINALE = """
             package a.b;
             public class Finale {
@@ -319,6 +367,189 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         List<String> errors = rustcErrors();
         assertEquals(1, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
         assertTrue(errors.getFirst().contains("E0382"), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String CONFIG = """
+            package a.b;
+            import io.codelaser.maddi.support.SetOnce;
+            public class Config {
+                private final SetOnce<String> name = new SetOnce<>();
+                private int reads;
+                public void setName(String s) { name.set(s); }
+                public String name() { return name.get(); }
+                public boolean isNamed() { return name.isSet(); }
+                public void read() { reads++; }
+                public static String use() {
+                    Config c = new Config();
+                    c.read();
+                    c.setName("x");
+                    c.read();
+                    return c.name();
+                }
+                public static String early() {
+                    Config c = new Config();
+                    String n = c.name();
+                    c.setName("x");
+                    return n;
+                }
+                public static void twice() {
+                    Config c = new Config();
+                    c.setName("x");
+                    c.setName("y");
+                }
+            }
+            """;
+
+    /**
+     * Row 11: an eventually immutable type is a typestate. {@code setName} is the {@code @Mark} (it sets the
+     * {@code SetOnce}), {@code name()} is {@code @Only(after)}: the struct gets a state parameter, the mark consumes
+     * the object in its before state and returns it in its after state. Reading the name before it is set, and setting
+     * it twice, throw in Java; in Rust neither method exists in that state: E0599, twice.
+     */
+    @DisplayName("row 11: @Mark/@Only as a typestate; a call on the wrong side is E0599")
+    @Test
+    public void typestate() throws Exception {
+        List<TypeInfo> types = parse(CONFIG);
+        TypeInfo config = types.getFirst();
+        mark(config, "setName", "name");
+        only(config, "name", "name", true);
+        modifying(config, "read");
+        nonModifying(config, "name", "isNamed");
+        borrowed(method(config, "setName").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub struct Config<S = Before> {");
+        contains(rust, "_s: PhantomData<S>,");
+        contains(rust, "impl Config<Before> {");
+        contains(rust, "pub fn set_name(mut self, s: &str) -> Config<After> {");
+        contains(rust, "impl<S> Config<S> {");
+        contains(rust, "impl Config<After> {\npub fn name(&self) -> String {");
+        contains(rust, "let mut c = c.set_name(\"x\");");
+        List<String> errors = rustcErrors();
+        assertEquals(2, errors.size(), () -> String.join("\n", errors) + "\n" + rust);
+        assertTrue(errors.stream().allMatch(e -> e.contains("E0599")), () -> String.join("\n", errors) + "\n" + rust);
+        // both in early() and twice(), after use(): use() compiles
+        int early = (int) rust.substring(0, rust.indexOf("pub fn early()")).lines().count() + 1;
+        assertTrue(errors.stream().allMatch(e -> Integer.parseInt(e.replaceFirst("^.*?\\.rs:(\\d+):.*$", "$1")) > early),
+                () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String LOGS = """
+            package a.b;
+            import io.codelaser.maddi.annotation.rare.IgnoreModifications;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Logs {
+                private final List<String> buffer = new ArrayList<>();
+                private int total;
+                @IgnoreModifications
+                public void log(String s) { buffer.add(s); }
+                public int twice(int x) { log("twice"); return 2 * x; }
+                public void add(int x) { log("add"); total += x; }
+                public int logged() { return buffer.size(); }
+                public void clear() { buffer.clear(); }
+            }
+            """;
+
+    private String logs(boolean ignore) throws Exception {
+        List<TypeInfo> types = parse(LOGS);
+        TypeInfo logs = types.getFirst();
+        if (ignore) ignoreModifications(logs, "log");
+        modifying(logs, "log", "add", "clear");
+        // twice() modifies nothing but through log(): non-modifying, when log's modifications are ignored
+        nonModifying(logs, "twice", "logged");
+        borrowed(method(logs, "log").parameters().getFirst());
+        translate(types);
+        return module("a.b");
+    }
+
+    /**
+     * Row 12: {@code @IgnoreModifications} on a method is interior mutability. The log method takes {@code &self},
+     * so that a method which only logs is {@code &self} too, as its verdict says; the buffer it writes is a
+     * {@code RefCell}, borrowed mutably there, read through {@code borrow()}, reached through {@code get_mut()} where
+     * the object is held exclusively.
+     */
+    @DisplayName("row 12: @IgnoreModifications is &self over a RefCell; without it, the logging caller is E0596")
+    @Test
+    public void ignoreModifications() throws Exception {
+        String rust = logs(true);
+        contains(rust, "buffer: RefCell<Vec<String>>,");
+        contains(rust, "buffer: RefCell::new(Vec::new()),");
+        contains(rust, "pub fn log(&self, s: &str) {\n(*self.buffer.borrow_mut()).push(s.to_string());");
+        contains(rust, "pub fn twice(&self, x: i32) -> i32 {");
+        contains(rust, "return (*self.buffer.borrow()).len() as i32;");
+        contains(rust, "(*self.buffer.get_mut()).clear();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @DisplayName("row 12, counterpart: the log method's modifications not ignored, the logging &self caller is E0596")
+    @Test
+    public void ignoreModificationsMissing() throws Exception {
+        String rust = logs(false);
+        contains(rust, "pub fn log(&mut self, s: &str) {");
+        List<String> errors = rustcErrors();
+        assertTrue(errors.stream().anyMatch(e -> e.contains("E0596")), () -> String.join("\n", errors) + "\n" + rust);
+    }
+
+    @Language("java")
+    private static final String COUNTER = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Counter {
+                private static int count;
+                static final List<String> names = new ArrayList<>();
+                static List<String> log = new ArrayList<>();
+                public static int next() { return ++count; }
+                public static int peek() { return count; }
+            }
+            class Client {
+                static int twice() { return Counter.next() + Counter.next(); }
+                static void note(String s) { Counter.log.add(s); }
+                static int pure(int x) { return 2 * x; }
+            }
+            """;
+
+    private String counter(boolean verdicts) throws Exception {
+        List<TypeInfo> types = parse(COUNTER);
+        TypeInfo client = types.stream().filter(t -> t.simpleName().equals("Client")).findFirst().orElseThrow();
+        if (verdicts) {
+            // another type's static state, modified directly (note) or through a method that does (twice)
+            staticSideEffects(client, "twice");
+            staticSideEffects(client, "note");
+        }
+        translate(types);
+        return module("a.b");
+    }
+
+    /**
+     * Row 13: Java's mutable static state is a {@code static mut}, which Rust lets only {@code unsafe} code touch.
+     * {@code @StaticSideEffects} propagates to the callers of a method that has it, as {@code unsafe fn} does: a method
+     * with the verdict is an {@code unsafe fn}, and so is one touching its own type's static state (which the
+     * analysis does not count: it is not another type's).
+     */
+    @DisplayName("row 13: static state is a static mut, @StaticSideEffects an unsafe fn: compiles")
+    @Test
+    public void staticSideEffects() throws Exception {
+        String rust = counter(true);
+        contains(rust, "static mut COUNTER_COUNT: i32 = 0;");
+        contains(rust, "pub static mut COUNTER_LOG: Vec<String> = Vec::new();");
+        contains(rust, "pub unsafe fn next() -> i32 {\nunsafe {");
+        contains(rust, "pub unsafe fn peek() -> i32 {");
+        contains(rust, "unsafe fn twice() -> i32 {");
+        contains(rust, "fn pure(x: i32) -> i32 {\nreturn 2 * x;");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @DisplayName("row 13, counterpart: without the @StaticSideEffects verdicts, the callers are E0133")
+    @Test
+    public void staticSideEffectsMissing() throws Exception {
+        String rust = counter(false);
+        List<String> errors = rustcErrors();
+        assertTrue(!errors.isEmpty() && errors.stream().allMatch(e -> e.contains("E0133")),
+                () -> String.join("\n", errors) + "\n" + rust);
     }
 
     @Language("java")
