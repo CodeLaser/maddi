@@ -125,6 +125,16 @@ public class ExpressionComparator implements Comparator<Expression> {
         return map.computeIfAbsent(v2, e -> compareNotCached(v1, v2));
     }
 
+    /**
+     * The comparison without the per-thread identity memo. For callers that compare fresh instances once, such as
+     * AndOrSorter's keyed sort: there the memo never hits, and each miss allocates a nested IdentityHashMap and
+     * thrashes the clear-at-1000 eviction (30% of the And evaluation's self time).
+     */
+    public int compareDirect(Expression v1, Expression v2) {
+        if (v1 == v2 || v1.equals(v2)) return 0;
+        return compareNotCached(v1, v2);
+    }
+
     private int compareNotCached(Expression v1, Expression v2) {
         boolean v1Wrapped = v1 instanceof ExpressionWrapper;
         boolean v2Wrapped = v2 instanceof ExpressionWrapper;

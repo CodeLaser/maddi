@@ -150,6 +150,13 @@ The engine reads opt-out/diagnostic gates from the environment (via `Gate`), inc
 `MLTRACE` (link-engine tracing), plus link-module-specific gates. See llm-summary §Convergence
 and `maddi-modification-link/linking-manual.md` for context.
 
+The boolean simplifier (`maddi-cst-impl`, `expression.eval`) has its own gates, read by `EvalSwitches`:
+`NOSTRUCTNEG` (answer `isNegationOf` for an And against an Or by De Morgan plus re-simplification
+instead of the pairwise operand walk), `NOSCOPEDNEGMEMO` (no per-operation negation memo: expressions
+over local variables are then negated afresh each time) and `NOSORTKEYS` (sort And/Or operands through
+the TreeMap grouping instead of one keyed stable sort). Each restores the behaviour before the gate's
+introduction, for an A/B in one JVM.
+
 ## Test conventions
 
 - **Spec-by-example**: the link engine's behavior is specified by `TestLinkMethodCall` and

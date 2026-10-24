@@ -57,7 +57,7 @@ public class EvalImpl implements Eval {
         evalUnaryOperator = new EvalUnaryOperator(runtime);
         evalRemainder = new EvalRemainder(runtime);
         evalCast = new EvalCast(runtime);
-        evalBoolean = new EvalBoolean(runtime);
+        evalBoolean = new EvalBoolean(runtime, evalNegation);
     }
 
     /**
