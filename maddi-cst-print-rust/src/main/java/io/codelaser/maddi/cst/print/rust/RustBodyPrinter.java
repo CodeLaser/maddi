@@ -1103,10 +1103,14 @@ final class RustBodyPrinter {
             ParameterInfo pi = i < callee.parameters().size() ? callee.parameters().get(i) : null;
             boolean fromSelf = p.text.startsWith(context.receiver + ".") && RustTypes.isString(a.parameterizedType())
                                && !p.text.contains("(");
-            if (pi != null && fromSelf && context.facts.passing(pi) == Passing.SHARED) {
+            // a string borrowed from a local or a lookup may be borrowed from self too ('let sku = self.m.get(k)'):
+            // copied, as an immutable string can be
+            boolean borrowed = p.held == Held.SHARED && RustTypes.isString(a.parameterizedType())
+                               && !(a instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo);
+            if (pi != null && (fromSelf || borrowed) && context.facts.passing(pi) == Passing.SHARED) {
                 String text = "&" + p.text + ".clone()";
                 boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
-                if (p.nullable) text = p.text + ".clone().as_deref()";
+                if (p.nullable) text = p.text + (fromSelf ? ".clone().as_deref()" : ".cloned().as_deref()");
                 out.add(nullable && !p.nullable ? "Some(" + text + ")" : text);
             } else {
                 out.add(pi == null ? p.text : argument(p, pi, a));
@@ -1241,6 +1245,10 @@ final class RustBodyPrinter {
 
     /** The object of a call: a nullable one unwrapped, as Java would throw a NullPointerException. */
     String receiver(Expression e, boolean modifying) {
+        if (modifying) {
+            String inPlace = RustJdk.getOrDefaultMut(e, this);
+            if (inPlace != null) return inPlace;
+        }
         Printed p = expression(e);
         if (!p.nullable) return p.text;
         context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);

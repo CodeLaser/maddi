@@ -38,7 +38,8 @@ final class RustJdk {
     /** The methods that modify their receiver, by simple name, for the collections and {@code StringBuilder}. */
     private static final Set<String> MODIFYING = Set.of("add", "addAll", "put", "putAll", "remove", "removeAll",
             "clear", "set", "push", "pop", "poll", "offer", "addFirst", "addLast", "removeFirst", "removeLast",
-            "append", "insert", "sort", "retainAll");
+            "append", "insert", "sort", "retainAll", "merge", "compute", "computeIfAbsent", "computeIfPresent",
+            "putIfAbsent", "replaceAll", "removeIf");
 
     private RustJdk() {
     }
@@ -397,6 +398,21 @@ final class RustJdk {
     }
 
     /** {@code map.getOrDefault(k, d)}: a copy for a copied value; otherwise a borrow, of the default too. */
+    /**
+     * {@code map.getOrDefault(k, new X()).put(...)}: the value modified in place, or the default, which nothing keeps.
+     * {@code null} when {@code e} is not such a call.
+     */
+    static String getOrDefaultMut(Expression e, RustBodyPrinter printer) {
+        if (!(e instanceof MethodCall mc) || mc.object() == null || mc.parameterExpressions().size() != 2
+            || !"getOrDefault".equals(mc.methodInfo().name())
+            || !Set.of("HashMap", "BTreeMap").contains(String.valueOf(RustTypes.mapped(mc.methodInfo().typeInfo())))) {
+            return null;
+        }
+        List<Expression> args = mc.parameterExpressions();
+        return printer.receiver(mc.object(), true) + ".get_mut(" + printer.reference(args.get(0)) + ").unwrap_or(&mut "
+               + printer.ownedText(args.get(1)) + ")";
+    }
+
     private static Printed getOrDefault(String o, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         String get = o + ".get(" + printer.reference(args.get(0)) + ")";
         if (copyValues(mc)) return value(get + ".copied().unwrap_or(" + printer.text(args.get(1)) + ")");
