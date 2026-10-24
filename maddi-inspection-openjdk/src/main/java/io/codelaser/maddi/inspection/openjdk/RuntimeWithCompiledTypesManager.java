@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
 import io.codelaser.maddi.inspection.api.resource.CompiledTypesManager;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
@@ -38,6 +39,11 @@ public class RuntimeWithCompiledTypesManager extends RuntimeImpl {
     private final SourceSet sourceSetOfInternal;
 
     public RuntimeWithCompiledTypesManager(CompiledTypesManager compiledTypesManager) {
+        this(compiledTypesManager, EvalOptions.DEFAULT);
+    }
+
+    public RuntimeWithCompiledTypesManager(CompiledTypesManager compiledTypesManager, EvalOptions evalOptions) {
+        super(evalOptions);
         this.compiledTypesManager = compiledTypesManager;
         this.sourceSetOfInternal = new SourceSetImpl.Builder().setName("_internal_")
                 .setUri(URI.create("file:/")).setExternalLibrary(true).setLibrary(true)

@@ -18,6 +18,8 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.InstanceOf;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalBudget;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches;
 import io.codelaser.maddi.cst.impl.expression.util.AndOrSorter;
 import io.codelaser.maddi.cst.impl.runtime.RuntimeImpl;
@@ -41,7 +43,8 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TestNegationStructure extends CommonTest {
 
-    private static final Set<String> ALL_OFF = Set.of("NOSTRUCTNEG", "NOSCOPEDNEGMEMO", "NOSORTKEYS");
+    private static final Set<String> ALL_OFF = Set.of("NOSTRUCTNEG", "NOSCOPEDNEGMEMO", "NOSORTKEYS", "NOATOMNEG",
+            "NOEARLYCAP");
 
     @AfterEach
     public void gatesOn() {
@@ -183,5 +186,85 @@ public class TestNegationStructure extends CommonTest {
         Expression reference = new RuntimeImpl().negate(e);
         assertEquals(reference.toString(), negated.toString());
         assertEquals(3063, negated.complexity());
+    }
+
+    private List<Expression> booleans(String prefix, int n) {
+        List<Expression> list = new ArrayList<>();
+        for (int t = 0; t < n; t++) {
+            list.add(r.newVariableExpression(createVariable(prefix + t, r.booleanParameterizedType())));
+        }
+        return list;
+    }
+
+    /** the evaluator entries isNegationOf consumes, inside one operation */
+    private int entriesOf(BooleanSupplier query, boolean expected) {
+        EvalBudget.enter();
+        try {
+            int before = EvalBudget.consumed();
+            assertEquals(expected, query.getAsBoolean());
+            return EvalBudget.consumed() - before;
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
+    @DisplayName("maddi-mod#61: an atom against a large compound negates the atom, not the compound")
+    @Test
+    public void atomAgainstLargeCompound() {
+        List<Expression> ps = booleans("p", 20);
+        List<Expression> ors = new ArrayList<>();
+        for (int t = 0; t + 1 < ps.size(); t += 2) ors.add(r.or(ps.get(t), ps.get(t + 1)));
+        Expression bigAnd = r.and(ors);
+        assertTrue(bigAnd.complexity() > 40, "complexity " + bigAnd.complexity());
+        assertEquals(0, entriesOf(() -> r.isNegationOf(a, bigAnd), false));
+        assertEquals(0, entriesOf(() -> r.isNegationOf(bigAnd, a), false));
+        EvalSwitches.off(Set.of("NOATOMNEG"));
+        assertTrue(entriesOf(() -> r.isNegationOf(a, bigAnd), false) > 0, "the full route evaluates the negation");
+    }
+
+    @DisplayName("maddi-mod#61: a small compound whose negation collapses to the atom keeps the full route")
+    @Test
+    public void smallCompoundCollapsingToAtom() {
+        Expression or = r.or(r.less(k, r.newInt(3), false), r.greater(k, r.newInt(3), false));
+        assertEquals("k<3||k>=4", or.toString());
+        Expression eq = r.equals(r.newInt(3), k);
+        assertEquals("3==k", r.negate(or).toString());
+        bothWays(() -> r.isNegationOf(eq, or), true);
+        // the route negates its SECOND operand, here the atom, whose negation !(3==k) does not collapse: an
+        // asymmetry that predates maddi-mod#61, pinned so that a change to it is deliberate
+        bothWays(() -> r.isNegationOf(or, eq), false);
+        // with the atom's negation memoized first: the memo may confirm, never deny
+        EvalBudget.enter();
+        try {
+            assertEquals("3!=k", r.negate(eq).toString());
+            assertTrue(r.isNegationOf(eq, or));
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
+    @DisplayName("maddi-mod#61: over the complexity cap, only the plain A && !A is recognized, and nothing is negated")
+    @Test
+    public void earlyCap() {
+        RuntimeImpl small = new RuntimeImpl(new EvalOptions(6));
+        Expression aa = small.newVariableExpression(createVariable("aa", small.booleanParameterizedType()));
+        Expression bb = small.newVariableExpression(createVariable("bb", small.booleanParameterizedType()));
+        Expression cc = small.newVariableExpression(createVariable("cc", small.booleanParameterizedType()));
+        assertEquals("false", small.and(aa, bb, cc, small.negate(aa)).toString());
+        assertEquals("true", small.or(aa, bb, cc, small.negate(aa)).toString());
+        // under the cap, a compound negation pair is still found
+        assertEquals("false", r.and(r.or(a, b), r.and(r.negate(a), r.negate(b))).toString());
+    }
+
+    @DisplayName("maddi-mod#61: the work budget is an EvalOptions setting")
+    @Test
+    public void settableBudget() {
+        assertEquals("a", r.and(a, r.or(a, b)).toString());
+        RuntimeImpl none = new RuntimeImpl(new EvalOptions(500, 0, false));
+        Expression a0 = none.newVariableExpression(createVariable("a", none.booleanParameterizedType()));
+        Expression b0 = none.newVariableExpression(createVariable("b", none.booleanParameterizedType()));
+        assertEquals("a&&(a||b)", none.and(a0, none.or(a0, b0)).toString(), "no budget: combined, not reduced");
+        assertEquals(1, EvalOptions.DEFAULT.passCost(2000));
+        assertEquals(21, new EvalOptions(500, 100_000, true).passCost(2000));
     }
 }

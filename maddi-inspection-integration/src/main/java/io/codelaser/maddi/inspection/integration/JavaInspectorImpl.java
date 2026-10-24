@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.inspection.integration;
 
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import io.codelaser.maddi.bytecode.java.asm.ByteCodeInspectorImpl;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
@@ -96,6 +97,20 @@ public class JavaInspectorImpl implements JavaInspector {
     private final boolean computeFingerPrints;
     private final boolean allowCreationOfStubTypes;
 
+    // the boolean evaluator's limits for this inspector's Runtime; set before initialize (maddi-mod#61)
+    private EvalOptions evalOptions = EvalOptions.DEFAULT;
+
+    /**
+     * The boolean evaluator's limits for the Runtime that {@code initialize} builds: the And/Or complexity cap and the
+     * per-operation work budget. A caller that hands the evaluator larger conditions than maddi's own analysis does
+     * (a standardizer's decomposition) can run it under tighter bounds. Call before {@code initialize}.
+     */
+    public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
+        if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
+        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        return this;
+    }
+
     public JavaInspectorImpl() {
         this(false, false);
     }
@@ -136,7 +151,7 @@ public class JavaInspectorImpl implements JavaInspector {
                     initializationProblems);
             // we have a unified type map: both sources and compiled types are in the same map
             CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase(), classPath);
-            runtime = new RuntimeWithCompiledTypesManager(ctm);
+            runtime = new RuntimeWithCompiledTypesManager(ctm, evalOptions);
             ByteCodeInspector byteCodeInspector = new ByteCodeInspectorImpl(runtime, ctm, computeFingerPrints,
                     allowCreationOfStubTypes);
             ctm.setByteCodeInspector(byteCodeInspector);

@@ -31,10 +31,12 @@ public class EvalOr {
 
     private final Runtime runtime;
     private final int maxAndOrComplexity;
+    private final EvalOptions evalOptions;
 
     public EvalOr(Runtime runtime, EvalOptions evalOptions) {
         this.runtime = runtime;
         maxAndOrComplexity = evalOptions.maxAndOrComplexity();
+        this.evalOptions = evalOptions;
     }
 
     private record R(boolean change, Expression escape) {
@@ -44,7 +46,7 @@ public class EvalOr {
     private static final R CHANGE = new R(true, null);
 
     public Expression eval(List<Expression> values) {
-        EvalBudget.enter();
+        EvalBudget.enter(evalOptions.maxEvalEntriesPerTopLevel());
         try {
             return evalGuarded(values);
         } finally {
@@ -94,18 +96,27 @@ public class EvalOr {
                 } else if (e.equals(p)) {
                     // A || A == A
                     iterator.remove();
-                } else if (p != null && runtime.isNegationOf(p, e)) {
+                } else if (EvalAnd.EARLY_CAP_OFF.get() && p != null && runtime.isNegationOf(p, e)) {
                     // A || !A == true
                     return runtime.constantTrue();
                 }
                 p = e;
             }
 
-            // STEP 4c: complexity check
+            // STEP 4c: complexity check, then the pairwise A || !A (maddi-mod#61, see EvalAnd.EARLY_CAP_OFF)
 
             int complexity = concat.stream().mapToInt(Expression::complexity).sum();
             boolean tooComplex = complexity >= maxAndOrComplexity;
-            if (tooComplex || EvalBudget.exhausted()) {
+            if (!EvalAnd.EARLY_CAP_OFF.get()) {
+                Expression prev = null;
+                for (Expression e : concat) {
+                    if (prev != null && (tooComplex ? EvalAnd.isPlainNegation(prev, e) : runtime.isNegationOf(prev, e))) {
+                        return runtime.constantTrue();
+                    }
+                    prev = e;
+                }
+            }
+            if (tooComplex || EvalBudget.exhausted(evalOptions.passCost(complexity))) {
                 // STEP 4b may have left fewer than two terms (a removed `false`, a removed duplicate); an Or of
                 // one is that one, of none is false -- as EvalAnd does, and as the exit below does. Building
                 // an Or from them asserted in OrImpl, and the encoder lost the method (2026-09-22).

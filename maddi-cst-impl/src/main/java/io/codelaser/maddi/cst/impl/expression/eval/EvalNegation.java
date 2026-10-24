@@ -28,9 +28,15 @@ import java.util.Objects;
 
 public class EvalNegation {
     private final Runtime runtime;
+    private final EvalOptions evalOptions;
 
     public EvalNegation(Runtime runtime) {
+        this(runtime, EvalOptions.DEFAULT);
+    }
+
+    public EvalNegation(Runtime runtime, EvalOptions evalOptions) {
         this.runtime = runtime;
+        this.evalOptions = evalOptions;
     }
 
     /*
@@ -126,7 +132,7 @@ public class EvalNegation {
         }
         // negation opens an operation of its own when called at top level, so that the De Morgan recursion below
         // (negate every operand, then and()/or() them) shares one scope and one budget; nested, it joins the caller's
-        EvalBudget.enter();
+        EvalBudget.enter(evalOptions.maxEvalEntriesPerTopLevel());
         try {
             HashMap<Expression, Expression> scoped = SCOPED.get().forCurrentOperation();
             Expression inScope = scoped.get(v);

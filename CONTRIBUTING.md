@@ -154,8 +154,11 @@ The boolean simplifier (`maddi-cst-impl`, `expression.eval`) has its own gates, 
 `NOSTRUCTNEG` (answer `isNegationOf` for an And against an Or by De Morgan plus re-simplification
 instead of the pairwise operand walk), `NOSCOPEDNEGMEMO` (no per-operation negation memo: expressions
 over local variables are then negated afresh each time) and `NOSORTKEYS` (sort And/Or operands through
-the TreeMap grouping instead of one keyed stable sort). Each restores the behaviour before the gate's
-introduction, for an A/B in one JVM.
+the TreeMap grouping instead of one keyed stable sort), `NOATOMNEG` (an atom against an And/Or negates the
+compound in full, at any size) and `NOEARLYCAP` (the pairwise negation check of an And/Or runs before its
+complexity cap rather than after). Each restores the behaviour before the gate's introduction, for an A/B in one
+JVM. The evaluator's limits are `EvalOptions` (complexity cap, per-operation work budget, cost-aware charging),
+which a caller sets on the inspector with `JavaInspectorImpl.setEvalOptions` before `initialize`.
 
 ## Test conventions
 

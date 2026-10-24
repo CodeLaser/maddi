@@ -97,16 +97,34 @@ public class EvalBoolean {
         }
         if (!STRUCTURAL_NEGATION_OFF.get()) {
             if (isPlainNegation(e1, e2)) return true;
-            // a negation already memoized decides in O(1): equals rejects on complexity before descending
+            // a memoized negate(e2) is exactly what the full route below computes: it decides, in O(1)
             Expression known = evalNegation.memoized(e2);
             if (known != null) return e1.equals(known);
+            // negate(e1) is NOT: it may stay a plain Negation where negate(e2) collapses (3==k against k<3||k>=4),
+            // so it can only confirm
             known = evalNegation.memoized(e1);
-            if (known != null) return e2.equals(known);
+            if (known != null && e2.equals(known)) return true;
             if (e1 instanceof And and && e2 instanceof Or or) return operandsAreNegations(and, or);
             if (e1 instanceof Or or && e2 instanceof And and) return operandsAreNegations(and, or);
+            if (!ATOM_AGAINST_COMPOUND_OFF.get() && !isCompound(e1) && isCompound(e2)) {
+                // the full route would negate the compound; negating the atom confirms cheaply. When the compound is
+                // e1, the full route below already negates the atom
+                if (runtime.negate(e1).equals(e2)) return true;
+                if (e2.complexity() > MAX_COMPLEXITY_FULL_NEGATION) return false;
+            }
         }
         return e1.equals(runtime.negate(e2));
     }
+
+    /*
+     maddi-mod#61: an atom against an And/Or was the one shape left on the full route, negating the compound -- De
+     Morgan plus a full And/Or evaluation -- from inside the evaluators' pairwise loops. Negate the atom instead: it is
+     cheap and memoized, and its negation is an atom or the two-part instanceof Or. That misses only the case where
+     the compound's negation would have collapsed to the atom (k<3 || k>=4 negates to 3==k), so the full route stays
+     for small compounds, where it is cheap; a large compound is not the negation of an atom.
+     */
+    private static final EvalSwitches.Gate ATOM_AGAINST_COMPOUND_OFF = EvalSwitches.gate("NOATOMNEG");
+    static final int MAX_COMPLEXITY_FULL_NEGATION = 40;
 
     private static boolean isPlainNegation(Expression e1, Expression e2) {
         return e1 instanceof Negation n1 && n1.expression().equals(e2)
