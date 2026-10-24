@@ -85,6 +85,8 @@ public class EvalNegation {
     private static final int SCOPED_MAX_SIZE = 8192;
 
     private static final class ScopedMemo {
+        // @IgnoreModifications (road §050): the memo's scope tag, per thread -- part of the disclaimed memo state
+        @IgnoreModifications
         int operationId = -1;
         final HashMap<Expression, Expression> map = new HashMap<>();
 
