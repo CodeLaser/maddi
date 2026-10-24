@@ -3369,4 +3369,23 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("className!!"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * A cast of a library result into a nullable result: guava's AbstractFutureState returns
+     * {@code (Waiter) UNSAFE.getAndSetObject(…)} from a {@code @Nullable Waiter gasWaiters(…)}. Kotlin types the call
+     * as a platform type, and {@code as Waiter} would throw on the null Java's cast lets through: {@code as Waiter?}.
+     */
+    @Test
+    public void castOfLibraryResultIntoNullableResult() {
+        String kotlin = kotlin("""
+                package a.c;
+                import java.util.concurrent.atomic.AtomicReference;
+                class Swapper {
+                    private final AtomicReference<Object> ref = new AtomicReference<>();
+                    String swap(String update) { return (String) ref.getAndSet(update); }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("swap()")), KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "fun swap(update: String): String? = ref.getAndSet(update) as String?");
+        compiles(kotlin);
+    }
 }

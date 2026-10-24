@@ -513,12 +513,26 @@ final class KotlinNullability {
     }
 
     /**
-     * A reference cast of a value Kotlin types nullable: {@code x as T} throws on null where Java's cast does not.
-     * Into a nullable target it prints {@code x as T?} (see {@link KotlinExpressionPrinter#widened}); elsewhere the
-     * value is dereferenced, unboxed or tested, where Java throws as well.
+     * A reference cast of a value Kotlin types nullable, or of a library result Kotlin types as a platform type:
+     * {@code x as T} throws on null where Java's cast does not. Into a nullable target it prints {@code x as T?} (see
+     * {@link KotlinExpressionPrinter#widened}); elsewhere the value is dereferenced, unboxed or tested, where Java
+     * throws as well. guava's AbstractFutureState: {@code return (Waiter) UNSAFE.getAndSetObject(…)} from a
+     * {@code @Nullable Waiter gasWaiters(…)} threw on the first future completed without waiters, and the threads
+     * waiting on it hung.
      */
     static boolean nullableCast(Cast cast) {
-        return !cast.parameterizedType().isPrimitiveExcludingVoid() && nullableInKotlin(cast.expression());
+        return !cast.parameterizedType().isPrimitiveExcludingVoid()
+               && (nullableInKotlin(cast.expression()) || platformResult(cast.expression()));
+    }
+
+    /** A call of a library method whose result is not known non-null: Kotlin checks nothing, and null comes through. */
+    private static boolean platformResult(Expression e) {
+        return KotlinContext.translatingJava() && KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc
+               && mc.methodInfo() != null && !mc.methodInfo().isConstructor() && mc.methodInfo().returnType() != null
+               && !mc.methodInfo().returnType().isPrimitiveExcludingVoid()
+               && !translated(mc.methodInfo().typeInfo())
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(mc.methodInfo()) != NullableState.NONNULL
+               && !io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(mc.methodInfo());
     }
 
     /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
