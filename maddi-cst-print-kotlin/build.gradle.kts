@@ -39,6 +39,10 @@ dependencies {
     // jar-on-classpath (CommonJavaToKotlin): javac 27 recovers a missing annotation import under its written name,
     // javac 26 does not, so without the jar those tests passed on 27 only
     testRuntimeOnly("org.jspecify:jspecify:1.0.0")
+    // the JUnit params package for the snippets that use @ParameterizedTest/@MethodSource, the same way: the
+    // conventions put junit-jupiter-api on the class path, not params, so 'jar-on-classpath:org/junit/jupiter/params'
+    // resolved to nothing and the test passed on javac 27 alone (on 26 the unit is dropped, maddi test gate on laser1)
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-params")
     // a @NullMarked library for the snippets that call one (guava's packages are, since 33.4), handed to the inspector
     // and to kotlinc as a jar-on-classpath: what a library declares non-null or @Nullable, as Spring Security 7 does
     testRuntimeOnly("com.google.guava:guava:33.6.0-jre")

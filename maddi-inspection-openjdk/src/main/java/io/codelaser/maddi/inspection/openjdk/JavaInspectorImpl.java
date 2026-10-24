@@ -1,5 +1,6 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import com.sun.source.util.JavacTask;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
@@ -159,6 +160,20 @@ public class JavaInspectorImpl implements JavaInspector {
     private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
     private static final String PARAMETER_NAME_RESOURCE_PREFIX =
             "/io/codelaser/maddi/aapi/archive/parameterNames/";
+
+    // the boolean evaluator's limits for this inspector's Runtime; set before initialize (maddi-mod#61)
+    private EvalOptions evalOptions = EvalOptions.DEFAULT;
+
+    /**
+     * The boolean evaluator's limits for the Runtime that {@code initialize} builds: the And/Or complexity cap and the
+     * per-operation work budget. A caller that hands the evaluator larger conditions than maddi's own analysis does
+     * (a standardizer's decomposition) can run it under tighter bounds. Call before {@code initialize}.
+     */
+    public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
+        if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
+        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        return this;
+    }
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -436,7 +451,7 @@ public class JavaInspectorImpl implements JavaInspector {
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase(), infoByFqn);
         ctm.setLazyLoader(this::loadCompiledTypeOrNull); // on-demand bytecode load for getOrLoad misses
         compiledTypesManager = ctm;
-        runtime = new RuntimeWithCompiledTypesManager(ctm);
+        runtime = new RuntimeWithCompiledTypesManager(ctm, evalOptions);
         javaBase().computePriorityDependencies();
         return List.of();
     }

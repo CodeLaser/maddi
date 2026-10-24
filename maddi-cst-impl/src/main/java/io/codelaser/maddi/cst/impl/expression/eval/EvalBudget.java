@@ -35,10 +35,12 @@ public class EvalBudget {
     // calibration (fernflower round 10c): legitimate heavy corpus methods consume tens of thousands of
     // entries once arithmetic ticks count (5_000 flipped eight integration goldens); the pathological
     // dispatchers burn millions before their 30-minute grinds. 100_000 separates the populations.
-    private static final int MAX_EVAL_ENTRIES_PER_TOP_LEVEL = 100_000;
+    public static final int DEFAULT_MAX_EVAL_ENTRIES_PER_TOP_LEVEL = 100_000;
 
-    // [0] = depth, [1] = entries consumed under the current top-level operation
-    private static final ThreadLocal<int[]> STATE = ThreadLocal.withInitial(() -> new int[2]);
+    // [0] = depth, [1] = entries consumed under the current top-level operation, [2] = the operation's number,
+    // [3] = the current top-level operation's limit (EvalOptions.maxEvalEntriesPerTopLevel of whoever opened it)
+    private static final ThreadLocal<int[]> STATE =
+            ThreadLocal.withInitial(() -> new int[]{0, 0, 0, DEFAULT_MAX_EVAL_ENTRIES_PER_TOP_LEVEL});
 
     private EvalBudget() {
     }
@@ -49,11 +51,36 @@ public class EvalBudget {
      * so the flag is its only cancellation signal. The flag is read, not cleared, so the caller sees it too.
      */
     public static void enter() {
+        enter(DEFAULT_MAX_EVAL_ENTRIES_PER_TOP_LEVEL);
+    }
+
+    /**
+     * As {@link #enter()}, with the limit that applies when this entry opens a top-level operation; a nested entry
+     * shares the enclosing operation's limit (maddi-mod#61: the limit is an EvalOptions setting).
+     */
+    public static void enter(int maxEntriesPerTopLevel) {
         checkInterrupted();
         int[] state = STATE.get();
         if (state[0]++ == 0) {
             state[1] = 0;
+            state[2]++;
+            state[3] = maxEntriesPerTopLevel;
         }
+    }
+
+    /** The units consumed so far by the current (or, between operations, the last) top-level operation. */
+    public static int consumed() {
+        return STATE.get()[1];
+    }
+
+    /**
+     * The number of the current top-level operation on this thread, or -1 between operations. Memos scoped to one
+     * operation (EvalNegation's) key on it: everything combined inside one operation comes from one method's
+     * context, so a local variable's bare-name FQN cannot collide there as it can across methods.
+     */
+    public static int operationId() {
+        int[] state = STATE.get();
+        return state[0] > 0 ? state[2] : -1;
     }
 
     public static void exit() {
@@ -62,8 +89,14 @@ public class EvalBudget {
 
     /** Consume one unit of work; true when the current top-level operation is over budget. */
     public static boolean exhausted() {
+        return exhausted(1);
+    }
+
+    /** Consume {@code units} of work; true when the current top-level operation is over budget. */
+    public static boolean exhausted(int units) {
         int[] state = STATE.get();
-        return ++state[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+        state[1] += units;
+        return state[1] > state[3];
     }
 
     /**
@@ -75,7 +108,7 @@ public class EvalBudget {
         int[] state = STATE.get();
         if (state[0] == 0) return false;
         checkInterrupted();
-        return ++state[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+        return ++state[1] > state[3];
     }
 
     private static void checkInterrupted() {
@@ -91,7 +124,8 @@ public class EvalBudget {
      * (the determinism epic, jfocus-standardize DESIGN round 8, is why this matters).
      */
     public static boolean overBudget() {
-        return STATE.get()[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+        int[] state = STATE.get();
+        return state[1] > state[3];
     }
 
     /**
@@ -101,6 +135,6 @@ public class EvalBudget {
      */
     public static boolean nestedOverBudget() {
         int[] state = STATE.get();
-        return state[0] > 0 && state[1] > MAX_EVAL_ENTRIES_PER_TOP_LEVEL;
+        return state[0] > 0 && state[1] > state[3];
     }
 }
