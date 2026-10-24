@@ -210,6 +210,18 @@ final class RustJdk {
                     String vec = "vec![" + String.join(", ", args.stream().map(printer::ownedText).toList()) + "]";
                     yield value(fqn.endsWith("Stream") ? vec + ".into_iter()" : vec);
                 }
+                if (fqn.equals("java.util.Set") && name.equals("of")) {
+                    printer.context().use("std::collections::HashSet");
+                    yield value("HashSet::from([" + String.join(", ", args.stream().map(printer::ownedText).toList()) + "])");
+                }
+                if (fqn.equals("java.util.Map") && name.equals("of") && n % 2 == 0) {
+                    printer.context().use("std::collections::HashMap");
+                    List<String> pairs = new java.util.ArrayList<>();
+                    for (int i = 0; i < n; i += 2) {
+                        pairs.add("(" + printer.ownedText(args.get(i)) + ", " + printer.ownedText(args.get(i + 1)) + ")");
+                    }
+                    yield value("HashMap::from([" + String.join(", ", pairs) + "])");
+                }
                 if (fqn.equals("java.util.List") && name.equals("of")) {
                     yield value("vec![" + String.join(", ", args.stream().map(printer::ownedText).toList()) + "]");
                 }

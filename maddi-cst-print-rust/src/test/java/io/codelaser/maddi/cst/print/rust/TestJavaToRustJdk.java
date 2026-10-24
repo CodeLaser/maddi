@@ -16,6 +16,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +41,11 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
                 private final Map<String, Integer> views = new HashMap<>();
                 private final Map<String, Map<String, String>> articles = new HashMap<>();
                 private final Map<String, Object> data = new HashMap<>();
+                private static final Map<String, Double> RATES = Map.of("basic", 1.0, "premium", 2.5);
+
+                public static double rate(String tier) {
+                    return RATES.getOrDefault(tier, 1.0);
+                }
 
                 public List<String> top(int n) {
                     return views.entrySet().stream().sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
@@ -64,7 +70,7 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
             }
             """;
 
-    @DisplayName("comparator, getOrDefault modified in place, Object displayed, null-safe equalsIgnoreCase: compiles")
+    @DisplayName("comparator, getOrDefault in place, Object displayed, null-safe equalsIgnoreCase, a static Map.of: compiles")
     @Test
     public void catalog() throws Exception {
         List<TypeInfo> types = parse(CATALOG);
@@ -77,6 +83,8 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
             method(catalog, m).parameters().forEach(CommonJavaToRust::borrowed);
         }
         kept(method(catalog, "count").parameters().getFirst(), ValueImpl.IndependentImpl.INDEPENDENT_HC);
+        borrowed(method(catalog, "rate").parameters().getFirst());
+        catalog.getFieldByName("RATES", true).analysis().set(PropertyImpl.UNMODIFIED_FIELD, ValueImpl.BoolImpl.TRUE);
 
         RustTranslator.Result result = translate(types, nullable(Set.of("destination", "describe()")));
         assertTrue(result.crashes().isEmpty(), () -> String.join("\n", result.crashes()));
@@ -84,6 +92,9 @@ public class TestJavaToRustJdk extends CommonJavaToRust {
         contains(rust, "v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());");
         contains(rust, "self.articles.get_mut(id).unwrap_or(&mut HashMap::new()).insert(");
         contains(rust, "crate::jrt::to_string(");
+        contains(rust, "static CATALOG_RATES: std::sync::LazyLock<HashMap<String, f64>> = std::sync::LazyLock::new(|| "
+                       + "HashMap::from([(\"basic\".to_string(), 1.0), (\"premium\".to_string(), 2.5)]));");
+        contains(rust, "return CATALOG_RATES.get(tier).copied().unwrap_or(1.0);");
         contains(rust, "destination.as_ref().map_or(false, |v| \"express\".eq_ignore_ascii_case(v))");
         assertEquals(List.of(), rustcErrors(), rust);
     }

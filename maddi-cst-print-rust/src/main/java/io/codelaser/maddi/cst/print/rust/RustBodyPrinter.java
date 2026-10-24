@@ -669,6 +669,12 @@ final class RustBodyPrinter {
             if (owner.typeNature().isEnum() && f.type().typeInfo() == owner) {
                 return value(prefix + "::" + RustNames.variant(f.name()));
             }
+            if (!owner.compilationUnit().externalLibrary() && RustTypePrinter.lazyStatic(f, context)) {
+                String name = RustTypePrinter.staticName(f);
+                String module = RustNames.module(owner.packageName());
+                if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
+                return new Printed(name, Held.PLACE, nullable);
+            }
             return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
         }
         boolean own = fr.scopeIsThis() || fr.isDefaultScope();

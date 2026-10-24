@@ -64,6 +64,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - CodeLaser/maddi-mod#60: `Collections.unmodifiableList(field)` is independent; a read-only view of a mutable
   collection is dependent (E0507). `UNMODIFIABLE_VIEW_METHOD` cannot stand in for it: it marks any unmodifiable
   result, a fresh one too.
+- CodeLaser/maddi-mod#62: element modification one level beyond #59 (a map in a list in a map, `values()` iterated,
+  a cast `Object` value) is missed by the deep verdict (E0596).
+- CodeLaser/maddi-mod#63: the reachability pass did not walk a switch expression's `case -> { ... }` arm (E0596).
+- CodeLaser/maddi-mod#64: `new HashMap<>(field)` over immutable keys and values is dependent (E0515).
 
 ## Shape
 
@@ -85,7 +89,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   else builds `this` at the fields' empty values, runs the body on it, and returns it.
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and
   call.
-- A `static final` constant is an associated `const`; other static state is reported (`STATIC_STATE`).
+- A `static final` constant is an associated `const`. A `static final` field whose object no method modifies (the
+  `UNMODIFIED_FIELD` verdict), of a type Rust can share between threads, and untouched by a static initializer, is a
+  module-level `static OWNER_NAME: LazyLock<T>`, built on first use and read-only: a wrong verdict is rustc's E0596.
+  Other static state is reported (`STATIC_STATE`).
 - An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
 - A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
   cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.

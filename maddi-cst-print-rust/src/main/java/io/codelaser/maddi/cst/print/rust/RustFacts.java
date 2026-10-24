@@ -107,6 +107,11 @@ public interface RustFacts extends NullabilityFacts {
         }
 
         @Override
+        public boolean unmodified(FieldInfo fieldInfo) {
+            return fieldInfo.isUnmodified();
+        }
+
+        @Override
         public ParameterizedType field(FieldInfo fieldInfo) {
             return NullabilityFacts.STORED.field(fieldInfo);
         }
@@ -146,6 +151,11 @@ public interface RustFacts extends NullabilityFacts {
             @Override
             public boolean immutable(TypeInfo typeInfo) {
                 return ownership.immutable(typeInfo);
+            }
+
+            @Override
+            public boolean unmodified(FieldInfo fieldInfo) {
+                return ownership.unmodified(fieldInfo);
             }
 
             @Override
@@ -190,6 +200,11 @@ public interface RustFacts extends NullabilityFacts {
      * would also copy what Java shares, and could hide a wrong independence verdict.
      */
     default boolean immutable(TypeInfo typeInfo) {
+        return false;
+    }
+
+    /** No method modifies the field's object: a static one may be shared, read-only, as a {@code static}. */
+    default boolean unmodified(FieldInfo fieldInfo) {
         return false;
     }
 
