@@ -717,8 +717,7 @@ final class RustBodyPrinter {
             && (bo.lhs() instanceof NullConstant || bo.rhs() instanceof NullConstant)) {
             Expression other = bo.lhs() instanceof NullConstant ? bo.rhs() : bo.lhs();
             Printed p = expression(other);
-            if (!p.nullable && !(other instanceof NullConstant) && !other.parameterizedType().isPrimitiveExcludingVoid()
-                && !isObject(other.parameterizedType())) {
+            if (!p.nullable && !(other instanceof NullConstant) && !other.parameterizedType().isPrimitiveExcludingVoid()) {
                 // a defensive check of a value the verdicts call non-null: its outcome under them
                 context.message(RustPrintCode.NULL_CHECK_OF_NON_NULL, bo, p.text);
                 return value("==".equals(op) ? "false" : "true");
@@ -895,6 +894,7 @@ final class RustBodyPrinter {
             return new String[]{"{}", p.text + ".as_ref().map(|v| v.to_string()).unwrap_or_else(|| \"null\".to_string())"};
         }
         TypeInfo ti = type.typeInfo();
+        if (isObject(type)) return new String[]{"{}", "crate::jrt::to_string(" + adapt(p, Held.SHARED) + ")"};
         if (ti == null || type.isPrimitiveExcludingVoid()) return new String[]{"{}", p.text};
         if (type.arrays() > 0) return new String[]{"{:?}", p.text};
         if (ti.typeNature().isEnum() && RustTypePrinter.plainEnum(ti)) return new String[]{"{}", p.text + ".name()"};
@@ -956,7 +956,11 @@ final class RustBodyPrinter {
         closures.add(m);
         try {
             context.method = m;
-            if (single != null) return value("|" + params + "| " + expression(single).text);
+            if (single != null) {
+                // a Consumer's body is a statement: 'map.put(k, v)' returns a value Rust's 'for_each' does not take
+                String body = expression(single).text;
+                return value("|" + params + "| " + (m.noReturnValue() ? "{ " + body + "; }" : body));
+            }
             return value("|" + params + "| {\n" + statements(m.methodBody(), 1) + "}");
         } finally {
             context.method = outer;
@@ -1163,7 +1167,23 @@ final class RustBodyPrinter {
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
         if (!nullable && p.nullable) return text + ".unwrap()";
+        if (nullable && p.nullable && !RustTypes.isCopy(type) && context.facts.passing(pi) == Passing.SHARED) {
+            return nullableBorrow(p, argument, RustTypes.isString(type));
+        }
         return text;
+    }
+
+    /**
+     * A nullable value where an {@code Option<&T>} ({@code Option<&str>}) is expected: {@code None} for null, a borrow
+     * of an owned {@code Option<T>}'s content, a borrowed string's {@code &String} as {@code &str}.
+     */
+    private static String nullableBorrow(Printed p, Expression argument, boolean string) {
+        if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
+        return switch (p.held) {
+            case STR -> p.text;
+            case VALUE, PLACE -> p.text + (string ? ".as_deref()" : ".as_ref()");
+            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| s.as_str())" : p.text;
+        };
     }
 
     /** {@code p} where {@code target} is expected: a value or place is borrowed; a borrow is passed as it is. */

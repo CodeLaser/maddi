@@ -87,7 +87,15 @@ final class RustJdk {
             };
         }
         if ("java.lang.Boolean".equals(fqn) && "equals".equals(name)) {
-            return value(o + " == " + printer.text(args.getFirst()));
+            Expression a = args.getFirst();
+            if (isObject(a.parameterizedType())) {
+                // Boolean.TRUE.equals(map.get("active")): a Box<dyn Any> holding a bool
+                Printed p = printer.printed(a);
+                String any = p.nullable() ? p.text() + ".and_then(|v| v.downcast_ref::<bool>())"
+                        : p.text() + ".downcast_ref::<bool>()";
+                return value("(" + any + " == Some(&" + o + "))");
+            }
+            return value(o + " == " + printer.text(a));
         }
         String kind = RustTypes.mapped(owner);
         if ("stream/0".equals(name + "/" + args.size()) && kind != null && Set.of("Vec", "HashSet", "BTreeSet", "VecDeque")
@@ -107,7 +115,9 @@ final class RustJdk {
         if ("java.lang.Object".equals(fqn)) {
             return switch (name) {
                 case "equals" -> value(o + " == " + printer.reference(args.getFirst()));
-                case "toString" -> value("format!(\"{:?}\", " + o + ")");
+                case "toString" -> isObject(mc.object().parameterizedType())
+                        ? value("crate::jrt::to_string(" + printer.reference(mc.object()) + ")")
+                        : value("format!(\"{:?}\", " + o + ")");
                 case "hashCode" -> null;
                 default -> null;
             };
@@ -118,7 +128,7 @@ final class RustJdk {
             case "HashMap", "BTreeMap" -> map(o, name, args, printer, mc);
             case "HashSet", "BTreeSet" -> set(o, name, args, printer);
             case "VecDeque" -> deque(o, name, args, printer);
-            case "Option" -> option(o, name, args, printer);
+            case "Option" -> option(o, name, args, printer, printer.printed(mc.object()).held());
             default -> null;
         };
     }
@@ -179,7 +189,13 @@ final class RustJdk {
                     value("(" + printer.text(args.get(0)) + "..=" + printer.text(args.get(1)) + ")");
             case "java.lang.Long.parseLong/1" -> value(printer.text(args.getFirst()) + ".parse::<i64>().unwrap()");
             case "java.lang.String.valueOf/1", "java.lang.Integer.toString/1", "java.lang.Long.toString/1" ->
-                    value(operand(printer, args.getFirst()) + ".to_string()");
+                    isObject(args.getFirst().parameterizedType())
+                            ? value("crate::jrt::to_string(" + printer.reference(args.getFirst()) + ")")
+                            : value(operand(printer, args.getFirst()) + ".to_string()");
+            case "java.util.Collections.sort/2" -> {
+                String c = comparator(args.get(1), printer);
+                yield c == null ? null : value(printer.receiver(args.getFirst(), true) + ".sort_by(" + c + ")");
+            }
             case "java.util.List.of/0", "java.util.Collections.emptyList/0" -> value("Vec::new()");
             case "java.util.Optional.empty/0" -> new Printed("None", Held.VALUE, true);
             case "java.util.Optional.of/1", "java.util.Optional.ofNullable/1" ->
@@ -252,6 +268,13 @@ final class RustJdk {
                 yield value(a.text() + ".as_ref().map_or(false, |v| " + o + ".eq_ignore_ascii_case(v))");
             }
             case "isBlank/0" -> value(o + ".trim().is_empty()");
+            case "getBytes/0", "getBytes/1" -> value(o + ".as_bytes().iter().map(|b| *b as i8).collect::<Vec<i8>>()");
+            case "hashCode/0" -> value("crate::jrt::string_hash_code(" + o + ")");
+            case "indexOf/2" -> {
+                String from = printer.index(args.get(1));
+                yield value(o + "[" + from + "..].find(" + pattern(args.getFirst(), printer) + ").map(|i| (i + "
+                            + from + ") as i32).unwrap_or(-1)");
+            }
             case "repeat/1" -> value(o + ".repeat(" + printer.index(args.getFirst()) + ")");
             case "indexOf/1" -> value(o + ".find(" + pattern(args.getFirst(), printer) + ").map(|i| i as i32).unwrap_or(-1)");
             case "lastIndexOf/1" ->
@@ -322,6 +345,18 @@ final class RustJdk {
             case "findFirst/0", "findAny/0" -> new Printed(o + ".next()", Held.VALUE, true);
             case "boxed/0", "parallel/0", "sequential/0" -> value(o);
             case "sorted/0" -> value("{ let mut v = " + o + ".collect::<Vec<_>>(); v.sort(); v }.into_iter()");
+            case "sorted/1" -> {
+                String c = comparator(args.getFirst(), printer);
+                yield c == null ? null
+                        : value("{ let mut v = " + o + ".collect::<Vec<_>>(); v.sort_by(" + c + "); v }.into_iter()");
+            }
+            case "max/1", "min/1" -> {
+                String c = comparator(args.getFirst(), printer);
+                yield c == null ? null : new Printed(o + "." + name + "_by(" + c + ")", Held.VALUE, true);
+            }
+            case "average/0" -> new Printed("{ let v = " + o + ".map(|x| x as f64).collect::<Vec<f64>>(); "
+                                            + "if v.is_empty() { None } else { Some(v.iter().sum::<f64>() / v.len() as f64) } }",
+                    Held.VALUE, true);
             case "count/0" -> value(o + ".count() as i64");
             case "sum/0" -> value(o + ".sum::<" + sum + ">()");
             case "collect/1" -> collect(o, args.getFirst(), printer);
@@ -518,6 +553,10 @@ final class RustJdk {
         int n = args.size();
         return switch (name + "/" + n) {
             case "add/1" -> value(o + ".push(" + printer.ownedAs(args.getFirst(), typeArgument(mc, 0)) + ")");
+            case "sort/1" -> {
+                String c = comparator(args.getFirst(), printer);
+                yield c == null ? null : value(o + ".sort_by(" + c + ")");
+            }
             case "add/2" -> value(o + ".insert(" + printer.index(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
             case "get/1" -> RustBodyPrinter.printed(o + "[" + printer.index(args.getFirst()) + "]", Held.PLACE, false);
             case "set/2" -> value(o + "[" + printer.index(args.get(0)) + "] = " + printer.ownedText(args.get(1)));
@@ -546,6 +585,8 @@ final class RustJdk {
     private static Printed map(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
+            case "putAll/1" -> value(o + ".extend(" + printer.text(args.getFirst())
+                                     + ".iter().map(|(k, v)| (k.clone(), v.clone())))");
             case "put/2" -> {
                 String key = printer.ownedAs(args.get(0), typeArgument(mc, 0));
                 String v = printer.ownedAs(args.get(1), typeArgument(mc, 1));
@@ -611,8 +652,10 @@ final class RustJdk {
         };
     }
 
-    private static Printed option(String o, String name, List<Expression> args, RustBodyPrinter printer) {
+    private static Printed option(String o, String name, List<Expression> args, RustBodyPrinter printer, Held held) {
         int n = args.size();
+        // a borrowed or stored Option is not taken: its closures see a reference to the value
+        String r = held == Held.VALUE ? o : o + ".as_ref()";
         return switch (name + "/" + n) {
             case "isPresent/0" -> value(o + ".is_some()");
             case "isEmpty/0" -> value(o + ".is_none()");
@@ -620,8 +663,8 @@ final class RustJdk {
             case "orElse/1" -> value(o + ".unwrap_or(" + printer.ownedText(args.getFirst()) + ")");
             case "orElseGet/1" -> value(o + ".unwrap_or_else(" + printer.text(args.getFirst()) + ")");
             case "orElseThrow/1" -> value(o + ".unwrap()");
-            case "map/1" -> new Printed(o + ".map(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
-            case "filter/1" -> new Printed(o + ".filter(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
+            case "map/1" -> new Printed(r + ".map(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
+            case "filter/1" -> new Printed(r + ".filter(" + printer.text(args.getFirst()) + ")", Held.VALUE, true);
             case "ifPresent/1" -> value(o + ".iter().for_each(" + printer.text(args.getFirst()) + ")");
             default -> null;
         };
@@ -642,6 +685,8 @@ final class RustJdk {
     static String constant(io.codelaser.maddi.cst.api.info.FieldInfo f) {
         return switch (f.owner().fullyQualifiedName() + "." + f.name()) {
             case "java.lang.Math.PI" -> "std::f64::consts::PI";
+            case "java.lang.Boolean.TRUE" -> "true";
+            case "java.lang.Boolean.FALSE" -> "false";
             case "java.lang.Math.E" -> "std::f64::consts::E";
             case "java.lang.Integer.MAX_VALUE" -> "i32::MAX";
             case "java.lang.Integer.MIN_VALUE" -> "i32::MIN";
@@ -651,6 +696,56 @@ final class RustJdk {
             case "java.math.BigDecimal.ZERO" -> "0.0_f64";
             case "java.math.BigDecimal.ONE" -> "1.0_f64";
             case "java.math.BigDecimal.TEN" -> "10.0_f64";
+            default -> null;
+        };
+    }
+
+    private static boolean isObject(io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        return type.typeInfo() != null && type.typeInfo().isJavaLangObject() && type.arrays() == 0;
+    }
+
+    /**
+     * A {@code Comparator} as the closure Rust's {@code sort_by}, {@code max_by} take: {@code |a, b| -> Ordering}.
+     * {@code partial_cmp} rather than {@code cmp}, so a double key compares; {@code null} when it is not one of the
+     * shapes below.
+     */
+    static String comparator(Expression e, RustBodyPrinter printer) {
+        Expression c = io.codelaser.maddi.cst.print.translate.CstQueries.unwrap(e);
+        if (c instanceof io.codelaser.maddi.cst.api.expression.Lambda l && l.methodInfo().parameters().size() == 2) {
+            return "|a, b| (" + printer.text(l) + ")(a, b).cmp(&0)";
+        }
+        if (!(c instanceof MethodCall mc)) return null;
+        String fqn = mc.methodInfo().typeInfo().fullyQualifiedName();
+        String name = mc.methodInfo().name();
+        List<Expression> args = mc.parameterExpressions();
+        if (mc.methodInfo().isStatic()) {
+            return switch (fqn + "." + name + "/" + args.size()) {
+                case "java.util.Comparator.comparing/1", "java.util.Comparator.comparingInt/1",
+                     "java.util.Comparator.comparingLong/1", "java.util.Comparator.comparingDouble/1" -> {
+                    String f = printer.text(args.getFirst());
+                    yield "|a, b| (" + f + ")(a).partial_cmp(&(" + f + ")(b)).unwrap()";
+                }
+                case "java.util.Map.Entry.comparingByValue/0" -> "|a, b| a.1.partial_cmp(&b.1).unwrap()";
+                case "java.util.Map.Entry.comparingByKey/0" -> "|a, b| a.0.partial_cmp(&b.0).unwrap()";
+                case "java.util.Comparator.naturalOrder/0" -> "|a, b| a.partial_cmp(b).unwrap()";
+                case "java.util.Comparator.reverseOrder/0", "java.util.Collections.reverseOrder/0" ->
+                        "|a, b| b.partial_cmp(a).unwrap()";
+                default -> null;
+            };
+        }
+        if (!"java.util.Comparator".equals(fqn) || mc.object() == null) return null;
+        String inner = comparator(mc.object(), printer);
+        if (inner == null) return null;
+        return switch (name + "/" + args.size()) {
+            case "reversed/0" -> "|a, b| (" + inner + ")(b, a)";
+            case "thenComparing/1" -> {
+                String next = comparator(args.getFirst(), printer);
+                if (next == null) {
+                    String f = printer.text(args.getFirst());
+                    next = "|a, b| (" + f + ")(a).partial_cmp(&(" + f + ")(b)).unwrap()";
+                }
+                yield "|a, b| (" + inner + ")(a, b).then_with(|| (" + next + ")(a, b))";
+            }
             default -> null;
         };
     }
