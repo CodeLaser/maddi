@@ -26,7 +26,7 @@ package io.codelaser.maddi.analysis.api;
  *                          (incremental early cut-off, docs/design/analysis-rewiring.md), BEFORE the environment
  *                          gates' incremental state is captured -- the order the CLI always had.
  * @param staticSideEffects the static-side-effect analysis on or off for this run; null keeps the analyzer's
- *                          process-wide default (on when the environment variable {@code SSE} is set)
+ *                          process-wide default (on)
  * @param eventualCluster   the eventual-immutability cluster on or off for this run; null keeps the analyzer's
  *                          process-wide default (on unless {@code EVENTUALCLUSTER=0})
  * @param nullability       the analyzer computes the facts the nullability pass reads (argument links at every call

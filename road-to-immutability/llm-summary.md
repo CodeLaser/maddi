@@ -27,8 +27,8 @@ chapter only when detail is missing here. Last checked against the code and the 
   overlay is legal); an *escape* into the type's own accessible content is **reported** as the warning
   `ignore-modifications-not-confined` (the separation check; `GuardAnalyzerImpl` WARNS, never caps: the designer
   decides), an escape into global/static state is a **`@StaticSideEffects`** — does NOT cap (not your field) but
-  flags a real outward effect. The SSE *computation* on source methods (`StaticSideEffectAnalyzerImpl`) is behind
-  the env gate `SSE`, off by default, so the containment arm of the guard is silent without it. SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
+  flags a real outward effect. The SSE *computation* on source methods (`StaticSideEffectAnalyzerImpl`) runs by
+  default (it was behind the env gate `SSE` until 2026-10-25, CodeLaser/maddi-mod#65). SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
   the *target* global field downgrades an SSE to a sanctioned disclaimer (the `System.out` story).
 - **Modification**: a method is *modifying* when it assigns, or modifies the content of, something in
   the object graph of its receiver's fields. Marked `@Modified` / `@NotModified`.

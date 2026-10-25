@@ -1054,8 +1054,7 @@ add, `println` is {sse}; with it, the effect is sanctioned hidden content.
 === Recognising an invisible escape: the safe-surface contract
 
 For a source method the analyzer _computes_ the {sse}: it sees the assignment to, or the modifying call on,
-another type's static field.
-(The computation is behind the `SSE` environment gate until a broader corpus A/B clears it; the containment arm of the guard is silent without it.)
+another type's static field, and the static state its callees modify.
 But the sharpest escape is invisible from source.
 `System.setOut(other)` replaces the process-wide `System.out`; nothing in the JDK source the analyzer can reach
 says so, and its own body is empty to us.
