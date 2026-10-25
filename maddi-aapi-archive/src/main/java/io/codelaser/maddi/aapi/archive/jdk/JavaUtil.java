@@ -2102,7 +2102,7 @@ public class JavaUtil {
         @Nullable @NotModified E peekLast() { return null; }
         @NotModified E element() { return null; }
         @Nullable @NotModified E peek() { return null; }
-        @NotModified Iterator<E> descendingIterator() { return null; }
+        @NotModified @Independent(hc = true, except = "remove") Iterator<E> descendingIterator() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
@@ -2658,8 +2658,9 @@ public class JavaUtil {
         int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
         @NotModified
         int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
-        @NotModified ListIterator<E> listIterator() { return null; }
-        @NotModified ListIterator<E> listIterator(int i) { return null; }
+        // like Iterable.iterator(): the elements are shared, and only remove, set and add write through to the list
+        @NotModified @Independent(hc = true, except = {"remove", "set", "add"}) ListIterator<E> listIterator() { return null; }
+        @NotModified @Independent(hc = true, except = {"remove", "set", "add"}) ListIterator<E> listIterator(int i) { return null; }
         //frequency 3
         @NotModified
         List<E> subList(int i, int i1) { return null; }
@@ -3405,7 +3406,7 @@ public class JavaUtil {
         @Nullable @NotModified E ceiling(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
         @Nullable @NotModified E higher(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
         @NotModified NavigableSet<E> descendingSet() { return null; }
-        @NotModified Iterator<E> descendingIterator() { return null; }
+        @NotModified @Independent(hc = true, except = "remove") Iterator<E> descendingIterator() { return null; }
         @NotModified
         NavigableSet<E> subSet(
             /*@Independent[M] @NotModified[O]*/ E fromElement,
