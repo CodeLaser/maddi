@@ -300,7 +300,12 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
             FieldInfoImpl newField = new FieldInfoImpl(name, isStatic, tType, tOwner);
             newField.builder()
                     .setInitializer(tInit)
-                    .setSynthetic(isSynthetic());
+                    .setSynthetic(isSynthetic())
+                    // without these, 'private @Nullable S last;' loses its annotation (and with it, possibly its import)
+                    .addAnnotations(annotations())
+                    .addComments(comments())
+                    .setJavaDoc(javaDoc())
+                    .setSource(source());
             modifiers().forEach(newField.builder()::addFieldModifier);
             newField.builder().computeAccess();
             newField.builder().commit();
