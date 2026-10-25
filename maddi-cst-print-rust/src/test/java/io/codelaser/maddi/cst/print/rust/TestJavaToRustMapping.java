@@ -512,6 +512,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 static void note(String s) { Counter.log.add(s); }
                 static int pure(int x) { return 2 * x; }
                 static int viaPure(int x) { return pure(x); }
+                static int apply(java.util.function.Supplier<Integer> s) { return s.get(); }
+                static int viaReference() { return apply(Counter::next); }
             }
             """;
 
@@ -546,6 +548,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "fn pure(x: i32) -> i32 {\nreturn 2 * x;");
         assertFalse(rust.contains("unsafe fn pure"), rust);
         assertFalse(rust.contains("unsafe fn via_pure"), rust);
+        // a method reference is a closure written in the unsafe body, which it inherits; 'apply' calls a closure
+        contains(rust, "unsafe fn via_reference() -> i32 {");
+        assertFalse(rust.contains("unsafe fn apply"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
