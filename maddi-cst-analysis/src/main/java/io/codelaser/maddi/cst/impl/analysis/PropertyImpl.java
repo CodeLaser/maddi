@@ -74,12 +74,23 @@ public class PropertyImpl implements Property {
      */
     public static final Property UNMODIFIABLE_VIEW_METHOD = new PropertyImpl("unmodifiableViewMethod");
     /** the method has a STATIC SIDE EFFECT: it modifies static/global state belonging to a type other than its
-     * own primary type (a modifying call on, or assignment to, another type's static field). Informational — it
+     * own primary type and its parent types (a modifying call on, or assignment to, another type's static field,
+     * directly or through any callee: {@link #STATIC_STATE_MODIFIED_METHOD}). Informational — it
      * does not by itself cap the type's immutability (immutability inspects only the type's own fields) — but it
      * is the "global-escape" arm of the confinement guard: a modification reached through an {@code
      * @IgnoreModifications} field that is a static side effect leaves the ignored stratum. See
      * road-to-immutability section 050 ("Static side effects") and section 050 "confinement guard". */
     public static final Property STATIC_SIDE_EFFECTS_METHOD = new PropertyImpl("staticSideEffectsMethod");
+    /**
+     * The types whose static state the method modifies, directly or through the methods and constructors it calls:
+     * the owner of each static field it assigns or makes a modifying call on, its own type's included. A callee
+     * contracted {@code @StaticSideEffects} adds {@code java.lang.Object}, standing for global state the contract
+     * does not name. {@link #STATIC_SIDE_EFFECTS_METHOD} is derived from it: a type other than the method's own
+     * primary type and its parent types (CodeLaser/maddi-mod#65). A printer to a language that guards mutable
+     * static state (Rust's {@code static mut}) reads a non-empty set.
+     */
+    public static final Property STATIC_STATE_MODIFIED_METHOD = new PropertyImpl("staticStateModifiedMethod",
+            ValueImpl.SetOfTypeInfoImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */

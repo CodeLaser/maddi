@@ -91,8 +91,10 @@ Rules (each level requires the previous):
   static and instance fields"; inside the primary type, "modifications are modifications". A type that modifies
   its own static counter is `@FinalFields` (the book's `CountAccess`). The only exemptions: `@IgnoreModifications`
   on the static field, and modifications inside a static initializer block (the static fields' constructor).
-  `@StaticSideEffects` is for modifying static calls on state the primary type (with its enclosing and parent
-  types) does NOT own. A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
+  `@StaticSideEffects` is for modifying static state the primary type (with its enclosing and parent
+  types) does NOT own -- directly, or through any callee (static, instance, constructor) that modifies its own
+  type's static state: `Client` calling `Counter.next()` is one, `Counter.next()` itself is not
+  (CodeLaser/maddi-mod#65; computed from the per-method set `STATIC_STATE_MODIFIED_METHOD`). A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
   access to it. Since 2026-09-23 the hc-free check (`instanceFieldTypesDeeplyImmutable`) counts statics too.
 - **Self-referencing fields** (declared type = the type itself) are skipped for rules 1 and 2, for the hc label, and
   in the independence that FEEDS the immutability rule (`independentIgnoringSelfFields`) -- never for rule 0
@@ -337,8 +339,8 @@ immutability verdicts are derived.
   System.Logger): a log call writes into buffers we do not care about, so the log methods carry method-level
   `@IgnoreModifications` (IGNORE_MODIFICATION_METHOD: receiver modification skipped, parameters unaffected);
   queries (`isDebugEnabled`, `getName`, `atLevel`…) are `@NotModified`; `setLevel` and configuration stay plain
-  modifying. `@StaticSideEffects` is ONLY for a *static* modifying call on state the caller does not own
-  (`System.setOut`) — never on an instance method like `logger.info`, and never on `java.util.logging`.
+  modifying. `@StaticSideEffects` is ONLY for a modification of static state the caller does not own
+  (`System.setOut`) — never contracted on an instance method like `logger.info`, nor on `java.util.logging`.
 - **No `java.util.function` special case in the source analysis.** The implicit `@IgnoreModifications` on
   functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
   `FunctionTypes.isLibraryFunctionType`: the standard interfaces plus any `@FunctionalInterface` extending or shaped
