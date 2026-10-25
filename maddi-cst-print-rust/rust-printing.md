@@ -54,7 +54,13 @@ rust`, with `maddi-support` on the class path), so the verdicts are the analyzer
 analyzer's verdicts every example compiled but one: `Client.twice()` calls `Counter.next()`, which modifies its own
 type's static state, and the analysis then counted only another type's. Since maddi-mod#65 the analysis gives
 `twice()` the verdict, and the printer no longer needs it: `unsafe fn` is the printer's own closure over the
-`static mut`s a method touches (`RustUnsafety`, row 13 below). The CLI run has not been repeated since.
+`static mut`s a method touches (`RustUnsafety`, row 13 below). Repeated on 2026-10-25 (the same 14 sources in one
+package, one crate, `cargo build`): no error, no warning; also with row 13 extended by a read from another type
+(`Client.current()` calling `Counter.peek()`), a call within Counter, and `Counter::next` passed as a `Supplier`.
+That run found two printer faults the per-test crates could not: the example class `Box` was printed as `Box`, so
+every `Box<dyn Fn…>` of the module meant that struct (a type named as one of Rust's own is now `JBox`); and a
+closure parameter borrowed by the analysis's verdict was declared `&mut Box<dyn Fn…>` while the caller passed
+`&mut || …` (now `&mut dyn Fn…`).
 
 | row | status | evidence |
 |---|---|---|

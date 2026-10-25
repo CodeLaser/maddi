@@ -129,8 +129,10 @@ final class RustTypes {
         if (type.isVoid()) return "()";
         TypeInfo ti = type.typeInfo();
         if (form == Form.SHARED && isString(type)) return "&str";
-        if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti) && !isFunctional(ti)) {
-            return (form == Form.SHARED ? "&dyn " : "&mut dyn ") + named(type, context, where);
+        if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti)) {
+            // a borrowed closure is passed as '&|| …' or '&mut || …' (RustBodyPrinter.argument), never a borrowed Box
+            String trait = isFunctional(ti) ? function(type, context, where) : "dyn " + named(type, context, where);
+            return (form == Form.SHARED ? "&" : "&mut ") + trait;
         }
         String owned = owned(type, context, where);
         return switch (form) {

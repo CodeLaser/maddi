@@ -105,9 +105,21 @@ public final class RustNames {
         return "crate::" + module(typeInfo.packageName()) + "::" + type(typeInfo);
     }
 
-    /** A nested type's name joins the enclosing ones: {@code Outer.Inner} becomes {@code OuterInner}. */
+    /**
+     * A nested type's name joins the enclosing ones: {@code Outer.Inner} becomes {@code OuterInner}. A name that is
+     * one of Rust's own types, which the translation names unqualified, gets a {@code J} in front: a class {@code Box}
+     * printed as {@code Box} made every {@code Box<dyn Fn…>} of its module that struct (E0618, E0277).
+     */
     public static String type(TypeInfo typeInfo) {
         TypeInfo enclosing = CstQueries.enclosing(typeInfo);
-        return enclosing == null ? typeInfo.simpleName() : type(enclosing) + typeInfo.simpleName();
+        String name = enclosing == null ? typeInfo.simpleName() : type(enclosing) + typeInfo.simpleName();
+        return RUST_TYPES.contains(name) ? "J" + name : name;
     }
+
+    /** The prelude's types and traits, and the standard types the translation uses without a path. */
+    private static final Set<String> RUST_TYPES = Set.of("Box", "Vec", "String", "Option", "Result", "Some", "None",
+            "Ok", "Err", "Self", "Rc", "RefCell", "Cell", "LazyLock", "PhantomData", "Any", "HashMap", "HashSet",
+            "BTreeMap", "BTreeSet", "VecDeque", "SystemTime", "Duration", "Fn", "FnMut", "FnOnce", "Clone", "Copy",
+            "Send", "Sync", "Sized", "Drop", "Default", "Iterator", "IntoIterator", "ToString", "ToOwned", "From",
+            "Into", "AsRef", "AsMut", "Eq", "PartialEq", "Ord", "PartialOrd", "Hash", "Debug", "Display", "Extend");
 }
