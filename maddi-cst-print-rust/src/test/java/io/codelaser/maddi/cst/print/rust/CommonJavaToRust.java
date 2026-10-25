@@ -213,6 +213,16 @@ public abstract class CommonJavaToRust {
         method(type, name).analysis().set(PropertyImpl.STATIC_SIDE_EFFECTS_METHOD, ValueImpl.BoolImpl.TRUE);
     }
 
+    /**
+     * The parameter is unmodified, but handed (whole: {@code k:j}, an element: {@code k:j:e}) to the SAM of functional
+     * parameter {@code k}: modified when the caller's function modifies (MODIFIED_THROUGH_PASSED_FUNCTION).
+     */
+    protected static void throughPassedFunction(ParameterInfo parameter, String... entries) {
+        borrowed(parameter);
+        parameter.analysis().set(PropertyImpl.MODIFIED_THROUGH_PASSED_FUNCTION,
+                new ValueImpl.SetOfStringsImpl(java.util.Set.of(entries)));
+    }
+
     /** The method returns {@code this}. */
     protected static void fluent(TypeInfo type, String name) {
         method(type, name).analysis().set(PropertyImpl.FLUENT_METHOD, ValueImpl.BoolImpl.TRUE);

@@ -585,4 +585,46 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "pub fn last(&self) -> Option<String> {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String APPLY = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.Function;
+            public class Apply {
+                static int whole(List<String> list, Function<List<String>, Integer> f) {
+                    return f.apply(list);
+                }
+                static int element(List<String> list, Function<String, Integer> f) {
+                    return f.apply(list.get(0));
+                }
+                static int use() {
+                    List<String> list = new ArrayList<>();
+                    list.add("a");
+                    return whole(list, l -> l.size()) + element(list, s -> s.length());
+                }
+            }
+            """;
+
+    /*
+     A parameter handed to a passed function, whole or an element of it, is unmodified with an entry in
+     MODIFIED_THROUGH_PASSED_FUNCTION (CodeLaser/maddi-mod#67, #69): modified only when the caller's function modifies.
+     The printer's closures borrow their arguments shared (dyn Fn(&T)), so the unmodified verdict is the one that
+     compiles: '&Vec<String>' into 'Fn(&Vec<String>)', and the element borrowed, '&list[0]'. A caller passing a
+     function that modifies is rustc's E0596 in that closure: the call site the entry resolves to modified.
+     */
+    @DisplayName("a parameter handed to a passed function, whole or an element: & into Fn(&T), compiles")
+    @Test
+    public void passedFunction() throws Exception {
+        List<TypeInfo> types = parse(APPLY);
+        TypeInfo apply = types.getFirst();
+        throughPassedFunction(method(apply, "whole").parameters().getFirst(), "1:0");
+        throughPassedFunction(method(apply, "element").parameters().getFirst(), "1:0:e");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn whole(list: &Vec<String>, mut f: Box<dyn Fn(&Vec<String>) -> i32>) -> i32 {\nreturn (f)(list);");
+        contains(rust, "return (f)(&list[0]);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

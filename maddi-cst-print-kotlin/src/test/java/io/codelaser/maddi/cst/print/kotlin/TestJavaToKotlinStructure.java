@@ -844,6 +844,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * A collection handed to a passed function is unmodified, with an entry in MODIFIED_THROUGH_PASSED_FUNCTION
+     * (CodeLaser/maddi-mod#67, #69): the caller's function decides. Handed whole, it is the argument of the function's
+     * {@code T}, which takes the mutable type it was declared with: it stays mutable whatever the verdict. Only an
+     * element handed on leaves the collection read-only.
+     */
+    @Test
+    public void passedFunction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.List;
+                import java.util.function.Function;
+                final class C {
+                    static int whole(List<String> list, Function<List<String>, Integer> f) { return f.apply(list); }
+                    static int element(List<String> list, Function<String, Integer> f) { return f.apply(list.get(0)); }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> {
+            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+        })));
+        contains(kotlin, "fun whole(list: MutableList<String>,");
+        contains(kotlin, "fun element(list: List<String>,");
+    }
+
+    /**
      * guava's ImmutableIntArray.Builder: addAll(Iterable), where it is modified, stays mutable; the addAll(Collection)
      * it calls then stays mutable too, or a MutableCollection argument fits both, neither more specific in Kotlin.
      */

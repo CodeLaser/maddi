@@ -75,8 +75,10 @@ final class RustJdk {
         if ("java.util.Map.Entry".equals(fqn)) return entry(o, name, mc);
         if ("java.math.BigDecimal".equals(fqn)) return bigDecimal(paren(o), name, args, printer, mc);
         if (fqn.startsWith("java.util.function.") || "java.lang.Runnable".equals(fqn)) {
-            // a functional interface is a Box<dyn Fn…>: calling its method calls it
-            return value("(" + o + ")(" + String.join(", ", args.stream().map(printer::text).toList()) + ")");
+            // a functional interface is a Box<dyn Fn…>: calling its method calls it. Its closure borrows what Java
+            // passes by reference (RustTypes.function), so a value or a place is borrowed: f.apply(list.get(0))
+            return value("(" + o + ")(" + String.join(", ", args.stream().map(a -> RustTypes.isCopy(a.parameterizedType())
+                    ? printer.text(a) : RustBodyPrinter.adapt(printer.printed(a), Held.SHARED)).toList()) + ")");
         }
         if ("SystemTime".equals(RustTypes.mapped(owner))) {
             return switch (name + "/" + args.size()) {
