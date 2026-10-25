@@ -50,10 +50,11 @@ and the caller modifies it while the holder lives: dependent and modifiable from
 `TestJavaToRustMapping` takes the mapping of the issue row by row: a Java example, the verdicts the analysis computes
 for it, the Rust they print as, and rustc's judgement, with a counterpart (the neighbouring verdict and rustc's error
 for it) where there is one. The same examples were run through the CLI (`--analysis-steps modification --translate
-rust`, with `maddi-support` on the class path and `SSE` set), so the verdicts are the analyzer's, not only the test's.
-With the analyzer's verdicts every example compiles but one: `Client.twice()` calls `Counter.next()`, which modifies
-its own type's static state. The analysis counts only another type's static state as a static side effect, so
-`twice()` gets no verdict, and rustc's E0133 says the effect escapes to the caller all the same.
+rust`, with `maddi-support` on the class path), so the verdicts are the analyzer's, not only the test's. With the
+analyzer's verdicts every example compiled but one: `Client.twice()` calls `Counter.next()`, which modifies its own
+type's static state, and the analysis then counted only another type's. Since maddi-mod#65 the analysis gives
+`twice()` the verdict, and the printer no longer needs it: `unsafe fn` is the printer's own closure over the
+`static mut`s a method touches (`RustUnsafety`, row 13 below). The CLI run has not been repeated since.
 
 | row | status | evidence |
 |---|---|---|
@@ -68,7 +69,7 @@ its own type's static state. The analysis counts only another type's static stat
 | `@Finalizer` → `self` | holds | `finalizer`: a call after the finalizer is E0382 |
 | `@Mark`/`@Only` → typestate | holds | `typestate`: reading before the mark, and a second mark, are E0599 |
 | `@IgnoreModifications` → interior mutability | holds: `&self` over a `RefCell` | `ignoreModifications`; without the verdict, the logging `&self` caller is E0596 |
-| `@StaticSideEffects` → `static mut`, `unsafe fn` | holds | `staticSideEffects`; without the verdicts, the callers are E0133 |
+| `@StaticSideEffects` → `static mut`, `unsafe fn` | holds, and wider: Rust guards a read and a type's own state too, so `unsafe fn` is the printer's closure, the verdict one of its seeds | `staticSideEffects` (no verdict needed, a read through `peek` included), `staticSideEffectsVerdict` (a verdict without a `static mut`, as a library contract) |
 | nullable → `Option<T>` | holds | `nullability` |
 
 The exceptions are the values for which sharing and copying cannot be told apart: a `String`, and a source class or
@@ -131,9 +132,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   conflicting borrow is a run-time `BorrowMutError`, the price of the annotation.
 - `@Immutable(hc=true)`: an `Rc<T>` wherever it is held, `Rc::new` at construction, cloned (shared) where Java
   shares it; its hidden content is cloned under a `T: Clone` bound on the impls.
-- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`; a method
-  with the `@StaticSideEffects` verdict, or touching its own type's static state, is an `unsafe fn` with an `unsafe`
-  body; a method call on a non-`Copy` static goes through `&raw mut`, as Rust 2024 refuses a reference to it.
+- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`. A method is
+  an `unsafe fn` with an `unsafe` body when it reads or writes one (of any type), calls, constructs or references
+  (`Counter::next`) a method that is, transitively, or has the `@StaticSideEffects` verdict (`RustUnsafety`); a
+  method call on a non-`Copy` static goes through `&raw mut`, as Rust 2024 refuses a reference to it.
 - A constructor is an associated `fn new… -> Self`. A body that only assigns fields gives one `Self { … }`; anything
   else builds `this` at the fields' empty values, runs the body on it, and returns it.
 - Overloads get a numeric suffix in declaration order (`new`, `new_2`; `add`, `add_2`), the same at declaration and

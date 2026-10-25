@@ -504,52 +504,58 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 static List<String> log = new ArrayList<>();
                 public static int next() { return ++count; }
                 public static int peek() { return count; }
+                public static int nextTwice() { return next() + next(); }
             }
             class Client {
                 static int twice() { return Counter.next() + Counter.next(); }
+                static int current() { return Counter.peek(); }
                 static void note(String s) { Counter.log.add(s); }
                 static int pure(int x) { return 2 * x; }
+                static int viaPure(int x) { return pure(x); }
             }
             """;
 
-    private String counter(boolean verdicts) throws Exception {
+    private String counter(boolean verdict) throws Exception {
         List<TypeInfo> types = parse(COUNTER);
         TypeInfo client = types.stream().filter(t -> t.simpleName().equals("Client")).findFirst().orElseThrow();
-        if (verdicts) {
-            // another type's static state, modified directly (note) or through a method that does (twice)
-            staticSideEffects(client, "twice");
-            staticSideEffects(client, "note");
-        }
+        // a verdict on a method touching no static mut of ours: how a library contract (System.setOut) arrives
+        if (verdict) staticSideEffects(client, "pure");
         translate(types);
         return module("a.b");
     }
 
     /**
-     * Row 13: Java's mutable static state is a {@code static mut}, which Rust lets only {@code unsafe} code touch.
-     * {@code @StaticSideEffects} propagates to the callers of a method that has it, as {@code unsafe fn} does: a method
-     * with the verdict is an {@code unsafe fn}, and so is one touching its own type's static state (which the
-     * analysis does not count: it is not another type's).
+     * Row 13: Java's mutable static state is a {@code static mut}, which Rust lets only {@code unsafe} code touch,
+     * reading as well as writing: a method touching one, of any type, is an {@code unsafe fn}, and so is every method
+     * calling one, as E0133 demands (RustUnsafety). No verdict is needed for that: {@code @StaticSideEffects} counts
+     * the modifications of another type's static state (maddi-mod#65), which {@code twice} and {@code note} have, but
+     * not {@code current}'s read through {@code peek}, nor {@code nextTwice}'s, within Counter.
      */
-    @DisplayName("row 13: static state is a static mut, @StaticSideEffects an unsafe fn: compiles")
+    @DisplayName("row 13: static state is a static mut, a method touching it, or calling one that does, an unsafe fn: compiles")
     @Test
     public void staticSideEffects() throws Exception {
-        String rust = counter(true);
+        String rust = counter(false);
         contains(rust, "static mut COUNTER_COUNT: i32 = 0;");
         contains(rust, "pub static mut COUNTER_LOG: Vec<String> = Vec::new();");
         contains(rust, "pub unsafe fn next() -> i32 {\nunsafe {");
         contains(rust, "pub unsafe fn peek() -> i32 {");
+        contains(rust, "pub unsafe fn next_twice() -> i32 {");
         contains(rust, "unsafe fn twice() -> i32 {");
+        contains(rust, "unsafe fn current() -> i32 {");
+        contains(rust, "pub unsafe fn note(");
         contains(rust, "fn pure(x: i32) -> i32 {\nreturn 2 * x;");
+        assertFalse(rust.contains("unsafe fn pure"), rust);
+        assertFalse(rust.contains("unsafe fn via_pure"), rust);
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
-    @DisplayName("row 13, counterpart: without the @StaticSideEffects verdicts, the callers are E0133")
+    @DisplayName("row 13, the verdict: @StaticSideEffects is an unsafe fn without a static mut, and so are its callers")
     @Test
-    public void staticSideEffectsMissing() throws Exception {
-        String rust = counter(false);
-        List<String> errors = rustcErrors();
-        assertTrue(!errors.isEmpty() && errors.stream().allMatch(e -> e.contains("E0133")),
-                () -> String.join("\n", errors) + "\n" + rust);
+    public void staticSideEffectsVerdict() throws Exception {
+        String rust = counter(true);
+        contains(rust, "unsafe fn pure(x: i32) -> i32 {");
+        contains(rust, "unsafe fn via_pure(x: i32) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
     }
 
     @Language("java")

@@ -289,8 +289,9 @@ public interface RustFacts extends NullabilityFacts {
     }
 
     /**
-     * {@code @StaticSideEffects}: the method modifies static state, directly or through a method that does. Rust's
-     * {@code unsafe fn}, which propagates to its callers the same way.
+     * {@code @StaticSideEffects}: the method modifies another type's static state, directly or through a method that
+     * does. An {@code unsafe fn}; the printer adds what Rust guards besides, a read and a type's own state
+     * ({@link RustUnsafety}).
      */
     default boolean staticSideEffects(MethodInfo method) {
         return false;

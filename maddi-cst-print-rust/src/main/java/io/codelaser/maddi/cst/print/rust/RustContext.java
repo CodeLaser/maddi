@@ -35,6 +35,8 @@ final class RustContext {
     final RustBorrows borrows;
     /** The fields that methods with {@code @IgnoreModifications} modify, printed as {@code RefCell}s. */
     final RustCells cells;
+    /** The methods that are an {@code unsafe fn}: they touch a {@code static mut}, or call one that does. */
+    final RustUnsafety unsafety = new RustUnsafety();
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
