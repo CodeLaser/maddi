@@ -943,7 +943,9 @@ final class RustBodyPrinter {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
         String text = RustTypes.isCopy(targetType) ? value.text
-                : value.nullable ? owned(value, targetType) : asDyn(owned(value, targetType), a.value(), targetType);
+                : value.nullable ? owned(value, targetType)
+                : objectTarget(targetType) ? asObject(owned(value, a.value().parameterizedType()), a.value(), targetType)
+                : asDyn(owned(value, targetType), a.value(), targetType);
         boolean nullableTarget = targetNullable(a.variableTarget());
         if (boxed && !target.startsWith("(*")) {
             text = RustBoxes.box(a.value() instanceof NullConstant ? "None" : text, nullableTarget, value.nullable);
@@ -1480,8 +1482,27 @@ final class RustBodyPrinter {
                         .collect(Collectors.joining(", ")) + "]");
             }
             if (cc.parameterExpressions().size() == 1) {
-                String element = RustTypes.empty(type.componentType(), false, context, cc);
-                return value("vec![" + element + "; " + index(cc.parameterExpressions().getFirst()) + "]");
+                ParameterizedType component = type.componentType();
+                String n = index(cc.parameterExpressions().getFirst());
+                if (component.typeInfo() != null && component.typeInfo().isJavaLangObject() && component.arrays() == 0) {
+                    // Java's nulls, until the array is filled
+                    return value("(0.." + n + ").map(|_| crate::jrt::null()).collect::<Vec<Box<dyn std::any::Any>>>()");
+                }
+                String element = RustTypes.empty(component, false, context, cc);
+                TypeInfo ct = component.typeInfo();
+                if (component.arrays() == 0 && ct != null && !ct.compilationUnit().externalLibrary() && !ct.isInterface()
+                    && !ct.typeNature().isEnum() && ct.typeParameters().isEmpty()
+                    && (ct.constructors().isEmpty() || ct.constructors().stream().anyMatch(c -> c.parameters().isEmpty()))) {
+                    // a class with a constructor without parameters: an object of it where Java has a null
+                    String owned = RustTypes.owned(component, context, cc);
+                    String plain = owned.startsWith("Rc<") ? owned.substring(3, owned.length() - 1) : owned;
+                    element = owned.startsWith("Rc<") ? "Rc::new(" + plain + "::new())" : plain + "::new()";
+                }
+                if (RustTypes.isCopy(component) || RustTypes.isString(component) || component.arrays() > 0) {
+                    return value("vec![" + element + "; " + n + "]");
+                }
+                // vec![x; n] clones x, which a class need not allow: each element built on its own
+                return value("(0.." + n + ").map(|_| " + element + ").collect::<Vec<_>>()");
             }
             return value(unsupported(cc, "multi-dimensional array"));
         }
@@ -2001,7 +2022,7 @@ final class RustBodyPrinter {
                                                           && mutated(other))
                         .findFirst().ifPresent(other -> found[0] = true);
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
-                       && isLocal(fr.scope(), lv)) {
+                       && rootedIn(fr.scope(), lv)) {
                 found[0] = true;
             } else if (e instanceof Assignment a && a.target().variable() instanceof DependentVariable dv
                        && isLocal(dv.arrayExpression(), lv)) {
@@ -2028,6 +2049,10 @@ final class RustBodyPrinter {
     /* the local, or a field of the object it holds ('a.list1.add(x)' modifies what 'a' owns) */
     private static boolean rootedIn(Expression e, LocalVariable lv) {
         if (isLocal(e, lv)) return true;
+        // or an element of the array it holds ('slots[0].v = 3')
+        if (e instanceof VariableExpression ve && ve.variable() instanceof DependentVariable dv) {
+            return rootedIn(dv.arrayExpression(), lv);
+        }
         return e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null
                && rootedIn(fr.scope(), lv);
     }

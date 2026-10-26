@@ -903,6 +903,37 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String ARRAYS = """
+            package a.b;
+            public class Arrs {
+                static class Slot { int v; }
+                static int fill(int n) {
+                    Object[] objects = new Object[n];
+                    objects[0] = "x";
+                    Slot[] slots = new Slot[n];
+                    slots[0].v = 3;
+                    return objects.length + slots[0].v;
+                }
+            }
+            """;
+
+    /**
+     * {@code new T[n]} of a class with a constructor without parameters builds an object per element, where Java has
+     * nulls (vec![x; n] would need Clone); an Object array holds the runtime's null, and takes boxed elements.
+     */
+    @DisplayName("arrays of objects and of a class without Clone: compiles")
+    @Test
+    public void referenceArrays() throws Exception {
+        List<TypeInfo> types = parse(ARRAYS);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "(0..n as usize).map(|_| crate::jrt::null()).collect::<Vec<Box<dyn std::any::Any>>>()");
+        contains(rust, "objects[0] = Box::new(\"x\".to_string());");
+        contains(rust, "let mut slots = (0..n as usize).map(|_| ArrsSlot::new()).collect::<Vec<_>>();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
