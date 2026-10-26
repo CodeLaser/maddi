@@ -474,6 +474,36 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NULLABLE_GETTERS = """
+            package a.b;
+            import java.util.List;
+            public class Tags {
+                private List<String> tags;
+                private String label;
+                public void setTags(List<String> tags) { this.tags = tags; }
+                public List<String> tags() { return tags; }
+                public String label() { return label; }
+            }
+            """;
+
+    /** A nullable field handed out as a borrow is {@code Option<&T>}: the Option's content borrowed, not the Option. */
+    @DisplayName("a nullable field returned as a borrow is as_ref() / as_deref(): compiles")
+    @Test
+    public void nullableBorrowedResult() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_GETTERS);
+        TypeInfo tags = types.getFirst();
+        modifying(tags, "setTags");
+        nonModifying(tags, "tags", "label");
+        dependentResult(tags, "tags");
+        dependentResult(tags, "label");
+        translate(types, nullable(java.util.Set.of("tags", "label", "tags()", "label()")));
+        String rust = module("a.b");
+        contains(rust, "pub fn tags(&self) -> Option<&Vec<String>> {\nreturn self.tags.as_ref();");
+        contains(rust, "pub fn label(&self) -> Option<&str> {\nreturn self.label.as_deref();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

@@ -249,6 +249,10 @@ final class RustBodyPrinter {
         String text;
         if (RustTypes.isCopy(method.returnType())) {
             text = value.text;
+        } else if (borrows && nullable && value.nullable) {
+            // Option<&T>: a borrow of the Option's content, not of the Option ('&self.t' is an &Option<T>)
+            Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
+            text = nullableBorrow(inner, e, RustTypes.isString(method.returnType()), method.returnType().arrays() > 0);
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
         } else {
