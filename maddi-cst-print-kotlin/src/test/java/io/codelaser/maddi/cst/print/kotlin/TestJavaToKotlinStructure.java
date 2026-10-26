@@ -243,6 +243,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: Kotlin's {@code is String, is
+     * Integer ->}. Translating only the first, {@code is String ->}, compiles and no longer matches an Integer.
+     */
+    @Test
+    public void multiPatternCase() {
+        String kotlin = kotlin("""
+                package a;
+                class Kinds {
+                    static String kind(Object o) {
+                        return switch (o) {
+                            case String _, Integer _ -> "known";
+                            default -> "?";
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "is String, is Int ->");
+        compiles(kotlin);
+    }
+
+    /**
      * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
      * no companion object; nothing of it uses the outer instance, so it is a nested class.
      */

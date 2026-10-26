@@ -576,7 +576,7 @@ public final class CSharpStatementPrinter {
         List<Expression> conditions = entry.conditions();
         // a pattern's arm, case Field field ->, has no condition
         if (entry.patternVariable() != null) {
-            return List.of(caseLabel(null, entry.patternVariable(), entry.whenExpression(), q));
+            return List.of(caseLabel(entry, q));
         }
         if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
             return List.of(new OutputBuilderImpl().add(KeywordImpl.DEFAULT).add(SymbolEnum.COLON_LABEL));
@@ -686,7 +686,7 @@ public final class CSharpStatementPrinter {
         List<Expression> conditions = entry.conditions();
         if (entry.patternVariable() != null) {
             // a record pattern's arm has no condition
-            head = pattern(entry.patternVariable(), q);
+            head = entryPattern(entry, q);
         } else if (conditions.isEmpty() || conditions.stream().allMatch(CSharpStatementPrinter::isDefault)) {
             head = text("_");
         } else {
@@ -698,6 +698,38 @@ public final class CSharpStatementPrinter {
         }
         return new OutputBuilderImpl().add(head).add(SymbolEnum.binaryOperator("=>"))
                 .add(armValue(entry.statement(), type, q));
+    }
+
+    /** {@code case T t when (c):} for a pattern arm, every pattern of the label included. */
+    private static OutputBuilder caseLabel(SwitchEntry entry, Qualification q) {
+        OutputBuilder b = new OutputBuilderImpl().add(KeywordImpl.CASE).add(SpaceEnum.ONE).add(entryPattern(entry, q));
+        if (entry.whenExpression() != null && !entry.whenExpression().isEmpty()) {
+            b.add(SpaceEnum.ONE).add(CSharpKeyword.WHEN).add(SpaceEnum.ONE)
+                    .add(CSharpExpressionPrinter.print(entry.whenExpression(), q));
+        }
+        return b.add(SymbolEnum.COLON_LABEL);
+    }
+
+    /**
+     * The pattern of an arm. A label with several patterns ({@code case String _, Integer _ ->}, JEP 456) is C#'s
+     * {@code or} pattern, {@code string or int}: printing the first alone compiled and no longer matched an Integer.
+     * Java allows several patterns only when none binds a variable, and C# allows none under {@code or}, so each
+     * type pattern is written as its type alone.
+     */
+    private static OutputBuilder entryPattern(SwitchEntry entry, Qualification q) {
+        if (entry.otherPatterns().isEmpty()) return pattern(entry.patternVariable(), q);
+        OutputBuilder b = new OutputBuilderImpl();
+        List<RecordPattern> all = new ArrayList<>();
+        all.add(entry.patternVariable());
+        all.addAll(entry.otherPatterns());
+        for (int i = 0; i < all.size(); i++) {
+            if (i > 0) b.add(SpaceEnum.ONE).add(text("or")).add(SpaceEnum.ONE);
+            RecordPattern p = all.get(i);
+            b.add(p.localVariable() != null
+                    ? text(CSharpTypeName.pattern(p.localVariable().parameterizedType(), q))
+                    : pattern(p, q));
+        }
+        return b;
     }
 
     private static OutputBuilder joinOr(List<Expression> conditions, Qualification q) {
