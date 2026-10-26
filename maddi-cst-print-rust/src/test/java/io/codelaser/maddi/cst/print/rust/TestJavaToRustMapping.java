@@ -704,6 +704,35 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String FIELD_OF_LOCAL = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Fl {
+                static class A {
+                    final List<String> list1 = new ArrayList<>();
+                }
+                public static int fill(String s) {
+                    A a = new A();
+                    a.list1.add(s);
+                    return a.list1.size();
+                }
+            }
+            """;
+
+    /** A local whose object is modified through one of its fields ({@code a.list1.add(s)}) is a mutable binding. */
+    @DisplayName("a local modified through its field is let mut: compiles")
+    @Test
+    public void localModifiedThroughField() throws Exception {
+        List<TypeInfo> types = parse(FIELD_OF_LOCAL);
+        nonModifying(types.getFirst(), "fill");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut a = FlA::new();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

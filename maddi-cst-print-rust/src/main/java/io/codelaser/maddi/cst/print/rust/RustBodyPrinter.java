@@ -1895,7 +1895,7 @@ final class RustBodyPrinter {
         context.method.methodBody().visit(e -> {
             if (found[0]) return false;
             if (e instanceof MethodCall mc) {
-                if (isLocal(mc.object(), lv) && modifies(mc)) found[0] = true;
+                if (rootedIn(mc.object(), lv) && modifies(mc)) found[0] = true;
                 List<Expression> args = mc.parameterExpressions();
                 MethodInfo callee = mc.methodInfo();
                 for (int i = 0; i < args.size() && i < callee.parameters().size(); i++) {
@@ -1924,6 +1924,13 @@ final class RustBodyPrinter {
 
     private static boolean isLocal(Expression e, LocalVariable lv) {
         return e instanceof VariableExpression ve && lv.equals(ve.variable());
+    }
+
+    /* the local, or a field of the object it holds ('a.list1.add(x)' modifies what 'a' owns) */
+    private static boolean rootedIn(Expression e, LocalVariable lv) {
+        if (isLocal(e, lv)) return true;
+        return e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null
+               && rootedIn(fr.scope(), lv);
     }
 
     // ---- literals
