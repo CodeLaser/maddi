@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 
@@ -168,6 +169,14 @@ final class RustTypes {
         return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null;
     }
 
+    /**
+     * A functional interface: a closure. A JDK one is, also when the front end has only loaded it lazily and has not
+     * worked out its single abstract method (an in-memory parse does not complete the types it loads).
+     */
+    static boolean isFunctional(ParameterizedType type) {
+        return type.isFunctionalInterface() || type.typeInfo() != null && type.arrays() == 0 && isFunctional(type.typeInfo());
+    }
+
     /** The JDK's functional interfaces, as closure traits. */
     private static boolean isFunctional(TypeInfo ti) {
         return ti.packageName().equals("java.util.function") || "java.lang.Runnable".equals(ti.fullyQualifiedName());
@@ -188,11 +197,50 @@ final class RustTypes {
                                  + ") -> " + arg(args, 2, context, where);
             case "Predicate" -> "dyn Fn(" + borrowed(args, 0, context, where) + ") -> bool";
             case "UnaryOperator" -> "dyn Fn(" + borrowed(args, 0, context, where) + ") -> " + arg(args, 0, context, where);
+            case "BinaryOperator" -> "dyn Fn(" + borrowed(args, 0, context, where) + ", " + borrowed(args, 0, context, where)
+                                     + ") -> " + arg(args, 0, context, where);
             default -> {
-                context.message(RustPrintCode.UNMAPPED_JDK, where, type.typeInfo().fullyQualifiedName());
-                yield "dyn Fn()";
+                // the primitive specializations, BiPredicate, ToIntFunction, …: the shape of their own method
+                List<String> parameters = samParameters(type, context, where);
+                if (parameters == null) {
+                    context.message(RustPrintCode.UNMAPPED_JDK, where, type.typeInfo().fullyQualifiedName());
+                    yield "dyn Fn()";
+                }
+                MethodInfo sam = ownAbstractMethod(type.typeInfo());
+                String result = sam.noReturnValue() ? "" : " -> " + samType(sam.returnType(), args, false, context, where);
+                yield (sam.noReturnValue() ? "dyn FnMut(" : "dyn Fn(") + String.join(", ", parameters) + ")" + result;
             }
         };
+    }
+
+    /**
+     * The parameter types of a JDK functional interface's own abstract method ({@code IntSupplier.getAsInt},
+     * {@code ToIntFunction.applyAsInt}), its type parameters replaced by {@code type}'s arguments; {@code null} when
+     * the method is inherited from a generic super-interface, whose type parameters are not {@code type}'s.
+     */
+    private static List<String> samParameters(ParameterizedType type, RustContext context, Element where) {
+        MethodInfo sam = ownAbstractMethod(type.typeInfo());
+        if (sam == null) return null;
+        return sam.parameters().stream()
+                .map(p -> samType(p.parameterizedType(), type.parameters(), true, context, where)).toList();
+    }
+
+    // the front end sets no single abstract method on a library type
+    private static MethodInfo ownAbstractMethod(TypeInfo ti) {
+        List<MethodInfo> methods = ti.methods().stream().filter(m -> m.isAbstract() && !m.isStatic()).toList();
+        return methods.size() == 1 ? methods.getFirst() : null;
+    }
+
+    // a primitive as itself, a type parameter as the argument; a parameter borrowed as in 'borrowed'
+    private static String samType(ParameterizedType t, List<ParameterizedType> args, boolean parameter,
+                                  RustContext context, Element where) {
+        if (t.isTypeParameter()) {
+            int i = t.typeParameter().getIndex();
+            return parameter ? borrowed(args, i, context, where) : arg(args, i, context, where);
+        }
+        if (t.isPrimitiveExcludingVoid() || !parameter || isCopy(t)) return owned(t, context, where);
+        if (isString(t)) return "&str";
+        return "&" + owned(t, context, where);
     }
 
     /** The parameter types of the closure a JDK functional interface stands for; {@code null} for another type. */
@@ -204,7 +252,8 @@ final class RustTypes {
             case "Runnable", "Supplier" -> List.of();
             case "Consumer", "Function", "Predicate", "UnaryOperator" -> List.of(borrowed(args, 0, context, where));
             case "BiConsumer", "BiFunction" -> List.of(borrowed(args, 0, context, where), borrowed(args, 1, context, where));
-            default -> null;
+            case "BinaryOperator" -> List.of(borrowed(args, 0, context, where), borrowed(args, 0, context, where));
+            default -> samParameters(type, context, where);
         };
     }
 
@@ -215,6 +264,7 @@ final class RustTypes {
     private static String borrowed(List<ParameterizedType> args, int i, RustContext context, Element where) {
         if (i >= args.size()) return "()";
         ParameterizedType a = args.get(i);
+        if (isString(a)) return "&str"; // as a String parameter: a closure is called with one
         return isCopy(a) ? owned(a, context, where) : "&" + owned(a, context, where);
     }
 
