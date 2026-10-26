@@ -231,6 +231,8 @@ Analyzer issues the oracle found, each with a minimal repro:
   type first, so the box holds a `String`, as a collection's value or a field's initializer does.
   A class's object where its interface is held (a local, an assignment, an argument, a result) is boxed as the
   `Box<dyn I>` the declaration prints; a closure and an `Rc` are not.
+- A string parameter the body assigns (`p = decode(p)`) is taken as its own `String`; a closure passed for a nullable
+  parameter is `Some(Box::new(...))`.
 - A returned switch expression or conditional converts each arm as the result is (`None`, `self.f.as_ref()`,
   `Some(v)`), not the whole; a `yield` before an arm's last statement is a `break 'yN value` out of the arm's labeled
   block.

@@ -938,7 +938,7 @@ final class RustTypePrinter {
         return (mut ? "mut " : "") + RustNames.snake(p.name()) + ": " + RustTypes.option(rust, nullable);
     }
 
-    private static boolean reassigned(Block body, ParameterInfo p) {
+    static boolean reassigned(Block body, ParameterInfo p) {
         boolean[] found = {false};
         body.visit(e -> {
             if (e instanceof Assignment a && p.equals(a.variableTarget())) found[0] = true;

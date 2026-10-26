@@ -666,6 +666,40 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String STRINGS_AND_CLOSURES = """
+            package a.b;
+            public class Dec {
+                public interface Measure { int of(String s); }
+                private Measure measure;
+                static String decode(String s) { return s.trim(); }
+                public static String norm(String p) {
+                    p = decode(p);
+                    return p;
+                }
+                public void setMeasure(Measure measure) { this.measure = measure; }
+                public static void use(Dec d) { d.setMeasure(x -> x.length()); }
+            }
+            """;
+
+    /**
+     * A string parameter the body assigns is its own {@code String}: a {@code &str} cannot hold the new value. A closure
+     * passed for a nullable parameter is in {@code Some}.
+     */
+    @DisplayName("a reassigned string parameter is owned; a closure for a nullable parameter is Some: compiles")
+    @Test
+    public void reassignedStringNullableClosure() throws Exception {
+        List<TypeInfo> types = parse(STRINGS_AND_CLOSURES);
+        TypeInfo dec = types.getFirst();
+        modifying(dec, "setMeasure");
+        nonModifying(dec, "norm", "decode", "use");
+        translate(types, nullable(java.util.Set.of("measure")));
+        String rust = module("a.b");
+        contains(rust, "pub fn norm(mut p: String) -> String {");
+        contains(rust, "d.set_measure(Some(Box::new(");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

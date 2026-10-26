@@ -1531,11 +1531,12 @@ final class RustBodyPrinter {
         if (isClosure(argument) && RustTypes.isFunctional(type)) {
             Printed c = closure(argument, type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
-            return switch (context.passing(pi)) {
+            String text = switch (context.passing(pi)) {
                 case OWNED -> boxed(c.text);
                 case SHARED -> "&" + c.text;
                 case EXCLUSIVE -> "&mut " + c.text;
             };
+            return RustFacts.nullable(context.facts.parameter(pi)) ? "Some(" + text + ")" : text;
         }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
