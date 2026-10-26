@@ -877,7 +877,9 @@ final class RustBodyPrinter {
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 return new Printed(name, Held.PLACE, nullable);
             }
-            return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
+            // a string constant is a &'static str
+            return new Printed(prefix + "::" + RustNames.constant(f.name()),
+                               RustTypes.isString(f.type()) && RustTypePrinter.constant(f) ? Held.STR : Held.VALUE, nullable);
         }
         boolean own = fr.scopeIsThis() || fr.isDefaultScope();
         String scope = own ? context.receiver : dereference(expression(fr.scope()));

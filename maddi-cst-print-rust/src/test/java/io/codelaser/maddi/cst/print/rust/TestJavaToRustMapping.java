@@ -876,6 +876,33 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String STRING_CONSTANT = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keys {
+                static final String PASSWORD = "password";
+                static int size(String value) {
+                    Map<String, String> body = new HashMap<>();
+                    body.put(PASSWORD, value);
+                    return body.get(PASSWORD).length();
+                }
+            }
+            """;
+
+    /** A string constant is a {@code &'static str}: owned where a map keeps it, borrowed as it is for a lookup. */
+    @DisplayName("a string constant as a map key: compiles")
+    @Test
+    public void stringConstantKey() throws Exception {
+        List<TypeInfo> types = parse(STRING_CONSTANT);
+        borrowed(method(types.getFirst(), "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "body.insert(Self::PASSWORD.to_string(), value.to_string());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
