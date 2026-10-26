@@ -35,6 +35,7 @@ import io.codelaser.maddi.cst.api.analysis.Message;
 import io.codelaser.maddi.cst.api.element.SourceSet;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpFacts;
 import io.codelaser.maddi.cst.print.csharp.CSharpProgram;
@@ -384,8 +385,10 @@ public class RunAnalyzer implements Runnable {
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();
         } else if (rust) {
-            // the ownership modes from the stored modification and independence verdicts, Option from nullability
-            RustFacts rustFacts = facts == null ? RustFacts.STORED : RustFacts.of(facts, RustFacts.STORED);
+            // the ownership modes from the stored modification and independence verdicts, Option from nullability,
+            // where a result comes from (a new object, a borrow of what) from the links of this run
+            LinkFacts links = order == null ? LinkFacts.NONE : engine().linkFacts(order);
+            RustFacts rustFacts = RustFacts.of(facts == null ? NullabilityFacts.STORED : facts, RustFacts.STORED, links);
             RustTranslator.Result result = RustTranslator.translate(main, rustFacts, out);
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();

@@ -23,7 +23,11 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
+
+import java.util.List;
+import java.util.Set;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 
@@ -191,6 +195,15 @@ public interface RustFacts extends NullabilityFacts {
      * report, which also knows the locals, with the verdicts stored on the declarations.
      */
     static RustFacts of(NullabilityFacts nullability, RustFacts ownership) {
+        return of(nullability, ownership, LinkFacts.NONE);
+    }
+
+    /**
+     * ... and where the results come from, from the links ({@link LinkFacts}), where the verdicts cannot say: a new
+     * object is owned whatever its independence (a builder's {@code build()}), and the parameters it keeps are moved
+     * in; a result inside the receiver borrows it; one inside a single borrowed parameter borrows that one.
+     */
+    static RustFacts of(NullabilityFacts nullability, RustFacts ownership, LinkFacts links) {
         return new RustFacts() {
             @Override
             public Receiver receiver(MethodInfo method) {
@@ -199,12 +212,29 @@ public interface RustFacts extends NullabilityFacts {
 
             @Override
             public Passing passing(ParameterInfo parameter) {
+                MethodInfo m = parameter.methodInfo();
+                if (links.result(m) == LinkFacts.Result.NEW && links.keptInResult(m).contains(parameter)) {
+                    return Passing.OWNED;
+                }
                 return ownership.passing(parameter);
             }
 
             @Override
             public boolean resultBorrowsReceiver(MethodInfo method) {
+                LinkFacts.Result result = links.result(method);
+                if (result == LinkFacts.Result.NEW) return false;
+                if (result == LinkFacts.Result.EXISTING && links.receiverInResult(method)) return true;
                 return ownership.resultBorrowsReceiver(method);
+            }
+
+            @Override
+            public boolean resultBorrowsParameter(MethodInfo method) {
+                if (links.result(method) != LinkFacts.Result.EXISTING || links.receiverInResult(method)) return false;
+                Set<ParameterInfo> kept = links.keptInResult(method);
+                // one borrowed parameter: the result's lifetime is elided to its
+                return kept.size() == 1 && method.parameters().stream()
+                        .filter(p -> !RustTypes.isCopy(p.parameterizedType()) && passing(p) != Passing.OWNED)
+                        .toList().equals(List.copyOf(kept));
             }
 
             @Override
@@ -280,6 +310,14 @@ public interface RustFacts extends NullabilityFacts {
 
     /** The method returns part of its receiver's accessible content: its result type is a borrow, {@code &T}. */
     default boolean resultBorrowsReceiver(MethodInfo method) {
+        return false;
+    }
+
+    /**
+     * The result is part of an object one of the method's parameters holds, and of nothing else: a borrow tied to that
+     * parameter ({@code first(List<String> l)} returning {@code l.get(0)}). From the links only ({@link LinkFacts}).
+     */
+    default boolean resultBorrowsParameter(MethodInfo method) {
         return false;
     }
 

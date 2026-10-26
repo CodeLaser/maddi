@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.print.rust;
 
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.impl.analysis.ValueImpl;
 import org.intellij.lang.annotations.Language;
@@ -531,6 +532,61 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         String rust = module("a.b");
         contains(rust, "pub fn long_ones(&self) -> Box<dyn Iterator<Item = String> + '_> {");
         contains(rust, "pub fn count(mut s: Box<dyn Iterator<Item = String>>) -> i64 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String LINKED = """
+            package a.b;
+            import java.util.List;
+            public class Linked {
+                private int a;
+                public Linked set(int a) { this.a = a; return this; }
+                public Items build() { return new Items("x", List.of()); }
+                public static Items copy(String name, List<String> items) { return new Items(name, items); }
+                public static String first(List<String> l) { return l.get(0); }
+                record Items(String name, List<String> items) { }
+            }
+            """;
+
+    /**
+     * Where a result comes from, which the links know and the independence verdicts do not ({@code LinkFacts}): a new
+     * object is owned even where the verdict says it borrows the receiver ({@code build()}, independent apart from
+     * hidden content), and the parameters it keeps are moved in ({@code copy}); a result inside a parameter's object
+     * borrows that parameter ({@code first}).
+     */
+    @DisplayName("link facts: a new result is owned, its kept parameters moved in; one inside a parameter borrows it")
+    @Test
+    public void linkFacts() throws Exception {
+        List<TypeInfo> types = parse(LINKED);
+        TypeInfo linked = types.getFirst();
+        modifying(linked, "set");
+        fluent(linked, "set");
+        nonModifying(linked, "build");
+        dependentResult(linked, "build");
+        method(linked, "copy").parameters().forEach(CommonJavaToRust::borrowed);
+        borrowed(method(linked, "first").parameters().getFirst());
+        MethodInfo build = method(linked, "build");
+        MethodInfo copy = method(linked, "copy");
+        MethodInfo first = method(linked, "first");
+        io.codelaser.maddi.cst.impl.analysis.LinkFacts links = new io.codelaser.maddi.cst.impl.analysis.LinkFacts() {
+            @Override
+            public Result result(MethodInfo m) {
+                return m == build || m == copy ? Result.NEW : m == first ? Result.EXISTING : null;
+            }
+
+            @Override
+            public java.util.Set<io.codelaser.maddi.cst.api.info.ParameterInfo> keptInResult(MethodInfo m) {
+                return m == copy ? java.util.Set.copyOf(copy.parameters())
+                        : m == first ? java.util.Set.of(first.parameters().getFirst()) : java.util.Set.of();
+            }
+        };
+        translate(types, RustFacts.of(io.codelaser.maddi.cst.impl.analysis.NullabilityFacts.STORED, RustFacts.STORED,
+                links));
+        String rust = module("a.b");
+        contains(rust, "pub fn build(&self) -> LinkedItems {");
+        contains(rust, "pub fn copy(name: String, items: Vec<String>) -> LinkedItems {");
+        contains(rust, "pub fn first(l: &Vec<String>) -> &str {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

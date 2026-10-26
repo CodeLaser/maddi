@@ -243,8 +243,8 @@ final class RustBodyPrinter {
             return "return " + context.receiver;
         }
         boolean nullable = RustFacts.nullable(context.facts.returnType(method));
-        boolean borrows = context.facts.resultBorrowsReceiver(method)
-                          && context.facts.receiver(method) != Receiver.NONE;
+        boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
+                          || context.facts.resultBorrowsParameter(method);
         Printed value = widen(expression(e), e, method.returnType());
         String text;
         if (RustTypes.isCopy(method.returnType())) {
@@ -1253,6 +1253,7 @@ final class RustBodyPrinter {
         boolean nullable = !callee.isVoid() && RustFacts.nullable(context.facts.returnType(callee));
         if (callee.isVoid() || RustTypes.isCopy(callee.returnType())) return new Printed(call, Held.VALUE, nullable);
         boolean borrows = context.facts.resultBorrowsReceiver(callee) && context.facts.receiver(callee) != Receiver.NONE
+                          || context.facts.resultBorrowsParameter(callee)
                           // a record's own accessor, which RustTypePrinter.accessor prints as a borrow
                           || callee.isSynthetic() && callee.typeInfo().typeNature().isRecord() && callee.parameters().isEmpty()
                              && !callee.isStatic();

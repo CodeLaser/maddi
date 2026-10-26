@@ -865,7 +865,8 @@ final class RustTypePrinter {
         if (context.facts.fluent(m) && (receiver == Receiver.SHARED || receiver == Receiver.EXCLUSIVE)) {
             return receiver == Receiver.SHARED ? " -> &Self" : " -> &mut Self";
         }
-        boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
+        boolean borrows = (context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
+                           || context.facts.resultBorrowsParameter(m))
                           && !RustTypes.isCopy(m.returnType());
         String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
         if (receiver != Receiver.NONE && RustTypes.streamItem(m.returnType(), context, m) != null) {
