@@ -233,6 +233,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   `Box<dyn I>` the declaration prints; a closure and an `Rc` are not.
 - A string parameter the body assigns (`p = decode(p)`) is taken as its own `String`; a closure passed for a nullable
   parameter is `Some(Box::new(...))`; `Optional.ofNullable(x)` of a nullable `x` is a copy of its `Option`, not `Some(x)`.
+- A local is a mutable binding when its object is modified through one of its fields (`a.list1.add(s)`), through a
+  local referring to one (`let l = &mut a.list1`), or by a JDK static modifying its first argument
+  (`Collections.sort`); a nullable exclusive parameter (`Option<&mut T>`, reached by `as_mut()`) is `mut` too.
 - A returned switch expression or conditional converts each arm as the result is (`None`, `self.f.as_ref()`,
   `Some(v)`), not the whole; a `yield` before an arm's last statement is a `break 'yN value` out of the arm's labeled
   block.

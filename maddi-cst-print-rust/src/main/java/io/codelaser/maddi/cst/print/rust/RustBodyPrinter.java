@@ -1904,6 +1904,15 @@ final class RustBodyPrinter {
                         found[0] = true;
                     }
                 }
+                // Collections.sort(list), Arrays.fill(a, v): the JDK static modifies its first argument
+                if (!args.isEmpty() && rootedIn(args.getFirst(), lv) && RustJdk.modifiesFirstArgument(mc)) found[0] = true;
+            } else if (e instanceof LocalVariableCreation lvc) {
+                // 'Set<T> set2 = r.s; set2.add(t)': a &mut of r's field, which needs r mutable
+                lvc.localVariableStream().filter(other -> other != lv && other.assignmentExpression() != null
+                                                          && !isLocal(other.assignmentExpression(), lv)
+                                                          && rootedIn(other.assignmentExpression(), lv)
+                                                          && mutated(other))
+                        .findFirst().ifPresent(other -> found[0] = true);
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
                        && isLocal(fr.scope(), lv)) {
                 found[0] = true;

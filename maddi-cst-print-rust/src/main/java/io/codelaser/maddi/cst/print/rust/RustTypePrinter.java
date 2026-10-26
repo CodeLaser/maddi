@@ -932,8 +932,8 @@ final class RustTypePrinter {
             else if (keptLifetime(m) != null && context.facts.keptInNewResult(p) && passing != Passing.OWNED) {
                 rust = rust.replaceFirst("^&", "&" + keptLifetime(m) + " ");
             }
-            // an owned value the method modifies needs a mutable binding
-            mut |= passing == Passing.OWNED && !p.isUnmodified();
+            // an owned value the method modifies needs a mutable binding; so does an Option<&mut T>, reached by as_mut()
+            mut |= passing == Passing.OWNED && !p.isUnmodified() || passing == Passing.EXCLUSIVE && nullable;
         }
         return (mut ? "mut " : "") + RustNames.snake(p.name()) + ": " + RustTypes.option(rust, nullable);
     }

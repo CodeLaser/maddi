@@ -717,18 +717,37 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                     a.list1.add(s);
                     return a.list1.size();
                 }
+                public static int viaLocal(String s) {
+                    A a = new A();
+                    List<String> l = a.list1;
+                    l.add(s);
+                    List<Integer> sorted = new ArrayList<>(List.of(3, 1));
+                    java.util.Collections.sort(sorted);
+                    return l.size() + sorted.get(0);
+                }
+                public static void append(StringBuilder sb) {
+                    if (sb != null) sb.append("x");
+                }
             }
             """;
 
-    /** A local whose object is modified through one of its fields ({@code a.list1.add(s)}) is a mutable binding. */
-    @DisplayName("a local modified through its field is let mut: compiles")
+    /**
+     * A local whose object is modified through one of its fields ({@code a.list1.add(s)}), or through a local referring
+     * to one, or by a JDK static ({@code Collections.sort}), is a mutable binding; so is a nullable exclusive parameter.
+     */
+    @DisplayName("a local modified through its field, a local over it or Collections.sort is let mut: compiles")
     @Test
     public void localModifiedThroughField() throws Exception {
         List<TypeInfo> types = parse(FIELD_OF_LOCAL);
-        nonModifying(types.getFirst(), "fill");
-        translate(types);
+        nonModifying(types.getFirst(), "fill", "viaLocal", "append");
+        exclusive(method(types.getFirst(), "append").parameters().getFirst());
+        translate(types, nullable(java.util.Set.of("sb")));
         String rust = module("a.b");
         contains(rust, "let mut a = FlA::new();");
+        // a &mut of a's field, a sorted list, an Option<&mut> reached through as_mut()
+        contains(rust, "let mut a = FlA::new();\nlet l = &mut a.list1;");
+        contains(rust, "let mut sorted = ");
+        contains(rust, "pub fn append(mut sb: Option<&mut String>) {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

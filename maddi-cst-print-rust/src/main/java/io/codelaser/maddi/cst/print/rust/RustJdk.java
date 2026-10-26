@@ -48,6 +48,18 @@ final class RustJdk {
         return MODIFYING.contains(mc.methodInfo().name());
     }
 
+    /** A JDK static that modifies its first argument: {@code Collections.sort(list)}, {@code Arrays.fill(a, v)}. */
+    static boolean modifiesFirstArgument(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        if (!m.isStatic()) return false;
+        return switch (m.typeInfo().fullyQualifiedName()) {
+            case "java.util.Collections" -> Set.of("sort", "reverse", "shuffle", "swap", "fill", "addAll", "rotate")
+                    .contains(m.name());
+            case "java.util.Arrays" -> Set.of("sort", "fill", "parallelSort", "setAll").contains(m.name());
+            default -> false;
+        };
+    }
+
     static Printed call(MethodCall mc, RustBodyPrinter printer) {
         MethodInfo m = mc.methodInfo();
         TypeInfo owner = m.typeInfo();
