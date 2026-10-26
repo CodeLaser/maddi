@@ -3296,6 +3296,7 @@ public class JavaLang {
         boolean removeShutdownHook(@NotNull java.lang.Thread p0) { return false; }
 
         //public java.lang.Runtime.Version (shadow created for its nullability, generated)
+        @ImmutableContainer
         class Version {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             int compareTo(@NotNull java.lang.Runtime.Version p0) { return 0; }

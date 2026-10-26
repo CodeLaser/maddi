@@ -241,6 +241,26 @@ public class JavaTimeChrono {
         public String toString() { return null; }
     }
 
+    //public final class HijrahDate extends ChronoLocalDateImpl<HijrahDate> implements ChronoLocalDate, Serializable
+    // value-based, like LocalDate; the hints of the ChronoLocalDate interface do not reach an implementation
+    @ImmutableContainer
+    class HijrahDate$ { }
+
+    //public final class JapaneseDate extends ChronoLocalDateImpl<JapaneseDate> implements ChronoLocalDate, Serializable
+    // value-based, like LocalDate; the hints of the ChronoLocalDate interface do not reach an implementation
+    @ImmutableContainer
+    class JapaneseDate$ { }
+
+    //public final class MinguoDate extends ChronoLocalDateImpl<MinguoDate> implements ChronoLocalDate, Serializable
+    // value-based, like LocalDate; the hints of the ChronoLocalDate interface do not reach an implementation
+    @ImmutableContainer
+    class MinguoDate$ { }
+
+    //public final class ThaiBuddhistDate extends ChronoLocalDateImpl<ThaiBuddhistDate> implements ChronoLocalDate, Serializable
+    // value-based, like LocalDate; the hints of the ChronoLocalDate interface do not reach an implementation
+    @ImmutableContainer
+    class ThaiBuddhistDate$ { }
+
     //public java.time.chrono.AbstractChronology (shadow created for its nullability, generated)
     class AbstractChronology$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
