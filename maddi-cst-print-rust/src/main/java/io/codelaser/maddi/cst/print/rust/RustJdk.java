@@ -647,6 +647,9 @@ final class RustJdk {
             case "java.util.Map.Entry.getValue/1" -> params.getFirst() + ".1";
             case "java.util.Collection.stream/1", "java.util.List.stream/1", "java.util.Set.stream/1" ->
                     params.getFirst() + ".iter()";
+            // the first element, borrowed from the list the closure borrows
+            case "java.util.List.getFirst/1" -> "&" + params.getFirst() + "[0]";
+            case "java.util.List.size/1", "java.util.Collection.size/1" -> params.getFirst() + ".len() as i32";
             case "java.util.Objects.nonNull/1" -> params.getFirst() + ".is_some()";
             case "java.util.Objects.isNull/1" -> params.getFirst() + ".is_none()";
             default -> null;

@@ -663,6 +663,35 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String UNBOUND_LIST = """
+            package a.b;
+            import java.util.List;
+            import java.util.Optional;
+            public class Firsts {
+                static int firstLength(Optional<List<String>> o) {
+                    return o.map(List::getFirst).map(String::length).orElse(0);
+                }
+                static int size(Optional<List<String>> o) {
+                    return o.map(List::size).orElse(0);
+                }
+            }
+            """;
+
+    /** An unbound {@code List::getFirst} borrows the first element; {@code List::size} is its length. */
+    @DisplayName("List::getFirst and List::size as closures: compiles")
+    @Test
+    public void unboundListReferences() throws Exception {
+        List<TypeInfo> types = parse(UNBOUND_LIST);
+        borrowed(method(types.getFirst(), "firstLength").parameters().getFirst());
+        borrowed(method(types.getFirst(), "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "|x| &x[0]");
+        contains(rust, "|x| x.len() as i32");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String APPENDED_T = """
             package a.b;
             import java.util.List;
