@@ -780,6 +780,46 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String OWNED_STRINGS = """
+            package a.b;
+            import java.util.List;
+            import java.util.function.Consumer;
+            public class Str {
+                private String f;
+                void guarded(String s) {
+                    String x = s;
+                    if (x.isEmpty()) x = "default";
+                    this.f = x;
+                }
+                static void forAll(List<String> xs, Consumer<String> c) { for (String x : xs) c.accept(x); }
+                void each(List<String> xs, List<String> out) { forAll(xs, it -> out.add(it)); }
+            }
+            """;
+
+    /**
+     * A string local an assignment gives an owned string owns its first value too; a closure's {@code &str}
+     * parameter is made a {@code String} with {@code to_string()}, which {@code clone()} would leave a {@code &str}.
+     */
+    @DisplayName("a reassigned string local and a &str closure parameter are owned: compiles")
+    @Test
+    public void ownedStrings() throws Exception {
+        List<TypeInfo> types = parse(OWNED_STRINGS);
+        TypeInfo str = types.getFirst();
+        modifying(str, "guarded");
+        nonModifying(str, "forAll", "each");
+        borrowed(method(str, "guarded").parameters().getFirst());
+        borrowed(method(str, "forAll").parameters().getFirst());
+        exclusive(method(str, "forAll").parameters().getLast());
+        borrowed(method(str, "each").parameters().getFirst());
+        exclusive(method(str, "each").parameters().getLast());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut x = s.to_string();");
+        contains(rust, "out.push(it.to_string())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {

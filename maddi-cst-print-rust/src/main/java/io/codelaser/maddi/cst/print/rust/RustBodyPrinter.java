@@ -54,6 +54,8 @@ final class RustBodyPrinter {
     private boolean mutatingPlace;
     // the parameters movable() lets their one read take, by name, and its memo
     private final Set<String> moved = new HashSet<>();
+    /* closure parameters typed '&str' (a source functional interface's String parameter): not a place to clone */
+    private final Set<ParameterInfo> strClosureParameters = new HashSet<>();
     private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
 
     /** How an expression's value is held, which decides how it is passed on. */
@@ -243,7 +245,12 @@ final class RustBodyPrinter {
         boolean mutated = mutated(lv);
         String text = value.text;
         Held held = value.held;
-        if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
+        if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
+            && !(init instanceof NullConstant)) {
+            // 'String x = s; … x = "default";': an assignment gives the local an owned string, so it owns its first
+            text = value.nullable ? text + ".map(|v| v.to_string())" : text + ".to_string()";
+            held = Held.VALUE;
+        } else if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
                                    || RustTypes.isImmutableValue(lv.parameterizedType(), context.facts))) {
             // an immutable value: the local is a copy, so that the field may be assigned while it lives
             text = text + ".clone()";
@@ -823,7 +830,9 @@ final class RustBodyPrinter {
         // Rust hands a closure the element ('map' over '.cloned()') or a reference to it ('filter'): a place, which
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
         // an element is never an Option: the collections hold their values as they are
-        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, false);
+        if (closures.contains(pi.methodInfo())) {
+            return new Printed(name, strClosureParameters.contains(pi) ? Held.STR : Held.PLACE, false);
+        }
         if (movable(pi)) moved.add(name);
         Passing passing = context.passing(pi);
         Held held = switch (passing) {
@@ -1219,6 +1228,11 @@ final class RustBodyPrinter {
         copiedResult = false;
         List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
         String params = typed(names, types);
+        if (types != null && types.size() == names.size()) {
+            for (int i = 0; i < names.size(); i++) {
+                if ("&str".equals(types.get(i))) strClosureParameters.add(m.parameters().get(i));
+            }
+        }
         Expression single = lambda.singleExpression();
         MethodInfo outer = context.method;
         closures.add(m);
