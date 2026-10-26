@@ -554,6 +554,29 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String TO_OBJECT = """
+            package a.b;
+            public class Objs {
+                public static Object label() { return "x"; }
+                public static int count(Object o) { return o == null ? 0 : 1; }
+                public static int use() { return count("y") + count(label()); }
+            }
+            """;
+
+    /** A value where an {@code Object} is expected, as an argument or a result, is boxed as a {@code Box<dyn Any>}. */
+    @DisplayName("a value passed or returned as an Object is boxed: compiles")
+    @Test
+    public void boxedAsObject() throws Exception {
+        List<TypeInfo> types = parse(TO_OBJECT);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "return Box::new(\"x\".to_string());");
+        contains(rust, "Self::count(Box::new(\"y\".to_string()))");
+        contains(rust, "Self::count(Self::label())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

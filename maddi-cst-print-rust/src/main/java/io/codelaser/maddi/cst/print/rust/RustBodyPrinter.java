@@ -297,7 +297,9 @@ final class RustBodyPrinter {
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
         } else {
-            text = owned(value, method.returnType());
+            text = value.nullable ? owned(value, method.returnType())
+                    : asObject(owned(value, objectTarget(method.returnType()) ? e.parameterizedType() : method.returnType()),
+                    e, method.returnType());
         }
         if (RustTypes.streamItem(method.returnType(), context, method) != null && !text.startsWith("Box::new(")) {
             text = "Box::new(" + text + ")"; // the chain's own iterator type, behind the declared dyn Iterator
@@ -1472,7 +1474,8 @@ final class RustBodyPrinter {
             text = switch (context.passing(pi)) {
                 case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
                 case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
-                case OWNED -> owned(p, type);
+                case OWNED -> p.nullable ? owned(p, type)
+                        : asObject(owned(p, objectTarget(type) ? argument.parameterizedType() : type), argument, type);
             };
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
@@ -1710,8 +1713,19 @@ final class RustBodyPrinter {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
             text = text + ".unwrap()";
         }
-        boolean toObject = target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject()
-                           && target.arrays() == 0;
+        return asObject(text, e, target);
+    }
+
+    /*
+     an owned value where an Object is held: boxed, as a Box<dyn Any>, unless it is one already; owned as its own type
+     first ('"x".to_string()', a String in the box)
+     */
+    private static boolean objectTarget(ParameterizedType target) {
+        return target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject() && target.arrays() == 0;
+    }
+
+    private static String asObject(String text, Expression e, ParameterizedType target) {
+        boolean toObject = objectTarget(target);
         boolean fromObject = e.parameterizedType().typeInfo() != null && e.parameterizedType().typeInfo().isJavaLangObject();
         return toObject && !fromObject && !(e instanceof NullConstant) ? "Box::new(" + text + ")" : text;
     }

@@ -227,6 +227,8 @@ Analyzer issues the oracle found, each with a minimal repro:
   lookup is copied into its local, and into the arguments of a `&mut self` call, which ends the borrow of its
   holder; a string is immutable, so the copy cannot be told from the shared one.
 - An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
+- A value passed or returned where an `Object` is expected is boxed, `Box::new("x".to_string())`: owned as its own
+  type first, so the box holds a `String`, as a collection's value or a field's initializer does.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,
