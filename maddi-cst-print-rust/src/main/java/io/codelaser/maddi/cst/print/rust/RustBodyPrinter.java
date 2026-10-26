@@ -1414,7 +1414,7 @@ final class RustBodyPrinter {
             Printed c = closure(argument, type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
             return switch (context.passing(pi)) {
-                case OWNED -> "Box::new(" + c.text + ")";
+                case OWNED -> boxed(c.text);
                 case SHARED -> "&" + c.text;
                 case EXCLUSIVE -> "&mut " + c.text;
             };
@@ -1576,6 +1576,14 @@ final class RustBodyPrinter {
         return p.text + (modifying ? ".as_mut().unwrap()" : ".as_ref().unwrap()");
     }
 
+    /**
+     * A closure kept as a {@code Box<dyn Fn…>}, which outlives the call: it takes what it captures ({@code move}), the
+     * locals Java requires to be effectively final, and the {@code &self} it reads through.
+     */
+    private static String boxed(String closure) {
+        return "Box::new(" + (closure.startsWith("|") ? "move " + closure : closure) + ")";
+    }
+
     /** A two-parameter lambda over a map's entries: Rust's iterator gives one {@code (k, v)} tuple. */
     String tupleLambda(Expression e) {
         String text = expression(e).text;
@@ -1619,7 +1627,7 @@ final class RustBodyPrinter {
      */
     String ownedAs(Expression e, ParameterizedType target) {
         if (target != null && isClosure(e) && RustTypes.isFunctional(target)) {
-            return "Box::new(" + closure(e, target).text + ")";
+            return boxed(closure(e, target).text);
         }
         Printed p = expression(e);
         String text = owned(p, e.parameterizedType());
@@ -1637,7 +1645,7 @@ final class RustBodyPrinter {
     /** What a field of {@code type} is initialized with: owned, and in {@code Some} when the field is nullable. */
     String fieldValue(Expression e, ParameterizedType type, boolean nullable) {
         if (isClosure(e) && RustTypes.isFunctional(type)) {
-            String boxed = "Box::new(" + closure(e, type).text + ")";
+            String boxed = boxed(closure(e, type).text);
             return nullable ? "Some(" + boxed + ")" : boxed;
         }
         Printed p = expression(e);

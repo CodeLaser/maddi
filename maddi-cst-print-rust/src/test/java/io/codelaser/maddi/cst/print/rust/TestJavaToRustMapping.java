@@ -339,7 +339,7 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "pub fn combine(mut op: Box<dyn Fn(i32, i32) -> i32>) -> i32 {");
         contains(rust, "pub fn widen(mut f: Box<dyn Fn(i32) -> i64>) -> i64 {");
         contains(rust, "pub fn each(mut c: Box<dyn FnMut(i32)>) {");
-        contains(rust, "Self::combine(Box::new(|x: i32, y: i32| x * y))");
+        contains(rust, "Self::combine(Box::new(move |x: i32, y: i32| x * y))");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
