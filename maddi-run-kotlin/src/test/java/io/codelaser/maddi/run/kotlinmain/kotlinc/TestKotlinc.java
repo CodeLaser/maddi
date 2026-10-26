@@ -168,4 +168,44 @@ public class TestKotlinc {
         assertTrue(inputConfiguration.classPathParts().stream().anyMatch(s -> s.name().equals("b.jar")));
         assertTrue(inputConfiguration.classPathParts().stream().anyMatch(SourceSet::partOfJdk));
     }
+
+    /**
+     * kotlinc's language facts, parsed into the record all along and read by nothing, reach the source set; and a
+     * mixed set (one destination for kotlinc and javac) takes the Java ones from javac, the Kotlin ones from kotlinc.
+     */
+    @Test
+    public void languageFactsReachTheSourceSet() throws IOException {
+        Path tmp = Files.createTempDirectory(tempRoot, "k-level");
+        Path foo = tmp.resolve("proj/src/main/kotlin/a/b/Foo.kt");
+        Path bar = tmp.resolve("proj/src/main/java/a/b/Bar.java");
+        Files.createDirectories(foo.getParent());
+        Files.createDirectories(bar.getParent());
+        Files.writeString(foo, "package a.b\n\nclass Foo(val id: Int)\n");
+        Files.writeString(bar, "package a.b;\nclass Bar { }\n");
+        String out = tmp.resolve("proj/build/classes/main").toString();
+
+        Kotlinc kotlinc = Kotlinc.parse("-language-version 1.9 -api-version 1.9 -jvm-target 17 -jdk-home /jdk/17"
+                                        + " -module-name proj -d " + out + " " + foo);
+        assertEquals("1.9", kotlinc.kotlinLanguageVersion());
+        assertEquals("1.9", kotlinc.kotlinApiVersion());
+
+        SourceSet kotlinOnly = new CompileListToSourceSets().compute(List.of(kotlinc)).jSourceSets().getFirst()
+                .sourceSet();
+        assertEquals("1.9", kotlinOnly.kotlinLanguageVersion());
+        assertEquals("1.9", kotlinOnly.kotlinApiVersion());
+        assertEquals(17, kotlinOnly.jvmTarget());
+        assertEquals("/jdk/17", kotlinOnly.jdkHome());
+        assertTrue(kotlinOnly.languageLevel() <= 0, "kotlinc states no Java language level");
+        assertFalse(kotlinOnly.enablePreview());
+
+        io.codelaser.maddi.run.openjdkmain.javac.Javac javac = io.codelaser.maddi.run.openjdkmain.javac.Javac.parse(
+                "-d " + out + " -source 21 --enable-preview " + bar);
+        List<io.codelaser.maddi.run.config.compile.CompileInvocation> merged = SharedDestination.merge(List.of(kotlinc, javac));
+        assertEquals(1, merged.size());
+        SourceSet mixed = new CompileListToSourceSets().compute(merged).jSourceSets().getFirst().sourceSet();
+        assertEquals(21, mixed.languageLevel());
+        assertTrue(mixed.enablePreview());
+        assertEquals("1.9", mixed.kotlinLanguageVersion());
+        assertEquals(17, mixed.jvmTarget());
+    }
 }

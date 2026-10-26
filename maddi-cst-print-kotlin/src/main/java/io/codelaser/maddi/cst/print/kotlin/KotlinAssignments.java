@@ -61,6 +61,18 @@ final class KotlinAssignments {
         return found[0];
     }
 
+    /** An assignment to {@code variable} in {@code scope} that is not a statement of its own, but a value. */
+    static boolean assignedAsValue(Element scope, Variable variable) {
+        Set<io.codelaser.maddi.cst.api.expression.Expression> statements = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        List<Assignment> assignments = new java.util.ArrayList<>();
+        scope.visit((Element e) -> {
+            if (e instanceof ExpressionAsStatement eas) statements.add(CstQueries.unwrap(eas.expression()));
+            if (e instanceof Assignment a && variable.equals(a.variableTarget())) assignments.add(a);
+            return true;
+        });
+        return assignments.stream().anyMatch(a -> !statements.contains(a));
+    }
+
     /**
      * A local declared without a value that each path through the rest of its block assigns at most once: a
      * {@code val}, which Kotlin's definite assignment accepts as javac's does ({@code val data: ByteArray} assigned in

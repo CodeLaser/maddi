@@ -359,4 +359,31 @@ public class TestPluginSourceSets {
         assertEquals(List.of(), PluginSourceSets.addModulesFrom(List.of("--add-modules")),
                 "a trailing flag with no value names nothing");
     }
+
+    /**
+     * The plugins' sets carry the language facts the compile-log route keeps: the language level and javac's
+     * {@code --enable-preview}, found among the resolved compiler arguments. The older signature states neither.
+     */
+    @Test
+    public void languageFactsOfAPluginSet(@TempDir Path dir) throws IOException {
+        Path src = Files.createDirectories(dir.resolve("src/main/java"));
+        Path classes = dir.resolve("build/classes/java/main");
+
+        SourceSet preview = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
+                StandardCharsets.UTF_8, false, null, 0, List.of(), List.of(), List.of(), 21,
+                PluginSourceSets.enablePreviewFrom(List.of("-parameters", " --enable-preview ")));
+        assertNotNull(preview);
+        assertEquals(21, preview.languageLevel());
+        assertTrue(preview.enablePreview());
+        assertEquals(0, preview.sourceRelease(), "the language level is not the API release");
+
+        SourceSet older = PluginSourceSets.sourceSet("p/main", ":p", List.of(src), classes,
+                StandardCharsets.UTF_8, false, null, 17, List.of(), List.of(), List.of());
+        assertNotNull(older);
+        assertEquals(0, older.languageLevel());
+        assertFalse(older.enablePreview());
+
+        assertFalse(PluginSourceSets.enablePreviewFrom(null));
+        assertFalse(PluginSourceSets.enablePreviewFrom(List.of("-Werror", "--enable-previews")));
+    }
 }

@@ -69,10 +69,6 @@ public class TestJavaToKotlinMessages extends CommonJavaToKotlin {
         assertEquals(15, first(byCode, KotlinPrintCode.ASSERT_AT_UNBOXING, all).line(), all);
         assertEquals(13, first(byCode, KotlinPrintCode.UNCHECKED_CAST, all).line(), all);
         assertEquals(6, first(byCode, KotlinPrintCode.PROTECTED_AS_PUBLIC, all).line(), all);
-        PrintMessage<KotlinPrintCode> bounds = first(byCode, KotlinPrintCode.BOUNDS_DROPPED, all);
-        assertTrue(bounds.detail().contains("T extends Number & Comparable<T>"), all);
-        assertEquals(PrintMessage.Severity.LOSS, bounds.severity(), all);
-        assertEquals(11, bounds.line(), all);
         assertNull(byCode.get(KotlinPrintCode.JAVA_FALLBACK), all);
     }
 

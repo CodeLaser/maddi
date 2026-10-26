@@ -18,6 +18,7 @@ package io.codelaser.maddi.cst.impl.expression.util;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.expression.VariableExpressionImpl;
+import io.codelaser.maddi.cst.impl.expression.eval.EvalSwitches;
 import io.codelaser.maddi.cst.impl.variable.DescendModeEnum;
 
 import java.util.*;
@@ -36,7 +37,51 @@ public class AndOrSorter {
     private AndOrSorter() {
     }
 
+    /*
+     The sort runs on every pass of the And/Or fixed point, over the whole operand list, for every evaluation -- the
+     parser builds a path condition one atom at a time, so a method's conditions sort O(n^2 log n) terms in all. The
+     TreeMap version keyed on a fresh VariableExpressionImpl per operand per pass, compared through the comparator's
+     identity memo, which cannot hit on fresh keys. Here each operand's key is computed once, and one stable sort
+     orders by (subject, kind, term): the same order as grouping by subject, then null checks sorted, other terms
+     sorted, method calls in their original order.
+     */
+    private static final EvalSwitches.Gate SORT_KEYS_OFF = EvalSwitches.gate("NOSORTKEYS");
+
+    private record Key(Expression subject, int kind, Expression term) {
+    }
+
+    private static final int KIND_NULL_CHECK = 0;
+    private static final int KIND_OTHER = 1;
+    private static final int KIND_METHOD_CALL = 2;
+
+    private static final Comparator<Key> KEY_COMPARATOR = (k1, k2) -> {
+        // the subject is a fresh instance per operand: the comparator's identity memo cannot hit, skip it
+        int c = ExpressionComparator.SINGLETON.compareDirect(k1.subject, k2.subject);
+        if (c != 0) return c;
+        c = k1.kind - k2.kind;
+        if (c != 0) return c;
+        // method calls, and especially modifying ones, keep their order: the sort is stable.
+        // The terms recur, across passes and across evaluations, so their comparison goes through the memo
+        // (BinaryOperator.compareVariables is the expensive one)
+        return k1.kind == KIND_METHOD_CALL ? 0 : k1.term.compareTo(k2.term);
+    };
+
     public static ArrayList<Expression> sort(List<Expression> expressions) {
+        if (SORT_KEYS_OFF.get()) return sortByTreeMap(expressions);
+        int n = expressions.size();
+        Key[] keys = new Key[n];
+        for (int i = 0; i < n; i++) {
+            Expression e = expressions.get(i);
+            int kind = isNullCheck(e) ? KIND_NULL_CHECK : isMethodCall(e) ? KIND_METHOD_CALL : KIND_OTHER;
+            keys[i] = new Key(objectOfExpression(e), kind, e);
+        }
+        Arrays.sort(keys, KEY_COMPARATOR); // stable
+        ArrayList<Expression> result = new ArrayList<>(n);
+        for (Key key : keys) result.add(key.term);
+        return result;
+    }
+
+    private static ArrayList<Expression> sortByTreeMap(List<Expression> expressions) {
         TreeMap<Expression, List<Expression>> expressionsByObject = new TreeMap<>();
         for (Expression expression : expressions) {
             Expression object = objectOfExpression(expression);

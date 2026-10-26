@@ -60,8 +60,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         b.add(KotlinAnnotations.print(methodInfo.annotations(), qualification));
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(methodInfo, typeInfo);
-        if (KotlinContext.translatingJava() && methodInfo.isStatic() && visibility.isEmpty()) {
-            // in the companion object: Java code calls it as C.m(), not C.Companion.m()
+        if (KotlinContext.translatingJava() && methodInfo.isStatic()
+            && (visibility.isEmpty() || methodSourceFactory(methodInfo))) {
+            // in the companion object: Java code calls it as C.m(), not C.Companion.m(); and JUnit looks for a
+            // @MethodSource factory, private or not, as a static of the test class
             b.add(new TextImpl("@JvmStatic")).add(SpaceEnum.ONE);
         }
         visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
@@ -84,27 +86,40 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         } else {
             b.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
             MethodInfo genericSuper = genericOverridden(methodInfo);
-            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = genericSuper != null
-                    ? genericSuper.typeParameters() : methodInfo.typeParameters();
+            // the type parameters' declaration: the generic member's, where the override borrows them (timefold's
+            // SelectionSorterAdapter.getInnerSorter() takes ValueRangeSorter's <S : Any>; Kotlin wants equal bounds)
+            MethodInfo declaring = genericSuper != null ? genericSuper : methodInfo;
+            List<io.codelaser.maddi.cst.api.info.TypeParameter> typeParameters = declaring.typeParameters();
             if (!typeParameters.isEmpty()) {
                 b.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 b.add(typeParameters.stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp, qualification)
-                                                                             + (nonNullBound(methodInfo, tp) ? " : Any" : ""))))
+                                                                             + (nonNullBoundOfTypeVariable(declaring, tp) ? " & Any" : "")
+                                                                             + (nonNullBound(declaring, tp)
+                                                                                || declaring.overrides().isEmpty()
+                                                                                   && KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 b.add(SymbolEnum.RIGHT_ANGLE_BRACKET).add(SpaceEnum.ONE);
             }
             // List.remove(int) is Kotlin's removeAt: there is no remove(index) to override
             boolean removeAt = !methodInfo.overrides().isEmpty() && KotlinMappedMembers.isRemoveAt(methodInfo)
                                && !KotlinTypePrinter.fromKotlinSource(typeInfo);
-            b.add(new TextImpl(removeAt ? "removeAt" : KotlinNames.name(methodInfo.name())));
+            // UnsignedInteger.intValue() overriding Number's: Kotlin's Number declares toInt()
+            String numberFunction = !methodInfo.overrides().isEmpty() && !KotlinTypePrinter.fromKotlinSource(typeInfo)
+                    ? KotlinMappedMembers.function(methodInfo) : null;
+            // guava's ChunksCharSequence.charAt(index) overriding CharSequence's: Kotlin's is the operator get
+            boolean indexGet = !methodInfo.overrides().isEmpty() && KotlinMappedMembers.isIndexGet(methodInfo)
+                               && !KotlinTypePrinter.fromKotlinSource(typeInfo);
+            b.add(new TextImpl(removeAt ? "removeAt" : indexGet ? "get" : numberFunction != null ? numberFunction
+                    : KotlinNames.name(methodInfo.name())));
         }
 
         if (property == null) b.add(parameters(methodInfo, qualification));
 
         if (!methodInfo.isConstructor()) {
             MethodInfo genericSuper = genericOverridden(methodInfo);
-            ParameterizedType rt = KotlinNullability.returnType(genericSuper != null ? genericSuper : methodInfo);
+            ParameterizedType rt = genericSuper != null ? genericOverrideResult(methodInfo, genericSuper)
+                    : KotlinNullability.returnType(methodInfo);
             // the body throws instead of returning null: the override keeps Kotlin's non-null result
             if (rt != null && !methodInfo.isAbstract() && methodInfo.methodBody() != null
                 && nullOverride(expressionBody(methodInfo.methodBody())) != null) {
@@ -116,6 +131,10 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         : KotlinReadOnly.returns(methodInfo) ? KotlinTypeName.readOnly(rt, qualification)
                         : KotlinTypeName.of(rt, qualification)));
             }
+            MethodInfo boundsFrom = genericOverridden(methodInfo);
+            String where = KotlinTypeName.whereClause(boundsFrom != null ? boundsFrom.typeParameters()
+                    : methodInfo.typeParameters(), qualification);
+            if (!where.isEmpty()) b.add(SpaceEnum.ONE).add(new TextImpl(where));
         }
 
         if (property != null && !methodInfo.isAbstract()) b.add(SpaceEnum.ONE).add(new TextImpl("get()"));
@@ -144,13 +163,13 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                         .add(SymbolEnum.LEFT_PARENTHESIS)
                         .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
                         .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                        .add(new TextImpl(KotlinTypeName.of(KotlinNullability.returnType(genericSuper), qualification)));
+                        .add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo, genericSuper), qualification)));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
                         .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
                                 KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
-                                KotlinExpressionPrinter.assigned(expressionBody, KotlinNullability.returnType(methodInfo),
+                                KotlinExpressionPrinter.returned(expressionBody, KotlinNullability.returnType(methodInfo),
                                         qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
@@ -177,7 +196,23 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             case "java.util.List" -> "get".equals(m.name()) || "set".equals(m.name());
             default -> false;
         });
-        return nonNullMember ? "UnsupportedOperationException" : null;
+        return nonNullMember ? "UnsupportedOperationException"
+                : nonNullOverrideResult(methodInfo) ? "NullPointerException" : null;
+    }
+
+    /**
+     * An override whose Kotlin result is non-null, as what it overrides declares it, and not a type variable (which
+     * takes an unchecked cast): jenkins's LegacySecurityRealm.authenticate, overriding Spring's non-null
+     * AuthenticationManager.authenticate, cannot return null.
+     */
+    static boolean nonNullOverrideResult(MethodInfo m) {
+        if (!KotlinContext.translatingJava() || m.isConstructor() || m.overrides().isEmpty()
+            || genericOverridden(m) != null) {
+            return false;
+        }
+        ParameterizedType rt = KotlinNullability.returnType(m);
+        return rt != null && !rt.isVoidOrJavaLangVoid() && !rt.isTypeParameter() && !rt.isPrimitiveExcludingVoid()
+               && !KotlinNullability.isNullable(rt);
     }
 
     /**
@@ -247,6 +282,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (mapDefault != null) return mapDefault;
         ParameterizedType t = KotlinMappedMembers.overriddenParameterType(methodInfo, pi.index());
         if (t == null) return null;
+        if (!KotlinMappedMembers.overriddenCollectionParameter(methodInfo, pi.index())) return KotlinTypeName.of(t, q);
         if (t.typeInfo() != null && "java.util.Collection".equals(t.typeInfo().fullyQualifiedName())) {
             // read-only, invariant: Kotlin's MutableCollection<E>.addAll(elements: Collection<E>)
             return "Collection<" + KotlinTypeName.of(t.parameters().getFirst(), q) + ">";
@@ -292,38 +328,274 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                     + " check's NPE, not " + pi.methodInfo().name() + "'s own exception");
         }
         ParameterizedType type = pi.isVarArgs() ? declared.componentType() : declared; // vararg names: String
-        String printed = typeOverride != null ? typeOverride
+        if (typeOverride == null) {
+            ParameterizedType generic = genericParameter(pi);
+            if (generic != null) {
+                typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(generic.withNullable(declared.nullable()), q));
+            }
+        }
+        if (typeOverride == null) {
+            ParameterizedType overridden = erasureOverride(pi);
+            if (overridden != null) {
+                typeOverride = KotlinTypeName.inSignature(() -> KotlinTypeName.of(overridden.withNullable(declared.nullable()), q));
+            }
+        }
+        java.util.function.Supplier<String> print = () ->
+                // before the read-only collection rule, which leaves an array invariant
+                covariantArray(pi, type) ? outArray(type, q)
                 : readOnlyParameter(pi) ? KotlinTypeName.readOnly(type, q)
-                : covariantArray(pi, type) ? "Array<out " + KotlinTypeName.of(type.componentType(), q) + ">"
-                                             + (KotlinNullability.isNullable(type) ? "?" : "")
                 : KotlinTypeName.of(type, q);
+        // a constructor's E & Any stays: no override repeats it (guava's Equivalence.Wrapper takes an
+        // Equivalence<? super @NonNull T>, which wrap's Equivalence<T> is for an S extends @Nullable T)
+        // a member nothing overrides keeps ? super E & Any: guava's static Maps.difference takes an
+        // Equivalence<? super @NonNull V>, into a null-marked Equivalence<T : Any>. Not a plain E & Any:
+        // ObjectArrays.concat's Class<@NonNull T> would type its newArray result Array<T & Any>
+        String printed = typeOverride != null ? typeOverride
+                : pi.methodInfo().isConstructor() ? print.get()
+                : KotlinTypeName.inSignature(notOverridable(pi.methodInfo()), print);
         ob.add(new TextImpl(KotlinNames.name(pi.name()))).add(SymbolEnum.COLON_LABEL).add(new TextImpl(printed));
         return ob;
     }
 
     /**
-     * Java's {@code Object[]} parameter takes any reference array; Kotlin's {@code Array<Any?>} is invariant and takes
-     * no {@code Array<Document?>}: {@code isNullOrEmpty(documents)}. {@code Array<out Any?>} does, where the method
-     * assigns no element. Not in an override, whose parameter types are the overridden member's.
+     * The overridden member's parameter type, seen through the class, where Java's override declares a looser one
+     * that erases the same: guava's DirectedGraphConnections.removeSuccessor(Object node) overriding
+     * removeSuccessor(N node), TreeRangeMap's putAll(RangeMap<Comparable<?>, ?>) overriding putAll(RangeMap<K, ?
+     * extends V>). Kotlin's override takes the overridden signature. Null otherwise.
      */
-    private static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
+    static ParameterizedType erasureOverride(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        if (!KotlinContext.translatingJava() || m.overrides().isEmpty() || pi.isVarArgs()) return null;
+        ParameterizedType own = pi.parameterizedType();
+        for (MethodInfo o : m.overrides()) {
+            if (!KotlinNullability.translated(o.typeInfo()) || o.parameters().size() <= pi.index()) continue;
+            ParameterizedType theirs = o.parameters().get(pi.index()).parameterizedType();
+            boolean objectForVariable = own.isJavaLangObject() && own.arrays() == 0 && theirs.typeParameter() != null
+                                        && theirs.arrays() == 0 && !theirs.typeParameter().isMethodTypeParameter();
+            boolean looserWildcard = own.typeInfo() != null && own.typeInfo() == theirs.typeInfo()
+                                     && looserWildcards(own, theirs);
+            if (!objectForVariable && !looserWildcard) continue;
+            ParameterizedType seen;
+            try {
+                // with the overridden declaration's type-use @Nullable arguments (RangeMap.merge's ? super @Nullable V)
+                seen = KotlinInheritedDefaults.seenThrough(KotlinTypePrinter.declaredArguments(theirs), o.typeInfo(),
+                        m.typeInfo().asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                continue;
+            }
+            if (seen != null && seen != theirs && (seen.typeParameter() == null
+                                                   || KotlinContext.typeParameterInScope(seen.typeParameter()))) {
+                return seen;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The generic member's parameter type, where the override's takes its type parameters: {@code Class<T>} for
+     * jenkins's raw {@code Class type} of {@code convert(Class<T> type, Object value)}. Null otherwise.
+     */
+    private static ParameterizedType genericParameter(ParameterInfo pi) {
+        MethodInfo genericSuper = genericOverridden(pi.methodInfo());
+        if (genericSuper == null || genericSuper.parameters().size() <= pi.index()) return null;
+        ParameterizedType theirs = genericSuper.parameters().get(pi.index()).parameterizedType();
+        ParameterizedType own = pi.parameterizedType();
+        return theirs.typeInfo() != null && theirs.typeInfo() == own.typeInfo() && theirs.arrays() == own.arrays()
+               && own.parameters().isEmpty() && !theirs.parameters().isEmpty() ? theirs : null;
+    }
+
+    /** Same type arguments, but {@code ?} in {@code own} where {@code theirs} has a bounded wildcard. */
+    private static boolean looserWildcards(ParameterizedType own, ParameterizedType theirs) {
+        if (own.parameters().size() != theirs.parameters().size() || own.parameters().isEmpty()) return false;
+        boolean looser = false;
+        for (int i = 0; i < own.parameters().size(); i++) {
+            ParameterizedType a = own.parameters().get(i);
+            ParameterizedType b = theirs.parameters().get(i);
+            if (a == null || b == null) return false;
+            if (a.isUnboundWildcard() && b.wildcard() != null && !b.isUnboundWildcard()) looser = true;
+            else if (a.isUnboundWildcard() != b.isUnboundWildcard()) {
+                if (!(b.isTypeParameter() || a.typeInfo() == b.typeInfo())) return false;
+            }
+        }
+        return looser;
+    }
+
+    /** {@code Array<out Any?>}: the parameter's own type, element states included, covariant. */
+    private static String outArray(ParameterizedType type, Qualification q) {
+        String printed = KotlinTypeName.of(type, q);
+        return printed.startsWith("Array<") ? "Array<out " + printed.substring("Array<".length()) : printed;
+    }
+
+    /**
+     * Java's arrays are covariant: an {@code Object[]} parameter takes any reference array, a {@code Type[]} one an
+     * array of any subtype's; Kotlin's {@code Array<T>} is invariant and takes no {@code Array<Document?>}
+     * ({@code isNullOrEmpty(documents)}), and ties the elements' states of caller and callee both ways (guava's
+     * {@code Joiner.join(@Nullable Object[] parts)} made TypeResolver's {@code upperBounds} nullable).
+     * {@code Array<out T>} does, where the method only reads the array: it assigns no element, and the array itself
+     * is not returned, stored, cloned, nor handed to a translated method's invariant array parameter. Not in an
+     * override, whose parameter types are the overridden member's.
+     */
+    static boolean covariantArray(ParameterInfo pi, ParameterizedType type) {
+        MethodInfo m = pi.methodInfo();
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || type.arrays() != 1
-            || !pi.methodInfo().overrides().isEmpty() || pi.methodInfo().methodBody() == null) {
+            || !m.overrides().isEmpty() || m.methodBody() == null) {
+            return false;
+        }
+        // nor where an override may take it invariant: guava's Hashing.makeHash, overridden in ConcatenatedHashFunction
+        boolean closed = m.isConstructor() || m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
+                         || m.typeInfo().isFinal();
+        if (!closed) {
+            java.util.List<MethodInfo> family = KotlinContext.options().world().family(m);
+            if (family == null || family.size() != 1) return false;
+        }
+        // a primary constructor's parameter that names an array field is that property: guava's
+        // CombinedHasher(hashers) keeps Hasher[] hashers, handed on as an invariant Array<Hasher>. Not
+        // WildcardTypeImpl(lowerBounds, upperBounds), which keeps ImmutableLists of that name
+        if (m.isConstructor() && m.typeInfo().fields().stream()
+                .anyMatch(f -> f.name().equals(pi.name()) && f.type().arrays() > 0)) {
             return false;
         }
         ParameterizedType element = type.componentType();
-        if (element.typeInfo() == null || !element.typeInfo().isJavaLangObject()) return false;
-        boolean[] assigned = {false};
-        ((io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody()).visit(
-                (io.codelaser.maddi.cst.api.element.Element e) -> {
-            if (e instanceof io.codelaser.maddi.cst.api.expression.Assignment a
-                && a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
-                && pi.equals(dv.arrayVariable())) {
-                assigned[0] = true;
+        if (element.isPrimitiveExcludingVoid() || element.typeInfo() == null && element.typeParameter() == null) {
+            return false;
+        }
+        java.util.Set<ParameterInfo> visiting = COVARIANT_IN_PROGRESS.get();
+        if (!visiting.add(pi)) return true; // a cycle: each one's other uses are checked where it is entered
+        try {
+            return onlyReadArray(pi);
+        } finally {
+            visiting.remove(pi);
+        }
+    }
+
+    private static final ThreadLocal<java.util.Set<ParameterInfo>> COVARIANT_IN_PROGRESS =
+            ThreadLocal.withInitial(() -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+
+    private static boolean onlyReadArray(ParameterInfo pi) {
+        boolean[] escapes = {false};
+        escapes(pi, (io.codelaser.maddi.cst.api.element.Element) pi.methodInfo().methodBody(), escapes);
+        return !escapes[0];
+    }
+
+    /** The uses of {@code pi} in {@code body}, and in the bodies of the anonymous classes there, which capture it. */
+    private static void escapes(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.element.Element body, boolean[] escapes) {
+        // elements.clone() spread into a vararg (guava's ImmutableList.copyOf: construct(elements.clone())): the copy
+        // goes where an Array<out T> goes; the call is visited before its arguments
+        java.util.Set<io.codelaser.maddi.cst.api.expression.Expression> spreadClones =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall call) {
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.methodInfo()));
+            } else if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall call) {
+                spreadClones.addAll(clonesIntoVarargs(pi, call.parameterExpressions(), call.constructor()));
             }
-            return !assigned[0];
+            switch (e) {
+                case io.codelaser.maddi.cst.api.expression.Assignment a -> {
+                    if (a.variableTarget() instanceof io.codelaser.maddi.cst.api.variable.DependentVariable dv
+                        && pi.equals(dv.arrayVariable()) || isPi(pi, a.value()) || pi.equals(a.variableTarget())) {
+                        escapes[0] = true;
+                    }
+                }
+                case io.codelaser.maddi.cst.api.statement.ReturnStatement rs when isPi(pi, rs.expression()) ->
+                        escapes[0] = true;
+                case io.codelaser.maddi.cst.api.statement.LocalVariableCreation lvc -> {
+                    // guava's ObjectArrays.newArray: T[] empty = reference.length == 0 ? reference : copyOf(…), only
+                    // handed on to Arrays.copyOf: the local's own uses decide (RegularImmutableMap's entries[i] = …
+                    // makes it escape)
+                    lvc.localVariableStream().filter(lv -> isPi(pi, lv.assignmentExpression())).forEach(lv -> {
+                        if (!ALIASES_IN_PROGRESS.get().add(lv)) return;
+                        try {
+                            escapes(lv, body, escapes);
+                        } finally {
+                            ALIASES_IN_PROGRESS.get().remove(lv);
+                        }
+                    });
+                }
+                case io.codelaser.maddi.cst.api.expression.MethodCall mc -> {
+                    if (cloneOf(pi, mc) && !spreadClones.contains(mc)) escapes[0] = true;
+                    if (!acceptsOut(pi, mc.parameterExpressions(), mc.methodInfo())) escapes[0] = true;
+                }
+                case ExplicitConstructorInvocation eci -> {
+                    // jenkins's UrlValidator: this(schemes, authorityValidator, options, …), whose schemes is
+                    // reassigned there, an invariant Array<String>?
+                    if (eci.methodInfo() == null && eci.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || eci.methodInfo() != null && !acceptsOut(pi, eci.parameterExpressions(), eci.methodInfo())) {
+                        escapes[0] = true;
+                    }
+                }
+                case io.codelaser.maddi.cst.api.expression.ConstructorCall cc -> {
+                    if (cc.constructor() == null && cc.parameterExpressions().stream().anyMatch(x -> isPi(pi, x))
+                        || cc.constructor() != null && !acceptsOut(pi, cc.parameterExpressions(), cc.constructor())) {
+                        escapes[0] = true;
+                    }
+                    // guava's fromHashers(hashers): new Hasher() { … makeHash(hashers) … }
+                    if (cc.anonymousClass() != null) {
+                        cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null).forEach(am -> escapes(
+                                pi, (io.codelaser.maddi.cst.api.element.Element) am.methodBody(), escapes));
+                        cc.anonymousClass().fields().stream().filter(f -> f.initializer() != null && !f.initializer().isEmpty())
+                                .forEach(f -> escapes(pi, f.initializer(), escapes));
+                    }
+                }
+                default -> {
+                }
+            }
+            return !escapes[0];
         });
-        return !assigned[0];
+    }
+
+    private static final ThreadLocal<java.util.Set<io.codelaser.maddi.cst.api.variable.Variable>> ALIASES_IN_PROGRESS =
+            ThreadLocal.withInitial(java.util.HashSet::new);
+
+    private static boolean cloneOf(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.expression.MethodCall mc) {
+        return mc.object() != null && isPi(pi, mc.object()) && mc.methodInfo() != null
+               && "clone".equals(mc.methodInfo().name()) && mc.parameterExpressions().isEmpty();
+    }
+
+    /** The {@code pi.clone()} arguments that are a call's whole vararg array: printed spread, a copy again. */
+    private static List<io.codelaser.maddi.cst.api.expression.Expression> clonesIntoVarargs(
+            io.codelaser.maddi.cst.api.variable.Variable pi, List<io.codelaser.maddi.cst.api.expression.Expression> args, MethodInfo callee) {
+        if (callee == null || callee.parameters().isEmpty() || args.size() != callee.parameters().size()
+            || !callee.parameters().getLast().isVarArgs()) {
+            return List.of();
+        }
+        io.codelaser.maddi.cst.api.expression.Expression last = KotlinExpressionPrinter.unwrap(args.getLast());
+        return last instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && cloneOf(pi, mc)
+               ? List.of(mc) : List.of();
+    }
+
+    // the value is pi, also as a branch of a conditional: guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow,
+    // entries = n == entryArray.length ? entryArray : createEntryArray(n), an invariant local
+    private static boolean isPi(io.codelaser.maddi.cst.api.variable.Variable pi, io.codelaser.maddi.cst.api.expression.Expression e) {
+        if (e == null) return false;
+        io.codelaser.maddi.cst.api.expression.Expression x = KotlinExpressionPrinter.unwrap(e);
+        if (x instanceof io.codelaser.maddi.cst.api.expression.InlineConditional ic) {
+            return isPi(pi, ic.ifTrue()) || isPi(pi, ic.ifFalse());
+        }
+        return x instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable());
+    }
+
+    /**
+     * Each argument that is {@code pi} lands where an {@code Array<out T>} is accepted: a library method's array
+     * parameter (Kotlin's platform {@code Array<(out) T>!}), a vararg (spread), a type variable, or a translated
+     * method's array parameter that is itself printed covariant.
+     */
+    private static boolean acceptsOut(io.codelaser.maddi.cst.api.variable.Variable pi, List<io.codelaser.maddi.cst.api.expression.Expression> args,
+                                      MethodInfo callee) {
+        for (int i = 0; i < args.size(); i++) {
+            if (!isPi(pi, args.get(i))) continue;
+            if (callee == null || callee.parameters().isEmpty()) return false;
+            ParameterInfo p = callee.parameters().get(Math.min(i, callee.parameters().size() - 1));
+            // this.rest = checkNotNull(rest): the array comes back, as what the call returns
+            if (passThrough(callee, Math.min(i, callee.parameters().size() - 1))) return false;
+            if (p.isVarArgs()) continue;
+            if (!KotlinNullability.translated(callee.typeInfo())) continue;
+            ParameterizedType t = p.parameterizedType();
+            if (t.arrays() == 0 && (t.typeParameter() != null || t.typeInfo() != null && t.typeInfo().isJavaLangObject())) {
+                continue;
+            }
+            if (!covariantArray(p, KotlinNullability.parameterType(p))) return false;
+        }
+        return true;
     }
 
     /**
@@ -336,7 +608,41 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
      * none, its own verdict; for any other, its override family's in the {@link KotlinWorld} (maddi-mod#25): Kotlin
      * wants an override's parameter types exactly the overridden member's.
      */
-    private static boolean readOnlyParameter(ParameterInfo pi) {
+    static boolean readOnlyParameter(ParameterInfo pi) {
+        return readOnlyOwn(pi) && widerOverloadsReadOnly(pi);
+    }
+
+    /**
+     * guava's ImmutableIntArray.Builder: {@code addAll(Iterable<Integer>)} passes its argument on in a cast, and stays
+     * a MutableIterable; {@code addAll(Collection<Integer>)} would be read-only. Kotlin's Collection is no
+     * MutableIterable, so a MutableCollection argument fits both and neither is more specific: an overload's
+     * collection parameter is read-only only when the overload taking a supertype there is too.
+     */
+    private static boolean widerOverloadsReadOnly(ParameterInfo pi) {
+        MethodInfo m = pi.methodInfo();
+        TypeInfo own = pi.parameterizedType().typeInfo();
+        if (own == null || pi.parameterizedType().arrays() != 0) return true;
+        return m.typeInfo().methods().stream().filter(o -> o != m && o.name().equals(m.name())
+                        && o.parameters().size() == m.parameters().size() && o.isStatic() == m.isStatic())
+                .map(o -> o.parameters().get(pi.index()))
+                .filter(op -> op.parameterizedType().arrays() == 0 && op.parameterizedType().typeInfo() != null
+                        && op.parameterizedType().typeInfo() != own
+                        && KotlinTypeName.isMapped(op.parameterizedType().typeInfo().fullyQualifiedName())
+                        && isSubtype(own, op.parameterizedType().typeInfo(), new java.util.HashSet<>()))
+                // an Iterable prints MutableIterable whatever its verdict (acceptsReadOnly): guava's addAll(Iterable)
+                // only reads its values
+                .allMatch(op -> !KotlinTypeName.mutableOnly(op.parameterizedType().typeInfo().fullyQualifiedName())
+                                && readOnlyParameter(op));
+    }
+
+    private static boolean isSubtype(TypeInfo sub, TypeInfo sup, java.util.Set<TypeInfo> visited) {
+        if (sub == null || !visited.add(sub)) return false;
+        if (sub == sup) return true;
+        if (sub.parentClass() != null && isSubtype(sub.parentClass().typeInfo(), sup, visited)) return true;
+        return sub.interfacesImplemented().stream().anyMatch(i -> isSubtype(i.typeInfo(), sup, visited));
+    }
+
+    private static boolean readOnlyOwn(ParameterInfo pi) {
         MethodInfo m = pi.methodInfo();
         if (!KotlinContext.translatingJava() || pi.isVarArgs() || m.isConstructor()) return false;
         boolean closed = m.isStatic() || m.isFinal() || m.access() != null && m.access().isPrivate()
@@ -400,11 +706,23 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         if (index >= callee.parameters().size() - 1 && p.isVarArgs()) {
             // Objects.hash(name, items): an element of Object... takes any collection
             ParameterizedType element = p.parameterizedType().arrays() == 1 ? p.parameterizedType().componentType() : null;
+            // jenkins's Iterators.sequence(Iterator<? extends T>... iterators), translated: MutableIterator elements
+            if (element != null && element.arrays() == 0 && element.typeInfo() != null
+                && KotlinTypeName.mutableOnly(element.typeInfo().fullyQualifiedName())
+                && KotlinNullability.translated(callee.typeInfo())) {
+                return false;
+            }
             return element != null && (element.typeParameter() != null ? element.typeParameter().isMethodTypeParameter()
                     : KotlinTypeName.readOnly(element, null).equals(KotlinTypeName.of(element, null)));
         }
         ParameterizedType type = p.parameterizedType();
         if (type.typeParameter() != null) return type.arrays() == 0 && type.typeParameter().isMethodTypeParameter();
+        // guava's ObjectArrays.fillArray(Iterable<?> elements, …): a translated Iterable or Iterator parameter is always
+        // Kotlin's MutableIterable, MutableIterator, which no read-only Collection is
+        if (type.arrays() == 0 && type.typeInfo() != null && KotlinTypeName.mutableOnly(type.typeInfo().fullyQualifiedName())
+            && KotlinNullability.translated(callee.typeInfo())) {
+            return false;
+        }
         if (KotlinTypeName.readOnly(type, null).equals(KotlinTypeName.of(type, null))) return true; // not a collection
         return !KotlinNullability.translated(callee.typeInfo()) || readOnlyParameter(p);
     }
@@ -419,7 +737,7 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         java.util.Set<io.codelaser.maddi.cst.api.element.Element> reads =
                 java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         int[] uses = {0};
-        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+        java.util.function.Predicate<io.codelaser.maddi.cst.api.element.Element> visitor = e -> {
             if (e instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc && mc.object() != null
                 && KotlinExpressionPrinter.unwrap(mc.object()) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
                 && pi.equals(ve.variable()) && !VIEWS.contains(mc.methodInfo().name())) {
@@ -474,6 +792,16 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
             if (e instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve && pi.equals(ve.variable())) {
                 uses[0]++;
+            }
+            return true;
+        };
+        body.visit(visitor);
+        // the methods of an anonymous class capture it too: guava's Maps.removeOnlySet, a ForwardingSet whose
+        // delegate() returns the set as its MutableSet
+        body.visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+            if (e instanceof io.codelaser.maddi.cst.api.expression.ConstructorCall cc && cc.anonymousClass() != null) {
+                cc.anonymousClass().methods().stream().filter(am -> am.methodBody() != null)
+                        .forEach(am -> am.methodBody().visit(visitor));
             }
             return true;
         });
@@ -542,14 +870,28 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
     /**
      * The generic member a method without type parameters overrides: Java lets {@code Class<AiServiceCompletedEvent>
      * eventClass()} override {@code <T extends AiServiceEvent> Class<T> eventClass()} (unchecked); Kotlin does not, and
-     * the override is printed with the member's type parameters and result, its value cast. Only an abstract method
-     * or one whose body is a single expression, which takes the cast; null otherwise.
+     * the override is printed with the member's type parameters, parameters and result, its values cast (jenkins's
+     * raw {@code Object convert(Class type, Object value)} of beanutils's {@code <T> T convert(Class<T>, Object)});
+     * null otherwise.
      */
-    private MethodInfo genericOverridden(MethodInfo m) {
+    static MethodInfo genericOverridden(MethodInfo m) {
         if (m.isConstructor() || !m.typeParameters().isEmpty() || m.overrides().isEmpty()) return null;
-        if (!m.isAbstract() && (m.methodBody() == null || expressionBody(m.methodBody()) == null)) return null;
+        if (!m.isAbstract() && m.methodBody() == null) return null;
         return m.overrides().stream().filter(o -> !o.typeParameters().isEmpty() && mentionsOwnTypeParameter(o))
                 .findFirst().orElse(null);
+    }
+
+    /**
+     * The result of {@code m}, printed with the generic member's: that member's type, non-null where {@code m}'s own
+     * result is (an override may narrow V? to V). timefold's ListVariableDescriptor.getValue returns its list, so
+     * getValue<MutableList<Any?>>(entity).size needs no assertion.
+     */
+    static ParameterizedType genericOverrideResult(MethodInfo m, MethodInfo genericSuper) {
+        ParameterizedType rt = KotlinNullability.returnType(genericSuper);
+        ParameterizedType own = KotlinNullability.returnType(m);
+        return rt != null && own != null && KotlinNullability.isNullable(rt) && !KotlinNullability.isNullable(own)
+               && !own.isPrimitiveExcludingVoid()
+                ? rt.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL) : rt;
     }
 
     private static boolean mentionsOwnTypeParameter(MethodInfo o) {
@@ -585,18 +927,82 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                        .allMatch(o -> o.typeInfo().isInterface() && o.typeInfo().fullyQualifiedName().startsWith("java.util."));
     }
 
+    /**
+     * {@code <T extends @NonNull B>} of a nullable-bounded B: {@code T : B & Any}, or no {@code TypeToken<T : Any>}
+     * takes a T (guava's TypeToInstanceMap). As the root declaration says, which every override repeats: the
+     * implementations of ClassToInstanceMap.getInstance do not all say @NonNull.
+     */
+    private static boolean nonNullBoundOfTypeVariable(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
+        List<ParameterizedType> bounds = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject()).toList();
+        if (!KotlinContext.translatingJava() || bounds.size() != 1 || !bounds.getFirst().isTypeParameter()
+            || bounds.getFirst().arrays() > 0 || !KotlinTypeName.nullableTypeVariable(bounds.getFirst())) return false;
+        int index = methodInfo.typeParameters().indexOf(tp);
+        if (index < 0) return false;
+        MethodInfo root = methodInfo;
+        io.codelaser.maddi.cst.api.info.TypeParameter rootTp = tp;
+        for (MethodInfo o : methodInfo.overrides()) {
+            if (KotlinNullability.translated(o.typeInfo()) && index < o.typeParameters().size()
+                && o.overrides().isEmpty()) {
+                root = o;
+                rootTp = o.typeParameters().get(index);
+            }
+        }
+        return root.typeParameters().contains(rootTp) && rootTp.typeBounds().stream().anyMatch(b -> b.annotations().stream()
+                .anyMatch(ae -> io.codelaser.maddi.cst.impl.analysis.NullAnnotations.NON_NULL.contains(ae.typeInfo().simpleName())));
+    }
+
+    /**
+     * langchain4j's DefaultContentAggregatorTest: {@code @ParameterizedTest @MethodSource void test(Map m)} beside its
+     * {@code private static Stream<Arguments> test()}. JUnit finds the factory by name, the annotation's or by default
+     * the test's own, among the class's statics: a private companion function without {@code @JvmStatic} is not one.
+     */
+    private static boolean methodSourceFactory(MethodInfo methodInfo) {
+        if (!methodInfo.parameters().isEmpty()) return false;
+        return methodInfo.typeInfo().methods().stream().anyMatch(test -> test.annotations().stream()
+                .filter(a -> "org.junit.jupiter.params.provider.MethodSource".equals(a.typeInfo().fullyQualifiedName()))
+                .anyMatch(a -> {
+                    List<String> names = new java.util.ArrayList<>();
+                    a.keyValuePairs().forEach(kv -> kv.value().visit((io.codelaser.maddi.cst.api.element.Element e) -> {
+                        if (e instanceof io.codelaser.maddi.cst.api.expression.StringConstant sc) {
+                            String name = sc.constant();
+                            names.add(name.substring(name.indexOf('#') + 1));
+                        }
+                        return true;
+                    }));
+                    if (names.isEmpty()) names.add(test.name());
+                    return names.contains(methodInfo.name());
+                }));
+    }
+
+    /** A constructor, or a static, private or final method that overrides nothing: its signature is its own. */
+    private static boolean notOverridable(MethodInfo m) {
+        return m.isConstructor() || m.overrides().isEmpty() && (m.isStatic() || m.access() != null && m.access().isPrivate() || m.isFinal()
+                                                               || m.typeInfo().isFinal());
+    }
+
     static boolean nonNullBound(MethodInfo methodInfo, io.codelaser.maddi.cst.api.info.TypeParameter tp) {
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!methodInfo.overrides().isEmpty()) {
-            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds
+            // AllEqualOrdering's sortedCopy overrides Ordering's <E : Any> sortedCopy: Kotlin wants the same bounds,
+            // the printer's or the verdicts' (null-marked bounds) of the overridden one, not the override's own
             int index = methodInfo.typeParameters().indexOf(tp);
             return index >= 0 && methodInfo.overrides().stream().anyMatch(o -> KotlinNullability.translated(o.typeInfo())
                     && index < o.typeParameters().size()
-                    && nonNullBound(o, o.typeParameters().get(index)));
+                    && (nonNullBound(o, o.typeParameters().get(index))
+                        || o.overrides().isEmpty() && KotlinTypeName.nonNullClassTypeParameter(o.typeParameters().get(index))
+                        // Ordering's <E extends @NonNull T>, a T & Any; AllEqualOrdering's T is an Any?
+                        || nonNullBoundOfTypeVariable(o, o.typeParameters().get(index))));
         }
         ParameterizedType rt = KotlinNullability.returnType(methodInfo);
         if (rt == null || rt.typeParameter() != tp || rt.arrays() > 0 || KotlinNullability.isNullable(rt)) return false;
         if (typeArgumentOfParameter(methodInfo, tp)) return false;
+        // langchain4j's getOrDefault(T value, T defaultValue): a plain T parameter takes a caller's nullable instantiation
+        if (methodInfo.parameters().stream().anyMatch(p -> {
+            ParameterizedType pt = KotlinNullability.parameterType(p);
+            return pt.typeParameter() == tp && pt.arrays() == 0 && !KotlinNullability.isNullable(pt);
+        })) {
+            return false;
+        }
         return methodInfo.parameters().stream().anyMatch(p -> {
             ParameterizedType pt = KotlinNullability.parameterType(p);
             ParameterizedType element = p.isVarArgs() && pt.arrays() > 0 ? pt.componentType() : pt;

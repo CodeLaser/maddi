@@ -117,7 +117,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (constructors.size() == 1) {
             MethodInfo c = constructors.getFirst();
             if (!c.parameters().isEmpty() && c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name())
-                    && !KotlinFieldPrinter.clashesWithMappedProperty(fieldByName.get(p.name())))
+                    && !KotlinFieldPrinter.renamed(fieldByName.get(p.name())))
                 && (!companion || onlyAssignsParameters(c))) {
                 primary = c;
             }
@@ -140,7 +140,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
-            out.add(KotlinAnnotations.print(typeInfo.annotations(), insideType));
+            // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
+            // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
+            out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
             if (dataClass && typeInfo.typeNature().isRecord() && KotlinContext.translatingJava()
                 && !accessorsAsFunctions(typeInfo, components)) {
                 // a JVM record, as Java's: Java code calls item.varExprent(), not item.getVarExprent()
@@ -163,8 +165,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 else if (mods.contains(TypeModifierEnum.SEALED)) out.add(KeywordImpl.SEALED).add(SpaceEnum.ONE);
                 else if (!mods.contains(TypeModifierEnum.FINAL)) out.add(KotlinKeyword.OPEN).add(SpaceEnum.ONE);
             }
-            if (companion && typeInfo.isInnerClass() && !isLocal(typeInfo) && !typeInfo.isAnonymous()) {
-                out.add(new TextImpl("inner")).add(SpaceEnum.ONE); // Java's nested class sees the outer instance
+            if (companion && inner(typeInfo) && !typeInfo.isAnonymous()
+                && (!isLocal(typeInfo) || memberOfAnonymous(typeInfo))) {
+                // Java's nested class sees the outer instance; an object expression takes only an inner class
+                // (guava's HashBiMap: class MapEntry inside the anonymous BiIterator)
+                out.add(new TextImpl("inner")).add(SpaceEnum.ONE);
             }
             if (annotationType) {
                 out.add(new TextImpl("annotation")).add(SpaceEnum.ONE).add(KeywordImpl.CLASS);
@@ -173,9 +178,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else if (typeInfo.typeNature().isInterface()) {
                 // a Kotlin lambda converts to a Kotlin interface only when it is a `fun interface`; a generic method
                 // cannot be one's, nor is it a lambda's target in Java
+                // nor one whose method is a property, String name() (nacos's RpcClientConfig)
                 if (companion && typeInfo.isFunctionalInterface() && !typeInfo.typeNature().isAnnotation()
                     && (typeInfo.singleAbstractMethod() == null
-                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty())) {
+                        || typeInfo.singleAbstractMethod().typeParameters().isEmpty()
+                           && !KotlinMappedMembers.enumProperty(typeInfo.singleAbstractMethod()))) {
                     out.add(KotlinKeyword.FUN).add(SpaceEnum.ONE);
                 }
                 out.add(KeywordImpl.INTERFACE);
@@ -190,17 +197,29 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
                 out.add(typeInfo.typeParameters().stream()
                         .map(tp -> new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.typeParameter(tp,
-                                new KotlinHeaderQualification(insideType, typeInfo)))))
+                                new KotlinHeaderQualification(insideType, typeInfo))
+                                + (KotlinTypeName.nonNullClassTypeParameter(tp) ? " : Any" : ""))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
                 out.add(SymbolEnum.RIGHT_ANGLE_BRACKET);
             }
             if (primary != null) {
+                // guava's ClosingFuture.DeferredCloser: private DeferredCloser(CloseableList list) into a private field,
+                // CloseableList a private nested class (internal): the header keeps both visibilities, or its public
+                // constructor and property expose the internal type
+                Optional<Keyword> constructorVisibility = typeInfo.typeNature().isEnum() ? Optional.empty()
+                        : KotlinModifiers.visibility(primary.access(), typeInfo, primary);
+                constructorVisibility.ifPresent(v -> out.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
+                        .add(KotlinKeyword.CONSTRUCTOR));
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
-                                // a record's component is read through its accessor, x(): a data class property
-                                .add(!typeInfo.typeNature().isRecord()
+                                .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
+                                .add(propertyVisibility(fieldByName.get(p.name())))
+                                // a record's component is read through its accessor, x(): a data class property. A
+                                // private property has no accessors, and @JvmField none to replace
+                                .add(!privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
                                      && KotlinFieldPrinter.accessorClash(fieldByName.get(p.name()), fieldByName.get(p.name()).isFinal())
-                                     || !typeInfo.typeNature().isRecord() && !hasComponentMethods(typeInfo)
+                                     || !privateProperty(fieldByName.get(p.name())) && !typeInfo.typeNature().isRecord()
+                                        && !hasComponentMethods(typeInfo)
                                         && KotlinFieldPrinter.javaField(fieldByName.get(p.name()), KotlinModifiers.visibility(
                                                 fieldByName.get(p.name()).access(), fieldByName.get(p.name()).owner()))
                                         ? new OutputBuilderImpl().add(new TextImpl("@JvmField")).add(SpaceEnum.ONE)
@@ -238,6 +257,9 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 out.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                         .add(supers.stream().collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
             }
+            String where = KotlinTypeName.whereClause(typeInfo.typeParameters(),
+                    new KotlinHeaderQualification(insideType, typeInfo));
+            if (!where.isEmpty()) out.add(SpaceEnum.ONE).add(new TextImpl(where));
         }
 
         List<OutputBuilder> members = new ArrayList<>();
@@ -278,6 +300,22 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(m -> !isRecordAccessor(m) && !isAnnotationElement(m) && !abstractObjectMethod(m))
                 .forEach(m -> members.add(methodPrinterFactory.create(typeInfo, m, formatter2).print(insideType)));
         if (KotlinContext.translatingJava()) members.addAll(KotlinInheritedDefaults.overrides(typeInfo, insideType));
+        if (KotlinContext.translatingJava() && !typeInfo.isAbstract() && extendsNumber(typeInfo)) {
+            // Java's Number implements byteValue() and shortValue() from intValue(); Kotlin's declares toByte() and
+            // toShort() abstract (guava's UnsignedInteger, UnsignedLong, AtomicDouble)
+            if (!declaresInChain(typeInfo, "byteValue")) {
+                members.add(new OutputBuilderImpl().add(new TextImpl("override fun toByte(): Byte = toInt().toByte()")));
+            }
+            if (!declaresInChain(typeInfo, "shortValue")) {
+                members.add(new OutputBuilderImpl().add(new TextImpl("override fun toShort(): Short = toInt().toShort()")));
+            }
+        }
+        if (typeInfo.isAnonymous() && typeInfo.interfacesImplemented().stream().anyMatch(this::readOnlyIterator)) {
+            // new Iterator<B>() {…} without remove(): the object is a MutableIterator, as where it goes
+            // (MutableIterable.iterator()) wants one, and takes Java's default remove
+            members.add(new OutputBuilderImpl().add(new TextImpl(
+                    "override fun remove() { throw UnsupportedOperationException(\"remove\") }")));
+        }
         typeInfo.subTypes().stream()
                 .filter(st -> !st.isSynthetic())
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
@@ -293,8 +331,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** The one explicit constructor of a Java class, which becomes the primary one; null when there are more. */
     private MethodInfo soleConstructor(List<MethodInfo> constructors) {
-        if (typeInfo.isAnonymous() || typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
+        if (typeInfo.typeNature().isInterface() || constructors.size() != 1) return null;
         MethodInfo c = constructors.getFirst();
+        // an anonymous class's instance initializer, its one constructor: double-brace initialization, nacos's
+        // new HashMap<String, String>(8) {{ put(…); }}; an object expression has an init block, and no constructor
+        if (typeInfo.isAnonymous() && !c.parameters().isEmpty()) return null;
         return isImplicitDefaultConstructor(c) || returnsEarly(c) ? null : c;
     }
 
@@ -355,7 +396,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         TypeInfo owner = c.typeInfo();
         FieldInfo field = owner.fields().stream().filter(f -> f.name().equals(parameter.name()) && !f.isStatic())
                 .findFirst().orElse(null);
-        if (field == null || KotlinFieldPrinter.clashesWithMappedProperty(field)) return null;
+        if (field == null || KotlinFieldPrinter.renamed(field)) return null;
         boolean companion = !fromKotlinSource(owner);
         if (companion && owner.typeNature().isRecord()) return field;
         List<MethodInfo> constructors = owner.constructors().stream().filter(x -> !x.isSynthetic()).toList();
@@ -365,12 +406,42 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return allFields && (!companion || onlyAssignsParameters(c)) ? field : null;
     }
 
+    /**
+     * Each statement assigns a parameter to the field of its name. Not to another field: guava's Invokable assigns
+     * its member to accessibleObject and member, and the header property took the second, the first assignment lost.
+     */
     private static boolean onlyAssignsParameters(MethodInfo c) {
         return c.methodBody() != null && c.methodBody().statements().stream().filter(s -> !s.isSynthetic())
                 .allMatch(s -> s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
                                && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
                                && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
-                               && ve.variable() instanceof ParameterInfo);
+                               && ve.variable() instanceof ParameterInfo pi
+                               && a.variableTarget() != null && pi.name().equals(a.variableTarget().simpleName()));
+    }
+
+    private static boolean privateProperty(FieldInfo field) {
+        return KotlinModifiers.visibility(field.access(), field.owner(), null)
+                .equals(Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE));
+    }
+
+    /**
+     * A header property's visibility: its field's, nothing for a public one. Parsed from Kotlin, the property's own,
+     * which is its getter's: the front end models {@code class Foo(val id: Int)} as a private field and a public
+     * {@code getId()}, and the field's would print the public property private.
+     */
+    private static OutputBuilder propertyVisibility(FieldInfo field) {
+        OutputBuilder b = new OutputBuilderImpl();
+        MethodInfo getter = fromKotlinSource(field.owner()) ? getter(field) : null;
+        (getter != null ? KotlinModifiers.visibility(getter.access(), field.owner(), getter)
+                : KotlinModifiers.visibility(field.access(), field.owner(), field)).ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
+        return b;
+    }
+
+    /** The accessor that reads {@code field}, as the front end links it ({@code getSetField}); null when none. */
+    private static MethodInfo getter(FieldInfo field) {
+        return field.owner().methods().stream()
+                .filter(m -> isAccessor(m) && m.getSetField().field() == field && m.parameters().isEmpty())
+                .findFirst().orElse(null);
     }
 
     /** {@code private constructor(x: Int)}, or just {@code (x: Int)}. */
@@ -448,7 +519,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             && m.methodBody().statements().getFirst() instanceof io.codelaser.maddi.cst.api.statement.ReturnStatement rs
             && rs.expression() != null) {
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, q));
+                    .add(KotlinAnnotations.elementValue(rs.expression(), type.arrays() > 0, type, q));
         }
         return b;
     }
@@ -501,9 +572,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<OutputBuilder> members = new ArrayList<>();
         // an inner, local or anonymous class can have no companion: its serialVersionUID (all guava's statics there)
         // goes, the class's stream id is then computed
-        boolean noCompanion = typeInfo.isInnerClass() || isLocal(typeInfo) || typeInfo.isAnonymous();
+        boolean noCompanion = inner(typeInfo) || isLocal(typeInfo) || typeInfo.isAnonymous();
         typeInfo.fields().stream().filter(f -> !f.isSynthetic() && f.isStatic() && !isEnumConstant(f))
                 .filter(f -> !noCompanion || !"serialVersionUID".equals(f.name()))
+                .filter(f -> !hoisted(f))
+                .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
+        typeInfo.subTypes().stream().flatMap(t -> t.fields().stream()).filter(KotlinTypePrinter::hoisted)
                 .forEach(f -> members.add(fieldPrinterFactory.create(f, formatter2).print(q, false)));
         typeInfo.methods().stream().filter(m -> !m.isSynthetic() && (m.isStatic() || m.isStaticInitializer()))
                 .sorted(java.util.Comparator.comparing(MethodInfo::isStaticInitializer))
@@ -514,16 +588,61 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                         SymbolEnum.LEFT_BRACE, SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock()))));
     }
 
+    /**
+     * A static final field of an inner class, printed in the enclosing class's companion object: Kotlin allows no
+     * companion in an inner class, whose members find the enclosing class's by their simple names. nacos's
+     * ServerMemberManager.MemberInfoReportTask: {@code public static final long REPORT_INTERVAL}. Not where the
+     * enclosing class has a static field of that name, nor another of its inner classes.
+     */
+    static boolean hoisted(FieldInfo f) {
+        TypeInfo owner = f.owner();
+        if (!KotlinContext.translatingJava() || f.isSynthetic() || !f.isStatic() || !f.isFinal() || owner == null
+            || "serialVersionUID".equals(f.name()) || !inner(owner) || owner.isAnonymous() || isLocal(owner)) {
+            return false;
+        }
+        TypeInfo enclosing = CstQueries.enclosing(owner);
+        if (enclosing == null || enclosing == owner || inner(enclosing) || isLocal(enclosing) || enclosing.isAnonymous()
+            || enclosing.typeNature().isInterface()) {
+            return false;
+        }
+        return enclosing.fields().stream().noneMatch(g -> g.name().equals(f.name()))
+               && enclosing.subTypes().stream().filter(t -> t != owner && inner(t))
+                       .flatMap(t -> t.fields().stream()).noneMatch(g -> g.isStatic() && g.name().equals(f.name()));
+    }
+
+    /**
+     * Java's inner class is Kotlin's: it sees the outer instance. Not a member class holding constants only, nacos's
+     * RpcConstants.ClientSuffix (public class, static finals): nothing of it uses the outer instance, and Kotlin
+     * allows no companion object in an inner class.
+     */
+    static boolean inner(TypeInfo typeInfo) {
+        if (!typeInfo.isInnerClass()) return false;
+        if (!KotlinContext.translatingJava() || typeInfo.isAnonymous() || isLocal(typeInfo)) return true;
+        boolean staticOnly = (typeInfo.parentClass() == null || typeInfo.parentClass().isJavaLangObject())
+                && typeInfo.interfacesImplemented().isEmpty()
+                && typeInfo.fields().stream().allMatch(f -> f.isSynthetic() || f.isStatic())
+                && typeInfo.fields().stream().anyMatch(f -> !f.isSynthetic() && f.isStatic())
+                && typeInfo.methods().stream().allMatch(m -> m.isSynthetic() || m.isStatic() || m.isStaticInitializer())
+                && typeInfo.constructors().stream().allMatch(c -> c.isSynthetic() || c.parameters().isEmpty()
+                        && (c.methodBody() == null || c.methodBody().statements().stream().allMatch(st -> st.isSynthetic())))
+                && typeInfo.subTypes().isEmpty();
+        return !staticOnly;
+    }
+
     /** Parsed from a {@code .kt} file: printed back in its own shape, not translated from Java's. */
     static boolean fromKotlinSource(TypeInfo typeInfo) {
         java.net.URI uri = typeInfo.compilationUnit().uri();
         return uri != null && (uri.toString().endsWith(".kt") || uri.toString().endsWith(".kts"));
     }
 
-    /** An enum constant: a static final field of the enum's own type (initialized by a constructor call). */
+    /**
+     * An enum constant: a static final field of the enum's own type, initialized by a constructor call. Not guava's
+     * Types.JavaVersion.CURRENT, a static final field of the enum's type that a static block assigns one of the
+     * constants; nor LocalCache.EntryFactory's {@code static final EntryFactory[] factories = {…}}.
+     */
     private boolean isEnumConstant(FieldInfo f) {
         return typeInfo.typeNature().isEnum() && f.isStatic() && f.isFinal()
-                && f.type().typeInfo() == typeInfo;
+                && f.type().typeInfo() == typeInfo && f.type().arrays() == 0 && f.initializer() instanceof ConstructorCall;
     }
 
     private List<FieldInfo> enumConstants() {
@@ -553,9 +672,49 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return methodInfo.getSetField() != null && methodInfo.getSetField().field() != null;
     }
 
+    /**
+     * A varargs constructor whose parameters become the class header's properties: a record's canonical one, or the
+     * sole constructor of {@link #print}'s primary-constructor rule. Its last parameter is an {@code Array<T>} there, not
+     * a vararg: a data class's primary constructor takes none (jenkins's FilePath.Archive, FilePath.Read).
+     */
+    static boolean varargsAsArray(MethodInfo c) {
+        if (c == null || !c.isConstructor() || c.parameters().isEmpty() || !c.parameters().getLast().isVarArgs()
+            || !KotlinContext.translatingJava()) {
+            return false;
+        }
+        TypeInfo t = c.typeInfo();
+        // a library's constructor keeps Java's varargs: jenkins's Messages, new Localizable(holder, key, arg0, arg1)
+        if (fromKotlinSource(t) || !KotlinNullability.translated(t)) return false;
+        if (t.typeNature().isRecord()) {
+            return c.parameters().size() == t.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).count();
+        }
+        List<MethodInfo> constructors = t.constructors().stream().filter(x -> !x.isSynthetic()).toList();
+        if (constructors.size() != 1 || constructors.getFirst() != c) return false;
+        Map<String, FieldInfo> fieldByName = t.fields().stream()
+                .collect(Collectors.toMap(FieldInfo::name, Function.identity(), (a, b) -> a));
+        return c.parameters().stream().allMatch(p -> fieldByName.containsKey(p.name())
+                && !KotlinFieldPrinter.renamed(fieldByName.get(p.name()))) && onlyAssignsParameters(c);
+    }
+
     /** The implicit no-arg, empty-body constructor a class gets by default (not written in Kotlin). */
     private static boolean isImplicitDefaultConstructor(MethodInfo c) {
         return c.parameters().isEmpty() && (c.methodBody() == null || c.methodBody().isEmpty());
+    }
+
+    private static boolean extendsNumber(TypeInfo t) {
+        for (ParameterizedType p = t.parentClass(); p != null && p.typeInfo() != null; p = p.typeInfo().parentClass()) {
+            if ("java.lang.Number".equals(p.typeInfo().fullyQualifiedName())) return true;
+        }
+        return false;
+    }
+
+    /** A zero-parameter method of that name in the class or a translated superclass (not java.lang.Number's own). */
+    private static boolean declaresInChain(TypeInfo t, String name) {
+        for (TypeInfo c = t; c != null && !"java.lang.Number".equals(c.fullyQualifiedName());
+             c = c.parentClass() == null ? null : c.parentClass().typeInfo()) {
+            if (c.methods().stream().anyMatch(m -> name.equals(m.name()) && m.parameters().isEmpty())) return true;
+        }
+        return false;
     }
 
     /** A data class exposes generated destructuring accessors {@code component1()}, {@code component2()}, … */
@@ -603,7 +762,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         List<ParameterizedType> arguments = new ArrayList<>(supertype.parameters().size());
         for (ParameterizedType a : supertype.parameters()) {
             ParameterizedType inner = declaredArguments(a);
-            if (a.wildcard() == null && a.arrays() == 0 && inner.annotations().stream()
+            // a bounded wildcard's too: ? super @Nullable V (guava's RangeMap.merge)
+            if ((a.wildcard() == null || !a.isUnboundWildcard()) && a.arrays() == 0 && inner.annotations().stream()
                     .anyMatch(ae -> NullAnnotations.NULLABLE.contains(ae.typeInfo().simpleName()))) {
                 inner = inner.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
             }
@@ -613,22 +773,121 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return changed ? supertype.withParameters(arguments) : supertype;
     }
 
+    /**
+     * A raw supertype, nacos's {@code AbstractRequestCallBack implements RequestCallBack}: Kotlin forbids the star
+     * projections a raw type is elsewhere; Java's erasure, each type parameter's bound, is
+     * {@code RequestCallBack<Response>}. Null when the supertype is not raw.
+     */
+    /**
+     * The superclass as the header writes it: the verdicts' where they type its arguments (jenkins's
+     * DiskSpaceMonitorDescriptor, whose own code puts null into its superclass's slot, extends
+     * AbstractAsyncNodeMonitorDescriptor<DiskSpace?>), the declared one otherwise.
+     */
+    static ParameterizedType parentClass(TypeInfo typeInfo) {
+        ParameterizedType verdict = KotlinContext.translatingJava()
+                ? KotlinNullability.verdicts().parentClass(typeInfo) : null;
+        return verdict != null ? verdict : typeInfo.parentClass();
+    }
+
+    static String rawSupertype(ParameterizedType supertype, Qualification q) {
+        if (!KotlinContext.translatingJava() || supertype == null || supertype.typeInfo() == null) return null;
+        return KotlinTypeName.erased(supertype, q);
+    }
+
     private List<OutputBuilder> superTypes(OutputBuilder superArguments, Qualification q) {
         List<OutputBuilder> supers = new ArrayList<>();
         if (hasWrittenSuperclass(typeInfo)) {
-            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(KotlinTypeName.of(declaredArguments(typeInfo.parentClass()), q)));
+            String sameName = sameNamedInnerSuperclass(q);
+            if (sameName == null) sameName = innerOfAGenericOuter(q);
+            String raw = sameName == null ? rawSupertype(typeInfo.parentClass(), q) : null;
+            OutputBuilder parent = new OutputBuilderImpl().add(new TextImpl(sameName != null ? sameName
+                    : raw != null ? raw : KotlinTypeName.of(declaredArguments(parentClass(typeInfo)), q)));
             if (superArguments != null) parent.add(superArguments);
             supers.add(parent);
         }
-        typeInfo.interfacesImplemented().forEach(i ->
-                supers.add(new OutputBuilderImpl().add(new TextImpl(readOnlyIterator(i)
-                        ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
-                        : KotlinTypeName.of(declaredArguments(i), q)))));
+        typeInfo.interfacesImplemented().forEach(i -> {
+            String raw = rawSupertype(i, q);
+            supers.add(new OutputBuilderImpl().add(new TextImpl(raw != null ? raw : readOnlyIterator(i)
+                    ? KotlinTypeName.of(declaredArguments(i), q).replaceFirst("^MutableIterator", "Iterator")
+                    : KotlinTypeName.of(declaredArguments(i), q))));
+        });
         if (overridesObjectClone(typeInfo) && !cloneable(typeInfo)) {
             // Java overrides Object.clone() anywhere; Kotlin's Any has no clone(), kotlin.Cloneable declares it
             supers.add(new OutputBuilderImpl().add(new TextImpl("Cloneable")));
         }
         return supers;
+    }
+
+    /**
+     * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass, an inner class of
+     * the outer class's superclass, has the class's own simple name, which inside it means the class itself ("cycle in
+     * supertypes"). Qualified by its outer class, with the type arguments the class's outer gives it. Null otherwise.
+     */
+    /**
+     * The superclass with only its own type arguments: an inner class named through its parameterized outer,
+     * {@code Base<E>.EntrySet}, has the outer's arguments first in {@code parameters()} (the Java front end and the
+     * bytecode reader alike). The callers write the outer classes themselves, and then the class's own arguments.
+     */
+    private static ParameterizedType ownArgumentsOnly(ParameterizedType parent) {
+        int own = parent.typeInfo().typeParameters().size();
+        int all = parent.parameters().size();
+        return all > own ? parent.withParameters(new ArrayList<>(parent.parameters().subList(all - own, all))) : parent;
+    }
+
+    private String sameNamedInnerSuperclass(Qualification q) {
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent.typeInfo();
+        if (!parentType.simpleName().equals(typeInfo.simpleName()) || parentType.isPrimaryType()) return null;
+        TypeInfo parentOuter = CstQueries.enclosing(parentType);
+        TypeInfo outer = CstQueries.enclosing(typeInfo);
+        if (parentOuter == null || outer == null) return null;
+        String outerName;
+        if (parentType.isInnerClass() && !parentOuter.typeParameters().isEmpty()) {
+            ParameterizedType seen;
+            try {
+                seen = outer.asParameterizedType().concreteSuperType(parentOuter.asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                return null;
+            }
+            if (seen == null) return null;
+            outerName = KotlinTypeName.of(seen, q);
+        } else {
+            outerName = KotlinTypeName.name(parentOuter, q);
+        }
+        String own = KotlinTypeName.of(ownArgumentsOnly(declaredArguments(parent)), q);
+        int lt = own.indexOf('<');
+        return outerName + "." + parentType.simpleName() + (lt < 0 ? "" : own.substring(lt));
+    }
+
+    /**
+     * guava's AbstractMapBasedMultimap.WrappedList.WrappedListIterator extends WrappedIterator, an inner class of
+     * WrappedCollection, itself an inner class of the generic AbstractMapBasedMultimap<K, V>: Kotlin wants the outer
+     * classes' type arguments ("type arguments must be specified for outer class"), the same K and V the class sees
+     * as a member of that outer. Null when the superclass is no inner class of an outer that is not the class's own.
+     */
+    private String innerOfAGenericOuter(Qualification q) {
+        ParameterizedType parent = typeInfo.parentClass();
+        TypeInfo parentType = parent.typeInfo();
+        if (!parentType.isInnerClass() || CstQueries.enclosing(parentType) == CstQueries.enclosing(typeInfo)) return null;
+        List<TypeInfo> chain = new ArrayList<>();
+        for (TypeInfo t = CstQueries.enclosing(parentType); t != null; t = CstQueries.enclosing(t)) chain.addFirst(t);
+        if (chain.isEmpty() || chain.stream().allMatch(t -> t.typeParameters().isEmpty())) return null;
+        // only where the generic outers enclose this class too: their type parameters are in scope as they are
+        java.util.Set<TypeInfo> ownOuters = new java.util.HashSet<>();
+        for (TypeInfo t = CstQueries.enclosing(typeInfo); t != null; t = CstQueries.enclosing(t)) ownOuters.add(t);
+        if (chain.stream().anyMatch(t -> !t.typeParameters().isEmpty() && !ownOuters.contains(t))) return null;
+        StringBuilder sb = new StringBuilder();
+        for (TypeInfo t : chain) {
+            if (!sb.isEmpty()) sb.append('.');
+            sb.append(KotlinNames.name(t.simpleName()));
+            if (!t.typeParameters().isEmpty()) {
+                sb.append(t.typeParameters().stream().map(tp -> KotlinNames.name(tp.simpleName()))
+                        .collect(Collectors.joining(", ", "<", ">")));
+            }
+        }
+        String own = KotlinTypeName.of(ownArgumentsOnly(declaredArguments(parent)), q);
+        int lt = own.indexOf('<');
+        return sb + "." + KotlinNames.name(parentType.simpleName()) + (lt < 0 ? "" : own.substring(lt));
     }
 
     private static boolean overridesObjectClone(TypeInfo typeInfo) {
@@ -648,6 +907,11 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     }
 
     /** A class declared in a method body: not reachable as a member type from its primary type. No visibility in Kotlin. */
+    private static boolean memberOfAnonymous(TypeInfo typeInfo) {
+        TypeInfo enclosing = CstQueries.enclosing(typeInfo);
+        return enclosing != null && enclosing.isAnonymous() && typeInfo.enclosingMethod() == null;
+    }
+
     static boolean isLocal(TypeInfo typeInfo) {
         return !typeInfo.isAnonymous() && !typeInfo.isPrimaryType() && !isMemberOf(typeInfo.primaryType(), typeInfo);
     }

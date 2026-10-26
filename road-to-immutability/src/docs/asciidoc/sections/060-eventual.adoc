@@ -9,10 +9,10 @@ analyzer.
 The current engine reads `@Mark`, `@Only`, `@TestMark` and the `after="..."` parameters as _contracts_,
 stores them as properties, and _computes_ them by propagation, for classes and interfaces alike;
 `@BeforeMark` is not read yet, and the precondition-based detection of the two `SimpleImmutableSet`
-examples above is not implemented (nor needed for the patterns maddi itself uses).
+examples below is not implemented (nor needed for the patterns maddi itself uses).
 The chapter is retained because the design remains valid and the pattern is central to how the analyzer's
 own support classes are written (see <<in-the-analyzer>>).
-The plan for computing them is in `docs/design/eventual-immutability.md`.
+The plan for computing them is in maddi-mod's `docs/design/eventual-immutability.md`.
 ====
 
 In this section we explore types which follow a two-phase life cycle: they start off as mutable, then somehow become
@@ -46,7 +46,7 @@ class Polygon {
         this.points = points;
     }
 
-    @FinalFields(builds=Polygon.class)
+    @FinalFields @Container(builds=Polygon.class)
     static class Builder {
 
         @Modified
@@ -91,7 +91,7 @@ class PolygonManager {
 
     public void construct() {
         // in builder phase ...
-        polygon.getFirst().add(point);
+        polygon.addPoint(point);
         // transition
         polygon.set(polygon.getFirst().build());
         // from here on, polygon is immutable!
@@ -118,7 +118,7 @@ class SimpleImmutableSet1<T> {
     @Only(before="frozen")
     public boolean add(T t) {
         if(frozen) throw new IllegalStateException();
-        set.add(t);
+        return set.add(t);
     }
 
     @Mark("frozen")
@@ -146,8 +146,8 @@ class SimpleImmutableSet1<T> {
 
 <1> These methods can be called any time.
 
-The analyzer has no problem detecting the presence of preconditions, and observing that one method changes its own
-precondition.
+An earlier generation of the analyzer detected these preconditions, and observed that one method changes its own
+precondition; the current engine reads a leading guard that calls a {testMark} method, and nothing more general (see the note at the top of this chapter).
 The rules, however, are sufficiently general to support arbitrary preconditions, as shown in the following variant.
 This example does not require an additional field, but relies on the empty/not-empty state change:
 
@@ -260,11 +260,11 @@ Similarly, when a type is eventually immutable, should the analyzer mark the ini
 Basically, we propose to mark the end state, qualifying with the parameter `after`:
 
 [options=header]
-|==
+|===
 | property | not present | eventually | effectively
 | finality of field | no annotation, or `@Final(absent=true)` | `@Final(after="mark")` | {final}
 | non-modification of field | {modified} | `@NotModified(after="mark")` | {nm}
-|==
+|===
 
 Since in an IDE it is not too easy to have multiple visual markers, it seems best to use the same visuals as the end
 state.
@@ -325,6 +325,5 @@ public abstract class AbstractVerticle implements Verticle {
 }
 ----
 
-Currently, contracted eventual immutability has not been implemented yet in the analyzer.
 
 // ensure a newline at the end

@@ -21,6 +21,8 @@ import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.Info;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
+import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
@@ -174,6 +176,25 @@ public interface NullabilityFacts {
      */
     default boolean rejectsNull(ParameterInfo parameterInfo) {
         return false;
+    }
+
+    /**
+     * A class's type parameter no instantiation makes nullable: guava's {@code LocalCache<K, V>} in a
+     * {@code @NullMarked} scope, without an {@code extends @Nullable Object} bound. Kotlin bounds it by {@code Any},
+     * as Java's null-marked K is not null; a null-checked target's other members then keep {@code K} non-null.
+     * False by default: a type parameter is bounded by its declaration alone.
+     */
+    default boolean nonNullTypeParameter(TypeParameter typeParameter) {
+        return false;
+    }
+
+    /**
+     * A class's superclass, with the verdict's states on its type arguments: jenkins' {@code OwnerContext extends
+     * LinkedList<String>}, whose own methods add null ({@code addFirst(owner)}), is a {@code LinkedList<String?>}.
+     * The printer writes it in the class header. Null: no verdict, the declared superclass as it is.
+     */
+    default ParameterizedType parentClass(TypeInfo typeInfo) {
+        return null;
     }
 
     /**

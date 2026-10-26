@@ -996,7 +996,7 @@ public class JavaUtil {
         //frequency 21
         //@Independent[O]
         @NotModified
-        static <T> List<T> asList(/*@Independent[M]*/ @NotNull @NotModified T ... a) { return null; }
+        static <T> List<T> asList(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) T ... a) { return null; }
 
         //frequency 1
         @NotModified
@@ -1737,48 +1737,48 @@ public class JavaUtil {
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> Collection<T> unmodifiableCollection(
-            /*@Independent[M]*/ @NotNull @NotModified Collection<? extends T> c) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Collection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> SequencedCollection<T> unmodifiableSequencedCollection(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedCollection<? extends T> c) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedCollection<? extends T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ @NotNull @NotModified Set<? extends T> s) { return null; }
+        @UnmodifiableView static <T> Set<T> unmodifiableSet(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Set<? extends T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> SequencedSet<T> unmodifiableSequencedSet(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedSet<? extends T> s) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedSet<? extends T> s) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ @NotNull @NotModified SortedSet<T> s) { return null; }
+        @UnmodifiableView static <T> SortedSet<T> unmodifiableSortedSet(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SortedSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <T> NavigableSet<T> unmodifiableNavigableSet(
-            /*@Independent[M]*/ @NotNull @NotModified NavigableSet<T> s) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) NavigableSet<T> s) { return null; }
 
         //@Independent[O] @NotModified[T]
-        @UnmodifiableView static <T> List<T> unmodifiableList(/*@Independent[M]*/ @NotNull @NotModified List<? extends T> list) { return null; }
+        @UnmodifiableView static <T> List<T> unmodifiableList(/*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) List<? extends T> list) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> Map<K, V> unmodifiableMap(
-            /*@Independent[M]*/ @NotNull @NotModified Map<? extends K, ? extends V> m) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) Map<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> SequencedMap<K, V> unmodifiableSequencedMap(
-            /*@Independent[M]*/ @NotNull @NotModified SequencedMap<? extends K, ? extends V> m) { return null; }
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SequencedMap<? extends K, ? extends V> m) { return null; }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> SortedMap<K, V> unmodifiableSortedMap(
-            /*@Independent[M]*/ @NotNull @NotModified SortedMap<K, ? extends V> m) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) SortedMap<K, ? extends V> m) {
             return null;
         }
 
         //@Independent[O] @NotModified[T]
         @UnmodifiableView static <K, V> NavigableMap<K, V> unmodifiableNavigableMap(
-            /*@Independent[M]*/ @NotNull @NotModified NavigableMap<K, ? extends V> m) {
+            /*@Independent[M]*/ @NotNull @NotModified @Independent(dependentReturnValue = true) NavigableMap<K, ? extends V> m) {
             return null;
         }
 
@@ -1904,7 +1904,7 @@ public class JavaUtil {
             /*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @Nullable Comparator<T> cmp) { return null; }
 
         //@Independent[O] @NotModified[T]
-        static <T> Enumeration<T> enumeration(/*@Independent[M]*/ @NotNull @NotModified Collection<T> c) { return null; }
+        static <T> Enumeration<T> enumeration(/*@Independent[M]*/ @NotNull @NotModified @Independent(hc = true) Collection<T> c) { return null; }
 
         //@Independent[O] @NotModified[T]
         static <T> ArrayList<T> list(/*@Independent[M]*/ @NotNull Enumeration<T> e) { return null; }
@@ -2102,7 +2102,7 @@ public class JavaUtil {
         @Nullable @NotModified E peekLast() { return null; }
         @NotModified E element() { return null; }
         @Nullable @NotModified E peek() { return null; }
-        @NotModified Iterator<E> descendingIterator() { return null; }
+        @NotModified @Independent(hc = true, except = "remove") Iterator<E> descendingIterator() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
@@ -2658,8 +2658,9 @@ public class JavaUtil {
         int indexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
         @NotModified
         int lastIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[O]*/ @Nullable Object object) { return 0; }
-        @NotModified ListIterator<E> listIterator() { return null; }
-        @NotModified ListIterator<E> listIterator(int i) { return null; }
+        // like Iterable.iterator(): the elements are shared, and only remove, set and add write through to the list
+        @NotModified @Independent(hc = true, except = {"remove", "set", "add"}) ListIterator<E> listIterator() { return null; }
+        @NotModified @Independent(hc = true, except = {"remove", "set", "add"}) ListIterator<E> listIterator(int i) { return null; }
         //frequency 3
         @NotModified
         List<E> subList(int i, int i1) { return null; }
@@ -3334,36 +3335,36 @@ public class JavaUtil {
     //public interface NavigableMap implements SortedMap<K,V>
     @Container
     class NavigableMap$<K, V> {
-        @Nullable @NotModified Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
         @Nullable K lowerKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @Nullable @NotModified Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
         @Nullable K floorKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @Nullable @NotModified Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
         @Nullable K ceilingKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
-        @Nullable @NotModified Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
         //@Independent(hc=true)[T]
         @NotModified
         @Nullable K higherKey(/*@Independent[M] @NotModified[O]*/ K k) { return null; }
 
         //override from java.util.SequencedMap
         @NotModified
-        @Nullable Map.Entry<K, V> firstEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> firstEntry() { return null; }
 
         //override from java.util.SequencedMap
         @NotModified
-        @Nullable Map.Entry<K, V> lastEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> lastEntry() { return null; }
 
         //override from java.util.SequencedMap
-        @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
 
         //override from java.util.SequencedMap
-        @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
         @NotModified NavigableMap<K, V> descendingMap() { return null; }
         @NotModified NavigableSet<K> navigableKeySet() { return null; }
         @NotModified NavigableSet<K> descendingKeySet() { return null; }
@@ -3405,7 +3406,7 @@ public class JavaUtil {
         @Nullable @NotModified E ceiling(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
         @Nullable @NotModified E higher(/*@Independent[M] @NotModified[O]*/ E e) { return null; }
         @NotModified NavigableSet<E> descendingSet() { return null; }
-        @NotModified Iterator<E> descendingIterator() { return null; }
+        @NotModified @Independent(hc = true, except = "remove") Iterator<E> descendingIterator() { return null; }
         @NotModified
         NavigableSet<E> subSet(
             /*@Independent[M] @NotModified[O]*/ E fromElement,
@@ -3758,8 +3759,8 @@ public class JavaUtil {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         PriorityQueue$(@Nullable java.util.Comparator<? super E> p0) { }
-        PriorityQueue$(@NotNull java.util.PriorityQueue<? extends E> p0) { }
-        PriorityQueue$(@NotNull java.util.SortedSet<? extends E> p0) { }
+        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified java.util.PriorityQueue<? extends E> p0) { }
+        PriorityQueue$(@NotNull @Independent(hc = true) @NotModified java.util.SortedSet<? extends E> p0) { }
         PriorityQueue$(int p0, @Nullable java.util.Comparator<? super E> p1) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
@@ -3921,10 +3922,10 @@ public class JavaUtil {
     @Container
     class SequencedMap$<K, V> {
         @NotModified SequencedMap<K, V> reversed() { return null; }
-        @Nullable @NotModified Map.Entry<K, V> firstEntry() { return null; }
-        @Nullable @NotModified Map.Entry<K, V> lastEntry() { return null; }
-        @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
-        @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> firstEntry() { return null; }
+        @Independent(hc = true) @Nullable @NotModified Map.Entry<K, V> lastEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
         //@Independent(hc=true)[T]
         @Nullable V putFirst(/*@Independent(hc=true)[T] @NotModified[O]*/ K k, /*@Independent(hc=true)[T] @NotModified[O]*/ V v) {
             return null;
@@ -4113,7 +4114,7 @@ public class JavaUtil {
         @NotModified @ImmutableContainer(hc = true) @NotNull(content = true)
         static <E> Set<E> of(/*@NotModified[O]*/ @NotNull E ... elements) { return null; }
         @NotModified @ImmutableContainer(hc = true) @NotNull
-        static <E> Set<E> copyOf(/*@NotModified[O]*/ @NotNull Collection<? extends E> coll) { return null; }
+        static <E> Set<E> copyOf(/*@NotModified[O]*/ @NotNull @Independent(hc = true) Collection<? extends E> coll) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static <E> java.util.Set<E> ofLazy(@NotNull java.util.Set<? extends E> p0, @NotNull java.util.function.Predicate<? super E> p1) { return null; }
@@ -4380,21 +4381,21 @@ public class JavaUtil {
 
         //override from java.util.NavigableMap, java.util.SequencedMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> firstEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> firstEntry() { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> lastEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> lastEntry() { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
-        @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollFirstEntry() { return null; }
 
         //override from java.util.NavigableMap, java.util.SequencedMap
-        @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> pollLastEntry() { return null; }
 
         //override from java.util.NavigableMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> lowerEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
 
         //override from java.util.NavigableMap
         //@Independent(hc=true)[H] @NotModified[H]
@@ -4402,7 +4403,7 @@ public class JavaUtil {
 
         //override from java.util.NavigableMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> floorEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
 
         //override from java.util.NavigableMap
         //@Independent(hc=true)[H] @NotModified[H]
@@ -4410,7 +4411,7 @@ public class JavaUtil {
 
         //override from java.util.NavigableMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> ceilingEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
 
         //override from java.util.NavigableMap
         //@Independent(hc=true)[H] @NotModified[H]
@@ -4418,7 +4419,7 @@ public class JavaUtil {
 
         //override from java.util.NavigableMap
         //@NotModified[H]
-        @Nullable Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
+        @Independent(hc = true) @Nullable Map.Entry<K, V> higherEntry(/*@Independent[M] @NotModified[O]*/ K key) { return null; }
 
         //override from java.util.NavigableMap
         //@Independent(hc=true)[H] @NotModified[H]
@@ -4511,7 +4512,7 @@ public class JavaUtil {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         TreeSet$(@Nullable java.util.Comparator<? super E> p0) { }
-        TreeSet$(@NotNull java.util.SortedSet<E> p0) { }
+        TreeSet$(@NotNull @Independent(hc = true) @NotModified java.util.SortedSet<E> p0) { }
         boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         @Nullable E ceiling(E p0) { return null; }
         @Nullable java.util.Comparator<? super E> comparator() { return null; }
@@ -4822,6 +4823,8 @@ public class JavaUtil {
     }
 
     //public java.util.HexFormat (shadow created for its nullability, generated)
+    // value-based, so immutable; NOT a @Container: formatHex(A, byte[]) appends to its Appendable argument
+    @Immutable
     class HexFormat$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         <A extends java.lang.Appendable> A formatHex(A p0, @NotNull byte[] p1) { return null; }
@@ -4874,6 +4877,7 @@ public class JavaUtil {
     }
 
     //public java.util.OptionalLong (shadow created for its nullability, generated)
+    @ImmutableContainer
     class OptionalLong$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void ifPresent(@NotNull java.util.function.LongConsumer p0) { }

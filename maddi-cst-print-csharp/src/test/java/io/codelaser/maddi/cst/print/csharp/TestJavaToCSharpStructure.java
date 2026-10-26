@@ -18,6 +18,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 
@@ -176,6 +177,470 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
     }
 
     @Language("java")
+    private static final String ERASED_DIAMONDS = """
+            package org.example.erased;
+            import java.util.Comparator;
+            import java.util.function.Function;
+            class Erased {
+                interface Sorter<S, T> { }
+                static final class ComparingSorter<S, T> implements Sorter<S, T> {
+                    ComparingSorter(Comparator<T> comparator) { }
+                }
+                static final class Joiner<A, B> {
+                    private final Function<A, Object>[] mappings;
+                    @SuppressWarnings("unchecked")
+                    Joiner(Function<A, ?>[] mappings) { this.mappings = (Function<A, Object>[]) mappings; }
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Joiner<A, B> reordered() {
+                        var copy = new Function[mappings.length];
+                        for (int i = 0; i < copy.length; i++) copy[i] = mappings[mappings.length - 1 - i];
+                        return new Joiner<>(copy);
+                    }
+                }
+                static final class Mapped<A> {
+                    private final Function<A, Object>[] mappings;
+                    @SuppressWarnings("unchecked")
+                    <P> Mapped(Function<A, P>[] mappings) { this.mappings = (Function<A, Object>[]) (Object) mappings; }
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Mapped<A> reversed() {
+                        Function[] copy = new Function[mappings.length];
+                        for (int i = 0; i < copy.length; i++) copy[i] = mappings[mappings.length - 1 - i];
+                        return new Mapped<>(copy);
+                    }
+                }
+                static final class Holder<S> {
+                    private Sorter<S, Object> sorter;
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    void sortBy(Object instance) {
+                        var comparator = (Comparator) instance;
+                        sorter = new ComparingSorter<>(comparator);
+                    }
+                }
+            }
+            """;
+
+    /** A diamond of raw arguments: Java infers the raw type, C# creates it with the target's type arguments. */
+    @Test
+    public void erasedDiamonds() {
+        String cs = translate("Erased", ERASED_DIAMONDS);
+        // a raw array whose stored elements are Func<A, object>, which C# passes as the Func<A, object>[] of Joiner<A, B>
+        contains(cs, "var copy = new Func<A, object>[mappings.Length];");
+        contains(cs, "return new Joiner<A, B>(copy);");
+        // a generic constructor's Function<A, P>[], C#'s Func<A, object>[]
+        contains(cs, "Func<A, object>[] copy = new Func<A, object>[mappings.Length];");
+        contains(cs, "return new Mapped<A>(copy);");
+        contains(cs, "sorter = new ComparingSorter<S, object>(comparator);");
+    }
+
+    @Language("java")
+    private static final String LAMBDA_INFERENCE = """
+            package org.example.inference;
+            import java.util.List;
+            class Groups {
+                interface Lifecycle<T> { }
+                interface Constructor<T> { }
+                interface Builder<K, T> { Object build(K key, int index, Lifecycle<T> next); }
+                static final class Node<K, T> { Node(K key, int index, Lifecycle<T> next) { } }
+                static <K, T> Constructor<T> groupBy(K key, Builder<K, T> builder) { return null; }
+                static Constructor<List<String>> byReference(String key) { return groupBy(key, Node::new); }
+                static Constructor<List<String>> byLambda(String key) {
+                    return groupBy(key, (k, i, next) -> new Node<>(k, i, next));
+                }
+            }
+            """;
+
+    /** A type parameter only a lambda's or a method reference's parameters mention: C# does not infer it. */
+    @Test
+    public void lambdaInference() {
+        String cs = translate("Groups", LAMBDA_INFERENCE);
+        contains(cs, "GroupBy<string, List<string>>(\nkey,");
+        // a raw Node::new creates the type of the delegate's parameters
+        contains(cs, "(p0, p1, p2) => new Node<string, List<string>>(p0, p1, p2)");
+    }
+
+    @Language("java")
+    private static final String GENERIC_DEFAULTS = """
+            package org.example.defaults;
+            import java.util.List;
+            class Streams {
+                interface Stream<A> {
+                    <C> List<C> join(Class<C> other, String... joiners);
+                    <S extends Comparable<S>> S penalize(S weight, long match);
+                }
+                interface InnerStream<A> extends Stream<A> {
+                    default <C> List<C> join(Class<C> other, String... joiners) { return List.of(); }
+                    default <S extends Comparable<S>> S penalize(S weight, long match) { return weight; }
+                }
+                static final class Concrete implements InnerStream<String> { }
+            }
+            """;
+
+    /** A generic default method of a sub-interface implements the inherited one explicitly, with its type parameters. */
+    @Test
+    public void genericDefaults() {
+        String cs = translate("Streams", GENERIC_DEFAULTS);
+        contains(cs, "List<C> IStream<A>.Join<C>(params string[] joiners) => new List<C>();");
+        contains(cs, "S IStream<A>.Penalize<S>(S weight, long match) => weight;");
+    }
+
+    @Language("java")
+    private static final String SCOPED_DIAMONDS = """
+            package org.example.scoped;
+            import java.util.*;
+            import java.util.function.Function;
+            class Scoped {
+                static final class OrderedSet<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<T> {
+                    Notifiable(Collection<List<T>> queue) { }
+                }
+                static <T> Notifiable<T> build(boolean unique) {
+                    return new Notifiable<>(unique ? new OrderedSet<>() : new ArrayDeque<>());
+                }
+                @SuppressWarnings("rawtypes")
+                static final class Joiner<A> {
+                    @SuppressWarnings("unchecked")
+                    private static final Joiner NONE = new Joiner(new Function[0]);
+                    Joiner(Function<A, Object>[] mappings) { }
+                }
+            }
+            """;
+
+    /**
+     * A diamond whose parameter is a supertype its class reaches through another, Collection through Set; a raw
+     * creation's raw array, of no type parameter out of scope.
+     */
+    @Test
+    public void scopedDiamonds() {
+        String cs = translate("Scoped", SCOPED_DIAMONDS);
+        contains(cs, "unique ? new OrderedSet<List<T>>()\n: new List<List<T>>()");
+        contains(cs, "new Joiner<object>(new Func<object, object>[0])");
+    }
+
+    @Language("java")
+    private static final String GENERIC_CONSTRUCTORS = """
+            package org.example.ctors;
+            import java.util.function.Function;
+            class Joiners {
+                static final class Joiner<A, B> {
+                    <P> Joiner(Function<A, P> left, Function<B, P> right) { }
+                }
+                static <A, B, P extends Comparable<P>> Joiner<A, B> lessThan(Function<A, P> left, Function<B, P> right) {
+                    return new Joiner<>(left, right);
+                }
+            }
+            """;
+
+    /** A generic constructor, which C# does not have: its own type parameter is object, a delegate of it widened. */
+    @Test
+    public void genericConstructors() {
+        String cs = translate("Joiners", GENERIC_CONSTRUCTORS);
+        contains(cs, "internal Joiner(Func<A, object> left, Func<B, object> right) { }");
+        contains(cs, "new Joiner<A, B>(x0_ => left(x0_), x0_ => right(x0_))");
+    }
+
+    @Language("java")
+    private static final String LONG_TYPE_ARGUMENTS = """
+            package org.example.longtypes;
+            import java.util.*;
+            class Notifiables {
+                interface ChangeEventOfAVeryLongName<T> { }
+                interface ListenerOfAnEvenLongerNameStill<S, T> { boolean requiresUniqueEntityEvents(); }
+                interface NotificationWithALongName<S, E, L> { }
+                static final class OrderedSetOfSomeLength<E> extends AbstractSet<E> {
+                    public Iterator<E> iterator() { return Collections.emptyIterator(); }
+                    public int size() { return 0; }
+                }
+                static final class Notifiable<S> {
+                    Notifiable(Object scoreDirector, ListenerOfAnEvenLongerNameStill<S, Object> listener,
+                               Collection<NotificationWithALongName<S, ChangeEventOfAVeryLongName<Object>,
+                                       ListenerOfAnEvenLongerNameStill<S, Object>>> queue, int globalOrder) { }
+                }
+                @SuppressWarnings("unchecked")
+                static <S> Notifiable<S> build(Object scoreDirector, Object variableListener, int globalOrder) {
+                    if (variableListener instanceof ListenerOfAnEvenLongerNameStill<?, ?> basicVariableListener) {
+                        return new Notifiable<>(
+                                scoreDirector,
+                                (ListenerOfAnEvenLongerNameStill<S, Object>) basicVariableListener,
+                                basicVariableListener.requiresUniqueEntityEvents() ? new OrderedSetOfSomeLength<>() : new ArrayDeque<>(),
+                                globalOrder);
+                    }
+                    return null;
+                }
+            }
+            """;
+
+    /** A line the formatter cannot fit: a type argument longer than the line splits between tokens, not in one. */
+    @Test
+    public void longTypeArguments() {
+        String cs = translate("Notifiables", LONG_TYPE_ARGUMENTS);
+        contains(cs, "basicVariableListener()\n? new OrderedSetOfSomeLength<");
+    }
+
+    @Language("java")
+    private static final String WILDCARD_DELEGATES = """
+            package org.example.collectors;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static final class Group<A, R> {
+                    private final Collector<A, ?, R> collector;
+                    Group(Collector<A, ?, R> collector) { this.collector = collector; }
+                    @SuppressWarnings("unchecked")
+                    R collect(List<A> items) {
+                        Object container = collector.supplier().get();
+                        var accumulator = (BiFunction<Object, A, Runnable>) (BiFunction<?, A, Runnable>) collector.accumulator();
+                        for (A a : items) accumulator.apply(container, a);
+                        return ((Function<Object, R>) (Function<?, R>) collector.finisher()).apply(container);
+                    }
+                }
+                static List<String> names(List<String> items) { return new Group<>(Collectors.<String>toList()).collect(items); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type whose members return a delegate of the wildcarded type parameter: the wildcard interface
+     * has them with it erased, {@code Func<object, A, Action>}, which the type's bridge adapts to by a lambda.
+     */
+    @Test
+    public void wildcardDelegates() {
+        String cs = translate("Collectors", WILDCARD_DELEGATES);
+        contains(cs, "internal static ICollector<A, List<A>> toList<A>() => new ToList<A>();");
+        contains(cs, "internal interface ICollector<A, ResultContainer_, Result_> : ICollector<A, Result_> {");
+        contains(cs, "Func<object, A, Action> Accumulator();");
+        contains(cs, "Func<object> ICollector<A, Result_>.Supplier() { var f = Supplier(); return () => f(); }");
+        contains(cs, "Func<object, A, Action> ICollector<A, Result_>.Accumulator() { var f = Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+    }
+
+    @Language("java")
+    private static final String ERASURES = """
+            package org.example.erasures;
+            import java.util.ArrayList;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface Collector<A, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    BiFunction<ResultContainer_, A, Runnable> accumulator();
+                    Function<ResultContainer_, Result_> finisher();
+                }
+                static final class ToList<A> implements Collector<A, List<A>, List<A>> {
+                    public Supplier<List<A>> supplier() { return ArrayList::new; }
+                    public BiFunction<List<A>, A, Runnable> accumulator() {
+                        return (list, a) -> { list.add(a); return () -> list.remove(a); };
+                    }
+                    public Function<List<A>, List<A>> finisher() { return list -> list; }
+                }
+                static <A, C, R> Collector<A, C, R> logged(Collector<A, C, R> collector) { return collector; }
+                static <A> Collector<A, ?, List<A>> toList() { return new ToList<>(); }
+                static <A> Collector<A, ?, List<A>> loggedList() { return logged(toList()); }
+                static <A, C, R> Collector<A, ?, R> plain(Collector<A, C, R> collector) { return collector; }
+                static final class Distinct<A, M> implements Collector<A, Set<M>, Integer> {
+                    Distinct(Function<? super A, ? extends M> mapper) { }
+                    public Supplier<Set<M>> supplier() { return HashSet::new; }
+                    public BiFunction<Set<M>, A, Runnable> accumulator() { return (set, a) -> () -> { }; }
+                    public Function<Set<M>, Integer> finisher() { return Set::size; }
+                }
+                static <A, M> Collector<A, ?, Integer> distinct(Function<? super A, ? extends M> mapper) {
+                    return new Distinct<>(mapper);
+                }
+                interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
+                static final class Concat implements TriFunction<String, String, String, String> {
+                    public String apply(String a, String b, String c) { return a + b + c; }
+                }
+                interface BiCollector<A, B, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    TriFunction<ResultContainer_, A, B, Runnable> accumulator();
+                }
+                static final class Count<A, B> implements BiCollector<A, B, int[], Integer> {
+                    public Supplier<int[]> supplier() { return () -> new int[1]; }
+                    public TriFunction<int[], A, B, Runnable> accumulator() {
+                        return (c, a, b) -> { c[0]++; return () -> c[0]--; };
+                    }
+                }
+                static <A, B, C, R> BiCollector<A, B, C, R> loggedBi(BiCollector<A, B, C, R> collector) { return collector; }
+                static <A, B> BiCollector<A, B, ?, Integer> count() { return new Count<>(); }
+                static <A, B> BiCollector<A, B, ?, Integer> loggedCount() { return loggedBi(count()); }
+            }
+            """;
+
+    /**
+     * A wildcard of a type that the code also passes where a generic method captures its type parameter, which a
+     * wildcard interface would not let C# infer: it is the type of object, which a concrete one is adapted to by the
+     * interface's erasure adapter.
+     */
+    @Test
+    public void erasures() {
+        String cs = translate("Collectors", ERASURES);
+        contains(cs, "static ICollector<A, object, Result_> Erased_(ICollector<A, ResultContainer_, Result_> erased) => erased as ICollector<A, object, Result_> ?? new Erasure_(erased);");
+        contains(cs, "private sealed class Erasure_ : ICollector<A, object, Result_> {");
+        contains(cs, "public Func<object, A, Action> Accumulator() { var f = erased.Accumulator(); return (x0_, x1_) => f((ResultContainer_) x0_, x1_); }");
+        contains(cs, "=> ICollector<A, List<A>, List<A>>.Erased_(new ToList<A>());");
+        contains(cs, "=> Logged(toList<A>());");
+        contains(cs, "=> ICollector<A, C, R>.Erased_(collector);");
+        // a diamond's inferred ? extends M is its bound
+        contains(cs, "=> ICollector<A, ISet<M>, int>.Erased_(\nnew Distinct<A, M>(mapper));");
+        // a functional interface with its lambda adapter
+        contains(cs, "public ITriFunction<object, A, B, Action> Accumulator() { var f = erased.Accumulator(); return new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_, x1_, x2_)); }");
+        contains(cs, "=> IBiCollector<A, B, int[], int>.Erased_(\nnew Count<A, B>());");
+    }
+
+    @Language("java")
+    private static final String COVARIANT_DELEGATES = """
+            package org.example.accumulators;
+            import java.util.function.BiFunction;
+            class Accumulators {
+                interface Accumulator<C, A> extends BiFunction<C, A, Runnable> {
+                    Runnable into(C container);
+                    @Override
+                    default Runnable apply(C container, A a) { return into(container); }
+                }
+                interface Collector<A, C> {
+                    BiFunction<C, A, Runnable> accumulator();
+                }
+                static final class Counting<A> implements Collector<A, int[]> {
+                    public Accumulator<int[], A> accumulator() { return c -> () -> c[0]++; }
+                }
+            }
+            """;
+
+    /**
+     * An override that returns a program interface extending a library's functional interface, which C# has as a
+     * delegate the interface cannot extend: the interface's method returns the override's method group.
+     */
+    @Test
+    public void covariantDelegates() {
+        String cs = translate("Accumulators", COVARIANT_DELEGATES);
+        contains(cs, "Func<int[], A, Action> ICollector<A, int[]>.Accumulator() => Accumulator().Apply;");
+    }
+
+    @Language("java")
+    private static final String PROPERTY_REFERENCES = """
+            package org.example.refs;
+            import java.util.Comparator;
+            import java.util.List;
+            import java.util.function.Supplier;
+            class Refs {
+                record Location(String className, int lineNumber) { }
+                static List<String> names(List<Location> locations) {
+                    return locations.stream().map(Location::className).toList();
+                }
+                static final Comparator<Location> ORDER =
+                        Comparator.comparing(Location::className).thenComparingInt(Location::lineNumber);
+                static Supplier<String> bound(Location location) { return location::className; }
+            }
+            """;
+
+    /** A method reference to a member C# has as a property, a record's component: a lambda reading it. */
+    @Test
+    public void propertyReferences() {
+        String cs = translate("Refs", PROPERTY_REFERENCES);
+        contains(cs, ".Select((Location p0) => p0.ClassName)");
+        contains(cs, "() => location.ClassName");
+    }
+
+    @Language("java")
+    private static final String UNCHECKED = """
+            package org.example.unchecked;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Unchecked<Node_> {
+                private final Map<String, Node_> nodes = new HashMap<>(16, 0.5f);
+                static int weigh(Map<String, Integer> weights) { return weights.size(); }
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                static <W> int weighAny(Map<String, W> weights) { return weigh((Map) weights); }
+                private static boolean seen(Object[] values, Object v) {
+                    for (Object o : values) if (o == v) return true;
+                    return false;
+                }
+                boolean seenNode(Node_[] values, Node_ v) { return seen(values, v); }
+                static <V> java.util.function.IntFunction<java.util.Set<V>> sets() {
+                    return (java.util.function.IntFunction<java.util.Set<V>>) java.util.LinkedHashSet::new;
+                }
+                @SuppressWarnings("rawtypes")
+                private static final java.util.function.BiFunction PICK_FIRST = (a, b) -> a;
+                @SuppressWarnings("rawtypes")
+                private static final java.util.function.Function IDENTITY = java.util.function.Function.identity();
+                @SuppressWarnings("unchecked")
+                static <A, B> java.util.function.BiFunction<A, B, A> pickFirst() { return PICK_FIRST; }
+                @SuppressWarnings("unchecked")
+                static <A> java.util.function.Function<A, A> identity() { return IDENTITY; }
+                static final class Cell<T> { T t; }
+                record Entry<E, V>(E entity, V value) {
+                    static <E, V> Entry<E, V> of(E entity, V value) { return new Entry<>(entity, value); }
+                }
+                static <E> Entry<E, String> unowned() { return Entry.of(null, "x"); }
+                @SuppressWarnings("unchecked")
+                static <A> java.util.function.Function<A, Object> narrowed(java.util.function.Function<Object, Object> m) {
+                    return (java.util.function.Function<A, Object>) m;
+                }
+                interface Mv<S> { }
+                static final class Unassign<S> implements Mv<S> { }
+                static final class Assign<S> implements Mv<S> { }
+                @SafeVarargs
+                static <S, M extends Mv<S>> Mv<S> build(M... moves) { return moves[0]; }
+                static <S> Mv<S> same(Mv<S> a, Mv<S> b) { return build(a, b); }
+                static <S> Mv<S> mixed(Unassign<S> a, Assign<S> b) { return build(a, b); }
+                static <T> Cell<T> pick(Cell<T>[] cells) { return cells[0]; }
+                @SuppressWarnings("unchecked")
+                static <T> Cell<T> first(Cell<T> c) {
+                    var all = new Cell[1];
+                    all[0] = c;
+                    return pick(all);
+                }
+            }
+            """;
+
+    /**
+     * Java's unchecked conversions: a raw cast into a parameterized target is a cast to the target; an array of a type
+     * parameter as an Object[] is cast through object, which .NET's array covariance takes for a reference type.
+     */
+    @Test
+    public void unchecked() {
+        String cs = translate("Unchecked", UNCHECKED);
+        contains(cs, "new Dictionary<string, Node_>(16);");
+        contains(cs, "Weigh((IDictionary<string, int>) weights)");
+        contains(cs, "Seen((object[]) (object) values, v)");
+        // LinkedHashSet<E> is a Set<E> through SequencedSet<E>: the created set has the target's element type
+        contains(cs, "(Func<int, ISet<V>>) (p0 => new HashSet<V>(p0))");
+        // a raw array whose elements are all a Cell<T>: a Cell<T>[]
+        contains(cs, "var all = new Cell<T>[1];");
+        // S only in M's bound: C# infers neither from a constraint, both are written; elements of different types
+        // as the bound, where Java's is their least upper bound
+        contains(cs, "Same<S>(IMv<S> a, IMv<S> b) => Build<S, IMv<S>>(a, b);");
+        contains(cs, "Mixed<S>(Unassign<S> a, Assign<S> b) => Build<S, IMv<S>>(a, b);");
+        // a Func of other type arguments, which C# does not cast: wrapped, its argument cast at each call
+        contains(cs, "Narrowed<A>(Func<object, object> m) => JavaDelegates.Cast<object, object, A, object>(\nm);");
+        // E only from null, which gives C# nothing to infer
+        contains(cs, "Entry.Of<E, string>(default, \"x\")");
+        // a raw constant lambda returned as the generic type: the lambda, which C# caches per type arguments
+        contains(cs, "internal static Func<A, B, A> PickFirst<A, B>() => (a, b) => a;");
+        contains(cs, "internal static Func<A, A> Identity<A>() => ");
+    }
+
+    @Language("java")
     private static final String SWITCHES = """
             package org.example.flow;
             class Switches {
@@ -202,6 +667,14 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     }
                     return "large";
                 }
+                static String patterns(Object o) {
+                    switch (o) {
+                        case String s -> { return s; }
+                        case Integer i when i > 0 -> System.out.println(i);
+                        default -> { }
+                    }
+                    return "";
+                }
                 static int expression(String s) {
                     return switch (s) {
                         case "a", "b" -> 1;
@@ -222,6 +695,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "r = 3;\ngoto default;");
         contains(cs, "default:\nr--;\nbreak;");
         contains(cs, "case 1: case 2: return \"small\";");
+        // an arrow arm's type pattern
+        contains(cs, "case string s: return s;");
+        contains(cs, "case int i when (int) i > 0:");
         contains(cs, "\"a\" or \"b\" => 1,");
         contains(cs, "_ => throw new ArgumentException(s)");
     }
@@ -1573,6 +2049,18 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                 static final class SimpleBuilder extends Builder { <S extends Stream<?>> S build(S s) { return s; } }
                 record Pair<L, R>(L left, R right) { }
                 static <E> java.util.Set<E> fromMap(java.util.Map<E, Boolean> map) { return map.keySet(); }
+                interface Folding<A, C, R> { R finish(C c); C start(); }
+                record Duo<K, V>(K key, V value) { }
+                static final class Gather<A, R> { Gather(Duo<Function<A, R>, Folding<A, ?, R>> duo) { } }
+                static final class Folds<A, R> {
+                    private final Folding<A, ?, R> folding;
+                    Folds(Folding<A, ?, R> folding) { this.folding = folding; }
+                    Gather<A, R> gathered(Function<A, R> key) { return new Gather<>(new Duo<>(key, folding)); }
+                }
+                static <V, M extends java.util.Map<String, V>> java.util.List<M> fill(V value, java.util.function.Supplier<M> supplier) {
+                    return java.util.List.of(supplier.get());
+                }
+                static <V> java.util.List<java.util.Map<String, V>> filled(V value) { return fill(value, java.util.HashMap::new); }
                 static <T> java.util.Set<T> identitySet() { return fromMap(new java.util.HashMap<>()); }
                 static final class Slot<R, P> { Slot(boolean min, java.util.NavigableMap<P, R> map) { } }
                 static <R extends Comparable<R>> Slot<R, R> minSlot() { return new Slot<>(true, new java.util.TreeMap<>()); }
@@ -1593,6 +2081,12 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // no argument mentions Bridge's A: the type Java inferred for share's S, which group::setBridge binds
         contains(cs, "new Bridge<NewA>(this)");
         contains(cs, "new Bridge2<A, B>(this)");
+        // Map.keySet where a Set is expected: the compatibility library's live view, not ICollection Keys
+        contains(cs, "FromMap<E>(IDictionary<E, bool> map) => map.KeySet();");
+        // a wildcard below the top of an inferred argument: as C# prints the collector's own type
+        contains(cs, "new Duo<Func<A, R>, IFolding<A, R>>(key, folding)");
+        // HashMap::new where Java infers M from the target, a Map<String, V>, and C# from the lambda: its result cast
+        contains(cs, "() => (IDictionary<string, V>) new Dictionary<string, V>()");
         // Func<T, P> where Func<T, object> is expected: C#'s variance is for reference types only
         contains(cs, "Key(x0_ => mapping(x0_), t)");
         contains(cs, "Raw(x0_ => mapping((T) x0_))");
@@ -1798,6 +2292,9 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
                     java.util.List<G> impacts();
                     static <G extends Grade<G>> Impacter<G> none() { return null; }
                 }
+                public static final class Scored<G extends Grade<G>> {
+                    @SuppressWarnings({"rawtypes", "unchecked"}) Impacter<G> narrowed(Impacter raw) { return raw; }
+                }
                 static int impacts(Impacter<?> impacter) { return impacter.impacts().size(); }
                 public abstract static class Base { }
                 public static final class Node2<T> extends Base { public int size() { return 0; } }
@@ -1879,6 +2376,36 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         contains(cs, "public interface ITyped { Type Kind { get; } }");
         // ? extends Tuple is its bound, what the code stores there
         contains(cs, "private Box<ITuple> boxed;");
+        // a raw self-bounded one where the type is expected with arguments: Java's unchecked conversion, a cast
+        contains(cs, "IImpacter<G> Narrowed(IImpacter raw) => (IImpacter<G>) raw;");
+    }
+
+    /**
+     * A method of Object the code reaches through the wildcard is no obstacle to the wildcard interface, also where the
+     * type overrides it and javac resolves the call to the override: every C# object has ToString.
+     */
+    @Test
+    public void wildcardInterfaceObjectOverrideReached() {
+        String cs = translate("Tags", """
+                package org.example.tags;
+                public class Tags {
+                    public static class Tag<T> {
+                        @Override public String toString() { return "t"; }
+                        public T first() { return null; }
+                        public int size() { return 0; }
+                    }
+                    static final class Uses {
+                        private Tag<?> tag = new Tag<String>();
+                        int c() { return tag.size() + tag.toString().length(); }
+                    }
+                }
+                """);
+        // Tag<object> would not compile: C# classes are invariant, a Tag<string> is no Tag<object> (CS0029)
+        contains(cs, "private ITag tag = new Tag<string>();");
+        int start = cs.indexOf("public interface ITag");
+        assertTrue(start >= 0, "no wildcard interface ITag printed\n" + cs);
+        String iface = cs.substring(start, cs.indexOf('}', start) + 1);
+        assertFalse(iface.contains("ToString"), "ITag must not declare Object's ToString; printed: " + iface + "\n" + cs);
     }
 
     @Language("java")

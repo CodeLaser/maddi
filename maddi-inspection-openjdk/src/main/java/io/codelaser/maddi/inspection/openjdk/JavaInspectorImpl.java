@@ -1,5 +1,6 @@
 package io.codelaser.maddi.inspection.openjdk;
 
+import io.codelaser.maddi.cst.impl.expression.eval.EvalOptions;
 import com.sun.source.util.JavacTask;
 import io.codelaser.maddi.cst.api.element.CompilationUnit;
 import io.codelaser.maddi.cst.api.element.FingerPrint;
@@ -159,6 +160,20 @@ public class JavaInspectorImpl implements JavaInspector {
     private static final List<String> PARAMETER_NAME_MODULES = List.of("java.base", "java.desktop", "java.net.http");
     private static final String PARAMETER_NAME_RESOURCE_PREFIX =
             "/io/codelaser/maddi/aapi/archive/parameterNames/";
+
+    // the boolean evaluator's limits for this inspector's Runtime; set before initialize (maddi-mod#61)
+    private EvalOptions evalOptions = EvalOptions.DEFAULT;
+
+    /**
+     * The boolean evaluator's limits for the Runtime that {@code initialize} builds: the And/Or complexity cap and the
+     * per-operation work budget. A caller that hands the evaluator larger conditions than maddi's own analysis does
+     * (a standardizer's decomposition) can run it under tighter bounds. Call before {@code initialize}.
+     */
+    public JavaInspectorImpl setEvalOptions(EvalOptions evalOptions) {
+        if (runtime != null) throw new IllegalStateException("setEvalOptions after initialize has no effect");
+        this.evalOptions = java.util.Objects.requireNonNull(evalOptions);
+        return this;
+    }
 
     public JavaInspectorImpl() {
         this(false, false);
@@ -436,7 +451,7 @@ public class JavaInspectorImpl implements JavaInspector {
         CompiledTypesManagerImpl ctm = new CompiledTypesManagerImpl(inputConfiguration.javaBase(), infoByFqn);
         ctm.setLazyLoader(this::loadCompiledTypeOrNull); // on-demand bytecode load for getOrLoad misses
         compiledTypesManager = ctm;
-        runtime = new RuntimeWithCompiledTypesManager(ctm);
+        runtime = new RuntimeWithCompiledTypesManager(ctm, evalOptions);
         javaBase().computePriorityDependencies();
         return List.of();
     }
@@ -466,6 +481,8 @@ public class JavaInspectorImpl implements JavaInspector {
     // main method, generally called with empty map; only tests use the map
     @Override
     public Summary parse(Map<String, String> sourcesByFqn, ParseOptions parseOptions) {
+        long start = System.nanoTime();
+        long disambiguationsBefore = disambiguations();
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
         if (linearization.isEmpty()) {
@@ -491,7 +508,35 @@ public class JavaInspectorImpl implements JavaInspector {
         // after all source sets are scanned: a descriptor may name a type that lives in another source set.
         ResolveModuleDirectives.go(summary, compiledTypesManager);
         reportLombokFallbacks(summary);
+        logParse(parseOptions.invalidated() == NOT_INVALIDATED ? "Parsed" : "Re-parsed", summary, linearization,
+                start, disambiguationsBefore);
         return summary;
+    }
+
+    private long disambiguations() {
+        return compiledTypesManager instanceof CompiledTypesManagerImpl ctm ? ctm.disambiguations() : 0;
+    }
+
+    /*
+     The one INFO line of a parse; the per-source-set steps (pre-scan, class symbols, commit, javadoc) are at DEBUG.
+     A server re-parses on every edit, and those steps were most of its log (refactor server, 2026-10-22).
+     */
+    private void logParse(String what, Summary summary, List<SourceSet> linearization, long start,
+                          long disambiguationsBefore) {
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        int errors = summary.parseExceptions().size();
+        int warnings = summary.parseWarnings().size();
+        if (errors + warnings == 0) {
+            LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms", what, linearization.size(),
+                    summary.types().size(), ms);
+        } else {
+            String problems = Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
+                    .map(pe -> pe.uri() == null ? "?" : pe.uri().toString()).distinct().limit(3)
+                    .collect(Collectors.joining(", "));
+            LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms; {} error(s), {} warning(s), first in {}",
+                    what, linearization.size(), summary.types().size(), ms, errors, warnings, problems);
+        }
+        LOGGER.debug("{}: {} source-set disambiguation(s)", what, disambiguations() - disambiguationsBefore);
     }
 
     /**
@@ -680,10 +725,19 @@ public class JavaInspectorImpl implements JavaInspector {
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
             SourceSetAction action = actionFor(types, invalidated);
-            LOGGER.info("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
+            LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
                     types.forEach(compiledTypesManager::invalidate);
+                    // ⛔ AND WHAT A DROPPED COMPILATION UNIT LEFT BEHIND. 'types' comes from sourceFiles, where a unit
+                    // the previous scan dropped never arrives; its TypeInfo (registered, some members committed) is
+                    // still reachable by name, and the re-scan reused it: UnsupportedOperationException at
+                    // MethodInfoImpl.builder on its implicit <init> (JDK 26, javac drops a unit with an unresolved
+                    // import; TestRescanAfterDroppedUnit). Forget every source type registered for this set.
+                    Set<TypeInfo> known = new HashSet<>(types);
+                    infoByFqn.primarySourceTypesOf(sourceSet).stream()
+                            .filter(t -> !known.contains(t))
+                            .forEach(compiledTypesManager::invalidate);
                     scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
                     rescanned.add(sourceSet);
                 }
@@ -729,7 +783,7 @@ public class JavaInspectorImpl implements JavaInspector {
         // sourceFiles must hold the live objects: the next reloadSources reads their compilation unit's fingerprint
         sourceFiles.replaceAll((_, types) -> types.stream()
                 .map(ti -> toRewire.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
-        LOGGER.info("Re-parse: rewired {} primary type(s)", rewired.size());
+        LOGGER.debug("Re-parse: rewired {} primary type(s)", rewired.size());
     }
 
     /**
@@ -758,6 +812,8 @@ public class JavaInspectorImpl implements JavaInspector {
 
     @Override
     public Summary parseMultiSourceSet(Map<SourceSet, Map<String, String>> sourcesByFqnBySourceSet, ParseOptions parseOptions) {
+        long start = System.nanoTime();
+        long disambiguationsBefore = disambiguations();
         Summary summary = new SummaryImpl(parseOptions.failFast());
         List<SourceSet> linearization = computeScanOrder(); // from input configuration
         for (SourceSet sourceSet : linearization) {
@@ -776,6 +832,7 @@ public class JavaInspectorImpl implements JavaInspector {
         }
         ResolveModuleDirectives.go(summary, compiledTypesManager);   // #201, as in parse()
         reportLombokFallbacks(summary);
+        logParse("Parsed", summary, linearization, start, disambiguationsBefore);
         return summary;
     }
 
@@ -1062,7 +1119,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 Stream.concat(scanned.preloads().stream(), pendingPreloads.stream())).toList();
         pendingPreloads = List.of(); // the first scan takes them; there is nothing to hand the second
         // (scanned.preloads() is empty whenever preloadPass ran: it already materialised the shared JDK)
-        LOGGER.info("Committing types of source set {}, {} loaded", sourceSet.name(), loaded.size());
+        LOGGER.debug("Committing types of source set {}, {} loaded", sourceSet.name(), loaded.size());
         for (TypeInfo typeInfo : loaded) {
             // TODO completing is a choice, and may be an unnecessary and expensive operation.
             //  offer this choice to the user

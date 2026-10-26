@@ -168,7 +168,7 @@ However, consider the following statements executed after creating a `Counters` 
 [source,java]
 ----
 int rainyDays = counters.getValue("rainy days");
-Counter c = counters.get("rainy days");
+Counter c = counters.getCounter("rainy days");
 c.increment();
 assert c.getValue() == rainyDays + 1;
 assert counters.getValue("rainy days") == rainyDays + 1;

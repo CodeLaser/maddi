@@ -28,6 +28,7 @@ import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.This;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -675,14 +676,14 @@ public final class CSharpProgram {
     }
 
     static MethodInfo invoked(TypeInfo delegate) {
-        return CSharpNames.singleAbstractMethod(delegate);
+        return CstSupertypes.singleAbstractMethod(delegate);
     }
 
     /** One abstract method, no type parameters of its own, and nothing else: no fields, other methods, nested types. */
     private static boolean delegateShape(TypeInfo t) {
         if (!t.isInterface() || t.typeNature().isAnnotation() || !CSharpNames.translated(t)) return false;
         if (!t.interfacesImplemented().isEmpty()) return false;
-        MethodInfo sam = CSharpNames.singleAbstractMethod(t);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(t);
         return sam != null && sam.typeParameters().isEmpty()
                && t.methods().stream().filter(m -> !m.isSynthetic()).count() == 1
                && t.fields().stream().allMatch(FieldInfo::isSynthetic)

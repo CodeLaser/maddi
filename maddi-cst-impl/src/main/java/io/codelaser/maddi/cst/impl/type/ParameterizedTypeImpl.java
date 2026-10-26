@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.cst.impl.type;
 
+import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.element.DetailedSources;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.AnnotationExpression;
@@ -66,6 +67,11 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final List<AnnotationExpression> annotations;
     // an array's element type, when it carries a state or annotations of its own (componentType()); else null
     private final ParameterizedType component;
+    // hashCode(), cached once every part of it is final (hashStable()); String.hash's race-safe scheme
+    @IgnoreModifications
+    private int hash;
+    @IgnoreModifications
+    private boolean hashIsZero;
 
     public ParameterizedTypeImpl(TypeParameter typeParameter, int arrays) {
         this(null, typeParameter, List.of(), arrays, null);
@@ -218,7 +224,38 @@ public class ParameterizedTypeImpl implements ParameterizedType {
         // hash. Keeping it out leaves every type's hash unchanged from before nullability existed, so
         // hash-ordered collections across the analyzer keep their iteration order (Java types are all
         // UNSPECIFIED anyway). Types differing only in nullability simply share a hash bucket.
-        return Objects.hash(typeParameter, typeInfo, arrays, stableWildcardHash(wildcard), parameters);
+        // Objects.hash(typeParameter, typeInfo, arrays, stableWildcardHash(wildcard), parameters), the same value
+        // without its argument array, and cached: the profile of 2026-10-22 (docs/status/performance-2026-10-22.md)
+        // had it at 16% of timefold's CPU, recomputed through the type arguments on every call.
+        int h = hash;
+        if (h != 0 || hashIsZero) return h;
+        h = 31 + Objects.hashCode(typeParameter);
+        h = 31 * h + Objects.hashCode(typeInfo);
+        h = 31 * h + arrays;
+        h = 31 * h + stableWildcardHash(wildcard);
+        h = 31 * h + parameters.hashCode();
+        if (hashParts()) {
+            if (h == 0) hashIsZero = true;
+            else hash = h;
+        }
+        return h;
+    }
+
+    /**
+     * The hash is final once its parts' are: a method's type parameter hashes its method, whose name is final only
+     * once inspected. Not cached before.
+     */
+    private boolean hashParts() {
+        if (typeParameter != null && !(typeParameter instanceof TypeParameterImpl tp && tp.hashStable())) return false;
+        for (ParameterizedType p : parameters) {
+            if (!(p instanceof ParameterizedTypeImpl pti && pti.hashStable())) return false;
+        }
+        return true;
+    }
+
+    boolean hashStable() {
+        hashCode();
+        return hash != 0 || hashIsZero;
     }
 
     /**
@@ -324,8 +361,10 @@ public class ParameterizedTypeImpl implements ParameterizedType {
                             pt.typesReferenced(typeReferenceNature, detailedSources, visited))));
         }
         if (typeParameter != null) {
-            return typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,
-                    visited == null ? new HashSet<>() : visited);
+            // @Nullable S: the annotation needs its import as much as on a class type, see annotationsReferenced
+            return Stream.concat(annotationsReferenced(),
+                    typeParameter.typesReferenced(Element.TypeReferenceNature.IMPLICIT, null,
+                            visited == null ? new HashSet<>() : visited));
         }
         return Stream.of();
     }
@@ -632,7 +671,9 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             if (i < parentType.parameters().size()) {
                 ParameterizedType formalInParentType = parentType.parameters().get(i);
                 if (formalInParentType.typeInfo() != null) {
-                    result = formalInParentType;
+                    // EntrySet<K, V> extends AbstractSet<Entry<K, V>>, seen from EntrySet<String, List<Integer>>:
+                    // the type variables inside the argument are substituted too, Entry<String, List<Integer>>
+                    result = substituted(formalInParentType, map);
                 } else if (formalInParentType.typeParameter() != null) {
                     result = map.get(formalInParentType.typeParameter());
                     if (result == null && !bestOwnTypeParameter(formalInParentType.typeParameter())) {
@@ -655,6 +696,42 @@ public class ParameterizedTypeImpl implements ParameterizedType {
             i++;
         }
         return new ParameterizedTypeImpl(parentType.typeInfo(), List.copyOf(newParameters));
+    }
+
+    /** {@code type} with the type variables the map knows replaced, at any depth of its type arguments. */
+    private static ParameterizedType substituted(ParameterizedType type, Map<NamedType, ParameterizedType> map) {
+        if (map.isEmpty() || type.parameters().isEmpty()) return type;
+        boolean changed = false;
+        List<ParameterizedType> parameters = new ArrayList<>(type.parameters().size());
+        for (ParameterizedType p : type.parameters()) {
+            ParameterizedType s = p;
+            if (p.typeParameter() != null && p.typeInfo() == null) {
+                ParameterizedType mapped = map.get(p.typeParameter());
+                if (mapped != null && p.arrays() == 0) s = nestedArgument(p, mapped);
+            } else if (p.typeInfo() != null) {
+                s = substituted(p, map);
+            }
+            changed |= s != p;
+            parameters.add(s);
+        }
+        return changed ? type.withParameters(List.copyOf(parameters)) : type;
+    }
+
+    /*
+     A type argument p, a type variable written as is or with a wildcard, with the variable's argument 'mapped'
+     put in. A wildcard argument used to leave the variable in place: Stream<T> extends BaseStream<T, Stream<T>>,
+     seen from a Stream<?>, was BaseStream<?, Stream<T>>, Stream's own T in a place where it means nothing
+     (maddi#159). It goes in where Java can say the result: 'T' and '? extends T' take '?' or '? extends X' as it
+     is, '? super T' takes '? super X'; across directions ('? extends' of '? super X') only '?' is left.
+     Public for the printers' own substitution, CstSupertypes.substitute (maddi#158).
+     */
+    public static ParameterizedType nestedArgument(ParameterizedType p, ParameterizedType mapped) {
+        Wildcard outer = p.wildcard();
+        Wildcard inner = mapped.wildcard();
+        if (inner == null) return outer == null ? mapped : mapped.withWildcard(outer);
+        if (outer == null || inner.isUnbound()) return mapped;
+        if (outer.isExtends() && inner.isExtends() || outer.isSuper() && inner.isSuper()) return mapped;
+        return WILDCARD_PARAMETERIZED_TYPE;
     }
 
     private boolean bestOwnTypeParameter(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {

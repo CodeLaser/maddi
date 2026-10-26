@@ -18,6 +18,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -59,7 +61,22 @@ public static class JavaCollections
     }
 
     /// <summary>Collection.removeIf on a set or a map's entries: whether anything was removed.</summary>
-    public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
+    /// <summary>List.replaceAll: each element the operator's result.</summary>
+    public static void ReplaceAll<T>(this IList<T> l, Func<T, T> op)
+    {
+        for (int i = 0; i < l.Count; i++) l[i] = op(l[i]);
+    }
+
+    /// <summary>Map.keySet where a Set is expected: the keys' view (JavaKeySet).</summary>
+    public static ISet<K> KeySet<K, V>(this IDictionary<K, V> m) => new JavaKeySet<K, V>(m);
+
+    /// <summary>Map.replaceAll: each value the function's result of its key and value.</summary>
+    public static void ReplaceAll<K, V>(this IDictionary<K, V> m, Func<K, V, V> f)
+    {
+        foreach (var k in m.Keys.ToList()) m[k] = f(k, m[k]);
+    }
+
+        public static bool RemoveIf<T>(this ICollection<T> c, Func<T, bool> p)
     {
         var removed = c.Where(p).ToList();
         foreach (var x in removed) c.Remove(x);
@@ -91,6 +108,33 @@ public static class JavaCollections
         return old;
     }
 
+    // Java's contains(Object), remove(Object), containsKey(Object), get(Object) take any object, which is not there
+    // when it is not of the element's or the key's type; C#'s take that type.
+
+    private static bool AsElement<T>(object? o, out T t)
+    {
+        if (o is T v)
+        {
+            t = v;
+            return true;
+        }
+        t = default!;
+        // a null is an element of a collection of references, as in Java
+        return o is null && default(T) is null;
+    }
+
+    public static bool ContainsObject<T>(this ICollection<T> c, object? o) => AsElement(o, out T t) && c.Contains(t);
+
+    public static bool RemoveObject<T>(this ICollection<T> c, object? o) => AsElement(o, out T t) && c.Remove(t);
+
+    // a Dictionary has no null key
+    public static bool ContainsKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k && d.ContainsKey(k);
+
+    public static V? GetObject<K, V>(this IDictionary<K, V> d, object? o) =>
+        o is K k && d.TryGetValue(k, out var v) ? v : default;
+
+    public static V? RemoveKeyObject<K, V>(this IDictionary<K, V> d, object? o) => o is K k ? d.RemoveAndGet(k) : default;
+
     public static void PutAll<K, V>(this IDictionary<K, V> d, IEnumerable<KeyValuePair<K, V>> other)
     {
         foreach (var (k, v) in other.ToList()) d[k] = v;
@@ -108,6 +152,26 @@ public static class JavaCollections
         if (d.TryGetValue(key, out var v) && v != null) return v;
         v = f(key);
         if (v != null) d[key] = v;
+        return v;
+    }
+
+    /// <summary>Map.computeIfPresent: a present value remapped, removed when the function gives null.</summary>
+    public static V? ComputeIfPresent<K, V>(this IDictionary<K, V> d, K key, Func<K, V, V?> f)
+    {
+        if (!d.TryGetValue(key, out var old) || old == null) return default;
+        var v = f(key, old);
+        if (v == null) d.Remove(key);
+        else d[key] = v;
+        return v;
+    }
+
+    /// <summary>Map.computeIfPresent of a value type, whose function gives null to remove: as Java's Integer.</summary>
+    public static V? ComputeIfPresentValue<K, V>(this IDictionary<K, V> d, K key, Func<K, V, V?> f) where V : struct
+    {
+        if (!d.TryGetValue(key, out var old)) return null;
+        var v = f(key, old);
+        if (v == null) d.Remove(key);
+        else d[key] = v.Value;
         return v;
     }
 
@@ -405,6 +469,99 @@ public static class JavaNavigable
 }
 
 /// <summary>Comparator's factories and combinators, for Comparison delegates.</summary>
+/// <summary>
+/// Map.keySet as a Set: a view of the dictionary's keys, as Java's, whose Remove and Clear remove the entries and whose
+/// Add is not supported (UnsupportedOperationException).
+/// </summary>
+public sealed class JavaKeySet<K, V>(IDictionary<K, V> map) : ISet<K>
+{
+    public int Count => map.Count;
+
+    public bool IsReadOnly => false;
+
+    public bool Contains(K item) => map.ContainsKey(item);
+
+    public bool Remove(K item) => map.Remove(item);
+
+    public void Clear() => map.Clear();
+
+    public IEnumerator<K> GetEnumerator() => map.Keys.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public void CopyTo(K[] array, int index) => map.Keys.CopyTo(array, index);
+
+    public bool Add(K item) => throw new NotSupportedException();
+
+    void ICollection<K>.Add(K item) => throw new NotSupportedException();
+
+    public void UnionWith(IEnumerable<K> other) => throw new NotSupportedException();
+
+    public void IntersectWith(IEnumerable<K> other)
+    {
+        var keep = new HashSet<K>(other);
+        foreach (var k in map.Keys.Where(k => !keep.Contains(k)).ToList()) map.Remove(k);
+    }
+
+    public void ExceptWith(IEnumerable<K> other)
+    {
+        // a copy first: other may be this view itself, s.removeAll(s)
+        foreach (var k in other.ToList()) map.Remove(k);
+    }
+
+    public void SymmetricExceptWith(IEnumerable<K> other) => throw new NotSupportedException();
+
+    public bool IsSubsetOf(IEnumerable<K> other) => new HashSet<K>(other).IsSupersetOf(this);
+
+    public bool IsSupersetOf(IEnumerable<K> other) => other.All(Contains);
+
+    public bool IsProperSubsetOf(IEnumerable<K> other) => new HashSet<K>(other).IsProperSupersetOf(this);
+
+    public bool IsProperSupersetOf(IEnumerable<K> other) => new HashSet<K>(this).IsProperSupersetOf(other);
+
+    public bool Overlaps(IEnumerable<K> other) => other.Any(Contains);
+
+    public bool SetEquals(IEnumerable<K> other) => new HashSet<K>(other).SetEquals(this);
+
+    public override string ToString() => "[" + string.Join(", ", this) + "]";
+}
+
+/// <summary>A sorted set's and map's Java members that copy where Java gives a view.</summary>
+public static class JavaSortedSets
+{
+    /// <summary>SortedSet.removeFirst: the least element, removed; NoSuchElementException when empty.</summary>
+    public static T RemoveFirst<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var first = s.Min!;
+        s.Remove(first);
+        return first;
+    }
+
+    public static T RemoveLast<T>(this SortedSet<T> s)
+    {
+        if (s.Count == 0) throw new InvalidOperationException("empty set");
+        var last = s.Max!;
+        s.Remove(last);
+        return last;
+    }
+
+    /// <summary>SortedSet.subSet(from, to), from inclusive, to exclusive: a copy, not Java's view.</summary>
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, T to) => s.SubSet(from, true, to, false);
+
+    public static SortedSet<T> SubSet<T>(this SortedSet<T> s, T from, bool fromInclusive, T to, bool toInclusive)
+    {
+        if (s.Comparer.Compare(from, to) > 0) throw new ArgumentException("from > to");
+        return new SortedSet<T>(s.GetViewBetween(from, to).Where(x =>
+            (fromInclusive || s.Comparer.Compare(x, from) != 0) && (toInclusive || s.Comparer.Compare(x, to) != 0)),
+            s.Comparer);
+    }
+
+    /// <summary>NavigableMap.navigableKeySet: the keys in order, a copy, not Java's view.</summary>
+    public static SortedSet<K> NavigableKeySet<K, V>(this SortedDictionary<K, V> m) where K : notnull =>
+        new(m.Keys, m.Comparer);
+}
+
 public static class JavaComparator
 {
     public static Comparison<T> Comparing<T, K>(Func<T, K> key) =>
@@ -450,6 +607,35 @@ public static class JavaUnsupported
 /// <summary>Java's String methods that differ from the BCL's.</summary>
 public static class JavaString
 {
+    /// <summary>String.indent: each line n spaces more, or up to -n leading white space less; each ends in \n.</summary>
+    public static string Indent(string s, int n)
+    {
+        if (s.Length == 0) return "";
+        var lines = s.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        int count = s.EndsWith('\n') || s.EndsWith('\r') ? lines.Length - 1 : lines.Length;
+        var sb = new StringBuilder();
+        for (int i = 0; i < count; i++)
+        {
+            var line = lines[i];
+            if (n > 0) sb.Append(' ', n);
+            else if (n < 0)
+            {
+                int strip = 0;
+                while (strip < -n && strip < line.Length && char.IsWhiteSpace(line[strip])) strip++;
+                line = line[strip..];
+            }
+            sb.Append(line).Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>StringBuilder.replace(start, end, str): end past the length is the length.</summary>
+    public static StringBuilder ReplaceRange(this StringBuilder sb, int start, int end, string str)
+    {
+        if (start < 0 || start > sb.Length || start > end) throw new ArgumentOutOfRangeException(nameof(start));
+        return sb.Remove(start, Math.Min(end, sb.Length) - start).Insert(start, str);
+    }
+
     /// <summary>String.replaceAll: the replacement in Java's syntax (JavaMatcher.Expand).</summary>
     public static string ReplaceAll(string s, string regex, string replacement) =>
         new JavaMatcher(new Regex(regex), s).ReplaceAll(replacement);
@@ -724,8 +910,241 @@ public static class JavaMath
 }
 
 /// <summary>java.util.function's default methods on C#'s delegates.</summary>
+/// <summary>java.time.temporal.ChronoUnit, which is what a TemporalUnit is; ToString is Java's, "Days".</summary>
+public enum JavaChronoUnit
+{
+    Nanos, Micros, Millis, Seconds, Minutes, Hours, HalfDays, Days, Weeks, Months, Years, Decades, Centuries,
+    Millennia, Eras, Forever
+}
+
+/// <summary>
+/// java.time.temporal.Temporal's plus, until and isSupported on the BCL's dates and times, which share no interface
+/// for them: DateOnly is a LocalDate, TimeOnly a LocalTime, DateTime a LocalDateTime, DateTimeOffset an Instant or an
+/// OffsetDateTime. A unit a value does not support throws, as Java's UnsupportedTemporalTypeException.
+/// </summary>
+public static class JavaTemporal
+{
+    private static long Ticks(JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Micros => 10,
+        JavaChronoUnit.Millis => TimeSpan.TicksPerMillisecond,
+        JavaChronoUnit.Seconds => TimeSpan.TicksPerSecond,
+        JavaChronoUnit.Minutes => TimeSpan.TicksPerMinute,
+        JavaChronoUnit.Hours => TimeSpan.TicksPerHour,
+        JavaChronoUnit.HalfDays => TimeSpan.TicksPerHour * 12,
+        _ => throw Unsupported(unit)
+    };
+
+    private static int MonthsOf(JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Months => 1,
+        JavaChronoUnit.Years => 12,
+        JavaChronoUnit.Decades => 120,
+        JavaChronoUnit.Centuries => 1200,
+        JavaChronoUnit.Millennia => 12000,
+        _ => throw Unsupported(unit)
+    };
+
+    private static bool TimeBased(JavaChronoUnit unit) => unit <= JavaChronoUnit.HalfDays;
+
+    private static bool DateBased(JavaChronoUnit unit) => unit >= JavaChronoUnit.Days && unit <= JavaChronoUnit.Millennia;
+
+    private static ArgumentOutOfRangeException Unsupported(JavaChronoUnit unit) =>
+        new(nameof(unit), "Unsupported unit: " + unit);
+
+    public static bool IsSupported(object? temporal, JavaChronoUnit unit) => temporal switch
+    {
+        DateOnly => DateBased(unit),
+        TimeOnly => TimeBased(unit),
+        DateTime or DateTimeOffset => TimeBased(unit) || DateBased(unit),
+        _ => false
+    };
+
+    // a time-based amount in ticks: a nanosecond is a hundredth of one
+    private static long AmountTicks(long amount, JavaChronoUnit unit) =>
+        unit == JavaChronoUnit.Nanos ? amount / 100 : checked(amount * Ticks(unit));
+
+    private static DateTime Plus(DateTime t, long amount, JavaChronoUnit unit) => unit switch
+    {
+        _ when TimeBased(unit) => t.AddTicks(AmountTicks(amount, unit)),
+        JavaChronoUnit.Days => t.AddDays(amount),
+        JavaChronoUnit.Weeks => t.AddDays(checked(amount * 7)),
+        _ when DateBased(unit) => t.AddMonths(checked((int)(amount * MonthsOf(unit)))),
+        _ => throw Unsupported(unit)
+    };
+
+    public static T Plus<T>(T temporal, long amount, JavaChronoUnit unit)
+    {
+        object result = temporal switch
+        {
+            DateOnly d when DateBased(unit) => DateOnly.FromDateTime(Plus(d.ToDateTime(TimeOnly.MinValue), amount, unit)),
+            TimeOnly t when TimeBased(unit) => t.Add(TimeSpan.FromTicks(AmountTicks(amount, unit) % TimeSpan.TicksPerDay)),
+            DateTime t => Plus(t, amount, unit),
+            DateTimeOffset t => new DateTimeOffset(Plus(t.DateTime, amount, unit), t.Offset),
+            _ => throw Unsupported(unit)
+        };
+        return (T)result;
+    }
+
+    public static T Minus<T>(T temporal, long amount, JavaChronoUnit unit) =>
+        amount == long.MinValue ? Plus(Plus(temporal, long.MaxValue, unit), 1, unit) : Plus(temporal, -amount, unit);
+
+    /// <summary>Temporal.plus(TemporalAmount): a Duration, TimeSpan, or a Period.</summary>
+    public static T Plus<T>(T temporal, object amount) => amount switch
+    {
+        TimeSpan span => Plus(temporal, span.Ticks * 100, JavaChronoUnit.Nanos),
+        JavaPeriod p => Plus(Plus(temporal, p.ToTotalMonths(), JavaChronoUnit.Months), p.Days, JavaChronoUnit.Days),
+        _ => throw new ArgumentException("Unsupported amount: " + amount)
+    };
+
+    public static T Minus<T>(T temporal, object amount) => amount switch
+    {
+        TimeSpan span => Plus(temporal, -span.Ticks * 100, JavaChronoUnit.Nanos),
+        JavaPeriod p => Plus(temporal, p.Negated()),
+        _ => throw new ArgumentException("Unsupported amount: " + amount)
+    };
+
+    // whole months from one date to another, Java's: a month that is not complete does not count
+    private static long Months(DateOnly from, DateOnly to)
+    {
+        long months = (to.Year - from.Year) * 12L + to.Month - from.Month;
+        int days = to.Day - from.Day;
+        if (months > 0 && days < 0) months--;
+        else if (months < 0 && days > 0) months++;
+        return months;
+    }
+
+    private static long Until(DateOnly from, DateOnly to, JavaChronoUnit unit) => unit switch
+    {
+        JavaChronoUnit.Days => to.DayNumber - from.DayNumber,
+        JavaChronoUnit.Weeks => (to.DayNumber - from.DayNumber) / 7,
+        _ when DateBased(unit) => Months(from, to) / MonthsOf(unit),
+        _ => throw Unsupported(unit)
+    };
+
+    private static long Until(DateTime from, DateTime to, JavaChronoUnit unit)
+    {
+        if (TimeBased(unit))
+        {
+            long ticks = (to - from).Ticks;
+            return unit == JavaChronoUnit.Nanos ? checked(ticks * 100) : ticks / Ticks(unit);
+        }
+        // the end's date, a day nearer when its time of day has not reached the start's, as Java's
+        var end = DateOnly.FromDateTime(to);
+        var start = DateOnly.FromDateTime(from);
+        if (end > start && to.TimeOfDay < from.TimeOfDay) end = end.AddDays(-1);
+        else if (end < start && to.TimeOfDay > from.TimeOfDay) end = end.AddDays(1);
+        return Until(start, end, unit);
+    }
+
+    public static long Until<T>(T from, T to, JavaChronoUnit unit) => (object?)from switch
+    {
+        DateOnly d when DateBased(unit) => Until(d, (DateOnly)(object)to!, unit),
+        TimeOnly t when TimeBased(unit) => Until(DateTime.MinValue + t.ToTimeSpan(),
+            DateTime.MinValue + ((TimeOnly)(object)to!).ToTimeSpan(), unit),
+        DateTime t => Until(t, (DateTime)(object)to!, unit),
+        DateTimeOffset t => Until(t.DateTime, ((DateTimeOffset)(object)to!).ToOffset(t.Offset).DateTime, unit),
+        _ => throw Unsupported(unit)
+    };
+}
+
+/// <summary>java.time.Period: years, months and days, each kept as given; ToString is Java's, P1Y2M3D.</summary>
+public readonly record struct JavaPeriod(int Years, int Months, int Days)
+{
+    public static readonly JavaPeriod Zero = new(0, 0, 0);
+
+    public static JavaPeriod Of(int years, int months, int days) => new(years, months, days);
+
+    public static JavaPeriod OfYears(int years) => new(years, 0, 0);
+
+    public static JavaPeriod OfMonths(int months) => new(0, months, 0);
+
+    public static JavaPeriod OfWeeks(int weeks) => new(0, 0, checked(weeks * 7));
+
+    public static JavaPeriod OfDays(int days) => new(0, 0, days);
+
+    public static JavaPeriod Between(DateOnly start, DateOnly end)
+    {
+        long totalMonths = (end.Year - start.Year) * 12L + end.Month - start.Month;
+        int days = end.Day - start.Day;
+        if (totalMonths > 0 && days < 0)
+        {
+            totalMonths--;
+            days = end.DayNumber - start.AddMonths((int)totalMonths).DayNumber;
+        }
+        else if (totalMonths < 0 && days > 0)
+        {
+            totalMonths++;
+            days -= DateTime.DaysInMonth(end.Year, end.Month);
+        }
+        return new((int)(totalMonths / 12), (int)(totalMonths % 12), days);
+    }
+
+    public int GetYears() => Years;
+
+    public int GetMonths() => Months;
+
+    public int GetDays() => Days;
+
+    public bool IsZero() => this == Zero;
+
+    public bool IsNegative() => Years < 0 || Months < 0 || Days < 0;
+
+    public long ToTotalMonths() => Years * 12L + Months;
+
+    // Java's take a TemporalAmount, a reference: here a Period that may be null, as Java's, which throws
+    public JavaPeriod Plus(JavaPeriod? amount)
+    {
+        var p = amount ?? throw new NullReferenceException();
+        return new(checked(Years + p.Years), checked(Months + p.Months), checked(Days + p.Days));
+    }
+
+    public JavaPeriod Minus(JavaPeriod? amount)
+    {
+        var p = amount ?? throw new NullReferenceException();
+        return new(checked(Years - p.Years), checked(Months - p.Months), checked(Days - p.Days));
+    }
+
+    public JavaPeriod PlusYears(long years) => this with { Years = checked((int)(Years + years)) };
+
+    public JavaPeriod PlusMonths(long months) => this with { Months = checked((int)(Months + months)) };
+
+    public JavaPeriod PlusDays(long days) => this with { Days = checked((int)(Days + days)) };
+
+    public JavaPeriod MultipliedBy(int scalar) =>
+        new(checked(Years * scalar), checked(Months * scalar), checked(Days * scalar));
+
+    public JavaPeriod Negated() => MultipliedBy(-1);
+
+    public JavaPeriod Normalized()
+    {
+        long total = ToTotalMonths();
+        return new(checked((int)(total / 12)), (int)(total % 12), Days);
+    }
+
+    public override string ToString()
+    {
+        if (IsZero()) return "P0D";
+        var sb = new StringBuilder("P");
+        if (Years != 0) sb.Append(Years).Append('Y');
+        if (Months != 0) sb.Append(Months).Append('M');
+        if (Days != 0) sb.Append(Days).Append('D');
+        return sb.ToString();
+    }
+}
+
 public static class JavaFunctions
 {
+    /// <summary>RandomGenerator.ints(origin, bound): an endless sequence of draws.</summary>
+    public static IEnumerable<int> Ints(this Random r, int origin, int bound)
+    {
+        while (true) yield return r.Next(origin, bound);
+    }
+
+    /// <summary>RandomGenerator.ints(size, origin, bound).</summary>
+    public static IEnumerable<int> Ints(this Random r, long size, int origin, int bound) =>
+        r.Ints(origin, bound).Take(checked((int) size));
+
     public static Action<T> AndThen<T>(this Action<T> first, Action<T> then) => x =>
     {
         first(x);
@@ -735,6 +1154,27 @@ public static class JavaFunctions
     public static Func<T, V> AndThen<T, R, V>(this Func<T, R> first, Func<R, V> then) => x => then(first(x));
 
     public static Func<V, R> Compose<V, T, R>(this Func<T, R> second, Func<V, T> first) => x => second(first(x));
+
+    // Predicate's and BiPredicate's combinators, short-circuiting as Java's
+    public static Func<T, bool> And<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) && other(x);
+
+    public static Func<T, bool> Or<T>(this Func<T, bool> first, Func<T, bool> other) => x => first(x) || other(x);
+
+    public static Func<T, bool> Negate<T>(this Func<T, bool> p) => x => !p(x);
+
+    public static Func<T, U, bool> And<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
+        (x, y) => first(x, y) && other(x, y);
+
+    public static Func<T, U, bool> Or<T, U>(this Func<T, U, bool> first, Func<T, U, bool> other) =>
+        (x, y) => first(x, y) || other(x, y);
+
+    public static Func<T, U, bool> Negate<T, U>(this Func<T, U, bool> p) => (x, y) => !p(x, y);
+
+    /// <summary>Stream.generate: an infinite sequence of the supplier's values, which a Take or First ends.</summary>
+    public static IEnumerable<T> Generate<T>(Func<T> supplier)
+    {
+        while (true) yield return supplier();
+    }
 
     /// <summary>Stream.peek: each element seen by the action as it passes.</summary>
     public static IEnumerable<T> Peek<T>(this IEnumerable<T> source, Action<T> action)
@@ -752,6 +1192,29 @@ public static class JavaClass
 {
     /// <summary>getCanonicalName: a nested type's FullName has a '+' where Java's has a '.'.</summary>
     public static string? CanonicalName(Type t) => t.FullName?.Replace('+', '.');
+
+    /// <summary>AccessibleObject.setAccessible: nothing, .NET's reflection reaches a member that is not public.</summary>
+    public static void SetAccessible(MemberInfo member, bool flag)
+    {
+    }
+
+    private const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic
+                                          | BindingFlags.Instance | BindingFlags.Static;
+
+    /// <summary>Class.getDeclaredMethod: the class's own, public or not; throws where Java does, GetMethod is null.</summary>
+    public static MethodInfo DeclaredMethod(Type t, string name, params Type[] parameterTypes) =>
+        t.GetMethod(name, Declared, parameterTypes) ?? throw new MissingMethodException(t.FullName, name);
+
+    /// <summary>Class.getDeclaredField: the class's own, public or not; throws where Java does.</summary>
+    public static FieldInfo DeclaredField(Type t, string name) =>
+        t.GetField(name, Declared) ?? throw new MissingFieldException(t.FullName, name);
+
+    /// <summary>Class.isRecord: a C# record class, which has the compiler's clone method.</summary>
+    public static bool IsRecord(Type t) => t.GetMethod("<Clone>$") != null;
+
+    /// <summary>Member.isSynthetic: one the compiler made.</summary>
+    public static bool IsSynthetic(MemberInfo member) =>
+        member.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false);
 }
 
 public static class JavaArrays
@@ -1015,6 +1478,28 @@ public class BitSet : ICloneable
         return i;
     }
 
+    /// <summary>The nearest set bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousSetBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (Get(i)) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>The nearest clear bit at or below from; -1 when there is none, or from is -1.</summary>
+    public int PreviousClearBit(int from)
+    {
+        if (from < -1) throw new ArgumentOutOfRangeException(nameof(from));
+        for (var i = from; i >= 0; i--)
+        {
+            if (!Get(i)) return i;
+        }
+        return -1;
+    }
+
     /// <summary>The index of the highest set bit, plus one.</summary>
     public int Length()
     {
@@ -1102,8 +1587,10 @@ public class BitSet : ICloneable
 /// <summary>
 /// Java's Iterator over a C# enumerable. A list is walked by index, so that Remove removes the element just returned;
 /// any other enumerable is walked over a snapshot, and Remove removes the element from it when it is a collection.
+/// Covariant, as reading is: an iterator of IPositionInList is one of IElementPosition, which Java's
+/// Iterator&lt;? extends ElementPosition&gt; takes.
 /// </summary>
-public interface IJavaIterator<T>
+public interface IJavaIterator<out T>
 {
     bool HasNext();
 
@@ -1117,6 +1604,23 @@ public interface IJavaIterator<T>
     }
 }
 
+/// <summary>java.util.ListIterator: an iterator over a list both ways, which sets and adds where it is.</summary>
+public interface IJavaListIterator<T> : IJavaIterator<T>
+{
+    bool HasPrevious();
+
+    T Previous();
+
+    int NextIndex();
+
+    int PreviousIndex();
+
+    // optional operations, as Java's: a list iterator that does not support them inherits these
+    void Set(T e) => throw new NotSupportedException("set");
+
+    void Add(T e) => throw new NotSupportedException("add");
+}
+
 public static class JavaIterators
 {
     /// <summary>A Java iterator as C#'s enumerator: a class with iterator() is an IEnumerable.</summary>
@@ -1124,14 +1628,22 @@ public static class JavaIterators
     {
         while (iterator.HasNext()) yield return iterator.Next();
     }
+
+    /// <summary>A Java iterator's remaining elements as a sequence: Spliterators.spliterator(iterator, …)'s.</summary>
+    public static IEnumerable<T> AsEnumerable<T>(this IJavaIterator<T> iterator)
+    {
+        while (iterator.HasNext()) yield return iterator.Next();
+    }
 }
 
-public class JavaIterator<T> : IJavaIterator<T>
+public class JavaIterator<T> : IJavaListIterator<T>
 {
     private readonly IList<T>? list;
     private readonly ICollection<T>? collection;
     private readonly IEnumerator<T>? enumerator;
     private int index;
+    // a list's element that Next or Previous returned last, which Remove and Set change; -1: none
+    private int lastIndex = -1;
     private bool hasPeeked;
     private bool peeked;
     private T? last;
@@ -1167,16 +1679,53 @@ public class JavaIterator<T> : IJavaIterator<T>
     public T Next()
     {
         if (!HasNext()) throw new InvalidOperationException("no next element");
-        if (list != null) return last = list[index++];
+        if (list != null)
+        {
+            lastIndex = index;
+            return last = list[index++];
+        }
         hasPeeked = false;
         return last = enumerator!.Current;
     }
 
     public void Remove()
     {
-        if (list != null) list.RemoveAt(--index);
+        if (list != null)
+        {
+            if (lastIndex < 0) throw new InvalidOperationException("no element to remove");
+            list.RemoveAt(lastIndex);
+            if (lastIndex < index) index--;
+            lastIndex = -1;
+        }
         else if (collection != null) collection.Remove(last!);
         else throw new NotSupportedException("remove");
+    }
+
+    private IList<T> List => list ?? throw new NotSupportedException("not a list iterator");
+
+    public bool HasPrevious() => index > 0 && list != null;
+
+    public T Previous()
+    {
+        if (index <= 0) throw new InvalidOperationException("no previous element");
+        lastIndex = --index;
+        return last = List[index];
+    }
+
+    public int NextIndex() => index;
+
+    public int PreviousIndex() => index - 1;
+
+    public void Set(T e)
+    {
+        if (lastIndex < 0) throw new InvalidOperationException("no element to set");
+        List[lastIndex] = e;
+    }
+
+    public void Add(T e)
+    {
+        List.Insert(index++, e);
+        lastIndex = -1;
     }
 
     public void ForEachRemaining(Action<T> action)
@@ -1275,6 +1824,36 @@ public class JavaFile
     public override bool Equals(object? o) => o is JavaFile f && f.path == path;
 
     public override int GetHashCode() => path.GetHashCode();
+}
+
+/// <summary>java.util.stream.Collectors that LINQ has no counterpart of.</summary>
+public static class JavaCollectors
+{
+    /// <summary>Collectors.toCollection(supplier): the elements added to the supplied collection.</summary>
+    public static C ToCollection<T, C>(this IEnumerable<T> source, Func<C> supplier) where C : ICollection<T>
+    {
+        var collection = supplier();
+        foreach (var t in source) collection.Add(t);
+        return collection;
+    }
+
+    /// <summary>Collectors.toMap(key, value, merge): a duplicate key's values merged, Java's HashMap a Dictionary.</summary>
+    public static Dictionary<K, V> ToMap<T, K, V>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge) where K : notnull => source.ToMap(key, value, merge, () => new Dictionary<K, V>());
+
+    /// <summary>Collectors.toMap(key, value, merge, supplier).</summary>
+    public static M ToMap<T, K, V, M>(this IEnumerable<T> source, Func<T, K> key, Func<T, V> value,
+        Func<V, V, V> merge, Func<M> supplier) where M : IDictionary<K, V>
+    {
+        var map = supplier();
+        foreach (var t in source)
+        {
+            var k = key(t);
+            var v = value(t);
+            map[k] = map.TryGetValue(k, out var old) ? merge(old, v) : v;
+        }
+        return map;
+    }
 }
 
 /// <summary>InputStream's methods the BCL's Stream does not have.</summary>
@@ -1913,6 +2492,432 @@ public static class JavaTasks
     }).Unwrap();
 
     public static Task ThenAccept<T>(this Task<T> t, Action<T> a) => t.ContinueWith(x => a(x.GetAwaiter().GetResult()));
+
+    // what completes a task from outside: a CompletableFuture made empty, or an executor's submitted task
+    private static readonly ConditionalWeakTable<Task, ICompleter> Completers = new();
+
+    internal interface ICompleter
+    {
+        bool Complete(object? value);
+
+        bool Fail(Exception e);
+
+        bool Cancel(bool mayInterrupt);
+    }
+
+    internal sealed class Completer<T>(TaskCompletionSource<T> source, Func<Thread?>? runner = null) : ICompleter
+    {
+        public bool Complete(object? value) => source.TrySetResult((T) value!);
+
+        public bool Fail(Exception e) => source.TrySetException(e);
+
+        public bool Cancel(bool mayInterrupt)
+        {
+            if (!source.TrySetCanceled()) return false;
+            if (mayInterrupt && runner?.Invoke() is { } thread) JavaThreads.Interrupt(thread);
+            return true;
+        }
+    }
+
+    internal static Task<T> Register<T>(TaskCompletionSource<T> source, Func<Thread?>? runner = null)
+    {
+        Completers.Add(source.Task, new Completer<T>(source, runner));
+        return source.Task;
+    }
+
+    /// <summary>new CompletableFuture&lt;T&gt;(): a task that Complete, CompleteExceptionally or Cancel ends.</summary>
+    public static Task<T> Incomplete<T>() =>
+        Register(new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously));
+
+    /// <summary>CompletableFuture.complete: false when the task is done, or nothing can complete it from outside.</summary>
+    public static bool Complete<T>(this Task<T> t, T? value) =>
+        Completers.TryGetValue(t, out var c) && c.Complete(value);
+
+    public static bool CompleteExceptionally(this Task t, Exception e) =>
+        Completers.TryGetValue(t, out var c) && c.Fail(e);
+
+    /// <summary>Future.cancel: an executor's running task's thread is interrupted when mayInterrupt.</summary>
+    public static bool Cancel(this Task t, bool mayInterrupt) =>
+        Completers.TryGetValue(t, out var c) && c.Cancel(mayInterrupt);
+
+    /// <summary>Future.get(timeout, unit): TimeoutException when the task is not done in time.</summary>
+    public static T Get<T>(this Task<T> t, long timeout, JavaTimeUnit unit)
+    {
+        if (!t.Wait(unit.ToTimeSpan(timeout))) throw new TimeoutException();
+        return t.Result;
+    }
+
+    // the Throwable a task ended with: a cancellation, or the exception it threw
+    private static Exception Cause(Task t) => t.IsCanceled ? new TaskCanceledException(t)
+        : t.Exception!.InnerExceptions.Count == 1 ? t.Exception.InnerException! : t.Exception;
+
+    /// <summary>
+    /// CompletableFuture.whenComplete: the action of the result, or of the exception, after which the task's own
+    /// outcome stands; an exception the action throws when the task succeeded.
+    /// </summary>
+    public static Task<T> WhenComplete<T>(this Task<T> t, Action<T?, Exception?> action) => t.ContinueWith(x =>
+    {
+        if (x.IsCompletedSuccessfully)
+        {
+            action(x.Result, null);
+            return x.Result;
+        }
+        var cause = Cause(x);
+        action(default, cause);
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(cause).Throw();
+        return default!;
+    }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+
+    /// <summary>CompletableFuture.runAsync: a CompletableFuture&lt;Void&gt;, of null.</summary>
+    public static Task<object> RunAsync(Action action) => RunAsync(action, TaskScheduler.Default);
+
+    public static Task<object> RunAsync(Action action, TaskScheduler executor)
+    {
+        (executor as JavaExecutorService)?.Admit();
+        return Task.Factory.StartNew<object>(() =>
+        {
+            action();
+            return null!;
+        }, CancellationToken.None, TaskCreationOptions.None, executor);
+    }
+
+    /// <summary>ExecutorService.submit: cancellable, as Java's Future.</summary>
+    public static Task<T> Submit<T>(this TaskScheduler executor, Func<T> task) => executor is JavaExecutorService e
+        ? e.Submit(task)
+        : Task.Factory.StartNew(task, CancellationToken.None, TaskCreationOptions.None, executor);
+
+    public static Task<object> Submit(this TaskScheduler executor, Action task) => executor.Submit<object>(() =>
+    {
+        task();
+        return null!;
+    });
+
+    // an executor's lifecycle; the BCL's own schedulers, TaskScheduler.Default, are never shut down
+    public static void Shutdown(this TaskScheduler executor) => (executor as JavaExecutorService)?.Shutdown();
+
+    public static List<Task> ShutdownNow(this TaskScheduler executor) =>
+        executor is JavaExecutorService e ? e.ShutdownNow() : [];
+
+    public static bool IsShutdown(this TaskScheduler executor) => executor is JavaExecutorService { Shut: true };
+
+    public static bool IsTerminated(this TaskScheduler executor) => executor is JavaExecutorService { Terminated: true };
+
+    public static bool AwaitTermination(this TaskScheduler executor, long timeout, JavaTimeUnit unit) =>
+        executor is not JavaExecutorService e || e.AwaitTermination(unit.ToTimeSpan(timeout));
+
+    /// <summary>ExecutorService.close: shut down, and wait for the tasks.</summary>
+    public static void Close(this TaskScheduler executor)
+    {
+        if (executor is not JavaExecutorService e) return;
+        e.Shutdown();
+        e.AwaitTermination(Timeout.InfiniteTimeSpan);
+    }
+}
+
+/// <summary>java.util.concurrent.ThreadFactory: null where it refuses to make a thread.</summary>
+public interface IJavaThreadFactory
+{
+    Thread? NewThread(Action r);
+}
+
+/// <summary>java.util.concurrent.Executors' thread factory.</summary>
+public static class JavaExecutors
+{
+    private static int pools;
+
+    /// <summary>Executors.defaultThreadFactory: pool-N-thread-M, not daemon threads, as Java's.</summary>
+    public static IJavaThreadFactory DefaultThreadFactory() => new Default(Interlocked.Increment(ref pools));
+
+    private sealed class Default(int pool) : IJavaThreadFactory
+    {
+        private int threads;
+
+        public Thread NewThread(Action r) =>
+            new(() => r()) { Name = $"pool-{pool}-thread-{Interlocked.Increment(ref threads)}", IsBackground = false };
+    }
+}
+
+/// <summary>
+/// java.util.concurrent.ExecutorService of a fixed number of threads, which its ThreadFactory makes as tasks come: a
+/// TaskScheduler, which Task.Factory.StartNew takes, that shuts down. shutdownNow interrupts its threads
+/// (JavaThreads.Interrupt) and returns the tasks it had not started.
+/// </summary>
+public sealed class JavaExecutorService : TaskScheduler
+{
+    private readonly System.Collections.Concurrent.BlockingCollection<Task> queue = new();
+    private readonly List<Thread> threads = [];
+    private readonly int size;
+    private readonly IJavaThreadFactory factory;
+    private readonly ManualResetEventSlim terminated = new(false);
+    private int alive;
+    private volatile bool shut;
+
+    public JavaExecutorService(int size) : this(size, JavaExecutors.DefaultThreadFactory())
+    {
+    }
+
+    public JavaExecutorService(int size, IJavaThreadFactory factory)
+    {
+        if (size <= 0) throw new ArgumentOutOfRangeException(nameof(size));
+        this.size = size;
+        this.factory = factory;
+    }
+
+    public override int MaximumConcurrencyLevel => size;
+
+    internal bool Shut => shut;
+
+    internal bool Terminated => terminated.IsSet;
+
+    protected override void QueueTask(Task task)
+    {
+        lock (threads)
+        {
+            // RejectedExecutionException
+            if (shut) throw new InvalidOperationException("The executor is shut down.");
+            if (threads.Count < size)
+            {
+                // a factory that refuses a thread: the task waits for one there is, else it is rejected, as Java's
+                var thread = factory.NewThread(Work);
+                if (thread == null)
+                {
+                    if (Volatile.Read(ref alive) == 0) throw new InvalidOperationException("No thread for the task.");
+                }
+                else
+                {
+                    threads.Add(thread);
+                    Interlocked.Increment(ref alive);
+                    thread.Start();
+                }
+            }
+            queue.Add(task);
+        }
+    }
+
+    private void Work()
+    {
+        try
+        {
+            while (true)
+            {
+                Task? task;
+                try
+                {
+                    // a wait the next task interrupts: Java clears the interrupt between tasks
+                    if (!queue.TryTake(out task, Timeout.Infinite)) break;
+                }
+                catch (ThreadInterruptedException)
+                {
+                    JavaThreads.Interrupted();
+                    if (shut && queue.IsCompleted) break;
+                    continue;
+                }
+                catch (InvalidOperationException)
+                {
+                    break; // completed for adding, and empty
+                }
+                JavaThreads.Interrupted();
+                TryExecuteTask(task);
+            }
+        }
+        finally
+        {
+            // no lock: an interrupt would find the thread waiting for it
+            if (Interlocked.Decrement(ref alive) == 0 && shut) terminated.Set();
+        }
+    }
+
+    protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
+
+    protected override IEnumerable<Task> GetScheduledTasks() => queue.ToArray();
+
+    /// <summary>Java's RejectedExecutionException, at submission: not a TaskSchedulerException when it starts.</summary>
+    internal void Admit()
+    {
+        if (shut) throw new InvalidOperationException("The executor is shut down.");
+    }
+
+    internal Task<T> Submit<T>(Func<T> task)
+    {
+        Admit();
+        var source = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Thread? runner = null;
+        var future = JavaTasks.Register(source, () => runner);
+        new Task(() =>
+        {
+            if (future.IsCompleted) return; // cancelled before it started
+            runner = Thread.CurrentThread;
+            try
+            {
+                source.TrySetResult(task());
+            }
+            catch (Exception e)
+            {
+                source.TrySetException(e);
+            }
+            finally
+            {
+                runner = null;
+            }
+        }).Start(this);
+        return future;
+    }
+
+    internal void Shutdown()
+    {
+        lock (threads)
+        {
+            if (shut) return;
+            shut = true;
+            queue.CompleteAdding();
+            if (Volatile.Read(ref alive) == 0) terminated.Set();
+        }
+    }
+
+    internal List<Task> ShutdownNow()
+    {
+        Shutdown();
+        var pending = new List<Task>();
+        while (queue.TryTake(out var task)) pending.Add(task);
+        List<Thread> workers;
+        lock (threads) workers = [..threads];
+        foreach (var thread in workers)
+        {
+            if (thread.IsAlive) JavaThreads.Interrupt(thread);
+        }
+        return pending;
+    }
+
+    internal bool AwaitTermination(TimeSpan timeout) => terminated.Wait(timeout);
+}
+
+/// <summary>
+/// A thread's interrupt, which .NET's Thread.Interrupt delivers at the next wait but does not let ask about: Java's
+/// isInterrupted and interrupted read a flag beside it.
+/// </summary>
+public static class JavaThreads
+{
+    private static readonly ConditionalWeakTable<Thread, StrongBox<bool>> Flags = new();
+
+    public static void Interrupt(Thread thread)
+    {
+        Flags.GetOrCreateValue(thread).Value = true;
+        thread.Interrupt();
+    }
+
+    public static bool IsInterrupted(Thread thread) => Flags.TryGetValue(thread, out var flag) && flag.Value;
+
+    /// <summary>Thread.interrupted: the current thread's flag, cleared, and the pending .NET interrupt with it.</summary>
+    public static bool Interrupted()
+    {
+        if (!Flags.TryGetValue(Thread.CurrentThread, out var flag) || !flag.Value) return false;
+        flag.Value = false;
+        try
+        {
+            Thread.Sleep(0);
+        }
+        catch (ThreadInterruptedException)
+        {
+            // the pending interrupt, consumed
+        }
+        return true;
+    }
+
+    /// <summary>Thread.ofPlatform().</summary>
+    public static JavaThreadBuilder OfPlatform() => new();
+
+    /// <summary>Thread.getThreadGroup: .NET has no thread groups.</summary>
+    public static object? ThreadGroup(Thread thread) => null;
+}
+
+/// <summary>Thread.Builder.OfPlatform: a thread's name, daemon flag and priority (Java's 1 to 10).</summary>
+public sealed class JavaThreadBuilder
+{
+    private string? name;
+    private bool daemon;
+    private ThreadPriority priority = ThreadPriority.Normal;
+
+    public JavaThreadBuilder Name(string name)
+    {
+        this.name = name;
+        return this;
+    }
+
+    public JavaThreadBuilder Group(object? group) => this;
+
+    public JavaThreadBuilder Daemon(bool daemon = true)
+    {
+        this.daemon = daemon;
+        return this;
+    }
+
+    public JavaThreadBuilder Priority(int priority)
+    {
+        this.priority = priority switch
+        {
+            <= 2 => ThreadPriority.Lowest,
+            <= 4 => ThreadPriority.BelowNormal,
+            5 => ThreadPriority.Normal,
+            <= 8 => ThreadPriority.AboveNormal,
+            _ => ThreadPriority.Highest
+        };
+        return this;
+    }
+
+    public Thread Unstarted(Action task) => new(() => task()) { Name = name, IsBackground = daemon, Priority = priority };
+
+    public Thread Start(Action task)
+    {
+        var thread = Unstarted(task);
+        thread.Start();
+        return thread;
+    }
+}
+
+/// <summary>java.util.concurrent.TimeUnit.</summary>
+public enum JavaTimeUnit
+{
+    Nanoseconds, Microseconds, Milliseconds, Seconds, Minutes, Hours, Days
+}
+
+public static class JavaTimeUnits
+{
+    private static readonly long[] Nanos = [1L, 1_000L, 1_000_000L, 1_000_000_000L, 60_000_000_000L,
+        3_600_000_000_000L, 86_400_000_000_000L];
+
+    /// <summary>TimeUnit.convert: a duration in this unit as another, truncated, saturated as Java's.</summary>
+    public static long Convert(this JavaTimeUnit to, long duration, JavaTimeUnit from)
+    {
+        long f = Nanos[(int) from], t = Nanos[(int) to];
+        if (f >= t)
+        {
+            long ratio = f / t;
+            return duration > long.MaxValue / ratio ? long.MaxValue : duration < long.MinValue / ratio ? long.MinValue
+                : duration * ratio;
+        }
+        return duration / (t / f);
+    }
+
+    public static long ToNanos(this JavaTimeUnit unit, long d) => JavaTimeUnit.Nanoseconds.Convert(d, unit);
+
+    public static long ToMicros(this JavaTimeUnit unit, long d) => JavaTimeUnit.Microseconds.Convert(d, unit);
+
+    public static long ToMillis(this JavaTimeUnit unit, long d) => JavaTimeUnit.Milliseconds.Convert(d, unit);
+
+    public static long ToSeconds(this JavaTimeUnit unit, long d) => JavaTimeUnit.Seconds.Convert(d, unit);
+
+    public static long ToMinutes(this JavaTimeUnit unit, long d) => JavaTimeUnit.Minutes.Convert(d, unit);
+
+    public static long ToHours(this JavaTimeUnit unit, long d) => JavaTimeUnit.Hours.Convert(d, unit);
+
+    public static long ToDays(this JavaTimeUnit unit, long d) => JavaTimeUnit.Days.Convert(d, unit);
+
+    /// <summary>A duration as a TimeSpan, of ticks (100 ns); a negative one is zero, a wait's.</summary>
+    public static TimeSpan ToTimeSpan(this JavaTimeUnit unit, long duration)
+    {
+        long ticks = unit.ToNanos(duration) / 100;
+        return TimeSpan.FromTicks(Math.Max(0, Math.Min(ticks, TimeSpan.MaxValue.Ticks)));
+    }
 }
 
 /// <summary>java.util.concurrent.locks.Lock: what a ReentrantLock and a read-write lock's halves are.</summary>
@@ -1937,11 +2942,34 @@ public class JavaReentrantLock : IJavaLock
     {
     }
 
-    public void Lock() => Monitor.Enter(monitor);
+    // the holds of the owning thread, which only it changes
+    private int holds;
 
-    public void Unlock() => Monitor.Exit(monitor);
+    public void Lock()
+    {
+        Monitor.Enter(monitor);
+        holds++;
+    }
 
-    public bool TryLock() => Monitor.TryEnter(monitor);
+    public void Unlock()
+    {
+        if (!Monitor.IsEntered(monitor)) throw new SynchronizationLockException();
+        holds--;
+        Monitor.Exit(monitor);
+    }
+
+    public bool TryLock()
+    {
+        if (!Monitor.TryEnter(monitor)) return false;
+        holds++;
+        return true;
+    }
+
+    public bool IsHeldByCurrentThread() => Monitor.IsEntered(monitor);
+
+    public bool IsLocked() => Volatile.Read(ref holds) > 0;
+
+    public int GetHoldCount() => Monitor.IsEntered(monitor) ? holds : 0;
 }
 
 /// <summary>ReadWriteLock.readLock() and writeLock() of a ReaderWriterLockSlim.</summary>
@@ -2018,6 +3046,28 @@ public class AtomicInteger
 
     public int GetAndAdd(int delta) => Interlocked.Add(ref value, delta) - delta;
 
+    public int UpdateAndGet(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public int GetAndUpdate(Func<int, int> update)
+    {
+        while (true)
+        {
+            int old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public int AccumulateAndGet(int x, Func<int, int, int> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public int GetAndAccumulate(int x, Func<int, int, int> accumulator) => GetAndUpdate(old => accumulator(old, x));
+
     public double DoubleValue() => Get();
 
     public long LongValue() => Get();
@@ -2051,6 +3101,28 @@ public class AtomicLong
     public long AddAndGet(long delta) => Interlocked.Add(ref value, delta);
 
     public long GetAndAdd(long delta) => Interlocked.Add(ref value, delta) - delta;
+
+    public long UpdateAndGet(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return next;
+        }
+    }
+
+    public long GetAndUpdate(Func<long, long> update)
+    {
+        while (true)
+        {
+            long old = Get(), next = update(old);
+            if (CompareAndSet(old, next)) return old;
+        }
+    }
+
+    public long AccumulateAndGet(long x, Func<long, long, long> accumulator) => UpdateAndGet(old => accumulator(old, x));
+
+    public long GetAndAccumulate(long x, Func<long, long, long> accumulator) => GetAndUpdate(old => accumulator(old, x));
 
     public double DoubleValue() => Get();
 
@@ -2097,6 +3169,37 @@ public class AtomicReference<T>
                 : ReferenceEquals(value, expected);
             if (same) value = update;
             return same;
+        }
+    }
+
+    /// <summary>Java may apply the function more than once under contention; here the lock applies it once.</summary>
+    public T UpdateAndGet(Func<T, T> update)
+    {
+        lock (monitor) return value = update(value);
+    }
+
+    public T GetAndUpdate(Func<T, T> update)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = update(old);
+            return old;
+        }
+    }
+
+    public T AccumulateAndGet(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor) return value = accumulator(value, x);
+    }
+
+    public T GetAndAccumulate(T x, Func<T, T, T> accumulator)
+    {
+        lock (monitor)
+        {
+            var old = value;
+            value = accumulator(old, x);
+            return old;
         }
     }
 
@@ -2227,4 +3330,507 @@ public static class JavaResources
         return candidates.OrderByDescending(m => m.ToLowerInvariant().Split('.', '/').Count(s => segments.Contains(s)))
             .First();
     }
+}
+
+/// <summary>
+/// Java's BlockingQueue, LinkedBlockingQueue and ArrayBlockingQueue: a list under a lock, first in first out as the
+/// Queue's list is. Offer, PollFirst, PeekFirst and RemoveFirst are its own, atomic, where the list's are extensions;
+/// Put and Take wait for room and for an element.
+/// </summary>
+public sealed class JavaBlockingQueue<T> : IList<T>
+{
+    private readonly List<T> items = new();
+    private readonly int capacity;
+
+    public JavaBlockingQueue() : this(int.MaxValue)
+    {
+    }
+
+    public JavaBlockingQueue(int capacity)
+    {
+        if (capacity <= 0) throw new ArgumentException("capacity " + capacity);
+        this.capacity = capacity;
+    }
+
+    public JavaBlockingQueue(IEnumerable<T> elements) : this()
+    {
+        items.AddRange(elements);
+    }
+
+    public int Count { get { lock (items) return items.Count; } }
+
+    public bool IsReadOnly => false;
+
+    public T this[int index]
+    {
+        get { lock (items) return items[index]; }
+        set { lock (items) items[index] = value; }
+    }
+
+    public int RemainingCapacity() { lock (items) return capacity - items.Count; }
+
+    /// <summary>Queue.add: an IllegalStateException, InvalidOperationException, when the queue is full.</summary>
+    public void Add(T item)
+    {
+        if (!Offer(item)) throw new InvalidOperationException("Queue full");
+    }
+
+    public bool Offer(T item)
+    {
+        lock (items)
+        {
+            if (items.Count >= capacity) return false;
+            items.Add(item);
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public bool Offer(T item, long timeout, JavaTimeUnit unit)
+    {
+        var deadline = DateTime.UtcNow + unit.ToTimeSpan(timeout);
+        lock (items)
+        {
+            while (items.Count >= capacity)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero) return false;
+                Monitor.Wait(items, left);
+            }
+            items.Add(item);
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public void Put(T item)
+    {
+        lock (items)
+        {
+            while (items.Count >= capacity) Monitor.Wait(items);
+            items.Add(item);
+            Monitor.PulseAll(items);
+        }
+    }
+
+    public T Take()
+    {
+        lock (items)
+        {
+            while (items.Count == 0) Monitor.Wait(items);
+            return Removed(0);
+        }
+    }
+
+    public T? Poll(long timeout, JavaTimeUnit unit)
+    {
+        var deadline = DateTime.UtcNow + unit.ToTimeSpan(timeout);
+        lock (items)
+        {
+            while (items.Count == 0)
+            {
+                var left = deadline - DateTime.UtcNow;
+                if (left <= TimeSpan.Zero) return default;
+                Monitor.Wait(items, left);
+            }
+            return Removed(0);
+        }
+    }
+
+    public T? PollFirst() { lock (items) return items.Count == 0 ? default : Removed(0); }
+
+    public T? PeekFirst() { lock (items) return items.Count == 0 ? default : items[0]; }
+
+    public T RemoveFirst()
+    {
+        lock (items)
+        {
+            if (items.Count == 0) throw new InvalidOperationException("empty");
+            return Removed(0);
+        }
+    }
+
+    public int DrainTo(ICollection<T> target)
+    {
+        lock (items)
+        {
+            foreach (var x in items) target.Add(x);
+            int n = items.Count;
+            items.Clear();
+            Monitor.PulseAll(items);
+            return n;
+        }
+    }
+
+    private T Removed(int index)
+    {
+        var x = items[index];
+        items.RemoveAt(index);
+        Monitor.PulseAll(items);
+        return x;
+    }
+
+    public void Clear() { lock (items) { items.Clear(); Monitor.PulseAll(items); } }
+
+    public bool Contains(T item) { lock (items) return items.Contains(item); }
+
+    public void CopyTo(T[] array, int index) { lock (items) items.CopyTo(array, index); }
+
+    public int IndexOf(T item) { lock (items) return items.IndexOf(item); }
+
+    public void Insert(int index, T item)
+    {
+        lock (items)
+        {
+            if (items.Count >= capacity) throw new InvalidOperationException("Queue full");
+            items.Insert(index, item);
+            Monitor.PulseAll(items);
+        }
+    }
+
+    public bool Remove(T item)
+    {
+        lock (items)
+        {
+            if (!items.Remove(item)) return false;
+            Monitor.PulseAll(items);
+            return true;
+        }
+    }
+
+    public void RemoveAt(int index) { lock (items) Removed(index); }
+
+    /// <summary>A snapshot, where Java's iterator is weakly consistent: it never throws for a concurrent change.</summary>
+    public IEnumerator<T> GetEnumerator()
+    {
+        List<T> snapshot;
+        lock (items) snapshot = new List<T>(items);
+        return snapshot.GetEnumerator();
+    }
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public override string ToString() { lock (items) return "[" + string.Join(", ", items) + "]"; }
+}
+
+/// <summary>
+/// Java's PriorityQueue: Java's binary heap, so that its iteration order and the order of equal elements are Java's.
+/// The head is [0]; Offer, PollFirst, PeekFirst and RemoveFirst are the Queue's methods, as on a list.
+/// </summary>
+public sealed class JavaPriorityQueue<T> : ICollection<T>
+{
+    private readonly List<T> heap;
+    private readonly Comparison<T> comparison;
+
+    public JavaPriorityQueue() : this(11, (Comparison<T>?) null)
+    {
+    }
+
+    public JavaPriorityQueue(int initialCapacity) : this(initialCapacity, (Comparison<T>?) null)
+    {
+    }
+
+    public JavaPriorityQueue(Comparison<T>? comparison) : this(11, comparison)
+    {
+    }
+
+    public JavaPriorityQueue(int initialCapacity, Comparison<T>? comparison)
+    {
+        if (initialCapacity < 1) throw new ArgumentException("initialCapacity " + initialCapacity);
+        heap = new List<T>(initialCapacity);
+        this.comparison = comparison ?? Comparer<T>.Default.Compare;
+    }
+
+    public JavaPriorityQueue(IEnumerable<T> elements) : this(11, (Comparison<T>?) null)
+    {
+        foreach (var x in elements) Add(x);
+    }
+
+    public int Count => heap.Count;
+
+    public bool IsReadOnly => false;
+
+    public T this[int index] => heap[index];
+
+    public Comparison<T> Comparator() => comparison;
+
+    public void Add(T item) => Offer(item);
+
+    public bool Offer(T item)
+    {
+        if (item is null) throw new NullReferenceException();
+        heap.Add(item);
+        SiftUp(heap.Count - 1, item);
+        return true;
+    }
+
+    public T? PeekFirst() => heap.Count == 0 ? default : heap[0];
+
+    public T? PollFirst() => heap.Count == 0 ? default : RemoveFirst();
+
+    public T RemoveFirst()
+    {
+        if (heap.Count == 0) throw new InvalidOperationException("empty");
+        var result = heap[0];
+        int last = heap.Count - 1;
+        var x = heap[last];
+        heap.RemoveAt(last);
+        if (last > 0) SiftDown(0, x);
+        return result;
+    }
+
+    public bool Remove(T item)
+    {
+        int i = IndexOf(item);
+        if (i < 0) return false;
+        RemoveAt(i);
+        return true;
+    }
+
+    public bool Contains(T item) => IndexOf(item) >= 0;
+
+    public void Clear() => heap.Clear();
+
+    public void CopyTo(T[] array, int index) => heap.CopyTo(array, index);
+
+    public IEnumerator<T> GetEnumerator() => heap.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+    public override string ToString() => "[" + string.Join(", ", heap) + "]";
+
+    private int IndexOf(T item)
+    {
+        if (item is null) return -1;
+        var equality = EqualityComparer<T>.Default;
+        for (int i = 0; i < heap.Count; i++) if (equality.Equals(item, heap[i])) return i;
+        return -1;
+    }
+
+    private void RemoveAt(int i)
+    {
+        int last = heap.Count - 1;
+        if (last == i)
+        {
+            heap.RemoveAt(i);
+            return;
+        }
+        var moved = heap[last];
+        heap.RemoveAt(last);
+        SiftDown(i, moved);
+        if (ReferenceEquals(heap[i], moved) || Equals(heap[i], moved)) SiftUp(i, moved);
+    }
+
+    private void SiftUp(int k, T x)
+    {
+        while (k > 0)
+        {
+            int parent = (k - 1) >>> 1;
+            var e = heap[parent];
+            if (comparison(x, e) >= 0) break;
+            heap[k] = e;
+            k = parent;
+        }
+        heap[k] = x;
+    }
+
+    private void SiftDown(int k, T x)
+    {
+        int n = heap.Count;
+        int half = n >>> 1;
+        while (k < half)
+        {
+            int child = (k << 1) + 1;
+            var c = heap[child];
+            int right = child + 1;
+            if (right < n && comparison(c, heap[right]) > 0) c = heap[child = right];
+            if (comparison(x, c) <= 0) break;
+            heap[k] = c;
+            k = child;
+        }
+        heap[k] = x;
+    }
+}
+
+/// <summary>
+/// Java's DecimalFormat, for the patterns .NET's custom numeric format strings share with it ("#,##0.00", "0.###E0",
+/// "#%"): rounded half to even first, as Java's is, and "0" where no digit would show, a zero by "#", where .NET
+/// prints nothing. The symbols are a culture's (DecimalFormatSymbols), by default the current one.
+/// </summary>
+public sealed class JavaDecimalFormat
+{
+    private readonly string pattern;
+    private readonly int fractionDigits;
+    private CultureInfo culture = CultureInfo.CurrentCulture;
+
+    public JavaDecimalFormat(string pattern)
+    {
+        this.pattern = pattern;
+        string number = pattern.Split(';')[0];
+        int e = number.IndexOfAny(new[] { 'E', 'e' });
+        if (e >= 0) number = number[..e];
+        int point = number.IndexOf('.');
+        fractionDigits = point < 0 ? 0 : number[(point + 1)..].Count(c => c == '0' || c == '#');
+    }
+
+    public void SetDecimalFormatSymbols(CultureInfo symbols) => culture = symbols;
+
+    public string Format(double number)
+    {
+        if (double.IsNaN(number)) return culture.NumberFormat.NaNSymbol;
+        bool exponent = pattern.Contains('E') || pattern.Contains('e');
+        bool percent = pattern.Contains('%');
+        bool scaled = exponent || percent || pattern.Contains('‰');
+        double rounded = !scaled && fractionDigits <= 15 ? Math.Round(number, fractionDigits, MidpointRounding.ToEven) : number;
+        string s = rounded.ToString(pattern, culture);
+        // "#" of 0: Java prints a 0 where no digit would show, .NET nothing; "#.##" of 0.5 is ".5" in both
+        if (s.Length == 0) return "0";
+        if (s == culture.NumberFormat.NegativeSign) return s + "0";
+        return s;
+    }
+
+    public string Format(long number) => Format((double) number);
+
+    public override string ToString() => pattern;
+}
+
+/// <summary>Java's MathContext: a precision in significant digits, 0 for unlimited, and a rounding.</summary>
+public readonly record struct JavaMathContext(int Precision, MidpointRounding Rounding)
+{
+    public JavaMathContext(int precision) : this(precision, MidpointRounding.ToEven)
+    {
+    }
+
+    public static readonly JavaMathContext Unlimited = new(0, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal32 = new(7, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal64 = new(16, MidpointRounding.ToEven);
+    public static readonly JavaMathContext Decimal128 = new(34, MidpointRounding.ToEven);
+
+    public int GetPrecision() => Precision;
+
+    public MidpointRounding GetRoundingMode() => Rounding;
+}
+
+/// <summary>BigDecimal's operations with a MathContext, on C#'s decimal, whose precision is 28 or 29 digits.</summary>
+public static class JavaDecimals
+{
+    /// <summary>BigDecimal.round: to the context's significant digits.</summary>
+    public static decimal Round(this decimal value, JavaMathContext mc)
+    {
+        if (mc.Precision == 0 || value == 0m) return value;
+        int digits = IntegerDigits(value);
+        int scale = mc.Precision - digits;
+        if (scale >= 0) return Math.Round(value, Math.Min(scale, 28), mc.Rounding);
+        decimal factor = Pow10(-scale);
+        return Math.Round(value / factor, 0, mc.Rounding) * factor;
+    }
+
+    /// <summary>
+    /// BigDecimal.sqrt: rounded to the context; an exact root's trailing zeros stripped down to half the value's scale,
+    /// Java's preferred scale.
+    /// </summary>
+    public static decimal Sqrt(this decimal value, JavaMathContext mc)
+    {
+        if (value < 0m) throw new ArithmeticException("Attempted square root of negative BigDecimal");
+        if (value == 0m) return 0m;
+        decimal x = (decimal) Math.Sqrt((double) value);
+        for (int i = 0; i < 4; i++) x = (x + value / x) / 2m;
+        decimal r = x.Round(mc);
+        if (r * r != value) return r;
+        int preferred = value.Scale / 2;
+        decimal stripped = r / 1.0000000000000000000000000000m;
+        return stripped.Scale >= preferred ? stripped : stripped + new decimal(0, 0, 0, false, (byte) preferred);
+    }
+
+    /// <summary>BigDecimal.divide(divisor, mc).</summary>
+    public static decimal Divide(this decimal value, decimal divisor, JavaMathContext mc) => (value / divisor).Round(mc);
+
+    private static int IntegerDigits(decimal value)
+    {
+        decimal a = Math.Abs(value);
+        int digits = 0;
+        if (a >= 1m)
+        {
+            while (a >= 1m) { a /= 10m; digits++; }
+            return digits;
+        }
+        while (a < 0.1m) { a *= 10m; digits--; }
+        return digits;
+    }
+
+    private static decimal Pow10(int n)
+    {
+        decimal p = 1m;
+        for (int i = 0; i < n; i++) p *= 10m;
+        return p;
+    }
+}
+
+/// <summary>Java's seeded and split random generators as .NET's Random.</summary>
+public static class JavaRandoms
+{
+    /// <summary>A long seed as Random's int one.</summary>
+    public static int Seed(long seed) => unchecked((int) (seed ^ (seed >>> 32)));
+
+    /// <summary>SplittableGenerator.split: a new generator, seeded from this one.</summary>
+    public static Random Split(this Random random) => new Random(Seed(random.NextInt64()));
+
+    /// <summary>RandomGenerator.nextDouble(origin, bound).</summary>
+    public static double NextDouble(this Random random, double origin, double bound)
+    {
+        if (!(origin < bound)) throw new ArgumentException("bound must be greater than origin");
+        double r = origin + random.NextDouble() * (bound - origin);
+        return r < bound ? r : Math.BitDecrement(bound);
+    }
+
+    /// <summary>RandomGenerator.nextFloat(bound).</summary>
+    public static float NextSingle(this Random random, float bound) => random.NextSingle(0f, bound);
+
+    /// <summary>RandomGenerator.nextFloat(origin, bound).</summary>
+    public static float NextSingle(this Random random, float origin, float bound)
+    {
+        if (!(origin < bound)) throw new ArgumentException("bound must be greater than origin");
+        float r = origin + random.NextSingle() * (bound - origin);
+        return r < bound ? r : MathF.BitDecrement(bound);
+    }
+
+    /// <summary>Random.nextGaussian: Box and Muller's transform, mean 0 and standard deviation 1.</summary>
+    public static double NextGaussian(this Random random)
+    {
+        double u = 1.0 - random.NextDouble();
+        double v = random.NextDouble();
+        return Math.Sqrt(-2.0 * Math.Log(u)) * Math.Cos(2.0 * Math.PI * v);
+    }
+
+    public static double NextGaussian(this Random random, double mean, double stddev)
+    {
+        if (stddev < 0.0) throw new ArgumentException("standard deviation must be non-negative");
+        return mean + stddev * random.NextGaussian();
+    }
+
+    /// <summary>Random.nextBytes of Java's signed bytes.</summary>
+    public static void NextBytes(this Random random, sbyte[] bytes) => random.NextBytes(MemoryMarshal.Cast<sbyte, byte>(bytes.AsSpan()));
+}
+
+/// <summary>
+/// Java's unchecked conversion of a functional interface to other type arguments, Function&lt;Object, Object&gt; as a
+/// Function&lt;A, Object&gt;: C# converts no Func to another's type arguments (CS0029, CS0030), so the value is wrapped,
+/// evaluated once, its arguments and result cast at each call as Java's erasure has them. Not the same object: one that
+/// the code compares by reference is another.
+/// </summary>
+public static class JavaDelegates
+{
+    public static Func<R2> Cast<R1, R2>(Func<R1> f) => () => (R2) (object) f()!;
+
+    public static Func<P2, R2> Cast<P1, R1, P2, R2>(Func<P1, R1> f) => x => (R2) (object) f((P1) (object) x!)!;
+
+    public static Func<P2, Q2, R2> Cast<P1, Q1, R1, P2, Q2, R2>(Func<P1, Q1, R1> f) =>
+        (x, y) => (R2) (object) f((P1) (object) x!, (Q1) (object) y!)!;
+
+    public static Func<P2, Q2, S2, R2> Cast<P1, Q1, S1, R1, P2, Q2, S2, R2>(Func<P1, Q1, S1, R1> f) =>
+        (x, y, z) => (R2) (object) f((P1) (object) x!, (Q1) (object) y!, (S1) (object) z!)!;
+
+    public static Action<P2> Cast<P1, P2>(Action<P1> f) => x => f((P1) (object) x!);
+
+    public static Action<P2, Q2> Cast<P1, Q1, P2, Q2>(Action<P1, Q1> f) => (x, y) => f((P1) (object) x!, (Q1) (object) y!);
 }

@@ -166,9 +166,38 @@ public final class CstQueries {
      * Kotlin's {@code const val}, C#'s {@code const}.
      */
     public static boolean constantInitializer(FieldInfo fieldInfo) {
-        if (fieldInfo.initializer() == null || !fieldInfo.initializer().isConstant()) return false;
+        return constantInitializer(fieldInfo, new java.util.HashSet<>());
+    }
+
+    private static boolean constantInitializer(FieldInfo fieldInfo, java.util.Set<FieldInfo> visiting) {
         ParameterizedType t = fieldInfo.type();
-        return t.arrays() == 0 && (t.isPrimitiveExcludingVoid() || t.isJavaLangString());
+        if (fieldInfo.initializer() == null || fieldInfo.initializer().isEmpty() || t.arrays() != 0
+            || !(t.isPrimitiveExcludingVoid() || t.isJavaLangString()) || !visiting.add(fieldInfo)) return false;
+        return constantExpression(fieldInfo.initializer(), t.isJavaLangString(), visiting);
+    }
+
+    /**
+     * A compile-time constant as Java's JLS 15.29 has it, and Kotlin's {@code const val} and C#'s {@code const}
+     * accept: a literal, or operators over constants and other constant fields (nacos's
+     * {@code String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}"}, an annotation parameter's default). A
+     * String one concatenates Strings only: Kotlin folds {@code "a" + 1} at no compile time.
+     */
+    private static boolean constantExpression(Expression e, boolean string, java.util.Set<FieldInfo> visiting) {
+        while (e instanceof EnclosedExpression ee) e = ee.inner();
+        if (e.isConstant()) return !string || e.parameterizedType() != null && e.parameterizedType().isJavaLangString();
+        if (e instanceof io.codelaser.maddi.cst.api.expression.BinaryOperator bo) {
+            return constantExpression(bo.lhs(), string, visiting) && constantExpression(bo.rhs(), string, visiting);
+        }
+        if (!string && e instanceof io.codelaser.maddi.cst.api.expression.UnaryOperator uo) {
+            return constantExpression(uo.expression(), false, visiting);
+        }
+        if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr) {
+            FieldInfo f = fr.fieldInfo();
+            boolean isFinal = f.isFinal() || f.owner().isInterface() || f.owner().typeNature().isAnnotation();
+            return f.isStatic() && isFinal && (!string || f.type().isJavaLangString())
+                   && constantInitializer(f, visiting);
+        }
+        return false;
     }
 
     /**

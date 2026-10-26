@@ -61,7 +61,7 @@ This observation forces us to tighten the definition of a non-modifying method: 
 These rules are mostly, but not easily, enforceable when all code is visible.
 
 An additional interface can help to remove the circular dependency between the types.
-This has the advantage of simplicity, both for the programmer and the analyzer, which at this point doesn't handle circular dependencies very well.
+This has the advantage of simplicity, both for the programmer and the analyzer.
 It imposes more annotation work on the programmer, however, because the interface's methods need contracts.
 
 [#computing-dependence]
@@ -114,8 +114,8 @@ For example,
 Note: in a method call `v = a.method(b, c, d)`, links between `b`, `c`, and `d` are possible.
 They are covered by the {modified} annotation:
 when a parameter is {nm}, no modifications at all are possible, not even indirectly.
-The analyzer does not currently compute individual linking between parameters, because we advocate the use of containers: all parameters should be {nm}.
-However, extra parameters to the `{independent}` annotation allow the user to mark them to ensure correct linking computations.
+The analyzer computes the links between parameters as part of each method's link summary (<<link-system>>); we nevertheless advocate the use of containers: all parameters should be {nm}.
+On methods without a body, extra parameters to the `{independent}` annotation let the user contract those links.
 
 == Locally implemented abstract methods
 
@@ -126,14 +126,14 @@ Functional interfaces are interfaces with a single abstract method; any other me
 The following table lists some frequently used ones:
 
 [options=header]
-|==
-
-| Name | single abstract method (SAM) | `Consumer<T>` | `void accept(T t);`
+|===
+| Name | single abstract method (SAM)
+| `Consumer<T>` | `void accept(T t);`
 | `Function<T,R>` | `R apply(T t);`
 | `BiFunction<T, U, R>` | `R apply(T t, U u);`
 | `Supplier<R>` | `R get();`
 | `Predicate<T>` | `boolean test(T t);`
-|==
+|===
 
 It is important not to forget that _any_ interface defining a single abstract method can be seen as a functional interface.
 While the examples above all employ generics (more specifically, unbound type parameters), generics are not a requirement for functional interfaces.
@@ -265,6 +265,7 @@ class ApplyLocalFunctions2 {
 
 <1> The anonymous type is static, has no fields, so is {immutable}.
 It is not a container.
+(The annotations on these four fields are the intended verdicts; today's analyzer stops at {finalFields} for stateless lambdas and anonymous classes, a known conservative gap.)
 This is clearly visible in the explicit variant...
 <2> Here we see why `incrementer` is not a container: the method modifies its parameters.
 <3> Now, we have a container, because the anonymous type does not modify its parameters.

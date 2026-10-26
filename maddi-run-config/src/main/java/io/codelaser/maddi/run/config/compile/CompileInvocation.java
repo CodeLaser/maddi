@@ -38,9 +38,48 @@ public interface CompileInvocation {
         return 0;
     }
 
-    /** javac's {@code -source}; {@code <= 0} when the invocation did not pass one. */
+    /**
+     * javac's {@code -source}; {@code <= 0} when the invocation did not pass one.
+     * <p>
+     * ⚠ Naming trap: this is the LANGUAGE level, while {@code SourceSet.sourceRelease()} is {@code --release}, the
+     * API. {@link #languageLevel()} is the name that says what it is.
+     */
     default int sourceRelease() {
         return 0;
+    }
+
+    /**
+     * The Java language level this invocation compiled at: {@code --release N} when stated (which sets the
+     * language level too), else {@code -source}/{@code --source N}; {@code <= 0} when it stated neither.
+     * Recorded per set for a consumer (which syntax a refactoring may write); the parse does not use it.
+     */
+    default int languageLevel() {
+        return release() > 0 ? release() : sourceRelease();
+    }
+
+    /** javac's {@code --enable-preview}; false when the invocation did not pass it, and for kotlinc. */
+    default boolean enablePreview() {
+        return false;
+    }
+
+    /** kotlinc's {@code -language-version} ("1.9", "2.1"); {@code null} when not stated, and for javac. */
+    default String kotlinLanguageVersion() {
+        return null;
+    }
+
+    /** kotlinc's {@code -api-version}; {@code null} when not stated, and for javac. */
+    default String kotlinApiVersion() {
+        return null;
+    }
+
+    /** kotlinc's {@code -jvm-target}, as a feature release (8, 17); {@code <= 0} when not stated, and for javac. */
+    default int jvmTarget() {
+        return 0;
+    }
+
+    /** kotlinc's {@code -jdk-home}; {@code null} when not stated, and for javac. */
+    default String jdkHome() {
+        return null;
     }
 
     /**

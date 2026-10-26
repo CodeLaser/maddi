@@ -29,6 +29,17 @@ import io.codelaser.maddi.cst.impl.output.*;
  */
 public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implements FieldPrinter {
 
+    /**
+     * Java's {@code volatile} and {@code transient}, which Kotlin writes as annotations on the property's field: an
+     * {@code AtomicLongFieldUpdater} refuses a field that is not volatile (guava's AtomicDouble).
+     */
+    static OutputBuilder jvmModifiers(FieldInfo fieldInfo) {
+        OutputBuilder builder = new OutputBuilderImpl();
+        if (fieldInfo.isVolatile()) builder.add(new TextImpl("@Volatile")).add(SpaceEnum.ONE);
+        if (fieldInfo.isTransient()) builder.add(new TextImpl("@Transient")).add(SpaceEnum.ONE);
+        return builder;
+    }
+
     @Override
     public OutputBuilder print(Qualification qualification, boolean asParameterInPrimaryConstructor) {
         boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
@@ -48,7 +59,7 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility =
                 KotlinModifiers.visibility(fieldInfo.access(), fieldInfo.owner(), fieldInfo);
         boolean lateinit = needsDefault && zero == null;
-        builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification));
+        builder.add(KotlinAnnotations.print(fieldInfo.annotations(), qualification)).add(jvmModifiers(fieldInfo));
         if (!isConst() && !visibility.equals(java.util.Optional.of(KeywordImpl.PRIVATE))) {
             boolean clash = accessorClash(fieldInfo, isVal);
             if (lateinit && clash) {
@@ -67,7 +78,10 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
                 .add(new TextImpl(name(fieldInfo)))
                 .add(SymbolEnum.COLON_LABEL) // Kotlin type ascription: no leading space, one trailing
                 .add(new TextImpl(!asParameterInPrimaryConstructor && KotlinReadOnly.field(fieldInfo)
-                        ? KotlinTypeName.readOnly(type, qualification) : KotlinTypeName.of(type, qualification)));
+                        ? KotlinTypeName.readOnly(type, qualification)
+                        : !asParameterInPrimaryConstructor && KotlinReadOnly.advancedOnlyIterator(fieldInfo)
+                        ? KotlinTypeName.of(type, qualification).replaceFirst("^MutableIterator<", "Iterator<")
+                        : KotlinTypeName.of(type, qualification)));
         if (asParameterInPrimaryConstructor) return builder;
         if (hasInitializer) {
             builder.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
@@ -89,13 +103,49 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     /** The getter names of Kotlin's mapped members that are properties there, which a class's field may not reuse. */
     private static final java.util.Set<String> MAPPED_PROPERTIES = java.util.Set.of("size", "keys", "values", "entries",
-            "key", "value", "message", "cause");
+            "key", "value", "message", "cause", "length");
 
     /**
-     * The field is named as a property a mapped supertype declares ({@code size} of Collection, {@code key} of
-     * Map.Entry): renamed, and never a property of the primary constructor (guava's LocalCache.WriteThroughEntry).
+     * The field is renamed, and never a property of the primary constructor: it is named as a property a mapped
+     * supertype declares ({@code size} of Collection, {@code key} of Map.Entry; guava's LocalCache.WriteThroughEntry),
+     * or as a field of a superclass that Kotlin lets it see (guava's MoreExecutors.ScheduledListeningDecorator's
+     * private delegate beside ListeningDecorator's, both internal): Java's field shadows, Kotlin's property hides.
      */
-    static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
+    static boolean renamed(FieldInfo fieldInfo) {
+        return clashesWithMappedProperty(fieldInfo) || hidesSuperclassField(fieldInfo) || hidesEnumProperty(fieldInfo);
+    }
+
+    /**
+     * nacos's BaseHttpMethod: an enum's {@code private String name}, which Kotlin's Enum.name would hide; and
+     * DefaultGrpcClientConfig's, beside its {@code name()} of RpcClientConfig, a property in Kotlin (see
+     * {@link KotlinMappedMembers#enumProperty}).
+     */
+    private static boolean hidesEnumProperty(FieldInfo fieldInfo) {
+        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.owner() == null
+            || !"name".equals(fieldInfo.name()) && !"ordinal".equals(fieldInfo.name())) {
+            return false;
+        }
+        return fieldInfo.owner().typeNature().isEnum() || fieldInfo.owner().methods().stream()
+                .anyMatch(m -> m.name().equals(fieldInfo.name()) && KotlinMappedMembers.enumProperty(m));
+    }
+
+    private static boolean hidesSuperclassField(FieldInfo fieldInfo) {
+        if (!KotlinContext.translatingJava() || fieldInfo.isStatic() || fieldInfo.owner() == null) return false;
+        java.util.Set<io.codelaser.maddi.cst.api.info.TypeInfo> visited = new java.util.HashSet<>();
+        for (var s = fieldInfo.owner().parentClass(); s != null && s.typeInfo() != null && !s.isJavaLangObject()
+                                                      && visited.add(s.typeInfo()); s = s.typeInfo().parentClass()) {
+            if (!KotlinNullability.translated(s.typeInfo())) return false;
+            for (FieldInfo f : s.typeInfo().fields()) {
+                if (!f.isStatic() && f.name().equals(fieldInfo.name()) && !KotlinModifiers.visibility(f.access(), f.owner())
+                        .equals(java.util.Optional.of(io.codelaser.maddi.cst.impl.output.KeywordImpl.PRIVATE))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean clashesWithMappedProperty(FieldInfo fieldInfo) {
         return KotlinContext.translatingJava() && !fieldInfo.isStatic() && MAPPED_PROPERTIES.contains(fieldInfo.name())
                && fieldInfo.owner() != null && !fieldInfo.owner().typeNature().isEnum()
                && !fieldInfo.owner().typeNature().isRecord()
@@ -110,12 +160,18 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
      */
     static String name(FieldInfo fieldInfo) {
         String name = KotlinNames.name(fieldInfo.name());
-        if (!clashesWithMappedProperty(fieldInfo)) return name;
+        if (!renamed(fieldInfo)) return name;
         String renamed = "_" + fieldInfo.name();
         java.util.Set<String> taken = new java.util.HashSet<>();
         fieldInfo.owner().fields().forEach(f -> taken.add(f.name()));
         while (taken.contains(renamed)) renamed = "_" + renamed;
         return renamed;
+    }
+
+    /** {@code typeInfo} has a Kotlin property {@code name} from a mapped supertype ({@code values} of a Map). */
+    static boolean mappedPropertyOf(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name) {
+        return KotlinContext.translatingJava() && MAPPED_PROPERTIES.contains(name)
+               && mappedProperty(typeInfo, name, new java.util.HashSet<>());
     }
 
     private static boolean mappedProperty(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo, String name,

@@ -47,7 +47,8 @@ public abstract class CommonJavaToKotlin {
         SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
                 .setUri(URI.create("file:/")).build();
         javaInspector.initialize(new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
-                .addClassPath("jmod:java.base").build());
+                .addClassPath("jmod:java.base")
+                .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/jspecify/annotations").build());
         javaInspector.onlyPreload();
     }
 
@@ -81,6 +82,25 @@ public abstract class CommonJavaToKotlin {
     /** As {@link #kotlin(String, java.util.function.Consumer)}, with print options. */
     protected String kotlin(String java, KotlinPrintOptions options, java.util.function.Consumer<TypeInfo> beforePrint) {
         KotlinCompilationUnitPrinter.Result result = translate(java, options, beforePrint);
+        Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
+        return formatter.write(result.output());
+    }
+
+    /**
+     * As {@link #kotlin(String)}, with {@code others} (fully qualified name to source) parsed along: the types
+     * {@code java} uses from other packages. Only {@code java}'s file is printed.
+     */
+    protected String kotlin(String java, Map<String, String> others) {
+        String pkg = java.replaceAll("(?s)^.*?package\\s+([\\w.]+)\\s*;.*$", "$1");
+        String first = java.replaceAll("(?s)^.*?(?:class|interface|enum|record)\\s+(\\w+).*$", "$1");
+        Map<String, String> sources = new java.util.HashMap<>(others);
+        sources.put(pkg + "." + first, java);
+        TypeInfo typeInfo = javaInspector.parse(sources, new JavaInspector.ParseOptions.Builder().build())
+                .parseResult().primaryTypes().stream().filter(t -> t.fullyQualifiedName().equals(pkg + "." + first))
+                .findFirst().orElseThrow();
+        KotlinCompilationUnitPrinter.Result result = new KotlinCompilationUnitPrinter(typeInfo.compilationUnit(), true,
+                KotlinPrintOptions.DEFAULT).printWithMessages(new ImportComputerImpl(),
+                javaInspector.runtime().qualificationQualifyFromPrimaryType());
         Formatter2Impl formatter = new Formatter2Impl(javaInspector.runtime(), new FormattingOptionsImpl.Builder().build());
         return formatter.write(result.output());
     }
@@ -137,6 +157,14 @@ public abstract class CommonJavaToKotlin {
      * fine). For self-contained snippets: one that uses a library needs that library, and is not judged here.
      */
     protected static void compiles(String kotlin) {
+        compiles(kotlin, List.of());
+    }
+
+    /**
+     * As {@link #compiles(String)}, against the test runtime's jars that hold these packages too ({@code
+     * "com/google/common/base"}): a snippet that calls a library.
+     */
+    protected static void compiles(String kotlin, List<String> libraryPackages) {
         String compilerClassPath = System.getProperty("maddi.test.kotlinCompilerClasspath");
         org.junit.jupiter.api.Assertions.assertTrue(compilerClassPath != null && !compilerClassPath.isBlank(),
                 "no -Dmaddi.test.kotlinCompilerClasspath: run this through Gradle");
@@ -150,7 +178,8 @@ public abstract class CommonJavaToKotlin {
             java.nio.file.Path javaBin = java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java");
             Process process = new ProcessBuilder(javaBin.toString(), "-Xmx1g", "-cp", compilerClassPath,
                     "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler", "-no-stdlib", "-no-reflect", "-jvm-target", "21",
-                    "-classpath", stdlib, "-d", dir.resolve("classes").toString(), source.toString())
+                    "-classpath", stdlib + libraryJars(libraryPackages), "-d", dir.resolve("classes").toString(),
+                    source.toString())
                     .redirectErrorStream(true).start();
             String output = new String(process.getInputStream().readAllBytes());
             int exit = process.waitFor();
@@ -160,6 +189,37 @@ public abstract class CommonJavaToKotlin {
         } catch (IOException | InterruptedException e) {
             throw new AssertionError("kotlinc did not run", e);
         }
+    }
+
+    /** The test runtime's jars holding these packages, each preceded by the path separator. */
+    private static String libraryJars(List<String> packages) {
+        StringBuilder sb = new StringBuilder();
+        for (String pkg : packages) {
+            String jar = java.util.Arrays.stream(System.getProperty("java.class.path").split(java.io.File.pathSeparator))
+                    .filter(e -> e.endsWith(".jar")).filter(e -> {
+                        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(e)) {
+                            return zip.getEntry(pkg + "/") != null || zip.stream().anyMatch(z -> z.getName().startsWith(pkg + "/"));
+                        } catch (IOException ex) {
+                            return false;
+                        }
+                    }).findFirst().orElseThrow(() -> new AssertionError("no jar with " + pkg + " on the test runtime"));
+            sb.append(java.io.File.pathSeparator).append(jar);
+        }
+        return sb.toString();
+    }
+
+    /** As {@link #kotlin(String, KotlinPrintOptions)}, with the test runtime's jars holding these packages parsed along. */
+    protected String kotlinWithLibrary(String java, KotlinPrintOptions options, String... libraryPackages) throws IOException {
+        javaInspector = new JavaInspectorImpl();
+        SourceSet sourceSet = new SourceSetImpl.Builder().setName(JavaInspector.TEST_PROTOCOL)
+                .setUri(URI.create("file:/")).build();
+        InputConfigurationImpl.Builder builder = new InputConfigurationImpl.Builder().addSourceSets(sourceSet)
+                .addClassPath("jmod:java.base")
+                .addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + "org/jspecify/annotations");
+        for (String pkg : libraryPackages) builder.addClassPath(JavaInspectorImpl.JAR_WITH_PATH_PREFIX + pkg);
+        javaInspector.initialize(builder.build());
+        javaInspector.onlyPreload();
+        return kotlin(java, options);
     }
 
     protected static void notModified(TypeInfo type, String... methodNames) {

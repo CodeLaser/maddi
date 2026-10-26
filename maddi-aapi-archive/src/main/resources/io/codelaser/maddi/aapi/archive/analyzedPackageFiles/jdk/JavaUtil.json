@@ -45,8 +45,8 @@
  {"name": "Miterator(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MlastIndexOf(9,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MlistIterator(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MlistIterator(11,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}},
+ {"name": "MlistIterator(11,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mremove(12,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -129,7 +129,7 @@
  {"name": "Mget(2,int)", "data":{"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,true,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Miterator(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MlistIterator(4,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(4,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mremove(5,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -162,7 +162,7 @@
  {"name": "Mclone(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "Mcontains(6,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MdescendingIterator(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MdescendingIterator(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1}},
  {"name": "Melement(8)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MforEach(9,java.util.function.Consumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
@@ -247,8 +247,8 @@
  {"name": "Miterator(18)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MlastIndexOf(19,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MlistIterator(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MlistIterator(21,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(20)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}},
+ {"name": "MlistIterator(21,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mremove(22,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
@@ -281,7 +281,7 @@
 
 {"name": "Tjava.util.Arrays", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2,"utilityClass":1}, "subs":[
  {"name": "MasList(0,T[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MbinarySearch(1,java.lang.Object[],java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
@@ -1508,7 +1508,7 @@
  {"name": "MemptySortedMap(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MemptySortedSet(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Menumeration(25,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mfill(26,java.util.List,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[1,{"1":1}],"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}]},
@@ -1593,27 +1593,27 @@
  {"name": "MsynchronizedSortedSet(59,java.util.SortedSet)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableCollection(60,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableList(61,java.util.List)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableMap(62,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableNavigableMap(63,java.util.NavigableMap)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableNavigableSet(64,java.util.NavigableSet)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSequencedCollection(65,java.util.SequencedCollection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSequencedMap(66,java.util.SequencedMap)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSequencedSet(67,java.util.SequencedSet)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSet(68,java.util.Set)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSortedMap(69,java.util.SortedMap)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MunmodifiableSortedSet(70,java.util.SortedSet)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"unmodifiableViewMethod":1}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":[0,{"-1":0}],"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.util.Comparator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":2,"independentType":1}, "subs":[
  {"name": "Mcompare(0,T,T)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
@@ -1761,7 +1761,7 @@
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mcontains(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MdescendingIterator(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MdescendingIterator(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1}},
  {"name": "Melement(6)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MgetFirst(7)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "MgetLast(8)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
@@ -2215,86 +2215,86 @@
  {"name": "MtoString(29)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mvalues(30)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
-{"name": "Tjava.util.HexFormat", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Mdelimiter(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+{"name": "Tjava.util.HexFormat", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
+ {"name": "Mdelimiter(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MformatHex(2,A,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
- {"name": "MformatHex(3,A,byte[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+ {"name": "MformatHex(2,A,byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+ {"name": "MformatHex(3,A,byte[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MformatHex(4,byte[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MformatHex(5,byte[],int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+ {"name": "MformatHex(4,byte[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+ {"name": "MformatHex(5,byte[],int,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfromHexDigit(6,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MfromHexDigit(6,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MfromHexDigits(7,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MfromHexDigits(8,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
+ {"name": "MfromHexDigits(7,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MfromHexDigits(8,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MfromHexDigitsToLong(9,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MfromHexDigitsToLong(10,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
+ {"name": "MfromHexDigitsToLong(9,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MfromHexDigitsToLong(10,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
  {"name": "MhashCode(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MisHexDigit(12,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MisHexDigit(12,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MisUpperCase(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "Mof(14)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MofDelimiter(15,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MisUpperCase(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mof(14)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MofDelimiter(15,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MparseHex(16,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MparseHex(17,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
+ {"name": "MparseHex(16,java.lang.CharSequence)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+ {"name": "MparseHex(17,java.lang.CharSequence,int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MparseHex(18,char[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
+ {"name": "MparseHex(18,char[],int,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mprefix(19)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "Msuffix(20)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MtoHexDigits(21,A,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
+ {"name": "Mprefix(19)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "Msuffix(20)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MtoHexDigits(21,A,byte)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MtoHexDigits(22,byte)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MtoHexDigits(22,byte)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoHexDigits(23,char)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MtoHexDigits(23,char)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoHexDigits(24,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MtoHexDigits(24,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoHexDigits(25,long)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MtoHexDigits(25,long)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoHexDigits(26,long,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MtoHexDigits(26,long,int)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MtoHexDigits(27,short)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MtoHexDigits(27,short)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoHighHexDigit(28,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoHighHexDigit(28,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MtoLowHexDigit(29,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MtoLowHexDigit(29,int)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MtoString(30)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MwithDelimiter(31,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithDelimiter(31,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MwithLowerCase(32)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MwithPrefix(33,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithLowerCase(32)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MwithPrefix(33,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MwithSuffix(34,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithSuffix(34,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MwithUpperCase(35)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+ {"name": "MwithUpperCase(35)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.util.IdentityHashMap", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -2449,7 +2449,7 @@
  {"name": "Mclone(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
  {"name": "Mcontains(8,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MdescendingIterator(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MdescendingIterator(9)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1}},
  {"name": "Melement(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mget(11,int)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"getSetField":["Fjava.util.List._synthetic_list",false,true,0],"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
@@ -2459,7 +2459,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "MlastIndexOf(15,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MlistIterator(16,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(16,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Moffer(17,E)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -2532,8 +2532,8 @@
  {"name": "Miterator(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MlastIndexOf(18,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MlistIterator(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MlistIterator(20,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(19)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}},
+ {"name": "MlistIterator(20,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mof(21)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N(N)"}},
  {"name": "Mof(22,E)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N(N)"}, "sub":
@@ -3066,14 +3066,14 @@
  {"name": "Mvalues(39)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.util.NavigableMap", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MceilingEntry(0,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MceilingEntry(0,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MceilingKey(1,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MdescendingKeySet(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MdescendingMap(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MfirstEntry(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
- {"name": "MfloorEntry(5,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MfirstEntry(4)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MfloorEntry(5,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MfloorKey(6,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -3082,18 +3082,18 @@
  {"name": "MheadMap(8,K,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MhigherEntry(9,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MhigherEntry(9,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhigherKey(10,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MlastEntry(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
- {"name": "MlowerEntry(12,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MlastEntry(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MlowerEntry(12,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MlowerKey(13,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MnavigableKeySet(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MpollFirstEntry(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MpollLastEntry(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MpollFirstEntry(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MpollLastEntry(16)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "Mreversed(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MsubMap(18,K,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
@@ -3112,7 +3112,7 @@
 {"name": "Tjava.util.NavigableSet", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mceiling(0,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MdescendingIterator(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MdescendingIterator(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1}},
  {"name": "MdescendingSet(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "Mfloor(3,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -3321,29 +3321,29 @@
  {"name": "Mstream(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoString(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
 
-{"name": "Tjava.util.OptionalLong", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Mempty(0)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+{"name": "Tjava.util.OptionalLong", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
+ {"name": "Mempty(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetAsLong(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MgetAsLong(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MhashCode(3)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
- {"name": "MifPresent(4,java.util.function.LongConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MifPresentOrElse(5,java.util.function.LongConsumer,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
- {"name": "MisEmpty(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "MisPresent(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "Mof(8,long)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MifPresent(4,java.util.function.LongConsumer)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+ {"name": "MifPresentOrElse(5,java.util.function.LongConsumer,java.lang.Runnable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+ {"name": "MisEmpty(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MisPresent(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mof(8,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MorElse(9,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MorElse(9,long)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MorElseGet(10,java.util.function.LongSupplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MorElseThrow(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "MorElseThrow(12,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "Mstream(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MorElseGet(10,java.util.function.LongSupplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+ {"name": "MorElseThrow(11)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MorElseThrow(12,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+ {"name": "Mstream(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MtoString(14)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
 
 {"name": "Tjava.util.PrimitiveIterator", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
@@ -3383,9 +3383,9 @@
  {"name": "C<init>(4,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}},
  {"name": "C<init>(5,java.util.PriorityQueue)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "C<init>(6,java.util.SortedSet)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Madd(0,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mclear(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
@@ -3820,10 +3820,10 @@
  {"name": "Mreversed(6)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.util.SequencedMap", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MfirstEntry(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
- {"name": "MlastEntry(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
- {"name": "MpollFirstEntry(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MpollLastEntry(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MfirstEntry(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MlastEntry(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MpollFirstEntry(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MpollLastEntry(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "MputFirst(4,K,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -3866,7 +3866,7 @@
  {"name": "McontainsAll(4,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "McopyOf(5,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mequals(6,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
  {"name": "MhashCode(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
@@ -4390,7 +4390,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "C<init>(3,java.util.SortedMap)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MceilingEntry(0,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MceilingEntry(0,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MceilingKey(1,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4413,9 +4413,9 @@
  {"name": "MdescendingKeySet(10)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MdescendingMap(11)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "MentrySet(12)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MfirstEntry(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MfirstEntry(13)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "MfirstKey(14)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
- {"name": "MfloorEntry(15,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MfloorEntry(15,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MfloorKey(16,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4428,14 +4428,14 @@
  {"name": "MheadMap(20,K,boolean)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MhigherEntry(21,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MhigherEntry(21,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MhigherKey(22,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MkeySet(23)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MlastEntry(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MlastEntry(24)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "MlastKey(25)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
- {"name": "MlowerEntry(26,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MlowerEntry(26,K)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MlowerKey(27,K)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
@@ -4444,8 +4444,8 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N(U,U,Q)","unmodifiedParameter":0}}]},
  {"name": "MnavigableKeySet(29)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MpollFirstEntry(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MpollLastEntry(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MpollFirstEntry(30)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MpollLastEntry(31)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "Mput(32,K,V)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -4494,7 +4494,7 @@
  {"name": "C<init>(2,java.util.Comparator)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}},
  {"name": "C<init>(3,java.util.SortedSet)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Madd(0,E)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MaddAll(1,java.util.Collection)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
@@ -4510,7 +4510,7 @@
  {"name": "Mcomparator(7)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "Mcontains(8,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MdescendingIterator(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MdescendingIterator(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.Iterator","Mremove(3)"]]],"nonModifyingMethod":1}},
  {"name": "MdescendingSet(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "Mfirst(11)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
  {"name": "Mfloor(12,E)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
@@ -4631,8 +4631,8 @@
  {"name": "MlastIndexOf(26,java.lang.Object,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MlistIterator(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
- {"name": "MlistIterator(28,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+ {"name": "MlistIterator(27)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}},
+ {"name": "MlistIterator(28,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":[1,{},[["Tjava.util.ListIterator","Mremove(7)"],["Tjava.util.ListIterator","Mset(8,E)"],["Tjava.util.ListIterator","Madd(0,E)"]]],"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mremove(29,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":1}}},

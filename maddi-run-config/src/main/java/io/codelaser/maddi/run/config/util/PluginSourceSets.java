@@ -126,6 +126,32 @@ public class PluginSourceSets {
                                       List<String> addModules,
                                       List<String> addExports,
                                       List<String> warningFlags) {
+        return sourceSet(name, buildUnit, sourceDirectories, classOutput, sourceEncoding, test, restrictToPackages,
+                sourceRelease, addModules, addExports, warningFlags, 0, false);
+    }
+
+    /**
+     * As {@link #sourceSet(String, String, List, Path, Charset, boolean, Set, int, List, List, List)}, with the
+     * compilation's language facts, kept for a consumer as the compile-log route keeps them
+     * ({@code SourceSet.languageLevel()}, {@code SourceSet.enablePreview()}); the parse does not use them.
+     *
+     * @param languageLevel the Java language level: the build's release when it states one, else its source
+     *                      level; {@code <= 0} when it states neither
+     * @param enablePreview javac's {@code --enable-preview}, see {@link #enablePreviewFrom}
+     */
+    public static SourceSet sourceSet(String name,
+                                      String buildUnit,
+                                      List<Path> sourceDirectories,
+                                      Path classOutput,
+                                      Charset sourceEncoding,
+                                      boolean test,
+                                      Set<String> restrictToPackages,
+                                      int sourceRelease,
+                                      List<String> addModules,
+                                      List<String> addExports,
+                                      List<String> warningFlags,
+                                      int languageLevel,
+                                      boolean enablePreview) {
         List<Path> existing = sourceDirectories.stream()
                 .map(p -> p.toAbsolutePath().normalize())
                 .filter(Files::isDirectory)
@@ -145,6 +171,8 @@ public class PluginSourceSets {
                 .setAddModules(addModules == null ? List.of() : List.copyOf(addModules))
                 .setAddExports(addExports == null ? List.of() : List.copyOf(addExports))
                 .setWarningFlags(warningFlags == null ? List.of() : List.copyOf(warningFlags))
+                .setLanguageLevel(languageLevel)
+                .setEnablePreview(enablePreview)
                 .build();
     }
 
@@ -367,8 +395,8 @@ public class PluginSourceSets {
      *
      * <p>⚠ Deliberately narrow. This is one question with one consumer behind it, not a general bag of compiler
      * arguments: an attribute recorded without a failure demanding it is a guess about the future, and a guess
-     * that is wrong fails towards silence. {@code --enable-preview}, {@code --add-exports} and {@code -proc:}
-     * are real and are NOT here, because nothing has yet asked.
+     * that is wrong fails towards silence. {@code --enable-preview} ({@link #enablePreviewFrom}),
+     * {@code --add-exports} ({@link #addExportsFrom}) and {@code -proc:} are real, and are not warning policy.
      */
     public static boolean isWarningFlag(String arg) {
         if (arg == null) return false;
@@ -399,6 +427,15 @@ public class PluginSourceSets {
             if (isWarningFlag(arg)) flags.add(arg.trim());
         }
         return List.copyOf(flags);
+    }
+
+    /**
+     * Whether raw javac arguments switch on the language level's preview features ({@code --enable-preview}), as
+     * the build resolved them. A flag without a value; Gradle's {@code options.compilerArgs} and Maven's
+     * {@code <compilerArgs>} are the only places a build states it.
+     */
+    public static boolean enablePreviewFrom(List<String> compilerArgs) {
+        return compilerArgs != null && compilerArgs.stream().anyMatch(a -> a != null && "--enable-preview".equals(a.trim()));
     }
 
     /**

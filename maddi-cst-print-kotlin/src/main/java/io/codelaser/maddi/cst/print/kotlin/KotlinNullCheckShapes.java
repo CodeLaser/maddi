@@ -30,7 +30,9 @@ import io.codelaser.maddi.cst.api.variable.Variable;
  * Java's null-check conditionals that Kotlin writes with an operator (CodeLaser/maddi#140, item 1):
  * <ul>
  *     <li>{@code x != null ? x : d} and {@code x == null ? d : x} are {@code x ?: d};</li>
- *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)}.</li>
+ *     <li>{@code x != null ? x.m(a) : null} and {@code x == null ? null : x.m(a)} are {@code x?.m(a)}; so for a
+ *     field read, {@code x?.f}, and an array's length, {@code x?.size};</li>
+ *     <li>{@code x != null ? f(x) : null}, x a local or a parameter, is {@code x?.let { f(it) }} (#164).</li>
  * </ul>
  * Only where the Kotlin means what the Java does. {@code x} is a read of a local, a parameter or a field of
  * {@code this}: Java reads it twice, Kotlin once, and nothing runs in between. The arguments of the call do not
@@ -46,8 +48,8 @@ final class KotlinNullCheckShapes {
     record Elvis(Expression value, Expression otherwise) {
     }
 
-    /** {@code receiver?.call}: the call is the conditional's non-null branch, on {@code receiver} */
-    record SafeCall(Expression receiver, MethodCall call) {
+    /** {@code receiver?.call}: the call (or field read, or array length) is the conditional's non-null branch */
+    record SafeCall(Expression receiver, Expression call) {
     }
 
     static Elvis elvis(InlineConditional ic) {
@@ -63,7 +65,16 @@ final class KotlinNullCheckShapes {
     static SafeCall safeCall(InlineConditional ic) {
         Tested tested = tested(ic);
         if (tested == null || !(unwrap(tested.whenNull()) instanceof NullConstant)) return null;
-        if (!(unwrap(tested.whenNonNull()) instanceof MethodCall mc) || mc.objectIsImplicit() || mc.object() == null
+        Expression nonNull = unwrap(tested.whenNonNull());
+        // jenkins's ProxyConfiguration: jenkins != null ? jenkins.proxy : null, jenkins?.proxy
+        Expression scope = nonNull instanceof VariableExpression fv && fv.variable() instanceof FieldReference fr
+                           && !fr.fieldInfo().isStatic() && fr.scope() != null ? fr.scope()
+                : nonNull instanceof io.codelaser.maddi.cst.api.expression.ArrayLength al ? al.scope() : null;
+        if (scope != null) {
+            return unwrap(scope) instanceof VariableExpression sv && sv.variable().equals(tested.variable().variable())
+                    ? new SafeCall(scope, nonNull) : null;
+        }
+        if (!(nonNull instanceof MethodCall mc) || mc.objectIsImplicit() || mc.object() == null
             || !(unwrap(mc.object()) instanceof VariableExpression ve)
             || !ve.variable().equals(tested.variable().variable())) {
             return null;
@@ -78,6 +89,39 @@ final class KotlinNullCheckShapes {
             if (mentions[0]) return null;
         }
         return new SafeCall(mc.object(), mc);
+    }
+
+    /** {@code variable?.let { body }}: {@code body} with the variable as {@code it}, the conditional's non-null branch */
+    record Let(VariableExpression variable, Expression body, boolean bodyWhenTrue) {
+    }
+
+    /**
+     * {@code x != null ? f(x) : null}: jenkins's PluginManager, {@code context != null ?
+     * ServletContextWrapper.toJakartaServletContext(context) : null}. Only a local or a parameter, which nothing in
+     * the body can change between the test and its reads (a field could be, by a call in the body: #164's next step,
+     * the analysis's non-modifying methods); not where the conditional is {@code x ?: null} or {@code x?.m()} already;
+     * not where the body has a lambda or a nested let of its own, whose {@code it} would be ambiguous.
+     */
+    static Let let(InlineConditional ic) {
+        Tested tested = tested(ic);
+        if (tested == null || !(unwrap(tested.whenNull()) instanceof NullConstant)) return null;
+        Variable variable = tested.variable().variable();
+        if (!(variable instanceof LocalVariable) && !(variable instanceof ParameterInfo)) return null;
+        Expression body = tested.whenNonNull();
+        if (unwrap(body) instanceof VariableExpression ve && ve.variable().equals(variable)) return null;
+        if (safeCall(ic) != null) return null;
+        boolean[] mentions = {false};
+        boolean[] blocked = {false};
+        body.visit((Element e) -> {
+            if (e instanceof VariableExpression v && v.variable().equals(variable)) mentions[0] = true;
+            if (e instanceof io.codelaser.maddi.cst.api.expression.Lambda
+                || e instanceof InlineConditional nested && nested != ic && let(nested) != null) {
+                blocked[0] = true;
+            }
+            return !blocked[0];
+        });
+        if (!mentions[0] || blocked[0]) return null;
+        return new Let(tested.variable(), body, unwrap(ic.ifTrue()) == unwrap(body));
     }
 
     private record Tested(VariableExpression variable, Expression whenNull, Expression whenNonNull) {
@@ -99,11 +143,54 @@ final class KotlinNullCheckShapes {
         return new Tested(ve, nullWhenTrue ? ic.ifTrue() : ic.ifFalse(), nullWhenTrue ? ic.ifFalse() : ic.ifTrue());
     }
 
+    // a field of another object read through a local or parameter too: guava's ThreadFactoryBuilder,
+    // builder.backingThreadFactory != null ? builder.backingThreadFactory : …, which Kotlin cannot smart-cast (a var)
     private static boolean plainRead(Variable variable) {
         return variable instanceof LocalVariable || variable instanceof ParameterInfo
                || variable instanceof FieldReference fr && (fr.scope() == null || fr.fieldInfo().isStatic()
                                                             || unwrap(fr.scope()) instanceof VariableExpression s
-                                                               && s.variable() instanceof This);
+                                                               && (s.variable() instanceof This
+                                                                   || s.variable() instanceof LocalVariable
+                                                                   || s.variable() instanceof ParameterInfo));
+    }
+
+    /**
+     * A value that Java may read twice where Kotlin reads it once, when nothing runs in between (#164): a field read as
+     * in {@link #plainRead}, or a call without arguments of a method the analysis has non-modifying, on {@code this}
+     * or a local or a parameter. fernflower's {@code first.getExprents()}.
+     */
+    static boolean readOnceAsTwice(Expression e) {
+        Expression u = unwrap(e);
+        if (u instanceof VariableExpression ve) return ve.variable() instanceof FieldReference && plainRead(ve.variable());
+        return u instanceof MethodCall mc && mc.parameterExpressions().isEmpty() && mc.methodInfo() != null
+               && KotlinContext.options().modification().nonModifying(mc.methodInfo()) && !mc.methodInfo().isStatic()
+               && (mc.object() == null || unwrap(mc.object()) instanceof VariableExpression s
+                                          && (s.variable() instanceof This || s.variable() instanceof LocalVariable
+                                              || s.variable() instanceof ParameterInfo));
+    }
+
+    /** Both are a read of the same variable, or the same call of {@link #readOnceAsTwice} on the same receiver. */
+    static boolean sameValue(Expression a, Expression b) {
+        Expression ua = unwrap(a);
+        Expression ub = unwrap(b);
+        if (ua instanceof VariableExpression va) return ub instanceof VariableExpression vb && va.variable().equals(vb.variable());
+        if (ua instanceof MethodCall ma && ub instanceof MethodCall mb && ma.methodInfo() != null
+            && ma.methodInfo().equals(mb.methodInfo()) && ma.parameterExpressions().isEmpty()
+            && mb.parameterExpressions().isEmpty()) {
+            if (ma.object() == null || mb.object() == null) return ma.object() == mb.object();
+            return sameValue(ma.object(), mb.object());
+        }
+        return false;
+    }
+
+    /** Some part of {@code e} is {@link #sameValue} as {@code value}. */
+    static boolean mentions(Expression e, Expression value) {
+        boolean[] found = {false};
+        e.visit((Element element) -> {
+            if (element instanceof Expression x && sameValue(x, value)) found[0] = true;
+            return !found[0];
+        });
+        return found[0];
     }
 
     private static Expression unwrap(Expression e) {

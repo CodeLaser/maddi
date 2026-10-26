@@ -403,6 +403,11 @@ public final class SourceCodeScan {
             after = after.nextSibling();
         }
         addComments(ec, after);
+        // ⛔ AND ITS CODE: the arguments -- an anonymous class passed to the constructor, a call -- and the constant's own
+        // class body, as a field's initializer is scanned. Unscanned, a call there had no END_OF_ARGUMENT_LIST, and a
+        // consumer adding an argument fell back to the start of the call: `Util.label()` became `x1til.label()`
+        // (an enum whose constants each get an anonymous handler, in closed-core; TestSourceCodeScan.test8_enumConstants).
+        scanCodeBlock(ec);
     }
 
     private void scanModifiers(Modifiers modifiers) {

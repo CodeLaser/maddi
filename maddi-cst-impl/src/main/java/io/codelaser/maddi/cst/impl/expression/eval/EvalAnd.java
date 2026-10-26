@@ -35,10 +35,26 @@ public class EvalAnd {
 
     private final Runtime runtime;
     private final int maxAndOrComplexity;
+    private final EvalOptions evalOptions;
 
     public EvalAnd(Runtime runtime, EvalOptions evalOptions) {
         this.runtime = runtime;
         this.maxAndOrComplexity = evalOptions.maxAndOrComplexity();
+        this.evalOptions = evalOptions;
+    }
+
+    /*
+     maddi-mod#61: the complexity cap used to be checked AFTER the observation step, which asks isNegationOf of every
+     adjacent pair -- so an And about to be abandoned as too complex still paid a negation per pair first. Now the
+     cheap observations (constants, duplicates) run, then the cap, and only an And under the cap gets the pairwise
+     negation check; over it, only the plain form A && !A is recognized. The two loops see the same adjacent pairs
+     as the one loop did: constants sort first and are never a negation of anything but a constant.
+     */
+    static final EvalSwitches.Gate EARLY_CAP_OFF = EvalSwitches.gate("NOEARLYCAP");
+
+    static boolean isPlainNegation(Expression e1, Expression e2) {
+        return e1 instanceof Negation n1 && n1.expression().equals(e2)
+               || e2 instanceof Negation n2 && n2.expression().equals(e1);
     }
 
     private enum Action {
@@ -47,7 +63,7 @@ public class EvalAnd {
 
     // we try to maintain a CNF
     public Expression eval(List<Expression> values) {
-        EvalBudget.enter();
+        EvalBudget.enter(evalOptions.maxEvalEntriesPerTopLevel());
         try {
             return evalGuarded(values);
         } finally {
@@ -102,7 +118,7 @@ public class EvalAnd {
                         }
                     } else if (value.equals(prev)) {
                         it.remove(); // duplicates can be removed
-                    } else if (prev != null && runtime.isNegationOf(value, prev)) {
+                    } else if (EARLY_CAP_OFF.get() && prev != null && runtime.isNegationOf(value, prev)) {
                         return runtime.constantFalse();
                     }
                     prev = value;
@@ -110,11 +126,20 @@ public class EvalAnd {
             }
             int complexity = concat.stream().mapToInt(Expression::complexity).sum();
             boolean tooComplex = complexity >= maxAndOrComplexity;
+            if (!EARLY_CAP_OFF.get()) {
+                Expression prev = null;
+                for (Expression value : concat) {
+                    if (prev != null && (tooComplex ? isPlainNegation(value, prev) : runtime.isNegationOf(value, prev))) {
+                        return runtime.constantFalse();
+                    }
+                    prev = value;
+                }
+            }
             if (tooComplex) {
                 LOGGER.warn("Stop analysing AND operation, complexity {}", complexity);
                 break;
             }
-            if (EvalBudget.exhausted()) {
+            if (EvalBudget.exhausted(evalOptions.passCost(complexity))) {
                 LOGGER.warn("Stop analysing AND operation, evaluation budget exhausted");
                 break;
             }

@@ -45,6 +45,7 @@ public class SourceSetImpl implements SourceSet {
     private final List<String> addModules;
     private final List<String> addExports;
     private final List<String> warningFlags;
+    private final LanguageFacts languageFacts;
     private final SetOnce<FingerPrint> fingerPrint = new SetOnce<>();
     private final SetOnce<FingerPrint> analysisFingerPrint = new SetOnce<>();
     private final SetOnce<Map<SourceSet, Integer>> priorityDependencies = new SetOnce<>();
@@ -60,7 +61,8 @@ public class SourceSetImpl implements SourceSet {
                           int sourceRelease,
                           List<String> addModules,
                           List<String> addExports,
-                          List<String> warningFlags) {
+                          List<String> warningFlags,
+                          LanguageFacts languageFacts) {
         this.name = Objects.requireNonNull(name);
         this.buildUnit = buildUnit;
         this.sourceDirectories = sourceDirectories;
@@ -79,6 +81,7 @@ public class SourceSetImpl implements SourceSet {
         this.addModules = addModules == null ? List.of() : List.copyOf(addModules);
         this.addExports = addExports == null ? List.of() : List.copyOf(addExports);
         this.warningFlags = warningFlags == null ? List.of() : List.copyOf(warningFlags);
+        this.languageFacts = languageFacts == null ? LanguageFacts.NONE : languageFacts;
 
         assert !runtimeOnly || externalLibrary : "Runtime-only can only be true for external libraries: " + name;
         assert !partOfJdk || externalLibrary : "Parts of the JDK are also external libraries: " + name;
@@ -260,6 +263,45 @@ public class SourceSetImpl implements SourceSet {
         return warningFlags;
     }
 
+    /**
+     * The language facts of the set's compile command, kept together (they travel together, and the positional
+     * constructor stays readable); each one {@code <= 0} / false / {@code null} when not stated.
+     */
+    record LanguageFacts(int languageLevel, boolean enablePreview, String kotlinLanguageVersion,
+                         String kotlinApiVersion, int jvmTarget, String jdkHome) {
+        static final LanguageFacts NONE = new LanguageFacts(0, false, null, null, 0, null);
+    }
+
+    @Override
+    public int languageLevel() {
+        return languageFacts.languageLevel();
+    }
+
+    @Override
+    public boolean enablePreview() {
+        return languageFacts.enablePreview();
+    }
+
+    @Override
+    public String kotlinLanguageVersion() {
+        return languageFacts.kotlinLanguageVersion();
+    }
+
+    @Override
+    public String kotlinApiVersion() {
+        return languageFacts.kotlinApiVersion();
+    }
+
+    @Override
+    public int jvmTarget() {
+        return languageFacts.jvmTarget();
+    }
+
+    @Override
+    public String jdkHome() {
+        return languageFacts.jdkHome();
+    }
+
     @Override
     public List<SourceSet> dependencies() {
         return dependencies;
@@ -310,19 +352,19 @@ public class SourceSetImpl implements SourceSet {
     @Override
     public SourceSet withSourceDirectories(List<Path> paths) {
         return new SourceSetImpl(name, paths, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags, languageFacts);
     }
 
     @Override
     public SourceSet withSourceDirectoriesUri(List<Path> sourceDirectories, URI uri) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library, externalLibrary, partOfJdk,
-                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
+                isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags, languageFacts);
     }
 
     @Override
     public SourceSet withDependencies(List<SourceSet> dependencies) {
         return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
+                externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags, languageFacts);
     }
 
     @Override
@@ -368,6 +410,12 @@ public class SourceSetImpl implements SourceSet {
         private List<String> addModules = List.of();
         private List<String> addExports = List.of();
         private List<String> warningFlags = List.of();
+        private int languageLevel;
+        private boolean enablePreview;
+        private String kotlinLanguageVersion;
+        private String kotlinApiVersion;
+        private int jvmTarget;
+        private String jdkHome;
 
         public Builder() {
         }
@@ -394,6 +442,12 @@ public class SourceSetImpl implements SourceSet {
             addModules = set.addModules();
             addExports = set.addExports();
             warningFlags = set.warningFlags();
+            languageLevel = set.languageLevel();
+            enablePreview = set.enablePreview();
+            kotlinLanguageVersion = set.kotlinLanguageVersion();
+            kotlinApiVersion = set.kotlinApiVersion();
+            jvmTarget = set.jvmTarget();
+            jdkHome = set.jdkHome();
         }
 
         public Builder setName(String name) {
@@ -485,9 +539,46 @@ public class SourceSetImpl implements SourceSet {
             return this;
         }
 
+        /** The set's Java language level: {@code --release N} when stated, else {@code -source N}; {@code <= 0} unstated. */
+        public Builder setLanguageLevel(int languageLevel) {
+            this.languageLevel = languageLevel;
+            return this;
+        }
+
+        /** The set's own {@code javac --enable-preview}. */
+        public Builder setEnablePreview(boolean enablePreview) {
+            this.enablePreview = enablePreview;
+            return this;
+        }
+
+        /** The set's own {@code kotlinc -language-version}; {@code null} unstated. */
+        public Builder setKotlinLanguageVersion(String kotlinLanguageVersion) {
+            this.kotlinLanguageVersion = kotlinLanguageVersion;
+            return this;
+        }
+
+        /** The set's own {@code kotlinc -api-version}; {@code null} unstated. */
+        public Builder setKotlinApiVersion(String kotlinApiVersion) {
+            this.kotlinApiVersion = kotlinApiVersion;
+            return this;
+        }
+
+        /** The set's own {@code kotlinc -jvm-target}; {@code <= 0} unstated. */
+        public Builder setJvmTarget(int jvmTarget) {
+            this.jvmTarget = jvmTarget;
+            return this;
+        }
+
+        /** The set's own {@code kotlinc -jdk-home}; {@code null} unstated. */
+        public Builder setJdkHome(String jdkHome) {
+            this.jdkHome = jdkHome;
+            return this;
+        }
+
         public SourceSet build() {
             return new SourceSetImpl(name, sourceDirectories, uri, sourceEncoding, test, library,
-                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags);
+                    externalLibrary, partOfJdk, isModule, runtimeOnly, restrictToPackages, dependencies, buildUnit, sourceRelease, addModules, addExports, warningFlags,
+                    new LanguageFacts(languageLevel, enablePreview, kotlinLanguageVersion, kotlinApiVersion, jvmTarget, jdkHome));
         }
     }
 }

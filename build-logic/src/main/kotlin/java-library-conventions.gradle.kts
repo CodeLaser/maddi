@@ -19,8 +19,13 @@ plugins {
     id("maddi-tier-guard")
 }
 
-// base and mod libraries publish (split stage 6: the siblings can build against published jars); dist does not
-if (io.codelaser.maddi.buildlogic.Tiers.of(project.name) in setOf("base", "mod")) {
+// base and mod libraries publish (split stage 6: the siblings can build against published jars); dist does not.
+// A module missing from tiers.txt fails here: unlisted, it would silently not publish (maddi-cst-print-rust,
+// absent from the 0.9.5 release that maddi-run-openjdk's POM needs it in)
+val tier = io.codelaser.maddi.buildlogic.Tiers.of(project.name)
+    ?: throw GradleException("Module ${project.name} has no tier: add it to maddi's"
+            + " build-logic/src/main/resources/tiers.txt (base, mod or dist)")
+if (tier in setOf("base", "mod")) {
     apply(plugin = "maddi-publishing")
 }
 

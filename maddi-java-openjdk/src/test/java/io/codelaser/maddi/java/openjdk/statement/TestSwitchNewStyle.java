@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.Statement;
 import io.codelaser.maddi.cst.api.statement.SwitchEntry;
 import io.codelaser.maddi.cst.api.statement.SwitchStatementNewStyle;
@@ -309,4 +310,60 @@ public class TestSwitchNewStyle extends CommonTest {
         assertEquals("go(X.A)", mc.toString());
     }
 
+
+    @Language("java")
+    private static final String CONSTS = """
+            package a.b;
+            class Consts { static final int ONE = 1; static final int TWO = 2; }
+            """;
+
+    @Language("java")
+    private static final String E = """
+            package a.b;
+            enum E { RED, GREEN }
+            """;
+
+    @Language("java")
+    private static final String USER = """
+            package a.b;
+            class User {
+                int kind(int v) {
+                    switch (v) {
+                        case Consts.ONE -> { return 10; }
+                        case 3, Consts.TWO -> { return 15; }
+                        default -> { return 20; }
+                    }
+                }
+                int colour(E e) {
+                    return switch (e) {
+                        case RED -> Consts.ONE;
+                        case GREEN -> 2;
+                    };
+                }
+                int expression(int v) {
+                    return switch (v) {
+                        case Consts.ONE -> 10;
+                        default -> 20;
+                    };
+                }
+            }
+            """;
+
+    /**
+     * maddi#156: a static constant of another type in a case label keeps its qualifier, in a switch statement and in
+     * a switch expression; an enum constant stays simple.
+     */
+    @Test
+    public void staticConstantOfAnotherTypeStaysQualified() {
+        TypeInfo user = scan(false, "a.b.Consts", CONSTS, "a.b.E", E, "a.b.User", USER).get("a.b.User");
+        Qualification q = runtime.qualificationQualifyFromPrimaryType();
+        String kind = user.findUniqueMethod("kind", 1).methodBody().statements().getFirst().print(q).toString();
+        assertTrue(kind.contains("case Consts.ONE->"), kind);
+        assertTrue(kind.contains("case 3,Consts.TWO->"), kind);
+        String colour = user.findUniqueMethod("colour", 1).methodBody().statements().getFirst().print(q).toString();
+        assertTrue(colour.contains("case RED->"), colour);
+        String expression = user.findUniqueMethod("expression", 1).methodBody().statements().getFirst().print(q)
+                .toString();
+        assertTrue(expression.contains("case Consts.ONE->"), expression);
+    }
 }

@@ -93,6 +93,20 @@ public final class KotlinWorld {
                 .anyMatch(m -> m != method && m.overrides().contains(method));
     }
 
+    // per interface, whether an enum of the world implements it, computed when first asked
+    private final Map<TypeInfo, Boolean> implementedByEnum = new ConcurrentHashMap<>();
+
+    /** An enum of the code translated together ({@link #FILE}: of its compilation unit) implements the interface. */
+    public boolean implementedByEnum(TypeInfo anInterface) {
+        if (isFile()) return implementedByEnumIn(anInterface, anInterface.compilationUnit().types());
+        return implementedByEnum.computeIfAbsent(anInterface, i -> implementedByEnumIn(i, types));
+    }
+
+    private static boolean implementedByEnumIn(TypeInfo anInterface, Collection<TypeInfo> primaryTypes) {
+        return primaryTypes.stream().flatMap(TypeInfo::recursiveSubTypeStream)
+                .anyMatch(t -> t.typeNature().isEnum() && t.recursiveSuperTypeStream().anyMatch(anInterface::equals));
+    }
+
     // the override families of the world's methods, built when first asked (maddi-mod#25)
     private volatile Map<io.codelaser.maddi.cst.api.info.MethodInfo, List<io.codelaser.maddi.cst.api.info.MethodInfo>> families;
 

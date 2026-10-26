@@ -152,11 +152,11 @@
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mlatest(1)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "Mmajor(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "MruntimeVersion(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MruntimeVersion(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
  {"name": "MvalueOf(4,java.lang.String)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MvalueOf(5,java.lang.Runtime.Version)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"unmodifiedParameter":0}}},
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mvalues(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}}]},
 
 {"name": "Tjava.lang.reflect.Constructor", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[

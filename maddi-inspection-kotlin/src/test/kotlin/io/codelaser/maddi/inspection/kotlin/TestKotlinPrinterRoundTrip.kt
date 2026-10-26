@@ -150,8 +150,10 @@ class TestKotlinPrinterRoundTrip {
 
         // real Java -> idiomatic Kotlin, on a construct-rich class
         assertTrue(kotlin.contains("open class Rich<T>"), kotlin) // Java non-final class -> open
-        // final field -> val, mutable -> var; getId() would clash with the property's getter: a field, @JvmField
-        assertTrue(kotlin.contains("(@JvmField val id: Int, var name: String)"), kotlin)
+        // final field -> val, mutable -> var; private in Java, private properties, which have no accessors: getId()
+        // stays the public method it is (85758feb8)
+        assertTrue(kotlin.contains("(private val id: Int, private var name: String)"), kotlin)
+        assertTrue(kotlin.contains("fun getId(): Int = id"), kotlin)
         // is + &&: Kotlin smart-casts x after the test, so Java's (String) x needs no cast
         assertTrue(kotlin.contains("fun check(x: Any): Boolean = x is String && x.length > 0"), kotlin)
         assertTrue(kotlin.contains("""fun pick(n: Int): String = if (n > 0) "pos" else "neg""""), kotlin) // ternary body

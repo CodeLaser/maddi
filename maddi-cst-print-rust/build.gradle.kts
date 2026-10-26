@@ -1,0 +1,47 @@
+/*
+ * maddi: a modification analyzer for duplication detection and immutability.
+ * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ *
+ * This program is free software: you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for
+ * more details. You should have received a copy of the GNU Lesser General Public
+ * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+plugins {
+    id("java-library-conventions")
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+dependencies {
+    api(project(":maddi-cst-api"))
+    implementation(project(":maddi-cst-impl"))
+    // the analysis's verdicts stored on the declarations (RustFacts.STORED): modification, independence, nullability
+    api(project(":maddi-cst-analysis"))
+    // what the Java-to-X printers share: print messages, CST queries
+    api(project(":maddi-cst-print-translate"))
+    // Either, in the CST API's signatures (TypeParameter.getOwner); SetOnce, in the tests' typestate examples
+    implementation(project(":maddi-support"))
+    // the tests print Java parsed by the openjdk front end (Java -> Rust translation)
+    testImplementation(project(":maddi-inspection-api"))
+    testImplementation(project(":maddi-inspection-openjdk"))
+    testImplementation(project(":maddi-inspection-resource"))
+}
+
+tasks.test {
+    jvmArgs(
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+    )
+}

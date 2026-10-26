@@ -780,6 +780,14 @@ public class CompileListToSourceSets {
                 .setAddModules(inv.addModules())
                 .setAddExports(addExports(inv, sourceDirs))
                 .setWarningFlags(inv.warningFlags())
+                // the compile command's language facts, for a consumer (which syntax may be written here); the
+                // parse keeps using sourceRelease above
+                .setLanguageLevel(inv.languageLevel())
+                .setEnablePreview(inv.enablePreview())
+                .setKotlinLanguageVersion(inv.kotlinLanguageVersion())
+                .setKotlinApiVersion(inv.kotlinApiVersion())
+                .setJvmTarget(inv.jvmTarget())
+                .setJdkHome(inv.jdkHome())
                 .build();
         sourceSetsByDestination.put(destination, sourceSet);
         return sourceSet;

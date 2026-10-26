@@ -82,6 +82,7 @@ everything downstream of parsing operates on it exclusively.
 | `maddi-cst-print-translate` | What the Java-to-X printers share: `PrintMessage` and its severities, the per-thread `TranslationState` of a file's printing, language-neutral CST queries. | `…cst.print.translate.TranslationState` |
 | `maddi-cst-print-kotlin` | Prints the CST as *Kotlin* source (same `OutputElement` IR; the target language is a printer choice, not a CST property). | `…cst.print.kotlin.KotlinTypePrinter`, `kotlin-printing.md` |
 | `maddi-cst-print-csharp` | Prints the CST as *C#* source (Java → C# translation, #115), on the same `OutputElement` IR and printer seam. | `…cst.print.csharp.CSharpTypePrinter`, `csharp-printing.md` |
+| `maddi-cst-print-rust` | Prints the CST as *Rust* source (Java → Rust translation, #167, experimental): the modification and independence verdicts become the ownership modes, so rustc's borrow checker judges them. Emits text directly (a Java type is several Rust items). | `…cst.print.rust.RustTranslator`, `rust-printing.md` |
 
 ### Inspection — the front ends
 

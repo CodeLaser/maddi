@@ -25,6 +25,7 @@ import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ForEachStatement;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -114,7 +115,7 @@ final class CSharpReadOnly {
             methods.addAll(t.constructors());
             for (MethodInfo m : methods) {
                 if (m.isSynthetic() || m.methodBody() == null && !m.isAbstract() || referenced.contains(m)) continue;
-                if (t.isInterface() && m.equals(CSharpNames.singleAbstractMethod(t))) continue;
+                if (t.isInterface() && m.equals(CstSupertypes.singleAbstractMethod(t))) continue;
                 for (ParameterInfo p : m.parameters()) {
                     if (!p.isVarArgs() && readOnlyName(p.parameterizedType()) != null && facts.unmodified(p)) {
                         candidates.add(p);

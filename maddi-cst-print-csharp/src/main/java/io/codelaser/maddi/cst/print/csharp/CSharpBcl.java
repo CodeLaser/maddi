@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.MethodReference;
 import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -228,9 +229,20 @@ final class CSharpBcl implements LibraryMapping {
 
     static {
         // collections
+        // Java's contains(Object), remove(Object), containsKey(Object), get(Object) of an Object where the collection's
+        // C# method takes its element or key type: the compatibility library's, which tests the object's type;
         // a read-only collection (CSharpReadOnly) has LINQ's Contains
-        chooser("java.util.Collection.contains/1", (method, call) -> readOnlyReceiver(call)
+        chooser("java.util.Collection.contains/1", (method, call) -> objectArgument(call) && !readOnlyReceiver(call)
+                ? rule("$0.ContainsObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule("$0.Contains($1)", LINQ) : rule("$0.Contains($1)"));
+        Chooser remove = (method, call) -> objectArgument(call) ? rule("$0.RemoveObject($1)", COMPAT) : rule("$0.Remove($1)");
+        chooser("java.util.Collection.remove/1", remove);
+        chooser("java.util.List.remove(Object)", remove);
+        chooser("java.util.Map.containsKey/1", (method, call) -> objectArgument(call)
+                ? rule("$0.ContainsKeyObject($1)", COMPAT) : rule("$0.ContainsKey($1)"));
+        chooser("java.util.Map.remove/1", (method, call) -> objectArgument(call)
+                ? new Rule("$0.RemoveKeyObject($1)", "$0.RemoveKeyObject($1)", List.of(COMPAT)).withNullableResult()
+                : new Rule("$0.RemoveAndGet($1)", "$0.Remove($1)", List.of(COMPAT)).withNullableResult());
         // a collection of ? is non-generic in C#: LINQ needs its elements as objects
         chooser("java.util.Collection.stream/0", (method, call) -> unboundTyped(call) ? rule("$0.Cast<object>()", LINQ)
                 : rule("$0"));
@@ -251,18 +263,25 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.List.subList/2", (method, call) -> readOnlyReceiver(call)
                 ? rule("$0.Skip(@1).Take(@2 - @1).ToList()", LINQ) : rule("$0.SubList($1, $2)", COMPAT));
         chooser("java.util.List.of/0", (method, call) -> rule("new List<{R0}>()"));
-        chooser("java.util.List.of", (method, call) -> rule("new List<{R0}> { $* }"));
+        // of(E...) given an array: the array is the elements
+        chooser("java.util.List.of", (method, call) -> rule(arrayAsVarargs(method, call)
+                ? "new List<{R0}>($1)" : "new List<{R0}> { $* }"));
         // a value-type value is null when absent, as Java's Integer; the BCL's GetValueOrDefault is for a concrete
         // dictionary, which is also read-only one; an IDictionary has the compatibility library's Get
         // a read-only dictionary has the BCL's GetValueOrDefault, a value type's absence is null
-        chooser("java.util.Map.get/1", (method, call) -> readOnlyReceiver(call)
+        chooser("java.util.Map.get/1", (method, call) -> objectArgument(call) && !valueType(call, 1) && !readOnlyReceiver(call)
+                ? nullable("$0.GetObject($1)", COMPAT) : readOnlyReceiver(call)
                 ? rule(valueType(call, 1) ? "($0.ContainsKey($1) ? $0[$1] : ({R}) null)" : "$0.GetValueOrDefault($1)")
                 : valueType(call, 1) ? nullable("$0.GetValueOrNull($1)", COMPAT)
                 : interfaceTyped(call) ? nullable("$0.Get($1)", COMPAT) : rule("$0.GetValueOrDefault($1)"));
+        // a value type's function gives null to remove, as Java's Integer: the int? variant
+        chooser("java.util.Map.computeIfPresent/2", (method, call) -> valueType(call, 1)
+                ? nullable("$0.ComputeIfPresentValue($1, $2)", COMPAT) : nullable("$0.ComputeIfPresent($1, $2)", COMPAT));
         chooser("java.util.Map.getOrDefault/2", (method, call) -> interfaceTyped(call) && !readOnlyReceiver(call)
                 ? rule("$0.GetOrDefault($1, $2)", COMPAT) : rule("$0.GetValueOrDefault($1, $2)"));
         chooser("java.util.Map.of", (method, call) -> rule(mapOf(call)));
-        chooser("java.util.Set.of", (method, call) -> rule("new HashSet<{R0}> { $* }"));
+        chooser("java.util.Set.of", (method, call) -> rule(arrayAsVarargs(method, call)
+                ? "new HashSet<{R0}>($1)" : "new HashSet<{R0}> { $* }"));
         chooser("java.util.Arrays.asList/1", (method, call) -> call != null && call.parameterExpressions().size() == 1
                                                                && arrayTyped(call.parameterExpressions().getFirst())
                 ? rule("new List<{R0}>($1)") : rule("new List<{R0}> { $* }"));
@@ -284,7 +303,10 @@ final class CSharpBcl implements LibraryMapping {
         chooser("java.util.stream.Stream.of/1", (method, call) -> rule(method.isVarargs() && call != null
                 && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
                 ? "$1" : "new[] { $* }"));
-        chooser("java.util.stream.Stream.collect/1", (method, call) -> rule(collect(call), LINQ));
+        chooser("java.util.stream.IntStream.of/1", (method, call) -> rule(method.isVarargs() && call != null
+                && call.parameterExpressions().size() == 1 && arrayTyped(call.parameterExpressions().getFirst())
+                ? "$1" : "new int[] { $* }"));
+        chooser("java.util.stream.Stream.collect/1", (method, call) -> rule(collect(call), LINQ, COMPAT));
 
         // system
         // super.clone(): the shallow copy C#'s object makes
@@ -305,8 +327,9 @@ final class CSharpBcl implements LibraryMapping {
 
         // reflection
         // the parameter types are varargs: none, or an array
-        chooser("java.lang.Class.getMethod/2", (method, call) -> rule(call != null && call.parameterExpressions().size() == 1
-                ? "$0.GetMethod($1, Type.EmptyTypes)" : "$0.GetMethod($*)", SYSTEM));
+        chooser("java.lang.Class.getMethod/2", (method, call) -> rule(call == null || call.parameterExpressions().size() == 2
+                                                                     && arrayTyped(call.parameterExpressions().get(1))
+                ? "$0.GetMethod($*)" : "$0.GetMethod($1, " + typeArray(call, 1) + ")", SYSTEM));
         chooser("java.lang.Class.getDeclaredConstructor/1", (method, call) -> rule("$0.GetConstructor("
                 + "BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, "
                 + (call != null && call.parameterExpressions().isEmpty() ? "Type.EmptyTypes" : "$*") + ")",
@@ -385,6 +408,21 @@ final class CSharpBcl implements LibraryMapping {
     // ---------------------------------------------------------------- what the choosers ask of a call
 
     /** The call's type argument {@code index} (of its return type) is a value type in C#: a boxed primitive, an enum, a struct. */
+    /**
+     * The call's argument is an Object where the receiver's element or key type, its first type argument, is not:
+     * {@code set.contains(o)} of a {@code Set<V>}.
+     */
+    private static boolean objectArgument(MethodCall call) {
+        if (call == null || call.object() == null || call.parameterExpressions().size() != 1) return false;
+        ParameterizedType receiver = call.object().parameterizedType();
+        ParameterizedType argument = call.parameterExpressions().getFirst().parameterizedType();
+        if (receiver == null || receiver.parameters().isEmpty() || argument == null || !argument.isJavaLangObject()) {
+            return false;
+        }
+        ParameterizedType element = receiver.parameters().getFirst();
+        return !element.isJavaLangObject() && (element.wildcard() == null || !element.wildcard().isUnbound());
+    }
+
     private static boolean valueType(MethodCall call, int index) {
         if (call == null || call.object() == null) return false;
         ParameterizedType receiver = call.object().parameterizedType();
@@ -471,7 +509,28 @@ final class CSharpBcl implements LibraryMapping {
         return sb.append(n == 0 ? "}" : " }").toString();
     }
 
-    /** {@code stream.collect(Collectors.toList())}: LINQ's ToList(), and so on; the compatibility library otherwise. */
+    /** A variable arity method's one argument, an array: Java passes it as the arguments themselves. */
+    private static boolean arrayAsVarargs(MethodInfo method, MethodCall call) {
+        return method.isVarargs() && call != null && call.parameterExpressions().size() == 1
+               && arrayTyped(call.parameterExpressions().getFirst());
+    }
+
+    /** The arguments from {@code from} on as a {@code Type[]}: {@code Type.EmptyTypes} when there are none. */
+    private static String typeArray(MethodCall call, int from) {
+        int n = call.parameterExpressions().size();
+        if (n <= from) return "Type.EmptyTypes";
+        StringBuilder sb = new StringBuilder("new Type[] { ");
+        for (int i = from; i < n; i++) sb.append(i > from ? ", $" : "$").append(i + 1);
+        return sb.append(" }").toString();
+    }
+
+    /** {@code LinkedHashMap::new}: a reference to a constructor without parameters. */
+    private static boolean newOfNothing(Expression e) {
+        return CSharpExpressionPrinter.unwrap(e) instanceof MethodReference mr && mr.methodInfo().isConstructor()
+               && mr.methodInfo().parameters().isEmpty() && mr.scope().parameterizedType().arrays() == 0;
+    }
+
+        /** {@code stream.collect(Collectors.toList())}: LINQ's ToList(), and so on; the compatibility library otherwise. */
     private static String collect(MethodCall call) {
         if (call != null && call.parameterExpressions().size() == 1
             && CSharpExpressionPrinter.unwrap(call.parameterExpressions().getFirst()) instanceof MethodCall collector
@@ -488,8 +547,19 @@ final class CSharpBcl implements LibraryMapping {
                     return "string.Join($1.1, $0)";
                 case "joining/3":
                     return "$1.2 + string.Join($1.1, $0) + $1.3";
-                case "toMap/2", "toMap/3":
+                case "toMap/2":
                     return "$0.ToDictionary($1.1, $1.2)";
+                // a merge function for a duplicate key, a map supplier: the compatibility library's
+                case "toMap/3":
+                    return "$0.ToMap($1.1, $1.2, $1.3)";
+                // LinkedHashMap::new, whose type arguments the reference does not have: the result's, which Java
+                // infers from it
+                case "toMap/4":
+                    return "$0.ToMap($1.1, $1.2, $1.3, " + (newOfNothing(collector.parameterExpressions().get(3))
+                            ? "() => new {R}())" : "$1.4)");
+                case "toCollection/1":
+                    return "$0.ToCollection(" + (newOfNothing(collector.parameterExpressions().getFirst())
+                            ? "() => new {R}())" : "$1.1)");
                 case "groupingBy/1":
                     return "$0.GroupBy($1.1).ToDictionary(g => g.Key, g => g.ToList())";
                 case "counting/0":

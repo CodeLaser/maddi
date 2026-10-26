@@ -75,7 +75,9 @@ final class KotlinContext {
         }
     }
 
-    enum Kind {LOOP, SWITCH, LAMBDA}
+    // METHOD: an anonymous class's method body, which no break, continue or labelled return of an enclosing lambda
+    // or loop reaches
+    enum Kind {LOOP, SWITCH, LAMBDA, METHOD}
 
     static final String LAMBDA_LABEL = "lambda";
 
@@ -108,7 +110,7 @@ final class KotlinContext {
     /** The innermost loop or switch, which an unlabelled {@code break} leaves; null outside both. */
     static Frame breakTarget() {
         for (Frame f : FRAMES.get()) {
-            return f.kind == Kind.LAMBDA ? null : f;
+            return f.kind == Kind.LAMBDA || f.kind == Kind.METHOD ? null : f;
         }
         return null;
     }
@@ -116,7 +118,7 @@ final class KotlinContext {
     /** The enclosing loop, switch or block with this label, not looking past a lambda; null when there is none. */
     static Frame frameLabelled(String label) {
         for (Frame f : FRAMES.get()) {
-            if (f.kind == Kind.LAMBDA) return null;
+            if (f.kind == Kind.LAMBDA || f.kind == Kind.METHOD) return null;
             if (label.equals(f.label)) return f;
         }
         return null;
@@ -126,6 +128,7 @@ final class KotlinContext {
     static boolean inLambda() {
         for (Frame f : FRAMES.get()) {
             if (f.kind == Kind.LAMBDA) return true;
+            if (f.kind == Kind.METHOD) return false;
         }
         return false;
     }
@@ -195,6 +198,23 @@ final class KotlinContext {
     /** The types referenced since the last call, which starts a new record. */
     static java.util.Set<TypeInfo> takeReferencedTypes() {
         return STATE.get().takeReferenced();
+    }
+
+    // the file's imports by simple name: a type Java never named (a SAM constructor's guava Function, where the file
+    // imports java.util.function.Function) cannot take a name another import holds
+    private static final ThreadLocal<java.util.Map<String, String>> IMPORTED_NAMES =
+            ThreadLocal.withInitial(java.util.Map::of);
+
+    static void importedNames(java.util.List<String> imports) {
+        java.util.Map<String, String> names = new java.util.HashMap<>();
+        imports.stream().filter(i -> !i.endsWith(".*"))
+                .forEach(i -> names.putIfAbsent(i.substring(i.lastIndexOf('.') + 1), i));
+        IMPORTED_NAMES.set(names);
+    }
+
+    /** The fully qualified name of the import holding {@code simpleName} in the file being printed, or null. */
+    static String importedName(String simpleName) {
+        return IMPORTED_NAMES.get().get(simpleName);
     }
 
     // the file's private helpers its text calls (KotlinCompilationUnitPrinter appends their declarations)
@@ -271,14 +291,33 @@ final class KotlinContext {
         return STATE.get().typeInScope(typeInfo);
     }
 
-    /** A type parameter of one of the types being printed. */
+    /**
+     * A type parameter of one of the types being printed that Kotlin sees here, or of the method being printed: not the
+     * outer class's in a nested class (jenkins's CopyOnWriteList.ConverterImpl and its E).
+     */
     static boolean typeParameterInScope(io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
-        return STATE.get().typeParameterInScope(typeParameter);
+        if (STATE.get().typeParameterInScope(typeParameter, KotlinTypePrinter::inner)) return true;
+        // an enclosing method's too: guava's MultimapBuilder.enumKeys<K0> creates an EnumMap<K0, …> in the
+        // createMap of the anonymous class it returns
+        return typeParameter.isMethodTypeParameter()
+               && STATE.get().methods().stream().anyMatch(m -> m.typeParameters().contains(typeParameter));
     }
 
     /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */
     static void patternVariable(Variable variable, Supplier<OutputBuilder> replacement) {
         PATTERNS.get().put(variable.simpleName(), replacement);
+    }
+
+    /** {@code body}, with {@code variable} printed as {@code replacement} while it runs (a let's {@code it}). */
+    static <T> T withPatternVariable(Variable variable, Supplier<OutputBuilder> replacement, Supplier<T> body) {
+        Map<String, Supplier<OutputBuilder>> patterns = PATTERNS.get();
+        Supplier<OutputBuilder> previous = patterns.put(variable.simpleName(), replacement);
+        try {
+            return body.get();
+        } finally {
+            if (previous == null) patterns.remove(variable.simpleName());
+            else patterns.put(variable.simpleName(), previous);
+        }
     }
 
     static Supplier<OutputBuilder> patternVariable(Variable variable) {
@@ -301,7 +340,10 @@ final class KotlinContext {
         MethodScope saved = new MethodScope(new HashMap<>(PATTERNS.get()), new HashMap<>(LOCAL_TYPES.get()),
                 KotlinSmartCasts.enterMethod());
         PATTERNS.get().clear();
-        LOCAL_TYPES.get().clear();
+        // a method of an anonymous or local class sees the enclosing method's locals it captures, with their types
+        // (guava's ThreadFactoryBuilder: requireNonNull(count) of an AtomicLong? local is count!!); one declared
+        // of the same name drops it (declared)
+        if (currentMethod() == null) LOCAL_TYPES.get().clear();
         STATE.get().pushMethod(methodInfo);
         pushScope(methodInfo.methodBody());
         return saved;
@@ -351,6 +393,12 @@ final class KotlinContext {
     static boolean reassigned(Variable local) {
         var scope = SCOPES.get().peek();
         return scope == null || scope.isEmpty() || KotlinAssignments.assignedIn(scope.get(), local);
+    }
+
+    /** A local of the current body is assigned inside an expression, which prints as {@code .also { x = it }}. */
+    static boolean assignedAsValue(Variable local) {
+        var scope = SCOPES.get().peek();
+        return scope != null && scope.isPresent() && KotlinAssignments.assignedAsValue(scope.get(), local);
     }
 
     /** A local of the current body declared without a value, which each path assigns at most once: a val. */

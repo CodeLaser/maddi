@@ -1,6 +1,11 @@
 package io.codelaser.maddi.java.openjdk;
 
+import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.info.FieldInfo;
+import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.translate.TranslationMap;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.output.FormattingOptions;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.impl.info.ImportComputerImpl;
@@ -13,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * <b>TYPE-USE annotations (JLS 9.7.4, {@code ElementType.TYPE_USE}, Java 8) are dropped by the parse.</b>
@@ -83,10 +90,14 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
         return parseAndPrint("a.b.X", SUBJECT);
     }
 
-    private String parseAndPrint(String fqn, String subject) {
-        TypeInfo x = scan(false, Map.of("ann.Nullable", NULLABLE, fqn, subject))
+    private TypeInfo parse(String fqn, String subject) {
+        return scan(false, Map.of("ann.Nullable", NULLABLE, fqn, subject))
                 .primaryTypes().stream()
                 .filter(t -> fqn.equals(t.fullyQualifiedName())).findFirst().orElseThrow();
+    }
+
+    private String parseAndPrint(String fqn, String subject) {
+        TypeInfo x = parse(fqn, subject);
         OutputBuilder ob = runtime.newCompilationUnitPrinter(x.compilationUnit(), true)
                 .print(new ImportComputerImpl(), runtime.qualificationQualifyFromPrimaryType());
         FormattingOptions options = new FormattingOptionsImpl.Builder()
@@ -154,5 +165,57 @@ public class TestTypeUseAnnotationRoundTrip extends CommonTest {
                 """;
         // an unannotated '[]' and '...' are written against the type, as in the source (#49)
         assertEquals(subject.stripTrailing(), parseAndPrint("a.b.Y", subject).stripTrailing());
+    }
+    @Language("java")
+    private static final String GENERIC = """
+            package a.b;
+            import ann.Nullable;
+            import java.util.List;
+            public class Z<S> {
+                /** the last one */
+                private @Nullable S last;
+                public @Nullable S get(@Nullable S s, List<S> list) {
+                    for (S x : list) { if (x == null) return s; }
+                    return last;
+                }
+            }
+            """;
+
+    /**
+     * ⛔ {@code @Nullable S}, with S a type variable, must still reference {@code ann.Nullable}: the import computer
+     * builds its set from {@code typesReferenced}. While only the class-type branch reported the annotations, a file
+     * whose only {@code @Nullable} sits on type variables printed the annotation without its import.
+     */
+    @DisplayName("a TYPE_USE annotation on a type variable is a reference to the annotation type")
+    @Test
+    public void annotationOnTypeVariableIsReferenced() {
+        TypeInfo z = parse("a.b.Z", GENERIC);
+        MethodInfo get = z.findUniqueMethod("get", 2);
+        ParameterizedType returnType = get.returnType();
+        assertTrue(returnType.isTypeParameter());
+        assertTrue(returnType.typesReferenced(Element.TypeReferenceNature.EXPLICIT, null)
+                .anyMatch(tr -> tr.explicit() && "ann.Nullable".equals(tr.typeInfo().fullyQualifiedName())));
+    }
+
+    /**
+     * ⛔ {@code FieldInfo.translate} builds a new field whenever owner, type or initializer change. It must carry the
+     * annotations, comments and javadoc: dropping {@code @Nullable} from {@code private @Nullable S last;} also
+     * dropped the last reference keeping {@code import ann.Nullable;} alive (found by the dedup transform, which
+     * swaps the class type parameter for its own copy).
+     */
+    @DisplayName("translating a field keeps its annotations and javadoc")
+    @Test
+    public void translatedFieldKeepsAnnotations() {
+        TypeInfo z = parse("a.b.Z", GENERIC);
+        FieldInfo last = z.getFieldByName("last", true);
+        assertEquals(1, last.annotations().size());
+        TranslationMap tm = runtime.newTranslationMapBuilder()
+                .put(last.type(), runtime.stringParameterizedType())
+                .build();
+        FieldInfo translated = last.translate(tm).getFirst();
+        assertNotSame(last, translated);
+        assertEquals("String", translated.type().simpleString());
+        assertEquals(last.annotations(), translated.annotations());
+        assertEquals(last.javaDoc(), translated.javaDoc());
     }
 }

@@ -42,6 +42,8 @@ import io.codelaser.maddi.cst.print.csharp.CSharpTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinPrintOptions;
 import io.codelaser.maddi.cst.print.kotlin.KotlinTranslator;
 import io.codelaser.maddi.cst.print.kotlin.KotlinWorld;
+import io.codelaser.maddi.cst.print.rust.RustFacts;
+import io.codelaser.maddi.cst.print.rust.RustTranslator;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.resource.DetectKotlinSources;
@@ -321,7 +323,7 @@ public class RunAnalyzer implements Runnable {
         }
     }
 
-    // ---- --translate kotlin|csharp
+    // ---- --translate kotlin|csharp|rust
 
     /**
      * The steps asked for; a translation without them runs the modification analysis, for the nullability facts.
@@ -337,9 +339,10 @@ public class RunAnalyzer implements Runnable {
     private boolean translationConfigured() {
         String translate = configuration.generalConfiguration().translate();
         if (translate == null) return true;
-        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_CSHARP.equals(translate)) {
-            LOGGER.error("--{} {}: choose '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
-                    Main.TRANSLATE_CSHARP);
+        if (!Main.TRANSLATE_KOTLIN.equals(translate) && !Main.TRANSLATE_CSHARP.equals(translate)
+            && !Main.TRANSLATE_RUST.equals(translate)) {
+            LOGGER.error("--{} {}: choose '{}', '{}' or '{}'", Main.TRANSLATE, translate, Main.TRANSLATE_KOTLIN,
+                    Main.TRANSLATE_CSHARP, Main.TRANSLATE_RUST);
             return false;
         }
         if (configuration.generalConfiguration().translateOutput() == null) {
@@ -363,8 +366,10 @@ public class RunAnalyzer implements Runnable {
                 .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         List<TypeInfo> main = all.stream().filter(t -> !t.compilationUnit().sourceSet().test()).toList();
         boolean kotlin = Main.TRANSLATE_KOTLIN.equals(translate);
+        boolean rust = Main.TRANSLATE_RUST.equals(translate);
+        // Rust, like Kotlin, has no platform type: what the analysis does not call nullable is not an Option
         NullabilityFacts facts = order == null ? null
-                : engine().nullabilityFacts(order, kotlin ? NullabilityTarget.KOTLIN : NullabilityTarget.CSHARP);
+                : engine().nullabilityFacts(order, kotlin || rust ? NullabilityTarget.KOTLIN : NullabilityTarget.CSHARP);
         LOGGER.info("Translating {} types to {} in {}, {}", main.size(), translate, out,
                 facts == null ? "without nullability facts" : "with the nullability pass's facts");
         List<String> crashes;
@@ -375,6 +380,13 @@ public class RunAnalyzer implements Runnable {
             KotlinPrintOptions options = (facts == null ? KotlinPrintOptions.DEFAULT
                     : new KotlinPrintOptions(facts, KotlinPrintOptions.NullCheck.ASSERT)).withWorld(KotlinWorld.of(all));
             KotlinTranslator.Result result = KotlinTranslator.translate(javaInspector.runtime(), main, options, out);
+            crashes = result.crashes();
+            messages = result.messages().stream().map(Object::toString).toList();
+            files = result.files().size();
+        } else if (rust) {
+            // the ownership modes from the stored modification and independence verdicts, Option from nullability
+            RustFacts rustFacts = facts == null ? RustFacts.STORED : RustFacts.of(facts, RustFacts.STORED);
+            RustTranslator.Result result = RustTranslator.translate(main, rustFacts, out);
             crashes = result.crashes();
             messages = result.messages().stream().map(Object::toString).toList();
             files = result.files().size();

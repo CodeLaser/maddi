@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -231,6 +232,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         if (!typeInfo.isInterface()) members.addAll(covariantImplementations(q));
         if (!typeInfo.isInterface() && typeInfo.isAbstract()) members.addAll(abstractRedeclarations(q));
         if (CSharpWildcardInterfaces.has(typeInfo)) members.addAll(CSharpWildcardInterfaces.bridges(typeInfo, q));
+        members.addAll(CSharpErasures.members(typeInfo, q));
         anonymous.forEach(h -> members.add(new CSharpTypePrinter(h.type(), formatter2).print(importData, true)));
 
         List<OutputBuilder> nonEmpty = members.stream().filter(m -> !m.isEmpty()).toList();
@@ -555,7 +557,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
      * e => 0)}. An interface becomes a delegate only when nothing else implements it, which a file does not know.
      */
     private OutputBuilder lambdaAdapter(Qualification q) {
-        MethodInfo sam = CSharpNames.singleAbstractMethod(typeInfo);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(typeInfo);
         Signature signature = signature(sam, q);
         List<String> parameterTypes = signature.parameterTypes();
         List<String> names = signature.names();
@@ -580,7 +582,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
 
     /** {@code bool Test(Solution_ arg0, object arg1);}: the library's method the interface has as its own. */
     private OutputBuilder librarySingleAbstractMethod(Qualification q) {
-        Signature signature = signature(CSharpNames.singleAbstractMethod(typeInfo), q);
+        Signature signature = signature(CstSupertypes.singleAbstractMethod(typeInfo), q);
         return new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(signature.result(), q) + " "
                                                         + signature.member() + ";"));
     }
@@ -593,11 +595,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private Signature signature(MethodInfo sam, Qualification q) {
         // a method of a generic super-interface, Listener<T>.onEvent(T), is the interface's with its arguments
         ParameterizedType asSeen = sam.typeInfo().equals(typeInfo) ? null
-                : CSharpHierarchy.implementedAs(typeInfo, sam.typeInfo());
-        Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : CSharpHierarchy.typeArguments(asSeen);
-        List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> CSharpHierarchy.substitute(p.parameterizedType(), map))
+                : CstSupertypes.asSeen(typeInfo, sam.typeInfo());
+        Map<TypeParameter, ParameterizedType> map = asSeen == null ? Map.of() : CstSupertypes.typeArguments(asSeen);
+        List<ParameterizedType> samParameters = sam.parameters().stream().map(p -> CstSupertypes.substituteDroppingWildcards(p.parameterizedType(), map))
                 .toList();
-        ParameterizedType samReturn = CSharpHierarchy.substitute(sam.returnType(), map);
+        ParameterizedType samReturn = CstSupertypes.substituteDroppingWildcards(sam.returnType(), map);
         List<String> parameterTypes = samParameters.stream().map(p -> CSharpTypeName.argument(p, q)).toList();
         List<String> names = sam.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
         String parameters = IntStream.range(0, names.size())
@@ -629,11 +631,11 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         for (ParameterizedType i : typeInfo.interfacesImplemented()) {
             TypeInfo iface = i.typeInfo();
             if (iface == null || !CSharpNames.translated(iface)) continue;
-            Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(i);
+            Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(i);
             for (MethodInfo m : iface.methods()) {
                 if (m.isStatic() || !m.isAbstract() || !m.parameters().isEmpty()) continue;
                 components.stream().filter(f -> f.name().equals(m.name())).findFirst().ifPresent(f ->
-                        out.add(new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), map), q)
+                        out.add(new OutputBuilderImpl().add(new TextImpl(CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.returnType(), map), q)
                                 + " " + CSharpTypeName.of(i, q) + "." + CSharpNames.method(m) + "() => "
                                 + CSharpNames.field(f) + ";"))));
             }
@@ -700,31 +702,56 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                           Set<TypeInfo> seen, List<OutputBuilder> out, Qualification q) {
         TypeInfo iface = i.typeInfo();
         if (iface == null || !CSharpNames.translated(iface) || !seen.add(iface)) return;
-        ParameterizedType implemented = CSharpHierarchy.substitute(i, outer);
-        Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(implemented);
+        ParameterizedType implemented = CstSupertypes.substituteDroppingWildcards(i, outer);
+        Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(implemented);
         for (MethodInfo m : iface.methods()) {
             if (m.isStatic() || !m.typeParameters().isEmpty() || m.isSynthetic() || CSharpWildcards.mayCapture(m)) continue;
             MethodInfo own = typeInfo.methods().stream()
                     .filter(o -> !o.isStatic() && !o.isSynthetic() && o != m && o.overrides().contains(m))
                     .findFirst().orElse(null);
             if (own == null || own.typeInfo().typeNature().isRecord() && CstQueries.isRecordAccessor(own)) continue;
-            String returnType = CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), map), q);
+            String returnType = CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.returnType(), map), q);
             if (returnType.equals(CSharpTypeName.of(own.returnType(), q))) continue;
             List<String> names = own.parameters().stream().map(p -> CSharpNames.name(p.name())).toList();
             StringBuilder sb = new StringBuilder(returnType).append(' ').append(CSharpTypeName.of(implemented, q))
                     .append('.').append(CSharpNames.method(m)).append('(');
             for (int k = 0; k < names.size(); k++) {
                 if (k > 0) sb.append(", ");
-                sb.append(CSharpTypeName.of(CSharpHierarchy.substitute(m.parameters().get(k).parameterizedType(), map), q))
+                sb.append(CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.parameters().get(k).parameterizedType(), map), q))
                         .append(' ').append(names.get(k));
             }
+            String group = delegateMember(CstSupertypes.substituteDroppingWildcards(m.returnType(), map), own.returnType());
             sb.append(") => ").append(CSharpNames.method(own)).append('(').append(String.join(", ", names))
-                    .append(");");
+                    .append(')').append(group == null ? "" : "." + group).append(';');
             out.add(new OutputBuilderImpl().add(new TextImpl(sb.toString())));
         }
         for (ParameterizedType sup : iface.interfacesImplemented()) {
             covariantImplementations(sup, map, seen, out, q);
         }
+    }
+
+    /**
+     * The member of a program interface that implements a delegate's method, where the interface's method returns the
+     * delegate and the override the interface: Java's {@code UniConstraintCollectorAccumulator<A> accumulator()} for
+     * {@code BiFunction<ResultContainer_, A, Runnable> accumulator()}, which C#'s interface cannot extend, is its
+     * method group, {@code Accumulator().Apply}. Null otherwise.
+     */
+    private static String delegateMember(ParameterizedType expected, ParameterizedType returned) {
+        TypeInfo delegate = expected.typeInfo();
+        TypeInfo own = returned.typeInfo();
+        if (delegate == null || own == null || expected.arrays() != 0 || returned.arrays() != 0 || !own.isInterface()
+            || !CSharpNames.translated(own) || CSharpContext.program().delegate(own)
+            || !(CSharpTypeName.libraryDelegate(delegate) || CSharpNames.translated(delegate)
+                 && CSharpContext.program().delegate(delegate))) {
+            return null;
+        }
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(delegate);
+        if (sam == null) return null;
+        return Stream.concat(Stream.of(own), own.recursiveSuperTypeStream())
+                .filter(CSharpNames::translated)
+                .flatMap(t -> t.methods().stream())
+                .filter(mm -> !mm.isStatic() && mm.overrides().contains(sam))
+                .map(CSharpNames::method).findFirst().orElse(null);
     }
 
     /**
@@ -741,7 +768,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // the interface's property, left to the subclasses
                 if (declared.add(property)) {
                     out.add(new OutputBuilderImpl().add(new TextImpl("public abstract "
-                            + CSharpTypeName.of(CSharpHierarchy.substitute(m.returnType(), left.typeArguments()), q) + " " + property
+                            + CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.returnType(), left.typeArguments()), q) + " " + property
                             + " { get; }")));
                 }
                 continue;
@@ -749,7 +776,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             // a compatibility interface's member is Java's name in PascalCase: IJavaIterator's HasNext()
             String name = CSharpNames.translated(m.typeInfo()) ? CSharpNames.method(m) : CSharpNames.pascal(m.name());
             // nullable where an override's result is (FamilyFacts): S? Next() of an iterator that may give null
-            ParameterizedType returned = CSharpHierarchy.substitute(m.returnType(), left.typeArguments());
+            ParameterizedType returned = CstSupertypes.substituteDroppingWildcards(m.returnType(), left.typeArguments());
             String returnType = CSharpTypeName.withNullable(returned, CSharpTypeName.of(returned, q),
                     CSharpContext.program().facts().nullable(m));
             StringBuilder sb = new StringBuilder("public abstract ").append(returnType).append(' ')
@@ -757,7 +784,7 @@ public record CSharpTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             StringBuilder signature = new StringBuilder(name);
             for (int k = 0; k < m.parameters().size(); k++) {
                 if (k > 0) sb.append(", ");
-                String type = CSharpTypeName.of(CSharpHierarchy.substitute(m.parameters().get(k).parameterizedType(),
+                String type = CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(m.parameters().get(k).parameterizedType(),
                         left.typeArguments()), q);
                 sb.append(type).append(' ').append(CSharpNames.name(m.parameters().get(k).name()));
                 signature.append(',').append(type);

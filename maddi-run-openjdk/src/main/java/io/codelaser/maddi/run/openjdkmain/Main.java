@@ -77,6 +77,7 @@ public class Main {
     public static final String TRANSLATE_OUTPUT = "translate-output";
     public static final String TRANSLATE_KOTLIN = "kotlin";
     public static final String TRANSLATE_CSHARP = "csharp";
+    public static final String TRANSLATE_RUST = "rust";
     public static final String DEBUG = "debug";
 
     public static final String INPUT_CONFIGURATION = "input-configuration";
@@ -259,8 +260,8 @@ public class Main {
                         Directory to write results of analyzer.
                         """).get());
         options.addOption(Option.builder().longOpt(TRANSLATE).hasArg().argName("LANGUAGE")
-                .desc("Translate the main sources to '" + TRANSLATE_KOTLIN + "' or '" + TRANSLATE_CSHARP
-                      + "', into --" + TRANSLATE_OUTPUT + ". Runs the modification analysis with nullability unless "
+                .desc("Translate the main sources to '" + TRANSLATE_KOTLIN + "', '" + TRANSLATE_CSHARP + "' or '"
+                      + TRANSLATE_RUST + "' (experimental), into --" + TRANSLATE_OUTPUT + ". Runs the modification analysis with nullability unless "
                       + "--" + ANALYSIS_STEPS + " says otherwise; with --" + ANALYSIS_STEPS + " " + AS_NONE
                       + " the translation has no facts.").get());
         options.addOption(Option.builder().longOpt(TRANSLATE_OUTPUT).hasArg().argName("DIR")

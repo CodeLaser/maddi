@@ -34,6 +34,17 @@ internal sealed class Switches {
         return "large";
     }
 
+    internal static string Patterns(object o) {
+        switch (o) {
+            case string s: return s;
+            case int i when (int) i > 0:
+                Console.Out.WriteLine(i);
+                break;
+            default: break;
+        }
+        return "";
+    }
+
     internal static int Expression(string s) => s switch {
         "a" or "b" => 1,
         "c" => new Func<int>(() => {

@@ -1,4 +1,5 @@
 using Maddi.JavaCompat;
+using System;
 using System.Collections.Generic;
 namespace Org.Example.Inner;
 public sealed class Range : IEnumerable<long> {
@@ -11,7 +12,7 @@ public sealed class Range : IEnumerable<long> {
     public IJavaIterator<long> Iterator() => new Upcoming(this);
     internal long Width() => to - from;
     internal Upcoming Twice(Range other) => new Upcoming(other);
-    internal java.util.function.LongFunction<Stepped> Stepper() => p0 => new Stepped(this, p0);
+    internal Func<long, Stepped> Stepper() => p0 => new Stepped(this, p0);
     internal sealed class Plain { internal int One() => 1; }
     internal sealed class Stepped : Upcoming {
         private readonly Range outer;

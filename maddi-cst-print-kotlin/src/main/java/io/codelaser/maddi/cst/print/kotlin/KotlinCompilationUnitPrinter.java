@@ -52,6 +52,7 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
             OutputBuilder output = printFile(importComputer, qualification);
             return new Result(output, KotlinContext.takeMessages());
         } finally {
+            KotlinContext.importedNames(List.of());
             KotlinContext.options(previous);
         }
     }
@@ -68,16 +69,17 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
         }
         KotlinContext.takeReferencedTypes();
         KotlinContext.takeFileHelpers();
+        // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
+        List<String> imports = new ArrayList<>(importData.imports().stream().map(i -> i.importString())
+                .filter(i -> !KotlinTypeName.isMapped(i) && !KotlinTypeName.shadowsKotlinBuiltIn(i))
+                .map(i -> i.replaceFirst("^static\\s+", "")).toList());
+        KotlinContext.importedNames(imports);
         OutputBuilder types = new OutputBuilderImpl();
         for (TypeInfo typeInfo : compilationUnit.types()) {
             if (typeInfo.typeNature().isPackageInfo()) continue;
             types.add(SpaceEnum.NEWLINE).add(new KotlinTypePrinter(typeInfo, formatter2).print(importData, true))
                     .add(SpaceEnum.NEWLINE);
         }
-        // a type Kotlin maps to its own is not imported: `import java.util.List` would shadow kotlin.collections'
-        List<String> imports = new ArrayList<>(importData.imports().stream().map(i -> i.importString())
-                .filter(i -> !KotlinTypeName.isMapped(i) && !KotlinTypeName.shadowsKotlinBuiltIn(i))
-                .map(i -> i.replaceFirst("^static\\s+", "")).toList());
         imports.addAll(missingImports(KotlinContext.takeReferencedTypes(), imports));
         imports.forEach(i -> out.add(KeywordImpl.IMPORT).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(i)))
                 .add(SpaceEnum.NEWLINE));

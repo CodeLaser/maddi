@@ -29,7 +29,8 @@ import java.lang.annotation.Target;
  * governs content the type <em>holds</em>; {@code @StaticSideEffects} governs state it does <em>not</em> hold.
  * <p>
  * The analyzer <em>computes</em> this property for source methods that assign to, or make a modifying call on,
- * another type's static field ({@code StaticSideEffectAnalyzerImpl}). But some global reconfigurations happen
+ * another type's static field, directly or through a callee (static, instance, constructor) that modifies its own
+ * type's static state ({@code StaticSideEffectAnalyzerImpl}). But some global reconfigurations happen
  * through a library method whose effect is not visible from source — the canonical case is
  * {@code System.setOut(other)}, which replaces the process-wide {@code System.out}. Nothing in the JDK source
  * reachable to the analyzer says so, so the only way to record it is this <b>contracted</b> annotation on the

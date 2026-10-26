@@ -35,6 +35,12 @@ public class TimedLogger {
         }
     }
 
+    public void debug(String string, Object... objects) {
+        if (logger.isDebugEnabled() && allow()) {
+            logger.debug(string, objects);
+        }
+    }
+
     private boolean allow() {
         long now = Instant.now().toEpochMilli();
         boolean ok = now - latest >= delay;

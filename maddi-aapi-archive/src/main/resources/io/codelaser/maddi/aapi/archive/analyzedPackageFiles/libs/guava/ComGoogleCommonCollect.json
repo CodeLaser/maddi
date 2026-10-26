@@ -4010,7 +4010,7 @@
   {"name": "Pstream(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MfindLast(5,java.util.stream.IntStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pstream(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
- {"name": "MfindLast(6,java.util.stream.LongStream)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
+ {"name": "MfindLast(6,java.util.stream.LongStream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pstream(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MfindLast(7,java.util.stream.Stream)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Pstream(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}}},
@@ -4045,7 +4045,7 @@
  {"name": "Mstream(19,java.util.OptionalInt)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Poptional(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "Mstream(20,java.util.OptionalLong)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
-  {"name": "Poptional(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Poptional(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "Mzip(21,java.util.stream.Stream,java.util.stream.Stream,java.util.function.BiFunction)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "subs":[
   {"name": "PstreamA(0)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},
   {"name": "PstreamB(1)", "data":{"annotatedApi":1,"containerParameter":1,"independentParameter":2,"unmodifiedParameter":0}},

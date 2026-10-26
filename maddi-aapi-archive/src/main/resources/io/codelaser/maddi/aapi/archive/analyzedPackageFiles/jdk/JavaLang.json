@@ -2465,30 +2465,30 @@
  {"name": "Mrun(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}},
 
 {"name": "Tjava.lang.Runtime", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "SVersion(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Mbuild(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "SVersion(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
+  {"name": "Mbuild(0)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
   {"name": "McompareTo(1,java.lang.Runtime.Version)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
-  {"name": "McompareToIgnoreOptional(2,java.lang.Runtime.Version)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "McompareToIgnoreOptional(2,java.lang.Runtime.Version)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
   {"name": "Mequals(3,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
-  {"name": "MequalsIgnoreOptional(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}}},
-  {"name": "Mfeature(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+  {"name": "MequalsIgnoreOptional(4,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
+  {"name": "Mfeature(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
   {"name": "MhashCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
-  {"name": "Minterim(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
-  {"name": "Mmajor(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
-  {"name": "Mminor(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
-  {"name": "Moptional(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "Mparse(11,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Minterim(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+  {"name": "Mmajor(8)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+  {"name": "Mminor(9)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+  {"name": "Moptional(10)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+  {"name": "Mparse(11,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
-  {"name": "Mpatch(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
-  {"name": "Mpre(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "Msecurity(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+  {"name": "Mpatch(12)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+  {"name": "Mpre(13)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+  {"name": "Msecurity(14)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
   {"name": "MtoString(15)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
-  {"name": "Mupdate(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
-  {"name": "Mversion(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+  {"name": "Mupdate(16)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+  {"name": "Mversion(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}}]},
  {"name": "MaddShutdownHook(0,java.lang.Thread)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MavailableProcessors(1)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
@@ -2526,7 +2526,7 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MrunFinalization(17)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MtotalMemory(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "Mversion(19)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+ {"name": "Mversion(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}}]},
 
 {"name": "Tjava.lang.RuntimeException", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0)", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
@@ -3245,7 +3245,7 @@
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}}]},
 
 {"name": "Tjava.lang.System", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
- {"name": "SLogger(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
+ {"name": "SLogger(0)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":2}, "subs":[
   {"name": "SLevel(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
    {"name": "FALL(0)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
    {"name": "FDEBUG(1)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
@@ -3261,44 +3261,44 @@
    {"name": "Mvalues(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}}]},
   {"name": "MgetName(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
   {"name": "MisLoggable(1,java.lang.System.Logger.Level)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
   {"name": "Mlog(2,java.lang.System.Logger.Level,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(3,java.lang.System.Logger.Level,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(4,java.lang.System.Logger.Level,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(5,java.lang.System.Logger.Level,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(6,java.lang.System.Logger.Level,java.util.ResourceBundle,java.lang.String,java.lang.Object[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
-   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg3(3)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(7,java.lang.System.Logger.Level,java.util.ResourceBundle,java.lang.String,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
-   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+   {"name": "Parg3(3)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
   {"name": "Mlog(8,java.lang.System.Logger.Level,java.util.function.Supplier)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
   {"name": "Mlog(9,java.lang.System.Logger.Level,java.util.function.Supplier,java.lang.Throwable)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
-   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]}]},
+   {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
  {"name": "SLoggerFinder(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MgetLocalizedLogger(0,java.lang.String,java.util.ResourceBundle,java.lang.Module)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MgetLocalizedLogger(0,java.lang.String,java.util.ResourceBundle,java.lang.Module)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
-  {"name": "MgetLogger(1,java.lang.String,java.lang.Module)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MgetLogger(1,java.lang.String,java.lang.Module)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
   {"name": "MgetLoggerFinder(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
@@ -3318,9 +3318,9 @@
  {"name": "Mexit(4,int)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"ignoreModMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mgc(5)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetLogger(6,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "MgetLogger(6,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetLogger(7,java.lang.String,java.util.ResourceBundle)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "MgetLogger(7,java.lang.String,java.util.ResourceBundle)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
  {"name": "MgetProperties(8)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},

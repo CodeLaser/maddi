@@ -283,6 +283,7 @@ public class ScanCompilationUnits {
         // primary types per source set from it. 1a0c08017 dropped it, and every baseline check then saw 0 source
         // sets and failed. THIS set's symbols, not the accumulated map.
         if (detailedSources) {
+            // stays INFO: corpus/scripts/catalogue.py (measure_parse) reads each source set's primary-type count from it
             LOGGER.info("Collected {} class symbols for source set {}", symbols.size(), sourceSet.name());
         }
 
@@ -330,9 +331,9 @@ public class ScanCompilationUnits {
                 }
                 recordFailure(failures, unitList.get(i), e);
             }
-            TIMED_LOGGER.info("Done {}", ++done);
+            TIMED_LOGGER.debug("Done {}", ++done);
         }
-        LOGGER.info("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
+        LOGGER.debug("Start scanning javaDocs, committing {} primary types", primaryTypes.size());
 
         Iterator<TypeInfo> ptIt = primaryTypes.iterator();
         while (ptIt.hasNext()) {
@@ -388,7 +389,7 @@ public class ScanCompilationUnits {
         int count = 0;
         try {
             for (JavaFileObject ignored : task.generate()) ++count;
-            LOGGER.info("Generated {} class file(s) for source set {}", count, sourceSet.name());
+            LOGGER.debug("Generated {} class file(s) for source set {}", count, sourceSet.name());
         } catch (IOException | RuntimeException | Error e) {
             if (e instanceof OutOfMemoryError oom) throw oom;
             LOGGER.warn("Could not generate class files for source set {}: {}", sourceSet.name(), e.toString());
@@ -427,7 +428,7 @@ public class ScanCompilationUnits {
         // THIS (main) thread first -- javac's file manager is not thread-safe.
         Map<CompilationUnitTree, SourceCodeScan.Result> scanResults = new IdentityHashMap<>();
         if (detailedSources) {
-            LOGGER.info("Pre-scanning compilation units of source set {}", sourceSet.name());
+            LOGGER.debug("Pre-scanning compilation units of source set {}", sourceSet.name());
             Map<CompilationUnitTree, CharSequence> contentByUnit = new IdentityHashMap<>();
             for (CompilationUnitTree unit : units) {
                 contentByUnit.put(unit, unit.getSourceFile().getCharContent(false));
@@ -440,9 +441,9 @@ public class ScanCompilationUnits {
                     CharSequence content = contentByUnit.get(unit);
                     futures.put(unit, task1Executor.submit(() -> new SourceCodeScan(runtime).go(content, isModule)));
                 }
-                for (Map.Entry<CompilationUnitTree, Future<SourceCodeScan.Result>> e : futures.entrySet()) {
+                futures.forEach((failedUnit, value) -> {
                     try {
-                        scanResults.put(e.getKey(), e.getValue().get());
+                        scanResults.put(failedUnit, value.get());
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(ie);
@@ -456,7 +457,6 @@ public class ScanCompilationUnits {
                         if (!diagnosticCollector.ignoreErrors()) {
                             throw cause instanceof RuntimeException re ? re : new RuntimeException(cause);
                         }
-                        CompilationUnitTree failedUnit = e.getKey();
                         URI failedUri = failedUnit.getSourceFile() == null ? null : failedUnit.getSourceFile().toUri();
                         // The pre-scan fails both on constructs javac accepts but congocc's grammar chokes on (a
                         // grammar gap -- keep the unit, detailed sources degrade) AND on genuinely unparseable source.
@@ -470,7 +470,7 @@ public class ScanCompilationUnits {
                                     failedUri == null ? "?" : failedUri, cause.toString());
                         }
                     }
-                }
+                });
             }
         }
         return scanResults;

@@ -41,11 +41,13 @@ public class EvalImpl implements Eval {
     private final EvalRemainder evalRemainder;
     private final EvalCast evalCast;
     private final EvalBoolean evalBoolean;
+    private final EvalOptions evalOptions;
 
     public EvalImpl(Runtime runtime, EvalOptions evalOptions) {
+        this.evalOptions = evalOptions;
         evalProduct = new EvalProduct(runtime);
         evalSum = new EvalSum(runtime);
-        evalNegation = new EvalNegation(runtime);
+        evalNegation = new EvalNegation(runtime, evalOptions);
         evalEquals = new EvalEquals(runtime);
         evalAnd = new EvalAnd(runtime, evalOptions);
         evalOr = new EvalOr(runtime, evalOptions);
@@ -57,7 +59,7 @@ public class EvalImpl implements Eval {
         evalUnaryOperator = new EvalUnaryOperator(runtime);
         evalRemainder = new EvalRemainder(runtime);
         evalCast = new EvalCast(runtime);
-        evalBoolean = new EvalBoolean(runtime);
+        evalBoolean = new EvalBoolean(runtime, evalNegation);
     }
 
     /**
@@ -70,7 +72,7 @@ public class EvalImpl implements Eval {
      */
     @Override
     public Expression sortAndSimplify(boolean recurse, Expression expression) {
-        EvalBudget.enter();
+        EvalBudget.enter(evalOptions.maxEvalEntriesPerTopLevel());
         try {
             return Eval.super.sortAndSimplify(recurse, expression);
         } finally {

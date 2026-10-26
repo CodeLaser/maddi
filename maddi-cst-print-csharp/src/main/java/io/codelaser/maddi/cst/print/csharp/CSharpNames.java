@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -339,7 +340,7 @@ public final class CSharpNames {
     /** A translated functional interface: its lambdas are printed with an adapter class, see CSharpTypePrinter. */
     static boolean lambdaAdapter(TypeInfo typeInfo) {
         if (!typeInfo.isInterface() || !translated(typeInfo) || CSharpContext.program().delegate(typeInfo)) return false;
-        MethodInfo sam = singleAbstractMethod(typeInfo);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(typeInfo);
         return sam != null && sam.typeParameters().isEmpty();
     }
 
@@ -350,18 +351,8 @@ public final class CSharpNames {
      */
     static MethodInfo librarySingleAbstractMethod(TypeInfo typeInfo) {
         if (typeInfo == null || !lambdaAdapter(typeInfo)) return null;
-        MethodInfo sam = singleAbstractMethod(typeInfo);
+        MethodInfo sam = CstSupertypes.singleAbstractMethod(typeInfo);
         return translated(sam.typeInfo()) ? null : sam;
-    }
-
-    /** The one abstract method of a functional interface, also when no lambda targets it. */
-    static MethodInfo singleAbstractMethod(TypeInfo typeInfo) {
-        if (!typeInfo.interfacesImplemented().isEmpty()) {
-            return typeInfo.isFunctionalInterface() ? typeInfo.singleAbstractMethod() : null;
-        }
-        List<MethodInfo> abstractMethods = typeInfo.methods().stream()
-                .filter(m -> !m.isSynthetic() && m.isAbstract() && !m.isStatic()).toList();
-        return abstractMethods.size() == 1 ? abstractMethods.getFirst() : null;
     }
 
     /** The program's own type, which the translation prints: not a library's, nor one a mapping excludes. */

@@ -54,6 +54,11 @@ public interface ModificationFacts {
             return methodInfo.isStructurallyNonModifying();
         }
 
+        @Override
+        public boolean nonModifying(MethodInfo methodInfo) {
+            return methodInfo.isNonModifying();
+        }
+
         /*
         The same reading as the analyzer's DynamicImmutabilityInference.ofMethodCall: IMMUTABLE_METHOD at least
         immutable-HC is a claim about the result only where it is not the shallow analyzer's fallback from the declared
@@ -108,6 +113,14 @@ public interface ModificationFacts {
      * contract ({@code @NotModified}), rather than a list of names.
      */
     default boolean structurallyNonModifying(MethodInfo methodInfo) {
+        return false;
+    }
+
+    /**
+     * The method modifies nothing: neither its receiver nor what that holds ({@code NON_MODIFYING_METHOD}). Two
+     * calls in a row answer the same, so a printer may call it once where Java calls it twice (CodeLaser/maddi#164).
+     */
+    default boolean nonModifying(MethodInfo methodInfo) {
         return false;
     }
 

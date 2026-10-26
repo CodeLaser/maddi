@@ -168,6 +168,14 @@ public interface FieldInfo extends Info {
         @Fluent
         Builder addFieldModifier(FieldModifier fieldModifier);
 
+        /**
+         * Replaces the field's type, before the field is committed. For a field built from its symbol before its
+         * declaration was scanned, whose type then lacks the declaration's type-use annotations (maddi#145).
+         * Field references made before the replacement keep the type they were made with.
+         */
+        @Fluent
+        Builder setType(ParameterizedType type);
+
         /** Sets the initialiser expression for this field. */
         @Fluent
         Builder setInitializer(Expression initializer);

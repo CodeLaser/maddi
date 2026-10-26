@@ -166,6 +166,9 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
                 static <G, H> Map<G, H> keyed(java.util.function.Function<? super H, ? extends G> key) {
                     return new HashMap<>();
                 }
+                static <M, N> Map<M, N> orEmpty(Map<M, N> m) { return m == null ? Map.of() : m; }
+                static <Q> Map<Q, String> fresh(Object hint) { Map<Q, String> m = new HashMap<>(); return m; }
+                static <R> Map<R, String> made() { return fresh(null); }
                 static class Sub<S, U> extends Index<S, U> { }
                 static class Plain<P> { P value; }
             }
@@ -191,6 +194,11 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         // through a wildcard: E is passed as ? extends G
         contains(cs, "where E : notnull");
         contains(cs, "where G : notnull");
+        // Map.of() is a new Dictionary
+        contains(cs, "where M : notnull");
+        // through a call's result, which C# gets written as a type argument: Fresh<R>(null)
+        contains(cs, "where Q : notnull");
+        contains(cs, "where R : notnull");
         assertFalse(cs.contains("where D : notnull"), cs);
         assertFalse(cs.contains("where P : notnull"), cs);
         assertFalse(cs.contains("where V : notnull"), cs);
@@ -473,6 +481,74 @@ public class TestJavaToCSharpFacts extends CommonJavaToCSharp {
         contains(cs, "internal static Func<Replays, object> Unbound() => (Replays p0) => p0.Peek()!;");
         // an unboxing cast, of C#'s long? (CS8629)
         contains(cs, "(Replays p0) => (long) p0.Tally()!;");
+    }
+
+    @Language("java")
+    private static final String WIDENED_NULLS = """
+            package org.example.widened;
+            import java.util.function.Function;
+            class Joiners {
+                static final class Joiner<A, B> {
+                    <P> Joiner(Function<A, P> left, Function<B, P> right) { }
+                }
+                static <A, B, P extends Comparable<P>> Joiner<A, B> lessThan(Function<A, P> left, Function<B, P> right) {
+                    return new Joiner<>(left, right);
+                }
+            }
+            """;
+
+    /** A widened delegate's result, of a type parameter that may be null, into the delegate's object (CS8603): !. */
+    @Test
+    public void widenedNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Joiners", WIDENED_NULLS);
+        contains(cs, "new Joiner<A, B>(x0_ => left(x0_)!, x0_ => right(x0_)!)");
+    }
+
+    @Language("java")
+    private static final String ERASED_NULLS = """
+            package org.example.erased;
+            import java.util.function.Supplier;
+            class Collectors {
+                interface TriFunction<A, B, C, R> { R apply(A a, B b, C c); }
+                static final class Concat implements TriFunction<String, String, String, String> {
+                    public String apply(String a, String b, String c) { return a + b + c; }
+                }
+                interface BiCollector<A, B, ResultContainer_, Result_> {
+                    Supplier<ResultContainer_> supplier();
+                    TriFunction<ResultContainer_, A, B, Runnable> accumulator();
+                }
+                static final class Count<A, B> implements BiCollector<A, B, int[], Integer> {
+                    public Supplier<int[]> supplier() { return () -> new int[1]; }
+                    public TriFunction<int[], A, B, Runnable> accumulator() {
+                        return (c, a, b) -> { c[0]++; return () -> c[0]--; };
+                    }
+                }
+                static <A, B, C, R> BiCollector<A, B, C, R> logged(BiCollector<A, B, C, R> collector) { return collector; }
+                static <A, B> BiCollector<A, B, ?, Integer> count() { return new Count<>(); }
+                static <A, B> BiCollector<A, B, ?, Integer> loggedCount() { return logged(count()); }
+            }
+            """;
+
+    /**
+     * An erasure adapter's lambda into a functional interface's adapter: its method of a type parameter, R? Apply(…),
+     * may return null to C#, the delegate's result not (CS8603): !.
+     */
+    @Test
+    public void erasedNulls() {
+        policy = CSharpProgram.Policy.DEFAULT.withFacts(new CSharpFacts() {
+            @Override
+            public boolean nullabilityAnalysed() {
+                return true;
+            }
+        });
+        String cs = translate("Collectors", ERASED_NULLS);
+        contains(cs, "new ITriFunction<object, A, B, Action>.Lambda((x0_, x1_, x2_) => f.Apply((ResultContainer_) x0_!, x1_, x2_)!)");
     }
 
     @Language("java")

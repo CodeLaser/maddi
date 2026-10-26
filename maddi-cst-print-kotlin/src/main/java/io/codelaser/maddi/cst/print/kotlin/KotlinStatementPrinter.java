@@ -94,9 +94,35 @@ public class KotlinStatementPrinter {
         }
         if (!(KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc)) return false;
         List<TypeParameter> typeParameters = mc.methodInfo().typeParameters();
+        List<io.codelaser.maddi.cst.api.info.ParameterInfo> parameters = mc.methodInfo().parameters();
         return !typeParameters.isEmpty() && typeParameters.stream().anyMatch(tp ->
                 CstQueries.mentions(mc.methodInfo().returnType(), tp)
-                && mc.methodInfo().parameters().stream().noneMatch(p -> CstQueries.mentions(p.parameterizedType(), tp)));
+                && java.util.stream.IntStream.range(0, parameters.size()).noneMatch(i ->
+                        mentionsOutsideSuper(parameters.get(i).parameterizedType(), tp) && fixes(mc, i)));
+    }
+
+    /**
+     * The argument at parameter {@code i} types the call: not an empty varargs (nacos's
+     * {@code List<String> columnList = CollectionUtils.list()}), nor a call or a diamond typed by its own target only
+     * ({@code Attribute<Boolean> a = channel.attr(AttributeKey.valueOf("TLS"))}).
+     */
+    private static boolean fixes(MethodCall mc, int i) {
+        List<Expression> args = mc.parameterExpressions();
+        // nor a diamond, typed by the call: jenkins's Set<T> instances = Collections.newSetFromMap(new IdentityHashMap<>())
+        return i < args.size() && !onlyTargetTyped(args.get(i))
+               && !(KotlinExpressionPrinter.unwrap(args.get(i)) instanceof ConstructorCall cc && cc.diamond() != null
+                    && cc.diamond().isYes() && cc.anonymousClass() == null);
+    }
+
+    /**
+     * {@code tp} in {@code type}, other than as a {@code ? super} bound: guava's {@code TopKSelector.least(k,
+     * Comparator<? super T>)} takes its T from the target, {@code TopKSelector<E> selector = least(k, this)} in an
+     * {@code Ordering<T>}, where Kotlin, without the local's type, takes the comparator's T.
+     */
+    private static boolean mentionsOutsideSuper(ParameterizedType type, TypeParameter tp) {
+        if (type.wildcard() != null && type.wildcard().isSuper()) return false;
+        if (type.isTypeParameter() && tp.equals(type.typeParameter())) return true;
+        return type.parameters().stream().anyMatch(p -> mentionsOutsideSuper(p, tp));
     }
 
 
@@ -114,6 +140,23 @@ public class KotlinStatementPrinter {
     }
 
     private static OutputBuilder printStatement(Statement s, Qualification q) {
+        if (s.label() != null && (s instanceof IfElseStatement || s instanceof TryStatement
+                                  || s instanceof SynchronizedStatement || s instanceof SwitchStatementNewStyle
+                                  || s instanceof SwitchStatementOldStyle)) {
+            // guava's AbstractFutureState.get: long_wait_loop: if (…) { do { … break long_wait_loop; } while (…); }.
+            // Kotlin's break leaves loops only: as a labelled block, a run label@{ } left with return@label
+            KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, s.label()));
+            try {
+                return new OutputBuilderImpl().add(new TextImpl("run " + s.label() + "@")).add(SpaceEnum.ONE)
+                        .add(SymbolEnum.LEFT_BRACE).add(unlabelled(s, q)).add(SymbolEnum.RIGHT_BRACE);
+            } finally {
+                KotlinContext.pop();
+            }
+        }
+        return unlabelled(s, q);
+    }
+
+    private static OutputBuilder unlabelled(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
                     : scope(block(block, q));
@@ -121,22 +164,31 @@ public class KotlinStatementPrinter {
             case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
             case LocalVariableCreation lvc -> localVariables(lvc, q);
             case IfElseStatement ife -> ifElse(ife, q);
+            // throw e.getCause(): Java throws an NPE for a null, Kotlin's throw takes a non-null Throwable
             case ThrowStatement ts -> new OutputBuilderImpl().add(KotlinKeyword.THROW).add(SpaceEnum.ONE)
-                    .add(KotlinExpressionPrinter.print(ts.expression(), q));
+                    .add(KotlinNullability.asserted(ts.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q));
             case WhileStatement ws -> loop(ws, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                    .add(test(ws.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                     .add(SpaceEnum.ONE).add(block(ws.block(), q)));
             case DoStatement ds -> loop(ds, q, () -> new OutputBuilderImpl()
                     .add(KotlinKeyword.DO).add(SpaceEnum.ONE).add(block(ds.block(), q)).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.WHILE).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(KotlinExpressionPrinter.print(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
-            case ForEachStatement fe -> loop(fe, q, () -> new OutputBuilderImpl()
-                    .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                    .add(new TextImpl(declareForEach(fe)))
-                    .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
-                    .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
-                    .add(SpaceEnum.ONE).add(forEachBody(fe, q)));
+                    .add(test(ds.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS));
+            case ForEachStatement fe -> loop(fe, q, () -> {
+                String loopVariable = fe.initializer().localVariable().simpleName();
+                boolean wasRaw = KotlinNullability.RAW_LOOP_VARIABLES.get().contains(loopVariable);
+                try {
+                    return new OutputBuilderImpl()
+                            .add(KotlinKeyword.FOR).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                            .add(new TextImpl(declareForEach(fe)))
+                            .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE)
+                            .add(KotlinNullability.iterable(fe.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                            .add(SpaceEnum.ONE).add(forEachBody(fe, q));
+                } finally {
+                    if (!wasRaw) KotlinNullability.RAW_LOOP_VARIABLES.get().remove(loopVariable);
+                }
+            });
             case ForStatement fs -> forStatement(fs, q);
             case SwitchStatementNewStyle sw -> switchNewStyle(sw, q);
             case SwitchStatementOldStyle sw -> switchOldStyle(sw, q);
@@ -150,8 +202,12 @@ public class KotlinStatementPrinter {
             case ContinueStatement cs -> new OutputBuilderImpl().add(new TextImpl("continue"
                     + (cs.goToLabel() == null ? "" : "@" + cs.goToLabel())));
             case EmptyStatement es -> new OutputBuilderImpl();
+            // nacos's GrpcConnection: synchronized (streamObserver) of a nullable field; Java throws for a null,
+            // Kotlin's synchronized takes an Any
             case SynchronizedStatement ss -> new OutputBuilderImpl().add(new TextImpl("synchronized"))
-                    .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(ss.expression(), q))
+                    .add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinNullability.nullableInKotlin(ss.expression())
+                            ? KotlinNullability.asserted(ss.expression(), KotlinPrintCode.ASSERT_AT_DEREFERENCE, q)
+                            : KotlinExpressionPrinter.print(ss.expression(), q))
                     .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(block(ss.block(), q));
             case AssertStatement as -> assertStatement(as, q);
             case LocalTypeDeclaration ltd -> new KotlinTypePrinter(ltd.typeInfo(), true) // a local type has no visibility
@@ -220,8 +276,18 @@ public class KotlinStatementPrinter {
                 if (shadow != null && KotlinNullability.isNullable(shadow) && own != null
                     && !KotlinNullability.isNullable(own) && !own.isPrimitiveExcludingVoid()) {
                     ParameterizedType type = own.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
-                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+                    // guava's RegularImmutableSortedSet.containsAll(targets): the parameter is the mapped member's
+                    // read-only Collection, and so is the var that copies it
+                    boolean readOnly = KotlinMethodPrinter.readOnlyParameter(p)
+                                       || KotlinMappedMembers.overriddenCollectionParameter(p.methodInfo(), p.index());
+                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(readOnly ? KotlinTypeName.readOnly(type, q)
+                            : KotlinTypeName.of(type, q)));
                     KotlinContext.localType(p.name(), type);
+                } else if (own != null && KotlinMappedMembers.overriddenCollectionParameter(p.methodInfo(), p.index())) {
+                    // guava's ImmutableEnumSet.containsAll(Collection<?> collection) assigns it another Collection<?>:
+                    // the copy takes Java's own type, not the mapped member's Collection<E> Kotlin would infer
+                    b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.readOnly(own, q)));
+                    KotlinContext.localType(p.name(), own);
                 }
                 result.add(b.add(KotlinSymbols.assignment("=")).add(new TextImpl(name)));
             }
@@ -243,7 +309,17 @@ public class KotlinStatementPrinter {
         for (int i = 0; i < statements.size(); i++) {
             Statement s = statements.get(i);
             if (i == statements.size() - 1 && s instanceof ReturnStatement rs && rs.goToLabel() == null) {
-                if (!rs.hasNoValue()) printed.add(KotlinExpressionPrinter.print(rs.expression(), q));
+                if (rs.hasNoValue()) continue;
+                OutputBuilder value = KotlinExpressionPrinter.lambdaReturned(rs.expression(), q);
+                // (unwrap would strip a Negation itself, an ExpressionWrapper)
+                if (i > 0 && (rs.expression() instanceof Negation n && !n.expression().isNumeric()
+                              || rs.expression() instanceof UnaryOperator uo && uo.operator() != null
+                                 && "!".equals(uo.operator().name()))) {
+                    // timefold's EntityDescriptor: `val d = v as Director<S, *>` then `!d.isPinned(…)`: kotlinc reads the
+                    // `!` line on as the previous one's. Enclosed, it starts the value
+                    value = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(value).add(SymbolEnum.RIGHT_PARENTHESIS);
+                }
+                printed.add(value);
             } else {
                 printed.add(print(s, q));
             }
@@ -273,15 +349,37 @@ public class KotlinStatementPrinter {
         String label = rs.goToLabel() != null ? rs.goToLabel()
                 : KotlinContext.inLambda() ? KotlinContext.LAMBDA_LABEL : null;
         OutputBuilder b = new OutputBuilderImpl().add(label == null ? KotlinKeyword.RETURN : new TextImpl("return@" + label));
+        io.codelaser.maddi.cst.api.info.MethodInfo voidMethod = KotlinContext.currentMethod();
+        if (!rs.hasNoValue() && label == null && voidMethod != null && !voidMethod.isConstructor()
+            && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+            && voidMethod.returnType().arrays() == 0 && voidMethod.returnType().typeInfo() != null
+            && "java.lang.Void".equals(voidMethod.returnType().typeInfo().fullyQualifiedName())) {
+            // guava's AbstractScheduledService: Void call() { …; return null; } is Kotlin's Unit call(), as the
+            // Callable<Void> it implements is a Callable<Unit>
+            return b;
+        }
+        if (!rs.hasNoValue() && label == null && voidMethod != null
+            && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof io.codelaser.maddi.cst.api.expression.NullConstant
+            && KotlinMethodPrinter.nonNullOverrideResult(voidMethod)) {
+            // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, as an
+            // expression body's (KotlinMethodPrinter.nullOverride)
+            KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, rs, voidMethod.typeInfo().simpleName() + "."
+                                                                            + voidMethod.name() + "()");
+            return new OutputBuilderImpl().add(new TextImpl("throw NullPointerException()"));
+        }
         if (!rs.hasNoValue()) {
             Expression value = rs.expression();
             OutputBuilder printed;
             io.codelaser.maddi.cst.api.info.MethodInfo method = KotlinContext.currentMethod();
             if (label == null && method != null && !method.isConstructor()) {
                 ParameterizedType returnType = KotlinNullability.returnType(method);
-                OutputBuilder cast = KotlinNullability.typeVariableReturn(method, value, q);
+                io.codelaser.maddi.cst.api.info.MethodInfo genericSuper = KotlinMethodPrinter.genericOverridden(method);
+                OutputBuilder cast = genericSuper != null ? genericReturn(value, method, genericSuper, q)
+                        : KotlinNullability.typeVariableReturn(method, value, q);
                 printed = cast != null ? cast : KotlinNullability.toTarget(value, returnType,
-                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.assigned(value, returnType, q), q);
+                        KotlinNullability.translated(method.typeInfo()), KotlinExpressionPrinter.returned(value, returnType, q), q);
+            } else if (rs.goToLabel() == null && KotlinContext.LAMBDA_LABEL.equals(label)) {
+                printed = KotlinExpressionPrinter.lambdaReturned(value, q);
             } else {
                 printed = KotlinExpressionPrinter.print(value, q);
             }
@@ -292,6 +390,18 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(printed);
         }
         return b;
+    }
+
+    /**
+     * What an unchecked override of a generic member returns, cast to the member's result: jenkins's Secret
+     * converter, {@code return Secret.fromString(value)} from a {@code <T> T convert(…)}.
+     */
+    private static OutputBuilder genericReturn(Expression value, io.codelaser.maddi.cst.api.info.MethodInfo method,
+                                               io.codelaser.maddi.cst.api.info.MethodInfo genericSuper, Qualification q) {
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                .add(KotlinExpressionPrinter.widened(value, null, q))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
+                .add(new TextImpl(KotlinTypeName.of(KotlinMethodPrinter.genericOverrideResult(method, genericSuper), q)));
     }
 
     /**
@@ -336,7 +446,10 @@ public class KotlinStatementPrinter {
             }
         }
         Expression condition = fs.expression();
-        boolean hasCondition = condition != null && !condition.isEmpty();
+        // for (int i = 1; ; i++), whose missing condition the parser makes `true`: no `if (!(true)) break`, which
+        // hides from kotlinc that the loop does not end (jenkins's WorkspaceList.allocate returns from inside it)
+        boolean hasCondition = condition != null && !condition.isEmpty()
+                               && !(KotlinExpressionPrinter.unwrap(condition) instanceof BooleanConstant bc && bc.constant());
         List<Expression> updates = fs.updaters();
         String label = fs.label();
         boolean continues = !updates.isEmpty() && continuesItself(fs);
@@ -410,6 +523,17 @@ public class KotlinStatementPrinter {
         return found[0];
     }
 
+    private static boolean isChar(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        return t != null && t.arrays() == 0 && t.typeInfo() != null
+               && ("char".equals(t.typeInfo().fullyQualifiedName()) || "java.lang.Character".equals(t.typeInfo().fullyQualifiedName()));
+    }
+
+    private static boolean isLong(Expression e) {
+        ParameterizedType t = e.parameterizedType();
+        return t != null && (t.isLong() || t.typeInfo() != null && "java.lang.Long".equals(t.typeInfo().fullyQualifiedName()));
+    }
+
     /**
      * {@code for (int i = a; i < n; i++)} as {@code for (i in a until n)}, when that is the same loop: one integral
      * counter, compared with a bound that cannot change during the loop, stepped by a positive constant in the
@@ -437,13 +561,29 @@ public class KotlinStatementPrinter {
             default -> null;
         };
         if (range == null || !stable(cmp.rhs(), fs) || assignedIn(fs.block(), v)) return null;
+        boolean longFrom = isLong(v.assignmentExpression());
+        boolean longBound = isLong(cmp.rhs());
+        // an int counter against a long bound: Kotlin's range would be a LongRange, its variable a Long
+        if (type.isInt() && (longFrom || longBound)) return null;
 
-        OutputBuilder bound = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
+        // guava's CharMatcher.setBits: for (int c = Character.MAX_VALUE; c >= Character.MIN_VALUE; c--), char bounds
+        // that Kotlin's range would make a CharRange: each converted to the counter's type
+        boolean charBound = isChar(cmp.rhs());
+        OutputBuilder bound = charBound ? KotlinExpressionPrinter.widened(cmp.rhs(), type, q)
+                : KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 cmp.rhs(), q);
         if (">".equals(op)) bound = new OutputBuilderImpl().add(bound).add(KotlinSymbols.binary("+"))
                 .add(new TextImpl("1"));
         OutputBuilder from = KotlinExpressionPrinter.operand(io.codelaser.maddi.cst.impl.expression.util.PrecedenceEnum.ADDITIVE,
                 v.assignmentExpression(), q);
+        if (isChar(v.assignmentExpression())) {
+            from = KotlinExpressionPrinter.widened(v.assignmentExpression(), type, q);
+        } else if (type.isLong() && !longFrom && !longBound) {
+            // guava's BigIntegerMath.factorial: for (long num = startingNumber; num <= n; num++) of two ints, which
+            // Kotlin's range would make an Int
+            from = v.assignmentExpression() instanceof IntConstant ic ? new OutputBuilderImpl().add(new TextImpl(ic.constant() + "L"))
+                    : KotlinExpressionPrinter.widened(v.assignmentExpression(), type, q);
+        }
         OutputBuilder header = new OutputBuilderImpl().add(KotlinKeyword.FOR).add(SpaceEnum.ONE)
                 .add(SymbolEnum.LEFT_PARENTHESIS).add(new TextImpl(KotlinNames.name(v.simpleName())))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.IN).add(SpaceEnum.ONE).add(from);
@@ -521,9 +661,8 @@ public class KotlinStatementPrinter {
                 .add(selector(selector, labels, q))
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE);
         boolean intSelector = isIntSelector(selector, labels);
-        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, intSelector, q)).toList());
-        boolean hasElse = entries.stream().anyMatch(e -> e.conditions().isEmpty()
-                                                         || e.conditions().stream().allMatch(Expression::isEmpty));
+        List<OutputBuilder> arms = new ArrayList<>(entries.stream().map(e -> whenEntry(e, selector, intSelector, q)).toList());
+        boolean hasElse = entries.stream().anyMatch(KotlinStatementPrinter::isDefault);
         if (statement && !hasElse) addElseWhenRequired(selector, arms);
         return b.add(arms.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, SymbolEnum.LEFT_BRACE,
                 SymbolEnum.RIGHT_BRACE, GuideImpl.generatorForBlock())));
@@ -542,11 +681,44 @@ public class KotlinStatementPrinter {
         }
     }
 
-    private static OutputBuilder whenEntry(SwitchEntry e, boolean intSelector, Qualification q) {
+    /**
+     * The default arm: no conditions, or a single empty-expression sentinel; {@code case null, default} too, Kotlin's
+     * else taking the null. Not a type pattern's arm, which has no conditions either.
+     */
+    private static boolean isDefault(SwitchEntry e) {
+        if (typePattern(e)) return false;
+        return e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty)
+               || e.conditions().stream().anyMatch(Expression::isEmpty)
+                  && e.conditions().stream().allMatch(c -> c.isEmpty() || c instanceof NullConstant);
+    }
+
+    /** {@code case CmdLineException c ->}: a type pattern, Java 21's. Not a record's deconstruction. */
+    private static boolean typePattern(SwitchEntry e) {
+        return e.patternVariable() != null
+               && (e.patternVariable().patterns() == null || e.patternVariable().patterns().isEmpty())
+               && (e.patternVariable().localVariable() != null || e.patternVariable().recordType() != null);
+    }
+
+    private static OutputBuilder whenEntry(SwitchEntry e, Expression selector, boolean intSelector, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl();
-        // the default arm has no conditions, or a single empty-expression sentinel
-        boolean isElse = e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty);
-        if (isElse) {
+        if (typePattern(e)) {
+            // jenkins's CLICommand.handleException: case CmdLineException cmdLineException -> …, Kotlin's
+            // is CmdLineException ->, where the variable is the selector, smart-cast (or cast) to the type
+            io.codelaser.maddi.cst.api.element.RecordPattern pattern = e.patternVariable();
+            ParameterizedType type = pattern.localVariable() != null ? pattern.localVariable().parameterizedType()
+                    : pattern.recordType();
+            if (pattern.localVariable() != null && !pattern.unnamedPattern()) {
+                KotlinExpressionPrinter.registerPattern(pattern.localVariable(), selector, type, q);
+            }
+            b.add(new TextImpl("is " + KotlinTypeName.of(type.withNullable(
+                    io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
+            if (e.whenExpression() != null && !e.whenExpression().isEmpty()) {
+                // case X x when cond: Kotlin's guard
+                b.add(SpaceEnum.ONE).add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(e.whenExpression(), q));
+            }
+            return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
+        }
+        if (isDefault(e)) {
             b.add(KotlinKeyword.ELSE_ARROW);
         } else {
             b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, intSelector, q))
@@ -572,6 +744,15 @@ public class KotlinStatementPrinter {
             }
         }
         return KotlinExpressionPrinter.print(c, q);
+    }
+
+    /**
+     * An if's or a loop's condition. A Boolean Kotlin types nullable is unboxed by Java, which throws for a null:
+     * asserted (nacos's RequestMeta, {@code if (abilityTable.get(key))} of a Map<String, Boolean>).
+     */
+    private static OutputBuilder test(Expression c, Qualification q) {
+        OutputBuilder unboxed = KotlinExpressionPrinter.unboxedBoolean(c, q);
+        return unboxed != null ? unboxed : KotlinExpressionPrinter.print(c, q);
     }
 
     /** Inside a {@code when} arm printed as {@code run { }}: a {@code yield} is {@code return@run}. */
@@ -731,6 +912,22 @@ public class KotlinStatementPrinter {
             List<ParameterizedType> types = cc.exceptionTypes().isEmpty() ? List.of() : cc.exceptionTypes();
             List<String> names = types.isEmpty() ? List.of("Throwable")
                     : types.stream().map(t -> KotlinTypeName.of(t, q)).toList();
+            io.codelaser.maddi.cst.api.info.TypeInfo common = names.size() > 1 && cc == ts.catchClauses().getLast()
+                    && testsCatchVariable(cc) ? commonSuperclass(types) : null;
+            if (common != null) {
+                // jenkins's AbstractBuild: catch (IOException | RuntimeException e) { if (e instanceof IOException) … }.
+                // One clause per type makes that test impossible in the other, which kotlinc refuses; the common
+                // superclass, the others rethrown, keeps it. Only the last clause: a rethrow skips those after it
+                String name = declare(cc.catchVariable().simpleName());
+                String guard = "if (" + names.stream().map(t -> name + " !is " + t).collect(java.util.stream.Collectors
+                        .joining(" && ")) + ") throw " + name;
+                b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
+                        .add(new TextImpl(name)).add(SymbolEnum.COLON_LABEL)
+                        .add(new TextImpl(KotlinTypeName.name(common, q))).add(SymbolEnum.RIGHT_PARENTHESIS)
+                        .add(SpaceEnum.ONE).add(braces(List.of(new OutputBuilderImpl().add(new TextImpl(guard)),
+                                statementsNoBraces(cc.block(), q))));
+                continue;
+            }
             for (String type : names) { // Kotlin has no multi-catch: one clause per type
                 b.add(SpaceEnum.ONE).add(KotlinKeyword.CATCH).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
                         .add(new TextImpl(declare(cc.catchVariable().simpleName()))).add(SymbolEnum.COLON_LABEL)
@@ -742,6 +939,35 @@ public class KotlinStatementPrinter {
             b.add(SpaceEnum.ONE).add(KotlinKeyword.FINALLY).add(SpaceEnum.ONE).add(block(ts.finallyBlock(), q));
         }
         return b;
+    }
+
+    /** The catch clause's block tests its variable's type: {@code e instanceof IOException}. */
+    private static boolean testsCatchVariable(TryStatement.CatchClause cc) {
+        boolean[] found = {false};
+        cc.block().visit((Element e) -> {
+            if (e instanceof InstanceOf io && CstQueries.unwrap(io.expression()) instanceof VariableExpression ve
+                && cc.catchVariable().equals(ve.variable())) {
+                found[0] = true;
+            }
+            return !found[0];
+        });
+        return found[0];
+    }
+
+    /** The nearest class each of {@code types} extends: {@code Exception} of IOException and RuntimeException. */
+    private static io.codelaser.maddi.cst.api.info.TypeInfo commonSuperclass(List<ParameterizedType> types) {
+        for (ParameterizedType c = types.getFirst(); c != null && c.typeInfo() != null; c = c.typeInfo().parentClass()) {
+            io.codelaser.maddi.cst.api.info.TypeInfo candidate = c.typeInfo();
+            if (types.stream().allMatch(t -> extendsClass(t, candidate))) return candidate;
+        }
+        return null;
+    }
+
+    private static boolean extendsClass(ParameterizedType t, io.codelaser.maddi.cst.api.info.TypeInfo candidate) {
+        for (ParameterizedType c = t; c != null && c.typeInfo() != null; c = c.typeInfo().parentClass()) {
+            if (c.typeInfo() == candidate) return true;
+        }
+        return false;
     }
 
     /**
@@ -760,9 +986,18 @@ public class KotlinStatementPrinter {
             // `use`'s parameter is typed by its receiver, not by the local's verdict: getClassStream(name).use { in ->
             // StructClass.create(in, ...) } has an `in` as nullable as getClassStream's result
             ParameterizedType declared = KotlinNullability.localType(lvc, lvc.localVariable());
-            KotlinContext.localType(lvc.localVariable().simpleName(), declared.withNullable(
+            ParameterizedType useType = declared.withNullable(
                     KotlinNullability.nullableInKotlin(init) ? io.codelaser.maddi.cst.api.type.NullableState.NULLABLE
-                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL));
+                            : io.codelaser.maddi.cst.api.type.NullableState.NONNULL);
+            KotlinContext.localType(lvc.localVariable().simpleName(), useType);
+            if (KotlinContext.translatingJava() && wildcardArgument(declared)
+                && !KotlinExpressionPrinter.mentionsOutOfScope(declared)) {
+                // timefold's AbstractScoreDirector: try (var d = factory.createScoreDirectorBuilder()…buildDerived()),
+                // an AbstractScoreDirector<Solution_, Score_, ?> whose ? is bounded by its own type: inferred, the
+                // lambda's parameter is a captured type on whose members K2's substitution overflows. Written out,
+                // as a star, it is not captured; as the wildcard's `out` bound, it still is
+                parameter += ": " + KotlinTypeName.starred(useType, q);
+            }
         } else if (resource instanceof ExpressionAsStatement eas) {
             receiver = KotlinExpressionPrinter.receiver(eas.expression(), q);
             parameter = null; // an existing variable: still in scope inside the lambda
@@ -780,6 +1015,33 @@ public class KotlinStatementPrinter {
         if (inner.isEmpty()) return b.add(SymbolEnum.RIGHT_BRACE);
         return b.add(new OutputBuilderImpl().add(GuideImpl.generatorForBlock().start()).add(inner)
                 .add(GuideImpl.generatorForBlock().end())).add(SymbolEnum.RIGHT_BRACE);
+    }
+
+    /**
+     * {@code type} has a wildcard argument bounded by its type parameter's own bound, timefold's
+     * {@code ? extends AbstractScoreDirectorFactory<…>} for a {@code Factory_ extends AbstractScoreDirectorFactory<…>},
+     * and every other wildcard is one too or unbound, so that a star is the same type. Not a {@code List<? extends Foo>},
+     * whose star loses Foo; nor guava's {@code Iterable<?> locks = striped.bulkGet(objects)} alone, whose star is an
+     * {@code out Any?} that Lists.newArrayList(locks) rejects, where inference keeps the element non-null.
+     */
+    private static boolean wildcardArgument(ParameterizedType type) {
+        if (type == null || type.typeInfo() == null || type.arrays() > 0
+            || type.parameters().size() != type.typeInfo().typeParameters().size()) {
+            return false;
+        }
+        boolean any = false;
+        for (int i = 0; i < type.parameters().size(); i++) {
+            ParameterizedType a = type.parameters().get(i);
+            // ? extends Object says no more than ?
+            if (a.wildcard() == null || a.isUnboundWildcard() || a.isJavaLangObject()) continue;
+            List<ParameterizedType> bounds = type.typeInfo().typeParameters().get(i).typeBounds();
+            if (!a.wildcard().isExtendsNoIntersection() || a.typeInfo() == null || bounds.size() != 1
+                || bounds.getFirst().typeInfo() != a.typeInfo()) {
+                return false;
+            }
+            any = true;
+        }
+        return any;
     }
 
     // ---------------------------------------------------------------- the rest
@@ -818,12 +1080,30 @@ public class KotlinStatementPrinter {
         ParameterizedType type = KotlinNullability.localType(fe, lv);
         // Kotlin types the loop variable from the iterable: a nullable element makes it nullable, whatever its verdict
         ParameterizedType element = KotlinNullability.elementType(fe.expression());
+        // a library call's result has no Kotlin type of the verdicts' here: Java's (jenkins's getJSONArray(k))
+        ParameterizedType iterable = KotlinNullability.kotlinType(fe.expression()) != null
+                ? KotlinNullability.kotlinType(fe.expression()) : fe.expression().parameterizedType();
+        // a raw List's element is Java's Object (its E erased), Kotlin's Any? (List<*>)
+        boolean raw = iterable != null && iterable.arrays() == 0 && iterable.typeInfo() != null
+                      && iterable.parameters().isEmpty() && !iterable.typeInfo().typeParameters().isEmpty();
+        // jenkins's JSONArray, a class of its own implementing a raw List: its Iterable's E, in scope nowhere here
+        if (raw || element != null && element.typeParameter() != null && element.arrays() == 0
+                   && !KotlinContext.typeParameterInScope(element.typeParameter())) {
+            element = null;
+        }
         if (element != null && element.typeInfo() != null && element.arrays() == type.arrays()) {
             // the element's own type arguments too (for (entry in map.entries): an Entry<K, V?>)
             KotlinContext.localType(lv.simpleName(), KotlinNullability.isNullable(element) || KotlinNullability.isNullable(type)
                     ? element.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE) : element);
         } else if (KotlinNullability.isNullable(element) && !KotlinNullability.isNullable(type)) {
             KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+        } else if (element == null && type.arrays() == 0 && type.isJavaLangObject() && iterable != null
+                   && iterable.arrays() == 0) {
+            // jenkins's RedactSecretJsonInErrorMessageSanitizer: for (Object o : jsonArray) over a raw JSONArray, and
+            // RobustReflectionConverter's over a Collection<?>: Kotlin's loop variable is an Any?, whatever its verdict,
+            // and is asserted where it goes into a non-null
+            KotlinContext.localType(lv.simpleName(), type.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE));
+            KotlinNullability.RAW_LOOP_VARIABLES.get().add(lv.simpleName());
         }
         return name;
     }
@@ -834,26 +1114,78 @@ public class KotlinStatementPrinter {
         return KotlinNames.name(name);
     }
 
+    /** A {@code Void} type argument, at any depth: Kotlin's {@code Unit} in the translation. */
+    private static boolean voidArgument(ParameterizedType type) {
+        return type.parameters().stream().anyMatch(a -> a != null && (a.typeInfo() != null && a.arrays() == 0
+                && "java.lang.Void".equals(a.typeInfo().fullyQualifiedName()) || voidArgument(a)));
+    }
+
+    /** The result of a call to a method of a type not translated: Kotlin sees its Java signature. */
+    private static boolean libraryResult(Expression init) {
+        return KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.MethodCall mc
+               && mc.methodInfo() != null && !KotlinNullability.translated(mc.methodInfo().typeInfo());
+    }
+
     private static OutputBuilder localVariable(LocalVariableCreation lvc, LocalVariable lv, Qualification q) {
         Expression init = lv.assignmentExpression();
         boolean hasInitializer = init != null && !init.isEmpty();
+        // assigned inside an expression, .also { x = it }: a var, which a lambda may assign, final or not (nacos's
+        // StringUtils.isBlank: final int strLen; if (cs == null || (strLen = cs.length()) == 0))
+        boolean inLambda = !hasInitializer && KotlinContext.assignedAsValue(lv);
         // effectively final: a val; one declared without a value when each path assigns it once, in a statement
-        boolean val = lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
-                      || !hasInitializer && KotlinContext.assignedOnce(lvc, lv);
-        OutputBuilder b = new OutputBuilderImpl()
-                .add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE)
-                .add(new TextImpl(declare(lv.simpleName())));
+        boolean val = !inLambda && (lvc.isFinal() || hasInitializer && !KotlinContext.reassigned(lv)
+                                    || !hasInitializer && KotlinContext.assignedOnce(lvc, lv));
+        // the name is declared before the local's type is asked for, which records it
+        TextImpl name = new TextImpl(declare(lv.simpleName()));
         ParameterizedType type = KotlinNullability.localType(lvc, lv);
+        // nor does Kotlin's definite assignment follow the lambda: a primitive starts at its zero, a non-null
+        // reference is lateinit (a nullable one at null, below)
+        String zero = inLambda && type.arrays() == 0 && type.isPrimitiveExcludingVoid()
+                ? KotlinFieldPrinter.defaultValue(type) : null;
+        boolean lateinit = inLambda && zero == null && !KotlinNullability.isNullable(type)
+                           && !type.isPrimitiveExcludingVoid();
+        OutputBuilder b = new OutputBuilderImpl();
+        if (lateinit) b.add(new TextImpl("lateinit")).add(SpaceEnum.ONE);
+        b.add(val ? KotlinKeyword.VAL : KotlinKeyword.VAR).add(SpaceEnum.ONE).add(name);
         // a nullable local is typed: from a non-null initializer Kotlin would infer a type that rejects a later null
         boolean nullableFromNonNull = hasInitializer && KotlinNullability.isNullable(type)
                                       && !KotlinNullability.nullableInKotlin(init);
         // a raw Java local (FastSparseSet[][] m = map.elements) takes its initializer's arguments: Kotlin has no raw types
         boolean rawLocal = hasInitializer && !nullableFromNonNull
                            && KotlinExpressionPrinter.rawOf(lv.parameterizedType(), KotlinNullability.kotlinType(init));
-        boolean writeType = !hasInitializer || nullableFromNonNull
+        // var e = head, a smart-cast head: Kotlin types a var as its initializer is declared, ReferenceEntry? (guava's
+        // LocalCache.Segment.expand(), e.getHash() in the loop); the local's non-null type is written
+        boolean nonNullFromSmartCast = hasInitializer && !lvc.isFinal() && KotlinContext.reassigned(lv)
+                && !KotlinNullability.isNullable(type)
+                // a local or parameter only: fernflower's ExitExprent, var ret = retType (a field asserted before),
+                // is assigned a nullable getter chain after
+                && KotlinExpressionPrinter.unwrap(init) instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ive
+                && (ive.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
+                    || ive.variable() instanceof io.codelaser.maddi.cst.api.info.ParameterInfo)
+                && KotlinNullability.isNullable(KotlinNullability.kotlinType(init))
+                && !KotlinNullability.nullableInKotlin(init);
+        boolean writeType = !hasInitializer || nullableFromNonNull || nonNullFromSmartCast
                             || !rawLocal && !lvc.isVar() && (!Objects.equals(lv.parameterizedType(), init.parameterizedType())
                                                              || onlyTargetTyped(init) || nullableArgumentOfGenericCall(type, init));
-        if (writeType) b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+        // jenkins's HttpResponse<Void> httpResponse = httpClient.send(…): the translation's Void is Unit, the library's
+        // result an HttpResponse<Void!>; Kotlin infers the local's type
+        if (writeType && hasInitializer && !nullableFromNonNull && voidArgument(type) && libraryResult(init)) {
+            writeType = false;
+        }
+        if (writeType) {
+            b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.of(type, q)));
+        } else if (hasInitializer && KotlinContext.translatingJava() && wildcardArgument(type)
+                   && !KotlinExpressionPrinter.mentionsOutOfScope(type)
+                   && (KotlinNullability.isNullable(type)
+                       || !KotlinNullability.nullableInKotlin(init) && !libraryResult(init))) {
+            // timefold's AbstractScoreDirector: var d = factory.createScoreDirectorBuilder()…buildDerived(), as use's
+            // parameter above: inferred, a captured type on whose members K2 overflows; written, each wildcard a star.
+            // Not over a nullable initializer the verdict calls non-null, nor non-null over a library result, whose
+            // state is Kotlin's: guava's Finalizer, Class<?> c = ref.get(), a T? for Kotlin, checks c for null after,
+            // which an inferred Class<*>? allows
+            writeType = true;
+            b.add(SymbolEnum.COLON_LABEL).add(new TextImpl(KotlinTypeName.starred(type, q)));
+        }
         if (hasInitializer && KotlinNullability.isNullable(type) && !KotlinNullability.nullableInKotlin(init)) {
             // `var x: T? = ArrayList()` does not smart-cast x to non-null, an assignment does: declare, then assign,
             // and the uses that follow need no `!!` (kotlinc 2.4; the use-site facts assume the assignment's cast)
@@ -862,13 +1194,25 @@ public class KotlinStatementPrinter {
             return Stream.of(b, assignment).collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE,
                     GuideImpl.generatorForBlock()));
         }
+        if (!hasInitializer && !val && KotlinNullability.isNullable(type) && KotlinContext.assignedAsValue(lv)) {
+            // guava's ExecutionSequencer: while ((queuedTask = q.nextTask) != null && (queuedExecutor = q.nextExecutor)
+            // != null): the second .also { queuedExecutor = it } runs only after the first, which Kotlin's definite
+            // assignment does not follow into the lambda
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl("null"));
+        } else if (zero != null) {
+            b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE).add(new TextImpl(zero));
+        }
         if (hasInitializer) {
+            java.util.function.Supplier<OutputBuilder> value = () ->
+                    KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
+                    ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
+                                                       ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
+                                                       : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
+                    : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.assigned(init, type, q), q);
+            // an untyped local gives its initializer no expected type: timefold's var variable = genuineVariable(),
+            // a <Value_> GenuineVariableMetaModel<Solution_, Entity_, Value_>, names Java's Object for Value_
             b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                    .add(KotlinNullability.assertedAtDeclaration(lvc, lv) && !KotlinNullability.isNullable(type)
-                         ? KotlinNullability.asserted(init, KotlinNullability.unobservedBeforeDereference(lvc, lv)
-                                                            ? KotlinPrintCode.ASSERT_AT_DECLARATION_UNOBSERVED
-                                                            : KotlinPrintCode.ASSERT_AT_DECLARATION, q)
-                         : KotlinNullability.toTarget(init, type, true, KotlinExpressionPrinter.assigned(init, type, q), q));
+                    .add(writeType ? value.get() : KotlinExpressionPrinter.withoutExpectedType(init, value));
             if (!writeType) {
                 // Kotlin infers an untyped local's type from its initializer, type arguments and element states
                 // included (val params = f.getLstOperands(): a List<Exprent?> whatever the local's verdict says);
@@ -885,7 +1229,7 @@ public class KotlinStatementPrinter {
     private static OutputBuilder ifElse(IfElseStatement ife, Qualification q) {
         OutputBuilder b = new OutputBuilderImpl()
                 .add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(SymbolEnum.LEFT_PARENTHESIS)
-                .add(KotlinExpressionPrinter.print(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
+                .add(test(ife.expression(), q)).add(SymbolEnum.RIGHT_PARENTHESIS)
                 .add(SpaceEnum.ONE)
                 .add(KotlinSmartCasts.withTypes(KotlinSmartCasts.whenTrue(ife.expression()), () -> block(ife.block(), q)));
         KotlinSmartCasts.Facts whenFalse = KotlinSmartCasts.whenFalse(ife.expression());

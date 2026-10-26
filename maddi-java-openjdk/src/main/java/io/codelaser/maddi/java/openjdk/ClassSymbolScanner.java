@@ -890,6 +890,31 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return result;
     }
 
+    /*
+     A member's type as a class file declares it, with its TYPE-USE annotations: javac attaches a class file's
+     RuntimeVisibleTypeAnnotations to the member's type as metadata, which convert() did not carry over. Spring
+     Security 7's JSpecify '@Nullable Object getCredentials()' read as a plain Object, where kotlinc sees 'Any?'
+     (jenkins, ~30 kotlinc errors, 2026-10-20). The top level only, as the declaration annotations. NOCLASSFILETYPEUSE
+     (environment): without them, for A/B runs.
+     */
+    private static final boolean CLASS_FILE_TYPE_USE_OFF = System.getenv("NOCLASSFILETYPEUSE") != null;
+
+    private ParameterizedType typeUse(ParameterizedType converted, Type type) {
+        if (CLASS_FILE_TYPE_USE_OFF || converted == null || type == null) return converted;
+        List<Attribute.TypeCompound> mirrors = type.getAnnotationMirrors();
+        if (mirrors == null || mirrors.isEmpty()) return converted;
+        List<AnnotationExpression> annotations = new ArrayList<>(converted.annotations());
+        for (Attribute.TypeCompound mirror : mirrors) {
+            try {
+                AnnotationExpression ae = annotationExpression(mirror);
+                if (annotations.stream().noneMatch(a -> a.typeInfo() == ae.typeInfo())) annotations.add(ae);
+            } catch (RuntimeException re) {
+                LOGGER.warn("Skipping type-use annotation {}: {}", mirror.type, re.toString());
+            }
+        }
+        return annotations.size() == converted.annotations().size() ? converted : converted.withAnnotations(annotations);
+    }
+
     private AnnotationExpression annotationExpression(Attribute.Compound compound) {
         ParameterizedType type = convert(compound.type);
         List<AnnotationExpression.KV> kvs = new ArrayList<>();
@@ -1252,7 +1277,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // the access before them, so a method abandoned between the two answers access() and not returnType().
         if (methodInfo.returnType() == null) {
             builder.setReturnType(methodInfo.isConstructor() ? runtime.parameterizedTypeReturnTypeOfConstructor()
-                    : convert(ms.getReturnType()));
+                    : typeUse(convert(ms.getReturnType()), ms.getReturnType()));
         }
         if (methodInfo.source() == null) builder.setSource(runtime.noSource());
         if (methodInfo.methodBody() == null) builder.setMethodBody(runtime.emptyBlock());
@@ -1305,7 +1330,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             return inBuilder;
         }
         LOGGER.debug("Adding field {} to {}", name, typeInfo);
-        ParameterizedType type = convert(vs.type);
+        ParameterizedType type = typeUse(convert(vs.type), vs.type);
         boolean isStatic = (vs.flags() & Flags.STATIC) != 0;
         FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, typeInfo);
         // we might overwrite them, or not...
@@ -1543,7 +1568,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         // 862 null-returnType ones, the same defect one field along (2026-08-25).
         // ⛔ FINISHING A HALF-BUILT MEMBER MEANS EVERY FIELD THE FULL PATH SETS, NOT THE FIELD THAT FAILED LAST TIME.
         builder.setReturnType(isConstructor ? runtime.parameterizedTypeReturnTypeOfConstructor()
-                : convert(ms.getReturnType()));
+                : typeUse(convert(ms.getReturnType()), ms.getReturnType()));
         builder.addAnnotations(loadAnnotations(ms));
         if (synthetic || isCompilerGeneratedEnumMethod(typeInfo, ms)
             || isCompilerGeneratedRecordMember(typeInfo, ms)) {
@@ -1554,7 +1579,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
 
         if (ms.params != null) {
             // resolve all parameter types up front, so the index can be keyed on the full (erased) signature
-            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> convert(p.type))
+            List<ParameterizedType> paramTypes = ms.params.stream().map(p -> typeUse(convert(p.type), p.type))
                     .collect(Collectors.toList());
             List<String> realNames = lookupParameterNames(typeInfo, name, paramTypes);
             // VARARGS is a method-level flag (ACC_VARARGS); it applies to the method's last parameter, which is
@@ -1676,7 +1701,7 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             TypeInfo owner = convert(cs.type).typeInfo();
             String name = vs.getSimpleName().toString();
             boolean isStatic = vs.isStatic();
-            ParameterizedType type = convert(vs.type);
+            ParameterizedType type = typeUse(convert(vs.type), vs.type);
             FieldInfo fieldInfo = runtime.newFieldInfo(name, isStatic, type, owner);
             // we might overwrite them, or not...
             fieldInfo.builder().setInitializer(runtime.newEmptyExpression()).setAccess(runtime.accessPublic());
@@ -1976,6 +2001,16 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             assert pt != null;
             TypeInfo ti = pt.typeInfo();
             assert ti != null;
+            // G<String>.In, an inner class named through a parameterized outer type: the outer type's arguments come
+            // first in parameters(), as the bytecode inspector has them (ParameterizedTypePrinter.distributeTypeParameters).
+            // javac's type of In carries them only on its enclosing type (a class type only for an inner class), which
+            // classType does not look at.
+            if (fieldAccess.type instanceof Type.ClassType ct
+                && ct.getEnclosingType() instanceof Type.ClassType outer && outer.isParameterized()) {
+                List<ParameterizedType> parameters = new ArrayList<>(convert(outer).parameters());
+                parameters.addAll(pt.parameters());
+                pt = runtime.newParameterizedType(ti, parameters);
+            }
             dsb.put(ti, source);
             iterateUpToPackageLevel(dsb, fieldAccess, ti);
             return pt;

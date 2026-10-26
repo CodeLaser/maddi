@@ -79,6 +79,53 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "catch (e: IOException) {");
     }
 
+    private static final String WILDCARD_RESOURCE = """
+            package a.b;
+            abstract class Director<S, F extends Factory<S>> implements AutoCloseable {
+                abstract void set(S s);
+                public void close() { }
+            }
+            abstract class Builder<S, F extends Factory<S>> {
+                abstract Director<S, F> build();
+            }
+            abstract class Factory<S> {
+                abstract Builder<S, ? extends Factory<S>> builder();
+                void check(S s) {
+                    try (var d = builder().build()) {
+                        d.set(s);
+                    }
+                }
+                void local(S s) {
+                    var d = builder().build();
+                    d.set(s);
+                }
+                abstract java.util.List<? extends Number> numbers();
+                abstract Iterable<?> names();
+                java.util.List<?> copy() {
+                    Iterable<?> i = names();
+                    return java.util.List.of(i);
+                }
+                int first() {
+                    var n = numbers();
+                    return n.get(0).intValue();
+                }
+            }
+            """;
+
+    /**
+     * timefold's AbstractScoreDirector: a resource whose type has a wildcard argument. Left to inference, {@code use}'s
+     * parameter is a captured type, and a member call on it overflows K2's stack; its type is written instead, each
+     * wildcard a star: as {@code out Factory<S>} it overflows as well. So for an inferred local.
+     */
+    @Test
+    public void wildcardResourceTypesUseParameter() {
+        String kotlin = kotlin(WILDCARD_RESOURCE);
+        contains(kotlin, "builder().build().use { d: Director<S, *>");
+        contains(kotlin, "val d: Director<S, *> = builder().build()");
+        assertFalse(kotlin.contains("val n: "), kotlin); // List<*> would lose Number
+        assertFalse(kotlin.contains("val i: "), kotlin); // Iterable<*> would lose the non-null element
+    }
+
     @Language("java")
     private static final String CASTS = """
             package a;
@@ -106,6 +153,346 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
     }
 
     @Language("java")
+    private static final String BYTE_AND_CHAR = """
+            package a;
+            class C {
+                boolean newline(byte[] buf, int i, short s) {
+                    byte ch = buf[i];
+                    return ch == '\\r' || '\\n' == ch || s != 'x';
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String RAW_INNER = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Run<J, R extends Run<J, R>> {
+                class Execution {
+                    void run() { }
+                }
+            }
+            class Runner {
+                private final List<Run.Execution> stack = new ArrayList<>();
+                void push(Run.Execution e) { stack.add(e); e.run(); }
+            }
+            """;
+
+    /** jenkins's RunnerStack: a raw inner class of a generic class, written qualified, takes the outer's arguments. */
+    @Test
+    public void rawInnerClassOfAGenericClass() {
+        String kotlin = kotlin(RAW_INNER);
+        contains(kotlin, "fun push(e: Run<*, *>.Execution)");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String SUPER_OF_A_NESTED_INTERFACE = """
+            package a;
+            class MixIn {
+                interface Job {
+                    default String text() { return "build"; }
+                }
+            }
+            class Project implements MixIn.Job {
+                @Override
+                public String text() { return MixIn.Job.super.text() + "!"; }
+            }
+            """;
+
+    /** jenkins's AbstractProject: {@code super<…>} names a nested interface as Kotlin resolves it, qualified. */
+    @Test
+    public void superOfANestedInterface() {
+        String kotlin = kotlin(SUPER_OF_A_NESTED_INTERFACE);
+        contains(kotlin, "super<MixIn.Job>.text()");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String VARARG_COMPONENTS = """
+            package a;
+            import java.nio.file.OpenOption;
+            class FilePath {
+                private record Archive(String root, OpenOption... openOptions) {
+                    int count() { return openOptions.length; }
+                }
+                private static class Read {
+                    private final String root;
+                    private final OpenOption[] openOptions;
+                    Read(String root, OpenOption... openOptions) {
+                        this.root = root;
+                        this.openOptions = openOptions;
+                    }
+                    int count() { return openOptions.length; }
+                }
+                int archive(String root, OpenOption... openOptions) {
+                    return new Archive(root, openOptions).count() + new Read(root, openOptions).count()
+                           + new Archive(root).count() + new Read(root).count()
+                           + new Archive(root, java.nio.file.LinkOption.NOFOLLOW_LINKS).count();
+                }
+            }
+            """;
+
+    /** jenkins's FilePath: a varargs record component, and a varargs constructor parameter that is a field. */
+    @Test
+    public void varargComponents() {
+        String kotlin = kotlin(VARARG_COMPONENTS);
+        contains(kotlin, "Archive(root, arrayOf(*openOptions))");
+        contains(kotlin, "Archive(root, emptyArray<OpenOption>())");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String MULTI_CATCH_TESTED = """
+            package a;
+            import java.io.IOException;
+            class Build {
+                static void display(IOException e) { }
+                void tearDown(Runnable r) throws IOException {
+                    try {
+                        if (r == null) throw new IOException("none");
+                        r.run();
+                    } catch (IOException | RuntimeException e) {
+                        if (e instanceof IOException) display((IOException) e);
+                        System.out.println(e.getMessage());
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's AbstractBuild: a multi-catch whose block tests its variable's type catches their superclass. */
+    @Test
+    public void multiCatchTestingItsVariable() {
+        String kotlin = kotlin(MULTI_CATCH_TESTED);
+        contains(kotlin, "catch (e: Exception)");
+        contains(kotlin, "if (e !is IOException && e !is RuntimeException) throw e");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String ENDLESS_FOR = """
+            package a;
+            import java.util.Set;
+            class Workspaces {
+                String allocate(String base, Set<String> inUse) {
+                    for (int i = 1; ; i++) {
+                        String candidate = i == 1 ? base : base + "@" + i;
+                        if (inUse.contains(candidate)) continue;
+                        return candidate;
+                    }
+                }
+            }
+            """;
+
+    /** jenkins's WorkspaceList: a for without a condition does not end, so nothing need follow it. */
+    @Test
+    public void forWithoutACondition() {
+        String kotlin = kotlin(ENDLESS_FOR);
+        assertFalse(kotlin.contains("if (!(true)) break"), kotlin);
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String RAW_LAMBDA_TARGET = """
+            package a;
+            interface Resolver<V> {
+                @SuppressWarnings("rawtypes")
+                Resolver NONE = name -> null;
+                V resolve(String name);
+            }
+            """;
+
+    /** jenkins's VariableResolver.NONE: a lambda into a raw type constructs its erasure, not a star projection. */
+    @Test
+    public void lambdaIntoARawType() {
+        String kotlin = kotlin(RAW_LAMBDA_TARGET);
+        contains(kotlin, "Resolver<Any?> {");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String RAW_CLASS_INTO_SUPER = """
+            package a;
+            abstract class Descriptor<T> {
+                private final Class<T> clazz;
+                protected Descriptor(Class<T> clazz) { this.clazz = clazz; }
+                @SuppressWarnings("rawtypes")
+                protected static Class self() { return Descriptor.class; }
+                Class<T> clazz() { return clazz; }
+            }
+            class Configuration {
+            }
+            class ConfigurationDescriptor extends Descriptor<Configuration> {
+                @SuppressWarnings("unchecked")
+                ConfigurationDescriptor() { super(self()); }
+            }
+            abstract class Decorator<T> {
+                protected Decorator(Class<? extends T> clazz) { }
+                @SuppressWarnings("rawtypes")
+                protected static Class self() { return Decorator.class; }
+            }
+            class PageDecorator extends Decorator<PageDecorator> {
+                @SuppressWarnings("unchecked")
+                PageDecorator() { super(self()); }
+            }
+            """;
+
+    /** jenkins's GlobalConfiguration: a raw Class into the supertype's Class<T>, a T no name here gives. */
+    @Test
+    public void rawClassIntoASupertypeParameter() {
+        String kotlin = kotlin(RAW_CLASS_INTO_SUPER);
+        contains(kotlin, "Descriptor<Configuration>(uncheckedClass(Descriptor.self()))");
+        // PageDecorator: into a Class<? extends T>
+        contains(kotlin, "Decorator<PageDecorator>(uncheckedClass(Decorator.self()))");
+        contains(kotlin, "private fun <T> uncheckedClass(value: Class<*>): Class<T>");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String RAW_CLASS_CAST = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            interface Describable<T extends Describable<T>> { }
+            class DescriptorList<T extends Describable<T>> extends ArrayList<String> {
+                private final Class<T> type;
+                DescriptorList(Class<T> type) { this.type = type; }
+            }
+            abstract class Property<J> implements Describable<Property<?>> { }
+            class Jobs {
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                static final List<String> PROPERTIES = new DescriptorList<Property<?>>((Class) Property.class);
+            }
+            """;
+
+    /** jenkins's Jobs: an explicit raw (Class) cast into a class's Class<T> whose bound is recursive. */
+    @Test
+    public void explicitRawClassCast() {
+        String kotlin = kotlin(RAW_CLASS_CAST);
+        contains(kotlin, "uncheckedClass(Property::class.java)");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String UNRELATED_LOOKUP = """
+            package a;
+            import java.util.Collection;
+            interface Item { }
+            interface Task { }
+            class View {
+                boolean contains(Collection<Item> items, Task task) {
+                    return items.contains(task);
+                }
+            }
+            """;
+
+    /** jenkins's View: a lookup of a class unrelated to the element's, which a Task that is an Item would find. */
+    @Test
+    public void lookupOfAnUnrelatedType() {
+        String kotlin = kotlin(UNRELATED_LOOKUP);
+        contains(kotlin, "items.contains((task as Any?))");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String OBJECT_BOUND_FACTORIES = """
+            package a;
+            import java.util.*;
+            import java.util.concurrent.ConcurrentHashMap;
+            class Morph {
+                private final Map<String, Object> cache = new ConcurrentHashMap<>();
+                Collection<?> exclusions(Object exclusion) {
+                    if (exclusion == null) return Collections.emptySet();
+                    return (Collection<?>) exclusion;
+                }
+                int size(Object attribute) {
+                    Map<String, ?> meta;
+                    if (attribute instanceof Map) meta = (Map<String, ?>) attribute;
+                    else meta = Collections.emptyMap();
+                    return meta.size();
+                }
+                int none() {
+                    List<Object> keys = Collections.emptyList();
+                    return keys.size();
+                }
+                Object load(String name) {
+                    return cache.computeIfAbsent(name, key -> {
+                        try {
+                            return Class.forName(key);
+                        } catch (ClassNotFoundException e) {
+                            return Optional.empty();
+                        }
+                    });
+                }
+            }
+            """;
+
+    /** jenkins's MorphTagLibrary, CachingClassLoader: a factory's variable Java binds to Object, Kotlin cannot. */
+    @Test
+    public void objectBoundFactories() {
+        String kotlin = kotlin(OBJECT_BOUND_FACTORIES);
+        contains(kotlin, "Collections.emptySet<");
+        contains(kotlin, "Collections.emptyMap<String, ");
+        contains(kotlin, "Optional.empty<");
+        // guava's Maps: a target that names the argument fixes it, its state included
+        contains(kotlin, "= Collections.emptyList()");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String COMPARING_RECEIVER = """
+            package a;
+            import java.util.Comparator;
+            class Project {
+                String getName() { return "p"; }
+            }
+            class Group {
+                Project upstream() { return new Project(); }
+                Project downstream() { return new Project(); }
+                static final Comparator<Group> NAME_COMPARATOR = Comparator
+                        .comparing((Group g) -> g.upstream().getName())
+                        .thenComparing(g -> g.downstream().getName());
+            }
+            """;
+
+    /** jenkins's DependencyGraph: Comparator.comparing(lambda) as a receiver types the lambda's parameter. */
+    @Test
+    public void comparingAsAReceiver() {
+        String kotlin = kotlin(COMPARING_RECEIVER);
+        contains(kotlin, "g: Group ->");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String LIBRARY_VOID_FUTURE = """
+            package a;
+            import java.util.concurrent.CompletableFuture;
+            import java.util.concurrent.Future;
+            class Session {
+                Future<Void> send(Runnable r) {
+                    return CompletableFuture.runAsync(r);
+                }
+            }
+            """;
+
+    /** jenkins's WebSocketSession: a library's Future<Void> returned as the translation's Future<Unit>. */
+    @Test
+    public void libraryVoidFuture() {
+        String kotlin = kotlin(LIBRARY_VOID_FUTURE);
+        contains(kotlin, "(CompletableFuture.runAsync(r) as Future<Unit>)");
+        compiles(kotlin);
+    }
+
+    /** jenkins's ConsoleCommand: Java compares a byte and a char as ints; Kotlin's Byte and Char have no common type. */
+    @Test
+    public void byteComparedWithAChar() {
+        String kotlin = kotlin(BYTE_AND_CHAR);
+        contains(kotlin, "ch.toInt() == '\\r'.code || '\\n'.code == ch.toInt() || s.toInt() != 'x'.code");
+        compiles(kotlin);
+    }
+
+    @Language("java")
     private static final String FOR_LOOPS = """
             package a;
             class C {
@@ -119,6 +506,124 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                 }
             }
             """;
+
+    /**
+     * guava's Monitor.enterWhen: {@code locked: { … break locked; … }} after a local; AbstractFutureState.get:
+     * {@code long_wait_loop: if (…) { do { … break long_wait_loop; } while (…); }}, a label on an if. Kotlin's break
+     * leaves loops only: each is a {@code run label@{ }} left with {@code return@label}.
+     */
+    @Test
+    public void labelledStatementsThatAreNoLoops() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    boolean fair;
+                    boolean tryLock() { return true; }
+                    boolean enter(long n) {
+                        long start = 0L;
+                        locked:
+                        {
+                            if (!fair) {
+                                if (tryLock()) break locked;
+                            }
+                            start = n;
+                            if (!tryLock()) return false;
+                        }
+                        return start > 0;
+                    }
+                    int waitFor(int n) {
+                        int k = 0;
+                        long_wait_loop:
+                        if (n > 0) {
+                            do {
+                                k++;
+                                if (k > n) break long_wait_loop;
+                            } while (k < 100);
+                        }
+                        return k;
+                    }
+                }
+                """);
+        contains(kotlin, "return@locked");
+        contains(kotlin, "return@long_wait_loop");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Joiner.useForNull: {@code return new Joiner(this) { … };}. In an object expression's supertype call,
+     * Kotlin's this is not the enclosing instance: this@Joiner.
+     */
+    @Test
+    public void thisInAnAnonymousClassesSuperArguments() {
+        String kotlin = kotlin("""
+                package a;
+                class Joiner {
+                    final String separator;
+                    Joiner(String separator) { this.separator = separator; }
+                    Joiner(Joiner prototype) { this.separator = prototype.separator; }
+                    String part(Object o) { return String.valueOf(o); }
+                    Joiner useForNull(String nullText) {
+                        return new Joiner(this) {
+                            @Override String part(Object o) { return o == null ? nullText : Joiner.this.part(o); }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "object : Joiner(this@Joiner)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ImmutableSortedSet.spliterator(): new Spliterators.AbstractSpliterator<E>(size(), …) { … }, an int into
+     * the anonymous class's superclass constructor's long: Kotlin widens nothing by itself.
+     */
+    @Test
+    public void anonymousSuperConstructorArgumentWidened() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Consumer;
+                class C<E> {
+                    int size() { return 0; }
+                    Spliterator<E> spliterator() {
+                        return new Spliterators.AbstractSpliterator<E>(size(), Spliterator.SIZED) {
+                            @Override public boolean tryAdvance(Consumer<? super E> action) { return false; }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "size().toLong()");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's BigIntegerMath.factorial: a long counter between two ints is a LongRange in Kotlin only from a Long; an
+     * int counter against a long bound stays a while loop, where a range would make it a Long. CharMatcher.setBits:
+     * an int counter between chars, which a range would make a Char.
+     */
+    @Test
+    public void longCounterBetweenInts() {
+        String kotlin = kotlin("""
+                package a;
+                class C {
+                    static long m(int from, int n, long big) {
+                        long s = 0;
+                        for (long num = from; num <= n; num++) { s += num & 1L; }
+                        for (long k = 0; k < n; k++) { s += k; }
+                        for (int i = 0; i < big; i++) { s += i; }
+                        java.util.BitSet bits = new java.util.BitSet();
+                        for (int c = Character.MAX_VALUE; c >= Character.MIN_VALUE; c--) { bits.set(c); }
+                        return s;
+                    }
+                }
+                """);
+        contains(kotlin, "for (num in from.toLong() .. n) {");
+        contains(kotlin, "for (k in 0L until n) {");
+        contains(kotlin, "while (i < big) {");
+        contains(kotlin, "bits.set(c)");
+        assertFalse(kotlin.contains("c.toChar()") && kotlin.contains("set(c.toChar())"), kotlin);
+        compiles(kotlin);
+    }
 
     /**
      * A range only when it is the same loop; a bound the body changes ({@code n--}) is not, because a range reads it
@@ -373,5 +878,139 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "override fun run(s: String): String = s + \"c\"");
         contains(kotlin, "Base.collect(s).size");
         contains(kotlin, "as java.lang.String).stripTrailing()");
+    }
+
+    private static final String GENERIC_OVERRIDE_CALL = """
+            package a.b;
+            import java.util.List;
+            class Descriptor {
+                Object value;
+                @SuppressWarnings("unchecked")
+                public <V> V getValue(Object entity) {
+                    return (V) value;
+                }
+            }
+            class ListDescriptor extends Descriptor {
+                List<Object> list;
+                @Override
+                public List<Object> getValue(Object entity) {
+                    return list;
+                }
+                int size(Object entity) {
+                    var values = getValue(entity);
+                    return values.size();
+                }
+            }
+            """;
+
+    /**
+     * timefold's ListVariableDescriptor: {@code List<Object> getValue(Object)} overrides {@code <V> V getValue(Object)},
+     * printed with the member's type parameter (Kotlin's override cannot drop it); a call takes Java's result as the
+     * type argument, which Kotlin cannot infer without an expected type.
+     */
+    @Test
+    public void callOfAGenericOverride() {
+        String kotlin = kotlin(GENERIC_OVERRIDE_CALL);
+        contains(kotlin, "val values = getValue<MutableList<Any>>(entity)");
+    }
+
+    /**
+     * timefold's {@code var variable = genuineVariable()}, a {@code <Value_> MetaModel<Value_>}: Java binds the
+     * result-only Value_ to Object; Kotlin's untyped local gives the call no expected type to infer it from.
+     */
+    @Test
+    public void untypedLocalOfAResultOnlyTypeParameter() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.List;
+                abstract class M {
+                    abstract <V> List<V> make();
+                    int n() {
+                        var l = make();
+                        return l.size();
+                    }
+                }
+                """);
+        contains(kotlin, "val l = make<Any>()");
+    }
+
+    /**
+     * timefold's UniConstraintStream: {@code join(otherStream, new BiJoiner[] { joiner })} and
+     * {@code new BiJoiner[0]}, raw arrays into {@code BiJoiner<A, B>... joiners}. A star element,
+     * {@code arrayOf<BiJoiner<*, *>>}, is no {@code Array<out BiJoiner<A, B>>}; Kotlin infers the element instead.
+     */
+    @Test
+    public void rawArrayIntoGenericVarargs() {
+        String kotlin = kotlin("""
+                package a.b;
+                interface Joiner<A, B> { }
+                interface Stream<A> {
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other) {
+                        return join(other, new Joiner[0]);
+                    }
+                    @SuppressWarnings("unchecked")
+                    default <B> Stream<B> join(Stream<B> other, Joiner<A, B> joiner) {
+                        return join(other, new Joiner[] { joiner });
+                    }
+                    <B> Stream<B> join(Stream<B> other, Joiner<A, B>... joiners);
+                }
+                """);
+        contains(kotlin, "join(other, *emptyArray())");
+        contains(kotlin, "join(other, *arrayOf(joiner))");
+    }
+
+    /**
+     * timefold's EntityDescriptor: {@code SequencedCollection<VariableDescriptor<Solution_>>
+     * getDeclaredVariableDescriptors()} returns a List. Java 21's List is a SequencedCollection; Kotlin's mapped
+     * MutableList is not one for kotlinc, so the value is cast (a Java class, LinkedHashSet, needs none).
+     */
+    @Test
+    public void mappedCollectionIntoSequencedCollection() {
+        String kotlin = kotlin("""
+                package a.b;
+                import java.util.ArrayList;
+                import java.util.LinkedHashSet;
+                import java.util.List;
+                import java.util.SequencedCollection;
+                class D {
+                    List<String> names = new ArrayList<>();
+                    SequencedCollection<String> seen;
+                    SequencedCollection<String> names() {
+                        return names;
+                    }
+                    void remember() {
+                        seen = names;
+                    }
+                    SequencedCollection<String> set() {
+                        return new LinkedHashSet<String>();
+                    }
+                }
+                """);
+        contains(kotlin, "(names as SequencedCollection<String>)");
+        contains(kotlin, "seen = (names as SequencedCollection<String>)");
+        contains(kotlin, "LinkedHashSet<String>()");
+        compiles(kotlin);
+    }
+
+    /**
+     * timefold's scores: {@code o instanceof HardSoftScore(var otherHardScore, var otherSoftScore)}. Kotlin's is
+     * deconstructs nothing; each bound variable is the smart-cast value's component.
+     */
+    @Test
+    public void recordPattern() {
+        String kotlin = kotlin("""
+                package a.b;
+                record Score(long hard, long soft) {
+                    boolean same(Object o) {
+                        if (o instanceof Score(var otherHard, var otherSoft)) {
+                            return hard == otherHard && soft == otherSoft;
+                        }
+                        return false;
+                    }
+                }
+                """);
+        contains(kotlin, "hard == o.hard && soft == o.soft");
+        compiles(kotlin);
     }
 }

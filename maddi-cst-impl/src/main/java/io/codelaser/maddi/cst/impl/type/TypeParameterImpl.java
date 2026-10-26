@@ -49,6 +49,11 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
     // @IgnoreModifications gives it the same treatment for the same reason. See road-to-immutability section 050.
     @IgnoreModifications
     private final PropertyValueMap analysis = new PropertyValueMapImpl();
+    // hashCode(), cached once the owner's is final; see ParameterizedTypeImpl.hashCode()
+    @IgnoreModifications
+    private int hash;
+    @IgnoreModifications
+    private boolean hashIsZero;
 
     public TypeParameterImpl(int index, String name, Either<TypeInfo, MethodInfo> owner) {
         this.index = index;
@@ -66,7 +71,25 @@ public class TypeParameterImpl extends InfoImpl implements TypeParameter {
 
     @Override
     public int hashCode() {
-        return Objects.hash(getIndex(), getOwner());
+        // Objects.hash(getIndex(), getOwner()), without its argument array; cached once the owner's hash is final:
+        // a type's always, a method's once it is inspected (its fully qualified name is the inspection's)
+        int h = hash;
+        if (h != 0 || hashIsZero) return h;
+        h = 31 * (31 + index) + Objects.hashCode(owner);
+        if (hashStable(owner)) {
+            if (h == 0) hashIsZero = true;
+            else hash = h;
+        }
+        return h;
+    }
+
+    private static boolean hashStable(Either<TypeInfo, MethodInfo> owner) {
+        return owner != null && (owner.isLeft() || owner.getRight().hasBeenInspected());
+    }
+
+    boolean hashStable() {
+        hashCode();
+        return hash != 0 || hashIsZero;
     }
 
     public void commit(TypeParameterInspection typeParameterInspection) {

@@ -110,6 +110,46 @@ public interface SourceSet {
         return List.of();
     }
 
+    /**
+     * The Java language level this set's build compiled at: {@code javac --release N} when stated, else
+     * {@code -source N}/{@code --source N}; {@code <= 0} when the build stated neither.
+     * <p>
+     * ⚠ Naming trap: {@link #sourceRelease()} is {@code --release}, the API, and drives the parse;
+     * this is the LANGUAGE level, which {@code CompileInvocation.sourceRelease()} calls {@code -source}.
+     * <p>
+     * ⚠ <b>RECORDED FOR A CONSUMER OF THE CONFIGURATION, NOT FOR THE PARSE</b>, as {@link #warningFlags()} is:
+     * which syntax a refactoring may write into this set. Only what the compile command stated; the fallbacks
+     * (build files, the build's JDK) are the consumer's.
+     */
+    default int languageLevel() {
+        return 0;
+    }
+
+    /** Whether this set's build compiled with {@code javac --enable-preview}; false when it did not say so. */
+    default boolean enablePreview() {
+        return false;
+    }
+
+    /** {@code kotlinc -language-version} of this set's build ("1.9", "2.1"); {@code null} when not stated. */
+    default String kotlinLanguageVersion() {
+        return null;
+    }
+
+    /** {@code kotlinc -api-version} of this set's build; {@code null} when not stated. */
+    default String kotlinApiVersion() {
+        return null;
+    }
+
+    /** {@code kotlinc -jvm-target} of this set's build, as a feature release (8, 17); {@code <= 0} when not stated. */
+    default int jvmTarget() {
+        return 0;
+    }
+
+    /** {@code kotlinc -jdk-home} of this set's build; {@code null} when not stated. */
+    default String jdkHome() {
+        return null;
+    }
+
     /** Returns the logical name of this source set (e.g. {@code "main"}, {@code "test"}, or a library name). */
     String name();
 

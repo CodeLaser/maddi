@@ -22,14 +22,21 @@ import io.codelaser.maddi.cst.api.runtime.Runtime;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.impl.expression.NegationImpl;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 
 public class EvalNegation {
     private final Runtime runtime;
+    private final EvalOptions evalOptions;
 
     public EvalNegation(Runtime runtime) {
+        this(runtime, EvalOptions.DEFAULT);
+    }
+
+    public EvalNegation(Runtime runtime, EvalOptions evalOptions) {
         this.runtime = runtime;
+        this.evalOptions = evalOptions;
     }
 
     /*
@@ -71,19 +78,81 @@ public class EvalNegation {
         return v.variables(runtime.descendModeYes()).anyMatch(x -> x instanceof LocalVariable);
     }
 
+    /*
+     The memo for what the cache above refuses: a second, per-thread memo scoped to ONE top-level operation
+     (EvalBudget.operationId). Everything negated inside one operation comes from one method's context, so the
+     bare-name collision of locals cannot happen there -- and that is where the repetition is: a method body's
+     conditions are mostly locals, which left the And/Or fixed point negating the same local-bearing operands over
+     and over, De Morgan plus re-simplification each time (a shared And/Or tree of depth 8 over locals: 224 ms,
+     the same tree over fields: 0.7 ms). Degraded (over-budget) results may live here: the scope is the operation
+     whose budget degraded them, so nothing leaks to another. Cleared when the operation changes.
+     */
+    private static final EvalSwitches.Gate SCOPED_MEMO_OFF = EvalSwitches.gate("NOSCOPEDNEGMEMO");
+    private static final int SCOPED_MAX_SIZE = 8192;
+
+    private static final class ScopedMemo {
+        // @IgnoreModifications (road §050): the memo's scope tag, per thread -- part of the disclaimed memo state
+        @IgnoreModifications
+        int operationId = -1;
+        final HashMap<Expression, Expression> map = new HashMap<>();
+
+        HashMap<Expression, Expression> forCurrentOperation() {
+            int current = EvalBudget.operationId();
+            if (current != operationId) {
+                map.clear();
+                operationId = current;
+            } else if (map.size() >= SCOPED_MAX_SIZE) {
+                map.clear();
+            }
+            return map;
+        }
+    }
+
+    @IgnoreModifications
+    private static final ThreadLocal<ScopedMemo> SCOPED = ThreadLocal.withInitial(ScopedMemo::new);
+
+    /** The memoized negation of {@code v}, from either memo, or null: a lookup, never a computation. */
+    public Expression memoized(Expression v) {
+        if (v.complexity() < CACHE_MIN_COMPLEXITY) return null;
+        Expression cached = negationCache.get(v);
+        if (cached != null) return cached;
+        if (SCOPED_MEMO_OFF.get() || EvalBudget.operationId() < 0) return null;
+        return SCOPED.get().forCurrentOperation().get(v);
+    }
+
     public Expression eval(@NotNull Expression v) {
         Objects.requireNonNull(v);
         if (v.complexity() < CACHE_MIN_COMPLEXITY) return compute(v);
         Expression cached = negationCache.get(v);
         if (cached != null) return cached;
-        Expression result = compute(v);
+        if (SCOPED_MEMO_OFF.get()) {
+            Expression result = compute(v);
+            storeGlobally(v, result);
+            return result;
+        }
+        // negation opens an operation of its own when called at top level, so that the De Morgan recursion below
+        // (negate every operand, then and()/or() them) shares one scope and one budget; nested, it joins the caller's
+        EvalBudget.enter(evalOptions.maxEvalEntriesPerTopLevel());
+        try {
+            HashMap<Expression, Expression> scoped = SCOPED.get().forCurrentOperation();
+            Expression inScope = scoped.get(v);
+            if (inScope != null) return inScope;
+            Expression result = compute(v);
+            scoped.put(v, result);
+            storeGlobally(v, result);
+            return result;
+        } finally {
+            EvalBudget.exit();
+        }
+    }
+
+    private void storeGlobally(Expression v, Expression result) {
         // an over-budget compute yields a DEGRADED (unsimplified) result — never memoize those, or budget
         // state leaks nondeterministically across top-level operations (see EvalBudget.overBudget)
         if (!EvalBudget.overBudget() && !mentionsLocalVariable(v)) {
             if (negationCache.size() >= CACHE_MAX_SIZE) negationCache.clear();
             negationCache.put(v, result);
         }
-        return result;
     }
 
     private Expression compute(@NotNull Expression v) {

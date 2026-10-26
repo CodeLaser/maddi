@@ -29,6 +29,7 @@ import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.output.*;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -106,12 +107,12 @@ public record CSharpMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         MethodInfo overridden = CSharpHierarchy.interfaceMethodDefaulted(typeInfo, methodInfo);
         if (overridden != null) {
             // a default method for an inherited interface's method implements it explicitly
-            ParameterizedType owner = CSharpHierarchy.implementedAs(typeInfo, overridden.typeInfo());
-            Map<TypeParameter, ParameterizedType> map = CSharpHierarchy.typeArguments(owner);
-            b.add(new TextImpl(CSharpTypeName.of(CSharpHierarchy.substitute(overridden.returnType(), map), q)))
+            ParameterizedType owner = CstSupertypes.asSeen(typeInfo, overridden.typeInfo());
+            Map<TypeParameter, ParameterizedType> map = CstSupertypes.typeArguments(owner);
+            b.add(new TextImpl(CSharpTypeName.of(CstSupertypes.substituteDroppingWildcards(overridden.returnType(), map), q)))
                     .add(SpaceEnum.ONE)
                     .add(new TextImpl(CSharpTypeName.of(owner, q) + "." + (CSharpNames.translated(overridden.typeInfo())
-                            ? CSharpNames.method(overridden) : CSharpNames.method(methodInfo))));
+                            ? CSharpNames.method(overridden) : CSharpNames.method(methodInfo)) + typeParameters));
         } else {
             String property = CSharpContext.program().computedProperty(methodInfo);
             if (property != null) return property(b, modifiers.toString(), property, q);

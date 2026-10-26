@@ -861,6 +861,7 @@ public class JavaTime {
     }
 
     //public java.time.MonthDay (shadow created for its nullability, generated)
+    @ImmutableContainer
     class MonthDay$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -883,6 +884,7 @@ public class JavaTime {
     }
 
     //public java.time.OffsetDateTime (shadow created for its nullability, generated)
+    @ImmutableContainer
     class OffsetDateTime$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -921,6 +923,7 @@ public class JavaTime {
     }
 
     //public java.time.OffsetTime (shadow created for its nullability, generated)
+    @ImmutableContainer
     class OffsetTime$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -958,6 +961,7 @@ public class JavaTime {
     }
 
     //public java.time.Period (shadow created for its nullability, generated)
+    @ImmutableContainer
     class Period$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal addTo(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -971,6 +975,7 @@ public class JavaTime {
     }
 
     //public java.time.Year (shadow created for its nullability, generated)
+    @ImmutableContainer
     class Year$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -1002,6 +1007,7 @@ public class JavaTime {
     }
 
     //public java.time.YearMonth (shadow created for its nullability, generated)
+    @ImmutableContainer
     class YearMonth$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
@@ -1031,6 +1037,7 @@ public class JavaTime {
     }
 
     //public java.time.ZoneOffset (shadow created for its nullability, generated)
+    @ImmutableContainer
     class ZoneOffset$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }

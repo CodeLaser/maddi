@@ -54,4 +54,56 @@ public class TestStatementSeparation extends CommonJavaToKotlin {
                     }
                 """), kotlin);
     }
+
+    @Language("java")
+    private static final String NOT_NULL_AT_A_LINE_END = """
+            package a;
+            import java.util.*;
+            abstract class AbstractDatasetForTheSession<Solution_> { }
+            abstract class AbstractLeftDatasetForTheSession<Solution_, A> extends AbstractDatasetForTheSession<Solution_> { }
+            abstract class AbstractDatasetInstanceOfTheSession<Solution_, T> { }
+            abstract class AbstractLeftDatasetInstanceOfTheSession<Solution_, T>
+                    extends AbstractDatasetInstanceOfTheSession<Solution_, T> { }
+            final class UniTupleOfTheSession<A> { }
+            final class DatasetSession<Solution_> {
+                private final Map<AbstractDatasetForTheSession<Solution_>, AbstractDatasetInstanceOfTheSession<Solution_, ?>>
+                        leftDatasetInstanceMap = new HashMap<>();
+                @SuppressWarnings("unchecked")
+                public <A> AbstractLeftDatasetInstanceOfTheSession<Solution_, UniTupleOfTheSession<A>> getInstance(
+                        AbstractLeftDatasetForTheSession<Solution_, A> dataset) {
+                    return (AbstractLeftDatasetInstanceOfTheSession<Solution_, UniTupleOfTheSession<A>>) Objects
+                            .requireNonNull(leftDatasetInstanceMap.get((AbstractDatasetForTheSession<Solution_>) dataset));
+                }
+            }
+            """;
+
+    /** timefold's DatasetSession: a line break in front of {@code !!} starts a statement with it, which kotlinc refuses. */
+    @Test
+    public void noLineBreakBeforeNotNull() {
+        String kotlin = kotlin(NOT_NULL_AT_A_LINE_END);
+        assertTrue(kotlin.lines().noneMatch(l -> l.strip().startsWith("!!")), kotlin);
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String NOT_AFTER_A_STAR_CAST = """
+            package a;
+            interface View<S> { }
+            interface Director<S, X> extends View<S> { boolean isPinned(Object descriptor, Object entity); }
+            interface Predicate2<S, E> { boolean test(View<S> view, E entity); }
+            final class Descriptor<S> {
+                private final Predicate2<S, Object> movable = (view, entity) -> {
+                    var director = (Director<S, ?>) view;
+                    return !director.isPinned(this, entity);
+                };
+                boolean movable(View<S> view, Object entity) { return movable.test(view, entity); }
+            }
+            """;
+
+    /** timefold's EntityDescriptor: a lambda's last statement {@code !x.m()} after a cast to a star-projected type. */
+    @Test
+    public void notAfterAStarProjectedCast() {
+        String kotlin = kotlin(NOT_AFTER_A_STAR_CAST);
+        compiles(kotlin);
+    }
 }

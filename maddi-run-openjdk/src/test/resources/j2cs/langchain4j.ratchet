@@ -86,9 +86,19 @@
 # 2026-10-16, maddi f8701687b, 19081f381: a wildcard interface declares the fields read through it, as properties;
 # none for a wildcard passed where its type is declared with arguments (getAttribute(Key<T>)): 297 -> 298 compiling
 # files, 219 -> 201 errors.
+# 2026-10-17, maddi a56ea13cd, 5e56fd4e8, b24b6ea8d: a class implementing Set itself extends JavaSet; contains,
+# remove, containsKey, get of an Object test its type (ContainsObject, ...): unmapped JDK uses 153 -> 152.
+# 2026-10-17, maddi 1798df741, 114195d54, 42976fa84: ListIterator, reflection's declared members, String strips,
+# List's first/last; a generic default method implements the inherited interface's explicitly: 298 -> 299
+# compiling files.
+# 2026-10-19, maddi d62fc3f33, 3e3d94d4a: CompletableFuture completed and cancelled from outside, a shutting-down executor
+# (JavaExecutorService), thread interrupts, TimeUnit: 299 -> 300 compiling files, 198 -> 197 errors, unmapped JDK uses
+# 152 -> 151.
+# 2026-10-19, maddi d31f0f731, e9a7e4927, 9680a9230: a raw cast into a parameterized target, an array of a type parameter as
+# Object[], an array as varargs arguments, getMethod's types, Map.of()'s key notnull: 300 -> 301 compiling files, 197 -> 191 errors.
 types	346
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	346
-compilingFiles	298
-unmappedJdkUses	153
+compilingFiles	301
+unmappedJdkUses	151

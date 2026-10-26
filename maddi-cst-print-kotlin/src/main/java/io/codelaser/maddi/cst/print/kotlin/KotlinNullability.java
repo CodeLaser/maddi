@@ -31,6 +31,7 @@ import io.codelaser.maddi.cst.impl.output.SpaceEnum;
 import io.codelaser.maddi.cst.impl.output.SymbolEnum;
 import io.codelaser.maddi.cst.impl.output.TextImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,9 +47,9 @@ import java.util.Set;
  */
 final class KotlinNullability {
 
-    /** {@code !!}, glued to its operand. */
-    private static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
-            new SymbolEnum("!!", SpaceEnum.NONE, SpaceEnum.NONE, null);
+    /** {@code !!}, glued to its operand: no line break in front of it, where it would start a statement. */
+    static final io.codelaser.maddi.cst.api.output.element.Symbol NOT_NULL =
+            new SymbolEnum("!!", SpaceEnum.NONE_NO_SPLIT_BEFORE, SpaceEnum.NONE, null);
 
     /**
      * JDK methods that return null for a missing element; their Kotlin signatures say so (V?, E?). The analysis
@@ -71,7 +72,10 @@ final class KotlinNullability {
 
     static ParameterizedType fieldType(FieldInfo fieldInfo) {
         ParameterizedType verdict = verdicts().field(fieldInfo);
-        return verdict != null ? verdict : fieldInfo.type();
+        ParameterizedType type = verdict != null ? verdict : fieldInfo.type();
+        // guava's Ordering.ARBITRARY_ORDERING: an Ordering<@Nullable Object>, which arbitrary() returns as one
+        return KotlinContext.translatingJava()
+                ? withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(fieldInfo.type())) : type;
     }
 
     static ParameterizedType parameterType(ParameterInfo parameterInfo) {
@@ -91,9 +95,37 @@ final class KotlinNullability {
                 ? m.parameters().get(index).parameterizedType() : null) || boxedClash(method))) {
             return declared.withNullable(NullableState.NULLABLE);
         }
+        if (overridesRawTypeVariable(method, index)) return declared.withNullable(NullableState.NULLABLE);
         ParameterizedType verdict = verdicts().parameter(parameterInfo);
+        // guava's TreeRangeMap: merge(…, BiFunction<? super Object, ? super @Nullable Object, ? extends @Nullable
+        // Object> f) overriding RangeMap's: the declaration's type-use annotations on its arguments, wildcard bounds
+        // included, which an override must repeat
         ParameterizedType type = verdict != null ? verdict : declared;
+        if (KotlinContext.translatingJava()) type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(declared));
         return INFERRED_NULLABLE.get().containsKey(parameterInfo) ? type.withNullable(NullableState.NULLABLE) : type;
+    }
+
+    /**
+     * jenkins's HyperlinkNote extends the raw ConsoleNote, whose header erases it to {@code ConsoleNote<Any?>}
+     * (KotlinTypePrinter.rawSupertype): {@code annotate(Object context, …)} overrides {@code annotate(T context, …)},
+     * a parameter Kotlin then sees as an {@code Any?}, whatever the override's verdict. Only an unbounded T: a bound's
+     * erasure keeps the bound's state.
+     */
+    private static boolean overridesRawTypeVariable(MethodInfo method, int index) {
+        if (!KotlinContext.translatingJava() || method.isStatic() || method.isConstructor()) return false;
+        TypeInfo owner = method.typeInfo();
+        return method.overrides().stream().anyMatch(m -> {
+            if (index >= m.parameters().size()) return false;
+            ParameterizedType p = m.parameters().get(index).parameterizedType();
+            io.codelaser.maddi.cst.api.info.TypeParameter tp = p.typeParameter();
+            if (tp == null || p.arrays() > 0 || tp.isMethodTypeParameter() || !m.typeInfo().typeParameters().contains(tp)
+                || tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) {
+                return false;
+            }
+            return java.util.stream.Stream.concat(java.util.stream.Stream.ofNullable(owner.parentClass()),
+                            owner.interfacesImplemented().stream())
+                    .anyMatch(s -> s.typeInfo() == m.typeInfo() && s.parameters().isEmpty());
+        });
     }
 
     /**
@@ -137,6 +169,19 @@ final class KotlinNullability {
                 .collect(java.util.stream.Collectors.joining(","));
     }
 
+    /**
+     * A boxed result printed nullable for the JVM signature's sake ({@link #boxedAbi}) only: the verdicts hold it
+     * non-null (jenkins's IdStrategy.convertPseudoUnicode, {@code Character} from a {@code (char)} cast).
+     */
+    static boolean boxedAbiOnlyResult(MethodInfo methodInfo) {
+        if (methodInfo == null || methodInfo.isConstructor() || methodInfo.returnType() == null
+            || !isBoxed(methodInfo.returnType()) || !boxedAbi(methodInfo, MethodInfo::returnType)) {
+            return false;
+        }
+        ParameterizedType verdict = verdicts().returnType(methodInfo);
+        return verdict == null || !isNullable(verdict);
+    }
+
     private static boolean isBoxed(ParameterizedType type) {
         return type.arrays() == 0 && type.typeInfo() != null && type.isBoxedExcludingVoid();
     }
@@ -147,12 +192,89 @@ final class KotlinNullability {
             return methodInfo.returnType().withNullable(NullableState.NULLABLE);
         }
         ParameterizedType verdict = verdicts().returnType(methodInfo);
+        if (verdict == null && libraryNullableResult(methodInfo)) {
+            // jenkins's WhoAmI: Spring Security 7's @Nullable GrantedAuthority.getAuthority(), which Kotlin reads as
+            // String?: what it is put into asserts it (authorities.add(a.getAuthority()!!))
+            verdict = methodInfo.returnType().withNullable(NullableState.NULLABLE);
+        }
         if (verdict != null && isNullable(verdict)
             && (overridesMappedMember(methodInfo) || returnsNullForTypeVariable(methodInfo))) {
             // Kotlin declares the member it overrides, non-null: Any.toString(): String; Iterator<E>.next(): E
-            return verdict.withNullable(NullableState.NONNULL);
+            return withDeclaredArgumentStates(methodInfo, verdict.withNullable(NullableState.NONNULL));
         }
-        return verdict != null ? verdict : methodInfo.returnType();
+        ParameterizedType result = withDeclaredArgumentStates(methodInfo,
+                verdict != null ? verdict : methodInfo.returnType());
+        ParameterizedType typed = rawOverrideResult(methodInfo, result);
+        return typed != null ? typed : result;
+    }
+
+    /**
+     * jenkins's Notifier: {@code BuildStepDescriptor getDescriptor()} overriding {@code Descriptor<Publisher>
+     * getDescriptor()}, a raw result Java accepts unchecked. Kotlin's {@code BuildStepDescriptor<*>} is no subtype of
+     * {@code Descriptor<Publisher>}; the raw class with the overridden result's arguments is,
+     * {@code BuildStepDescriptor<Publisher>}, where each of its type parameters is one of the overridden type's
+     * arguments. Null otherwise.
+     */
+    private static ParameterizedType rawOverrideResult(MethodInfo methodInfo, ParameterizedType result) {
+        TypeInfo raw = result.typeInfo();
+        if (!KotlinContext.translatingJava() || raw == null || result.arrays() > 0 || !result.parameters().isEmpty()
+            || raw.typeParameters().isEmpty() || methodInfo.overrides().isEmpty()) {
+            return null;
+        }
+        for (MethodInfo o : methodInfo.overrides()) {
+            ParameterizedType theirs = o.returnType();
+            if (theirs == null || theirs.typeInfo() == null || theirs.parameters().isEmpty() || theirs.arrays() > 0) {
+                continue;
+            }
+            ParameterizedType seen = seenThrough(theirs, o.typeInfo(), methodInfo.typeInfo().asParameterizedType());
+            if (seen.typeInfo() == null || seen.parameters().size() != theirs.parameters().size()) continue;
+            ParameterizedType asSuper;
+            try {
+                asSuper = raw == seen.typeInfo() ? raw.asParameterizedType()
+                        : raw.asParameterizedType().concreteSuperType(seen.typeInfo().asParameterizedType());
+            } catch (RuntimeException | AssertionError e) {
+                continue;
+            }
+            if (asSuper == null || asSuper.parameters().size() != seen.parameters().size()) continue;
+            List<ParameterizedType> arguments = new ArrayList<>();
+            for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+                ParameterizedType argument = null;
+                for (int i = 0; i < asSuper.parameters().size(); i++) {
+                    ParameterizedType a = asSuper.parameters().get(i);
+                    if (a != null && a.typeParameter() == tp && a.arrays() == 0 && a.wildcard() == null) {
+                        argument = seen.parameters().get(i);
+                        break;
+                    }
+                }
+                if (argument == null) break;
+                arguments.add(argument);
+            }
+            if (arguments.size() == raw.typeParameters().size()) {
+                return result.withParameters(arguments);
+            }
+        }
+        return null;
+    }
+
+    /*
+     The declaration's type-use annotations on the result's arguments, as for a field, a parameter and a local:
+     guava's Ordering<@Nullable Object> arbitrary(), returning the field ARBITRARY_ORDERING, printed as
+     Ordering<Any> beside the field's Ordering<Any?> once the field kept its annotations (maddi#145).
+     */
+    /**
+     * The method's result with the nullable type arguments it declares, and those its overridden members declare:
+     * timefold's BiConstraintCollector declares {@code Function<ResultContainer_, @Nullable Result_> finisher()}, and
+     * AndThenBiCollector's {@code Function<ResultContainer_, Result_>} override is no subtype of it for Kotlin, Java's
+     * Function being invariant there.
+     */
+    private static ParameterizedType withDeclaredArgumentStates(MethodInfo methodInfo, ParameterizedType type) {
+        if (!KotlinContext.translatingJava()) return type;
+        ParameterizedType result = withDeclaredArgumentStates(type,
+                KotlinTypePrinter.declaredArguments(methodInfo.returnType()));
+        for (MethodInfo overridden : methodInfo.overrides()) {
+            result = withDeclaredArgumentStates(result, KotlinTypePrinter.declaredArguments(overridden.returnType()));
+        }
+        return result;
     }
 
     /**
@@ -165,7 +287,20 @@ final class KotlinNullability {
         if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
         if (kotlinNullableMapResult(methodInfo)) return false;
         return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
-                && !isNullable(declaredReturnType(m)));
+                && declaredInKotlin(m.typeInfo()) && !isNullable(declaredReturnType(m)));
+    }
+
+    /**
+     * Kotlin sees the type's members as declared: a mapped type ({@code Iterator<E>.next(): E}) or one translated or
+     * compiled from Kotlin. A Java library type's are platform types, which an override may make nullable: guava's
+     * {@code ImmutableSortedSet.lower(e): E?} overrides {@code NavigableSet<E>.lower(e): E!}. Except where kotlinc
+     * enhances the JDK's own: {@code Supplier<T>.get(): T}.
+     */
+    private static boolean declaredInKotlin(TypeInfo owner) {
+        String fqn = owner.fullyQualifiedName();
+        return !owner.compilationUnit().externalLibrary() || KotlinTypeName.isMapped(fqn)
+               || KotlinTypePrinter.fromKotlinSource(owner)
+               || fqn.startsWith("java.util.function.") || "java.util.Optional".equals(fqn);
     }
 
     /**
@@ -196,7 +331,11 @@ final class KotlinNullability {
         ParameterizedType verdict = verdicts().returnType(methodInfo);
         if (verdict == null || !returnsNullForTypeVariable(methodInfo)) return null;
         KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
-        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(KotlinExpressionPrinter.print(value, q))
+        // the cast's operand has no expected type of its own: guava's CompactHashMap, return unsafeNull() with T
+        // inferred V, is (unsafeNull<V>()) as V; without, kotlinc takes the cast's V and the call's T? clashes
+        OutputBuilder printed = KotlinExpressionPrinter.withoutExpectedType(value,
+                () -> KotlinExpressionPrinter.print(value, q));
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed)
                 .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                 .add(new TextImpl(KotlinTypeName.of(methodInfo.returnType(), q)));
     }
@@ -287,8 +426,35 @@ final class KotlinNullability {
         ParameterizedType verdict = method == null ? null
                 : NullabilityFacts.decided(verdicts().local(method, declaration, variable));
         ParameterizedType type = verdict != null ? verdict : variable.parameterizedType();
+        // ListenableFuture<List<@Nullable V>> nullable = new ListFuture<V>(…) (guava's Futures.allAsList): the
+        // declaration's type-use annotations on its arguments, as in a class header
+        type = withDeclaredArgumentStates(type, KotlinTypePrinter.declaredArguments(variable.parameterizedType()));
         KotlinContext.localType(variable.simpleName(), type);
         return type;
+    }
+
+    /** {@code type}, with each type argument nullable that {@code declared}, of the same shape, makes nullable. */
+    private static ParameterizedType withDeclaredArgumentStates(ParameterizedType type, ParameterizedType declared) {
+        if (type == null || declared == null || type.parameters().isEmpty()
+            || type.parameters().size() != declared.parameters().size()
+            || !java.util.Objects.equals(type.typeInfo(), declared.typeInfo()) || type.arrays() != declared.arrays()) {
+            return type;
+        }
+        boolean changed = false;
+        java.util.List<ParameterizedType> arguments = new java.util.ArrayList<>(type.parameters().size());
+        for (int i = 0; i < type.parameters().size(); i++) {
+            ParameterizedType mine = type.parameters().get(i);
+            ParameterizedType theirs = declared.parameters().get(i);
+            ParameterizedType merged = withDeclaredArgumentStates(mine, theirs);
+            if (theirs != null && mine != null && isNullable(theirs) && !isNullable(merged)
+                && (theirs.wildcard() == null || mine.wildcard() != null && !theirs.isUnboundWildcard()
+                                                 && theirs.wildcard().isSuper() == mine.wildcard().isSuper())) {
+                merged = merged.withNullable(NullableState.NULLABLE);
+            }
+            changed |= merged != mine;
+            arguments.add(merged);
+        }
+        return changed ? type.withParameters(arguments) : type;
     }
 
     /** The pass asserts this local at its declaration: see {@link NullabilityFacts#assertedAtDeclaration}. */
@@ -307,6 +473,12 @@ final class KotlinNullability {
         return type != null && type.nullable() == NullableState.NULLABLE;
     }
 
+    /**
+     * The loop variables over a raw or star-projected collection being printed: Kotlin's {@code Any?}, which the
+     * verdicts, holding the variable non-null, do not know (jenkins's RedactSecretJsonInErrorMessageSanitizer).
+     */
+    static final ThreadLocal<Set<String>> RAW_LOOP_VARIABLES = ThreadLocal.withInitial(java.util.HashSet::new);
+
     /** Kotlin will type this value as nullable. */
     static boolean nullableInKotlin(Expression e) {
         if (!KotlinContext.translatingJava()) return false; // Kotlin source wrote its own ?. and !!
@@ -322,6 +494,9 @@ final class KotlinNullability {
                 case FieldReference fr -> isNullable(fieldType(fr.fieldInfo()))
                                           && !(KotlinFieldPrinter.printsAsVal(fr.fieldInfo()) && knownNonNull(fr));
                 case ParameterInfo pi -> isNullable(parameterType(pi)) && !knownNonNull(pi, ve);
+                // a loop variable over a raw collection is nullable in Kotlin only: no verdict fact smart-casts it
+                case LocalVariable lv when RAW_LOOP_VARIABLES.get().contains(lv.simpleName()) ->
+                        !KotlinSmartCasts.asserted(lv, ve);
                 case LocalVariable lv -> isNullable(KotlinContext.localType(lv.simpleName())) && !knownNonNull(lv, ve);
                 // nor does it smart-cast an element read: only the element's state counts
                 case io.codelaser.maddi.cst.api.variable.DependentVariable dv -> {
@@ -338,12 +513,31 @@ final class KotlinNullability {
     }
 
     /**
-     * A reference cast of a value Kotlin types nullable: {@code x as T} throws on null where Java's cast does not.
-     * Into a nullable target it prints {@code x as T?} (see {@link KotlinExpressionPrinter#widened}); elsewhere the
-     * value is dereferenced, unboxed or tested, where Java throws as well.
+     * A reference cast of a value Kotlin types nullable, or of a library result Kotlin types as a platform type:
+     * {@code x as T} throws on null where Java's cast does not. Into a nullable target it prints {@code x as T?} (see
+     * {@link KotlinExpressionPrinter#widened}); elsewhere the value is dereferenced, unboxed or tested, where Java
+     * throws as well. guava's AbstractFutureState: {@code return (Waiter) UNSAFE.getAndSetObject(…)} from a
+     * {@code @Nullable Waiter gasWaiters(…)} threw on the first future completed without waiters, and the threads
+     * waiting on it hung.
      */
     static boolean nullableCast(Cast cast) {
-        return !cast.parameterizedType().isPrimitiveExcludingVoid() && nullableInKotlin(cast.expression());
+        return !cast.parameterizedType().isPrimitiveExcludingVoid()
+               && (nullableInKotlin(cast.expression()) || platformResult(cast.expression()));
+    }
+
+    /**
+     * A call of a library method that reads an untyped slot, its result an {@code Object} or a type variable and not
+     * known non-null: Kotlin checks nothing, and a null stored there comes through (Unsafe.getAndSetObject,
+     * AtomicReference.getAndSet). Not a typed factory's result, {@code (Set) Collections.unmodifiableSet(…)}, which
+     * is never null and may flow on into a non-null result (guava's Multisets).
+     */
+    private static boolean platformResult(Expression e) {
+        return KotlinContext.translatingJava() && KotlinExpressionPrinter.unwrap(e) instanceof MethodCall mc
+               && mc.methodInfo() != null && !mc.methodInfo().isConstructor() && mc.methodInfo().returnType() != null
+               && (mc.methodInfo().returnType().isJavaLangObject() || mc.methodInfo().returnType().isTypeParameter())
+               && !translated(mc.methodInfo().typeInfo())
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(mc.methodInfo()) != NullableState.NONNULL
+               && !io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(mc.methodInfo());
     }
 
     /** The type Kotlin gives this expression, with the verdicts' states; null when not known here. */
@@ -456,7 +650,35 @@ final class KotlinNullability {
         } catch (RuntimeException | AssertionError e) {
             seen = null;
         }
+        if (seen != null && seen.typeInfo() != null) seen = erasedRaw(seen, receiver);
         return seen == null || seen.typeInfo() == null ? declared : substitute(declared, seen);
+    }
+
+    /**
+     * A raw supertype as Java erases it, each type parameter its bound's class or a nullable Object: jenkins's
+     * JellyMap implements a raw Map, a {@code MutableMap<Any?, Any?>}, whose keySet() is a {@code MutableSet<Any?>}.
+     */
+    static ParameterizedType erasedRaw(ParameterizedType seen, ParameterizedType receiver) {
+        TypeInfo raw = seen.typeInfo();
+        if (!KotlinContext.translatingJava() || !seen.parameters().isEmpty() || seen.arrays() > 0
+            || raw.typeParameters().isEmpty() || receiver.typeInfo() == null) {
+            return seen;
+        }
+        // the printer has no runtime: Object is the top of the receiver's superclasses
+        ParameterizedType object = receiver.typeInfo().parentClass();
+        while (object != null && !object.isJavaLangObject() && object.typeInfo() != null) {
+            object = object.typeInfo().parentClass();
+        }
+        if (object == null || !object.isJavaLangObject()) return seen;
+        List<ParameterizedType> arguments = new ArrayList<>();
+        for (io.codelaser.maddi.cst.api.info.TypeParameter tp : raw.typeParameters()) {
+            ParameterizedType bound = tp.typeBounds().stream().filter(b -> !b.isJavaLangObject() && b.typeInfo() != null)
+                    .findFirst().orElse(null);
+            if (bound != null && !bound.typeInfo().typeParameters().isEmpty()) return seen;
+            arguments.add(bound != null ? bound.typeInfo().asSimpleParameterizedType()
+                    : object.withNullable(NullableState.NULLABLE));
+        }
+        return seen.withParameters(arguments);
     }
 
     private static ParameterizedType substitute(ParameterizedType declared, ParameterizedType receiver, boolean input) {
@@ -540,6 +762,22 @@ final class KotlinNullability {
         return KotlinContext.state().knownNonNull(verdicts(), variable) || KotlinSmartCasts.asserted(variable, use);
     }
 
+    /**
+     * A local or parameter Kotlin types nullable, not already asserted by an earlier {@code !!} the printer wrote:
+     * whatever the facts say at {@code e} itself.
+     */
+    static boolean declaredNullableVariable(Expression e) {
+        if (!KotlinContext.translatingJava() || !(KotlinExpressionPrinter.unwrap(e) instanceof VariableExpression ve)) {
+            return false;
+        }
+        ParameterizedType type = switch (ve.variable()) {
+            case ParameterInfo pi -> parameterType(pi);
+            case LocalVariable lv -> KotlinContext.localType(lv.simpleName());
+            default -> null;
+        };
+        return type != null && isNullable(type) && !KotlinSmartCasts.asserted(ve.variable(), e);
+    }
+
     static boolean nullableJdkResult(MethodInfo methodInfo) {
         if (methodInfo.isStatic()) return false;
         return java.util.stream.Stream.concat(java.util.stream.Stream.of(methodInfo), methodInfo.overrides().stream())
@@ -555,6 +793,18 @@ final class KotlinNullability {
                && method.typeInfo().compilationUnit().sourceSet().test();
     }
 
+    /**
+     * A test's bare null into a non-null parameter, which the test expects to throw: asserted. Not into a type
+     * variable's own slot, {@code <T> range(T lower)}, which the call may instantiate nullable (guava's
+     * GeneralRangeTest passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw); a type that only
+     * names a type variable, {@code List<X>}, is non-null whatever X is.
+     */
+    static boolean testNullAsserted(Expression value, ParameterizedType target) {
+        return target != null && value instanceof NullConstant && !isNullable(target)
+               && !target.isPrimitiveExcludingVoid() && !(target.typeParameter() != null && target.arrays() == 0)
+               && inTestSource();
+    }
+
     /** No type variable in it: a parameter's type at the call names none the caller does not know. */
     private static boolean writable(ParameterizedType type) {
         if (type.typeParameter() != null) return false;
@@ -562,6 +812,31 @@ final class KotlinNullability {
     }
 
     /** Declared by the code being translated, so Kotlin will hold a value for it to its (non-)nullability. */
+    /** A library method whose result its annotations declare {@code @Nullable}, as Kotlin reads them. */
+    private static boolean libraryNullableResult(MethodInfo methodInfo) {
+        return KotlinContext.translatingJava() && !methodInfo.isConstructor() && !translated(methodInfo.typeInfo())
+               && !methodInfo.returnType().isPrimitiveExcludingVoid() && !methodInfo.returnType().isVoidOrJavaLangVoid()
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(methodInfo) == NullableState.NULLABLE;
+    }
+
+    /**
+     * A library parameter Kotlin reads as non-null: annotated so, or unannotated in a JSpecify {@code @NullMarked}
+     * scope and not a type variable (Spring Security 7's {@code SimpleGrantedAuthority(String role)}). A nullable
+     * argument is asserted there, as into a translated non-null parameter; Java's caller met the library's own check.
+     */
+    static boolean libraryNonNullParameter(ParameterInfo pi) {
+        if (!KotlinContext.translatingJava() || translated(pi.methodInfo().typeInfo())
+            || pi.parameterizedType().isPrimitiveExcludingVoid()) {
+            return false;
+        }
+        NullableState explicit = io.codelaser.maddi.cst.impl.analysis.NullAnnotations.explicitState(pi);
+        // String.format(String, @NotNull(nullableArguments = 0) Object... args): the annotation is the array's, its
+        // elements take null (fernflower's ConverterHelperTest formats a null class name)
+        if (explicit != null) return explicit == NullableState.NONNULL && !pi.isVarArgs();
+        return !pi.parameterizedType().isTypeParameter()
+               && io.codelaser.maddi.cst.impl.analysis.NullAnnotations.inNullMarkedScope(pi.methodInfo());
+    }
+
     static boolean translated(TypeInfo owner) {
         return !owner.compilationUnit().externalLibrary() && !KotlinTypePrinter.fromKotlinSource(owner);
     }
@@ -591,13 +866,13 @@ final class KotlinNullability {
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
-        if (targetTranslated && target != null && value instanceof NullConstant && !isNullable(target)
-            && !target.isPrimitiveExcludingVoid() && inTestSource() && writable(target)) {
+        if (targetTranslated && testNullAsserted(value, target)) {
             // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
-            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type.
-            // Not into a type variable's slot, which the call may instantiate nullable (guava's GeneralRangeTest
-            // passes null to range(ORDERING, null, OPEN, 5, CLOSED) and expects no throw)
+            // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type,
+            // or Nothing where that type names the callee's type variables (the call then writes the type arguments
+            // Kotlin cannot infer from a Nothing: KotlinExpressionPrinter.nullOnlyTypeArguments)
             KotlinContext.message(KotlinPrintCode.ASSERT_INTO_NON_NULL, value, KotlinContext.describe(value));
+            if (!writable(target)) return new OutputBuilderImpl().add(printed).add(NOT_NULL);
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
                     .add(new TextImpl(KotlinTypeName.of(target.withNullable(NullableState.NULLABLE), q)))
@@ -630,17 +905,26 @@ final class KotlinNullability {
             && unboundTypeVariable(valueType)) {
             // Success<T>(response) with a T? response: a parameter typed by an unbounded type variable is not checked
             // at runtime, so the null reaches the callee as in Java, whose ensureNotNull throws what the caller
-            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased
+            // expects; `!!` would throw first. An unchecked cast to the value's own variable, erased; to the target's
+            // where that is a supertype's, out of scope (get(type) of a Forwarding<K, V> superclass, its V a B here)
             KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            ParameterizedType castTo = KotlinContext.typeParameterInScope(valueType.typeParameter()) ? valueType : target;
             return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                    .add(new TextImpl(KotlinTypeName.of(valueType.withNullable(NullableState.NONNULL), q)))
+                    .add(new TextImpl(KotlinTypeName.of(castTo.withNullable(NullableState.NONNULL), q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
         KotlinContext.message(target.isPrimitiveExcludingVoid() ? KotlinPrintCode.ASSERT_AT_UNBOXING : KotlinPrintCode.ASSERT_INTO_NON_NULL,
                 value, KotlinContext.describe(value));
         OutputBuilder assertedValue = KotlinExpressionPrinter.receiver(value, q).add(NOT_NULL);
         KotlinSmartCasts.assertedAt(value);
+        if (KotlinExpressionPrinter.mappedIntoSequenced(value, target)) {
+            // the cast `printed` carries, around the assertion: return declaredVariableDescriptorList!! as
+            // SequencedCollection<…> (timefold's EntityDescriptor)
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(assertedValue).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         return assertedValue;
     }
 

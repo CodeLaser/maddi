@@ -134,7 +134,7 @@ Other types in the parameters have not been annotated with {nm}:
 * `E` because it is of an unbounded generic type, it has the same methods available as `Object`.
 No code visible to implementations of `Collection` can make modifications to `E` without explicit down-casting;
 * `Consumer` because it is a functional interface (an interface with a single abstract method) in `java.util.function`;
-they are {ignoreModifications} by convention, as explained later.
+in the annotated APIs such parameters are {ignoreModifications} by convention, as explained later.
 
 In order to keep the narrative going, we defer a discussion of modification in the context of parameters of abstract
 types to the sections <<abstract-methods>> and <<hidden-content>>.

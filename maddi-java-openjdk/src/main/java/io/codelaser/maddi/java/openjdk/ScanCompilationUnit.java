@@ -1592,6 +1592,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // a standalone '{ }' block is itself a statement, so it keeps the statement index (not 'i.0')
                 Block parsedSub = parseBlock("0", subBlock, 0, true);
                 addStatement(parsedSub);
+            } else if (statement instanceof JCTree.JCLabeledStatement labelled
+                       && labelled.body instanceof JCTree.JCBlock subBlock) {
+                // guava's Monitor.enterWhen: 'locked: { … break locked; … }' is a block statement with that label;
+                // scanned through visitLabeledStatement, its statements would join the enclosing block, label lost
+                statementLabels.put(subBlock, labelled.label.toString());
+                labelledStatementOf.put(subBlock, labelled);
+                Block parsedSub = parseBlock("0", subBlock, 0, true);
+                addStatement(parsedSub);
             } else if (statement instanceof JCTree.JCClassDecl localType) {
                 Statement localTypeCreation = handleLocalType(localType);
                 addStatement(localTypeCreation);
@@ -2271,6 +2279,14 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                  String one did not. A fixture whose DTO sorts before its user never sees this, and every
                  fixture did. TestFieldTypeDetailUnitOrder.
                 */
+                // ⛔ ...and the type-use annotations, as for a method's return type and parameters: the
+                // symbol-built type has none, so 'static final List<@Nullable Object> ALL' read as List<Object>
+                // whenever a method declared earlier referenced the field (maddi#145, guava's
+                // Ordering.ArbitraryOrderingHolder). Replaced before the details below are keyed to it.
+                ParameterizedType annotated = transplantAnnotations(fieldInfo.type(), type);
+                if (annotated != fieldInfo.type() && !fieldInfo.hasBeenInspected()) {
+                    fieldInfo.builder().setType(annotated);
+                }
                 if (type != fieldInfo.type()) {
                     for (Source typeSource : dsb.build().details(type)) {
                         dsb.put(fieldInfo.type(), typeSource);
@@ -3506,10 +3522,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                 // (convertTree(newClass.clazz, dsb)). convert(Type) alone works off the resolved type and never
                 // touches dsb, so an anonymous-class supertype FQN ('new p.Moved(){}') carried no detailed source --
                 // a dependent-side MoveType rewrite then found no token and left the FQN stale (ES carve
-                // StableApiWrappers: interface anon supertypes not retargeted). Keep convert(type) for the precise
-                // (resolved) return type used downstream; convertTree runs purely for its dsb side effect.
-                convertType.convertTree(newTypeExpression, dsb);
-                concreteReturnType = convertType.convert(newTypeExpression.type);
+                // StableApiWrappers: interface anon supertypes not retargeted).
+                // ⛔ THE TREE IS ALSO THE TYPE, as for a named class's extends/implements clause: javac's resolved
+                // type carries no type-use annotations, so convert(type) turned 'new It<List<@Nullable T>>() {}'
+                // into It<List<T>>, while the body's 'List<@Nullable T> next()' kept its annotation (maddi#144:
+                // the Kotlin header then disagreed with its own override). Only a diamond, 'new It<>() {}', has
+                // no type arguments in the tree: there the resolved (inferred) type is the only one there is.
+                ParameterizedType written = convertType.convertTree(newTypeExpression, dsb);
+                concreteReturnType = diamond == runtime.diamondYes()
+                        ? convertType.convert(newTypeExpression.type) : written;
                 constructor = null;
                 TypeInfo enclosingType = typeStack.getLast();
                 anonymousType = runtime.newAnonymousType(enclosingType, enclosingType.builder().getAndIncrementAnonymousTypes());

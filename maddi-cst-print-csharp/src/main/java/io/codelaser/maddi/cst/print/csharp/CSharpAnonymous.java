@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.csharp;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.print.translate.CstSupertypes;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
@@ -120,9 +121,9 @@ final class CSharpAnonymous {
     private static List<ParameterizedType> superParameters(ConstructorCall cc, TypeInfo anonymous) {
         MethodInfo constructor = superConstructor(cc);
         if (constructor == null) return cc.parameterExpressions().stream().map(x -> x.parameterizedType()).toList();
-        Map<TypeParameter, ParameterizedType> arguments = CSharpHierarchy.typeArguments(anonymous.parentClass());
+        Map<TypeParameter, ParameterizedType> arguments = CstSupertypes.typeArguments(anonymous.parentClass());
         return constructor.parameters().stream()
-                .map(p -> CSharpHierarchy.substitute(p.parameterizedType(), arguments)).toList();
+                .map(p -> CstSupertypes.substituteDroppingWildcards(p.parameterizedType(), arguments)).toList();
     }
 
     /**

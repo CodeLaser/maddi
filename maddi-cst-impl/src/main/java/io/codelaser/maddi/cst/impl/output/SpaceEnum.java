@@ -56,7 +56,11 @@ public enum SpaceEnum implements Space {
     // exactly one space, and no line break here even where the previous element allows one: the formatter drops
     // the split point at this position. Kotlin ends a statement at a newline in front of a binary operator
     // (`a\n + b` is two statements), so its printer puts this before an operator, and splits after it.
-    ONE_NO_SPLIT_BEFORE(ElementarySpaceEnum.ONE, ElementarySpaceEnum.ONE, SplitEnum.NEVER);
+    ONE_NO_SPLIT_BEFORE(ElementarySpaceEnum.ONE, ElementarySpaceEnum.ONE, SplitEnum.NEVER),
+
+    // as ONE_NO_SPLIT_BEFORE, without the space: Kotlin's postfix `!!`, which a newline in front of it would start a
+    // statement with (timefold's DatasetSession: `map.get(k)\n!! as T`)
+    NONE_NO_SPLIT_BEFORE(ElementarySpaceEnum.NONE, ElementarySpaceEnum.NONE, SplitEnum.NEVER);
 
     private final ElementarySpace minimal;
     private final ElementarySpace nice;
@@ -70,7 +74,7 @@ public enum SpaceEnum implements Space {
 
     @Override
     public boolean withdrawsSplitBefore() {
-        return this == ONE_NO_SPLIT_BEFORE;
+        return this == ONE_NO_SPLIT_BEFORE || this == NONE_NO_SPLIT_BEFORE;
     }
 
     @Override

@@ -198,4 +198,27 @@ public class TestJavacGradleLine {
         assertEquals(List.of("/src/A.java"), j.sourceFiles());
         assertEquals("/out", j.destination());
     }
+
+    /**
+     * The language level a set's build compiled at, kept for a consumer (which syntax a refactoring may write):
+     * {@code --release} when stated, else {@code -source}; and {@code --enable-preview}, a flag without a value
+     * that must not eat the source file after it.
+     */
+    @DisplayName("languageLevel is --release, else -source; --enable-preview is captured")
+    @Test
+    public void languageLevelAndPreview() {
+        Javac preview = Javac.parse("-d /out -source 21 --enable-preview /src/A.java");
+        assertEquals(21, preview.languageLevel());
+        assertTrue(preview.enablePreview());
+        assertEquals(0, preview.effectiveRelease(), "-source still states no API");
+        assertEquals(List.of("/src/A.java"), preview.sourceFiles());
+
+        Javac release = Javac.parse("-d /out --release 17 /src/A.java");
+        assertEquals(17, release.languageLevel());
+        assertFalse(release.enablePreview());
+
+        Javac neither = Javac.parse("-d /out /src/A.java");
+        assertTrue(neither.languageLevel() <= 0);
+        assertFalse(neither.enablePreview());
+    }
 }

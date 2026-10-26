@@ -21,6 +21,7 @@ import io.codelaser.maddi.cst.api.expression.Expression;
 import io.codelaser.maddi.cst.api.info.Access;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldModifier;
+import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.impl.analysis.PropertyValueMapImpl;
 
 import java.util.HashSet;
@@ -139,6 +140,12 @@ public class FieldInspectionImpl extends InspectionImpl implements FieldInspecti
         @Override
         public Builder addFieldModifier(FieldModifier fieldModifier) {
             fieldModifiers.add(fieldModifier);
+            return this;
+        }
+
+        @Override
+        public Builder setType(ParameterizedType type) {
+            fieldInfo.setTypeBeforeCommit(type);
             return this;
         }
 

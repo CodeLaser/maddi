@@ -2,12 +2,15 @@
 
 Dense, load-bearing summary of `src/docs/asciidoc/` (the authoritative terminology source for maddi's
 immutability/modification/linking vocabulary). Read this instead of the full book; open a specific
-chapter only when detail is missing here.
+chapter only when detail is missing here. Last checked against the code and the book: 2026-10-23 (release 0.9.5).
 
 ## Core vocabulary
 
-- **maddi** — static analyzer for Java (and Kotlin via a shared CST) that computes modification,
-  independence and immutability properties.
+- **maddi** — whole-program static analyzer for Java (and Kotlin via a shared CST). Its *linking engine* (which
+  objects flow where, which share state) feeds three applications: modification/independence/immutability (this
+  file's core), **nullability** (§Nullability, since 2026-10) and the Java→Kotlin / Java→C# **translations**, which
+  read the verdicts (read-only collection types from the structural twins and unmodifiable views; `?`/`!!` from
+  nullability). Annotations: `maddi-annotation` (Apache-2.0, with `maddi-support`); analyzer LGPL-3.0.
 - **Mutable** means "not immutable at any positive level"; `@Mutable` is the explicit bottom verdict.
 - **Content** of an object = the objects reachable from its fields (the object graph), split into:
   - **accessible content** — reachable through fields/accessors the analyzer can see and name;
@@ -21,9 +24,11 @@ chapter only when detail is missing here.
   assumed. **Confinement guard**: a modification reached through the field must stay in the *ignored stratum*
   (transitive content reachable only via that field). Writing into the stratum, and referencing accessible
   content from it, are confined and fine (this is why an analyzer filling an `@IgnoreModifications analysis()`
-  overlay is legal); an *escape* into the type's own accessible content **caps immutability** (the separation
-  check), an escape into global/static state is a **`@StaticSideEffects`** — does NOT cap (not your field) but
-  flags a real outward effect. SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
+  overlay is legal); an *escape* into the type's own accessible content is **reported** as the warning
+  `ignore-modifications-not-confined` (the separation check; `GuardAnalyzerImpl` WARNS, never caps: the designer
+  decides), an escape into global/static state is a **`@StaticSideEffects`** — does NOT cap (not your field) but
+  flags a real outward effect. The SSE *computation* on source methods (`StaticSideEffectAnalyzerImpl`) runs by
+  default (it was behind the env gate `SSE` until 2026-10-25, CodeLaser/maddi-mod#65). SSE is thus the global-escape arm of the same guard; `@IgnoreModifications` on
   the *target* global field downgrades an SSE to a sanctioned disclaimer (the `System.out` story).
 - **Modification**: a method is *modifying* when it assigns, or modifies the content of, something in
   the object graph of its receiver's fields. Marked `@Modified` / `@NotModified`.
@@ -47,6 +52,16 @@ chapter only when detail is missing here.
     printer's `List`/`MutableList` choice. Immutability, independence and `@Container` keep the deep property.
     The book's §"Propagating modifications" (080) describes it; the step back from a modified container to its
     elements (`useAddNewLine`) is still not computed.
+- **Unmodifiable views** (2026-10-15, CodeLaser/maddi-mod#52; book §050 "Unmodifiable views"): a fact beside
+  immutability, never derived from it. `UNMODIFIABLE_TYPE`: rule 0 + the structural rule 1, decided BEFORE the rule-3
+  (dependence) cap that stops `Collections.unmodifiableList`'s view type at FINAL_FIELDS (which cannot tell "rule 1
+  failed" from "only rule 3 failed"); implied by IMMUTABLE_HC; says nothing about hidden content or `@Container`.
+  `UNMODIFIABLE_VIEW_METHOD` / `@UnmodifiableView` (METHOD only; JetBrains' name): the result is such an object. A
+  contract on bodiless methods (the 11 `Collections.unmodifiable*` in the archive), computed from the returned values
+  for a body (a call with the property, an instance of an unmodifiable type, an immutable-HC value, a field proven to
+  hold one, `null`), folded over implementations. Read by nothing in the immutability/independence/container
+  analyses; consumer: the Kotlin printer's `List` vs `MutableList` (`ModificationFacts.unmodifiableResult`), the call
+  staying Java's (`listOf` would copy).
 - **Independence** is a separate axis from immutability: it captures whether a method's return
   value/parameters expose (parts of) the receiver's content. `@Independent` (nothing shared),
   `@Independent(hc=true)` (only hidden content shared), dependent (mutable content shared).
@@ -76,8 +91,10 @@ Rules (each level requires the previous):
   static and instance fields"; inside the primary type, "modifications are modifications". A type that modifies
   its own static counter is `@FinalFields` (the book's `CountAccess`). The only exemptions: `@IgnoreModifications`
   on the static field, and modifications inside a static initializer block (the static fields' constructor).
-  `@StaticSideEffects` is for modifying static calls on state the primary type (with its enclosing and parent
-  types) does NOT own. A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
+  `@StaticSideEffects` is for modifying static state the primary type (with its enclosing and parent
+  types) does NOT own -- directly, or through any callee (static, instance, constructor) that modifies its own
+  type's static state: `Client` calling `Counter.next()` is one, `Counter.next()` itself is not
+  (CodeLaser/maddi-mod#65; computed from the per-method set `STATIC_STATE_MODIFIED_METHOD`). A singleton follows the normal rules unless `@IgnoreModifications` is on the field giving
   access to it. Since 2026-09-23 the hc-free check (`instanceFieldTypesDeeplyImmutable`) counts statics too.
 - **Self-referencing fields** (declared type = the type itself) are skipped for rules 1 and 2, for the hc label, and
   in the independence that FEEDS the immutability rule (`independentIgnoringSelfFields`) -- never for rule 0
@@ -185,9 +202,21 @@ immutability verdicts are derived.
   external unannotated types, and transitively CASCADING through field types) is pessimistic, and the
   type concludes FINAL_FIELDS instead of staying undecided. This eliminated the "type-null clusters"
   (51% of elasticsearch's 45k types; 100% coverage on guava after).
+- **After the fixpoint — the reachability passes** (book 108 §After the fixpoint). (1) **MODREACH**
+  (`ShadowModificationPass`, ON by default in `AnalysisEngineImpl`; the diagnostics harnesses and refactor-service
+  do not turn it on): re-derives NON_MODIFYING_METHOD / UNMODIFIED_PARAMETER / UNMODIFIED_FIELD from primitive
+  evidence + converged links; a *cutover* downgrades frozen optimistic TRUEs past `TolerantWrite` (the one
+  sanctioned non-monotone write), freezes the three, clears the derived immutability/independence/container family,
+  re-derives and re-certifies; up to `MODREACH_ROUNDS`=3. Seeds: a walkable body (in order, non-empty, not
+  union-over-implementations, not opaque) is seeded from primitive evidence, not from its callers' summaries
+  (b265dc8f, 2026-10-20, maddi-mod#55: a parameter a recursion cycle only reads stays unmodified); an array
+  expression (`DependentVariable` without `arrayVariable()`) taints instead of failing the pass (5512762c).
+  Diagnostics: `MODREACH_EXPLAIN`, `MODREACH_TAINT=<substring>`. (2) **NullabilityPass**, one-shot after the
+  cutover (§Nullability).
 - **Analysis hints** (annotated APIs): curated JDK properties (String=@Immutable, Object=@ImmutableHC,
-  collections mutable, functional interfaces with link summaries), loaded AFTER parse via
-  `--preload-analysis-results-dirs`, pre-seeding the property store. Without them the positive
+  collections mutable, functional interfaces with link summaries), loaded AFTER parse — by default since 0.9.5
+  (the shipped `openjdk.jar` + `libs.jar`; `--preload-analysis-results-dirs none` opts out, `default,<dir>` adds),
+  pre-seeding the property store. Without them the positive
   immutability side barely concludes.
 - **Fault tolerance**: statement/method-level containment (degrade to shallow summary), tight-ceiling
   cycle protection (throw + shallow fallback; generous ceilings cause downstream grind), producer-side
@@ -199,6 +228,53 @@ immutability verdicts are derived.
   (per-element verdict dump), `MLTRACE`, many link-module gates (read once via `Gate`).
 - **Golden rule**: engine/performance changes are accepted only with a byte-identical FPDUMP A/B
   (modulo the documented constructor non-confluence). Speed never buys verdict changes.
+
+## Nullability (chapter 085; `maddi-modification-analyzer` package `nullability`, docs/design/nullability.md in maddi-mod)
+
+- **Three states** (`NullableState`): `NULLABLE`, `NONNULL`, `UNSPECIFIED` ("nobody said"; NOT a synonym for
+  nullable). Properties `NULLABILITY_FIELD/PARAMETER/METHOD` (value `Value.Nullability`: the state of the
+  value and, recursively, of each type argument; an array's one argument is its elements: `String?[]` is
+  `N(Q)`). `NOT_NULL_*` is GONE (2026-10-06). Locals get verdicts too (`Report.local`).
+- **Reachability over the converged link facts**, a one-shot pass AFTER certification (`NullabilityPass`,
+  modelled on the modification reachability pass): seeds (null literals; fields that can hold the default
+  value; `new T[n]`; library nullable results from the hints; nullable contracts; by default a parameter/field
+  compared with null — `Policy.nullTests`) → edges (direct links in each method's variable data, per-call
+  argument links, override chains: one parameter nullability per chain, returns narrow downward) → reached =
+  NULLABLE, unreached = `Policy.unreached` (NONNULL in the `@NullMarked` reading). Rounds: an unreached
+  analysed return is trusted non-null at its call sites next round (monotone, ≤5).
+- **Use-site facts** (`NonNullFacts`, flow-sensitive forward walk per method): known-non-null locals,
+  parameters and fields of `this` per statement (null tests, dereferences, `requireNonNull`, null-check
+  predicates `NullPredicates`, assignments of non-null values; `&&`/`||`/`?:` inside a statement). An edge
+  is not taken where its source is guarded. `kotlinSmartCasts()` restricts to what Kotlin derives.
+- **Content**: `Content(node)` for array elements, `Arg(node, i)` per type argument, from the hidden-content
+  variables (`list.§$s` = arg 0, `map.§$$s[-1]`/`[-2]` = keys/values, `box.t`) and writes into a generic
+  receiver (`add`, `put`); flows between generic values tie the slots both ways (invariance).
+- **World** (`Policy.world`): `CLOSED` (default; a parameter no analysed call passes null to is NONNULL),
+  `OPEN` (outside-callable parameters UNSPECIFIED unless a *precondition*: dereferenced/required/rejected on
+  every normal exit). Preconditions are computed per override family and reported with the calls that may
+  pass null (`Report.preconditions`, `nullArguments`).
+- **Contracts**: JSpecify/JetBrains/Checker/JSR-305/Lombok annotations and `@NullMarked` scope are read
+  (`DeclaredNullability`); a nullable contract seeds, a non-null one stops null (the caller's error). The JDK
+  hints carry JSpecify's annotated JDK, one level down (`nullableArguments`).
+- **Java output** (`NullabilityDecorator`, flavours JSpecify/Checker/JetBrains/JSR-305/maddi): TOP-LEVEL state
+  only today (an array's elements in a TYPE_USE flavour; type arguments `List<@Nullable String>` not yet);
+  `@NullUnmarked` for an UNSPECIFIED method only in JSpecify; an UNSPECIFIED field is written `@Nullable`.
+  Not exposed on the CLI/plugins in 0.9.5 (reaches users through `--translate`).
+- **Presets**: `NULL_MARKED` (Java annotations), `KOTLIN` (= NULL_MARKED + `assertContentWrites`,
+  `callResults`, `assertAtDeclaration`, `libraryCallbacks`: the printer asserts `!!` at a content write or a
+  declaration instead of making the slot nullable; each moves an NPE, never removes one), C# = KOTLIN +
+  `preconditionsNonNull`. `CAUTIOUS` leaves unreached UNSPECIFIED.
+- **Engine support, inert for modification** (ch. 105 §Null as a value): null constant markers `$_ceN`;
+  `LinkComputer.Options.nullConstantReturns` keeps a marker-only return in the summary; a marker composes
+  as assigned-from only, never as a member; `Link.derived()` (direct vs closure-composed), the pass reads
+  direct links; `trackObjectCreations` for per-call argument links. All switched on by the analyzer's
+  `Configuration.nullability()`; off by default (FPDUMP golden rule).
+- **Oracle**: guava's own JSpecify annotations, scored as *unsafe* (inferred NONNULL, declared nullable)
+  and *noise* (the reverse); baselines all-non-null 2,515 unsafe, all-nullable 13,272 noise, over 15,787
+  top-level positions. First closed-world table (2026-10-07): 13,306 agree / 354 unsafe / 233 noise, OPEN 166
+  unsafe; after type arguments, elements and the JSpecify-generated JDK hints (2026-10-13): NULL_MARKED 341
+  unsafe / 1,740 noise, OPEN 211 unsafe. Second oracle: kotlinc/Roslyn on the translated corpora (the J2K/C#
+  ratchets: fernflower, langchain4j, guava, nacos, jenkins, timefold).
 
 ## Engine facts an LLM should not re-derive wrongly
 
@@ -227,16 +303,20 @@ immutability verdicts are derived.
   (the JDK's 19 view factories are `@NotModified @Independent(dependentReturnValue = true)`). The reachability pass
   does not follow plain `≡` from a local; a local initialised with such a call follows the callee's `rv.§m ≡ p.§m`
   link to the argument (`ShadowModificationPass.projectViewLocal`, gate `NOVIEWLOCAL`).
+  The unmodifiable views (`Collections.unmodifiable*`, 11) carry the same parameter annotation (CodeLaser/maddi-mod#60),
+  and independence judges a plain `≡` between modification faces as the whole field (`LinkToField.linkedType`):
+  `return Collections.unmodifiableList(this.list)` is dependent, a read-only view of a mutable list.
 - A variable's links at a statement are null only while UNDECIDED. A merge (after an if/else, loop, …) whose
   evaluation and sub-blocks carry no links for a variable gets EMPTY links, not null: left null, a field only read in
   the condition of a method's last statement kept the field's links undecided until cycle breaking wrote them EMPTY,
   an optimistic @Independent (since 2026-09).
-- **Chapter 14 "Other annotations" is mostly aspirational — do not assume those annotations work.**
-  Only `@Identity`/`@Fluent` are computed (`TypeModIndyAnalyzerImpl`). `@NotNull`/`@Nullable`,
+- **Chapter "Other annotations" is mostly aspirational — do not assume those annotations work.**
+  Only `@Identity`/`@Fluent` are computed there (`TypeModIndyAnalyzerImpl`; `@Fluent` also via `@GetSet`).
   `@UtilityClass` and `@Finalizer` are read as *contracts* by `AnnotationToProperty` (and shown by
-  `DecoratorImpl`) but never inferred. `@Singleton` and `@ExtensionClass` exist in `maddi-support`
-  but have no property and are read by nothing. The chapter carries per-section status markers as
-  of 2026-07-23.
+  `DecoratorImpl`) but never inferred; `@UtilityClass` forces IMMUTABLE + INDEPENDENT on the type. `@Singleton`
+  and `@ExtensionClass` exist in `maddi-annotation` but have no property and are read by nothing. Not in the
+  book at all, but live (read by `AnnotationToProperty`): `@Commutable`, `@GetSet`, `@Docstring(s)`. `@NotNull`/`@Nullable` left the chapter on 2026-10-23: they ARE computed, by the nullability
+  pass (chapter 085 below).
 - **The reachability pass (MODREACH) follows no element link for a parameter**: its E1/E2 projections walk
   assignment links only, so under MODREACH the published DEEP `UNMODIFIED_PARAMETER` of a walkable body never
   records an element-only modification (`for (Item i : items) i.touch()` reads unmodified); the fixpoint's
@@ -255,6 +335,18 @@ immutability verdicts are derived.
 - Interfaces: extensible ⇒ hidden content ⇒ at best `@Immutable(hc=true)`; a constants-only interface
   deserves immutability (no instance fields).
 - Stateless lambdas/anonymous classes currently stay at FINAL_FIELDS (known conservative gap).
+- **Loggers are `@Container`s, not immutable** (2026-10-22, maddi b1cba7ec1; slf4j, java.util.logging,
+  System.Logger): a log call writes into buffers we do not care about, so the log methods carry method-level
+  `@IgnoreModifications` (IGNORE_MODIFICATION_METHOD: receiver modification skipped, parameters unaffected);
+  queries (`isDebugEnabled`, `getName`, `atLevel`…) are `@NotModified`; `setLevel` and configuration stay plain
+  modifying. `@StaticSideEffects` is ONLY for a modification of static state the caller does not own
+  (`System.setOut`) — never contracted on an instance method like `logger.info`, nor on `java.util.logging`.
+- **No `java.util.function` special case in the source analysis.** The implicit `@IgnoreModifications` on
+  functional-interface parameters is a SHALLOW default (`ShallowMethodAnalyzer.computeParameterIgnoreModifications`,
+  `FunctionTypes.isLibraryFunctionType`: the standard interfaces plus any `@FunctionalInterface` extending or shaped
+  like one); source lambdas are handled by link lifting (§The link system).
+- **Transparent types are not detected**: book 050's `OddPair` is `@FinalFields @Container` (dependent constructor
+  and getters), not `@ImmutableContainer(hc=true)`; the substitution by a type parameter is the programmer's.
 - **When immutability is the focus, analyze as many dependencies as SOURCE as possible, not as jars.**
   A type read shallowly (a compiled jar without an annotated API) gets conservative modification
   verdicts: an unannotated read accessor never establishes `@NotModified`, so a field read *directly*
@@ -268,8 +360,8 @@ immutability verdicts are derived.
 ## Document map (src/docs/asciidoc/sections/)
 
 Tutorial: 010 introduction · 020 final fields · 030 modification · 040 containers ·
-045 linking & dependence · 050 immutability · 060 eventual (contracted, not computed; see note) ·
-070 modification part 2 · 080 hidden content.
+045 linking & dependence · 050 immutability (incl. §Unmodifiable views) · 060 eventual (computed; §Eventual) ·
+070 modification part 2 · 080 hidden content · **085 nullability** (computed; this file's §Nullability).
 Technical: **105 the link system** · **108 convergence (iterating analyzer)**.
 Practice: 110 support classes · 115 the analyzer's own code · 120 other annotations ·
 appendix A annotation overview. (090/100 exist on disk but are excluded: pre-sv terminology.)

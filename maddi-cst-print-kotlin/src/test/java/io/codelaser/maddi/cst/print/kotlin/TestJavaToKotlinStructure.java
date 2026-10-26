@@ -53,6 +53,348 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             }
             """;
 
+    /**
+     * nacos's AbstractRequestCallBack implements the raw RequestCallBack: a supertype takes no star projection, its
+     * erasure's Any?. And RequestMeta's {@code if (abilityTable.get(key))} of a Map<String, Boolean>: unboxed, asserted.
+     */
+    @Test
+    public void rawSupertypeAndBoxedCondition() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Response { }
+                interface CallBack<T extends Response> { void onResponse(T response); }
+                @SuppressWarnings("rawtypes")
+                abstract class AbstractCallBack implements CallBack {
+                    long timeout;
+                }
+                @SuppressWarnings({"rawtypes", "unchecked"})
+                class Future {
+                    CallBack callBack;
+                    void done(Response response, Map map) {
+                        callBack.onResponse(response);
+                        map.put("k", response);
+                    }
+                }
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    int status(String key) {
+                        if (abilities.get(key)) return 1;
+                        return 0;
+                    }
+                }
+                """);
+        contains(kotlin, "AbstractCallBack : CallBack<Response>");
+        contains(kotlin, "(callBack as CallBack<Response>).onResponse(response)");
+        contains(kotlin, "(map as MutableMap<Any?, Any?>).put(");
+        contains(kotlin, "if (abilities.get(key)!!)");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's RequestMeta, {@code abilityTable.get(key) ? SUPPORTED : NOT_SUPPORTED}, and DistroLoadDataTask's
+     * {@code !loadCompletedMap.get(each)}, of a Map<String, Boolean>: unboxed by Java, asserted, as an if's
+     * condition is.
+     */
+    @Test
+    public void boxedConditionInExpressions() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    Map<String, Boolean> abilities = new HashMap<>();
+                    String status(String key) {
+                        return abilities.get(key) ? "on" : "off";
+                    }
+                    boolean pending(String key) {
+                        return !abilities.containsKey(key) || !abilities.get(key);
+                    }
+                }
+                """);
+        contains(kotlin, "if (abilities.get(key)!!)");
+        contains(kotlin, "!abilities.get(key)!!");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's DumpService: {@code registerSubscriber(new Subscriber() {…})} and ServerLoaderController's
+     * {@code new RequestCallBack() {…}}, anonymous classes of a raw supertype: erased as a named class's header is,
+     * so that onEvent(Event) overrides.
+     */
+    @Test
+    public void rawAnonymousSupertype() {
+        String kotlin = kotlin("""
+                package a;
+                class Event { }
+                abstract class Subscriber<T extends Event> {
+                    abstract void onEvent(T event);
+                }
+                interface CallBack<T extends Event> { void onResponse(T response); }
+                @SuppressWarnings("rawtypes")
+                class Dump {
+                    static void register(Subscriber subscriber) { }
+                    static void call(CallBack callBack) { }
+                    void init() {
+                        register(new Subscriber() {
+                            @Override
+                            void onEvent(Event event) { }
+                        });
+                        call(new CallBack() {
+                            @Override
+                            public void onResponse(Event response) { }
+                        });
+                    }
+                }
+                """);
+        contains(kotlin, "object : Subscriber<Event>()");
+        contains(kotlin, "object : CallBack<Event>");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's DefaultGrpcClientConfig: {@code private String name} beside {@code name()} of the RpcClientConfig
+     * interface. No enum implements the interface, so its {@code name()} stays a function, and the field keeps its
+     * name beside it (where it is a property, the field is renamed, as an enum's is).
+     */
+    @Test
+    public void nameFieldBesideNameProperty() {
+        String kotlin = kotlin("""
+                package a;
+                interface ClientConfig {
+                    String name();
+                }
+                class GrpcConfig implements ClientConfig {
+                    private String name = "grpc";
+                    @Override
+                    public String name() {
+                        return this.name;
+                    }
+                    public void setName(String name) {
+                        this.name = name;
+                    }
+                }
+                """);
+        contains(kotlin, "private var name: String = \"grpc\"");
+        contains(kotlin, "override fun name(): String = this.name");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's {@code @Extension(ordinal = 1000)}: an int into the annotation's {@code double ordinal()}, which Java
+     * widens and Kotlin does not.
+     */
+    @Test
+    public void annotationValueWidened() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Extension {
+                    double ordinal() default 0;
+                    long size() default 1;
+                }
+                @Extension(ordinal = 1000, size = 2)
+                class Impl { }
+                @Extension(ordinal = -1)
+                class Low { }
+                """);
+        contains(kotlin, "ordinal = 1000.0");
+        contains(kotlin, "ordinal = -1.0");
+        contains(kotlin, "val ordinal: Double = 0.0");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's CLICommand.handleException: a switch of type patterns, {@code case CmdLineException c -> …}, a guarded
+     * one, and {@code case null, default}: Kotlin's {@code is} arms, the pattern variable the smart-cast selector,
+     * a guard's {@code if}, and else.
+     */
+    @Test
+    public void typePatternSwitch() {
+        String kotlin = kotlin("""
+                package a;
+                class Handler {
+                    static int exitCode(Throwable e) {
+                        int code;
+                        switch (e) {
+                            case IllegalArgumentException iae -> code = iae.getMessage() == null ? 2 : 3;
+                            case IllegalStateException ise when ise.getCause() != null -> code = 4;
+                            case RuntimeException re -> {
+                                code = 5;
+                                System.out.println(re.getMessage());
+                            }
+                            case null, default -> code = 1;
+                        }
+                        return code;
+                    }
+                    static String kind(Object o) {
+                        return switch (o) {
+                            case String s -> s.trim();
+                            case Integer i -> Integer.toString(i + 1);
+                            default -> "?";
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "is IllegalArgumentException ->");
+        contains(kotlin, "is IllegalStateException if ");
+        contains(kotlin, "is String -> o.trim()");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's RpcConstants.ClientSuffix: a member class, not static, of constants only. Kotlin's inner class can have
+     * no companion object; nothing of it uses the outer instance, so it is a nested class.
+     */
+    @Test
+    public void innerConstantHolder() {
+        String kotlin = kotlin("""
+                package a;
+                public class Constants {
+                    public static final String PREFIX = "rpc" + Suffix.TLS;
+                    public class Suffix {
+                        public static final String TLS = ".tls";
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("inner"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's ServerMemberManager.MemberInfoReportTask and TcpHealthCheckProcessor.TaskProcessor: an inner class with
+     * instance members and a static constant. Kotlin's inner class has no companion object; the constant goes to the
+     * enclosing class's, where the inner class finds it by its simple name.
+     */
+    @Test
+    public void innerClassConstantHoisted() {
+        String kotlin = kotlin("""
+                package a;
+                public class Manager {
+                    private long last;
+                    class ReportTask implements Runnable {
+                        public static final long REPORT_INTERVAL = 50000L;
+                        private long reported;
+                        @Override
+                        public void run() {
+                            if (System.currentTimeMillis() - last > REPORT_INTERVAL) reported++;
+                        }
+                    }
+                    class Processor {
+                        private static final int MAX_WAIT = 500;
+                        int waited;
+                        boolean late() { return waited > MAX_WAIT; }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class ReportTask");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's BaseHttpMethod and ConnectionType: an enum's own {@code name} field, which would hide Kotlin's
+     * Enum.name: renamed, as a field clashing with a mapped property is.
+     */
+    @Test
+    public void enumNameField() {
+        String kotlin = kotlin("""
+                package a;
+                enum Method {
+                    GET("get"), POST("post");
+                    private final String name;
+                    Method(String name) {
+                        this.name = name;
+                    }
+                    public String getName() {
+                        return name;
+                    }
+                    static Method of(String name) {
+                        for (Method m : values()) {
+                            if (m.name.equals(name)) return m;
+                        }
+                        throw new IllegalArgumentException(name);
+                    }
+                }
+                """);
+        contains(kotlin, "_name");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's RequestMeta: double-brace initialization, {@code new HashMap<String, String>(8) {{ put(…); }}}, an
+     * anonymous subclass with an instance initializer: an object expression whose init block puts.
+     */
+    @Test
+    public void doubleBraceInitialization() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Meta {
+                    String version = "1";
+                    Map<String, String> labels() {
+                        return new HashMap<String, String>(8) {
+                            {
+                                put("version", version);
+                                put("name", "x");
+                            }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "init {");
+        assertFalse(kotlin.contains("constructor()"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's AbstractHealthChecker, annotated with its own nested class ({@code defaultImpl = None.class}), which
+     * Kotlin resolves outside the class: AbstractHealthChecker.None. And NacosInjected's {@code default @NacosProperties},
+     * an annotation instance: NacosProperties().
+     */
+    @Test
+    public void annotationsNamingNestedClassesAndAnnotationDefaults() {
+        String kotlin = kotlin("""
+                package a;
+                import a.Checker.None;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME) @interface Impl { Class<?> value(); String name() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Props { String endpoint() default ""; }
+                @Retention(RetentionPolicy.RUNTIME) @interface Injected { Props properties() default @Props; }
+                @Impl(value = None.class, name = None.TYPE)
+                abstract class Checker {
+                    static class None extends Checker { static final String TYPE = "NONE"; }
+                }
+                """);
+        contains(kotlin, "Checker.None::class");
+        contains(kotlin, "Checker.None.TYPE");
+        contains(kotlin, "= Props()");
+        compiles(kotlin);
+    }
+
+    /**
+     * nacos's NacosProperties: an annotation type whose constants concatenate other constants, and whose parameters
+     * default to them: {@code const val}s, as Kotlin wants for an annotation parameter's default.
+     */
+    @Test
+    public void annotationDefaultsOfConcatenatedConstants() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.*;
+                @Retention(RetentionPolicy.RUNTIME)
+                @interface Props {
+                    String PREFIX = "nacos.";
+                    String ENDPOINT = "endpoint";
+                    String ENDPOINT_PLACEHOLDER = "${" + PREFIX + ENDPOINT + ":}";
+                    int TIMEOUT = 30 * 1000;
+                    String endpoint() default ENDPOINT_PLACEHOLDER;
+                    int timeout() default TIMEOUT;
+                }
+                """);
+        contains(kotlin, "const val ENDPOINT_PLACEHOLDER: String");
+        contains(kotlin, "const val TIMEOUT: Int");
+        compiles(kotlin);
+    }
+
     /** Kotlin inherits no statics: they go to a companion object, and one inherited from a supertype is qualified. */
     @Test
     public void staticsInCompanion() {
@@ -322,7 +664,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             class F {
                 boolean any(List<String> names, Map<String, List<String>> m, String x) {
                     return names.stream().map(m::get).filter(Objects::nonNull).anyMatch(l -> l.contains(x))
-                           || names.stream().map(m::get).filter(l -> l != null).anyMatch(l -> l.isEmpty());
+                           || names.stream().map(m::get).filter(l -> l != null).anyMatch(l -> l.isEmpty())
+                           || names.stream().map(m::get).filter(l -> l != null && l.size() > 1).anyMatch(l -> l.isEmpty());
                 }
             }
             """;
@@ -333,6 +676,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         String kotlin = kotlin(NON_NULL_FILTER);
         contains(kotlin, "filter(Objects ::nonNull).map { it!! }");
         contains(kotlin, "filter( { l -> l != null }).map { it!! }");
+        // jenkins's LogRotator: the test in a conjunction
+        contains(kotlin, "l.size > 1 }).map { it!! }");
+        compiles(kotlin);
     }
 
     @Language("java")
@@ -495,6 +841,246 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "fun isRepresentable(map: Map<String, Any>, allowedKeys: Set<String>): Boolean");
         // ThreadLocal<MutableMap<String, Any>>.set(value: T): the receiver's T is the mutable type
         contains(kotlin, "fun keep(map: MutableMap<String, Any>)");
+    }
+
+    /**
+     * A collection handed to a passed function is unmodified, with an entry in MODIFIED_THROUGH_PASSED_FUNCTION
+     * (CodeLaser/maddi-mod#67, #69): the caller's function decides. Handed whole, it is the argument of the function's
+     * {@code T}, which takes the mutable type it was declared with: it stays mutable whatever the verdict. Only an
+     * element handed on leaves the collection read-only.
+     */
+    @Test
+    public void passedFunction() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.List;
+                import java.util.function.Function;
+                final class C {
+                    static int whole(List<String> list, Function<List<String>, Integer> f) { return f.apply(list); }
+                    static int element(List<String> list, Function<String, Integer> f) { return f.apply(list.get(0)); }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> {
+            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+            p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.STRUCTURALLY_UNMODIFIED_PARAMETER,
+                    io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE);
+        })));
+        contains(kotlin, "fun whole(list: MutableList<String>,");
+        contains(kotlin, "fun element(list: List<String>,");
+    }
+
+    /**
+     * guava's ImmutableIntArray.Builder: addAll(Iterable), where it is modified, stays mutable; the addAll(Collection)
+     * it calls then stays mutable too, or a MutableCollection argument fits both, neither more specific in Kotlin.
+     */
+    @Test
+    public void overloadReadOnlyOnlyWithTheWiderOne() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class B {
+                    int n;
+                    B addAll(Iterable<Integer> values) {
+                        if (values instanceof Collection) return addAll((Collection<Integer>) values);
+                        Iterator<Integer> it = values.iterator();
+                        while (it.hasNext()) { n += it.next(); it.remove(); }
+                        return this;
+                    }
+                    B addAll(Collection<Integer> values) { n += values.size(); return this; }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().stream()
+                .filter(p -> p.parameterizedType().typeInfo().simpleName().equals("Collection"))
+                .forEach(p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * As {@link #overloadReadOnlyOnlyWithTheWiderOne}, as guava has it: addAll(Iterable) only reads its values, both
+     * are unmodified. The Iterable's read-only form is Kotlin's Iterable, of which a cast MutableCollection is a
+     * subtype as much as of Collection: the two print as one, both read-only or both mutable.
+     */
+    @Test
+    public void overloadsReadOnlyTogether() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class B {
+                    int n;
+                    B addAll(Iterable<Integer> values) {
+                        if (values instanceof Collection) return addAll((Collection<Integer>) values);
+                        for (Integer value : values) n += value;
+                        return this;
+                    }
+                    B addAll(Collection<Integer> values) { n += values.size(); return this; }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(p -> p.analysis().set(
+                io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun addAll(values: MutableCollection<Int>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's FilteredEntryMultimap.AsMap, an AbstractMap<K, Collection<V>>: remove(Object key) and containsValue's
+     * Object take the type argument as it is, MutableCollection<V>, not addAll's read-only Collection<E>; ArrayTable's
+     * ColumnMap.put(key, value: V) with V a Map takes MutableMap.
+     */
+    @Test
+    public void mappedOverrideOfACollectionTypeArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class AsMap<K, V> extends AbstractMap<K, Collection<V>> {
+                    public Set<Map.Entry<K, Collection<V>>> entrySet() { return new HashSet<>(); }
+                    public boolean containsValue(Object value) { return false; }
+                    public Collection<V> put(K key, Collection<V> value) { throw new UnsupportedOperationException(); }
+                }
+                """);
+        contains(kotlin, "override fun containsValue(value: MutableCollection<V>): Boolean");
+        contains(kotlin, "override fun put(key: K, value: MutableCollection<V>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ObjectArrays.toArrayImpl(Collection<?> c): c only read, but passed on to fillArray(Iterable<?>), whose
+     * translated parameter is a MutableIterable: c stays a MutableCollection.
+     */
+    @Test
+    public void readOnlyNotIntoATranslatedIterable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Arr {
+                    static int toArrayImpl(Collection<?> c) { return fillArray(c, c.size()); }
+                    private static int fillArray(Iterable<?> elements, int n) {
+                        for (Object element : elements) n += element.hashCode();
+                        return n;
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun toArrayImpl(c: MutableCollection<*>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's Fingerprint.getFacets: Iterators.sequence(facets.iterator(), transientFacets.iterator()), whose
+     * translated varargs parameter is a MutableIterator: what is iterated stays mutable.
+     */
+    @Test
+    public void readOnlyNotIntoATranslatedIteratorVarargs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Its {
+                    static Iterator<String> both(Collection<String> a, Collection<String> b) {
+                        return sequence(a.iterator(), b.iterator());
+                    }
+                    @SafeVarargs
+                    private static <T> Iterator<T> sequence(Iterator<? extends T>... iterators) {
+                        List<T> all = new ArrayList<>();
+                        for (Iterator<? extends T> it : iterators) while (it.hasNext()) all.add(it.next());
+                        return all.iterator();
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "fun both(a: MutableCollection<String>, b: MutableCollection<String>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's RegularImmutableMap.fromEntryArrayCheckingBucketOverflow: {@code Entry[] entries = n == entryArray.length
+     * ? entryArray : new Entry[n]}, an invariant local: entryArray escapes through the conditional, and stays invariant.
+     */
+    @Test
+    public void arrayParameterEscapingThroughAConditional() {
+        String kotlin = kotlin("""
+                package a;
+                final class R {
+                    static int fill(int n, String[] entryArray) {
+                        String[] entries = n == entryArray.length ? entryArray : new String[n];
+                        entries[0] = "x";
+                        return entries.length;
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("Array<out"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Sets.union: {@code Iterator<? extends E> itr1 = set1.iterator()} in an anonymous AbstractIterator, set1
+     * a read-only Set, the field only advanced: Kotlin's read-only Iterator.
+     */
+    @Test
+    public void advancedOnlyIteratorField() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class U {
+                    static <E> Iterator<E> union(Set<? extends E> set1) {
+                        return new Iterator<E>() {
+                            final Iterator<? extends E> itr1 = set1.iterator();
+                            public boolean hasNext() { return itr1.hasNext(); }
+                            public E next() { return itr1.next(); }
+                        };
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "union(set1: Set<out E>)");
+        contains(kotlin, "val itr1: Iterator<out E> = set1.iterator()");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.removeOnlySet(Set<E> set): a ForwardingSet whose delegate() returns set, a MutableSet: the
+     * anonymous class's use counts, and set stays mutable.
+     */
+    @Test
+    public void parameterReturnedByAnAnonymousClassStaysMutable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Supplier;
+                final class M {
+                    static <E> Supplier<Set<E>> removeOnly(Set<E> set) {
+                        return new Supplier<Set<E>>() {
+                            public Set<E> get() { return set; }
+                        };
+                    }
+                }
+                """, type -> type.methods().forEach(m -> m.parameters().forEach(
+                p -> p.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.UNMODIFIED_PARAMETER,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE))));
+        contains(kotlin, "removeOnly(set: MutableSet<E>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ObjectArrays.newArray(T[] reference, int length): {@code T[] empty = reference.length == 0 ? reference :
+     * Arrays.copyOf(reference, 0)}, the local only handed to Arrays.copyOf: reference stays Array<out T>.
+     */
+    @Test
+    public void arrayParameterThroughAReadOnlyLocal() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Arrays;
+                final class O {
+                    static <T> T[] newArray(T[] reference, int length) {
+                        T[] empty = reference.length == 0 ? reference : Arrays.copyOf(reference, 0);
+                        return Arrays.copyOf(empty, length);
+                    }
+                }
+                """);
+        contains(kotlin, "reference: Array<out T>");
+        compiles(kotlin);
     }
 
     /**
@@ -1232,7 +1818,8 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
             notModified(type, "size");
         });
         contains(kotlin, "private val names: List<String>");
-        contains(kotlin, "private val counts: Map<String, Int> = mapOf(\"a\" to 1, \"b\" to 2)");
+        // Map.of's iteration order is Java's own, not mapOf's insertion order: Java's call stays
+        contains(kotlin, "private val counts: Map<String, Int> = java.util.Map.of(\"a\", 1, \"b\", 2)");
         contains(kotlin, "private val none: Set<String> = emptySet()");
         contains(kotlin, "fun names(): List<String> = names");
         contains(kotlin, "fun letters(): List<String> = listOf(\"a\", \"b\")");
@@ -1535,8 +2122,9 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 }
                 """);
         assertFalse(kotlin.contains("import java.lang.reflect.Array"), kotlin);
-        contains(kotlin, "java.lang.reflect.Array.newInstance(");
+        contains(kotlin, "java.lang.reflect.Array\n            .newInstance(");
         contains(kotlin, "Array<Array<T");
+        contains(kotlin, "reference: Array<out T>");
         compiles(kotlin);
     }
 
@@ -1662,6 +2250,28 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * An inner class of a generic class named outside it, {@code G<String>.In}: Kotlin's type has the outer class's
+     * type argument on the outer class too. {@code G.In} lacks it ("one type argument expected").
+     */
+    @Test
+    public void innerOfGenericClassNamedOutsideIt() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class C {
+                        String pass(G<String>.In x) { return x.get(); }
+                    }
+                }
+                """);
+        contains(kotlin, "x: G<String>.In");
+        compiles(kotlin);
+    }
+
+    /**
      * guava's Maps.FilteredEntrySortedMap.SortedKeySet extends FilteredEntryMap's inner KeySet: an inner class whose
      * superclass is an inner class of a generic superclass of its outer class.
      */
@@ -1680,6 +2290,34 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                     }
                 }
                 """);
+        compiles(kotlin);
+    }
+
+    /**
+     * Java's {@code g.new In()} outside the outer class is Kotlin's {@code g.In()}: the constructor of an inner class
+     * is reached through the outer instance by its simple name.
+     */
+    @Test
+    public void innerClassConstructedOutsideItsOuterClass() {
+        String kotlin = kotlin("""
+                package a;
+                class Top {
+                    static class G<K> {
+                        K last;
+                        class In { K get() { return last; } }
+                    }
+                    static class A {
+                        int n;
+                        class In { int get() { return n; } }
+                    }
+                    static class C {
+                        Object make(G<String> g) { return g.new In(); }
+                        Object make(A a) { return a.new In(); }
+                    }
+                }
+                """);
+        contains(kotlin, "g.In()");
+        contains(kotlin, "a.In()");
         compiles(kotlin);
     }
 
@@ -1743,6 +2381,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "map.remove((key as K?))");
         contains(kotlin, "values.contains((value as V?))");
+        compiles(kotlin);
+    }
+
+    /**
+     * A V looked up in a Set<V> or a Map<V, String>: Java's contains and get take an Object, and a null V finds
+     * nothing (false, null). Kotlin's member takes the V itself, which may be null: no `!!`, which would throw.
+     */
+    @Test
+    public void sameTypeVariableLookupNotAsserted() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Look<V> {
+                    private final Set<V> values = new HashSet<>();
+                    private final Map<V, String> names = new HashMap<>();
+                    boolean hasValue(V v) { return values.contains(v); }
+                    boolean named(V v) { return names.get(v) != null; }
+                    boolean add(V v) { return values.add(v); }
+                }
+                """);
+        contains(kotlin, "values.contains(v)");
+        contains(kotlin, "names.get(v) != null");
+        contains(kotlin, "values.add(v)");
+        assertFalse(kotlin.contains("v!!"), () -> "a null v finds nothing in Java; the printed Kotlin asserts it non-null:\n" + kotlin);
         compiles(kotlin);
     }
 
@@ -1880,6 +2542,338 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
     }
 
     /**
+     * guava's DenseImmutableTable.Column, an inner AbstractMap: {@code values[keyIndex]} reads the outer table's
+     * field in Java; in Kotlin, values is the inherited Map property.
+     */
+    @Test
+    public void outerFieldNamedAsAnInheritedMappedProperty() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Table {
+                    private final String[] values = new String[3];
+                    class Column extends AbstractMap<Integer, String> {
+                        String at(int i) { return values[i]; }
+                        @Override public Set<Map.Entry<Integer, String>> entrySet() { return Collections.emptySet(); }
+                    }
+                }
+                """);
+        contains(kotlin, "this@Table.values[i]");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's HashBiMap.entryIterator(): an anonymous BiIterator declares {@code class MapEntry}, an inner class of
+     * the anonymous class. Kotlin's object expression takes no nested class: an inner one.
+     */
+    @Test
+    public void classInsideAnAnonymousClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bi<K> {
+                    K first;
+                    abstract static class It<T> { abstract T output(int i); }
+                    It<Object> iterator() {
+                        return new It<Object>() {
+                            @Override Object output(int i) { return new Entry(i); }
+                            class Entry {
+                                final int index;
+                                Entry(int index) { this.index = index; }
+                                K key() { return first; }
+                            }
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "inner class Entry");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's DirectedGraphConnections.removeSuccessor(Object node) overrides GraphConnections' removeSuccessor(N node):
+     * Java's override by erasure, Kotlin's takes the overridden parameter, N.
+     */
+    @Test
+    public void overrideByErasure() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                interface Connections<N, V> { V removeSuccessor(N node); }
+                final class Directed<N, V> implements Connections<N, V> {
+                    final Map<N, V> map = new HashMap<>();
+                    @Override public V removeSuccessor(Object node) { return map.remove(node); }
+                }
+                """);
+        contains(kotlin, "override fun removeSuccessor(node: N)");
+        compiles(kotlin);
+        // TreeRangeMap's EMPTY_SUB_RANGE_MAP: putAll(RangeMap<Comparable<?>, ?>) overriding putAll(RangeMap<K, ?
+        // extends V>) of a RangeMap<Comparable<?>, Object>
+        String wildcard = kotlin("""
+                package a;
+                interface RangeMap<K, V> { void putAll(RangeMap<K, ? extends V> rangeMap); }
+                final class Tree {
+                    static final RangeMap<Comparable<?>, Object> EMPTY = new RangeMap<Comparable<?>, Object>() {
+                        @Override public void putAll(RangeMap<Comparable<?>, ?> rangeMap) { }
+                    };
+                }
+                """);
+        contains(wildcard, "putAll(rangeMap: RangeMap<Comparable<*>, out Any");
+        compiles(wildcard);
+    }
+
+    /**
+     * guava's ToDoubleRounder<X extends Number & Comparable<X>>, and a method's {@code <T extends Number &
+     * Comparable<T>>}: Kotlin's where clause, after the supertypes or the result.
+     */
+    @Test
+    public void typeParametersWithTwoBounds() {
+        String kotlin = kotlin("""
+                package a;
+                abstract class Rounder<X extends Number & Comparable<X>> {
+                    abstract X toX(double d);
+                    int compare(X x, double d) { return x.compareTo(toX(d)); }
+                    static <T extends Number & Comparable<T>> T max(T a, T b) { return a.compareTo(b) >= 0 ? a : b; }
+                }
+                """);
+        contains(kotlin, "abstract class Rounder<X> where X : Number, X : Comparable<X>");
+        contains(kotlin, "fun <T> max(a: T, b: T): T where T : Number, T : Comparable<T>");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's AbstractMapBasedMultimap.WrappedList.WrappedListIterator extends WrappedIterator, an inner class of
+     * WrappedCollection, the outer WrappedList's superclass, inside the generic AbstractMapBasedMultimap<K, V>: Kotlin
+     * wants the outer classes' type arguments written.
+     */
+    @Test
+    public void innerClassExtendingAnInnerOfTheOutersSuperclass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Multimap<K, V> {
+                    class WrappedCollection {
+                        final List<V> delegate = new ArrayList<>();
+                        class WrappedIterator {
+                            final Iterator<V> it;
+                            WrappedIterator() { it = delegate.iterator(); }
+                            WrappedIterator(Iterator<V> it) { this.it = it; }
+                            Iterator<V> getDelegateIterator() { return it; }
+                        }
+                    }
+                    class WrappedList extends WrappedCollection {
+                        class WrappedListIterator extends WrappedIterator {
+                            WrappedListIterator() { }
+                            WrappedListIterator(int index) { super(delegate.listIterator(index)); }
+                            ListIterator<V> list() { return (ListIterator<V>) getDelegateIterator(); }
+                        }
+                    }
+                }
+                """);
+        contains(kotlin, "inner class WrappedListIterator : Multimap<K, V>.WrappedCollection.WrappedIterator");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ConcurrentHashMultiset.EntrySet extends AbstractMultiset<E>.EntrySet: the superclass's simple name is
+     * the class's own, which inside it means itself in Kotlin. Qualified by the superclass's outer, with its type
+     * arguments.
+     */
+    @Test
+    public void innerClassExtendingTheSameNamedInnerOfTheOutersSuperclass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Base<E> {
+                    class EntrySet { int size() { return 0; } }
+                }
+                class Concurrent<E> extends Base<E> {
+                    private class EntrySet extends Base<E>.EntrySet { @Override int size() { return 1; } }
+                    int count() { return new EntrySet().size(); }
+                }
+                """);
+        contains(kotlin, "inner class EntrySet : Base<E>.EntrySet()");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Maps.EntrySet.removeAll: {@code Sets.removeAllImpl(this, c.iterator())} of a read-only Collection<*>
+     * parameter, whose iterator() is Kotlin's Iterator; removeAllImpl's translated Iterator parameter is a
+     * MutableIterator. Java's iterator is one: cast.
+     */
+    @Test
+    public void readOnlyCollectionsIteratorIntoAnIteratorParameter() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                final class Sets {
+                    static boolean removeAllImpl(Set<?> set, Iterator<?> iterator) {
+                        boolean changed = false;
+                        while (iterator.hasNext()) changed |= set.remove(iterator.next());
+                        return changed;
+                    }
+                    static final class EntrySet<E> extends AbstractSet<E> {
+                        final Set<E> delegate = new HashSet<>();
+                        @Override public Iterator<E> iterator() { return delegate.iterator(); }
+                        @Override public int size() { return delegate.size(); }
+                        @Override public boolean removeAll(Collection<?> c) { return removeAllImpl(this, c.iterator()); }
+                    }
+                }
+                """);
+        contains(kotlin, "c: Collection<");
+        contains(kotlin, "(c.iterator() as MutableIterator<*>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's MoreExecutors.ScheduledListeningDecorator: its private delegate shadows ListeningDecorator's in Java; in
+     * Kotlin both are internal (private members of nested classes), and the subclass's would hide the other: renamed.
+     */
+    @Test
+    public void fieldShadowingASuperclassField() {
+        String kotlin = kotlin("""
+                package a;
+                final class Executors {
+                    private static class Decorator {
+                        private final Runnable delegate;
+                        Decorator(Runnable delegate) { this.delegate = delegate; }
+                        void run() { delegate.run(); }
+                    }
+                    private static final class Scheduled extends Decorator {
+                        private final Runnable delegate;
+                        Scheduled(Runnable delegate) { super(delegate); this.delegate = delegate; }
+                        void again() { delegate.run(); }
+                    }
+                }
+                """);
+        contains(kotlin, "_delegate");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's ClosingFuture.DeferredCloser: a public class whose private constructor takes a private nested type
+     * into a private field, both internal in Kotlin, which the outer class must reach. A public constructor or
+     * property may not expose the internal type: the header keeps the visibilities.
+     */
+    @Test
+    public void constructorOfAPrivateNestedType() {
+        String kotlin = kotlin("""
+                package a;
+                public final class Outer {
+                    private static final class Inner { }
+                    public static final class Closer {
+                        private final Inner list;
+                        private Closer(Inner list) { this.list = list; }
+                        boolean has() { return list != null; }
+                    }
+                    Closer closer() { return new Closer(new Inner()); }
+                }
+                """);
+        contains(kotlin, "class Closer internal constructor(internal val list: Inner)");
+        compiles(kotlin);
+        // fernflower's ExceptionTable: a private field with a Java getter is a private property, without the
+        // @JvmField a public one takes against the accessor clash
+        String getter = kotlin("""
+                package a;
+                import java.util.*;
+                public class Table {
+                    private final List<String> handlers;
+                    public Table(List<String> handlers) { this.handlers = handlers; }
+                    public List<String> getHandlers() { return handlers; }
+                }
+                """);
+        contains(getter, "class Table(private val handlers: ");
+        assertFalse(getter.contains("@JvmField"), getter);
+        compiles(getter);
+    }
+
+    /**
+     * guava's Types.JavaVersion: {@code static final JavaVersion CURRENT;}, assigned one of the constants in a static
+     * block, is a property of the companion, not an entry.
+     */
+    @Test
+    public void enumFieldOfItsOwnTypeIsNoEntry() {
+        String kotlin = kotlin("""
+                package a;
+                enum Version {
+                    OLD { @Override int level() { return 1; } },
+                    NEW { @Override int level() { return 2; } };
+                    abstract int level();
+                    static final Version CURRENT;
+                    static final Version[] ALL = new Version[]{OLD, NEW};
+                    static {
+                        if (System.getProperty("old") != null) CURRENT = OLD; else CURRENT = NEW;
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("CURRENT;"), kotlin);
+        assertFalse(kotlin.contains("ALL;"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's PublicSuffixTrie.ChunksCharSequence implements CharSequence: Kotlin's length is a property and charAt
+     * the operator get, which the overrides declare; its field length is renamed, as AbstractMapBasedMultiset's size.
+     */
+    @Test
+    public void charSequenceImplementation() {
+        String kotlin = kotlin("""
+                package a;
+                final class Chunks implements CharSequence {
+                    private final String text;
+                    private final int length;
+                    Chunks(String text) { this.text = text; this.length = text.length(); }
+                    @Override public int length() { return length; }
+                    @Override public char charAt(int index) { return text.charAt(index); }
+                    @Override public CharSequence subSequence(int start, int end) { return text.subSequence(start, end); }
+                    @Override public String toString() { return text; }
+                    char first() { return charAt(0); }
+                }
+                """);
+        contains(kotlin, "override val length: Int");
+        contains(kotlin, "override fun get(index: Int): Char");
+        compiles(kotlin);
+    }
+
+    /**
+     * As {@link #inheritedDefaultsChosenExplicitly}, for methods with parameters: guava's FlatMapSpliteratorOfDouble
+     * inherits forEachRemaining(Consumer) from FlatMapSpliterator and as Spliterator's default; SynchronizedMultiset
+     * forEach(Consumer) from SynchronizedCollection and as Multiset's default.
+     */
+    @Test
+    public void inheritedDefaultsWithParametersChosenExplicitly() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.Consumer;
+                abstract class Base<T> {
+                    public void forEachRemaining(Consumer<? super T> action) { }
+                }
+                abstract class Split<T> extends Base<T> implements Spliterator<T> { }
+                interface Each<E> { void each(Consumer<? super E> a); }
+                interface Bag<E> extends Each<E> { @Override default void each(Consumer<? super E> a) { } }
+                class Coll<E> implements Each<E> { @Override public void each(Consumer<? super E> a) { } }
+                class SyncBag<E> extends Coll<E> implements Bag<E> { }
+                """);
+        contains(kotlin, "override fun forEachRemaining(action: Consumer<in T>) = super<Base>.forEachRemaining(action)");
+        contains(kotlin, "override fun each(a: Consumer<in E>) = super<Coll>.each(a)");
+        compiles(kotlin);
+        // FlatMapSpliteratorOfPrimitive's forEachRemaining(OutConsumerT) is a forEachRemaining(DoubleConsumer) to
+        // FlatMapSpliteratorOfDouble, as Spliterator.OfDouble's default
+        String primitive = kotlin("""
+                package a;
+                import java.util.*;
+                import java.util.function.DoubleConsumer;
+                abstract class Prim<C> {
+                    public void forEachRemaining(C action) { }
+                }
+                abstract class PrimD extends Prim<DoubleConsumer> implements Spliterator.OfDouble { }
+                """);
+        contains(primitive, "override fun forEachRemaining(action: DoubleConsumer) = super<Prim>.forEachRemaining(action)");
+        compiles(primitive);
+    }
+
+    /**
      * guava's ForwardingCollection implements Collection without a Java superclass: Kotlin's MutableCollection has no
      * toArray to override, so the members are declared plainly (Java's toArray on the JVM); toArray(T[]) with a T[]
      * calls Java's, which fills and returns the array it is handed.
@@ -1899,6 +2893,29 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         assertFalse(kotlin.contains("override fun toArray"), kotlin);
         contains(kotlin, "(delegate() as java.util.Collection<*>).toArray(array)");
+        compiles(kotlin);
+    }
+
+    /**
+     * A subclass of AbstractCollection, a Java class: Kotlin sees its toArray() and toArray(T[]) as members, so
+     * {@code super.toArray()} stays a call to the superclass's member. Kotlin's {@code super} is no value: it can be
+     * neither cast ({@code (super as java.util.Collection<*>)}) nor the receiver of the extension toTypedArray.
+     */
+    @Test
+    public void toArrayOnSuper() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class Bag<E> extends AbstractCollection<E> {
+                    private final List<E> items = new ArrayList<>();
+                    @Override public Iterator<E> iterator() { return items.iterator(); }
+                    @Override public int size() { return items.size(); }
+                    @Override public Object[] toArray() { return super.toArray(); }
+                    @Override public <T> T[] toArray(T[] array) { return super.toArray(array); }
+                }
+                """);
+        contains(kotlin, "super.toArray()");
+        contains(kotlin, "super.toArray(array)");
         compiles(kotlin);
     }
 
@@ -2133,6 +3150,340 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "inner class Inner");
         contains(kotlin, "serialVersionUID: Long = 1");
         assertFalse(kotlin.contains("serialVersionUID: Long = 0"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's MultimapBuilder: {@code new ListMultimapBuilder<K0, @Nullable Object>() {…}} keeps its supertype's
+     * type-use annotation (CodeLaser/maddi#144), so the object's supertype matches the declared return. Until that fix
+     * is merged, the front end drops the annotation and the supertype prints without it.
+     */
+    @Test
+    public void anonymousSupertypeKeepsNullableArgument() {
+        String kotlin = kotlin("""
+                package a;
+                import java.lang.annotation.ElementType;
+                import java.lang.annotation.Target;
+                import java.util.*;
+                class MB<K0> {
+                    @Target(ElementType.TYPE_USE) @interface Nullable { }
+                    abstract static class LB<K0, V0 extends @Nullable Object> {
+                        abstract <K extends K0, V extends V0> List<V> build();
+                    }
+                    LB<K0, @Nullable Object> arrayListValues() {
+                        return new LB<K0, @Nullable Object>() {
+                            @Override
+                            <K extends K0, V extends @Nullable Object> List<V> build() { return new ArrayList<>(); }
+                        };
+                    }
+                }
+                """);
+        // TODO "object : LB<K0, Any?>()" once maddi#144's front-end fix is merged (checked against it, cb6774ece); the
+        // declared return's Any? is the NullabilityPass's, not run here, so no kotlinc check
+        contains(kotlin, "object : LB<K0, Any");
+    }
+
+    /**
+     * guava's UnsignedInteger, UnsignedLong, AtomicDouble extend Number: Kotlin's Number declares toInt() … toDouble()
+     * where Java's has intValue() …, and toByte(), toShort() abstract, which Java's implements.
+     */
+    @Test
+    public void numberSubclass() {
+        String kotlin = kotlin("""
+                package a;
+                final class Unsigned extends Number implements Comparable<Unsigned> {
+                    private final int value;
+                    Unsigned(int value) { this.value = value; }
+                    @Override public int intValue() { return value; }
+                    @Override public long longValue() { return value & 0xffffffffL; }
+                    @Override public float floatValue() { return (float) longValue(); }
+                    @Override public double doubleValue() { return (double) longValue(); }
+                    @Override public int compareTo(Unsigned other) { return Integer.compareUnsigned(value, other.value); }
+                    static long sum(Unsigned a, Number b) { return a.longValue() + b.longValue(); }
+                }
+                """);
+        contains(kotlin, "override fun toInt(): Int");
+        contains(kotlin, "override fun toDouble(): Double");
+        contains(kotlin, "override fun toByte(): Byte = toInt().toByte()");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's AbstractMapBasedMultimap.AsMapEntries extends Maps.EntrySet<K, Collection<V>>, whose own K and V share
+     * the outer class's names: contains(o) overrides with the subclass's element, Entry<K, Collection<V>>.
+     */
+    @Test
+    public void elementOfAGenericSuperclassWithNamesakeParameters() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                abstract class Multi<K, V> {
+                    abstract static class EntrySet<K, V> extends AbstractSet<Map.Entry<K, V>> {
+                        abstract Map<K, V> map();
+                        @Override public int size() { return map().size(); }
+                        @Override public boolean contains(Object o) { return map().entrySet().contains(o); }
+                    }
+                    final Map<K, Collection<V>> submap = new HashMap<>();
+                    class AsMapEntries extends EntrySet<K, Collection<V>> {
+                        @Override Map<K, Collection<V>> map() { return submap; }
+                        @Override public Iterator<Map.Entry<K, Collection<V>>> iterator() { return submap.entrySet().iterator(); }
+                        @Override public boolean contains(Object o) { return submap.entrySet().contains(o); }
+                    }
+                }
+                """);
+        contains(kotlin, "override fun contains(o: MutableMap.MutableEntry<K, MutableCollection<V>>): Boolean");
+        compiles(kotlin);
+    }
+
+    /**
+     * Optional.empty() and Optional.of(value) into an Optional<T>, beside ofNullable above: the cast to Optional<T>
+     * gives Kotlin nothing to infer the call's own T from.
+     */
+    @Test
+    public void optionalEmptyAndOfIntoTypeVariable() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.Optional;
+                class Opt<T> {
+                    private final T value;
+                    Opt(T value) { this.value = value; }
+                    Optional<T> none() { return Optional.empty(); }
+                    Optional<T> some() { return Optional.of(value); }
+                }
+                """);
+        // empty's T from Optional<T>; of's value asserted, as Kotlin's of takes a T & Any (Java's of throws on null too)
+        contains(kotlin, "(Optional.empty<T>() as Optional<T>)");
+        contains(kotlin, "(Optional.of(value!!) as Optional<T>)");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's Notifier: {@code BuildStepDescriptor getDescriptor()} overriding Publisher's {@code
+     * Descriptor<Publisher> getDescriptor()}, a raw result Java accepts unchecked. Kotlin's {@code
+     * BuildStepDescriptor<*>} is no subtype of {@code Descriptor<Publisher>}: the raw class takes the overridden
+     * result's arguments, {@code BuildStepDescriptor<Publisher>}.
+     */
+    @Test
+    public void rawResultOfAnOverride() {
+        String kotlin = kotlin("""
+                package a;
+                class Descriptor<T> { }
+                class BuildStepDescriptor<T> extends Descriptor<T> { }
+                abstract class Publisher {
+                    Descriptor<Publisher> getDescriptor() { return new Descriptor<>(); }
+                }
+                abstract class Notifier extends Publisher {
+                    @Override BuildStepDescriptor getDescriptor() { return (BuildStepDescriptor) super.getDescriptor(); }
+                }
+                abstract class Annotator<T> {
+                    abstract Annotator<T> annotate(T context);
+                }
+                class Url extends Annotator<Object> {
+                    @Override Annotator annotate(Object context) { return this; }
+                }
+                """);
+        contains(kotlin, "fun getDescriptor(): BuildStepDescriptor<Publisher>");
+        contains(kotlin, "fun annotate(context: Any): Annotator<Any>");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's Secret converter: a raw {@code Object convert(Class type, Object value)} with a block body,
+     * overriding beanutils's {@code <T> T convert(Class<T> type, Object value)}. Kotlin's override takes the member's
+     * type parameter and parameter types, and casts what it returns.
+     */
+    @Test
+    public void rawBlockOverrideOfAGenericMember() {
+        String kotlin = kotlin("""
+                package a;
+                interface Converter {
+                    <T> T convert(Class<T> type, Object value);
+                }
+                class Secret {
+                    static Secret fromString(String s) { return new Secret(); }
+                    static final Converter CONVERTER = new Converter() {
+                        @Override public Object convert(Class type, Object value) {
+                            if (value instanceof Secret) return value;
+                            return fromString(value.toString());
+                        }
+                    };
+                }
+                """);
+        contains(kotlin, "override fun <T> convert(type: Class<T>");
+        contains(kotlin, "(fromString(value.toString())) as T");
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's CopyOnWriteList.ConverterImpl: {@code new CopyOnWriteList(items, true)} of a raw {@code List items},
+     * in a static nested class. The raw list into the constructor's {@code List<E>} is cast to Java's erasure; the
+     * outer class's E is not in scope there.
+     */
+    @Test
+    public void rawArgumentIntoOuterTypeParameterFromNestedClass() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.*;
+                class CopyOnWriteList<E> {
+                    private final List<E> core;
+                    private CopyOnWriteList(List<E> core, boolean noCopy) { this.core = noCopy ? core : new ArrayList<>(core); }
+                    int size() { return core.size(); }
+                    static final class ConverterImpl {
+                        Object unmarshal(String s) {
+                            List items = new ArrayList();
+                            items.add(s);
+                            return new CopyOnWriteList(items, true);
+                        }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("MutableList<E>)"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's PluginManager: {@code Jenkins jenkins = Jenkins.get()}, then {@code Jenkins.getAuthentication2()},
+     * in a file whose Javadoc links {@code jenkins.model.Jenkins}, which made Java's qualification spell the type in
+     * full everywhere. Written {@code jenkins.model.Jenkins}, Kotlin resolves {@code jenkins} to the local variable;
+     * the file imports the type, and its simple name is enough.
+     */
+    @Test
+    public void typeNamedAfterAPackageBesideALocalOfThatName() {
+        String kotlin = kotlin("""
+                package hudson;
+                import jenkins.model.Jenkins;
+                /** Lives longer than {@link jenkins.model.Jenkins}. */
+                class PluginManager {
+                    String install() {
+                        Jenkins jenkins = Jenkins.get();
+                        String center = jenkins.getUpdateCenter();
+                        return center + Jenkins.getAuthentication2();
+                    }
+                }
+                """, java.util.Map.of("jenkins.model.Jenkins", """
+                package jenkins.model;
+                public class Jenkins {
+                    public static Jenkins get() { return new Jenkins(); }
+                    public static String getAuthentication2() { return "a"; }
+                    public String getUpdateCenter() { return "u"; }
+                }
+                """));
+        assertFalse(kotlin.contains("jenkins.model.Jenkins."), kotlin);
+    }
+
+    /**
+     * jenkins's PluginManager: {@code HttpResponse<Void> httpResponse = httpClient.send(request, discarding())}, its
+     * Void argument nullable (as the verdicts make it there), so that the local's type differs from the call's and is
+     * written. The translation's Void is Unit; the library's result is an {@code HttpResponse<Void!>}, no
+     * {@code HttpResponse<Unit>}: Kotlin infers the local's type.
+     */
+    @Test
+    public void voidArgumentOfALibraryResult() {
+        String kotlin = kotlin("""
+                package a;
+                import java.net.URI;
+                import java.net.http.HttpClient;
+                import java.net.http.HttpRequest;
+                import java.lang.annotation.ElementType;
+                import java.lang.annotation.Target;
+                @Target(ElementType.TYPE_USE) @interface Nullable { }
+                class Download {
+                    interface HttpResponse { }
+                    int status(HttpClient httpClient) throws Exception {
+                        HttpRequest request = HttpRequest.newBuilder(URI.create("http://x")).build();
+                        try {
+                            java.net.http.HttpResponse<@Nullable Void> httpResponse = httpClient.send(
+                                    request, java.net.http.HttpResponse.BodyHandlers.discarding());
+                            return httpResponse.statusCode();
+                        } catch (InterruptedException e) {
+                            return -1;
+                        }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("HttpResponse<Unit>"), kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * jenkins's DirScanner.Glob: {@code this(includes, excludes, true, new OpenOption[0])} into a vararg of non-null
+     * OpenOption. {@code arrayOfNulls<OpenOption>(0)} is an {@code Array<OpenOption?>}; the empty array spread is
+     * {@code *emptyArray<OpenOption>()}. Not left out: the call would pick the overload without the varargs.
+     */
+    @Test
+    public void emptyArrayIntoVarargs() {
+        String kotlin = kotlin("""
+                package a;
+                import java.nio.file.OpenOption;
+                class Glob {
+                    private final String includes;
+                    private final OpenOption[] openOptions;
+                    Glob(String includes, boolean useDefaultExcludes) {
+                        this(includes, useDefaultExcludes, new OpenOption[0]);
+                    }
+                    Glob(String includes, boolean useDefaultExcludes, OpenOption... openOptions) {
+                        this.includes = includes;
+                        this.openOptions = openOptions;
+                    }
+                    int count() { return openOptions.length + includes.length(); }
+                }
+                """);
+        contains(kotlin, "*emptyArray<OpenOption>()");
+        compiles(kotlin);
+    }
+
+    /**
+     * langchain4j's DefaultContentAggregatorTest: a bare {@code @MethodSource} names its factory by the test's own name,
+     * a private static. JUnit looks for it among the test class's statics: {@code @JvmStatic}, private as in Java.
+     * The api package too, as its own source set: the params classes refer to ExtensionContext, TestTemplate and
+     * ExtendWith, and under the test runner the params package resolves to junit-platform-console-standalone (no
+     * junit-jupiter-params on that class path), while javac loads those from junit-jupiter-api, which a class-path
+     * source set must then be named after (maddi test gate, 2026-10-23).
+     */
+    @Test
+    public void privateMethodSourceFactoryIsJvmStatic() throws java.io.IOException {
+        String kotlin = kotlinWithLibrary("""
+                package a;
+                import java.util.stream.Stream;
+                import org.junit.jupiter.params.ParameterizedTest;
+                import org.junit.jupiter.params.provider.MethodSource;
+                class AggregatorTest {
+                    @ParameterizedTest
+                    @MethodSource
+                    void empty(String query) { }
+                    private static Stream<String> empty() { return Stream.of("a"); }
+                    @ParameterizedTest
+                    @MethodSource("named")
+                    void other(String query) { }
+                    private static Stream<String> named() { return Stream.of("b"); }
+                    private static int helper() { return 1; }
+                }
+                """, KotlinPrintOptions.DEFAULT, "org/junit/jupiter/params", "org/junit/jupiter/api");
+        contains(kotlin, "@JvmStatic private fun empty(): Stream<String>");
+        contains(kotlin, "@JvmStatic private fun named(): Stream<String>");
+        contains(kotlin, "private fun helper(): Int");
+        assertFalse(kotlin.contains("@JvmStatic private fun helper"), kotlin);
+    }
+
+    /**
+     * Java's {@code volatile} and {@code transient} as Kotlin's {@code @Volatile} and {@code @Transient}: guava's
+     * AtomicDouble hands its volatile field to an {@code AtomicLongFieldUpdater}, which refuses any other.
+     */
+    @Test
+    public void volatileAndTransientFields() {
+        String kotlin = kotlin("""
+                package a.v;
+                import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+                class Counter implements java.io.Serializable {
+                    private transient volatile long value;
+                    private static final AtomicLongFieldUpdater<Counter> UPDATER =
+                            AtomicLongFieldUpdater.newUpdater(Counter.class, "value");
+                    private transient String cache;
+                    long increment() { return UPDATER.incrementAndGet(this); }
+                }
+                """);
+        contains(kotlin, "@Volatile @Transient private var value: Long = 0L");
+        contains(kotlin, "@Transient private lateinit var cache: String");
         compiles(kotlin);
     }
 }

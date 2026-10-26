@@ -45,6 +45,11 @@ public class KotlinModifiers {
         if (methodInfo.access() != null && methodInfo.access().isProtected()
             && methodInfo.overrides().stream().anyMatch(m -> !KotlinNullability.translated(m.typeInfo())
                                                              && m.access() != null && m.access().isProtected())) {
+            // not clone(), which Java's package calls (nacos's SwitchManager: switchDomain.clone()); Kotlin's protected
+            // refuses that, its override may widen
+            if (KotlinContext.translatingJava() && "clone".equals(methodInfo.name()) && methodInfo.parameters().isEmpty()) {
+                return Optional.of(KeywordImpl.PUBLIC);
+            }
             return Optional.of(KeywordImpl.PROTECTED);
         }
         if (KotlinContext.translatingJava() && methodInfo.access() != null && methodInfo.access().isPublic()

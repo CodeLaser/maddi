@@ -52,7 +52,10 @@ final class KotlinMappedMembers {
             Map.entry(new Key("java.lang.Enum", "ordinal", 0), "ordinal"),
             // Kotlin's Enum has no getDeclaringClass(); kotlin.jvm's extension property gives Java's
             Map.entry(new Key("java.lang.Enum", "getDeclaringClass", 0), "declaringJavaClass"),
-            Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"));
+            Map.entry(new Key("java.lang.Object", "getClass", 0), "javaClass"),
+            // Kotlin's Annotation has no annotationType(); kotlin.jvm's annotationClass is its KClass (jenkins's
+            // ExtensionFinder: extensionAnnotations.get(annotation.annotationType()))
+            Map.entry(new Key("java.lang.annotation.Annotation", "annotationType", 0), "annotationClass.java"));
 
     private static final Map<Key, String> FUNCTION = Map.ofEntries(
             Map.entry(new Key("java.lang.Number", "intValue", 0), "toInt"),
@@ -95,6 +98,9 @@ final class KotlinMappedMembers {
     private static final Map<Key, Boolean> EQUALS_IGNORE_CASE = Map.of(
             new Key("java.lang.String", "equalsIgnoreCase", 1), true);
 
+    private static final Map<Key, Boolean> COMPARE_TO_IGNORE_CASE = Map.of(
+            new Key("java.lang.String", "compareToIgnoreCase", 1), true);
+
     private static final Map<Key, Boolean> INDEX_GET = Map.of(
             new Key("java.lang.CharSequence", "charAt", 1), true,
             new Key("java.lang.String", "charAt", 1), true);
@@ -104,7 +110,7 @@ final class KotlinMappedMembers {
 
     /** The mapped getters a class can override: as Kotlin properties ({@code override val size: Int get() = …}). */
     private static final Set<String> OVERRIDABLE_PROPERTIES = Set.of("size", "keys", "values", "entries", "key", "value",
-            "message", "cause");
+            "message", "cause", "length");
 
     /**
      * The parameters Java declares as {@code Object} where Kotlin's mapped member takes a type parameter of its owner:
@@ -143,6 +149,7 @@ final class KotlinMappedMembers {
      * ArrayList subclass is {@code override val size: Int}); null otherwise. Kotlin has no {@code size()} to override.
      */
     static String overriddenProperty(MethodInfo methodInfo) {
+        if (enumProperty(methodInfo)) return methodInfo.name();
         if (methodInfo.overrides().isEmpty() || !methodInfo.parameters().isEmpty() || methodInfo.isStatic()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
             return null;
@@ -156,6 +163,32 @@ final class KotlinMappedMembers {
      * Java's: {@code remove(element: E)} for {@code remove(Object)}, {@code addAll(elements: Collection<E>)} for
      * {@code addAll(Collection<? extends E>)}. Null when the parameter keeps its own type.
      */
+    /**
+     * The parameter {@link #overriddenParameterType} found is a member's collection or map parameter
+     * ({@code addAll(elements: Collection<E>)}, {@code putAll(from: Map<out K, V>)}), not one of the owner's type
+     * arguments: guava's {@code Map<K, Collection<V>>.remove(key)} or ArrayTable's {@code put(key, value: V)} with a
+     * V that is a {@code Map<R, V?>} itself takes the type argument as it is.
+     */
+    static boolean overriddenCollectionParameter(MethodInfo methodInfo, int i) {
+        if (methodInfo.overrides().isEmpty() || methodInfo.isStatic()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
+            return false;
+        }
+        for (MethodInfo m : methodInfo.overrides()) {
+            Key key = new Key(m.typeInfo().fullyQualifiedName(), m.name(), m.parameters().size());
+            List<Integer> perParameter = OBJECT_PARAMETERS.get(key);
+            Integer index = perParameter == null ? OBJECT_PARAMETER.get(key)
+                    : i < perParameter.size() && perParameter.get(i) >= 0 ? perParameter.get(i) : null;
+            boolean collection = COLLECTION_PARAMETER.contains(key) && i == m.parameters().size() - 1;
+            boolean map = MAP_PARAMETER.contains(key);
+            Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
+            if (ownVariable != null) index = ownVariable;
+            if (index == null && !collection && !map) continue;
+            return index == null;
+        }
+        return false;
+    }
+
     static ParameterizedType overriddenParameterType(MethodInfo methodInfo, int i) {
         if (methodInfo.overrides().isEmpty() || methodInfo.isStatic()
             || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) {
@@ -171,12 +204,18 @@ final class KotlinMappedMembers {
             Integer ownVariable = index == null && !collection && !map ? ownTypeVariable(m, i) : null;
             if (ownVariable != null) index = ownVariable;
             if (index == null && !collection && !map) continue;
-            ParameterizedType asOwner;
-            try {
-                asOwner = methodInfo.typeInfo().asParameterizedType()
-                        .concreteSuperType(m.typeInfo().asParameterizedType());
-            } catch (RuntimeException e) {
-                return null;
+            ParameterizedType asOwner = declaredSupertype(methodInfo.typeInfo(), m.typeInfo());
+            if (asOwner == null) {
+                try {
+                    asOwner = methodInfo.typeInfo().asParameterizedType()
+                            .concreteSuperType(m.typeInfo().asParameterizedType());
+                } catch (RuntimeException e) {
+                    return null;
+                }
+            }
+            // jenkins's JellyMap implements a raw Map: its get(key) is MutableMap<Any?, Any?>'s
+            if (asOwner != null && asOwner.typeInfo() != null) {
+                asOwner = KotlinNullability.erasedRaw(asOwner, methodInfo.typeInfo().asParameterizedType());
             }
             if (asOwner == null || asOwner.parameters().size() <= (index == null ? 0 : index)) return null;
             if (index != null) return asOwner.parameters().get(index);
@@ -184,6 +223,30 @@ final class KotlinMappedMembers {
             ParameterizedType collectionType = m.parameters().getLast().parameterizedType();
             return collectionType.typeInfo() == null ? null
                     : collectionType.typeInfo().asParameterizedType().withParameters(List.of(asOwner.parameters().getFirst()));
+        }
+        return null;
+    }
+
+    /**
+     * {@code owner}, seen from {@code typeInfo}'s declared supertypes, with their type arguments'
+     * type-use annotations: guava's ArrayTable.ColumnMap extends ArrayMap<C, Map<R, @Nullable V>>, whose put(key,
+     * value) takes a Map<R, V?>, as the class header writes it. Null when no direct supertype leads there.
+     */
+    private static ParameterizedType declaredSupertype(io.codelaser.maddi.cst.api.info.TypeInfo typeInfo,
+                                                       io.codelaser.maddi.cst.api.info.TypeInfo owner) {
+        List<ParameterizedType> direct = new java.util.ArrayList<>();
+        if (typeInfo.parentClass() != null) direct.add(typeInfo.parentClass());
+        direct.addAll(typeInfo.interfacesImplemented());
+        for (ParameterizedType st : direct) {
+            if (st == null || st.typeInfo() == null) continue;
+            ParameterizedType declared = KotlinTypePrinter.declaredArguments(st);
+            if (declared.typeInfo() == owner) return declared;
+            try {
+                ParameterizedType seen = declared.concreteSuperType(owner.asParameterizedType());
+                if (seen != null) return seen;
+            } catch (RuntimeException | AssertionError e) {
+                // not this one
+            }
         }
         return null;
     }
@@ -261,7 +324,8 @@ final class KotlinMappedMembers {
         ParameterizedType v = asMap.parameters().get(1);
         String vName = KotlinTypeName.of(v.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
         return new String[]{KotlinTypeName.of(asMap.parameters().get(0), q), vName,
-                v.typeParameter() != null ? vName + " & Any" : vName};
+                // V & Any only of a nullable-bounded V: a V : Any (a null-marked LocalCache's) takes no intersection
+                KotlinTypeName.nullableTypeVariable(v) ? vName + " & Any" : vName};
     }
 
     private static String substitute(String template, String[] kv) {
@@ -270,7 +334,29 @@ final class KotlinMappedMembers {
 
     /** The Kotlin property that replaces this call ({@code size()} -> {@code size}); null if none. */
     static String property(MethodInfo methodInfo) {
-        return lookup(PROPERTY, methodInfo);
+        String property = lookup(PROPERTY, methodInfo);
+        return property != null ? property : enumProperty(methodInfo) ? methodInfo.name() : null;
+    }
+
+    /**
+     * An interface's {@code int ordinal()} or {@code String name()}, which an enum implements by java.lang.Enum's
+     * (guava's BloomFilter.Strategy, implemented by the BloomFilterStrategies enum): Kotlin's Enum has the properties,
+     * and a {@code fun ordinal()} in the enum would clash with them on the JVM. A property in the interface too, which
+     * Enum's implements; an override of it is one. Only where an enum translated with it implements the interface: a
+     * property's JVM getter is getName(), which a Java class's name() no longer overrides.
+     */
+    static boolean enumProperty(MethodInfo methodInfo) {
+        if (methodInfo.isStatic() || methodInfo.isConstructor() || !methodInfo.parameters().isEmpty()
+            || KotlinTypePrinter.fromKotlinSource(methodInfo.typeInfo())) return false;
+        // an interface being translated: a library's (java.nio's FileAttribute.name()) keeps its function
+        return Stream.concat(Stream.of(methodInfo), methodInfo.overrides().stream()).anyMatch(m -> m.typeInfo().isInterface()
+                && KotlinNullability.translated(m.typeInfo()) && m.parameters().isEmpty()
+                // only where an enum implements it: langchain4j's Guardrail.name(), a default method, stays a function,
+                // which the Java tests' WrappedInputGuardrail overrides as name()
+                && KotlinContext.options().world().implementedByEnum(m.typeInfo())
+                && ("ordinal".equals(m.name()) && m.returnType().isInt()
+                    || "name".equals(m.name()) && m.returnType().typeInfo() != null && m.returnType().arrays() == 0
+                       && "java.lang.String".equals(m.returnType().typeInfo().fullyQualifiedName())));
     }
 
     /** The Kotlin function that replaces this call, called without arguments ({@code intValue()} -> {@code toInt()}). */
@@ -291,6 +377,11 @@ final class KotlinMappedMembers {
         return lookup(EQUALS_IGNORE_CASE, methodInfo) != null;
     }
 
+    /** {@code a.compareToIgnoreCase(b)}: Kotlin's String has {@code compareTo(b, ignoreCase = true)}. */
+    static boolean isCompareToIgnoreCase(MethodInfo methodInfo) {
+        return lookup(COMPARE_TO_IGNORE_CASE, methodInfo) != null;
+    }
+
     /** {@code b.booleanValue()} is {@code b}. */
     static boolean isUnboxing(MethodInfo methodInfo) {
         return lookup(UNBOXED, methodInfo) != null;
@@ -309,6 +400,16 @@ final class KotlinMappedMembers {
                && "java.util.Objects".equals(methodInfo.typeInfo().fullyQualifiedName());
     }
 
+    /**
+     * {@code Objects.requireNonNullElse(a, b)}, {@code requireNonNullElseGet(a, supplier)}: Kotlin infers their T from
+     * a nullable {@code a} as nullable, and the result with it (jenkins's ApiTokenStore); Kotlin's elvis is non-null.
+     */
+    static boolean isRequireNonNullElse(MethodInfo methodInfo) {
+        return methodInfo.isStatic() && methodInfo.parameters().size() == 2
+               && ("requireNonNullElse".equals(methodInfo.name()) || "requireNonNullElseGet".equals(methodInfo.name()))
+               && "java.util.Objects".equals(methodInfo.typeInfo().fullyQualifiedName());
+    }
+
     static boolean isMonitorMethod(MethodInfo methodInfo) {
         return !methodInfo.isStatic() && "java.lang.Object".equals(methodInfo.typeInfo().fullyQualifiedName())
                && java.util.Set.of("wait", "notify", "notifyAll").contains(methodInfo.name());
@@ -324,9 +425,14 @@ final class KotlinMappedMembers {
                 "translateEscapes", "getChars").contains(methodInfo.name());
     }
 
-    /** {@code s.split(regex)}: Kotlin's {@code split(String)} splits on the literal string, and returns a list. */
+    /**
+     * {@code s.split(regex)}, {@code s.split(regex, limit)}: Kotlin's {@code split(String)} splits on the literal
+     * string, and returns a list.
+     */
     static boolean isSplit(MethodInfo methodInfo) {
-        return "split".equals(methodInfo.name()) && methodInfo.parameters().size() == 1
+        return "split".equals(methodInfo.name()) && (methodInfo.parameters().size() == 1
+                                                     || methodInfo.parameters().size() == 2
+                                                        && methodInfo.parameters().get(1).parameterizedType().isInt())
                && "java.lang.String".equals(methodInfo.typeInfo().fullyQualifiedName());
     }
 

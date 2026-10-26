@@ -522,6 +522,12 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
                 static ListIterator<String> from(List<String> l, int i) { return l.listIterator(i); }
                 static final Map<Object, String> listeners = new WeakHashMap<>();
                 static TreeMap<String, Integer> counts() { return new TreeMap<>(Comparator.reverseOrder()); }
+                static String lookup(Map<String, String> m, Object k) {
+                    if (!m.containsKey(k)) return null;
+                    m.remove(k);
+                    return m.get(k);
+                }
+                static String drop(Map<String, String> m, Object k) { return m.remove(k); }
             }
             """;
 
@@ -555,11 +561,405 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "public override int Size() => items.Count;");
         // one implementing Set itself likewise, overriding JavaSet's methods
         contains(cs, "internal sealed class Pair<E> : JavaSet<E> {");
-        contains(cs, "public override bool Contains(object o) => items.Contains(o);");
+        // contains(Object), remove(Object) of a List<E>: the compatibility library's, which tests the object's type
+        contains(cs, "public override bool Contains(object o) => items.ContainsObject(o);");
+        contains(cs, "public override bool Remove(object o) => items.RemoveObject(o);");
+        contains(cs, "if (!m.ContainsKeyObject(k)) { return null; }");
+        contains(cs, "m.RemoveKeyObject(k);");
+        contains(cs, "return m.GetObject(k);");
+        contains(cs, "=> m.RemoveKeyObject(k);");
         // a Comparator is a Comparison delegate, the sorted collections take an IComparer
         contains(cs, "new SortedSet<string>(Comparer<string>.Create(c))");
         contains(cs, "new SortedDictionary<string, int>(Comparer<string>.Create(");
         contains(cs, "JavaComparator.ReverseOrder<string>()));");
+    }
+
+    @Language("java")
+    private static final String TEMPORALS = """
+            package org.example.temporals;
+            import java.time.*;
+            import java.time.temporal.*;
+            public class Temporals<T extends Temporal & Comparable<? super T>> {
+                private final T from;
+                private final TemporalUnit unit;
+                Temporals(T from, T to, TemporalUnit unit) {
+                    this.from = from;
+                    this.unit = unit;
+                    if (!from.isSupported(unit)) throw new IllegalArgumentException("unit " + unit);
+                    long space = from.until(to, unit);
+                    Temporal expected = from.plus(space, unit);
+                    try {
+                        expected = from.plus(space + 1, unit);
+                    } catch (DateTimeException e) {
+                        throw new IllegalArgumentException(e);
+                    }
+                }
+                @SuppressWarnings("unchecked")
+                T get(long index) { return (T) from.plus(index, unit); }
+                static Temporals<LocalDate> days(LocalDate from, LocalDate to) {
+                    return new Temporals<>(from, to, ChronoUnit.DAYS);
+                }
+                static Period total(Period a, Period b) { return a.plus(b).minus(Period.ZERO); }
+                static LocalDate later(LocalDate d, Period p) { return d.plus(p); }
+                static long weeks(LocalDate a, LocalDate b) { return ChronoUnit.WEEKS.between(a, b); }
+            }
+            """;
+
+    /** java.time.temporal: Temporal is IComparable, which JavaTemporal's Plus and Until take; a Period is JavaPeriod. */
+    @Test
+    public void temporals() {
+        String cs = translate("Temporals", TEMPORALS);
+        contains(cs, "where T : IComparable");
+        contains(cs, "private readonly JavaChronoUnit? unit;");
+        contains(cs, "if (!JavaTemporal.IsSupported(from, (JavaChronoUnit) unit))");
+        contains(cs, "long space = JavaTemporal.Until(from, to, (JavaChronoUnit) unit);");
+        contains(cs, "IComparable expected = JavaTemporal.Plus(from, space, (JavaChronoUnit) unit);");
+        contains(cs, "catch (ArgumentOutOfRangeException e)");
+        contains(cs, "(T) JavaTemporal.Plus(from, index, (JavaChronoUnit) unit)");
+        // a T created as a struct takes the value type
+        contains(cs, "new Temporals<DateOnly>(\n(DateOnly) from,");
+        contains(cs, "JavaChronoUnit.Days");
+        contains(cs, "((JavaPeriod) a).Plus(b).Minus(JavaPeriod.Zero);");
+        contains(cs, "JavaTemporal.Plus(((DateOnly) d), p)");
+        contains(cs, "JavaTemporal.Until(a, b, JavaChronoUnit.Weeks)");
+    }
+
+    @Language("java")
+    private static final String MEMBERS = """
+            package org.example.members;
+            import java.lang.reflect.Field;
+            import java.lang.reflect.Method;
+            import java.util.*;
+            public class Members {
+                static int read(Field f, Object o) throws IllegalAccessException {
+                    f.setAccessible(true);
+                    return f.isSynthetic() ? 0 : f.getInt(o);
+                }
+                static void write(Field f, Object o) throws IllegalAccessException { f.setLong(o, 1L); }
+                static Method find(Class<?> c) throws NoSuchMethodException { return c.getDeclaredMethod("run"); }
+                static Method find(Class<?> c, Class<?> p) throws NoSuchMethodException {
+                    return c.getDeclaredMethod("apply", p, int.class);
+                }
+                static Field field(Class<?> c) throws NoSuchFieldException { return c.getDeclaredField("x"); }
+                static String describe(Class<?> c) { return c.isRecord() + " " + c.isMemberClass() + " " + c.getTypeName(); }
+                static String trimmed(String s) { return s.stripTrailing() + s.stripLeading(); }
+                static String last(List<String> list) {
+                    ListIterator<String> it = list.listIterator(list.size());
+                    while (it.hasPrevious()) {
+                        int at = it.previousIndex();
+                        String s = it.previous();
+                        if (s.isEmpty()) it.remove();
+                        else if (at == 0) it.set(s.trim());
+                    }
+                    list.addFirst("first");
+                    list.removeFirst();
+                    return it.hasNext() ? it.next() : null;
+                }
+                static void sized(ArrayList<String> list) { list.ensureCapacity(10); list.trimToSize(); }
+            }
+            """;
+
+    /** Reflection's members, a String's strips, a List's SequencedCollection methods and its ListIterator. */
+    @Test
+    public void members() {
+        String cs = translate("Members", MEMBERS);
+        contains(cs, "JavaClass.SetAccessible(f, true);");
+        contains(cs, "JavaClass.IsSynthetic(f) ? 0 : Convert.ToInt32(f.GetValue(o))");
+        contains(cs, "f.SetValue(o, 1L);");
+        // Java throws where GetMethod is null: the compatibility library's, which throws too
+        contains(cs, "JavaClass.DeclaredMethod(c, \"run\")");
+        contains(cs, "JavaClass.DeclaredMethod(c, \"apply\", p, typeof(int))");
+        contains(cs, "JavaClass.DeclaredField(c, \"x\")");
+        contains(cs, "JavaClass.IsRecord(c) + \" \" + c.IsNested + \" \" + c.ToString()");
+        contains(cs, "s.TrimEnd() + s.TrimStart()");
+        contains(cs, "IJavaListIterator<string> it = list.Iterator(list.Count);");
+        contains(cs, "while (it.HasPrevious())");
+        contains(cs, "int at = it.PreviousIndex();");
+        contains(cs, "it.Set(s.Trim());");
+        contains(cs, "list.Insert(0, \"first\");");
+        contains(cs, "list.RemoveAt(0);");
+        contains(cs, "list.EnsureCapacity(10);");
+        contains(cs, "list.TrimExcess();");
+    }
+
+    @Language("java")
+    private static final String SEQUENCES = """
+            package org.example.sequences;
+            import java.math.BigInteger;
+            import java.util.*;
+            import java.util.function.*;
+            import java.util.stream.*;
+            public class Sequences {
+                static List<String> all(Iterable<String> it) { return StreamSupport.stream(it.spliterator(), false).toList(); }
+                static long count(Iterator<String> it, int n) {
+                    return StreamSupport.stream(Spliterators.spliterator(it, n, Spliterator.ORDERED), false).count();
+                }
+                static Iterator<String> iterate(Stream<String> s) { return s.iterator(); }
+                static int sum(int[] values) { return IntStream.of(values).sum() + IntStream.of(1, 2).sum(); }
+                static List<Double> random(Random r) { return Stream.generate(r::nextDouble).limit(3).toList(); }
+                static boolean both(BiPredicate<String, Integer> a, BiPredicate<String, Integer> b) { return a.and(b).test("x", 1); }
+                static boolean either(Predicate<String> a, Predicate<String> b) { return a.or(b.negate()).test("x"); }
+                static boolean ready(BooleanSupplier s) { return s.getAsBoolean(); }
+                static Integer bump(Map<String, Integer> m) { return m.computeIfPresent("k", (k, v) -> v > 1 ? v - 1 : null); }
+                static String rename(Map<String, String> m) { return m.computeIfPresent("k", (k, v) -> v + k); }
+                static String lower(String s) { return s + Locale.getDefault(); }
+                static BigInteger half(BigInteger b) { return b.divide(BigInteger.TWO); }
+                static Object first(Object array) {
+                    return java.lang.reflect.Array.getLength(array) > 0 ? java.lang.reflect.Array.get(array, 0) : null;
+                }
+                static boolean primitive(Class<?> c) { return c == Integer.TYPE || c == Boolean.TYPE; }
+                static long distinct(String[] a) { return Arrays.stream(Objects.requireNonNull(a)).distinct().count(); }
+            }
+            """;
+
+    /** Spliterators as sequences, IntStream.of, Stream.generate, the predicates' combinators and smaller members. */
+    @Test
+    public void sequences() {
+        String cs = translate("Sequences", SEQUENCES);
+        contains(cs, "it.ToList()");
+        contains(cs, "it.AsEnumerable().LongCount()");
+        contains(cs, "s.Iterator()");
+        contains(cs, "values.Sum() + (new int[]{ 1, 2 }).Sum()");
+        contains(cs, "JavaFunctions.Generate(");
+        contains(cs, "a.And(b)(\"x\", 1)");
+        contains(cs, "a.Or(b.Negate())(\"x\")");
+        contains(cs, "s()");
+        // a value type's function gives null to remove: the int? variant
+        contains(cs, "m.ComputeIfPresentValue(\"k\",");
+        contains(cs, "m.ComputeIfPresent(\"k\", (k, v) => v + k)");
+        contains(cs, "s + CultureInfo.CurrentCulture");
+        contains(cs, "b / ");
+        contains(cs, "(((Array) array).Length) > 0 ? (((Array) array).GetValue(0)) : null");
+        contains(cs, "c == typeof(int) || c == typeof(bool)");
+        // Arrays.stream(a) is a: as a receiver, in parentheses where a is not an atom
+        contains(cs, "(a ?? throw new NullReferenceException()).Distinct().LongCount()");
+    }
+
+    @Language("java")
+    private static final String CONCURRENT = """
+            package org.example.concurrent;
+            import java.util.*;
+            import java.util.concurrent.atomic.*;
+            import java.util.concurrent.locks.ReentrantLock;
+            import java.util.function.*;
+            import java.util.stream.*;
+            public class Concurrent {
+                static int bump(AtomicInteger i) { return i.updateAndGet(v -> v + 1) + i.getAndUpdate(v -> v * 2); }
+                static String swap(AtomicReference<String> r) { return r.updateAndGet(v -> v + "!"); }
+                static boolean held(ReentrantLock lock) { return lock.isLocked() && lock.isHeldByCurrentThread(); }
+                static int below(BitSet bits, int i) { return bits.previousClearBit(i) + bits.previousSetBit(i); }
+                static int apply(IntUnaryOperator op, IntBinaryOperator add) { return add.applyAsInt(op.applyAsInt(1), 2); }
+                static Set<String> ordered(Stream<String> s) { return s.collect(Collectors.toCollection(LinkedHashSet::new)); }
+                static Map<String, Integer> lengths(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x, String::length, Integer::sum));
+                }
+                static Map<String, String> firsts(List<String> l) {
+                    return l.stream().collect(Collectors.toMap(x -> x.substring(0, 1), x -> x, (a, b) -> a, LinkedHashMap::new));
+                }
+            }
+            """;
+
+    /** Atomic updates, a lock's queries, a BitSet's previous bits, primitive operators, toMap with a merge. */
+    @Test
+    public void concurrent() {
+        String cs = translate("Concurrent", CONCURRENT);
+        contains(cs, "i.UpdateAndGet(v => v + 1) + i.GetAndUpdate(v => v * 2)");
+        contains(cs, "r.UpdateAndGet(v => v + \"!\")");
+        contains(cs, "@lock.IsLocked() && @lock.IsHeldByCurrentThread()");
+        contains(cs, "bits.PreviousClearBit(i) + bits.PreviousSetBit(i)");
+        contains(cs, "Func<int, int> op, Func<int, int, int> add) => add(op(1), 2)");
+        contains(cs, "s.ToCollection(");
+        contains(cs, "l.ToMap(x => x, ");
+        // the supplier's type arguments are the result's
+        contains(cs, "=> new OrderedDictionary<string, string>());");
+        contains(cs, "s.ToCollection(() => new HashSet<string>())");
+    }
+
+    @Language("java")
+    private static final String SMALLER = """
+            package org.example.smaller;
+            import java.math.*;
+            import java.util.*;
+            import java.util.stream.*;
+            public class Smaller {
+                static String indented(String s) { return s.indent(4); }
+                static String trimmed(StringBuilder b) { return b.replace(b.length() - 2, b.length(), "").toString(); }
+                static String letters(Random random) {
+                    StringBuilder value = new StringBuilder();
+                    random.ints(97, 122).limit(4).forEach(value::appendCodePoint);
+                    return value.toString();
+                }
+                static void doubled(List<Integer> l, Map<String, Integer> m) { l.replaceAll(x -> x * 2); m.replaceAll((k, v) -> v + 1); }
+                static Integer last(TreeSet<Integer> s) { return s.removeLast(); }
+                static int below(TreeSet<Integer> s) { return s.subSet(1, 5).size(); }
+                static int down(TreeSet<Integer> s) { int t = 0; for (int i : s.descendingSet()) t = t * 10 + i; return t; }
+                static NavigableSet<String> keys(TreeMap<String, Integer> m) { return m.navigableKeySet(); }
+                static boolean finite(double d) { return Double.isFinite(d); }
+                static BigDecimal rest(BigDecimal a, BigDecimal b) { return a.remainder(b); }
+                static BigDecimal half(BigDecimal a) { return a.divide(BigDecimal.TWO, RoundingMode.HALF_EVEN); }
+                static BigInteger larger(BigInteger a, BigInteger b) { return a.max(b); }
+                static long total(List<String> l) { return l.stream().mapToLong(String::length).sum(); }
+                static int[] sortedSquares(int[] a) { return IntStream.of(a).map(x -> x * x).sorted().toArray(); }
+                static Comparator<String> order(TreeMap<String, Integer> m) { return m.comparator(); }
+                static BigDecimal exact(BigInteger i) { return new BigDecimal(i); }
+                static List<String> all(String... names) { return List.of(names); }
+                static java.lang.reflect.Method setter(Class<?> c, Class<?> type) throws Exception { return c.getMethod("set", type); }
+                static List<String> some(List<String> l, long a, long b) { return l.stream().limit(a - b).toList(); }
+                static void check(int i) { if (i < 0) throw new IndexOutOfBoundsException(i); }
+            }
+            """;
+
+    /** Smaller JDK members: String.indent, a StringBuilder's replace, replaceAll, a sorted set's ends and ranges. */
+    @Test
+    public void smaller() {
+        String cs = translate("Smaller", SMALLER);
+        contains(cs, "JavaString.Indent(s, 4)");
+        contains(cs, "b.ReplaceRange(b.Length - 2, b.Length, \"\")");
+        contains(cs, "random.Ints(97, 122).Take((int) 4)");
+        contains(cs, "l.ReplaceAll(x => x * 2);");
+        contains(cs, "m.ReplaceAll((k, v) => v + 1);");
+        contains(cs, "s.RemoveLast()");
+        contains(cs, "s.SubSet(1, 5).Count");
+        contains(cs, "s.Reverse()");
+        contains(cs, "m.NavigableKeySet()");
+        contains(cs, "double.IsFinite(d)");
+        contains(cs, "((decimal) a) % ((decimal) b)");
+        contains(cs, "Math.Round(((decimal) a) / 2m, ((decimal) a).Scale,\nMidpointRounding.ToEven)");
+        contains(cs, "BigInteger.Max(a, b)");
+        contains(cs, "a.Select(x => x * x).Order().ToArray()");
+        // a Comparator is a Comparison: the comparer's method group
+        contains(cs, "new Comparison<string>(m.Comparer\n.Compare)");
+        contains(cs, "(decimal) i");
+        // an array as the variable arity arguments is the elements
+        contains(cs, "new List<string>(names)");
+        contains(cs, "c.GetMethod(\"set\", new Type[]{ type })");
+        contains(cs, "l.Take((int) (a - b)).ToList()");
+        contains(cs, "new ArgumentOutOfRangeException(\"Index out of range: \" + i)");
+    }
+
+    @Language("java")
+    private static final String EXECUTORS = """
+            package org.example.executors;
+            import java.util.List;
+            import java.util.concurrent.*;
+            public class Jobs {
+                static final class Named implements ThreadFactory {
+                    public Thread newThread(Runnable r) {
+                        return Thread.ofPlatform().name("job").priority(Thread.NORM_PRIORITY).daemon(false).unstarted(r);
+                    }
+                }
+                private final ExecutorService pool = Executors.newFixedThreadPool(2, new Named());
+                private final ExecutorService single = Executors.newSingleThreadExecutor();
+                Future<String> run(Callable<String> job) { return pool.submit(job); }
+                CompletableFuture<Void> change(List<CompletableFuture<Void>> pending) {
+                    var future = new CompletableFuture<Void>();
+                    pending.forEach(f -> f.cancel(false));
+                    future.complete(null);
+                    return future;
+                }
+                void fail(CompletableFuture<Void> future, Exception e) { future.completeExceptionally(e); }
+                CompletableFuture<Void> consume(Runnable r) {
+                    return CompletableFuture.runAsync(r, single).whenComplete((unused, throwable) -> System.out.println(throwable));
+                }
+                boolean stop(CountDownLatch latch) throws InterruptedException {
+                    pool.shutdownNow();
+                    single.shutdown();
+                    return latch.await(100, TimeUnit.MILLISECONDS) && single.awaitTermination(1, TimeUnit.SECONDS);
+                }
+                boolean interrupted() { return Thread.currentThread().isInterrupted(); }
+            }
+            """;
+
+    /**
+     * A CompletableFuture is a Task, completed and cancelled from outside when it was made empty; an ExecutorService
+     * a TaskScheduler, the executors' own shut down; a ThreadFactory, Thread's builder, TimeUnit, a thread's interrupt.
+     */
+    @Test
+    public void executors() {
+        String cs = translate("Jobs", EXECUTORS);
+        contains(cs, "internal sealed class Named : IJavaThreadFactory {");
+        contains(cs, "public Thread NewThread(Action r) => JavaThreads.OfPlatform().Name(\"job\").Priority(5).Daemon(false).Unstarted(r);");
+        contains(cs, "private readonly TaskScheduler pool = new JavaExecutorService(2, new Named());");
+        contains(cs, "private readonly TaskScheduler single = new JavaExecutorService(1);");
+        contains(cs, "pool.Submit(job)");
+        contains(cs, "var future = JavaTasks.Incomplete<object>();");
+        contains(cs, "f.Cancel(false)");
+        contains(cs, "future.Complete(default);");
+        contains(cs, "future.CompleteExceptionally(e);");
+        contains(cs, "JavaTasks.RunAsync(r, single).WhenComplete(\n(unused, throwable) =>");
+        contains(cs, "pool.ShutdownNow();");
+        contains(cs, "single.Shutdown();");
+        contains(cs, "latch.Wait(JavaTimeUnit.Milliseconds.ToTimeSpan(100)) && single.AwaitTermination(1, JavaTimeUnit.Seconds)");
+        contains(cs, "JavaThreads.IsInterrupted(Thread.CurrentThread)");
+    }
+
+    @Language("java")
+    private static final String QUEUES = """
+            package org.example.queues;
+            import java.math.BigDecimal;
+            import java.math.MathContext;
+            import java.math.RoundingMode;
+            import java.text.DecimalFormat;
+            import java.text.DecimalFormatSymbols;
+            import java.util.*;
+            import java.util.concurrent.*;
+            import java.util.random.RandomGenerator;
+            public class Queues {
+                private final BlockingQueue<String> changes = new LinkedBlockingQueue<>();
+                private final ConcurrentMap<String, Integer> counts = new ConcurrentHashMap<>();
+                private final PriorityQueue<Integer> order = new PriorityQueue<>(16);
+                private static final MathContext CONTEXT = new MathContext(6, RoundingMode.HALF_EVEN);
+                private static final DecimalFormat FORMAT = new DecimalFormat("#,###");
+                String next() throws InterruptedException {
+                    changes.put("a");
+                    var polled = changes.poll();
+                    return polled != null ? polled : changes.take();
+                }
+                int lowest() {
+                    order.add(3);
+                    order.offer(1);
+                    int first = order.peek();
+                    return first + order.poll() + order.size();
+                }
+                int count(String key) { return counts.computeIfAbsent(key, k -> 0); }
+                BigDecimal root(BigDecimal value) { return value.sqrt(CONTEXT); }
+                String format(double d, Locale locale) {
+                    FORMAT.setDecimalFormatSymbols(DecimalFormatSymbols.getInstance(locale));
+                    return FORMAT.format(d);
+                }
+                RandomGenerator.SplittableGenerator split(long seed) { return new SplittableRandom(seed).split(); }
+                double noise(RandomGenerator r) { return r.nextGaussian() + r.nextDouble(1, 2) + r.nextFloat(3f); }
+                int sum(PrimitiveIterator.OfInt it) { int s = 0; while (it.hasNext()) s += it.nextInt(); return s; }
+                boolean cancelled(Runnable r) {
+                    try { r.run(); return false; } catch (CancellationException e) { return true; }
+                }
+            }
+            """;
+
+    /**
+     * A blocking queue is a list under a lock, a priority queue Java's heap, a ConcurrentMap a dictionary; a
+     * MathContext, a DecimalFormat, a SplittableRandom and a primitive iterator the compatibility library's or .NET's.
+     */
+    @Test
+    public void queues() {
+        String cs = translate("Queues", QUEUES);
+        contains(cs, "private readonly JavaBlockingQueue<string> changes = new JavaBlockingQueue<string>();");
+        contains(cs, "private readonly IDictionary<string, int> counts = new Dictionary<string, int>();");
+        contains(cs, "private readonly JavaPriorityQueue<int> order = new JavaPriorityQueue<int>(16);");
+        contains(cs, "new JavaMathContext(6, MidpointRounding.ToEven)");
+        contains(cs, "new JavaDecimalFormat(\"#,###\")");
+        contains(cs, "changes.Put(\"a\");");
+        contains(cs, "changes.PollFirst()");
+        contains(cs, "changes.Take()");
+        contains(cs, "order.PeekFirst()");
+        contains(cs, "order.PollFirst()");
+        contains(cs, "((decimal) value).Sqrt(CONTEXT)");
+        contains(cs, "FORMAT.SetDecimalFormatSymbols(locale);");
+        contains(cs, "new Random(JavaRandoms.Seed(seed)).Split()");
+        contains(cs, "r.NextGaussian() + r.NextDouble(1, 2) + r.NextSingle(3.0f)");
+        contains(cs, "int Sum(IJavaIterator<int> it)");
+        contains(cs, "s += it.Next()");
+        contains(cs, "catch (OperationCanceledException e)");
     }
 
     @Language("java")
@@ -577,6 +977,12 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
             class Sorting {
                 static void sort(List<String> l) { l.sort(new ByLength()); }
                 static Comparator<String> by() { return new ByLength(); }
+                static Comparator<String> chosen(int k) {
+                    return switch (k) {
+                        case 0 -> new ByLength();
+                        default -> Comparator.naturalOrder();
+                    };
+                }
                 static int direct(ByLength c) { return c.compare("a", "bb"); }
                 static String value() {
                     Supplier<String> s = new Fixed();
@@ -596,6 +1002,8 @@ public class TestJavaToCSharpBcl extends CommonJavaToCSharp {
         contains(cs, "internal sealed class Fixed {");
         contains(cs, "JavaCollections.Sort(l, new ByLength().Compare);");
         contains(cs, "internal static Comparison<string> By() => new ByLength().Compare;");
+        // a switch expression's arm, as the switch's type
+        contains(cs, "0 => new ByLength().Compare,");
         contains(cs, "c.Compare(\"a\", \"bb\")");
         contains(cs, "Func<string> s = new Fixed().Get;");
     }
