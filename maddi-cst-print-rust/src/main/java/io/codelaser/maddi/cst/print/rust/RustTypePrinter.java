@@ -867,7 +867,7 @@ final class RustTypePrinter {
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
         String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + (unsafeMethod(m, context) ? "unsafe " : "") + "fn "
-               + RustNames.method(m) + bounded(m.typeParameters(), false)
+               + RustNames.method(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null)
                + "(" + all + ")" + result;
     }
 
@@ -883,9 +883,11 @@ final class RustTypePrinter {
             return receiver == Receiver.SHARED ? " -> &Self" : " -> &mut Self";
         }
         boolean borrows = (context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
-                           || context.facts.resultBorrowsParameter(m))
+                           || context.facts.resultBorrows(m) != null)
                           && !RustTypes.isCopy(m.returnType());
         String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
+        // a part of one parameter's object: named, as &self would otherwise take the elided lifetime
+        if (context.facts.resultBorrows(m) != null) type = type.replaceFirst("&", "&" + RESULT_LIFETIME + " ");
         if (receiver != Receiver.NONE && RustTypes.streamItem(m.returnType(), context, m) != null) {
             // a stream over the object's contents borrows it
             type = type.replaceFirst(">>$", "> + '_>");
@@ -921,6 +923,8 @@ final class RustTypePrinter {
             }
             // stored in a borrowed field: the borrow lives as long as the object
             if (context.borrows.parameter(p) != null) rust = rust.replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
+            // the result is part of it: it lives as long as the result
+            else if (p.equals(context.facts.resultBorrows(m))) rust = rust.replaceFirst("^&", "&" + RESULT_LIFETIME + " ");
             // an owned value the method modifies needs a mutable binding
             mut |= passing == Passing.OWNED && !p.isUnmodified();
         }
@@ -953,12 +957,21 @@ final class RustTypePrinter {
 
     /** {@link #generics}, each type parameter with the bounds its uses need ({@link RustBounds}). */
     private String bounded(List<TypeParameter> typeParameters, boolean lifetime) {
-        if (typeParameters.isEmpty() && !lifetime) return "";
+        return bounded(typeParameters, lifetime, false);
+    }
+
+    /** ... and with {@code resultLifetime}, the {@link #RESULT_LIFETIME} a result borrowing a parameter shares with it. */
+    private String bounded(List<TypeParameter> typeParameters, boolean lifetime, boolean resultLifetime) {
+        if (typeParameters.isEmpty() && !lifetime && !resultLifetime) return "";
         List<String> names = new ArrayList<>();
         if (lifetime) names.add(RustBorrows.LIFETIME);
+        if (resultLifetime) names.add(RESULT_LIFETIME);
         typeParameters.forEach(tp -> names.add(context.bounds.declare(tp)));
         return "<" + String.join(", ", names) + ">";
     }
+
+    /** The lifetime of a result that borrows one of its method's parameters (RustFacts.resultBorrows). */
+    static final String RESULT_LIFETIME = "'r";
 
     private static String visibility(boolean isPrivate) {
         return isPrivate ? "" : "pub ";

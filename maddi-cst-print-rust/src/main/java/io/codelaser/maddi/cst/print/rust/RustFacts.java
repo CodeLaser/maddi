@@ -215,19 +215,13 @@ public interface RustFacts extends NullabilityFacts {
 
             @Override
             public Passing passing(ParameterInfo parameter) {
-                MethodInfo m = parameter.methodInfo();
-                if (links.result(m) == LinkFacts.Result.NEW && links.keptInResult(m).contains(parameter)) {
-                    return Passing.OWNED;
-                }
                 return ownership.passing(parameter);
             }
 
             @Override
             public boolean resultBorrowsReceiver(MethodInfo method) {
                 LinkFacts.Result result = links.result(method);
-                if (result == LinkFacts.Result.NEW && method.returnType().isPrimitiveExcludingVoid()) {
-                    return ownership.resultBorrowsReceiver(method);
-                }
+                if (result == null || !referenceResult(method)) return ownership.resultBorrowsReceiver(method);
                 // a new object holding the receiver's contents is a view (unmodifiableList(list), a borrow) or a copy
                 // (a builder's 'new R(list)'): a new object where every return creates one
                 if (result == LinkFacts.Result.NEW && (!links.receiverInResult(method) || returnsNew(method))) return false;
@@ -236,13 +230,20 @@ public interface RustFacts extends NullabilityFacts {
             }
 
             @Override
-            public boolean resultBorrowsParameter(MethodInfo method) {
-                if (links.result(method) != LinkFacts.Result.EXISTING || links.receiverInResult(method)) return false;
+            public ParameterInfo resultBorrows(MethodInfo method) {
+                if (!referenceResult(method) || links.result(method) != LinkFacts.Result.EXISTING
+                    || links.receiverInResult(method)) {
+                    return null;
+                }
                 Set<ParameterInfo> kept = links.keptInResult(method);
-                // one borrowed parameter: the result's lifetime is elided to its
-                return kept.size() == 1 && method.parameters().stream()
-                        .filter(p -> !RustTypes.isCopy(p.parameterizedType()) && passing(p) != Passing.OWNED)
-                        .toList().equals(List.copyOf(kept));
+                return kept.size() == 1 ? kept.iterator().next() : null;
+            }
+
+            @Override
+            public boolean keptInNewResult(ParameterInfo parameter) {
+                MethodInfo m = parameter.methodInfo();
+                return referenceResult(m) && links.result(m) == LinkFacts.Result.NEW
+                       && links.keptInResult(m).contains(parameter);
             }
 
             @Override
@@ -322,10 +323,19 @@ public interface RustFacts extends NullabilityFacts {
     }
 
     /**
-     * The result is part of an object one of the method's parameters holds, and of nothing else: a borrow tied to that
-     * parameter ({@code first(List<String> l)} returning {@code l.get(0)}). From the links only ({@link LinkFacts}).
+     * The parameter whose object the result is part of, and nothing else: a borrow tied to that parameter
+     * ({@code first(List<String> l)} returning {@code l.get(0)}); {@code null} otherwise. From the links only
+     * ({@link LinkFacts}).
      */
-    default boolean resultBorrowsParameter(MethodInfo method) {
+    default ParameterInfo resultBorrows(MethodInfo method) {
+        return null;
+    }
+
+    /**
+     * The parameter is kept in a new object the method returns: moved in, where the body stores it as it is
+     * (RustContext.passing). From the links only.
+     */
+    default boolean keptInNewResult(ParameterInfo parameter) {
         return false;
     }
 
@@ -383,6 +393,15 @@ public interface RustFacts extends NullabilityFacts {
     /** NULLABLE, by the verdict for {@code declared}: what Rust types as an {@code Option<T>}. */
     static boolean nullable(ParameterizedType verdict) {
         return verdict != null && verdict.nullable() == NullableState.NULLABLE;
+    }
+
+    /*
+     a result handed out by reference, which is what the links describe: the body prints a primitive, a boxed one or a
+     string by value (a copy, to_string), whatever object Java's value is part of
+     */
+    private static boolean referenceResult(MethodInfo method) {
+        ParameterizedType t = method.returnType();
+        return !t.isVoid() && !RustTypes.isCopy(t) && !RustTypes.isString(t);
     }
 
     /* every return statement of the method creates its result */

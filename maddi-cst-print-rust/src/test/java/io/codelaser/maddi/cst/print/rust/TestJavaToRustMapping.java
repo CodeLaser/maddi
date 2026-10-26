@@ -546,7 +546,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 public List<String> view() { return java.util.Collections.unmodifiableList(names); }
                 public Items build() { return new Items("x", List.of()); }
                 public static Items copy(String name, List<String> items) { return new Items(name, items); }
-                public static String first(List<String> l) { return l.get(0); }
+                public static List<String> first(List<List<String>> l) { return l.get(0); }
+                public <T> T id(T t) { return t; }
                 record Items(String name, List<String> items) { }
             }
             """;
@@ -570,14 +571,17 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         dependentResult(linked, "view");
         method(linked, "copy").parameters().forEach(CommonJavaToRust::borrowed);
         borrowed(method(linked, "first").parameters().getFirst());
+        nonModifying(linked, "id");
+        borrowed(method(linked, "id").parameters().getFirst());
         MethodInfo build = method(linked, "build");
         MethodInfo copy = method(linked, "copy");
         MethodInfo first = method(linked, "first");
         MethodInfo view = method(linked, "view");
+        MethodInfo id = method(linked, "id");
         io.codelaser.maddi.cst.impl.analysis.LinkFacts links = new io.codelaser.maddi.cst.impl.analysis.LinkFacts() {
             @Override
             public Result result(MethodInfo m) {
-                return m == build || m == copy || m == view ? Result.NEW : m == first ? Result.EXISTING : null;
+                return m == build || m == copy || m == view ? Result.NEW : m == first || m == id ? Result.EXISTING : null;
             }
 
             @Override
@@ -588,7 +592,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             @Override
             public java.util.Set<io.codelaser.maddi.cst.api.info.ParameterInfo> keptInResult(MethodInfo m) {
                 return m == copy ? java.util.Set.copyOf(copy.parameters())
-                        : m == first ? java.util.Set.of(first.parameters().getFirst()) : java.util.Set.of();
+                        : m == first ? java.util.Set.of(first.parameters().getFirst())
+                        : m == id ? java.util.Set.of(id.parameters().getFirst()) : java.util.Set.of();
             }
         };
         translate(types, RustFacts.of(io.codelaser.maddi.cst.impl.analysis.NullabilityFacts.STORED, RustFacts.STORED,
@@ -598,7 +603,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         // a new object holding the receiver's contents that the method does not create itself: a view, borrowed
         contains(rust, "pub fn view(&self) -> &Vec<String> {");
         contains(rust, "pub fn copy(name: String, items: Vec<String>) -> LinkedItems {");
-        contains(rust, "pub fn first(l: &Vec<String>) -> &str {");
+        // the result borrows the parameter, named: with &self, elision would tie it to self
+        contains(rust, "pub fn first<'r>(l: &'r Vec<Vec<String>>) -> &'r Vec<String> {");
+        contains(rust, "pub fn id<'r, T>(&self, t: &'r T) -> &'r T {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
