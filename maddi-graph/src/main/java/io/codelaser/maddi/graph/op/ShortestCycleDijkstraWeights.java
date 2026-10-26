@@ -74,7 +74,8 @@ public class ShortestCycleDijkstraWeights {
                     V<T> to = edge.getKey();
                     boolean isStart = to.equals(startVertex);
                     if (!isStart && current.pathContains(to)) continue;
-                    if (isStart && current.path.size() < minPathSize) continue; //don't bother with small cycles
+                    // don't bother with small cycles: the path to 'to' has one more vertex than the current path
+                    if (isStart && current.path.size() + 1 < minPathSize) continue;
                     long newDistance = current.distance + edge.getValue();
                     Dependency<T> d = new Dependency<>(to, edge.getValue());
                     List<Dependency<T>> newPath = Stream.concat(current.path.stream(), Stream.of(d)).toList();
