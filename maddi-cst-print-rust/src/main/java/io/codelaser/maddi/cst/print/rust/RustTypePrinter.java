@@ -686,7 +686,8 @@ final class RustTypePrinter {
 
     /**
      * The positional constructor of a record, with the parameters of the canonical constructor as the facts see them
-     * (the analysis may call a string parameter independent: borrowed, and copied into the field).
+     * (the analysis may call a parameter independent: borrowed, and copied into the field, a string with to_string, a
+     * record or immutable value with clone).
      */
     private String recordConstructor(MethodInfo canonical, List<FieldInfo> fields, List<String> phantom) {
         String params = canonical == null
@@ -697,7 +698,18 @@ final class RustTypePrinter {
             String name = RustNames.snake(fields.get(i).name());
             boolean borrowedString = canonical != null && RustTypes.isString(fields.get(i).type())
                                      && context.passing(canonical.parameters().get(i)) != Passing.OWNED;
-            values.add(borrowedString ? name + ": " + name + ".to_string()" : name);
+            if (borrowedString) {
+                values.add(name + ": " + name + ".to_string()");
+                continue;
+            }
+            // a record value the facts let the constructor borrow: the field keeps its own copy
+            String field = fieldType(fields.get(i));
+            String param = canonical == null ? field
+                    : parameter(canonical, canonical.parameters().get(i)).replaceFirst("^[^:]*: ", "");
+            if (param.equals("&" + field)) values.add(name + ": " + name + ".clone()");
+            else if (field.startsWith("Option<") && param.equals("Option<&" + field.substring("Option<".length())))
+                values.add(name + ": " + name + ".cloned()");
+            else values.add(name);
         }
         String names = String.join(", ", values);
         String phantoms = phantom.stream().map(tp -> ", _" + tp.toLowerCase() + ": PhantomData")

@@ -350,4 +350,26 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "PartialEq for RecsR<T> {\nfn eq(&self, other: &Self) -> bool {\nself.s == other.s && self.l == other.l");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String NESTED_RECORD = """
+            package a.b;
+            public class Nest {
+                record S(String c) {}
+                record R(S b) {}
+            }
+            """;
+
+    /** The facts call the canonical constructor's record parameter independent: borrowed, and cloned into the field. */
+    @DisplayName("a record kept by value in a record, from a borrowed parameter, is cloned: compiles")
+    @Test
+    public void nestedRecord() throws Exception {
+        List<TypeInfo> types = parse(NESTED_RECORD);
+        TypeInfo r = types.getFirst().findSubType("R");
+        r.constructors().getFirst().parameters().forEach(CommonJavaToRust::borrowed);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn new(b: &NestS) -> Self {\nSelf { b: b.clone() }");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
