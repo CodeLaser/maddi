@@ -4823,6 +4823,8 @@ public class JavaUtil {
     }
 
     //public java.util.HexFormat (shadow created for its nullability, generated)
+    // value-based, so immutable; NOT a @Container: formatHex(A, byte[]) appends to its Appendable argument
+    @Immutable
     class HexFormat$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         <A extends java.lang.Appendable> A formatHex(A p0, @NotNull byte[] p1) { return null; }
@@ -4875,6 +4877,7 @@ public class JavaUtil {
     }
 
     //public java.util.OptionalLong (shadow created for its nullability, generated)
+    @ImmutableContainer
     class OptionalLong$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void ifPresent(@NotNull java.util.function.LongConsumer p0) { }

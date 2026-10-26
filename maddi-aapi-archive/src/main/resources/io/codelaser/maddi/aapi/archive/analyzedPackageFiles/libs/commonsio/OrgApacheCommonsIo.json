@@ -156,7 +156,7 @@
   {"name": "Pinstant(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileNewer(51,java.io.File,java.time.OffsetDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PoffsetDateTime(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PoffsetDateTime(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileNewer(52,java.io.File,java.time.chrono.ChronoLocalDate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -167,7 +167,7 @@
  {"name": "MisFileNewer(54,java.io.File,java.time.chrono.ChronoLocalDate,java.time.OffsetTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PoffsetTime(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PoffsetTime(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileNewer(55,java.io.File,java.time.chrono.ChronoLocalDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -195,7 +195,7 @@
   {"name": "Pinstant(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileOlder(63,java.io.File,java.time.OffsetDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PoffsetDateTime(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PoffsetDateTime(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileOlder(64,java.io.File,java.time.chrono.ChronoLocalDate)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
@@ -206,7 +206,7 @@
  {"name": "MisFileOlder(66,java.io.File,java.time.chrono.ChronoLocalDate,java.time.OffsetTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDate(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PoffsetTime(2)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PoffsetTime(2)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MisFileOlder(67,java.io.File,java.time.chrono.ChronoLocalDateTime)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Pfile(0)", "data":{"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
   {"name": "PchronoLocalDateTime(1)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}]},
