@@ -3564,4 +3564,32 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "@Transient private lateinit var cache: String");
         compiles(kotlin);
     }
+
+    /**
+     * guava's HashBiMap: {@code new BiIterator<K, V, K>(HashBiMap.this)} in an inner class hands the enclosing
+     * instance, typed {@code HashBiMap<K, V>}, to a parameter of that type: no cast.
+     */
+    @Test
+    public void enclosingInstanceArgument() {
+        String kotlin = kotlin("""
+                package a.e;
+                import java.util.Iterator;
+                class Bi<K, V> {
+                    abstract static class BiIterator<K, V, T> implements Iterator<T> {
+                        final Bi<K, V> biMap;
+                        BiIterator(Bi<K, V> biMap) { this.biMap = biMap; }
+                        public boolean hasNext() { return false; }
+                        public T next() { throw new UnsupportedOperationException(); }
+                        public void remove() { }
+                    }
+                    class KeySet {
+                        Iterator<K> iterator() {
+                            return new BiIterator<K, V, K>(Bi.this) { };
+                        }
+                    }
+                }
+                """);
+        assertFalse(kotlin.contains("as Bi<"), kotlin);
+        compiles(kotlin);
+    }
 }

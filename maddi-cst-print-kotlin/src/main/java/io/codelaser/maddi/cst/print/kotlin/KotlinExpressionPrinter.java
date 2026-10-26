@@ -3088,6 +3088,12 @@ public class KotlinExpressionPrinter {
             // CODEC.fromJson(json, Map.class): the callee's own T is what Java infers, a raw Map here
             return e.parameterizedType();
         }
+        if (unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof This t && !t.writeSuper()
+            && t.typeInfo() != null && (kotlin != null ? kotlin : e.parameterizedType()).parameters().isEmpty()) {
+            // guava's HashBiMap: new BiIterator<K, V, K>(HashBiMap.this) in an inner class. The enclosing instance is
+            // a HashBiMap<K, V>, never raw
+            return t.typeInfo().asParameterizedType();
+        }
         return kotlin != null ? kotlin : e.parameterizedType();
     }
 
