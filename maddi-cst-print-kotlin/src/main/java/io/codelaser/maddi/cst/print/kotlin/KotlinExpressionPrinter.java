@@ -2695,7 +2695,7 @@ public class KotlinExpressionPrinter {
         if (unwrap(e) instanceof Cast c && target != null && rawCastTo(c.parameterizedType(), target)) {
             // return (Collector) TO_IMMUTABLE_LIST into a Collector<E, ?, ImmutableList<E>>: Java's raw type converts
             // unchecked, Kotlin's Collector<*, *, *> does not; the cast takes the type arguments of what it initializes
-            ParameterizedType castType = target.withNullable(c.parameterizedType().nullable());
+            ParameterizedType castType = superWildcardsAsAny(target).withNullable(c.parameterizedType().nullable());
             return cast(c, castType, KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c), q);
         }
         if (unwrap(e) instanceof Cast c && KotlinNullability.isNullable(target) && KotlinNullability.nullableCast(c)) {
@@ -3130,6 +3130,24 @@ public class KotlinExpressionPrinter {
         if (type == null) return false;
         if (type.typeParameter() != null && !KotlinContext.typeParameterInScope(type.typeParameter())) return true;
         return type.parameters().stream().anyMatch(KotlinExpressionPrinter::mentionsOutOfScope);
+    }
+
+    /**
+     * {@code type} with each {@code ? super X} argument as {@code Any?}: guava's TypeToken, {@code
+     * bound.getSupertype((Class) supertype)} on a {@code TypeToken<? super T>}, whose parameter Kotlin types
+     * {@code Class<in Captured(in T)>}. A {@code Class<Any?>} is every {@code Class<in X>}; the raw cast checks nothing.
+     */
+    private static ParameterizedType superWildcardsAsAny(ParameterizedType type) {
+        if (type.typeInfo() == null || type.parameters().stream().noneMatch(p -> p != null && p.wildcard() != null
+                                                                                 && p.wildcard().isSuper())) {
+            return type;
+        }
+        ParameterizedType object = type.typeInfo().parentClass();
+        while (object != null && !object.isJavaLangObject()) object = object.typeInfo().parentClass();
+        if (object == null) return type;
+        ParameterizedType any = object.withNullable(io.codelaser.maddi.cst.api.type.NullableState.NULLABLE);
+        return type.withParameters(type.parameters().stream()
+                .map(p -> p != null && p.wildcard() != null && p.wildcard().isSuper() ? any : p).toList());
     }
 
     /** {@code raw} is {@code typed} without its type arguments: the same type, the same arrays, no arguments written. */

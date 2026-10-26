@@ -3640,4 +3640,25 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "as MutableIterator<MutableList<T>>)");
         compiles(kotlin, java.util.List.of("org/jspecify/annotations"));
     }
+
+    /**
+     * guava's TypeToken: {@code bound.getSupertype((Class) supertype)} on a {@code TypeToken<? super T>}, whose
+     * parameter Kotlin types {@code Class<in Captured(in T)>}, which no {@code Class<in T>} is. A raw cast into a
+     * {@code ? super} argument casts to {@code Any?}, a subtype of every {@code in} projection.
+     */
+    @Test
+    public void rawCastIntoSuperWildcard() {
+        String kotlin = kotlin("""
+                package a.s;
+                class Token<T> {
+                    Token<? super T> getSupertype(Class<? super T> superclass) { return this; }
+                    @SuppressWarnings({"rawtypes", "unchecked"})
+                    Token<? super T> fromBound(Token<? super T> bound, Class<? super T> supertype) {
+                        return bound.getSupertype((Class) supertype);
+                    }
+                }
+                """);
+        contains(kotlin, "supertype as Class<Any?>)");
+        compiles(kotlin);
+    }
 }
