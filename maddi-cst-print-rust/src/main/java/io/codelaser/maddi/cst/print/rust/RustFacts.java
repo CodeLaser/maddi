@@ -16,10 +16,13 @@ package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -222,7 +225,12 @@ public interface RustFacts extends NullabilityFacts {
             @Override
             public boolean resultBorrowsReceiver(MethodInfo method) {
                 LinkFacts.Result result = links.result(method);
-                if (result == LinkFacts.Result.NEW) return false;
+                if (result == LinkFacts.Result.NEW && method.returnType().isPrimitiveExcludingVoid()) {
+                    return ownership.resultBorrowsReceiver(method);
+                }
+                // a new object holding the receiver's contents is a view (unmodifiableList(list), a borrow) or a copy
+                // (a builder's 'new R(list)'): a new object where every return creates one
+                if (result == LinkFacts.Result.NEW && (!links.receiverInResult(method) || returnsNew(method))) return false;
                 if (result == LinkFacts.Result.EXISTING && links.receiverInResult(method)) return true;
                 return ownership.resultBorrowsReceiver(method);
             }
@@ -375,5 +383,20 @@ public interface RustFacts extends NullabilityFacts {
     /** NULLABLE, by the verdict for {@code declared}: what Rust types as an {@code Option<T>}. */
     static boolean nullable(ParameterizedType verdict) {
         return verdict != null && verdict.nullable() == NullableState.NULLABLE;
+    }
+
+    /* every return statement of the method creates its result */
+    private static boolean returnsNew(MethodInfo method) {
+        if (method.methodBody() == null) return false;
+        boolean[] all = {true};
+        boolean[] any = {false};
+        method.methodBody().visit(e -> {
+            if (e instanceof ReturnStatement rs) {
+                any[0] = true;
+                all[0] &= rs.expression() instanceof ConstructorCall;
+            }
+            return !(e instanceof Lambda);
+        });
+        return any[0] && all[0];
     }
 }

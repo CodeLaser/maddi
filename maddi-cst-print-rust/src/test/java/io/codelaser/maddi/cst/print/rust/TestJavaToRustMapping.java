@@ -541,7 +541,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             import java.util.List;
             public class Linked {
                 private int a;
+                private final List<String> names = new java.util.ArrayList<>();
                 public Linked set(int a) { this.a = a; return this; }
+                public List<String> view() { return java.util.Collections.unmodifiableList(names); }
                 public Items build() { return new Items("x", List.of()); }
                 public static Items copy(String name, List<String> items) { return new Items(name, items); }
                 public static String first(List<String> l) { return l.get(0); }
@@ -553,7 +555,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
      * Where a result comes from, which the links know and the independence verdicts do not ({@code LinkFacts}): a new
      * object is owned even where the verdict says it borrows the receiver ({@code build()}, independent apart from
      * hidden content), and the parameters it keeps are moved in ({@code copy}); a result inside a parameter's object
-     * borrows that parameter ({@code first}).
+     * borrows that parameter ({@code first}); a new object holding the receiver's contents that no return creates
+     * ({@code view}, Collections.unmodifiableList) stays the borrow the verdict says.
      */
     @DisplayName("link facts: a new result is owned, its kept parameters moved in; one inside a parameter borrows it")
     @Test
@@ -562,17 +565,24 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         TypeInfo linked = types.getFirst();
         modifying(linked, "set");
         fluent(linked, "set");
-        nonModifying(linked, "build");
+        nonModifying(linked, "build", "view");
         dependentResult(linked, "build");
+        dependentResult(linked, "view");
         method(linked, "copy").parameters().forEach(CommonJavaToRust::borrowed);
         borrowed(method(linked, "first").parameters().getFirst());
         MethodInfo build = method(linked, "build");
         MethodInfo copy = method(linked, "copy");
         MethodInfo first = method(linked, "first");
+        MethodInfo view = method(linked, "view");
         io.codelaser.maddi.cst.impl.analysis.LinkFacts links = new io.codelaser.maddi.cst.impl.analysis.LinkFacts() {
             @Override
             public Result result(MethodInfo m) {
-                return m == build || m == copy ? Result.NEW : m == first ? Result.EXISTING : null;
+                return m == build || m == copy || m == view ? Result.NEW : m == first ? Result.EXISTING : null;
+            }
+
+            @Override
+            public boolean receiverInResult(MethodInfo m) {
+                return m == view;
             }
 
             @Override
@@ -585,6 +595,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 links));
         String rust = module("a.b");
         contains(rust, "pub fn build(&self) -> LinkedItems {");
+        // a new object holding the receiver's contents that the method does not create itself: a view, borrowed
+        contains(rust, "pub fn view(&self) -> &Vec<String> {");
         contains(rust, "pub fn copy(name: String, items: Vec<String>) -> LinkedItems {");
         contains(rust, "pub fn first(l: &Vec<String>) -> &str {");
         assertEquals(List.of(), rustcErrors(), rust);
