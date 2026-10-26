@@ -18,6 +18,7 @@ import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Lambda;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -401,7 +402,25 @@ public interface RustFacts extends NullabilityFacts {
      */
     private static boolean referenceResult(MethodInfo method) {
         ParameterizedType t = method.returnType();
-        return !t.isVoid() && !RustTypes.isCopy(t) && !RustTypes.isString(t);
+        return !t.isVoid() && !RustTypes.isCopy(t) && !RustTypes.isString(t) && !newOrExisting(method);
+    }
+
+    /*
+     a result that is new on one path and existing on another, which the facts cannot say: opt.orElseGet(Box::new),
+     opt.orElse(new Box()) is the Option's content or a new object, so no borrow; the verdicts decide
+     */
+    private static boolean newOrExisting(MethodInfo method) {
+        if (method.methodBody() == null) return false;
+        boolean[] found = {false};
+        method.methodBody().visit(e -> {
+            if (e instanceof ReturnStatement rs && rs.expression() instanceof MethodCall mc
+                && ("orElse".equals(mc.methodInfo().name()) || "orElseGet".equals(mc.methodInfo().name()))
+                && "java.util.Optional".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+                found[0] = true;
+            }
+            return !found[0] && !(e instanceof Lambda);
+        });
+        return found[0];
     }
 
     /* every return statement of the method creates its result */

@@ -548,6 +548,13 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 public static Items copy(String name, List<String> items) { return new Items(name, items); }
                 public static List<String> first(List<List<String>> l) { return l.get(0); }
                 public <T> T id(T t) { return t; }
+                public Holder hold(List<String> l) { return new Holder(l); }
+                public static Linked orNew(java.util.Optional<Linked> opt) { return opt.orElseGet(Linked::new); }
+                static class Holder {
+                    private final List<String> held;
+                    Holder(List<String> held) { this.held = held; }
+                    int size() { return held.size(); }
+                }
                 record Items(String name, List<String> items) { }
             }
             """;
@@ -578,10 +585,19 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         MethodInfo first = method(linked, "first");
         MethodInfo view = method(linked, "view");
         MethodInfo id = method(linked, "id");
+        MethodInfo hold = method(linked, "hold");
+        MethodInfo orNew = method(linked, "orNew");
+        TypeInfo holder = linked.findSubType("Holder");
+        kept(holder.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        nonModifying(holder, "size");
+        unmodifiedField(holder, "held");
+        nonModifying(linked, "hold");
+        borrowed(hold.parameters().getFirst());
         io.codelaser.maddi.cst.impl.analysis.LinkFacts links = new io.codelaser.maddi.cst.impl.analysis.LinkFacts() {
             @Override
             public Result result(MethodInfo m) {
-                return m == build || m == copy || m == view ? Result.NEW : m == first || m == id ? Result.EXISTING : null;
+                return m == build || m == copy || m == view || m == hold ? Result.NEW
+                        : m == first || m == id || m == orNew ? Result.EXISTING : null;
             }
 
             @Override
@@ -593,7 +609,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
             public java.util.Set<io.codelaser.maddi.cst.api.info.ParameterInfo> keptInResult(MethodInfo m) {
                 return m == copy ? java.util.Set.copyOf(copy.parameters())
                         : m == first ? java.util.Set.of(first.parameters().getFirst())
-                        : m == id ? java.util.Set.of(id.parameters().getFirst()) : java.util.Set.of();
+                        : m == id ? java.util.Set.of(id.parameters().getFirst())
+                        : m == hold ? java.util.Set.of(hold.parameters().getFirst())
+                        : m == orNew ? java.util.Set.of(orNew.parameters().getFirst()) : java.util.Set.of();
             }
         };
         translate(types, RustFacts.of(io.codelaser.maddi.cst.impl.analysis.NullabilityFacts.STORED, RustFacts.STORED,
@@ -606,6 +624,10 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         // the result borrows the parameter, named: with &self, elision would tie it to self
         contains(rust, "pub fn first<'r>(l: &'r Vec<Vec<String>>) -> &'r Vec<String> {");
         contains(rust, "pub fn id<'r, T>(&self, t: &'r T) -> &'r T {");
+        // a new struct borrowing what it keeps: the parameter gets its lifetime, not self's
+        contains(rust, "pub fn hold<'r>(&self, l: &'r Vec<String>) -> LinkedHolder<'r> {");
+        // the Option's content or a new object: never a borrow
+        contains(rust, "pub fn or_new(mut opt: Option<Linked>) -> Linked {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

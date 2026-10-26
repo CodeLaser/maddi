@@ -867,7 +867,8 @@ final class RustTypePrinter {
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
         String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + (unsafeMethod(m, context) ? "unsafe " : "") + "fn "
-               + RustNames.method(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null)
+               + RustNames.method(m) + bounded(m.typeParameters(), false, context.facts.resultBorrows(m) != null
+                                                                          || RESULT_LIFETIME.equals(keptLifetime(m)))
                + "(" + all + ")" + result;
     }
 
@@ -888,6 +889,8 @@ final class RustTypePrinter {
         String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
         // a part of one parameter's object: named, as &self would otherwise take the elided lifetime
         if (context.facts.resultBorrows(m) != null) type = type.replaceFirst("&", "&" + RESULT_LIFETIME + " ");
+        // a new struct borrowing parameters, outside its own impl: their lifetime, not self's
+        if (RESULT_LIFETIME.equals(keptLifetime(m))) type = type.replaceFirst("<'_", "<" + RESULT_LIFETIME);
         if (receiver != Receiver.NONE && RustTypes.streamItem(m.returnType(), context, m) != null) {
             // a stream over the object's contents borrows it
             type = type.replaceFirst(">>$", "> + '_>");
@@ -925,6 +928,10 @@ final class RustTypePrinter {
             if (context.borrows.parameter(p) != null) rust = rust.replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
             // the result is part of it: it lives as long as the result
             else if (p.equals(context.facts.resultBorrows(m))) rust = rust.replaceFirst("^&", "&" + RESULT_LIFETIME + " ");
+            // kept, borrowed, in the new struct the method returns: the struct's lifetime
+            else if (keptLifetime(m) != null && context.facts.keptInNewResult(p) && passing != Passing.OWNED) {
+                rust = rust.replaceFirst("^&", "&" + keptLifetime(m) + " ");
+            }
             // an owned value the method modifies needs a mutable binding
             mut |= passing == Passing.OWNED && !p.isUnmodified();
         }
@@ -968,6 +975,21 @@ final class RustTypePrinter {
         if (resultLifetime) names.add(RESULT_LIFETIME);
         typeParameters.forEach(tp -> names.add(context.bounds.declare(tp)));
         return "<" + String.join(", ", names) + ">";
+    }
+
+    /**
+     * The lifetime of the new struct {@code m} returns, which borrows what it keeps ({@link RustBorrows}): the impl's
+     * {@code 'a} in the struct's own impl, {@link #RESULT_LIFETIME} elsewhere; {@code null} when the result keeps no
+     * borrowed parameter.
+     */
+    private String keptLifetime(MethodInfo m) {
+        TypeInfo result = m.returnType().typeInfo();
+        if (result == null || m.returnType().arrays() > 0 || !context.borrows.hasLifetime(result)) return null;
+        boolean keeps = m.parameters().stream().anyMatch(p -> context.facts.keptInNewResult(p)
+                                                               && !RustTypes.isCopy(p.parameterizedType())
+                                                               && context.passing(p) != Passing.OWNED);
+        if (!keeps) return null;
+        return result == context.type ? RustBorrows.LIFETIME : RESULT_LIFETIME;
     }
 
     /** The lifetime of a result that borrows one of its method's parameters (RustFacts.resultBorrows). */
