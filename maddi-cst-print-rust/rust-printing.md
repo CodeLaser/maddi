@@ -231,6 +231,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   type first, so the box holds a `String`, as a collection's value or a field's initializer does.
   A class's object where its interface is held (a local, an assignment, an argument, a result) is boxed as the
   `Box<dyn I>` the declaration prints; a closure and an `Rc` are not.
+- A returned switch expression or conditional converts each arm as the result is (`None`, `self.f.as_ref()`,
+  `Some(v)`), not the whole; a `yield` before an arm's last statement is a `break 'yN value` out of the arm's labeled
+  block.
 - A parameter the body may replace by a new object and returns (`if (flag) s = new Wrapper(s); return s;`) is a
   result new on one path and existing on the other: moved in, returned owned.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`

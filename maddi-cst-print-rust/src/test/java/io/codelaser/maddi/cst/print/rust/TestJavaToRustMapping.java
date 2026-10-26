@@ -622,6 +622,50 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String SWITCH_RESULT = """
+            package a.b;
+            import java.util.List;
+            public class Sw {
+                List<String> list1;
+                List<String> list2;
+                public List<String> pick(List<String> list3) {
+                    return switch (list3.getFirst()) {
+                        case "a" -> null;
+                        case "b" -> list1;
+                        case "c" -> {
+                            if (list3.size() > 1) yield list2;
+                            yield list1;
+                        }
+                        default -> throw new UnsupportedOperationException();
+                    };
+                }
+                public String label(boolean b, String s) { return b ? s : null; }
+            }
+            """;
+
+    /**
+     * A switch expression or a conditional returned: each arm is converted as the result is, a field's Option borrowed,
+     * a value in Some, null as None; a yield before the arm's end breaks out of the arm's labeled block.
+     */
+    @DisplayName("a returned switch expression converts each arm; an early yield is a labeled break: compiles")
+    @Test
+    public void switchExpressionResult() throws Exception {
+        List<TypeInfo> types = parse(SWITCH_RESULT);
+        TypeInfo sw = types.getFirst();
+        nonModifying(sw, "pick", "label");
+        dependentResult(sw, "pick");
+        borrowed(method(sw, "pick").parameters().getFirst());
+        translate(types, nullable(java.util.Set.of("list1", "list2", "pick()", "label()")));
+        String rust = module("a.b");
+        contains(rust, "\"a\" => None,");
+        contains(rust, "\"b\" => self.list1.as_ref(),");
+        contains(rust, "break 'y0 self.list2.as_ref();");
+        contains(rust, "self.list1.as_ref()\n");
+        contains(rust, "return if b { Some(s) } else { None };");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

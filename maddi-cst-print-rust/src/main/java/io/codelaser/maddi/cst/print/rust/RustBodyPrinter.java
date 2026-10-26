@@ -31,7 +31,9 @@ import io.codelaser.maddi.cst.print.rust.RustFacts.Passing;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Receiver;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -88,6 +90,14 @@ final class RustBodyPrinter {
     private boolean optionalResult;
     /** The lambda being printed is Optional.orElseGet's supplier: its result is a value of its own, copied. */
     private boolean copiedResult;
+    /** The switch expression being printed is a method's result: each arm's value is converted as the result is. */
+    private java.util.function.Function<Expression, String> armResult;
+    /** The labeled blocks of the switch arms being printed, innermost first: a yield is a break out of one. */
+    private final Deque<YieldTarget> yieldTargets = new ArrayDeque<>();
+    private int yieldCount;
+
+    private record YieldTarget(String label, java.util.function.Function<Expression, String> value) {
+    }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -125,6 +135,8 @@ final class RustBodyPrinter {
                     : " '" + RustNames.snake(bs.goToLabel())) + ";\n";
             case ContinueStatement cs -> pad + "continue" + (cs.goToLabel() == null ? ""
                     : " '" + RustNames.snake(cs.goToLabel())) + ";\n";
+            case YieldStatement ys when !yieldTargets.isEmpty() -> pad + "break " + yieldTargets.peek().label() + " "
+                    + yieldTargets.peek().value().apply(ys.expression()) + ";\n";
             case EmptyStatement ignored -> "";
             case AssertStatement as -> pad + "assert!(" + condition(as.expression()) + ");\n";
             case TryStatement ts -> {
@@ -277,12 +289,34 @@ final class RustBodyPrinter {
             // 'return this': the borrow of the receiver the signature hands back
             return "return " + context.receiver;
         }
+        return "return " + resultValue(e);
+    }
+
+    /*
+     e as the method's result. A switch expression's or a conditional's arms are each converted, as each may be held
+     otherwise: null, a field, a parameter ('case "a" -> null; case "b" -> list1; default -> list3').
+     */
+    private String resultValue(Expression e) {
+        MethodInfo method = context.method;
+        if (e instanceof SwitchExpression se && !RustTypes.isCopy(method.returnType())) {
+            java.util.function.Function<Expression, String> outer = armResult;
+            armResult = this::resultValue;
+            try {
+                return switchExpression(se).text;
+            } finally {
+                armResult = outer;
+            }
+        }
+        if (e instanceof InlineConditional ic && !RustTypes.isCopy(method.returnType())) {
+            return "if " + condition(ic.condition()) + " { " + resultValue(ic.ifTrue()) + " } else { "
+                   + resultValue(ic.ifFalse()) + " }";
+        }
         boolean nullable = RustFacts.nullable(context.facts.returnType(method));
         boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
                           || context.facts.resultBorrows(method) != null;
         Printed value = widen(expression(e), e, method.returnType());
         // what is not translated diverges: '!' is any result type, a borrow too
-        if (value.text.startsWith("todo!(")) return "return " + value.text;
+        if (value.text.startsWith("todo!(") || value.text.startsWith("panic!(")) return value.text;
         String text;
         if (RustTypes.isCopy(method.returnType())) {
             text = value.text;
@@ -295,7 +329,7 @@ final class RustBodyPrinter {
             // temporary moved out of the field)
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
             Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
-            return "return " + nullableBorrow(inner, e, RustTypes.isString(method.returnType()),
+            return nullableBorrow(inner, e, RustTypes.isString(method.returnType()),
                     method.returnType().arrays() > 0) + ".unwrap()";
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
@@ -313,7 +347,7 @@ final class RustBodyPrinter {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
             text = text + ".unwrap()";
         }
-        return "return " + text;
+        return text;
     }
 
     private String ifElse(IfElseStatement ife, int depth) {
@@ -571,14 +605,27 @@ final class RustBodyPrinter {
                 List<Statement> body = CstQueries.own(b.statements());
                 if (body.size() == 1) return armValue(body.getFirst(), type, depth);
                 String pad = INDENT.repeat(depth);
-                StringBuilder sb = new StringBuilder("{\n");
-                for (int i = 0; i < body.size(); i++) {
-                    Statement st = body.get(i);
-                    if (i == body.size() - 1 && st instanceof YieldStatement ys) {
-                        sb.append(pad).append(INDENT).append(armExpression(ys.expression(), type)).append("\n");
-                    } else {
-                        sb.append(statement(st, depth + 1));
+                // a yield before the last statement leaves the arm: a labeled block, broken out of with the value
+                java.util.function.Function<Expression, String> result = armResult;
+                java.util.function.Function<Expression, String> value = e -> result != null ? result.apply(e)
+                        : armExpression(e, type);
+                boolean early = yieldsEarly(body);
+                String label = early ? "'y" + (yieldCount++) : null;
+                StringBuilder sb = new StringBuilder(early ? label + ": {\n" : "{\n");
+                armResult = null;
+                if (early) yieldTargets.push(new YieldTarget(label, value));
+                try {
+                    for (int i = 0; i < body.size(); i++) {
+                        Statement st = body.get(i);
+                        if (i == body.size() - 1 && st instanceof YieldStatement ys) {
+                            sb.append(pad).append(INDENT).append(value.apply(ys.expression())).append("\n");
+                        } else {
+                            sb.append(statement(st, depth + 1));
+                        }
                     }
+                } finally {
+                    if (early) yieldTargets.pop();
+                    armResult = result;
                 }
                 return sb.append(pad).append("}").toString();
             }
@@ -588,7 +635,28 @@ final class RustBodyPrinter {
         }
     }
 
+    /* a yield nested in the arm's statements, not its last one; not one of a switch expression inside it */
+    private static boolean yieldsEarly(List<Statement> body) {
+        boolean[] found = {false};
+        for (int i = 0; i < body.size() - 1; i++) {
+            body.get(i).visit(e -> {
+                if (e instanceof YieldStatement) found[0] = true;
+                return !found[0] && !(e instanceof SwitchExpression) && !(e instanceof Lambda);
+            });
+        }
+        return found[0];
+    }
+
     private String armExpression(Expression e, ParameterizedType type) {
+        if (armResult != null) {
+            java.util.function.Function<Expression, String> result = armResult;
+            armResult = null;
+            try {
+                return result.apply(e);
+            } finally {
+                armResult = result;
+            }
+        }
         Printed p = widen(expression(e), e, type);
         return RustTypes.isCopy(type) ? p.text : owned(p, type);
     }
