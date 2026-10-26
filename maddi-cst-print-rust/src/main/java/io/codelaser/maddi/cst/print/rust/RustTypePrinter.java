@@ -111,6 +111,7 @@ final class RustTypePrinter {
             sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut ((r#)?\\w+): ", "$1: ") : signature);
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
+            if (bodyless && context.mutableGetters.contains(m)) sb.append(INDENT).append(mutableGetterSignature(m)).append(";\n");
         }
         sb.append("}\n");
         MethodInfo sam = functionalMethod(typeInfo);
@@ -802,23 +803,38 @@ final class RustTypePrinter {
                     .append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
         }
         sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
-        if (!inTrait && context.mutableGetters.contains(m)) sb.append(mutableGetter(m));
+        if (context.mutableGetters.contains(m)) sb.append(mutableGetter(m, inTrait));
         return sb.toString();
     }
 
     /** The exclusive twin of a getter a caller modifies through ({@link RustGetters}): the field, borrowed mutably. */
-    private String mutableGetter(MethodInfo m) {
+    private String mutableGetter(MethodInfo m, boolean inTrait) {
         FieldInfo f = RustGetters.field(m);
         if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)
             || context.borrows.fields(f.owner()).containsKey(f)) {
             return "";
         }
+        // in an impl of a trait, the twin the trait declares (RustGetters): as the trait declares it, no visibility
+        MethodInfo declared = inTrait ? m.overrides().stream().filter(RustGetters::abstractGetter)
+                .filter(context.mutableGetters::contains).findFirst().orElse(null) : null;
+        if (inTrait && declared == null) return "";
         boolean nullable = RustFacts.nullable(context.facts.field(f));
-        String type = RustTypes.owned(f.type(), context, m);
         String field = "self." + RustNames.snake(f.name());
-        return INDENT + visibility(m.access().isPrivate()) + "fn " + RustNames.method(m) + RustGetters.SUFFIX
-               + "(&mut self) -> " + (nullable ? "Option<&mut " + type + ">" : "&mut " + type) + " {\n"
-               + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n" + INDENT + "}\n";
+        String signature = declared != null ? mutableGetterSignature(declared)
+                : visibility(m.access().isPrivate()) + mutableGetterSignature(m, f.type(), nullable);
+        return INDENT + signature + " {\n" + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n"
+               + INDENT + "}\n";
+    }
+
+    /* an interface getter's twin, from its declared result */
+    private String mutableGetterSignature(MethodInfo m) {
+        return mutableGetterSignature(m, m.returnType(), RustFacts.nullable(context.facts.returnType(m)));
+    }
+
+    private String mutableGetterSignature(MethodInfo m, ParameterizedType type, boolean nullable) {
+        String rust = RustTypes.owned(type, context, m);
+        return "fn " + RustNames.method(m) + RustGetters.SUFFIX + "(&mut self) -> "
+               + (nullable ? "Option<&mut " + rust + ">" : "&mut " + rust);
     }
 
     /**

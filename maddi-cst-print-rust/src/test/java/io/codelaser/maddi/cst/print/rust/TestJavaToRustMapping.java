@@ -979,6 +979,51 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String INTERFACE_GETTERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Buf {
+                public interface Buffer {
+                    List<String> items();
+                    String name();
+                    default void add(String s) { items().add(s); }
+                }
+                static class Impl implements Buffer {
+                    private final List<String> list = new ArrayList<>();
+                    public List<String> items() { return list; }
+                    public String name() { return "impl"; }
+                }
+                public static void reset(Buffer b) { b.items().clear(); }
+            }
+            """;
+
+    /**
+     * An interface's getter that a caller, or a default method, modifies through gets an exclusive twin declared in
+     * the trait, and each implementation (a field getter) its own, without visibility in the trait's impl.
+     */
+    @DisplayName("an interface getter a default method modifies through gets an _mut twin in the trait: compiles")
+    @Test
+    public void interfaceGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(INTERFACE_GETTERS);
+        TypeInfo buffer = types.getFirst().findSubType("Buffer");
+        TypeInfo impl = types.getFirst().findSubType("Impl");
+        nonModifying(buffer, "items", "name");
+        modifying(buffer, "add");
+        dependentResult(buffer, "items");
+        nonModifying(impl, "items", "name");
+        dependentResult(impl, "items");
+        modified(method(types.getFirst(), "reset").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn items_mut(&mut self) -> &mut Vec<String>;");
+        contains(rust, "self.items_mut().push(s);");
+        contains(rust, "fn items_mut(&mut self) -> &mut Vec<String> {\n&mut self.list\n}");
+        contains(rust, "b.items_mut().clear();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String FN_MUT = """
             package a.b;
             import java.util.function.Function;
