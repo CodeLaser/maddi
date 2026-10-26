@@ -1595,7 +1595,10 @@ final class RustBodyPrinter {
         ParameterizedType type = pi.parameterizedType().isTypeParameter() && argument.parameterizedType().typeInfo() != null
                 ? argument.parameterizedType() : pi.parameterizedType();
         if (isClosure(argument) && RustTypes.isFunctional(type)) {
-            Printed c = closure(argument, type);
+            // 'Function<T, R> f' of a generic method: the closure's parameters are the call's types, not its T
+            ParameterizedType concrete = argument.parameterizedType();
+            Printed c = closure(argument, mentionsMethodTypeParameter(type) && concrete.typeInfo() != null
+                                          && RustTypes.isFunctional(concrete) ? concrete : type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
             String text = switch (context.passing(pi)) {
                 case OWNED -> boxed(c.text);
@@ -1715,6 +1718,11 @@ final class RustBodyPrinter {
      * {@code Map<String, Object>}: Rust infers a collection's element type from its first insert ({@code Box<f64>}),
      * so the declaration states it ({@code Box<dyn Any>}).
      */
+    private static boolean mentionsMethodTypeParameter(ParameterizedType type) {
+        if (type.isTypeParameter()) return type.typeParameter().isMethodTypeParameter();
+        return type.parameters().stream().anyMatch(RustBodyPrinter::mentionsMethodTypeParameter);
+    }
+
     /* 'new ArrayList<>()': Rust infers the element type from a later insert, which a list only read or cleared lacks */
     private static boolean emptyCollection(Expression init) {
         return CstQueries.unwrap(init) instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty()

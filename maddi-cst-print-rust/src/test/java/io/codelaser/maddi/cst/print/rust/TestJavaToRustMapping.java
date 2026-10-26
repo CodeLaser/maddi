@@ -849,6 +849,33 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String GENERIC_CALLEE = """
+            package a.b;
+            import java.util.List;
+            import java.util.function.Function;
+            public class Gen {
+                static <T, R> R first(List<T> list, Function<T, R> f) { return f.apply(list.get(0)); }
+                static int firstLength(List<String> list) { return first(list, s -> s.length()); }
+            }
+            """;
+
+    /** A closure passed to a generic method takes the call's types: {@code &str}, not the callee's {@code &T}. */
+    @DisplayName("a closure for a generic callee is typed with the call's types: compiles")
+    @Test
+    public void closureForGenericCallee() throws Exception {
+        List<TypeInfo> types = parse(GENERIC_CALLEE);
+        TypeInfo gen = types.getFirst();
+        nonModifying(gen, "first", "firstLength");
+        borrowed(method(gen, "first").parameters().getFirst());
+        borrowed(method(gen, "first").parameters().getLast());
+        borrowed(method(gen, "firstLength").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        assertFalse(rust.contains("|s: &T|"), rust);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
