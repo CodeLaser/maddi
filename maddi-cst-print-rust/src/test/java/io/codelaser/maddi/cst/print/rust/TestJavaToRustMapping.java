@@ -251,7 +251,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 }
                 public static int supplied(java.util.function.Supplier<Integer> s) { return s.get(); }
                 public static int peeked(java.util.function.Supplier<Integer> s) { return s.get(); }
-                public static int both() { return supplied(() -> 1) + peeked(() -> 2); }
+                public static void fed(java.util.function.Consumer<String> c) { c.accept("x"); }
+                public static int both() { fed(s -> System.out.println(s)); return supplied(() -> 1) + peeked(() -> 2); }
             }
             """;
 
@@ -260,9 +261,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
      * never look inside. The parameters that keep it are independent with hidden content (moved in), and the result
      * that is the hidden content shares it: a borrow. The class is called {@code Box}, as Rust's own: it is printed
      * {@code JBox}, so that a {@code Box<dyn Fn…>} stays Rust's. A closure parameter the method only calls is borrowed,
-     * {@code &dyn Fn}, or {@code &mut dyn Fn} when the analysis says the call modifies it, never a borrowed Box: the
-     * caller passes {@code &|| …} ({@code supplied}'s verdict is the CLI's, {@code Supplier.get} not being
-     * {@code @NotModified}).
+     * never a borrowed Box: a {@code dyn Fn} as {@code &dyn Fn} also when the analysis says the call modifies it
+     * ({@code supplied}'s verdict is the CLI's: applying a function may modify, the marker its callers resolve,
+     * maddi-mod#69), and the caller passes {@code &|| …}; a {@code dyn FnMut} as {@code &mut dyn FnMut}.
      */
     @DisplayName("row 8: hidden content is an unbounded generic T, handed out as &T: compiles")
     @Test
@@ -276,12 +277,16 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         method(box, "get").analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.INDEPENDENT_METHOD,
                 ValueImpl.IndependentImpl.INDEPENDENT_HC);
         modified(method(box, "supplied").parameters().getFirst());
+        modified(method(box, "fed").parameters().getFirst());
         borrowed(method(box, "peeked").parameters().getFirst());
         translate(types);
         String rust = module("a.b");
         contains(rust, "pub struct JBox<T> {\nt: T,\n}");
         contains(rust, "JBox::new(");
-        contains(rust, "pub fn supplied(s: &mut dyn Fn() -> i32) -> i32 {");
+        contains(rust, "pub fn supplied(s: &dyn Fn() -> i32) -> i32 {");
+        contains(rust, "pub fn fed(c: &mut dyn FnMut(&str)) {");
+        contains(rust, "Self::fed(&mut |s: &str| { println!(\"{}\", s); });");
+        contains(rust, "Self::supplied(&|| 1)");
         contains(rust, "pub fn peeked(s: &dyn Fn() -> i32) -> i32 {");
         contains(rust, "pub fn get(&self) -> &T {");
         contains(rust, "pub fn set(&mut self, t: T) {");
