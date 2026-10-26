@@ -682,6 +682,43 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String ITERATED = """
+            package a.b;
+            import java.util.Iterator;
+            import java.util.List;
+            public class It<T> {
+                int first(List<String> list) {
+                    Iterator<String> iterator = list.iterator();
+                    String next = iterator.next();
+                    return next.length();
+                }
+                int sum(List<Integer> list) {
+                    int s = 0;
+                    Iterator<Integer> it = list.iterator();
+                    while (it.hasNext()) s += it.next();
+                    return s;
+                }
+            }
+            """;
+
+    /** A collection's iterator is a peekable {@code iter()}: {@code hasNext()} peeks, {@code next()} unwraps. */
+    @DisplayName("iterator, hasNext and next: compiles")
+    @Test
+    public void iterated() throws Exception {
+        List<TypeInfo> types = parse(ITERATED);
+        TypeInfo it = types.getFirst();
+        nonModifying(it, "first", "sum");
+        borrowed(method(it, "first").parameters().getFirst());
+        borrowed(method(it, "sum").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut iterator = list.iter().peekable();");
+        contains(rust, "while it.peek().is_some() {");
+        contains(rust, "*it.next().unwrap()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {

@@ -166,6 +166,8 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A method reference is a closure (`Order::customer` → `|x| x.customer()`, `out::add` → `|x| { out.push(x.clone()); }`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- A collection's `iterator()` is a peekable `iter()`: `hasNext()` is `peek().is_some()`, `next()` is
+  `next().unwrap()`, a panic where Java throws. `remove()` through it is not mapped.
 - A closure's parameter is the element (`map` over `.cloned()`) or a reference to it (`filter`): it is passed as `&x`
   where a borrow is expected and `x.clone()` where an owned string is, which deref coercion and auto-deref accept
   either way. A comparator (`comparing`, `comparingByValue`, `reversed`, `thenComparing`, a two-parameter lambda) is

@@ -35,11 +35,14 @@ import java.util.Set;
  */
 final class RustJdk {
 
-    /** The methods that modify their receiver, by simple name, for the collections and {@code StringBuilder}. */
+    /**
+     * The methods that modify their receiver, by simple name, for the collections, {@code StringBuilder} and an
+     * iterator (a peekable one advances on {@code hasNext}'s {@code peek}).
+     */
     private static final Set<String> MODIFYING = Set.of("add", "addAll", "put", "putAll", "remove", "removeAll",
             "clear", "set", "push", "pop", "poll", "offer", "addFirst", "addLast", "removeFirst", "removeLast",
             "append", "insert", "sort", "retainAll", "merge", "compute", "computeIfAbsent", "computeIfPresent",
-            "putIfAbsent", "replaceAll", "removeIf");
+            "putIfAbsent", "replaceAll", "removeIf", "next", "hasNext");
 
     private RustJdk() {
     }
@@ -89,6 +92,20 @@ final class RustJdk {
                 case "name/0", "toString/0" -> RustBodyPrinter.printed(o + ".name()", Held.STR, false);
                 default -> null;
             };
+        }
+        if ("java.util.Iterator".equals(fqn)) {
+            return switch (name + "/" + args.size()) {
+                // Java throws on an exhausted iterator, Rust panics; an element is a reference into the collection
+                case "next/0" -> RustTypes.isCopy(mc.parameterizedType()) ? value("*" + o + ".next().unwrap()")
+                        : RustBodyPrinter.printed(o + ".next().unwrap()", Held.SHARED, false);
+                case "hasNext/0" -> value(o + ".peek().is_some()");
+                default -> null;
+            };
+        }
+        if ("iterator/0".equals(name + "/" + args.size())
+            && Set.of("Vec", "HashSet", "BTreeSet", "VecDeque").contains(String.valueOf(RustTypes.mapped(owner)))) {
+            // peekable: hasNext() looks at the next element without taking it
+            return value(iter(o) + ".peekable()");
         }
         if (fqn.startsWith("java.util.stream.")) return stream(o, fqn, name, args, printer);
         if (RustTypes.isEntry(owner)) return entry(o, name, mc);
