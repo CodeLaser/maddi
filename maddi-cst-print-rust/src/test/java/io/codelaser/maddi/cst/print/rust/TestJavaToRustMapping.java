@@ -1141,6 +1141,94 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NULLABLE_OBJECT = """
+            package a.b;
+            public class Slot {
+                private Object value;
+                private String name;
+                public void set(Object value) { this.value = value; }
+                public static Slot of(Slot from, String label) {
+                    Slot s = new Slot();
+                    s.value = from.name;
+                    s.set(label);
+                    return s;
+                }
+                public Object name() { return name; }
+            }
+            """;
+
+    /**
+     * A nullable string where a nullable Object is held: the Option's content boxed, as an
+     * {@code Option<Box<dyn Any>>}, assigned, passed and returned.
+     */
+    @DisplayName("a nullable value held as an Object is boxed inside its Option: compiles")
+    @Test
+    public void nullableObject() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_OBJECT);
+        TypeInfo slot = types.getFirst();
+        modifying(slot, "set");
+        nonModifying(slot, "of", "name");
+        translate(types, nullable(java.util.Set.of("value", "name", "label", "name()")));
+        String rust = module("a.b");
+        contains(rust, "s.value = from.name.clone().map(|x| Box::new(x) as Box<dyn Any>);");
+        contains(rust, ".map(|x| Box::new(x) as Box<dyn Any>));");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String CHECKED_FIELD = """
+            package a.b;
+            public class Checked {
+                private final String text;
+                public Checked(String t) {
+                    if (t == null) throw new IllegalArgumentException("t");
+                    this.text = t;
+                }
+                public String text() { return text; }
+            }
+            """;
+
+    /** A nullable parameter checked before it initializes a non-null field: unwrapped, a panic where Java's NPE is. */
+    @DisplayName("a nullable value initializing a non-null field is unwrapped: compiles")
+    @Test
+    public void checkedField() throws Exception {
+        List<TypeInfo> types = parse(CHECKED_FIELD);
+        nonModifying(types.getFirst(), "text");
+        translate(types, nullable(java.util.Set.of("t")));
+        String rust = module("a.b");
+        contains(rust, "text: t.clone().unwrap(),");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SUB_LIST = """
+            package a.b;
+            import java.util.List;
+            public class Args {
+                static int count(List<String> args) { return args.size(); }
+                public static int rest(List<String> args) { return count(args.subList(1, args.size())); }
+                public static List<String> head(List<String> args) { return args.subList(0, 2); }
+            }
+            """;
+
+    /** {@code subList}: a copy of the range, borrowed where it is read, owned where it is returned. */
+    @DisplayName("subList is a copy of the slice: compiles")
+    @Test
+    public void subList() throws Exception {
+        List<TypeInfo> types = parse(SUB_LIST);
+        TypeInfo args = types.getFirst();
+        nonModifying(args, "count", "rest", "head");
+        borrowed(method(args, "count").parameters().getFirst());
+        borrowed(method(args, "rest").parameters().getFirst());
+        borrowed(method(args, "head").parameters().getFirst());
+        translate(types, RustFacts.STORED);
+        String rust = module("a.b");
+        contains(rust, "return Self::count(&args[1..args.len()].to_vec());");
+        contains(rust, "return args[0..2].to_vec();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String FIELD_OF_LOCAL = """
             package a.b;
             import java.util.ArrayList;

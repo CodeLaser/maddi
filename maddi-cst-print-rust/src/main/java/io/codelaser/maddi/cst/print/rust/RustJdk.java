@@ -169,7 +169,8 @@ final class RustJdk {
         if (collection == null) return null;
         if ("io.codelaser.maddi.support.SetOnce".equals(fqn)) return setOnce(o, name, args, printer);
         return switch (collection) {
-            case "Vec" -> vec(o, name, args, printer, mc);
+            // a view the call modifies (list.subList(0, 1).clear()) is no copy
+            case "Vec" -> mutating && "subList".equals(name) ? null : vec(o, name, args, printer, mc);
             case "HashMap", "BTreeMap" -> mutating && "get".equals(name) && args.size() == 1
                     ? RustBodyPrinter.printed(o + ".get_mut(" + printer.reference(args.getFirst()) + ")", Held.EXCLUSIVE, true)
                     : map(o, name, args, printer, mc);
@@ -691,6 +692,10 @@ final class RustJdk {
                     : value(o + ".contains(" + printer.reference(args.getFirst()) + ")");
             case "addAll/1" -> value(o + ".extend(" + printer.text(args.getFirst()) + ".iter().cloned())");
             case "getFirst/0" -> RustBodyPrinter.printed(o + "[0]", Held.PLACE, false);
+            case "subList/2" -> {
+                printer.context().message(RustPrintCode.SUBLIST_COPY, mc, null);
+                yield value(o + "[" + printer.index(args.get(0)) + ".." + printer.index(args.get(1)) + "].to_vec()");
+            }
             case "forEach/1" -> value(iter(o) + ".for_each(" + printer.text(args.getFirst()) + ")");
             case "removeIf/1" -> value(o + ".retain(|x| !" + printer.applied(args.getFirst(), List.of("x")) + ")");
             case "indexOf/1" -> value(o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
