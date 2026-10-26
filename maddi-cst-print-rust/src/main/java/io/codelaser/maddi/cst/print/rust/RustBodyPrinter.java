@@ -346,7 +346,7 @@ final class RustBodyPrinter {
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
         } else {
-            text = value.nullable ? owned(value, method.returnType()) : asDyn(
+            text = value.nullable ? ownedNullable(value, e, method.returnType()) : asDyn(
                     asObject(owned(value, objectTarget(method.returnType()) ? e.parameterizedType() : method.returnType()),
                             e, method.returnType()), e, method.returnType());
         }
@@ -944,7 +944,7 @@ final class RustBodyPrinter {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
         String text = RustTypes.isCopy(targetType) ? value.text
-                : value.nullable ? owned(value, targetType)
+                : value.nullable ? ownedNullable(value, a.value(), targetType)
                 : objectTarget(targetType) ? asObject(owned(value, a.value().parameterizedType()), a.value(), targetType)
                 : asDyn(owned(value, targetType), a.value(), targetType);
         boolean nullableTarget = targetNullable(a.variableTarget());
@@ -1643,7 +1643,7 @@ final class RustBodyPrinter {
             text = switch (context.passing(pi)) {
                 case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
                 case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
-                case OWNED -> p.nullable ? owned(p, type) : asDyn(
+                case OWNED -> p.nullable ? ownedNullable(p, argument, type) : asDyn(
                         asObject(owned(p, objectTarget(type) ? argument.parameterizedType() : type), argument, type),
                         argument, type);
             };
@@ -1924,6 +1924,18 @@ final class RustBodyPrinter {
         TypeInfo from = e.parameterizedType().typeInfo();
         return from == null || from == target.typeInfo() || from.isInterface() || e.parameterizedType().arrays() > 0
                 ? text : "Box::new(" + text + ")";
+    }
+
+    /*
+     a nullable value where an Object is held: the Option's content boxed ('Option<String>' into an
+     'Option<Box<dyn Any>>'), owned as its own type first
+     */
+    private String ownedNullable(Printed p, Expression e, ParameterizedType target) {
+        if (!objectTarget(target) || e instanceof NullConstant || "None".equals(p.text)
+            || e.parameterizedType().typeInfo() == null || e.parameterizedType().typeInfo().isJavaLangObject()) {
+            return owned(p, target);
+        }
+        return owned(p, e.parameterizedType()) + ".map(|x| Box::new(x) as Box<dyn Any>)";
     }
 
     private static boolean objectTarget(ParameterizedType target) {

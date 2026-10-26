@@ -1141,6 +1141,41 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NULLABLE_OBJECT = """
+            package a.b;
+            public class Slot {
+                private Object value;
+                private String name;
+                public void set(Object value) { this.value = value; }
+                public static Slot of(Slot from, String label) {
+                    Slot s = new Slot();
+                    s.value = from.name;
+                    s.set(label);
+                    return s;
+                }
+                public Object name() { return name; }
+            }
+            """;
+
+    /**
+     * A nullable string where a nullable Object is held: the Option's content boxed, as an
+     * {@code Option<Box<dyn Any>>}, assigned, passed and returned.
+     */
+    @DisplayName("a nullable value held as an Object is boxed inside its Option: compiles")
+    @Test
+    public void nullableObject() throws Exception {
+        List<TypeInfo> types = parse(NULLABLE_OBJECT);
+        TypeInfo slot = types.getFirst();
+        modifying(slot, "set");
+        nonModifying(slot, "of", "name");
+        translate(types, nullable(java.util.Set.of("value", "name", "label", "name()")));
+        String rust = module("a.b");
+        contains(rust, "s.value = from.name.clone().map(|x| Box::new(x) as Box<dyn Any>);");
+        contains(rust, ".map(|x| Box::new(x) as Box<dyn Any>));");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String FIELD_OF_LOCAL = """
             package a.b;
             import java.util.ArrayList;
