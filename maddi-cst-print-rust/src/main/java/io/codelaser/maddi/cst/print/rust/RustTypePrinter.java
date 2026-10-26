@@ -210,9 +210,9 @@ final class RustTypePrinter {
         boolean typestate = RustTypestate.typestate(typeInfo, context);
         String generics = typestate ? "<" + RustTypestate.STATE + ">"
                 : generics(typeInfo.typeParameters(), context.borrows.hasLifetime(typeInfo));
-        // @Immutable(hc=true): its hidden content is shared by cloning (RustFacts.immutableHc)
-        String implGenerics = !typestate && context.facts.immutableHc(typeInfo) && !typeInfo.typeParameters().isEmpty()
-                ? generics.replaceAll("\\b([A-Z]\\w*)\\b(?=[,>])", "$1: Clone") : generics;
+        // the trait bounds its members need (RustBounds); @Immutable(hc=true) shares its hidden content by cloning
+        String implGenerics = typestate ? generics
+                : bounded(typeInfo.typeParameters(), context.borrows.hasLifetime(typeInfo));
         List<String> phantom = new ArrayList<>(phantomTypeParameters(typeInfo, fields));
         if (typestate) {
             // the state of the transition, a type that no field holds
@@ -850,7 +850,7 @@ final class RustTypePrinter {
         String all = self == null ? params : params.isEmpty() ? self : self + ", " + params;
         String result = resultType(m);
         return (pub ? visibility(m.access().isPrivate()) : "") + (unsafeMethod(m, context) ? "unsafe " : "") + "fn "
-               + RustNames.method(m) + generics(m.typeParameters())
+               + RustNames.method(m) + bounded(m.typeParameters(), false)
                + "(" + all + ")" + result;
     }
 
@@ -921,6 +921,15 @@ final class RustTypePrinter {
         List<String> names = new ArrayList<>();
         if (lifetime) names.add(RustBorrows.LIFETIME);
         typeParameters.forEach(tp -> names.add(tp.simpleName()));
+        return "<" + String.join(", ", names) + ">";
+    }
+
+    /** {@link #generics}, each type parameter with the bounds its uses need ({@link RustBounds}). */
+    private String bounded(List<TypeParameter> typeParameters, boolean lifetime) {
+        if (typeParameters.isEmpty() && !lifetime) return "";
+        List<String> names = new ArrayList<>();
+        if (lifetime) names.add(RustBorrows.LIFETIME);
+        typeParameters.forEach(tp -> names.add(context.bounds.declare(tp)));
         return "<" + String.join(", ", names) + ">";
     }
 

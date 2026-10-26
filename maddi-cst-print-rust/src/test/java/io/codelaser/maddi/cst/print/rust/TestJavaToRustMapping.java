@@ -437,6 +437,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 public static <T> T same(T t) { return t; }
                 public static <T> List<T> one(T t) { return List.of(t); }
                 public static <T> int size(List<T> list, T t) { return t == null ? 0 : list.size(); }
+                public static <T> boolean has(List<T> list, T t) { return list.contains(t); }
+                public static <K> int distinct(List<K> keys) { return new java.util.HashSet<>(keys).size(); }
             }
             """;
 
@@ -450,19 +452,24 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     public void storedTypeParameter() throws Exception {
         List<TypeInfo> types = parse(STORED_T);
         TypeInfo g = types.getFirst();
-        for (String m : List.of("listAdd", "same", "one", "size")) {
+        for (String m : List.of("listAdd", "same", "one", "size", "has")) {
             method(g, m).parameters().forEach(p -> {
                 if (p.parameterizedType().isTypeParameter()) borrowed(p);
             });
         }
         modified(method(g, "listAdd").parameters().getFirst());
         borrowed(method(g, "size").parameters().getFirst());
+        borrowed(method(g, "has").parameters().getFirst());
+        borrowed(method(g, "distinct").parameters().getFirst());
         translate(types);
         String rust = module("a.b");
         contains(rust, "pub fn list_add<T>(list: &mut Vec<T>, t: T) {");
         contains(rust, "pub fn same<T>(t: T) -> T {");
         contains(rust, "pub fn one<T>(t: T) -> Vec<T> {");
         contains(rust, "pub fn size<T>(list: &Vec<T>, t: &T) -> i32 {");
+        // the bounds the uses need (RustBounds): contains compares, a HashSet hashes, and copies its elements
+        contains(rust, "pub fn has<T: PartialEq>(list: &Vec<T>, t: &T) -> bool {");
+        contains(rust, "pub fn distinct<K: Clone + Eq + std::hash::Hash>(keys: &Vec<K>) -> i32 {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

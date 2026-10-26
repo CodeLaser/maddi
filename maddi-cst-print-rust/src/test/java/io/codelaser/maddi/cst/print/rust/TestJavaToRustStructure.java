@@ -173,7 +173,7 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "name: name.to_string()");
         contains(rust, "pub fn count(&self) -> i32 {");
         contains(rust, "return self.items.get(name).cloned();");
-        contains(rust, "return self.items.keys().cloned().collect();");
+        contains(rust, "return self.items.keys().cloned().collect::<Vec<String>>();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

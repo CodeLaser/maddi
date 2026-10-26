@@ -884,7 +884,9 @@ final class RustJdk {
         boolean sameKind = sourceType != null && mapped.equals(RustTypes.mapped(sourceType));
         if (sameKind) return value(printer.movable(source) ? text : text + ".clone()");
         boolean iterator = text.endsWith(".keys()") || text.endsWith(".values()");
-        return value(text + (iterator ? "" : ".iter()") + ".cloned().collect()");
+        // the collection named: a collect() whose result is used on the spot ('.len()') has no type to infer
+        String into = RustTypes.owned(cc.parameterizedType(), printer.context(), cc);
+        return value(text + (iterator ? "" : ".iter()") + ".cloned().collect::<" + into + ">()");
     }
 
     private static Printed value(String text) {

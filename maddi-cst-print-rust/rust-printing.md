@@ -192,6 +192,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A nullable value assigned where the verdicts hold the target non-null is unwrapped (`UNWRAP_AT_DEREFERENCE`).
 - A `T` parameter is independent whatever the body does with it, so the body decides its passing: stored (returned,
   assigned, `list.add(t)`, `List.of(t)`, a source callee taking it owned) it is moved in, `T`; otherwise `&T`.
+- A type parameter carries the trait bounds its uses need (`RustBounds`), on the impl's and the method's generics:
+  `Eq + std::hash::Hash` as a `HashSet` element or `HashMap` key, `Ord` for the sorted ones and `compareTo`,
+  `PartialEq` for `==`, `equals`, `contains`, `indexOf`, `std::fmt::Display` in a string, `Clone` for a copy of a
+  collection of them or as the argument of an `@Immutable(hc=true)` type. A struct declaration carries none.
 - A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
   one, `getKey()`/`getValue()` are `.0`/`.1`.
 - `System.exit`, `lineSeparator`, `arraycopy` (`clone_from_slice`, `copy_within` inside one array);
