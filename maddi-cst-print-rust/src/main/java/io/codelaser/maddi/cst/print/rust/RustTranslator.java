@@ -78,7 +78,11 @@ public final class RustTranslator {
      */
     public static Result translate(List<TypeInfo> types, RustFacts facts, Path out) throws IOException {
         Map<String, List<TypeInfo>> byPackage = new TreeMap<>();
-        for (TypeInfo type : types) byPackage.computeIfAbsent(type.packageName(), p -> new ArrayList<>()).add(type);
+        for (TypeInfo type : types) {
+            // package-info.java declares the package's annotations and documentation, no type
+            if ("package-info".equals(type.simpleName())) continue;
+            byPackage.computeIfAbsent(type.packageName(), p -> new ArrayList<>()).add(type);
+        }
         Path src = out.resolve("src");
         Files.createDirectories(src);
         List<Path> files = new ArrayList<>();

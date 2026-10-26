@@ -108,7 +108,7 @@ final class RustTypePrinter {
             boolean bodyless = m.isAbstract() || body == null || body.isEmpty();
             // a declaration without a body has no bindings: no 'mut' on its parameters
             String signature = signature(m, false);
-            sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut (\\w+): ", "$1: ") : signature);
+            sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut ((r#)?\\w+): ", "$1: ") : signature);
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
         }
@@ -117,7 +117,7 @@ final class RustTypePrinter {
         if (sam != null && context.facts.receiver(sam) != Receiver.OWNED && !context.facts.resultBorrowsReceiver(sam)) {
             // a lambda implements the interface: every closure of the method's shape implements the trait
             boolean mutable = context.facts.receiver(sam) == Receiver.EXCLUSIVE;
-            String signature = signature(sam, false).replaceAll("\\bmut (\\w+): ", "$1: ");
+            String signature = signature(sam, false).replaceAll("\\bmut ((r#)?\\w+): ", "$1: ");
             String names = sam.parameters().stream().map(p -> RustNames.snake(p.name())).collect(Collectors.joining(", "));
             sb.append("\nimpl<F: ").append(mutable ? "FnMut(" : "Fn(")
                     .append(String.join(", ", closureParameters(typeInfo, context))).append(")")
@@ -149,7 +149,7 @@ final class RustTypePrinter {
         MethodInfo m = functionalMethod(ti);
         if (m == null) return null;
         RustTypePrinter printer = new RustTypePrinter(context);
-        return m.parameters().stream().map(p -> printer.parameter(m, p).replaceFirst("^(mut )?\\w+: ", "")).toList();
+        return m.parameters().stream().map(p -> printer.parameter(m, p).replaceFirst("^(mut )?(r#)?\\w+: ", "")).toList();
     }
 
     private String supertraits(TypeInfo typeInfo) {

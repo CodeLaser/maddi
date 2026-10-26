@@ -591,6 +591,31 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String KEYWORD_PARAMETER = """
+            package a.b;
+            public class Use {
+                interface Strategy { int apply(String in); }
+                static int run(Strategy s) { return s.apply("x"); }
+                static int go() { return run(in -> in.length()); }
+            }
+            """;
+
+    /** A parameter named as a Rust keyword ({@code r#in}) is a type only in the blanket impl's {@code Fn} bound (gson). */
+    @DisplayName("a raw-identifier parameter is a type only in a functional interface's Fn bound: compiles")
+    @Test
+    public void keywordParameterInFnBound() throws Exception {
+        List<TypeInfo> types = parse(KEYWORD_PARAMETER);
+        TypeInfo strategy = types.getFirst().findSubType("Strategy");
+        nonModifying(strategy, "apply");
+        borrowed(method(strategy, "apply").parameters().getFirst());
+        borrowed(method(types.getFirst(), "run").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "impl<F: Fn(&str) -> i32> UseStrategy for F {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {
