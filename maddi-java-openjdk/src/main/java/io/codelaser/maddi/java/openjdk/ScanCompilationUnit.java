@@ -3659,6 +3659,7 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
         for (JCTree.JCCase jcCase : cases) {
             List<Expression> conditions = new ArrayList<>();
             RecordPatternResult recordPatternResult = null;
+            List<RecordPattern> otherPatterns = new ArrayList<>();
             for (JCTree.JCCaseLabel caseLabel : jcCase.getLabels()) {
                 switch (caseLabel) {
                     case JCTree.JCConstantCaseLabel ccl -> {
@@ -3673,11 +3674,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
                         RecordPatternResult rpr = parseRecordPattern(pcl.getPattern(), dsb, annotations);
                         if (recordPatternResult == null) {
                             recordPatternResult = rpr;
+                        } else {
+                            // a case with several patterns, e.g. 'case BaseTypeSig _, TypeVarSig _ ->' (JEP 456).
+                            // Java permits this only when none of them declares a (named) pattern variable (JLS
+                            // 14.11.1), so the arm body cannot reference a binding -- but the types are written
+                            // there. ⛔ They used to be dropped: 'case VarcharType _, CharType _' (trino 817f7034667,
+                            // PathEvaluationVisitor) referenced VarcharType only, and a dead-code removal took the
+                            // import of CharType from under two live uses. SwitchEntry.otherPatterns keeps them.
+                            otherPatterns.add(rpr.rp);
                         }
-                        // else: a case with several patterns, e.g. 'case BaseTypeSig _, TypeVarSig _ ->' (JEP 456).
-                        // Java permits this only when none of them declares a (named) pattern variable (JLS
-                        // 14.11.1), so the arm body cannot reference a binding. The switch-entry model carries a
-                        // single pattern, so keep the first and ignore the binding-free alternatives.
                     }
                     case null, default ->
                             throw new UnsupportedOperationException(unexpected("case label", caseLabel));
@@ -3747,14 +3752,15 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             }
 
             Source source = sourceForNode(jcCase);
-            SwitchEntry switchEntry = runtime.newSwitchEntryBuilder()
+            SwitchEntry.Builder entryBuilder = runtime.newSwitchEntryBuilder()
                     .setSource(sourceForNode(jcCase))
                     .addComments(commentsForNode(source))
                     .addConditions(conditions)
                     .setStatement(statement)
                     .setWhenExpression(whenExpression)
-                    .setPatternVariable(recordPatternResult == null ? null : recordPatternResult.rp)
-                    .build();
+                    .setPatternVariable(recordPatternResult == null ? null : recordPatternResult.rp);
+            otherPatterns.forEach(entryBuilder::addOtherPattern);
+            SwitchEntry switchEntry = entryBuilder.build();
             switchEntries.add(switchEntry);
             ++i;
         }

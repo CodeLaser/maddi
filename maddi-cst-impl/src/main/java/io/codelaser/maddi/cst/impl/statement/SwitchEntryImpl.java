@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 public class SwitchEntryImpl implements SwitchEntry {
     private final List<Expression> conditions;
     private final RecordPattern patternVariable;
+    private final List<RecordPattern> otherPatterns;
     private final Expression whenExpression;
     private final Statement statement;
     private final Source source;
@@ -52,8 +53,19 @@ public class SwitchEntryImpl implements SwitchEntry {
                            RecordPattern patternVariable,
                            Expression whenExpression,
                            Statement statement) {
+        this(comments, source, conditions, patternVariable, List.of(), whenExpression, statement);
+    }
+
+    public SwitchEntryImpl(List<Comment> comments,
+                           Source source,
+                           List<Expression> conditions,
+                           RecordPattern patternVariable,
+                           List<RecordPattern> otherPatterns,
+                           Expression whenExpression,
+                           Statement statement) {
         this.conditions = conditions;
         this.patternVariable = patternVariable;
+        this.otherPatterns = List.copyOf(otherPatterns);
         this.whenExpression = whenExpression;
         this.statement = statement;
         this.comments = comments == null ? List.of() : List.copyOf(comments);
@@ -67,12 +79,13 @@ public class SwitchEntryImpl implements SwitchEntry {
 
     @Override
     public SwitchEntry withStatement(Statement statement) {
-        return new SwitchEntryImpl(comments, source, conditions, patternVariable, whenExpression, statement);
+        return new SwitchEntryImpl(comments, source, conditions, patternVariable, otherPatterns, whenExpression,
+                statement);
     }
 
     @Override
     public int complexity() {
-        return (patternVariable != null ? 1 : 0)
+        return (patternVariable != null ? 1 : 0) + otherPatterns.size()
                + conditions.stream().mapToInt(Expression::complexity).sum()
                + whenExpression.complexity() + statement().complexity();
     }
@@ -90,6 +103,11 @@ public class SwitchEntryImpl implements SwitchEntry {
     @Override
     public RecordPattern patternVariable() {
         return patternVariable;
+    }
+
+    @Override
+    public List<RecordPattern> otherPatterns() {
+        return otherPatterns;
     }
 
     @Override
@@ -157,6 +175,11 @@ public class SwitchEntryImpl implements SwitchEntry {
                 outputBuilder.add(SymbolEnum.COMMA);
             }
             outputBuilder.add(patternVariable.print(qualification));
+            // 'case A _, B _ ->' (JEP 456): printing the first pattern only turned it into 'case A _ ->', which
+            // compiles and no longer matches B
+            for (RecordPattern other : otherPatterns) {
+                outputBuilder.add(SymbolEnum.COMMA).add(other.print(qualification));
+            }
             if (whenExpression != null && !whenExpression.isEmpty()) {
                 outputBuilder.add(SpaceEnum.ONE).add(KeywordImpl.WHEN).add(SpaceEnum.ONE)
                         .add(whenExpression.print(qualification));
@@ -173,15 +196,18 @@ public class SwitchEntryImpl implements SwitchEntry {
                 .collect(translationMap.toList(conditions));
         RecordPattern tPattern = patternVariable == null ? null
                 : patternVariable.translate(translationMap);
+        List<RecordPattern> tOthers = otherPatterns.stream().map(o -> o.translate(translationMap))
+                .collect(translationMap.toList(otherPatterns));
         Expression tWhen = whenExpression == null ? null : whenExpression.translate(translationMap);
         List<Statement> tStatements = statement.translate(translationMap);
         Statement tStatement = tStatements.isEmpty() ? null : tStatements.getFirst();
-        if (tConditions == conditions && tPattern == patternVariable && tWhen == whenExpression
-            && tStatement == statement) {
+        if (tConditions == conditions && tPattern == patternVariable && tOthers == otherPatterns
+            && tWhen == whenExpression && tStatement == statement) {
             return this;
         }
         if (tStatement == null) return null; // a way for the entry to disappear
-        SwitchEntry result = new SwitchEntryImpl(comments, source, tConditions, tPattern, tWhen, tStatement);
+        SwitchEntry result = new SwitchEntryImpl(comments, source, tConditions, tPattern, tOthers, tWhen,
+                tStatement);
         return translationMap.postTranslationHandler(this, result);
     }
 
@@ -190,6 +216,7 @@ public class SwitchEntryImpl implements SwitchEntry {
         return new SwitchEntryImpl(comments, source,
                 conditions.stream().map(e -> e.rewire(infoMap)).toList(),
                 patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
+                otherPatterns.stream().map(o -> (RecordPattern) o.rewire(infoMap)).toList(),
                 whenExpression.rewire(infoMap), statement.rewire(infoMap));
     }
 
@@ -202,6 +229,7 @@ public class SwitchEntryImpl implements SwitchEntry {
     public void visit(Predicate<Element> predicate) {
         if (predicate.test(this)) {
             if (patternVariable != null) patternVariable.visit(predicate);
+            otherPatterns.forEach(o -> o.visit(predicate));
             whenExpression.visit(predicate);
         }
     }
@@ -228,7 +256,9 @@ public class SwitchEntryImpl implements SwitchEntry {
         // the case labels read variables too (#66): a Java enum label is a static field read, and K2 lowers a
         // subject-less Kotlin `when` to a switch over `true` whose labels are arbitrary boolean expressions
         Stream<Variable> s0 = conditions.stream().flatMap(Expression::variableStreamDescend);
-        Stream<Variable> s1 = patternVariable == null ? Stream.of() : patternVariable.variableStreamDescend();
+        Stream<Variable> s1 = Stream.concat(
+                patternVariable == null ? Stream.of() : patternVariable.variableStreamDescend(),
+                otherPatterns.stream().flatMap(RecordPattern::variableStreamDescend));
         return Stream.concat(s0, Stream.concat(s1,
                 Stream.concat(whenExpression.variableStreamDescend(), statement.variableStreamDescend())));
     }
@@ -239,7 +269,11 @@ public class SwitchEntryImpl implements SwitchEntry {
         // the case labels ('case Kind.CONST ->') reference types too; without them, a type used only in a
         // label is invisible to import maintenance
         Stream<Element.TypeReference> s0 = conditions.stream().flatMap(c -> c.typesReferenced(predicate));
-        Stream<Element.TypeReference> s1 = patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate);
+        // every pattern of 'case A _, B _ ->', not only the first: B used to be invisible here, and trino's
+        // 'case VarcharType _, CharType _' lost its import of CharType to a dead-code removal
+        Stream<Element.TypeReference> s1 = Stream.concat(
+                patternVariable == null ? Stream.of() : patternVariable.typesReferenced(predicate),
+                otherPatterns.stream().flatMap(o -> o.typesReferenced(predicate)));
         return Stream.concat(s0, Stream.concat(s1,
                 Stream.concat(whenExpression.typesReferenced(predicate), statement.typesReferenced(predicate))));
     }
@@ -247,6 +281,7 @@ public class SwitchEntryImpl implements SwitchEntry {
     public static class EntryBuilderImpl extends ElementImpl.Builder<Builder> implements Builder {
         private final List<Expression> conditions = new ArrayList<>();
         private RecordPattern patternVariable;
+        private final List<RecordPattern> otherPatterns = new ArrayList<>();
         private Expression whenExpression;
         private Statement statement;
 
@@ -269,6 +304,12 @@ public class SwitchEntryImpl implements SwitchEntry {
         }
 
         @Override
+        public Builder addOtherPattern(RecordPattern pattern) {
+            this.otherPatterns.add(pattern);
+            return this;
+        }
+
+        @Override
         public Builder setWhenExpression(Expression whenExpression) {
             this.whenExpression = whenExpression;
             return this;
@@ -277,7 +318,7 @@ public class SwitchEntryImpl implements SwitchEntry {
         @Override
         public SwitchEntry build() {
             return new SwitchEntryImpl(List.copyOf(comments), source,
-                    List.copyOf(conditions), patternVariable, whenExpression, statement);
+                    List.copyOf(conditions), patternVariable, otherPatterns, whenExpression, statement);
         }
     }
 }

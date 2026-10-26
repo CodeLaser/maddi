@@ -44,6 +44,15 @@ public interface SwitchEntry extends Comparable<SwitchEntry>, Element {
     RecordPattern patternVariable();
 
     /**
+     * @return the patterns after the first one of a label that carries several (JEP 456: {@code case A _, B _ ->}),
+     * in source order; empty otherwise. {@link #patternVariable()} is the first. Java allows several patterns in one
+     * label only when none of them binds a variable, so these never introduce one.
+     */
+    default List<RecordPattern> otherPatterns() {
+        return List.of();
+    }
+
+    /**
      * @return the arm's code as a block (wrapping {@link #statement()} when it is a single statement).
      */
     Block statementAsBlock();
@@ -75,6 +84,10 @@ public interface SwitchEntry extends Comparable<SwitchEntry>, Element {
 
         @Fluent
         Builder setPatternVariable(RecordPattern patternVariable);
+
+        /** A pattern after the first one of the label, see {@link SwitchEntry#otherPatterns()}. */
+        @Fluent
+        Builder addOtherPattern(RecordPattern pattern);
 
         @Fluent
         Builder setWhenExpression(Expression whenExpression);
