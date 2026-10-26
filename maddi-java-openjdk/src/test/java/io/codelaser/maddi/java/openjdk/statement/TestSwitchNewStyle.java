@@ -366,4 +366,38 @@ public class TestSwitchNewStyle extends CommonTest {
                 .toString();
         assertTrue(expression.contains("case Consts.ONE->"), expression);
     }
+
+    @Language("java")
+    private static final String INPUT_PATTERNS = """
+            class X {
+                sealed interface S permits A, B, C {}
+                record A() implements S {}
+                record B() implements S {}
+                record C() implements S {}
+                static void method(S s) {
+                    switch (s) {
+                        case A _, B _ -> System.out.println("ab");
+                        case C _ -> System.out.println("c");
+                    }
+                }
+            }
+            """;
+
+    // A walk over the whole switch reaches every pattern of every case, not only the first of each (JEP 456).
+    @DisplayName("walking a switch statement reaches every pattern of a multi-pattern case label")
+    @Test
+    public void testWalkReachesEveryPattern() {
+        TypeInfo X = scan("X", INPUT_PATTERNS);
+        MethodInfo method = X.findUniqueMethod("method", 1);
+        SwitchStatementNewStyle switchStatement = (SwitchStatementNewStyle) method.methodBody().statements().getFirst();
+        java.util.List<String> visited = new java.util.ArrayList<>();
+        switchStatement.visit(e -> {
+            if (e instanceof io.codelaser.maddi.cst.api.element.RecordPattern rp && rp.localVariable() != null) {
+                visited.add(rp.localVariable().parameterizedType().typeInfo().simpleName());
+            }
+            return true;
+        });
+        assertEquals(java.util.List.of("A", "B", "C"), visited,
+                "patterns reached walking 'case A _, B _ -> ...; case C _ -> ...' (left: all three; right: reached)");
+    }
 }

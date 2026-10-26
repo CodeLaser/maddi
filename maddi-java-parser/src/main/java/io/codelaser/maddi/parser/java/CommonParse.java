@@ -386,6 +386,9 @@ public abstract class CommonParse {
         Context newContext = Objects.requireNonNullElse(enumContext, context);
         io.codelaser.maddi.cst.api.expression.Expression whenExpression = runtime.newEmptyExpression();
         List<io.codelaser.maddi.cst.api.expression.Expression> conditions = new ArrayList<>();
+        // 'case A _, B _ ->' (JEP 456): the first pattern is the entry's pattern variable, the others go to
+        // SwitchEntry.otherPatterns. Setting each one as THE pattern variable kept only the last.
+        boolean havePattern = false;
         int j = 0;
         while (j < nsl.size()) {
             Node node = nsl.get(j);
@@ -393,11 +396,15 @@ public abstract class CommonParse {
                 case TypePattern lvd -> {
                     RecordPattern recordPattern = parsers.parseRecordPattern()
                             .parseLocalVariableDeclaration(newContext, lvd, 0, null);
-                    entryBuilder.setPatternVariable(recordPattern);
+                    if (havePattern) entryBuilder.addOtherPattern(recordPattern);
+                    else entryBuilder.setPatternVariable(recordPattern);
+                    havePattern = true;
                 }
                 case org.parsers.java.ast.RecordPattern rp -> {
                     RecordPattern recordPattern = parsers.parseRecordPattern().parseRecordPattern(newContext, rp);
-                    entryBuilder.setPatternVariable(recordPattern);
+                    if (havePattern) entryBuilder.addOtherPattern(recordPattern);
+                    else entryBuilder.setPatternVariable(recordPattern);
+                    havePattern = true;
                 }
                 case WhenClause whenClause -> {
                     ForwardType booleanTypeFwd = newContext.newForwardType(runtime.booleanParameterizedType());

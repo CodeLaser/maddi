@@ -159,6 +159,7 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
         for (SwitchEntry entry : entries) {
             entry.conditions().forEach(e -> e.visit(predicate));
             if (entry.patternVariable() != null) entry.patternVariable().visit(predicate);
+            entry.otherPatterns().forEach(o -> o.visit(predicate)); // case A _, B _ -> (JEP 456)
             entry.whenExpression().visit(predicate);
             entry.statement().visit(predicate);
             i++;
@@ -173,6 +174,7 @@ public class SwitchExpressionImpl extends ExpressionImpl implements SwitchExpres
             for (SwitchEntry entry : entries) {
                 entry.conditions().forEach(e -> e.visit(visitor));
                 if (entry.patternVariable() != null) entry.patternVariable().visit(visitor);
+                entry.otherPatterns().forEach(o -> o.visit(visitor)); // case A _, B _ -> (JEP 456)
                 entry.whenExpression().visit(visitor);
                 visitor.startSubBlock(i);
                 entry.statement().visit(visitor);
