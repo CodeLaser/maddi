@@ -4433,8 +4433,22 @@ public class KotlinExpressionPrinter {
 
     private static OutputBuilder instanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
-        return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
+        OutputBuilder is = new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
                 .add(KotlinSymbols.binary("is")).add(new TextImpl(testType(io, q)));
+        return withNestedTests(is, io, q);
+    }
+
+    /**
+     * {@code o instanceof Box(String s)}: {@code (o is Box && o.content is String)}, the tests of the nested
+     * patterns AND-ed after the type's. {@code o is Box} alone held for a box of anything.
+     */
+    private static OutputBuilder withNestedTests(OutputBuilder is, InstanceOf io, Qualification q) {
+        if (io.patternVariable() == null) return is;
+        List<OutputBuilder> tests = nestedTests(io.patternVariable(), io.expression(), q);
+        if (tests.isEmpty()) return is;
+        OutputBuilder b = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(is);
+        tests.forEach(t -> b.add(KotlinSymbols.binary("&&")).add(t));
+        return b.add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     /**
@@ -4466,41 +4480,115 @@ public class KotlinExpressionPrinter {
     /**
      * {@code o instanceof HardSoftScore(var otherHardScore, var otherSoftScore)}: Kotlin's {@code is} deconstructs
      * nothing, so each bound variable prints as the tested value's component, {@code o.hardScore}, the record being
-     * a data class with a property per component (timefold's scores' equals). Nested record patterns recurse.
+     * a data class with a property per component (timefold's scores' equals). Nested record patterns recurse. A
+     * nested type pattern that is tested ({@link #nestedTests}) binds the component cast to its type,
+     * {@code (o.content as String)}.
      */
-    private static void registerRecordPattern(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
-                                              Expression testedExpression, Qualification q) {
+    static void registerRecordPattern(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                      Expression testedExpression, Qualification q) {
         if (pattern.recordType() == null || pattern.patterns() == null || pattern.patterns().isEmpty()) return;
+        registerComponents(pattern, record(pattern, testedExpression, q), q);
+    }
+
+    /** The tested value as the record: itself where Kotlin smart-casts it, a local or a parameter; else a cast. */
+    private static java.util.function.Supplier<OutputBuilder> record(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                                                     Expression testedExpression, Qualification q) {
         Expression tested = unwrap(testedExpression);
         boolean smartCast = tested instanceof VariableExpression ve
                             && (ve.variable() instanceof io.codelaser.maddi.cst.api.variable.LocalVariable
                                 || ve.variable() instanceof ParameterInfo);
         String type = KotlinTypeName.of(pattern.recordType(), q);
-        registerComponents(pattern, smartCast ? () -> print(tested, q)
+        return smartCast ? () -> print(tested, q)
                 : () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(operand(PrecedenceEnum.CAST, tested, q))
                 .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
-                .add(SymbolEnum.RIGHT_PARENTHESIS), q);
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
     }
 
     private static void registerComponents(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
                                            java.util.function.Supplier<OutputBuilder> record, Qualification q) {
-        TypeInfo recordType = pattern.recordType() == null ? null : pattern.recordType().typeInfo();
-        if (recordType == null || pattern.patterns() == null) return;
-        List<io.codelaser.maddi.cst.api.info.FieldInfo> components = recordType.fields().stream()
-                .filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
-        if (components.size() != pattern.patterns().size()) return;
+        List<io.codelaser.maddi.cst.api.info.FieldInfo> components = components(pattern);
+        if (components == null) return;
         for (int i = 0; i < components.size(); i++) {
             io.codelaser.maddi.cst.api.element.RecordPattern sub = pattern.patterns().get(i);
-            String name = KotlinNames.name(components.get(i).name());
-            java.util.function.Supplier<OutputBuilder> component = () -> record.get().add(SymbolEnum.DOT)
-                    .add(new TextImpl(name));
             if (sub.unnamedPattern()) continue;
+            java.util.function.Supplier<OutputBuilder> component = component(record, components.get(i), sub, q);
             if (sub.localVariable() != null) {
                 KotlinContext.patternVariable(sub.localVariable(), component);
             } else {
                 registerComponents(sub, component, q);
             }
         }
+    }
+
+    /**
+     * The tests a deconstruction adds to {@code is R}, Kotlin's {@code is} deconstructing nothing: one per nested
+     * type pattern that does not match every value of its component, {@code o.content is String}, and one per nested
+     * deconstruction, {@code o.content is Box}, followed by its own. None for {@code var x}, {@code _}, or a type
+     * the component's is ({@link #covers}): those match null too, which an {@code is} would not.
+     */
+    static List<OutputBuilder> nestedTests(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                           Expression testedExpression, Qualification q) {
+        List<OutputBuilder> tests = new ArrayList<>();
+        if (pattern.recordType() != null) nestedTests(pattern, record(pattern, testedExpression, q), tests, q);
+        return tests;
+    }
+
+    private static void nestedTests(io.codelaser.maddi.cst.api.element.RecordPattern pattern,
+                                    java.util.function.Supplier<OutputBuilder> record, List<OutputBuilder> tests,
+                                    Qualification q) {
+        List<io.codelaser.maddi.cst.api.info.FieldInfo> components = components(pattern);
+        if (components == null) return;
+        for (int i = 0; i < components.size(); i++) {
+            io.codelaser.maddi.cst.api.element.RecordPattern sub = pattern.patterns().get(i);
+            if (sub.unnamedPattern() || sub.localVariable() != null && covers(sub.parameterizedType(),
+                    components.get(i).type())) {
+                continue;
+            }
+            String name = KotlinNames.name(components.get(i).name());
+            tests.add(record.get().add(SymbolEnum.DOT).add(new TextImpl(name)).add(KotlinSymbols.binary("is"))
+                    .add(new TextImpl(KotlinTypeName.of(sub.parameterizedType().withNullable(
+                            io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q))));
+            if (sub.recordType() != null) nestedTests(sub, component(record, components.get(i), sub, q), tests, q);
+        }
+    }
+
+    /** The record's components, one per nested pattern; null when they do not line up. */
+    private static List<io.codelaser.maddi.cst.api.info.FieldInfo> components(
+            io.codelaser.maddi.cst.api.element.RecordPattern pattern) {
+        TypeInfo recordType = pattern.recordType() == null ? null : pattern.recordType().typeInfo();
+        if (recordType == null || pattern.patterns() == null) return null;
+        List<io.codelaser.maddi.cst.api.info.FieldInfo> components = recordType.fields().stream()
+                .filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+        return components.size() == pattern.patterns().size() ? components : null;
+    }
+
+    /** {@code o.content}, cast to the nested pattern's type where that is narrower: {@code (o.content as String)}. */
+    private static java.util.function.Supplier<OutputBuilder> component(java.util.function.Supplier<OutputBuilder> record,
+                                                                        io.codelaser.maddi.cst.api.info.FieldInfo field,
+                                                                        io.codelaser.maddi.cst.api.element.RecordPattern sub,
+                                                                        Qualification q) {
+        String name = KotlinNames.name(field.name());
+        java.util.function.Supplier<OutputBuilder> plain = () -> record.get().add(SymbolEnum.DOT).add(new TextImpl(name));
+        if (covers(sub.parameterizedType(), field.type())) return plain;
+        String type = KotlinTypeName.of(sub.parameterizedType().withNullable(
+                io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q);
+        return () -> new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(plain.get())
+                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(type))
+                .add(SymbolEnum.RIGHT_PARENTHESIS);
+    }
+
+    /**
+     * A nested pattern of {@code type} matches every value of a component of type {@code component}: the same type
+     * or a supertype of it, Object. A component of a type parameter is taken as covered: what it stands for is not
+     * known here, and a test of its erasure could reject what Java's pattern accepts.
+     */
+    private static boolean covers(ParameterizedType type, ParameterizedType component) {
+        if (type == null || component == null || component.isTypeParameter() || type.isTypeParameter()) return true;
+        if (type.typeInfo() == null || component.typeInfo() == null) return false;
+        if (type.arrays() != component.arrays()) return type.arrays() == 0 && type.typeInfo().isJavaLangObject();
+        if (type.typeInfo().equals(component.typeInfo()) || type.typeInfo().isJavaLangObject()) return true;
+        return type.arrays() == 0 && component.typeInfo().recursiveSuperTypeStream()
+                .anyMatch(t -> t.equals(type.typeInfo()));
     }
 
     /** As {@link #registerPattern(InstanceOf, Qualification)}, for {@code variable} of {@code type} bound by {@code tested}. */
@@ -4520,6 +4608,12 @@ public class KotlinExpressionPrinter {
 
     private static OutputBuilder notInstanceOf(InstanceOf io, Qualification q) {
         registerPattern(io, q);
+        if (io.patternVariable() != null && !nestedTests(io.patternVariable(), io.expression(), q).isEmpty()) {
+            // !(o instanceof Box(String s)): !(o is Box && o.content is String)
+            OutputBuilder is = new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
+                    .add(KotlinSymbols.binary("is")).add(new TextImpl(testType(io, q)));
+            return new OutputBuilderImpl().add(SymbolEnum.plusPlusPrefix("!")).add(withNestedTests(is, io, q));
+        }
         return new OutputBuilderImpl().add(operand(io.precedence(), io.expression(), q))
                 .add(KotlinSymbols.binary("!is")).add(new TextImpl(testType(io, q)));
     }

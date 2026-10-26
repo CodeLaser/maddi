@@ -16,12 +16,14 @@ package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.*;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.statement.*;
+import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
@@ -683,63 +685,66 @@ public class KotlinStatementPrinter {
 
     /**
      * The default arm: no conditions, or a single empty-expression sentinel; {@code case null, default} too, Kotlin's
-     * else taking the null. Not a type pattern's arm, which has no conditions either.
+     * else taking the null. Not a pattern's arm, which has no conditions either.
      */
     private static boolean isDefault(SwitchEntry e) {
-        if (typePattern(e)) return false;
+        if (e.patternVariable() != null) return false;
         return e.conditions().isEmpty() || e.conditions().stream().allMatch(Expression::isEmpty)
                || e.conditions().stream().anyMatch(Expression::isEmpty)
                   && e.conditions().stream().allMatch(c -> c.isEmpty() || c instanceof NullConstant);
     }
 
-    /**
-     * {@code case CmdLineException c ->}: a type pattern, Java 21's. Not a record's deconstruction. With several
-     * patterns ({@code case A _, B _ ->}, JEP 456) every one of them has to be a type pattern: Kotlin's
-     * {@code is A, is B} tests the type only, which a deconstruction does not reduce to.
-     */
-    private static boolean typePattern(SwitchEntry e) {
-        return e.patternVariable() != null && isTypePattern(e.patternVariable())
-               && e.otherPatterns().stream().allMatch(KotlinStatementPrinter::isTypePattern);
-    }
-
-    private static boolean isTypePattern(io.codelaser.maddi.cst.api.element.RecordPattern p) {
-        return (p.patterns() == null || p.patterns().isEmpty())
-               && (p.localVariable() != null || p.recordType() != null);
-    }
-
-    private static ParameterizedType patternType(io.codelaser.maddi.cst.api.element.RecordPattern p) {
-        return p.localVariable() != null ? p.localVariable().parameterizedType() : p.recordType();
-    }
-
     private static OutputBuilder whenEntry(SwitchEntry e, Expression selector, boolean intSelector, Qualification q) {
+        if (e.patternVariable() != null) return patternArm(e, selector, q);
         OutputBuilder b = new OutputBuilderImpl();
-        if (typePattern(e)) {
-            // jenkins's CLICommand.handleException: case CmdLineException cmdLineException -> …, Kotlin's
-            // is CmdLineException ->, where the variable is the selector, smart-cast (or cast) to the type
-            io.codelaser.maddi.cst.api.element.RecordPattern pattern = e.patternVariable();
-            ParameterizedType type = pattern.localVariable() != null ? pattern.localVariable().parameterizedType()
-                    : pattern.recordType();
-            if (pattern.localVariable() != null && !pattern.unnamedPattern()) {
-                KotlinExpressionPrinter.registerPattern(pattern.localVariable(), selector, type, q);
-            }
-            b.add(new TextImpl("is " + KotlinTypeName.of(type.withNullable(
-                    io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
-            // case A _, B _ -> (JEP 456): is A, is B. Printing only the first compiled and stopped matching B.
-            for (io.codelaser.maddi.cst.api.element.RecordPattern other : e.otherPatterns()) {
-                b.add(SymbolEnum.COMMA).add(new TextImpl("is " + KotlinTypeName.of(patternType(other).withNullable(
-                        io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
-            }
-            if (e.whenExpression() != null && !e.whenExpression().isEmpty()) {
-                // case X x when cond: Kotlin's guard
-                b.add(SpaceEnum.ONE).add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(e.whenExpression(), q));
-            }
-            return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
-        }
         if (isDefault(e)) {
             b.add(KotlinKeyword.ELSE_ARROW);
         } else {
             b.add(e.conditions().stream().filter(c -> !c.isEmpty()).map(c -> condition(c, intSelector, q))
                     .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA)));
+        }
+        return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
+    }
+
+    /**
+     * A pattern's arm. A type pattern, {@code case CmdLineException c ->}, is {@code is CmdLineException ->}, where the
+     * variable is the selector, smart-cast (or cast) to the type (jenkins's CLICommand.handleException). A record's
+     * deconstruction, {@code case Box(String s) ->}, is {@code is Box if (o.content is String) ->}: the tests of its
+     * nested patterns guard it, and its variables are the selector's components. It used to have no condition at
+     * all, so it printed as the else arm. A label with several patterns (JEP 456), {@code case A _, B _ ->}, is
+     * {@code is A, is B ->}; Kotlin allows no guard on a branch with several conditions, so one with a nested test
+     * or a when-clause is not translated.
+     */
+    private static OutputBuilder patternArm(SwitchEntry e, Expression selector, Qualification q) {
+        List<RecordPattern> patterns = new ArrayList<>();
+        patterns.add(e.patternVariable());
+        patterns.addAll(e.otherPatterns());
+        List<OutputBuilder> guard = new ArrayList<>();
+        patterns.forEach(p -> guard.addAll(KotlinExpressionPrinter.nestedTests(p, selector, q)));
+        boolean when = e.whenExpression() != null && !e.whenExpression().isEmpty();
+        if (patterns.size() > 1 && (when || !guard.isEmpty())) {
+            KotlinContext.message(KotlinPrintCode.JAVA_FALLBACK, e, "a guard on a case with several patterns");
+            return e.print(q);
+        }
+        RecordPattern pattern = e.patternVariable();
+        if (pattern.localVariable() != null && !pattern.unnamedPattern()) {
+            KotlinExpressionPrinter.registerPattern(pattern.localVariable(), selector, pattern.parameterizedType(), q);
+        } else if (pattern.recordType() != null) {
+            KotlinExpressionPrinter.registerRecordPattern(pattern, selector, q);
+        }
+        OutputBuilder b = patterns.stream()
+                .map(p -> (OutputBuilder) new OutputBuilderImpl().add(new TextImpl("is " + KotlinTypeName.of(
+                        p.parameterizedType().withNullable(NullableState.NONNULL), q))))
+                .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+        if (when) {
+            // case X x when cond: Kotlin's guard, after the nested tests
+            OutputBuilder condition = KotlinExpressionPrinter.print(e.whenExpression(), q);
+            guard.add(guard.isEmpty() ? condition : new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                    .add(condition).add(SymbolEnum.RIGHT_PARENTHESIS));
+        }
+        if (!guard.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinKeyword.IF).add(SpaceEnum.ONE)
+                    .add(guard.stream().collect(OutputBuilderImpl.joining(KotlinSymbols.binary("&&"))));
         }
         return b.add(SymbolEnum.LAMBDA).add(arm(e.statement(), q));
     }

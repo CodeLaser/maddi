@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -261,6 +262,62 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         contains(kotlin, "is String, is Int ->");
         compiles(kotlin);
+    }
+
+    /**
+     * A record's deconstruction in a case, {@code case Box(String s) ->}: Kotlin's {@code is Box}, guarded by the
+     * tests of the nested patterns that do not match every value of their component, {@code if o.content is
+     * String}. The arm had no condition at all, which made it the {@code else ->} arm: it matched everything, and
+     * the arms after it were unreachable.
+     */
+    @Test
+    public void deconstructionCase() {
+        String kotlin = kotlin("""
+                package a;
+                class Shapes {
+                    record Point(int x, int y) {}
+                    record Box(Object content) {}
+                    static String describe(Object o) {
+                        return switch (o) {
+                            case Point(var x, var y) when x == y -> "diagonal " + x;
+                            case Point(int x, var _) -> "point " + x;
+                            case Box(String s) -> "box of " + s.length();
+                            case Box(Point(var x, var _)) -> "box of point " + x;
+                            case Box _ -> "box";
+                            default -> "?";
+                        };
+                    }
+                }
+                """);
+        contains(kotlin, "is Point if o.x == o.y ->");
+        contains(kotlin, "is Point -> \"point \" + o.x");
+        contains(kotlin, "is Box if o.content is String -> \"box of \" + (o.content as String).length");
+        contains(kotlin, "is Box if o.content is Point -> \"box of point \" + (o.content as Point).x");
+        assertEquals(1, kotlin.split("else ->", -1).length - 1, "one else arm, the default's:\n" + kotlin);
+        compiles(kotlin);
+    }
+
+    /**
+     * {@code case Box(String _), Point _ ->}: a nested test needs a guard, and Kotlin allows none on a branch with
+     * several conditions. Not translated: printing {@code is Box, is Point} would match a box of anything.
+     */
+    @Test
+    public void multiPatternCaseWithNestedTest() {
+        @Language("java") String java = """
+                package a;
+                class Shapes {
+                    record Point(int x, int y) {}
+                    record Box(Object content) {}
+                    static String describe(Object o) {
+                        return switch (o) {
+                            case Box(String _), Point _ -> "known";
+                            default -> "?";
+                        };
+                    }
+                }
+                """;
+        var messages = messages(java);
+        assertTrue(messages.stream().anyMatch(m -> m.code() == KotlinPrintCode.JAVA_FALLBACK), messages::toString);
     }
 
     /**

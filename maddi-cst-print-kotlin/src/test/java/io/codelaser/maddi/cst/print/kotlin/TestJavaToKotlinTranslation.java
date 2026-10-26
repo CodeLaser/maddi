@@ -1013,4 +1013,27 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "hard == o.hard && soft == o.soft");
         compiles(kotlin);
     }
+
+    /**
+     * {@code o instanceof Box(String s)}: the nested pattern tests the component, {@code o is Box && o.content is
+     * String}, and {@code s} is the component cast to its type. {@code o is Box} alone held for a box of anything.
+     */
+    @Test
+    public void recordPatternNestedTest() {
+        String kotlin = kotlin("""
+                package a.b;
+                record Box(Object content) {
+                    static int size(Object o) {
+                        if (o instanceof Box(String s)) return s.length();
+                        if (!(o instanceof Box(Box(var inner)))) return -1;
+                        return inner.hashCode();
+                    }
+                }
+                """);
+        contains(kotlin, "(o is Box && o.content is String)");
+        contains(kotlin, "(o.content as String).length");
+        contains(kotlin, "!(o is Box && o.content is Box)");
+        contains(kotlin, "(o.content as Box).content");
+        compiles(kotlin);
+    }
 }
