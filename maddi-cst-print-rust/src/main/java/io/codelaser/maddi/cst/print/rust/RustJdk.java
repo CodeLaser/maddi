@@ -61,9 +61,12 @@ final class RustJdk {
             && "java.lang.System".equals(fr.fieldInfo().owner().fullyQualifiedName())) {
             return printStream("err".equals(fr.fieldInfo().name()), mc, printer);
         }
+        // what the caller does with this call's result modifies it ('m.get(k).touch()'): the receiver is reached
+        // exclusively, the arguments are only read
+        boolean mutating = printer.mutatingPlace(false);
         // a nullable receiver is unwrapped, Java's NPE as a panic; an Optional is Rust's Option itself
         String o = "Option".equals(RustTypes.mapped(owner)) || fqn.startsWith("java.util.stream.")
-                ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc));
+                ? printer.text(mc.object()) : printer.receiver(mc.object(), modifies(mc) || mutating);
         if ("java.lang.Enum".equals(fqn)) {
             return switch (name + "/" + args.size()) {
                 case "ordinal/0" -> value(o + ".ordinal()");
@@ -129,7 +132,9 @@ final class RustJdk {
         if ("io.codelaser.maddi.support.SetOnce".equals(fqn)) return setOnce(o, name, args, printer);
         return switch (collection) {
             case "Vec" -> vec(o, name, args, printer, mc);
-            case "HashMap", "BTreeMap" -> map(o, name, args, printer, mc);
+            case "HashMap", "BTreeMap" -> mutating && "get".equals(name) && args.size() == 1
+                    ? RustBodyPrinter.printed(o + ".get_mut(" + printer.reference(args.getFirst()) + ")", Held.EXCLUSIVE, true)
+                    : map(o, name, args, printer, mc);
             case "HashSet", "BTreeSet" -> set(o, name, args, printer);
             case "VecDeque" -> deque(o, name, args, printer);
             case "Option" -> option(o, name, args, printer, printer.printed(mc.object()).held());

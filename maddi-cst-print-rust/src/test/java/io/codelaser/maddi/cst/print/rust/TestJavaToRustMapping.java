@@ -616,6 +616,42 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String WRITE_THROUGH = """
+            package a.b;
+            import java.util.Map;
+            public class Keeper {
+                static class Box { int j; void set(int v) { j = v; } }
+                private Box kept;
+                private Box other;
+                public void mutate() { kept.set(1); }
+                public void assign() { other.j = 2; }
+                public static void touch(Map<String, Box> m, String k) { m.get(k).set(3); }
+            }
+            """;
+
+    /**
+     * A write through a nullable place reaches it exclusively: {@code as_mut()} for a modifying call or an assignment
+     * through a nullable field, {@code get_mut(k)} for a map's value that is modified.
+     */
+    @DisplayName("writes through a nullable field or a map's value reach it with as_mut() / get_mut(): compiles")
+    @Test
+    public void writeThroughExclusive() throws Exception {
+        List<TypeInfo> types = parse(WRITE_THROUGH);
+        TypeInfo keeper = types.getFirst();
+        TypeInfo box = keeper.findSubType("Box");
+        modifying(box, "set");
+        modifying(keeper, "mutate", "assign");
+        modified(method(keeper, "touch").parameters().getFirst());
+        borrowed(method(keeper, "touch").parameters().get(1));
+        translate(types, nullable(java.util.Set.of("kept", "other")));
+        String rust = module("a.b");
+        contains(rust, "self.kept.as_mut().unwrap().set(1);");
+        contains(rust, "self.other.as_mut().unwrap().j = 2;");
+        contains(rust, "m.get_mut(k).as_mut().unwrap().set(3);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

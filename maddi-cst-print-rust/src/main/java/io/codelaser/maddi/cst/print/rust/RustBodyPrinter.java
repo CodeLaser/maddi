@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
  * change behaviour.
  */
 final class RustBodyPrinter {
+    // printing the place an assignment or a modifying call writes through: a nullable scope is unwrapped as_mut(),
+    // a map's value reached with get_mut() (RustJdk)
+    private boolean mutatingPlace;
     // the parameters movable() lets their one read take, by name, and its memo
     private final Set<String> moved = new HashSet<>();
     private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
@@ -745,11 +748,11 @@ final class RustBodyPrinter {
     private String dereference(Printed scope) {
         if (!scope.nullable) return scope.text;
         context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, null, scope.text);
-        return scope.text + ".as_ref().unwrap()";
+        return scope.text + (mutatingPlace ? ".as_mut().unwrap()" : ".as_ref().unwrap()");
     }
 
     private String assignment(Assignment a, boolean statement) {
-        String target = expression(a.target()).text;
+        String target = mutable(a.target()).text;
         boolean boxed = a.variableTarget() instanceof FieldReference fr && context.boxes.isBoxed(fr.fieldInfo());
         if (boxed && target.endsWith(BOXED_OPTION)) target = target.substring(0, target.length() - BOXED_OPTION.length());
         if (a.prefixPrimitiveOperator() != null || a.binaryOperator() != null && a.value() == null) {
@@ -1207,7 +1210,13 @@ final class RustBodyPrinter {
     private Printed methodCall(MethodCall mc) {
         MethodInfo callee = mc.methodInfo();
         if (callee.typeInfo().compilationUnit().externalLibrary()) {
-            Printed mapped = RustJdk.call(mc, this);
+            boolean outer = mutatingPlace;
+            Printed mapped;
+            try {
+                mapped = RustJdk.call(mc, this);
+            } finally {
+                mutatingPlace = outer;
+            }
             if (mapped != null) return mapped;
             context.message(RustPrintCode.UNMAPPED_JDK_CALL, mc, callee.fullyQualifiedName());
             if (callee.isStatic()) {
@@ -1244,7 +1253,19 @@ final class RustBodyPrinter {
             }
             boolean own = mc.object() == null || mc.objectIsImplicit()
                           || mc.object() instanceof VariableExpression ve && ve.variable() instanceof This;
-            String object = own ? context.receiver : dereference(expression(mc.object()));
+            String object;
+            if (own) {
+                object = context.receiver;
+            } else if (exclusive) {
+                boolean outer = mutatingPlace(true);
+                try {
+                    object = dereference(expression(mc.object()));
+                } finally {
+                    mutatingPlace = outer;
+                }
+            } else {
+                object = dereference(expression(mc.object()));
+            }
             TypeInfo objectType = own ? context.type : mc.object().parameterizedType().typeInfo();
             // an inherited method is the base's; super.m() too
             String path = objectType == null ? "" : RustTypePrinter.basePath(objectType, callee.typeInfo());
@@ -1305,6 +1326,15 @@ final class RustBodyPrinter {
      * copy, as a borrow of it could not live beside the exclusive one (Java shares an immutable string freely).
      */
     private String withoutSelfBorrows(List<Expression> arguments, MethodInfo callee) {
+        boolean outer = mutatingPlace(false); // an argument is read, also of a call on a place written through
+        try {
+            return withoutSelfBorrows0(arguments, callee);
+        } finally {
+            mutatingPlace = outer;
+        }
+    }
+
+    private String withoutSelfBorrows0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Expression a = arguments.get(i);
@@ -1351,6 +1381,15 @@ final class RustBodyPrinter {
 
     /** The arguments, each adapted to the parameter it is passed to. Without a callee: as they are. */
     String arguments(List<Expression> arguments, MethodInfo callee) {
+        boolean outer = mutatingPlace(false);
+        try {
+            return arguments0(arguments, callee);
+        } finally {
+            mutatingPlace = outer;
+        }
+    }
+
+    private String arguments0(List<Expression> arguments, MethodInfo callee) {
         List<String> out = new ArrayList<>();
         for (int i = 0; i < arguments.size(); i++) {
             Printed p = expression(arguments.get(i));
@@ -1506,12 +1545,29 @@ final class RustBodyPrinter {
     }
 
     /** The object of a call: a nullable one unwrapped, as Java would throw a NullPointerException. */
+    /** Whether the place being printed is written through; sets it to {@code value} and answers the old one. */
+    boolean mutatingPlace(boolean value) {
+        boolean old = mutatingPlace;
+        mutatingPlace = value;
+        return old;
+    }
+
+    // e printed as a place written through
+    private Printed mutable(Expression e) {
+        boolean outer = mutatingPlace(true);
+        try {
+            return expression(e);
+        } finally {
+            mutatingPlace = outer;
+        }
+    }
+
     String receiver(Expression e, boolean modifying) {
         if (modifying) {
             String inPlace = RustJdk.getOrDefaultMut(e, this);
             if (inPlace != null) return inPlace;
         }
-        Printed p = expression(e);
+        Printed p = modifying ? mutable(e) : expression(e);
         if (!p.nullable) return p.text;
         context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
         return p.text + (modifying ? ".as_mut().unwrap()" : ".as_ref().unwrap()");
@@ -1587,6 +1643,15 @@ final class RustBodyPrinter {
     }
 
     String index(Expression e) {
+        boolean outer = mutatingPlace(false); // an index is read, also in a place written through
+        try {
+            return index0(e);
+        } finally {
+            mutatingPlace = outer;
+        }
+    }
+
+    private String index0(Expression e) {
         if (e instanceof IntConstant ic) return Integer.toString(ic.constant());
         String text = operand(e);
         // a size, which went to i32 for Java's arithmetic, is a usize already
