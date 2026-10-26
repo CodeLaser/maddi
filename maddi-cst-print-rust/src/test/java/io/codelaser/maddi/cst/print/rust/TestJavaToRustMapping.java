@@ -721,6 +721,28 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String HELD_ITERATOR = """
+            package a.b;
+            import java.util.Iterator;
+            public class Cursor {
+                private final Iterator<String> it;
+                Cursor(Iterator<String> it) { this.it = it; }
+            }
+            """;
+
+    /** A java.util.Iterator held as a trait object: Rust's Iterator names its element type as Item. */
+    @DisplayName("a kept Iterator<T> is a dyn Iterator<Item = T>: compiles")
+    @Test
+    public void heldIterator() throws Exception {
+        List<TypeInfo> types = parse(HELD_ITERATOR);
+        kept(types.getFirst().constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "it: &'a mut dyn Iterator<Item = String>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String APPENDED_T = """
             package a.b;
             import java.util.List;
