@@ -260,7 +260,12 @@ final class RustTypePrinter {
                 .equals("java.lang.Record")) {
             context.message(RustPrintCode.INHERITANCE, typeInfo, parent.typeInfo().fullyQualifiedName());
         }
-        this.base = base == null ? null : RustTypes.owned(parent, context, typeInfo);
+        String baseType = base == null ? null : RustTypes.owned(parent, context, typeInfo);
+        // the parent's part of the object, owned by it: not the Rc an object of the parent class is shared in
+        if (baseType != null && baseType.startsWith("Rc<") && baseType.endsWith(">")) {
+            baseType = baseType.substring("Rc<".length(), baseType.length() - 1);
+        }
+        this.base = baseType;
         List<FieldInfo> fields = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
         String name = RustNames.type(typeInfo);
         boolean typestate = RustTypestate.typestate(typeInfo, context);
