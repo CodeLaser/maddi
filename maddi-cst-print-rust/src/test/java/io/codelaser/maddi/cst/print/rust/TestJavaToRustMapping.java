@@ -1176,6 +1176,31 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String CHECKED_FIELD = """
+            package a.b;
+            public class Checked {
+                private final String text;
+                public Checked(String t) {
+                    if (t == null) throw new IllegalArgumentException("t");
+                    this.text = t;
+                }
+                public String text() { return text; }
+            }
+            """;
+
+    /** A nullable parameter checked before it initializes a non-null field: unwrapped, a panic where Java's NPE is. */
+    @DisplayName("a nullable value initializing a non-null field is unwrapped: compiles")
+    @Test
+    public void checkedField() throws Exception {
+        List<TypeInfo> types = parse(CHECKED_FIELD);
+        nonModifying(types.getFirst(), "text");
+        translate(types, nullable(java.util.Set.of("t")));
+        String rust = module("a.b");
+        contains(rust, "text: t.clone().unwrap(),");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String SUB_LIST = """
             package a.b;
             import java.util.List;

@@ -1956,6 +1956,11 @@ final class RustBodyPrinter {
         }
         Printed p = expression(e);
         String text = RustTypes.isCopy(type) ? p.text : owned(p, type);
+        if (!nullable && p.nullable && !(e instanceof NullConstant)) {
+            // a nullable value where the verdicts hold the field non-null (checked before): Java's NPE, a panic here
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, p.text);
+            return text + ".unwrap()";
+        }
         return nullable && !p.nullable && !(e instanceof NullConstant) ? "Some(" + text + ")" : text;
     }
 
