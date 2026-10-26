@@ -117,7 +117,10 @@ public interface RustFacts extends NullabilityFacts {
 
         @Override
         public boolean resultBorrowsReceiver(MethodInfo method) {
-            if (method.isStatic() || method.isConstructor() || method.isVoid()) return false;
+            if (method.isStatic() || method.isConstructor() || method.isVoid() || returnsNew(method)
+                || newOrExisting(method)) {
+                return false;
+            }
             Value.Independent independent = method.analysis().getOrNull(PropertyImpl.INDEPENDENT_METHOD,
                     ValueImpl.IndependentImpl.class);
             // not UNMODIFIABLE_VIEW_METHOD: it marks any unmodifiable result (a fresh string or list too), not only a
@@ -221,11 +224,14 @@ public interface RustFacts extends NullabilityFacts {
 
             @Override
             public boolean resultBorrowsReceiver(MethodInfo method) {
+                // every return creates the result: owned, whatever the links say ('return new R(list)' is no borrow
+                // of a temporary); so is unwrap_or_else's, the Option's content or a new object
+                if (returnsNew(method) || newOrExisting(method)) return false;
                 LinkFacts.Result result = links.result(method);
                 if (result == null || !referenceResult(method)) return ownership.resultBorrowsReceiver(method);
                 // a new object holding the receiver's contents is a view (unmodifiableList(list), a borrow) or a copy
-                // (a builder's 'new R(list)'): a new object where every return creates one
-                if (result == LinkFacts.Result.NEW && (!links.receiverInResult(method) || returnsNew(method))) return false;
+                // (a builder's 'new R(list)', above)
+                if (result == LinkFacts.Result.NEW && !links.receiverInResult(method)) return false;
                 if (result == LinkFacts.Result.EXISTING && links.receiverInResult(method)) return true;
                 return ownership.resultBorrowsReceiver(method);
             }
@@ -407,7 +413,7 @@ public interface RustFacts extends NullabilityFacts {
 
     /*
      a result that is new on one path and existing on another, which the facts cannot say: opt.orElseGet(Box::new),
-     opt.orElse(new Box()) is the Option's content or a new object, so no borrow; the verdicts decide
+     opt.orElse(new Box()) is the Option's content or a new object, which Rust's unwrap_or_else returns owned
      */
     private static boolean newOrExisting(MethodInfo method) {
         if (method.methodBody() == null) return false;

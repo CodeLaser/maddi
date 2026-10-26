@@ -505,6 +505,48 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String BORROWED_TEMPORARIES = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Args {
+                private List<String> arguments;
+                private final List<String> names = new ArrayList<>();
+                public List<String> arguments() {
+                    if (arguments == null) arguments = new ArrayList<>();
+                    return arguments;
+                }
+                public Args copy() { return new Args(); }
+                public int count() { return names.size(); }
+                public List<String> orNames(java.util.Optional<List<String>> opt) { return opt.orElse(names); }
+            }
+            """;
+
+    /**
+     * A result that is never null held in an Option field is a borrow of the Option's content, not of a temporary
+     * moved out of the field; a method whose every return creates its result returns it owned, whatever the verdicts
+     * say of it (a builder's {@code build()}).
+     */
+    @DisplayName("a borrowed result is no temporary: as_ref().unwrap(), an owned new object: compiles")
+    @Test
+    public void borrowedTemporaries() throws Exception {
+        List<TypeInfo> types = parse(BORROWED_TEMPORARIES);
+        TypeInfo args = types.getFirst();
+        modifying(args, "arguments");
+        nonModifying(args, "copy", "count");
+        dependentResult(args, "arguments");
+        dependentResult(args, "copy");
+        nonModifying(args, "orNames");
+        dependentResult(args, "orNames");
+        translate(types, nullable(java.util.Set.of("arguments")));
+        String rust = module("a.b");
+        contains(rust, "pub fn arguments(&mut self) -> &Vec<String> {");
+        contains(rust, "return self.arguments.as_ref().unwrap();");
+        contains(rust, "pub fn copy(&self) -> Args {\nreturn Self::new();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

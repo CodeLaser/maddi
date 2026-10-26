@@ -731,12 +731,14 @@ final class RustJdk {
         int n = args.size();
         // a borrowed or stored Option is not taken: its closures see a reference to the value
         String r = held == Held.VALUE ? o : o + ".as_ref()";
+        String owned = held == Held.VALUE ? o : o + ".clone()";
         return switch (name + "/" + n) {
             case "isPresent/0" -> value(o + ".is_some()");
             case "isEmpty/0" -> value(o + ".is_none()");
             case "get/0", "orElseThrow/0", "getAsInt/0", "getAsLong/0", "getAsDouble/0" -> value(o + ".unwrap()");
-            case "orElse/1" -> value(o + ".unwrap_or(" + printer.ownedText(args.getFirst()) + ")");
-            case "orElseGet/1" -> value(o + ".unwrap_or_else(" + printer.text(args.getFirst()) + ")");
+            // the content or the default, owned: a borrowed or stored Option is copied rather than moved out of
+            case "orElse/1" -> value(owned + ".unwrap_or(" + printer.copiedText(args.getFirst()) + ")");
+            case "orElseGet/1" -> value(owned + ".unwrap_or_else(" + printer.text(args.getFirst()) + ")");
             case "orElseThrow/1" -> value(o + ".unwrap()");
             case "map/1" -> {
                 Printed f = printer.optionalMapper(args.getFirst());

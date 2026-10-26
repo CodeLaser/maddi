@@ -201,7 +201,11 @@ Analyzer issues the oracle found, each with a minimal repro:
   borrowed parameter; a returned chain is boxed.
 - Where a result comes from, the links know and the independence verdicts do not (`LinkFacts`, computed in the run
   that analyses the source): a new object is owned, and the parameters it keeps are moved in; a result inside the
-  receiver borrows it; one inside a single borrowed parameter borrows that parameter.
+  receiver borrows it; one inside a single borrowed parameter borrows that parameter. Whatever either says, a method
+  whose every return creates its result (`return new R(list)`) returns it owned, and so does one returning
+  `opt.orElse(...)`/`orElseGet(...)`: `unwrap_or` on a borrowed Option's clone, the default a clone of a field or a
+  borrow. A borrowed result the verdicts call non-null that is held in an Option is `as_ref().unwrap()`, not `&` of a
+  temporary moved out; an untranslated `todo!(...)` is returned without a `&`.
 - A place written through (the object of a modifying call, an assignment's target) is reached exclusively: a
   nullable scope is `as_mut().unwrap()`, a map's value `get_mut(k)`; the arguments and indices in it are only read.
 - A getter returning one of its object's fields (`return items;`) that some caller modifies through

@@ -276,6 +276,8 @@ final class RustBodyPrinter {
         boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
                           || context.facts.resultBorrows(method) != null;
         Printed value = widen(expression(e), e, method.returnType());
+        // what is not translated diverges: '!' is any result type, a borrow too
+        if (value.text.startsWith("todo!(")) return "return " + value.text;
         String text;
         if (RustTypes.isCopy(method.returnType())) {
             text = value.text;
@@ -283,6 +285,13 @@ final class RustBodyPrinter {
             // Option<&T>: a borrow of the Option's content, not of the Option ('&self.t' is an &Option<T>)
             Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
             text = nullableBorrow(inner, e, RustTypes.isString(method.returnType()), method.returnType().arrays() > 0);
+        } else if (borrows && !nullable && value.nullable && !(e instanceof NullConstant)) {
+            // never null by the verdict, held in an Option: a borrow of its content ('&self.t.unwrap()' borrows a
+            // temporary moved out of the field)
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
+            Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
+            return "return " + nullableBorrow(inner, e, RustTypes.isString(method.returnType()),
+                    method.returnType().arrays() > 0) + ".unwrap()";
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
         } else {
@@ -1646,6 +1655,17 @@ final class RustBodyPrinter {
 
     String ownedText(Expression e) {
         return owned(expression(e), e.parameterizedType());
+    }
+
+    /**
+     * {@code e} as a value of its own: owned, and a field or a borrow cloned, where Java shares the object and Rust
+     * cannot move it out ({@code opt.orElse(names)}).
+     */
+    String copiedText(Expression e) {
+        Printed p = expression(e);
+        String text = owned(p, e.parameterizedType());
+        boolean copy = RustTypes.isCopy(e.parameterizedType()) || e instanceof NullConstant;
+        return !copy && text.equals(p.text) && (p.held == Held.PLACE || p.held == Held.SHARED) ? text + ".clone()" : text;
     }
 
     /**
