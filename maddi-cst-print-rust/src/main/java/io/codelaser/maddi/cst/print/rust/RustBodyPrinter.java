@@ -319,6 +319,11 @@ final class RustBodyPrinter {
                    + resultValue(ic.ifFalse()) + " }";
         }
         boolean nullable = RustFacts.nullable(context.facts.returnType(method));
+        if (isClosure(e) && RustTypes.isFunctional(method.returnType())) {
+            // the Box<dyn Fn…> the signature declares
+            String boxed = boxed(closure(e, method.returnType()).text);
+            return nullable ? "Some(" + boxed + ")" : boxed;
+        }
         boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
                           || context.facts.resultBorrows(method) != null;
         Printed value = widen(expression(e), e, method.returnType());

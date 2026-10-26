@@ -820,6 +820,29 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String RETURNED_CLOSURE = """
+            package a.b;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            public class Fns {
+                static Function<String, Integer> length() { return s -> s.length(); }
+                static Supplier<String> constant(String c) { return () -> c + "!"; }
+            }
+            """;
+
+    /** A returned lambda is the {@code Box<dyn Fn…>} the signature declares. */
+    @DisplayName("a returned lambda is boxed: compiles")
+    @Test
+    public void returnedClosure() throws Exception {
+        List<TypeInfo> types = parse(RETURNED_CLOSURE);
+        // the closure keeps c: owned, as the analysis says of a captured parameter
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "return Box::new(move |s");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
