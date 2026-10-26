@@ -914,6 +914,11 @@ final class RustTypePrinter {
                 case OWNED -> Form.OWNED;
             };
             rust = RustTypes.type(type, form, context, p);
+            if (context.mutatingFunctions.contains(p)) {
+                // a call site passes a closure that writes what it captures (RustClosures)
+                rust = rust.replaceFirst("dyn Fn\\(", "dyn FnMut(");
+                mut |= passing == Passing.OWNED;
+            }
             // stored in a borrowed field: the borrow lives as long as the object
             if (context.borrows.parameter(p) != null) rust = rust.replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
             // an owned value the method modifies needs a mutable binding

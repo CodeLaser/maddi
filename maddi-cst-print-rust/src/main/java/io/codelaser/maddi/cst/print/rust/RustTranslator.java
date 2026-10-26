@@ -15,6 +15,7 @@
 package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
@@ -55,15 +56,17 @@ public final class RustTranslator {
 
     /** The types of one package as one Rust module. {@code crashes} receives what could not be printed. */
     public static Module module(String packageName, List<TypeInfo> types, RustFacts facts, List<String> crashes) {
-        return module(packageName, types, facts, crashes, RustGetters.modifiedThrough(types, facts));
+        return module(packageName, types, facts, crashes, RustGetters.modifiedThrough(types, facts),
+                RustClosures.mutating(types, facts));
     }
 
     /** ... with the getters the whole program modifies through ({@link RustGetters}). */
     private static Module module(String packageName, List<TypeInfo> types, RustFacts facts, List<String> crashes,
-                                 Set<MethodInfo> mutableGetters) {
+                                 Set<MethodInfo> mutableGetters, Set<ParameterInfo> mutatingFunctions) {
         String name = RustNames.module(packageName);
         RustContext context = new RustContext(facts, name);
         context.mutableGetters = mutableGetters;
+        context.mutatingFunctions = mutatingFunctions;
         StringBuilder items = new StringBuilder();
         for (TypeInfo type : types) {
             try {
@@ -98,10 +101,11 @@ public final class RustTranslator {
         List<String> crashes = new ArrayList<>();
         List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
         StringBuilder lib = new StringBuilder("// The crate root: one module per Java package.\n\n");
-        Set<MethodInfo> mutableGetters = RustGetters.modifiedThrough(
-                byPackage.values().stream().flatMap(List::stream).toList(), facts);
+        List<TypeInfo> all = byPackage.values().stream().flatMap(List::stream).toList();
+        Set<MethodInfo> mutableGetters = RustGetters.modifiedThrough(all, facts);
+        Set<ParameterInfo> mutatingFunctions = RustClosures.mutating(all, facts);
         for (Map.Entry<String, List<TypeInfo>> e : byPackage.entrySet()) {
-            Module module = module(e.getKey(), e.getValue(), facts, crashes, mutableGetters);
+            Module module = module(e.getKey(), e.getValue(), facts, crashes, mutableGetters, mutatingFunctions);
             messages.addAll(module.messages());
             Path file = src.resolve(module.name() + ".rs");
             Files.writeString(file, module.text());

@@ -207,6 +207,8 @@ Analyzer issues the oracle found, each with a minimal repro:
 - A getter returning one of its object's fields (`return items;`) that some caller modifies through
   (`b.items().clear()`) gets an exclusive twin, `items_mut(&mut self) -> &mut T`, which those callers call
   (`RustGetters`); not yet for an interface's method or a computed result.
+- A function parameter that some call site passes a closure writing what it captures (`this::parse` assigning a
+  field) is `&mut dyn FnMut`, for every caller (`RustClosures`); otherwise a `dyn Fn` is called through `&`.
 - A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
   one, `getKey()`/`getValue()` are `.0`/`.1`.
 - `System.exit`, `lineSeparator`, `arraycopy` (`clone_from_slice`, `copy_within` inside one array);

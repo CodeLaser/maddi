@@ -51,6 +51,8 @@ final class RustContext {
     final RustBounds bounds;
     // the getters a call site modifies through: they get an exclusive twin (RustGetters)
     Set<MethodInfo> mutableGetters = Set.of();
+    // the function parameters a call site passes a closure that writes what it captures: FnMut (RustClosures)
+    Set<ParameterInfo> mutatingFunctions = Set.of();
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
@@ -87,8 +89,12 @@ final class RustContext {
             return borrowed == RustTypes.Form.SHARED ? RustFacts.Passing.SHARED : RustFacts.Passing.EXCLUSIVE;
         }
         RustFacts.Passing passing = facts.passing(parameter);
-        if (passing == RustFacts.Passing.EXCLUSIVE && RustTypes.isFn(parameter.parameterizedType())) {
+        if (passing == RustFacts.Passing.EXCLUSIVE && RustTypes.isFn(parameter.parameterizedType())
+            && !mutatingFunctions.contains(parameter)) {
             return RustFacts.Passing.SHARED;
+        }
+        if (passing == RustFacts.Passing.SHARED && mutatingFunctions.contains(parameter)) {
+            return RustFacts.Passing.EXCLUSIVE; // an FnMut is called through &mut
         }
         if (passing == RustFacts.Passing.SHARED && parameter.parameterizedType().isTypeParameter()
             && parameter.parameterizedType().arrays() == 0 && stored(parameter)) {

@@ -703,6 +703,42 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String FN_MUT = """
+            package a.b;
+            import java.util.function.Function;
+            public class Parser {
+                private int j;
+                int parse(String t) { j = t.length(); return j; }
+                static int run(String s, Function<String, Integer> f) { return f.apply(s); }
+                static int pure(String s, Function<String, Integer> f) { return f.apply(s); }
+                int go(String in) { return run(in, this::parse) + pure(in, x -> x.length()); }
+            }
+            """;
+
+    /**
+     * A function returning a value is a {@code dyn Fn}, unless a call site passes a closure that writes what it
+     * captures ({@code this::parse} assigning {@code this.j}): then {@code &mut dyn FnMut}, for every caller.
+     */
+    @DisplayName("a function parameter passed a closure that writes what it captures is FnMut: compiles")
+    @Test
+    public void fnMutFromCallSites() throws Exception {
+        List<TypeInfo> types = parse(FN_MUT);
+        TypeInfo parser = types.getFirst();
+        modifying(parser, "parse", "go");
+        borrowed(method(parser, "parse").parameters().getFirst());
+        borrowed(method(parser, "run").parameters().getFirst());
+        borrowed(method(parser, "pure").parameters().getFirst());
+        modified(method(parser, "run").parameters().get(1));
+        modified(method(parser, "pure").parameters().get(1));
+        borrowed(method(parser, "go").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn run(s: &str, f: &mut dyn FnMut(&str) -> i32) -> i32 {");
+        contains(rust, "pub fn pure(s: &str, f: &dyn Fn(&str) -> i32) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

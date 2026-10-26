@@ -240,7 +240,7 @@ final class RustTypes {
 
     /** The JDK's functional interfaces, as closure traits. */
     private static boolean isFunctional(TypeInfo ti) {
-        return ti.packageName().equals("java.util.function") || "java.lang.Runnable".equals(ti.fullyQualifiedName());
+        return "java.util.function".equals(ti.packageName()) || "java.lang.Runnable".equals(ti.fullyQualifiedName());
     }
 
     /** {@code Function<T, R>} as {@code dyn Fn(&T) -> R}: the closure borrows what Java passes by reference. */
