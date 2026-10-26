@@ -657,6 +657,31 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String APPENDED_T = """
+            package a.b;
+            import java.util.List;
+            public class Nice<T> {
+                public String nice(List<T> list) {
+                    StringBuilder sb = new StringBuilder();
+                    for (T t : list) sb.append(t);
+                    return sb.toString();
+                }
+            }
+            """;
+
+    /** A type parameter appended to a StringBuilder is formatted: {@code T: std::fmt::Display}. */
+    @DisplayName("a type parameter appended to a StringBuilder is Display: compiles")
+    @Test
+    public void appendedTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(APPENDED_T);
+        borrowed(method(types.getFirst(), "nice").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "std::fmt::Display");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {

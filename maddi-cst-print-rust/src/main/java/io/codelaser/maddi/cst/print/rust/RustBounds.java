@@ -42,7 +42,7 @@ import java.util.stream.Stream;
  *     <li>{@code Eq + std::hash::Hash}: an element of a {@code HashSet}, a key of a {@code HashMap};</li>
  *     <li>{@code Ord}: an element of a {@code BTreeSet}, a key of a {@code BTreeMap}, {@code compareTo};</li>
  *     <li>{@code PartialEq}: {@code ==}, {@code equals}, {@code contains}, {@code indexOf}, {@code remove(Object)};</li>
- *     <li>{@code std::fmt::Display}: in a string ({@code +}, {@code String.valueOf}, {@code toString}, a print);</li>
+ *     <li>{@code std::fmt::Display}: in a string ({@code +}, {@code String.valueOf}, {@code toString}, a print, an append);</li>
  *     <li>{@code Clone}: a copy of a collection of them ({@code List.copyOf}, a copy constructor, {@code addAll},
  *     {@code Arrays.copyOf}), or a type argument of a type whose impl asks for it ({@code @Immutable(hc=true)}).</li>
  * </ul>
@@ -144,7 +144,8 @@ final class RustBounds {
             found.add("Clone");
         }
         boolean printing = "java.io.PrintStream".equals(fqn) && (name.startsWith("print"))
-                           || "java.lang.String".equals(fqn) && ("valueOf".equals(name) || "format".equals(name));
+                           || "java.lang.String".equals(fqn) && ("valueOf".equals(name) || "format".equals(name))
+                           || fqn.endsWith("StringBuilder") && ("append".equals(name) || "insert".equals(name));
         if (printing && args.stream().anyMatch(a -> is(a, tp))) found.add("std::fmt::Display");
     }
 
