@@ -16,6 +16,7 @@ package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.info.TypeParameter;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
 import java.util.List;
@@ -122,4 +123,17 @@ public final class RustNames {
             "BTreeMap", "BTreeSet", "VecDeque", "SystemTime", "Duration", "Fn", "FnMut", "FnOnce", "Clone", "Copy",
             "Send", "Sync", "Sized", "Drop", "Default", "Iterator", "IntoIterator", "ToString", "ToOwned", "From",
             "Into", "AsRef", "AsMut", "Eq", "PartialEq", "Ord", "PartialOrd", "Hash", "Debug", "Display", "Extend");
+
+    /**
+     * A type parameter's name. A method's that has the name of one of its type's gets a {@code 2}: Java's method
+     * {@code <T>} shadows the class's {@code T}, Rust refuses it in the {@code impl<T>} (E0403).
+     */
+    static String typeParameter(TypeParameter tp) {
+        String name = tp.simpleName();
+        if (tp.getOwner() != null && tp.getOwner().isRight()) {
+            TypeInfo type = tp.getOwner().getRight().typeInfo();
+            if (type.typeParameters().stream().anyMatch(t -> t.simpleName().equals(name))) return name + "2";
+        }
+        return name;
+    }
 }

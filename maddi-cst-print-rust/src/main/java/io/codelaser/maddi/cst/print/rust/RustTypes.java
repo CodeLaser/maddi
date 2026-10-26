@@ -165,7 +165,7 @@ final class RustTypes {
             return "Vec<" + owned(type.copyWithArrays(type.arrays() - 1), context, where) + ">";
         }
         if (type.isPrimitiveExcludingVoid()) return primitive(type.typeInfo());
-        if (type.isTypeParameter()) return type.typeParameter().simpleName();
+        if (type.isTypeParameter()) return RustNames.typeParameter(type.typeParameter());
         TypeInfo ti = type.typeInfo();
         if (ti == null) {
             // an unbounded wildcard, '?'

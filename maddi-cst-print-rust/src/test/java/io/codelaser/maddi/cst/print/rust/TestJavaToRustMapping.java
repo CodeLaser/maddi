@@ -752,6 +752,34 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String SHADOWED_T = """
+            package a.b;
+            import java.util.List;
+            public class Box2<T> {
+                private final List<T> items;
+                public Box2(List<T> items) { this.items = items; }
+                static <T> int count(List<T> list) { return list.size(); }
+                <T> int size(List<T> other) { return other.size() + items.size(); }
+            }
+            """;
+
+    /** A method's type parameter named like its class's is renamed: Rust refuses the shadowing (E0403). */
+    @DisplayName("a method type parameter shadowing the class's is renamed: compiles")
+    @Test
+    public void shadowedTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(SHADOWED_T);
+        TypeInfo box = types.getFirst();
+        nonModifying(box, "count", "size");
+        borrowed(method(box, "count").parameters().getFirst());
+        borrowed(method(box, "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn count<T2>(list: &Vec<T2>) -> i32 {");
+        contains(rust, "fn size<T2>(&self, other: &Vec<T2>) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {

@@ -1034,7 +1034,7 @@ final class RustTypePrinter {
         if (typeParameters.isEmpty() && !lifetime) return "";
         List<String> names = new ArrayList<>();
         if (lifetime) names.add(RustBorrows.LIFETIME);
-        typeParameters.forEach(tp -> names.add(tp.simpleName()));
+        typeParameters.forEach(tp -> names.add(RustNames.typeParameter(tp)));
         return "<" + String.join(", ", names) + ">";
     }
 

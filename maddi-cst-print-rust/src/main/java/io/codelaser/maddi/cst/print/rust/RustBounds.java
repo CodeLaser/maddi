@@ -59,7 +59,8 @@ final class RustBounds {
     /** {@code T: Clone + Eq + Hash}, or {@code T}. */
     String declare(TypeParameter tp) {
         Set<String> b = of(tp);
-        return b.isEmpty() ? tp.simpleName() : tp.simpleName() + ": " + String.join(" + ", b);
+        String name = RustNames.typeParameter(tp);
+        return b.isEmpty() ? name : name + ": " + String.join(" + ", b);
     }
 
     Set<String> of(TypeParameter tp) {
