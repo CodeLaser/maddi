@@ -47,6 +47,9 @@ import java.util.stream.Collectors;
  * change behaviour.
  */
 final class RustBodyPrinter {
+    // the parameters movable() lets their one read take, by name, and its memo
+    private final Set<String> moved = new HashSet<>();
+    private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
 
     /** How an expression's value is held, which decides how it is passed on. */
     enum Held {
@@ -666,6 +669,7 @@ final class RustBodyPrinter {
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
         // an element is never an Option: the collections hold their values as they are
         if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, false);
+        if (movable(pi)) moved.add(name);
         Passing passing = context.passing(pi);
         Held held = switch (passing) {
             case SHARED -> RustTypes.isString(pi.parameterizedType()) ? Held.STR : Held.SHARED;
@@ -1345,21 +1349,23 @@ final class RustBodyPrinter {
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
         if (!nullable && p.nullable) return text + ".unwrap()";
         if (nullable && p.nullable && !RustTypes.isCopy(type) && context.passing(pi) == Passing.SHARED) {
-            return nullableBorrow(p, argument, RustTypes.isString(type));
+            return nullableBorrow(p, argument, RustTypes.isString(type), type.arrays() > 0);
         }
         return text;
     }
 
     /**
-     * A nullable value where an {@code Option<&T>} ({@code Option<&str>}) is expected: {@code None} for null, a borrow
-     * of an owned {@code Option<T>}'s content, a borrowed string's {@code &String} as {@code &str}.
+     * A nullable value where an {@code Option<&T>} ({@code Option<&str>}, {@code Option<&[T]>}) is expected:
+     * {@code None} for null, a borrow of an owned {@code Option<T>}'s content, a borrowed string's {@code &String} as
+     * {@code &str}, an array's {@code &Vec} as a slice: an Option does not coerce its content.
      */
-    private static String nullableBorrow(Printed p, Expression argument, boolean string) {
+    private static String nullableBorrow(Printed p, Expression argument, boolean string, boolean array) {
         if (argument instanceof NullConstant || "None".equals(p.text)) return "None";
         return switch (p.held) {
             case STR -> p.text;
-            case VALUE, PLACE -> p.text + (string ? ".as_deref()" : ".as_ref()");
-            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| s.as_str())" : p.text;
+            case VALUE, PLACE -> p.text + (string || array ? ".as_deref()" : ".as_ref()");
+            case SHARED, EXCLUSIVE -> string ? p.text + ".map(|s| s.as_str())"
+                    : array ? p.text + ".map(|v| v.as_slice())" : p.text;
         };
     }
 
@@ -1372,9 +1378,49 @@ final class RustBodyPrinter {
         };
     }
 
+    /**
+     * A parameter moved in ({@code T}) and read once, outside a loop and a closure: that read takes it. Java's copy
+     * of it ({@code List.copyOf(p)}, {@code new HashSet<>(p)}) or a string's clone is the value itself, as nothing reads
+     * it afterwards; rust-printing.md's "no clone()".
+     */
+    boolean movable(ParameterInfo pi) {
+        return movable.computeIfAbsent(pi, p -> {
+            if (context.passing(p) != Passing.OWNED || RustTypes.isCopy(p.parameterizedType())) return false;
+            Block body = p.methodInfo().methodBody();
+            if (body == null) return false;
+            int[] reads = {0};
+            boolean[] repeated = {false};
+            body.visit(e -> {
+                if (e instanceof LoopStatement || e instanceof Lambda || e instanceof MethodReference) {
+                    if (reads(e, p) > 0) repeated[0] = true;
+                    return false;
+                }
+                if (e instanceof VariableExpression ve && p.equals(ve.variable())) reads[0]++;
+                return true;
+            });
+            return !repeated[0] && reads[0] == 1;
+        });
+    }
+
+    /** {@code e} is a parameter that {@link #movable} says its one read takes. */
+    boolean movable(Expression e) {
+        return CstQueries.unwrap(e) instanceof VariableExpression ve && ve.variable() instanceof ParameterInfo pi
+               && !closures.contains(pi.methodInfo()) && movable(pi);
+    }
+
+    private static int reads(Element element, ParameterInfo p) {
+        int[] reads = {0};
+        element.visit(e -> {
+            if (e instanceof VariableExpression ve && p.equals(ve.variable())) reads[0]++;
+            return true;
+        });
+        return reads[0];
+    }
+
     /** {@code p} where an owned value is expected: moved, except that a borrowed string becomes a new one. */
     private String owned(Printed p, ParameterizedType type) {
         if ("None".equals(p.text)) return p.text;
+        if (p.held == Held.VALUE && moved.contains(p.text)) return p.text;
         if (RustTypes.isString(type) && p.nullable && (p.held == Held.STR || p.held == Held.SHARED)) {
             return p.text + ".map(|s| s.to_string())";
         }

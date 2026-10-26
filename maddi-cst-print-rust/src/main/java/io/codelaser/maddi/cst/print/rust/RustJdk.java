@@ -186,7 +186,7 @@ final class RustJdk {
             }
             case "java.util.Collections.singletonList/1" -> value("vec![" + printer.ownedText(args.getFirst()) + "]");
             case "java.util.List.copyOf/1", "java.util.Set.copyOf/1", "java.util.Map.copyOf/1" ->
-                    value(printer.text(args.getFirst()) + ".clone()");
+                    value(printer.text(args.getFirst()) + (printer.movable(args.getFirst()) ? "" : ".clone()"));
             case "java.util.stream.IntStream.range/2" ->
                     value("(" + printer.text(args.get(0)) + ".." + printer.text(args.get(1)) + ")");
             case "java.util.stream.IntStream.rangeClosed/2" ->
@@ -834,7 +834,7 @@ final class RustJdk {
         String text = printer.receiver(source, false);
         TypeInfo sourceType = source.parameterizedType().typeInfo();
         boolean sameKind = sourceType != null && mapped.equals(RustTypes.mapped(sourceType));
-        if (sameKind) return value(text + ".clone()");
+        if (sameKind) return value(printer.movable(source) ? text : text + ".clone()");
         boolean iterator = text.endsWith(".keys()") || text.endsWith(".values()");
         return value(text + (iterator ? "" : ".iter()") + ".cloned().collect()");
     }

@@ -179,6 +179,11 @@ Analyzer issues the oracle found, each with a minimal repro:
   `String` argument is borrowed as `&str`, as a `String` parameter is, and calling the closure borrows what it is
   passed. The in-memory parse of the tests leaves these types lazily loaded, without a single abstract method; the
   printer knows them by package.
+- A parameter moved in (`T`) and read once, outside a loop and a closure, is moved at that read: `self.message =
+  message;`, and Java's copy of it (`List.copyOf(input)`, `new HashSet<>(input)`) is the value itself. A string or
+  an immutable value read more than once is still cloned at each owned use (`RustBodyPrinter.movable`).
+- A borrowed array is a slice, `&[T]` or `&mut [T]`: a Java array never changes length. A `Vec` argument coerces;
+  a nullable one is `.as_deref()`. Owned, it stays a `Vec<T>`.
 - `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
   `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
 - A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in

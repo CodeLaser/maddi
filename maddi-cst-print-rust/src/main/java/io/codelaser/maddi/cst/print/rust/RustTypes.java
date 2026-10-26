@@ -130,6 +130,11 @@ final class RustTypes {
         if (type.isVoid()) return "()";
         TypeInfo ti = type.typeInfo();
         if (form == Form.SHARED && isString(type)) return "&str";
+        if (form != Form.OWNED && type.arrays() > 0) {
+            // a Java array never changes length: a borrowed one is a slice, which a &Vec coerces to
+            String element = owned(type.copyWithArrays(type.arrays() - 1), context, where);
+            return (form == Form.SHARED ? "&[" : "&mut [") + element + "]";
+        }
         if (form != Form.OWNED && ti != null && type.arrays() == 0 && isInterface(ti)) {
             // a borrowed closure is passed as '&|| …' or '&mut || …' (RustBodyPrinter.argument), never a borrowed Box
             String trait = isFunctional(ti) ? function(type, context, where) : "dyn " + named(type, context, where);

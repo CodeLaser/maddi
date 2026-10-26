@@ -343,6 +343,49 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String MOVES = """
+            package a.b;
+            import java.util.*;
+            public class Moves {
+                private String message;
+                private final List<String> list;
+                private final Set<String> set;
+                public Moves(List<String> input, Set<String> s) { this.list = List.copyOf(input); this.set = new HashSet<>(s); }
+                public void setMessage(String message) { this.message = message; }
+                public void twice(String m) { this.message = m; System.out.println(m); }
+                public static void fill(int[] array) { array[0] = 1; }
+                public static int first(int[] array) { return array[0]; }
+                public static int call() { int[] a = new int[2]; fill(a); return first(a); }
+            }
+            """;
+
+    /**
+     * A parameter moved in and read once, outside a loop and a closure, is moved at that read: no {@code .clone()} of
+     * a string, and Java's copy of a collection ({@code List.copyOf}, a copy constructor) is the collection itself, as
+     * nothing reads it afterwards. One read twice is still cloned. A borrowed array is a slice: a Java array never
+     * changes length. (Both from worktree-maddi-bug's Java -> Rust -> clippy experiment: needless_pass_by_value,
+     * ptr_arg.)
+     */
+    @DisplayName("a once-read parameter moved in is moved, not cloned; a borrowed array is a slice: compiles")
+    @Test
+    public void movesAndSlices() throws Exception {
+        List<TypeInfo> types = parse(MOVES);
+        TypeInfo moves = types.getFirst();
+        modifying(moves, "setMessage", "twice");
+        modified(method(moves, "fill").parameters().getFirst());
+        borrowed(method(moves, "first").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "self.message = message;");
+        contains(rust, "list: input,");
+        contains(rust, "set: s,");
+        contains(rust, "self.message = m.clone();");
+        contains(rust, "pub fn fill(array: &mut [i32]) {");
+        contains(rust, "pub fn first(array: &[i32]) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {
