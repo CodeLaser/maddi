@@ -23,6 +23,7 @@ import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.runtime.Runtime;
+import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.integration.JavaInspectorFactory;
@@ -81,6 +82,16 @@ public interface AnalysisEngine {
      * ({@link NullabilityFacts#STORED}).
      */
     NullabilityFacts nullabilityFacts(List<Info> order, NullabilityTarget target);
+
+    /**
+     * What the links of a {@link #modification} run say about the results of the methods in {@code order}: a new
+     * object or part of the receiver, and the parameters a result keeps ({@link LinkFacts}). For a printer whose
+     * types state ownership; the links are only in memory, so this answers in the run that analysed the source.
+     * {@link LinkFacts#NONE} until an engine computes them.
+     */
+    default LinkFacts linkFacts(List<Info> order) {
+        return LinkFacts.NONE;
+    }
 
     /**
      * The properties the analysis writes for its own bookkeeping during a run. They are not results: a client
