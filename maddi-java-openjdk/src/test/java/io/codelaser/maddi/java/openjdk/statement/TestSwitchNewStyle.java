@@ -14,6 +14,7 @@
 
 package io.codelaser.maddi.java.openjdk.statement;
 
+import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
@@ -27,6 +28,8 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -390,14 +393,14 @@ public class TestSwitchNewStyle extends CommonTest {
         TypeInfo X = scan("X", INPUT_PATTERNS);
         MethodInfo method = X.findUniqueMethod("method", 1);
         SwitchStatementNewStyle switchStatement = (SwitchStatementNewStyle) method.methodBody().statements().getFirst();
-        java.util.List<String> visited = new java.util.ArrayList<>();
+        List<String> visited = new ArrayList<>();
         switchStatement.visit(e -> {
-            if (e instanceof io.codelaser.maddi.cst.api.element.RecordPattern rp && rp.localVariable() != null) {
+            if (e instanceof RecordPattern rp && rp.localVariable() != null) {
                 visited.add(rp.localVariable().parameterizedType().typeInfo().simpleName());
             }
             return true;
         });
-        assertEquals(java.util.List.of("A", "B", "C"), visited,
+        assertEquals(List.of("A", "B", "C"), visited,
                 "patterns reached walking 'case A _, B _ -> ...; case C _ -> ...' (left: all three; right: reached)");
     }
 }

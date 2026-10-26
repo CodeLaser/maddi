@@ -13,6 +13,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -111,7 +112,7 @@ public class TestSwitchExpression extends CommonTest {
         TypeInfo X = scan("X", INPUT2);
         MethodInfo method = X.findUniqueMethod("method", 1);
         SwitchExpression switchExpression = (SwitchExpression) method.methodBody().statements().getFirst().expression();
-        List<String> visited = new java.util.ArrayList<>();
+        List<String> visited = new ArrayList<>();
         switchExpression.visit(e -> {
             if (e instanceof RecordPattern rp && rp.localVariable() != null) {
                 visited.add(rp.localVariable().parameterizedType().typeInfo().simpleName());

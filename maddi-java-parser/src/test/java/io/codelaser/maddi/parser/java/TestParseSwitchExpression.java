@@ -14,14 +14,19 @@
 
 package io.codelaser.maddi.parser.java;
 
+import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.SwitchExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
 import io.codelaser.maddi.cst.api.statement.ExpressionAsStatement;
 import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.api.statement.SwitchEntry;
 import io.codelaser.maddi.cst.api.statement.SwitchStatementNewStyle;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -143,6 +148,48 @@ public class TestParseSwitchExpression extends CommonTestParse {
                             default->"x";}\
                             """,
                     se.print(runtime.qualificationQualifyFromPrimaryType()).toString());
+        } else fail();
+    }
+
+    @Language("java")
+    private static final String INPUT4 = """
+            package a.b;
+            class C {
+              sealed interface S permits A, B, D {}
+              record A() implements S {}
+              record B() implements S {}
+              record D() implements S {}
+              public static int method(S s) {
+                return switch(s) {
+                  case A _, B _ -> 1;
+                  case D _ -> 2;
+                };
+              }
+            }
+            """;
+
+    // 'case A _, B _ ->' (JEP 456): every pattern is part of the entry, in source order. The parser set each one in
+    // turn as THE pattern, so the entry kept B only: A was neither referenced nor walked, nor printed.
+    @Test
+    public void test4() {
+        TypeInfo typeInfo = parse(INPUT4);
+        MethodInfo main = typeInfo.findUniqueMethod("method", 1);
+        if (main.methodBody().statements().getFirst() instanceof ReturnStatement rs
+            && rs.expression() instanceof SwitchExpression se) {
+            SwitchEntry entry = se.entries().getFirst();
+            assertEquals("A", entry.patternVariable().parameterizedType().typeInfo().simpleName());
+            assertEquals(List.of("B"), entry.otherPatterns().stream()
+                    .map(p -> p.parameterizedType().typeInfo().simpleName()).toList());
+            assertEquals(List.of("A", "B"), entry.typesReferenced(null).map(r -> r.typeInfo().simpleName())
+                    .filter(n -> n.length() == 1).distinct().sorted().toList());
+            List<String> visited = new ArrayList<>();
+            se.visit(e -> {
+                if (e instanceof RecordPattern rp && rp.localVariable() != null) {
+                    visited.add(rp.localVariable().parameterizedType().typeInfo().simpleName());
+                }
+                return true;
+            });
+            assertEquals(List.of("A", "B", "D"), visited);
         } else fail();
     }
 }
