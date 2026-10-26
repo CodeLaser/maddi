@@ -284,7 +284,10 @@ final class RustTypePrinter {
         }
 
         StringBuilder sb = new StringBuilder(doc(typeInfo));
-        if (record) sb.append("#[derive(Debug, Clone, PartialEq)]\n");
+        // derive(PartialEq) bounds T by PartialEq, where a HashSet<T> compares only with T: Eq + Hash: field-wise
+        boolean hashedFields = record && !typeInfo.typeParameters().isEmpty() && fields.stream()
+                .map(this::fieldType).anyMatch(t -> t.contains("HashSet<") || t.contains("HashMap<"));
+        if (record) sb.append(hashedFields ? "#[derive(Debug, Clone)]\n" : "#[derive(Debug, Clone, PartialEq)]\n");
         else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
         String declaredGenerics = typestate ? "<" + RustTypestate.STATE + " = " + RustTypestate.BEFORE + ">" : generics;
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(declaredGenerics).append(" {\n");
@@ -394,6 +397,13 @@ final class RustTypePrinter {
             sb.append("}\n");
         }
         if (equals != null) sb.append(partialEq(equals, name, generics, implGenerics));
+        else if (hashedFields) {
+            String eq = fields.stream().map(f -> "self." + RustNames.snake(f.name()) + " == other." + RustNames.snake(f.name()))
+                    .collect(Collectors.joining(" && "));
+            sb.append("\nimpl").append(implGenerics).append(" PartialEq for ").append(name).append(generics)
+                    .append(" {\n").append(INDENT).append("fn eq(&self, other: &Self) -> bool {\n").append(INDENT)
+                    .append(INDENT).append(eq.isEmpty() ? "true" : eq).append("\n").append(INDENT).append("}\n}\n");
+        }
         if (hasToString(typeInfo)) {
             // Java's string conversion calls toString(): Rust's Display, through the inherent to_string
             sb.append("\nimpl").append(implGenerics).append(" std::fmt::Display for ").append(name).append(generics)

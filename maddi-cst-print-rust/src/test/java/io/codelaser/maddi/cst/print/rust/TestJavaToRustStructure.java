@@ -325,4 +325,29 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub base: StmtsStatement,");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String HASHED_RECORD = """
+            package a.b;
+            import java.util.List;
+            import java.util.Set;
+            public class Recs {
+                record R<T>(Set<T> s, List<T> l) {}
+                static <T> boolean same(R<T> a, R<T> b) { return a.equals(b); }
+            }
+            """;
+
+    /** A generic record with a set: a field-wise PartialEq, bounded as its impl is; derive would bound T by PartialEq. */
+    @DisplayName("a generic record with a HashSet field compares field-wise: compiles")
+    @Test
+    public void hashedRecord() throws Exception {
+        List<TypeInfo> types = parse(HASHED_RECORD);
+        TypeInfo recs = types.getFirst();
+        nonModifying(recs, "same");
+        method(recs, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "PartialEq for RecsR<T> {\nfn eq(&self, other: &Self) -> bool {\nself.s == other.s && self.l == other.l");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }
