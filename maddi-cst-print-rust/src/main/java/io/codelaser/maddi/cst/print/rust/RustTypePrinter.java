@@ -87,6 +87,45 @@ final class RustTypePrinter {
     }
 
     /** No instance fields and no constructor with parameters: Rust's {@code enum} of unit variants, {@code Copy}. */
+    /**
+     * An enum's field that its one constructor sets from a parameter, and every constant from a literal, a primitive
+     * or a string: the literals in the constants' order. {@code null} for any other field.
+     */
+    static List<Expression> constantField(FieldInfo f) {
+        TypeInfo e = f.owner();
+        if (f.isStatic() || !e.typeNature().isEnum() || !f.isFinal() || e.constructors().size() != 1) return null;
+        ParameterizedType type = f.type();
+        if (type.arrays() > 0 || !type.isPrimitiveExcludingVoid() && !RustTypes.isString(type)) return null;
+        MethodInfo constructor = e.constructors().getFirst();
+        int index = -1;
+        for (Statement s : constructor.methodBody().statements()) {
+            if (s instanceof ExpressionAsStatement eas && eas.expression() instanceof Assignment a
+                && a.variableTarget() instanceof FieldReference fr && fr.fieldInfo() == f) {
+                if (index >= 0 || !(CstQueries.unwrap(a.value()) instanceof VariableExpression ve
+                                    && ve.variable() instanceof ParameterInfo pi)) {
+                    return null;
+                }
+                index = pi.index();
+            }
+        }
+        if (index < 0) return null;
+        List<Expression> literals = new ArrayList<>();
+        for (FieldInfo constant : e.fields()) {
+            if (!constant.isStatic() || constant.type().typeInfo() != e) continue;
+            if (!(constant.initializer() instanceof ConstructorCall cc) || cc.parameterExpressions().size() <= index
+                || !(cc.parameterExpressions().get(index) instanceof ConstantExpression<?> literal)) {
+                return null;
+            }
+            literals.add(literal);
+        }
+        return literals;
+    }
+
+    /** The method that reads a {@link #constantField}: {@code gravity_value()}. */
+    static String constantFieldMethod(FieldInfo f) {
+        return RustNames.snake(f.name()) + "_value";
+    }
+
     static boolean plainEnum(TypeInfo typeInfo) {
         return typeInfo.fields().stream().noneMatch(f -> !f.isStatic() && !f.isSynthetic())
                && typeInfo.constructors().stream().allMatch(c -> c.parameters().isEmpty());
@@ -162,7 +201,10 @@ final class RustTypePrinter {
     }
 
     private String enumType(TypeInfo typeInfo) {
-        if (!plainEnum(typeInfo)) context.message(RustPrintCode.ENUM_WITH_STATE, typeInfo, typeInfo.simpleName());
+        List<FieldInfo> state = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+        if (!plainEnum(typeInfo) && !state.stream().allMatch(f -> constantField(f) != null)) {
+            context.message(RustPrintCode.ENUM_WITH_STATE, typeInfo, typeInfo.simpleName());
+        }
         List<String> variants = typeInfo.fields().stream()
                 .filter(f -> f.isStatic() && f.type().typeInfo() == typeInfo)
                 .map(f -> RustNames.variant(f.name())).toList();
@@ -189,6 +231,19 @@ final class RustTypePrinter {
                     .append(constants.get(i)).append("\",\n");
         }
         sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        // a field each constant sets to a literal: a match over the variants
+        for (FieldInfo f : state) {
+            List<Expression> literals = constantField(f);
+            if (literals == null) continue;
+            String type = RustTypes.isString(f.type()) ? "&'static str" : RustTypes.primitive(f.type().typeInfo());
+            sb.append(INDENT).append("fn ").append(constantFieldMethod(f)).append("(self) -> ").append(type)
+                    .append(" {\n").append(INDENT).append(INDENT).append("match self {\n");
+            for (int i = 0; i < n; i++) {
+                sb.append(INDENT.repeat(3)).append("Self::").append(variants.get(i)).append(" => ")
+                        .append(new RustBodyPrinter(context).text(literals.get(i))).append(",\n");
+            }
+            sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        }
         for (MethodInfo m : typeInfo.methods()) {
             if (!m.isSynthetic() && !m.isStaticInitializer() && !m.isInstanceInitializer()) sb.append(method(m));
         }

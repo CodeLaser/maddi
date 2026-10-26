@@ -867,6 +867,11 @@ final class RustBodyPrinter {
         }
         boolean own = fr.scopeIsThis() || fr.isDefaultScope();
         String scope = own ? context.receiver : dereference(expression(fr.scope()));
+        if (RustTypePrinter.constantField(f) != null) {
+            // an enum's state set by its constants: a match over the variants (RustTypePrinter.enumType)
+            return new Printed(scope + "." + RustTypePrinter.constantFieldMethod(f) + "()",
+                               RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, false);
+        }
         TypeInfo scopeType = own ? context.type : fr.scope().parameterizedType().typeInfo();
         // an inherited field is in the base
         String path = scopeType == null ? "" : RustTypePrinter.basePath(scopeType, f.owner());

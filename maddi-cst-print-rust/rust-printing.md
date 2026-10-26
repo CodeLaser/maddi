@@ -154,7 +154,10 @@ Analyzer issues the oracle found, each with a minimal repro:
   `UNMODIFIED_FIELD` verdict), of a type Rust can share between threads, and untouched by a static initializer, is a
   module-level `static OWNER_NAME: LazyLock<T>`, built on first use and read-only: a wrong verdict is rustc's E0596.
   Other static state is a `static mut` (see below) or reported (`STATIC_STATE`).
-- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
+- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it. A field
+  its one constructor sets from a parameter, and each constant from a primitive or string literal (`EARTH(9.8)`), is
+  a match over the variants, `gravity_value()`, which every read of the field calls. Other state is
+  `ENUM_WITH_STATE`.
 - A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
   cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
 - `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out

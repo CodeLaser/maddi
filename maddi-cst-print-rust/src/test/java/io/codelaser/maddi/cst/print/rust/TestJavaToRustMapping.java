@@ -719,6 +719,39 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String ENUM_STATE = """
+            package a.b;
+            public class Sky {
+                enum Planet {
+                    EARTH(9.8, "earth"), MARS(3.7, "mars");
+                    private final double gravity;
+                    private final String label;
+                    Planet(double g, String label) { this.gravity = g; this.label = label; }
+                    double gravity() { return gravity; }
+                    String label() { return label; }
+                    boolean heavier(Planet other) { return gravity > other.gravity; }
+                }
+                static double weight(Planet p, double mass) { return mass * p.gravity(); }
+                static int labelLength(Planet p) { return p.label().length(); }
+            }
+            """;
+
+    /** An enum field each constant sets to a literal is a match over the variants. */
+    @DisplayName("an enum's constant state is a match over its variants: compiles")
+    @Test
+    public void enumConstantState() throws Exception {
+        List<TypeInfo> types = parse(ENUM_STATE);
+        TypeInfo planet = types.getFirst().subTypes().getFirst();
+        nonModifying(planet, "gravity", "label", "heavier");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn gravity_value(self) -> f64 {\nmatch self {\nSelf::Earth => 9.8,\nSelf::Mars => 3.7,");
+        contains(rust, "fn label_value(self) -> &'static str {");
+        contains(rust, "return self.gravity_value() > other.gravity_value();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
