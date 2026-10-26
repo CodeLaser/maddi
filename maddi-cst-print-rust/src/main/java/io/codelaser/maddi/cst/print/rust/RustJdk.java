@@ -228,8 +228,9 @@ final class RustJdk {
             case "java.util.Arrays.copyOf/2" -> value("{ let mut c = " + printer.text(args.get(0))
                     + ".to_vec(); c.resize(" + printer.text(args.get(1)) + " as usize, Default::default()); c }");
             case "java.util.Optional.empty/0" -> new Printed("None", Held.VALUE, true);
-            case "java.util.Optional.of/1", "java.util.Optional.ofNullable/1" ->
-                    value("Some(" + printer.ownedText(args.getFirst()) + ")");
+            case "java.util.Optional.of/1" -> value("Some(" + printer.ownedText(args.getFirst()) + ")");
+            // a value that may be null is an Option already: its own copy, not an Option in Some
+            case "java.util.Optional.ofNullable/1" -> value(printer.optionText(args.getFirst()));
             default -> {
                 if (fqn.equals("java.util.Collections") && name.equals("addAll") && n >= 2) {
                     List<String> values = args.subList(1, n).stream().map(printer::ownedText).toList();

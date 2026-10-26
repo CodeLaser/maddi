@@ -678,12 +678,14 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 }
                 public void setMeasure(Measure measure) { this.measure = measure; }
                 public static void use(Dec d) { d.setMeasure(x -> x.length()); }
+                private String response;
+                public String response() { return java.util.Optional.ofNullable(response).orElse("x"); }
             }
             """;
 
     /**
      * A string parameter the body assigns is its own {@code String}: a {@code &str} cannot hold the new value. A closure
-     * passed for a nullable parameter is in {@code Some}.
+     * passed for a nullable parameter is in {@code Some}; Optional.ofNullable of a nullable value is that Option.
      */
     @DisplayName("a reassigned string parameter is owned; a closure for a nullable parameter is Some: compiles")
     @Test
@@ -691,11 +693,13 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         List<TypeInfo> types = parse(STRINGS_AND_CLOSURES);
         TypeInfo dec = types.getFirst();
         modifying(dec, "setMeasure");
-        nonModifying(dec, "norm", "decode", "use");
-        translate(types, nullable(java.util.Set.of("measure")));
+        nonModifying(dec, "norm", "decode", "use", "response");
+        translate(types, nullable(java.util.Set.of("measure", "response")));
         String rust = module("a.b");
         contains(rust, "pub fn norm(mut p: String) -> String {");
         contains(rust, "d.set_measure(Some(Box::new(");
+        // Optional.ofNullable of a nullable field is a copy of its Option
+        contains(rust, "return self.response.clone().unwrap_or(\"x\".to_string());");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

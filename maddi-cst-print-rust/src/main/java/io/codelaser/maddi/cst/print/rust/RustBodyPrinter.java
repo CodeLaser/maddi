@@ -1750,6 +1750,18 @@ final class RustBodyPrinter {
         return copied(expression(e), e);
     }
 
+    /** {@code e} as an owned {@code Option}: a nullable value copied as it is, another in {@code Some}. */
+    String optionText(Expression e) {
+        Printed p = expression(e);
+        if (!p.nullable) return "Some(" + owned(p, e.parameterizedType()) + ")";
+        if (e instanceof NullConstant) return "None";
+        return switch (p.held) {
+            case PLACE -> p.text + ".clone()";
+            case SHARED, EXCLUSIVE -> p.text + ".cloned()";
+            default -> p.text;
+        };
+    }
+
     /** Optional.orElseGet's supplier, whose result is copied like {@link #copiedText}'s. */
     String copiedSupplier(Expression e) {
         copiedResult = true;
