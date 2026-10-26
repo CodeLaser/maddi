@@ -218,6 +218,13 @@ final class RustTypes {
         return ti != null && type.arrays() == 0 && isInterface(ti) && !isFunctional(ti) && !isEntry(ti);
     }
 
+    /** A class a {@code Box<dyn Any>} can be downcast to: no interface, no type parameters Any could not tell apart. */
+    static boolean isDowncastTarget(ParameterizedType type) {
+        TypeInfo ti = type == null ? null : type.typeInfo();
+        return ti != null && type.arrays() == 0 && !type.isTypeParameter() && !ti.isJavaLangObject() && !ti.isInterface()
+               && ti.typeParameters().isEmpty();
+    }
+
     private static boolean isInterface(TypeInfo ti) {
         return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null;
     }

@@ -160,7 +160,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
   because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
   (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
-- A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
+- `o instanceof T t` of an `Object`, `T` a class without type parameters, is `if let Some(t) = o.downcast_ref::<T>()`
+  (`downcast_mut` when `t` is modified, `Some(&t)` for a copy type); without a pattern variable it is `o.is::<T>()`.
+  An interface, a generic type and a record pattern stay `todo!()`: `Any` cannot tell them apart.
+- A method reference is a closure (`Order::customer` → `|x| x.customer()`, `out::add` → `|x| { out.push(x.clone()); }`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
 - A closure's parameter is the element (`map` over `.cloned()`) or a reference to it (`filter`): it is passed as `&x`
@@ -255,7 +258,7 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` and type patterns outside `equals`,
+Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

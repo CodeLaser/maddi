@@ -577,6 +577,86 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String PATTERNS = """
+            package a.b;
+            public class Pat {
+                static final class M {
+                    private int i;
+                    int getI() { return i; }
+                    void setI(int i) { this.i = i; }
+                }
+                static int find(Object o) { if (o instanceof M m) return m.getI(); return -1; }
+                static void bump(Object o) { if (o instanceof M m) { m.setI(m.getI() + 1); } }
+                static String text(Object o) { if (o instanceof String s) return s; return ""; }
+                static int number(Object o) { if (o instanceof Integer i) return i; return o instanceof M ? 1 : 0; }
+            }
+            """;
+
+    /** {@code instanceof} of an Object downcasts its {@code Box<dyn Any>}: a pattern variable is an {@code if let}. */
+    @DisplayName("instanceof of an Object, with and without a pattern variable: compiles")
+    @Test
+    public void instanceOfDowncast() throws Exception {
+        List<TypeInfo> types = parse(PATTERNS);
+        TypeInfo pat = types.getFirst();
+        TypeInfo m = pat.subTypes().getFirst();
+        nonModifying(m, "getI");
+        for (String name : List.of("find", "text", "number")) borrowed(method(pat, name).parameters().getFirst());
+        exclusive(method(pat, "bump").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "if let Some(m) = o.downcast_ref::<PatM>() {\nreturn m.get_i();");
+        contains(rust, "if let Some(m) = o.downcast_mut::<PatM>() {\nm.set_i(m.get_i() + 1);");
+        contains(rust, "if let Some(s) = o.downcast_ref::<String>() {");
+        contains(rust, "if let Some(&i) = o.downcast_ref::<i32>() {\nreturn i;");
+        contains(rust, "return if o.is::<PatM>() { 1 } else { 0 };");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SEQUENCED = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Seq {
+                static int ends(List<String> parts) {
+                    List<String> copy = new ArrayList<>(parts);
+                    String first = copy.removeFirst();
+                    String last = copy.removeLast();
+                    StringBuilder sb = new StringBuilder(first);
+                    sb.append(last);
+                    return sb.length() + copy.size();
+                }
+                static List<String> all(List<String> in) {
+                    List<String> out = new ArrayList<>();
+                    in.forEach(out::add);
+                    java.util.Set<String> seen = new java.util.HashSet<>();
+                    in.forEach(seen::add);
+                    return out;
+                }
+            }
+            """;
+
+    /**
+     * A list's removeFirst and removeLast; StringBuilder's length, declared by AbstractStringBuilder; a bound
+     * {@code out::add} as a closure.
+     */
+    @DisplayName("removeFirst, removeLast, StringBuilder.length and out::add: compiles")
+    @Test
+    public void sequencedAndBuilderLength() throws Exception {
+        List<TypeInfo> types = parse(SEQUENCED);
+        borrowed(method(types.getFirst(), "ends").parameters().getFirst());
+        borrowed(method(types.getFirst(), "all").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let first = copy.remove(0);");
+        contains(rust, "let last = copy.pop().unwrap();");
+        contains(rust, "return sb.len() as i32");
+        contains(rust, "r#in.iter().for_each(|x| { out.push(x.clone()); });");
+        contains(rust, "r#in.iter().for_each(|x| { seen.insert(x.clone()); });");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {

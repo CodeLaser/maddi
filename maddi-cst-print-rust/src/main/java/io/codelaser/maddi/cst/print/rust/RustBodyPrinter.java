@@ -352,7 +352,8 @@ final class RustBodyPrinter {
 
     private String ifElse(IfElseStatement ife, int depth) {
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("if " + condition(ife.expression()) + " {\n"
+        String downcast = downcastPattern(ife.expression());
+        StringBuilder sb = new StringBuilder("if " + (downcast != null ? downcast : condition(ife.expression())) + " {\n"
                                              + statements(ife.block(), depth + 1) + pad + "}");
         Block elseBlock = ife.elseBlock();
         if (elseBlock != null && !elseBlock.statements().isEmpty()) {
@@ -363,6 +364,37 @@ final class RustBodyPrinter {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * {@code o instanceof T t} of an Object, T a class: {@code let Some(t) = o.downcast_ref::<T>()}, or
+     * {@code downcast_mut} when {@code t} is modified. {@code null} for anything else.
+     */
+    private String downcastPattern(Expression condition) {
+        if (!(CstQueries.unwrap(condition) instanceof InstanceOf io) || io.patternVariable() == null) return null;
+        LocalVariable lv = io.patternVariable().localVariable();
+        if (lv == null || !isObject(io.expression().parameterizedType())) return null;
+        ParameterizedType type = lv.parameterizedType();
+        if (!RustTypes.isDowncastTarget(type)) return null;
+        context.message(RustPrintCode.DOWNCAST, io, type.fullyQualifiedName());
+        boolean mutated = mutated(lv);
+        boolean copy = RustTypes.isCopy(type);
+        locals.put(lv, copy && !mutated ? Held.VALUE : mutated ? Held.EXCLUSIVE : Held.SHARED);
+        String downcast = (mutated ? "downcast_mut" : "downcast_ref") + "::<" + RustTypes.owned(type, context, io) + ">()";
+        Printed tested = expression(io.expression());
+        String value = tested.nullable
+                ? tested.text + (mutated ? ".as_mut()" : ".as_ref()") + ".and_then(|o| o." + downcast + ")"
+                : tested.text + "." + downcast;
+        return "let Some(" + (copy && !mutated ? "&" : "") + RustNames.snake(lv.simpleName()) + ") = " + value;
+    }
+
+    /** {@code o instanceof T} of an Object, T a class: {@code o.is::<T>()}. */
+    private Printed isInstance(InstanceOf io) {
+        context.message(RustPrintCode.DOWNCAST, io, io.testType().fullyQualifiedName());
+        String test = "is::<" + RustTypes.owned(io.testType(), context, io) + ">()";
+        Printed tested = expression(io.expression());
+        return value(tested.nullable ? tested.text + ".as_ref().is_some_and(|o| o." + test + ")"
+                : tested.text + "." + test);
     }
 
     private String forEach(ForEachStatement fe, String label, int depth) {
@@ -751,6 +783,8 @@ final class RustBodyPrinter {
             case Or or -> value(or.expressions().stream().map(this::operand).collect(Collectors.joining(" || ")));
             case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
             case MethodReference mr -> methodReference(mr);
+            case InstanceOf io when io.patternVariable() == null && isObject(io.expression().parameterizedType())
+                                    && RustTypes.isDowncastTarget(io.testType()) -> isInstance(io);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
         };
     }
@@ -1297,6 +1331,14 @@ final class RustBodyPrinter {
         int n = params.size();
         String closure = "";
         if (m.typeInfo().compilationUnit().externalLibrary()) {
+            if (!m.isStatic() && !(mr.scope() instanceof TypeExpression)) {
+                // bound: 'out::add' adds to out, the closure's parameter its argument
+                ParameterizedType scope = mr.scope().parameterizedType();
+                String kind = scope.typeInfo() == null ? null : RustTypes.mapped(scope.typeInfo());
+                String body = RustJdk.boundReference(m, kind, expression(mr.scope()).text, params);
+                // a Consumer drops add's boolean
+                return body != null && mr.concreteReturnType().isVoid() ? "{ " + body + "; }" : body;
+            }
             String jdk = RustJdk.reference(m, params);
             // an entry's key or value is a reference into the map: a copy, or a clone for a string
             if (jdk != null && (jdk.endsWith(".0") || jdk.endsWith(".1"))) {
@@ -1906,6 +1948,9 @@ final class RustBodyPrinter {
                 }
                 // Collections.sort(list), Arrays.fill(a, v): the JDK static modifies its first argument
                 if (!args.isEmpty() && rootedIn(args.getFirst(), lv) && RustJdk.modifiesFirstArgument(mc)) found[0] = true;
+            } else if (e instanceof MethodReference mr && !(mr.scope() instanceof TypeExpression)
+                       && rootedIn(mr.scope(), lv) && modifies(mr.methodInfo())) {
+                found[0] = true; // 'in.forEach(out::add)'
             } else if (e instanceof LocalVariableCreation lvc) {
                 // 'Set<T> set2 = r.s; set2.add(t)': a &mut of r's field, which needs r mutable
                 lvc.localVariableStream().filter(other -> other != lv && other.assignmentExpression() != null
@@ -1926,8 +1971,11 @@ final class RustBodyPrinter {
     }
 
     private boolean modifies(MethodCall mc) {
-        MethodInfo callee = mc.methodInfo();
-        if (callee.typeInfo().compilationUnit().externalLibrary()) return RustJdk.modifies(mc);
+        return modifies(mc.methodInfo());
+    }
+
+    private boolean modifies(MethodInfo callee) {
+        if (callee.typeInfo().compilationUnit().externalLibrary()) return RustJdk.modifies(callee);
         return context.facts.receiver(callee) == Receiver.EXCLUSIVE;
     }
 

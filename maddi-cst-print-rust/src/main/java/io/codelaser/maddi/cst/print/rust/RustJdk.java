@@ -45,7 +45,11 @@ final class RustJdk {
     }
 
     static boolean modifies(MethodCall mc) {
-        return MODIFYING.contains(mc.methodInfo().name());
+        return modifies(mc.methodInfo());
+    }
+
+    static boolean modifies(MethodInfo m) {
+        return MODIFYING.contains(m.name());
     }
 
     /** A JDK static that modifies its first argument: {@code Collections.sort(list)}, {@code Arrays.fill(a, v)}. */
@@ -129,6 +133,11 @@ final class RustJdk {
             return value(iter(o));
         }
         String collection = RustTypes.mapped(owner);
+        if (collection == null && Set.of("java.lang.AbstractStringBuilder", "java.lang.CharSequence").contains(fqn)
+            && mc.object() != null && mc.object().parameterizedType().typeInfo() != null) {
+            // StringBuilder's length() is AbstractStringBuilder's: a String's all the same
+            collection = RustTypes.mapped(mc.object().parameterizedType().typeInfo());
+        }
         if ("String".equals(collection)) return string(o, name, args, printer, mc);
         if ("java.lang.Object".equals(fqn)) {
             return switch (name) {
@@ -627,6 +636,21 @@ final class RustJdk {
         };
     }
 
+    /**
+     * A bound JDK method reference's body: {@code out::add} is {@code out.push(x.clone())}, the closure's parameter a
+     * reference to an element. {@code kind} is the Rust type of the receiver ({@code Vec}, …).
+     */
+    static String boundReference(MethodInfo m, String kind, String scope, List<String> params) {
+        if (kind == null || params.size() != 1 || !"add".equals(m.name())) return null;
+        String element = params.getFirst() + ".clone()";
+        return switch (kind) {
+            case "Vec" -> scope + ".push(" + element + ")";
+            case "VecDeque" -> scope + ".push_back(" + element + ")";
+            case "HashSet", "BTreeSet" -> scope + ".insert(" + element + ")";
+            default -> null;
+        };
+    }
+
     private static Printed vec(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
@@ -656,6 +680,9 @@ final class RustJdk {
                     : value("if let Some(p) = " + o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
                             + ") { " + o + ".remove(p); }");
             case "getLast/0" -> RustBodyPrinter.printed(o + "[" + o + ".len() - 1]", Held.PLACE, false);
+            // Java throws on an empty list, Rust panics
+            case "removeFirst/0" -> value(o + ".remove(0)");
+            case "removeLast/0" -> value(o + ".pop().unwrap()");
             default -> null;
         };
     }
