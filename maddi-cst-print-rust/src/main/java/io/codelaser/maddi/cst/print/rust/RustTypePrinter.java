@@ -487,7 +487,9 @@ final class RustTypePrinter {
             String type = RustTypes.type(f.type(), borrowed, context, f).replaceFirst("^&", "&" + RustBorrows.LIFETIME + " ");
             return RustTypes.option(type, RustFacts.nullable(context.facts.field(f)));
         }
-        return RustTypes.option(RustTypes.owned(f.type(), context, f), RustFacts.nullable(context.facts.field(f)));
+        String owned = RustTypes.owned(f.type(), context, f);
+        if (context.boxes.isBoxed(f)) owned = "Box<" + owned + ">";
+        return RustTypes.option(owned, RustFacts.nullable(context.facts.field(f)));
     }
 
     /** The module-level items a type's static state becomes: printed after the type's own items. */
@@ -638,6 +640,8 @@ final class RustTypePrinter {
 
     /** A field's value as the struct holds it: in a {@code RefCell} when it is one (see {@link RustCells}). */
     private String held(FieldInfo f, String value) {
+        // a nullable field's value is None, Some(...) or an Option already
+        if (context.boxes.isBoxed(f)) value = RustBoxes.box(value, RustFacts.nullable(context.facts.field(f)), true);
         return context.cells.isCell(f) ? "RefCell::new(" + value + ")" : value;
     }
 

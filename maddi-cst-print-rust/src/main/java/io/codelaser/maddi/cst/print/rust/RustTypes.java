@@ -130,6 +130,9 @@ final class RustTypes {
         if (type.isVoid()) return "()";
         TypeInfo ti = type.typeInfo();
         if (form == Form.SHARED && isString(type)) return "&str";
+        if (form != Form.OWNED && ti != null && type.arrays() == 0 && isEntry(ti)) {
+            return (form == Form.SHARED ? "&" : "&mut ") + owned(type, context, where);
+        }
         if (form != Form.OWNED && type.arrays() > 0) {
             // a Java array never changes length: a borrowed one is a slice, which a &Vec coerces to
             String element = owned(type.copyWithArrays(type.arrays() - 1), context, where);
@@ -166,8 +169,24 @@ final class RustTypes {
             return "Box<dyn Any>";
         }
         if (isFunctional(ti)) return "Box<" + function(type, context, where) + ">";
+        if (isEntry(ti)) {
+            // a map's entry is the (key, value) pair its iteration yields; getKey/getValue are .0/.1 (RustJdk.entry)
+            List<ParameterizedType> kv = type.parameters();
+            if (kv.size() == 2) return "(" + owned(kv.get(0), context, where) + ", " + owned(kv.get(1), context, where) + ")";
+            context.use("std::any::Any");
+            return "(Box<dyn Any>, Box<dyn Any>)";
+        }
         if (isInterface(ti)) return "Box<dyn " + named(type, context, where) + ">";
         return named(type, context, where);
+    }
+
+    /** {@code Map.Entry} and its JDK implementations: a tuple. */
+    static boolean isEntry(TypeInfo ti) {
+        return switch (ti.fullyQualifiedName()) {
+            case "java.util.Map.Entry", "java.util.AbstractMap.SimpleEntry", "java.util.AbstractMap.SimpleImmutableEntry"
+                    -> true;
+            default -> false;
+        };
     }
 
     private static boolean isInterface(TypeInfo ti) {

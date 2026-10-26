@@ -724,8 +724,15 @@ final class RustBodyPrinter {
                     : context.facts.ignoreModifications(m) || receiver == Receiver.OWNED ? ".borrow_mut()" : ".borrow()";
             place = "(*" + place + access + ")";
         }
+        if (context.boxes.isBoxed(f)) {
+            // a Box (RustBoxes): its content is the place; a nullable one is read as an Option<&T>
+            if (!nullable) return new Printed("(*" + place + ")", Held.PLACE, false);
+            return new Printed(place + BOXED_OPTION, Held.SHARED, true);
+        }
         return new Printed(place, Held.PLACE, nullable);
     }
+
+    private static final String BOXED_OPTION = ".as_deref()";
 
     /** A nullable value dereferenced: Java would throw a NullPointerException, Rust panics in {@code unwrap()}. */
     private String dereference(Printed scope) {
@@ -736,6 +743,8 @@ final class RustBodyPrinter {
 
     private String assignment(Assignment a, boolean statement) {
         String target = expression(a.target()).text;
+        boolean boxed = a.variableTarget() instanceof FieldReference fr && context.boxes.isBoxed(fr.fieldInfo());
+        if (boxed && target.endsWith(BOXED_OPTION)) target = target.substring(0, target.length() - BOXED_OPTION.length());
         if (a.prefixPrimitiveOperator() != null || a.binaryOperator() != null && a.value() == null) {
             String op = a.assignmentOperatorIsPlus() ? " += 1" : " -= 1";
             if (statement) return target + op;
@@ -758,10 +767,26 @@ final class RustBodyPrinter {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
         String text = RustTypes.isCopy(targetType) ? value.text : owned(value, targetType);
-        if (targetNullable(a.variableTarget()) && !value.nullable && !(a.value() instanceof NullConstant)) {
+        boolean nullableTarget = targetNullable(a.variableTarget());
+        if (boxed && !target.startsWith("(*")) {
+            text = RustBoxes.box(a.value() instanceof NullConstant ? "None" : text, nullableTarget, value.nullable);
+        } else if (nullableTarget && !value.nullable && !(a.value() instanceof NullConstant)) {
             text = "Some(" + text + ")";
+        } else if (!nullableTarget && value.nullable && !(a.value() instanceof NullConstant)
+                   && !targetType.isPrimitiveExcludingVoid()) {
+            // a nullable value where the verdicts hold the target non-null: Java's NPE at the next use, a panic here
+            context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, a, text);
+            text = text + ".unwrap()";
         }
         return target + " " + operator + " " + text;
+    }
+
+    // an object of a source class or record: Java compares it by identity; an enum constant, a string or a boxed
+    // primitive is a value in Rust, compared by ==
+    private static boolean identity(ParameterizedType type) {
+        TypeInfo ti = type.typeInfo();
+        return ti != null && type.arrays() == 0 && !type.isTypeParameter() && !ti.compilationUnit().externalLibrary()
+               && !ti.typeNature().isEnum() && !ti.isInterface();
     }
 
     private boolean targetNullable(Variable v) {
@@ -792,6 +817,16 @@ final class RustBodyPrinter {
             String type = RustTypes.primitive(bo.parameterizedType().typeInfo());
             return value("(((" + operand(bo.lhs()) + ") as u" + type.substring(1) + ") >> " + operand(bo.rhs())
                          + ") as " + type);
+        }
+        if (("==".equals(op) || "!=".equals(op)) && identity(bo.lhs().parameterizedType())
+            && identity(bo.rhs().parameterizedType())) {
+            // Java's == on objects is identity, which Rust's == (PartialEq) is not: the addresses compared
+            Printed l = expression(bo.lhs());
+            Printed r = expression(bo.rhs());
+            if (!l.nullable && !r.nullable) {
+                String eq = "std::ptr::eq(" + adapt(l, Held.SHARED) + ", " + adapt(r, Held.SHARED) + ")";
+                return value("==".equals(op) ? eq : "!" + eq);
+            }
         }
         ParameterizedType common = promoted(bo, op);
         String lhs = promotedOperand(bo.lhs(), common);

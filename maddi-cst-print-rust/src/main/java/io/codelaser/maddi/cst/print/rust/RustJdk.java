@@ -72,7 +72,7 @@ final class RustJdk {
             };
         }
         if (fqn.startsWith("java.util.stream.")) return stream(o, fqn, name, args, printer);
-        if ("java.util.Map.Entry".equals(fqn)) return entry(o, name, mc);
+        if (RustTypes.isEntry(owner)) return entry(o, name, mc);
         if ("java.math.BigDecimal".equals(fqn)) return bigDecimal(paren(o), name, args, printer, mc);
         if (fqn.startsWith("java.util.function.") || "java.lang.Runnable".equals(fqn)) {
             // a functional interface is a Box<dyn Fn…>: calling its method calls it. Its closure borrows what Java
@@ -201,10 +201,38 @@ final class RustJdk {
                 yield c == null ? null : value(printer.receiver(args.getFirst(), true) + ".sort_by(" + c + ")");
             }
             case "java.util.List.of/0", "java.util.Collections.emptyList/0" -> value("Vec::new()");
+            case "java.util.Map.entry/2" ->
+                    value("(" + printer.ownedText(args.get(0)) + ", " + printer.ownedText(args.get(1)) + ")");
+            case "java.lang.System.exit/1" -> value("std::process::exit(" + printer.text(args.getFirst()) + ")");
+            case "java.lang.System.lineSeparator/0" -> value("String::from(\"\\n\")");
+            case "java.lang.System.arraycopy/5" -> value(arraycopy(args, printer));
+            case "java.util.Collections.sort/1" -> value(printer.receiver(args.getFirst(), true) + ".sort()");
+            case "java.util.Collections.singleton/1" -> {
+                printer.context().use("std::collections::HashSet");
+                yield value("HashSet::from([" + printer.ownedText(args.getFirst()) + "])");
+            }
+            case "java.util.Collections.synchronizedList/1", "java.util.Collections.synchronizedSet/1",
+                 "java.util.Collections.synchronizedMap/1", "java.util.Collections.synchronizedCollection/1" -> {
+                // the lock goes: exclusive access is the borrow checker's
+                printer.context().message(RustPrintCode.SYNCHRONIZED, mc, null);
+                yield printer.printed(args.getFirst());
+            }
+            case "java.util.Arrays.fill/2" ->
+                    value(printer.receiver(args.get(0), true) + ".fill(" + printer.ownedText(args.get(1)) + ")");
+            case "java.util.Arrays.toString/1" -> value("format!(\"{:?}\", " + printer.text(args.getFirst()) + ")");
+            case "java.util.Arrays.copyOf/2" -> value("{ let mut c = " + printer.text(args.get(0))
+                    + ".to_vec(); c.resize(" + printer.text(args.get(1)) + " as usize, Default::default()); c }");
             case "java.util.Optional.empty/0" -> new Printed("None", Held.VALUE, true);
             case "java.util.Optional.of/1", "java.util.Optional.ofNullable/1" ->
                     value("Some(" + printer.ownedText(args.getFirst()) + ")");
             default -> {
+                if (fqn.equals("java.util.Collections") && name.equals("addAll") && n >= 2) {
+                    List<String> values = args.subList(1, n).stream().map(printer::ownedText).toList();
+                    String into = printer.receiver(args.getFirst(), true);
+                    yield n == 2 && args.get(1).parameterizedType().arrays() > 0
+                            ? value(into + ".extend(" + printer.text(args.get(1)) + ".iter().cloned())")
+                            : value(into + ".extend([" + String.join(", ", values) + "])");
+                }
                 if (fqn.equals("java.util.Objects") && name.equals("hash")) yield hash(args, printer);
                 if (fqn.equals("java.lang.String") && name.equals("format") && n >= 1) yield format(args, printer, mc);
                 if (fqn.equals("java.lang.String") && name.equals("join") && n >= 2) yield join(args, printer);
@@ -409,7 +437,8 @@ final class RustJdk {
         if (index < 0) return null;
         boolean copy = kv.size() == 2 && RustTypes.isCopy(kv.get(index));
         String part = paren(o) + "." + index;
-        return copy ? value("*" + part) : RustBodyPrinter.printed(part, Held.SHARED, false);
+        // a map's iteration yields (&K, &V), an entry held elsewhere (K, V): clone() copies the part either way
+        return copy ? value(part + ".clone()") : RustBodyPrinter.printed(part, Held.SHARED, false);
     }
 
     /** {@code map.getOrDefault(k, d)}: a copy for a copied value; otherwise a borrow, of the default too. */
@@ -807,8 +836,27 @@ final class RustJdk {
         return !parameters.isEmpty() && RustTypes.isString(parameters.getFirst());
     }
 
+    /**
+     * {@code System.arraycopy(src, sp, dst, dp, n)}: the slice copied over, element by element as Java does;
+     * within one array, {@code copy_within}, which allows the ranges to overlap.
+     */
+    private static String arraycopy(List<Expression> args, RustBodyPrinter printer) {
+        String src = printer.text(args.get(0));
+        String sp = "(" + printer.text(args.get(1)) + ") as usize";
+        String dst = printer.receiver(args.get(2), true);
+        String dp = "(" + printer.text(args.get(3)) + ") as usize";
+        String n = "(" + printer.text(args.get(4)) + ") as usize";
+        if (src.equals(dst)) return dst + ".copy_within(" + sp + ".." + sp + " + " + n + ", " + dp + ")";
+        return dst + "[" + dp + ".." + dp + " + " + n + "].clone_from_slice(&" + src + "[" + sp + ".." + sp + " + " + n
+               + "])";
+    }
+
     static Printed construct(ConstructorCall cc, RustBodyPrinter printer) {
         TypeInfo ti = cc.parameterizedType().typeInfo();
+        if (ti != null && RustTypes.isEntry(ti) && cc.parameterExpressions().size() == 2) {
+            List<Expression> kv = cc.parameterExpressions();
+            return value("(" + printer.ownedText(kv.get(0)) + ", " + printer.ownedText(kv.get(1)) + ")");
+        }
         String mapped = RustTypes.mapped(ti);
         if (mapped == null) return null;
         List<Expression> args = cc.parameterExpressions();

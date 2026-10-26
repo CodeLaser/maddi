@@ -184,6 +184,17 @@ Analyzer issues the oracle found, each with a minimal repro:
   an immutable value read more than once is still cloned at each owned use (`RustBodyPrinter.movable`).
 - A borrowed array is a slice, `&[T]` or `&mut [T]`: a Java array never changes length. A `Vec` argument coerces;
   a nullable one is `.as_deref()`. Owned, it stays a `Vec<T>`.
+- A struct holding itself by value, directly or through other structs, has no size (E0072): such a field is a
+  `Box<T>`, `Option<Box<T>>` when nullable (`RustBoxes`), read as `(*self.f)` or `self.f.as_deref()`, written boxed.
+  A linked structure that Java shares (`node.next = other`) still fails: a Box owns, and sharing is a dependence.
+- Java's `==` on objects of source classes is identity: `std::ptr::eq(a, b)`. Enum constants, strings and boxed
+  primitives are values, compared with `==`.
+- A nullable value assigned where the verdicts hold the target non-null is unwrapped (`UNWRAP_AT_DEREFERENCE`).
+- A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
+  one, `getKey()`/`getValue()` are `.0`/`.1`.
+- `System.exit`, `lineSeparator`, `arraycopy` (`clone_from_slice`, `copy_within` inside one array);
+  `Collections.sort`, `addAll`, `singleton`, `synchronized…` (the lock goes: `SYNCHRONIZED`); `Arrays.fill`,
+  `toString`, `copyOf`.
 - `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
   `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
 - A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in

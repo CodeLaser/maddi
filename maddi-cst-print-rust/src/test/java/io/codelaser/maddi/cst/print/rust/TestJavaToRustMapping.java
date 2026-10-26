@@ -386,6 +386,49 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String NODES = """
+            package a.b;
+            import java.util.*;
+            public class Node {
+                private Node parent;
+                private final List<Map.Entry<String, Integer>> counts = new ArrayList<>();
+                public void setParent(Node parent) { this.parent = parent; }
+                public boolean same(Node other) { return this == other; }
+                public static int depth(Node n) { int d = 0; while (n.parent != null) { n = n.parent; d++; } return d; }
+                public void count(String key, int value) { counts.add(new AbstractMap.SimpleEntry<>(key, value)); }
+                public int total() { int t = 0; for (Map.Entry<String, Integer> e : counts) t += e.getValue(); return t; }
+            }
+            """;
+
+    /**
+     * A struct holding itself by value has no size (E0072): the field is a {@code Box}, here {@code Option<Box<Node>>},
+     * read as {@code as_deref()} and written boxed. Java's {@code ==} on objects is identity: {@code std::ptr::eq}. A
+     * nullable value assigned where the verdicts hold the target non-null is unwrapped, Java's NPE as a panic. A map
+     * entry is the {@code (key, value)} tuple a map's iteration yields; a {@code SimpleEntry} is constructed as one.
+     */
+    @DisplayName("a recursive field is boxed, == on objects is identity, an entry is a tuple: compiles")
+    @Test
+    public void recursiveIdentityEntries() throws Exception {
+        List<TypeInfo> types = parse(NODES);
+        TypeInfo node = types.getFirst();
+        modifying(node, "setParent", "count");
+        nonModifying(node, "same", "total");
+        kept(method(node, "setParent").parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        borrowed(method(node, "same").parameters().getFirst());
+        borrowed(method(node, "depth").parameters().getFirst());
+        translate(types, nullable(java.util.Set.of("parent")));
+        String rust = module("a.b");
+        contains(rust, "parent: Option<Box<Node>>,");
+        contains(rust, "counts: Vec<(String, i32)>,");
+        contains(rust, "self.parent = parent.map(Box::new);");
+        contains(rust, "return std::ptr::eq(self, other);");
+        contains(rust, "n = n.parent.as_deref().unwrap();");
+        contains(rust, "self.counts.push((key, value));");
+        contains(rust, "t += e.1.clone();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

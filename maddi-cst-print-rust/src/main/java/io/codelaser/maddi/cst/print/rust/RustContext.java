@@ -37,6 +37,7 @@ final class RustContext {
     final RustCells cells;
     /** The methods that are an {@code unsafe fn}: they touch a {@code static mut}, or call one that does. */
     final RustUnsafety unsafety = new RustUnsafety();
+    final RustBoxes boxes;
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();
@@ -57,6 +58,7 @@ final class RustContext {
         this.module = module;
         this.borrows = new RustBorrows(facts);
         this.cells = new RustCells(facts);
+        this.boxes = new RustBoxes(facts, borrows);
     }
 
     /**
