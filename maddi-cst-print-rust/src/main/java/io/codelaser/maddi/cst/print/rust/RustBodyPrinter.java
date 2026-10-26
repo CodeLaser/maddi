@@ -178,8 +178,35 @@ final class RustBodyPrinter {
 
     private String localVariables(LocalVariableCreation lvc, String pad) {
         StringBuilder sb = new StringBuilder();
-        lvc.localVariableStream().forEach(lv -> sb.append(pad).append(local(lvc, lv)).append(";\n"));
+        lvc.localVariableStream().forEach(lv -> {
+            String bound = fluentOnNew(lv, pad);
+            sb.append(bound != null ? bound : pad + local(lvc, lv) + ";\n");
+        });
         return sb.toString();
+    }
+
+    /**
+     * {@code Builder b = new Builder().setJ(jp);}: a fluent call hands back a borrow of its receiver, here a temporary
+     * that is gone at the end of the statement (E0716). The new object is bound first, and the calls run on the
+     * binding: {@code let mut b = Builder::new(); b.set_j(jp);}. {@code null} for another initializer.
+     */
+    private String fluentOnNew(LocalVariable lv, String pad) {
+        Expression init = lv.assignmentExpression();
+        if (init == null) return null;
+        Expression e = CstQueries.unwrap(init);
+        boolean fluent = false;
+        while (e instanceof MethodCall mc && mc.object() != null && context.facts.fluent(mc.methodInfo())) {
+            fluent = true;
+            e = CstQueries.unwrap(mc.object());
+        }
+        if (!fluent || !(e instanceof ConstructorCall)) return null;
+        String root = expression(e).text;
+        String all = expression(init).text;
+        if (!all.startsWith(root)) return null;
+        String name = RustNames.snake(lv.simpleName());
+        locals.put(lv, Held.VALUE);
+        nullableLocals.put(lv, false);
+        return pad + "let mut " + name + " = " + root + ";\n" + pad + name + all.substring(root.length()) + ";\n";
     }
 
     private String local(LocalVariableCreation lvc, LocalVariable lv) {

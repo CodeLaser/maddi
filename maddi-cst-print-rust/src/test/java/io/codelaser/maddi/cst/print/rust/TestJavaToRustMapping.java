@@ -746,6 +746,40 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String FLUENT_LOCAL = """
+            package a.b;
+            public class Built {
+                static class Builder {
+                    int j;
+                    int k;
+                    Builder setJ(int j) { this.j = j; return this; }
+                    Builder setK(int k) { this.k = k; return this; }
+                    int sum() { return j + k; }
+                }
+                static int make(int j) {
+                    Builder b = new Builder().setJ(j).setK(4);
+                    return b.sum();
+                }
+            }
+            """;
+
+    /** A fluent chain on a new object, kept in a local, binds the object first: the chain borrows a temporary. */
+    @DisplayName("a local initialized by a fluent chain on a new object binds the object, then chains: compiles")
+    @Test
+    public void fluentChainOnNewLocal() throws Exception {
+        List<TypeInfo> types = parse(FLUENT_LOCAL);
+        TypeInfo builder = types.getFirst().findSubType("Builder");
+        modifying(builder, "setJ", "setK");
+        fluent(builder, "setJ");
+        fluent(builder, "setK");
+        nonModifying(builder, "sum");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut b = BuiltBuilder::new();\nb.set_j(j).set_k(4);");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {
