@@ -801,7 +801,24 @@ final class RustTypePrinter {
             return sb.append(" {\n").append(INDENT).append(INDENT).append("unsafe {\n").append(body(m, 3)).append(INDENT)
                     .append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
         }
-        return sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n").toString();
+        sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
+        if (!inTrait && context.mutableGetters.contains(m)) sb.append(mutableGetter(m));
+        return sb.toString();
+    }
+
+    /** The exclusive twin of a getter a caller modifies through ({@link RustGetters}): the field, borrowed mutably. */
+    private String mutableGetter(MethodInfo m) {
+        FieldInfo f = RustGetters.field(m);
+        if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)
+            || context.borrows.fields(f.owner()).containsKey(f)) {
+            return "";
+        }
+        boolean nullable = RustFacts.nullable(context.facts.field(f));
+        String type = RustTypes.owned(f.type(), context, m);
+        String field = "self." + RustNames.snake(f.name());
+        return INDENT + visibility(m.access().isPrivate()) + "fn " + RustNames.method(m) + RustGetters.SUFFIX
+               + "(&mut self) -> " + (nullable ? "Option<&mut " + type + ">" : "&mut " + type) + " {\n"
+               + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n" + INDENT + "}\n";
     }
 
     /**

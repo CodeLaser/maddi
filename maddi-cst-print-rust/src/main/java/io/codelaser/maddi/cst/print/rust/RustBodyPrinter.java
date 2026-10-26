@@ -1231,8 +1231,10 @@ final class RustBodyPrinter {
             return value(adapt(expression(mc.object()), Held.SHARED) + " == "
                          + adapt(expression(mc.parameterExpressions().getFirst()), Held.SHARED));
         }
-        String name = RustNames.method(callee);
-        boolean exclusive = !callee.isStatic() && context.facts.receiver(callee) == Receiver.EXCLUSIVE;
+        // a getter the caller modifies through: its exclusive twin (RustGetters)
+        boolean mutableGetter = mutatingPlace && context.mutableGetters.contains(callee);
+        String name = RustNames.method(callee) + (mutableGetter ? RustGetters.SUFFIX : "");
+        boolean exclusive = !callee.isStatic() && (mutableGetter || context.facts.receiver(callee) == Receiver.EXCLUSIVE);
         String args = exclusive ? withoutSelfBorrows(mc.parameterExpressions(), callee)
                 : arguments(mc.parameterExpressions(), callee);
         String call;
@@ -1279,6 +1281,7 @@ final class RustBodyPrinter {
                           || callee.isSynthetic() && callee.typeInfo().typeNature().isRecord() && callee.parameters().isEmpty()
                              && !callee.isStatic();
         Held held = !borrows ? Held.VALUE : RustTypes.isString(callee.returnType()) ? Held.STR : Held.SHARED;
+        if (mutableGetter) held = Held.EXCLUSIVE;
         return new Printed(call, held, nullable);
     }
 

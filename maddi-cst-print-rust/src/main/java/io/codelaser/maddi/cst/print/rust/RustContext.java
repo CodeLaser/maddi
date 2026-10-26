@@ -49,6 +49,8 @@ final class RustContext {
     final RustUnsafety unsafety = new RustUnsafety();
     final RustBoxes boxes;
     final RustBounds bounds;
+    // the getters a call site modifies through: they get an exclusive twin (RustGetters)
+    Set<MethodInfo> mutableGetters = Set.of();
     /** The module being printed: a type in it needs no {@code use}. */
     final String module;
     private final List<PrintMessage<RustPrintCode>> messages = new ArrayList<>();

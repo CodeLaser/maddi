@@ -652,6 +652,45 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String MUTABLE_GETTERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Bag {
+                static class Inner { int i; }
+                private final List<String> items = new ArrayList<>();
+                private final Inner inner = new Inner();
+                public List<String> items() { return items; }
+                public Inner inner() { return inner; }
+                public int size() { return items().size(); }
+                public static void fill(Bag b) { b.items().add("x"); b.inner().i = 3; }
+            }
+            """;
+
+    /**
+     * A caller that modifies what a getter hands out needs it exclusively: the getter gets an exclusive twin,
+     * {@code items_mut(&mut self) -> &mut Vec<String>}, which those call sites call; a reading call site keeps the getter.
+     */
+    @DisplayName("a getter a caller modifies through gets an _mut twin: compiles")
+    @Test
+    public void mutableGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(MUTABLE_GETTERS);
+        TypeInfo bag = types.getFirst();
+        nonModifying(bag, "items", "inner", "size");
+        dependentResult(bag, "items");
+        dependentResult(bag, "inner");
+        modified(method(bag, "fill").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn items_mut(&mut self) -> &mut Vec<String> {\n&mut self.items\n}");
+        contains(rust, "pub fn inner_mut(&mut self) -> &mut BagInner {");
+        contains(rust, "b.items_mut().push(\"x\".to_string());");
+        contains(rust, "b.inner_mut().i = 3;");
+        contains(rust, "return self.items().len() as i32;");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {
