@@ -519,6 +519,9 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 public Args copy() { return new Args(); }
                 public int count() { return names.size(); }
                 public List<String> orNames(java.util.Optional<List<String>> opt) { return opt.orElse(names); }
+                public List<String> orAlt(java.util.Optional<List<String>> opt, List<String> alt) {
+                    return opt.orElseGet(() -> alt);
+                }
             }
             """;
 
@@ -538,11 +541,15 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         dependentResult(args, "copy");
         nonModifying(args, "orNames");
         dependentResult(args, "orNames");
+        nonModifying(args, "orAlt");
+        borrowed(method(args, "orAlt").parameters().getLast());
         translate(types, nullable(java.util.Set.of("arguments")));
         String rust = module("a.b");
         contains(rust, "pub fn arguments(&mut self) -> &Vec<String> {");
         contains(rust, "return self.arguments.as_ref().unwrap();");
         contains(rust, "pub fn copy(&self) -> Args {\nreturn Self::new();");
+        contains(rust, "-> Vec<String> {\nreturn opt.unwrap_or(self.names.clone());");
+        contains(rust, "return opt.unwrap_or_else(|| alt.clone());");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 

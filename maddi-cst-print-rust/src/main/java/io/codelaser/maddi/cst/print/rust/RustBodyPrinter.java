@@ -86,6 +86,8 @@ final class RustBodyPrinter {
     private ParameterizedType closureTarget;
     /** The lambda being printed is Optional.map's function: a nullable result stays an Option ({@code and_then}). */
     private boolean optionalResult;
+    /** The lambda being printed is Optional.orElseGet's supplier: its result is a value of its own, copied. */
+    private boolean copiedResult;
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -1100,6 +1102,8 @@ final class RustBodyPrinter {
         List<String> types = closureParameters();
         boolean optional = optionalResult;
         optionalResult = false;
+        boolean copied = copiedResult;
+        copiedResult = false;
         List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
         String params = typed(names, types);
         Expression single = lambda.singleExpression();
@@ -1117,6 +1121,10 @@ final class RustBodyPrinter {
                     String owned = p.held == Held.SHARED && (RustTypes.isString(single.parameterizedType())
                             || RustTypes.isImmutableValue(single.parameterizedType(), context.facts)) ? ".cloned()" : "";
                     return new Printed("|" + params + "| " + body + owned, Held.VALUE, true);
+                }
+                if (copied) {
+                    if (p.nullable) context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, single, body);
+                    return value("|" + params + "| " + copied(p, single));
                 }
                 if (p.nullable) {
                     // an element is never an Option: Java's null in the result, a panic here
@@ -1662,10 +1670,29 @@ final class RustBodyPrinter {
      * cannot move it out ({@code opt.orElse(names)}).
      */
     String copiedText(Expression e) {
-        Printed p = expression(e);
-        String text = owned(p, e.parameterizedType());
+        return copied(expression(e), e);
+    }
+
+    /** Optional.orElseGet's supplier, whose result is copied like {@link #copiedText}'s. */
+    String copiedSupplier(Expression e) {
+        copiedResult = true;
+        try {
+            return expression(e).text;
+        } finally {
+            copiedResult = false;
+        }
+    }
+
+    /* p, printed from e, as a value of its own; a nullable one unwrapped: it stands where a value is expected */
+    private String copied(Printed p, Expression e) {
         boolean copy = RustTypes.isCopy(e.parameterizedType()) || e instanceof NullConstant;
-        return !copy && text.equals(p.text) && (p.held == Held.PLACE || p.held == Held.SHARED) ? text + ".clone()" : text;
+        boolean held = !copy && (p.held == Held.PLACE || p.held == Held.SHARED);
+        if (p.nullable && !(e instanceof NullConstant)) {
+            if (!held || copy) return p.text + ".unwrap()";
+            return p.text + (p.held == Held.SHARED ? ".cloned()" : ".clone()") + ".unwrap()";
+        }
+        String text = owned(p, e.parameterizedType());
+        return held && text.equals(p.text) ? text + ".clone()" : text;
     }
 
     /**
