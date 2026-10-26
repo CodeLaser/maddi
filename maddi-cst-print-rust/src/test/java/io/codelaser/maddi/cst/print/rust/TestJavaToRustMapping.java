@@ -663,6 +663,86 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String UNBOUND_LIST = """
+            package a.b;
+            import java.util.List;
+            import java.util.Optional;
+            public class Firsts {
+                static int firstLength(Optional<List<String>> o) {
+                    return o.map(List::getFirst).map(String::length).orElse(0);
+                }
+                static int size(Optional<List<String>> o) {
+                    return o.map(List::size).orElse(0);
+                }
+            }
+            """;
+
+    /** An unbound {@code List::getFirst} borrows the first element; {@code List::size} is its length. */
+    @DisplayName("List::getFirst and List::size as closures: compiles")
+    @Test
+    public void unboundListReferences() throws Exception {
+        List<TypeInfo> types = parse(UNBOUND_LIST);
+        borrowed(method(types.getFirst(), "firstLength").parameters().getFirst());
+        borrowed(method(types.getFirst(), "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "|x| &x[0]");
+        contains(rust, "|x| x.len() as i32");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String INITIALIZED_ARRAYS = """
+            package a.b;
+            public class Inits {
+                private static final char[] HEX = {'0', '1'};
+                private final String[] names = {"a", "b"};
+                private final int[][] grid = {{1, 2}, {3}};
+                int sum() {
+                    int[] b = {1, 2};
+                    return b[0] + grid[1][0] + names.length + HEX.length;
+                }
+            }
+            """;
+
+    /** An array initializer, also without {@code new}: a vec of owned elements, nested for a nested array. */
+    @DisplayName("array initializers: compiles")
+    @Test
+    public void initializedArrays() throws Exception {
+        List<TypeInfo> types = parse(INITIALIZED_ARRAYS);
+        unmodifiedField(types.getFirst(), "HEX");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "vec!['0', '1']");
+        contains(rust, "vec![\"a\".to_string(), \"b\".to_string()]");
+        contains(rust, "vec![vec![1, 2], vec![3]]");
+        contains(rust, "let b = vec![1, 2];");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String HELD_ITERATOR = """
+            package a.b;
+            import java.util.Iterator;
+            public class Cursor {
+                private final Iterator<String> it;
+                Cursor(Iterator<String> it) { this.it = it; }
+            }
+            """;
+
+    /** A java.util.Iterator held as a trait object: Rust's Iterator names its element type as Item. */
+    @DisplayName("a kept Iterator<T> is a dyn Iterator<Item = T>: compiles")
+    @Test
+    public void heldIterator() throws Exception {
+        List<TypeInfo> types = parse(HELD_ITERATOR);
+        kept(types.getFirst().constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "it: &'a mut dyn Iterator<Item = String>,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String APPENDED_T = """
             package a.b;
             import java.util.List;

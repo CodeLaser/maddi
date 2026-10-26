@@ -354,6 +354,10 @@ final class RustTypes {
                 context.use("std::any::Any");
                 return "Box<dyn Any>";
             }
+            if ("java.util.Iterator".equals(ti.fullyQualifiedName()) && type.parameters().size() == 1) {
+                // Rust's Iterator names its element as an associated type
+                return "Iterator<Item = " + owned(type.parameters().getFirst(), context, where) + ">";
+            }
             context.message(RustPrintCode.UNMAPPED_JDK, where, ti.fullyQualifiedName());
             base = ti.simpleName();
         } else {

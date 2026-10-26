@@ -795,6 +795,7 @@ final class RustBodyPrinter {
             case Or or -> value(or.expressions().stream().map(this::operand).collect(Collectors.joining(" || ")));
             case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
             case MethodReference mr -> methodReference(mr);
+            case ArrayInitializer ai -> arrayInitializer(ai.expressions(), ai.parameterizedType());
             case InstanceOf io when io.patternVariable() == null && isObject(io.expression().parameterizedType())
                                     && RustTypes.isDowncastTarget(io.testType()) -> isInstance(io);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
@@ -1473,14 +1474,17 @@ final class RustBodyPrinter {
         return new Printed(call, held, nullable);
     }
 
+    /** {@code {a, b}}, an array of {@code type}: a vec of its elements, owned as its component type. */
+    private Printed arrayInitializer(List<Expression> elements, ParameterizedType type) {
+        ParameterizedType component = type.arrays() > 0 ? type.componentType() : null;
+        return value("vec![" + elements.stream().map(x -> ownedAs(x, component)).collect(Collectors.joining(", ")) + "]");
+    }
+
     private Printed constructorCall(ConstructorCall cc) {
         if (cc.anonymousClass() != null) return value(unsupported(cc, "anonymous class"));
         ParameterizedType type = cc.parameterizedType();
         if (type.arrays() > 0) {
-            if (cc.arrayInitializer() != null) {
-                return value("vec![" + cc.arrayInitializer().expressions().stream().map(x -> expression(x).text)
-                        .collect(Collectors.joining(", ")) + "]");
-            }
+            if (cc.arrayInitializer() != null) return arrayInitializer(cc.arrayInitializer().expressions(), type);
             if (cc.parameterExpressions().size() == 1) {
                 ParameterizedType component = type.componentType();
                 String n = index(cc.parameterExpressions().getFirst());
