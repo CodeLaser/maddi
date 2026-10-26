@@ -2657,4 +2657,33 @@ public class TestJavaToCSharpStructure extends CommonJavaToCSharp {
         // an inner class that does not use its enclosing instance does not take it
         contains(cs, "internal sealed class Plain { internal int One() => 1; }");
     }
+
+    /**
+     * A case label with several patterns (JEP 456), {@code case String _, Integer _ ->}: C#'s {@code or} pattern,
+     * {@code string or int}, in a switch statement and in a switch expression. Translating only the first pattern
+     * compiles and no longer matches an Integer.
+     */
+    @Test
+    public void multiPatternCase() {
+        String cs = translate("Kinds", """
+                package a;
+                class Kinds {
+                    static String statement(Object o) {
+                        switch (o) {
+                            case String _, Integer _ -> { return "known"; }
+                            default -> { }
+                        }
+                        return "?";
+                    }
+                    static String expression(Object o) {
+                        return switch (o) {
+                            case String _, Integer _ -> "known";
+                            default -> "?";
+                        };
+                    }
+                }
+                """);
+        contains(cs, "case string or int: return \"known\";");
+        contains(cs, "string or int => \"known\"");
+    }
 }

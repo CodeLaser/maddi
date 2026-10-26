@@ -692,11 +692,23 @@ public class KotlinStatementPrinter {
                   && e.conditions().stream().allMatch(c -> c.isEmpty() || c instanceof NullConstant);
     }
 
-    /** {@code case CmdLineException c ->}: a type pattern, Java 21's. Not a record's deconstruction. */
+    /**
+     * {@code case CmdLineException c ->}: a type pattern, Java 21's. Not a record's deconstruction. With several
+     * patterns ({@code case A _, B _ ->}, JEP 456) every one of them has to be a type pattern: Kotlin's
+     * {@code is A, is B} tests the type only, which a deconstruction does not reduce to.
+     */
     private static boolean typePattern(SwitchEntry e) {
-        return e.patternVariable() != null
-               && (e.patternVariable().patterns() == null || e.patternVariable().patterns().isEmpty())
-               && (e.patternVariable().localVariable() != null || e.patternVariable().recordType() != null);
+        return e.patternVariable() != null && isTypePattern(e.patternVariable())
+               && e.otherPatterns().stream().allMatch(KotlinStatementPrinter::isTypePattern);
+    }
+
+    private static boolean isTypePattern(io.codelaser.maddi.cst.api.element.RecordPattern p) {
+        return (p.patterns() == null || p.patterns().isEmpty())
+               && (p.localVariable() != null || p.recordType() != null);
+    }
+
+    private static ParameterizedType patternType(io.codelaser.maddi.cst.api.element.RecordPattern p) {
+        return p.localVariable() != null ? p.localVariable().parameterizedType() : p.recordType();
     }
 
     private static OutputBuilder whenEntry(SwitchEntry e, Expression selector, boolean intSelector, Qualification q) {
@@ -712,6 +724,11 @@ public class KotlinStatementPrinter {
             }
             b.add(new TextImpl("is " + KotlinTypeName.of(type.withNullable(
                     io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
+            // case A _, B _ -> (JEP 456): is A, is B. Printing only the first compiled and stopped matching B.
+            for (io.codelaser.maddi.cst.api.element.RecordPattern other : e.otherPatterns()) {
+                b.add(SymbolEnum.COMMA).add(new TextImpl("is " + KotlinTypeName.of(patternType(other).withNullable(
+                        io.codelaser.maddi.cst.api.type.NullableState.NONNULL), q)));
+            }
             if (e.whenExpression() != null && !e.whenExpression().isEmpty()) {
                 // case X x when cond: Kotlin's guard
                 b.add(SpaceEnum.ONE).add(KotlinKeyword.IF).add(SpaceEnum.ONE).add(KotlinExpressionPrinter.print(e.whenExpression(), q));
