@@ -1176,6 +1176,34 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String SUB_LIST = """
+            package a.b;
+            import java.util.List;
+            public class Args {
+                static int count(List<String> args) { return args.size(); }
+                public static int rest(List<String> args) { return count(args.subList(1, args.size())); }
+                public static List<String> head(List<String> args) { return args.subList(0, 2); }
+            }
+            """;
+
+    /** {@code subList}: a copy of the range, borrowed where it is read, owned where it is returned. */
+    @DisplayName("subList is a copy of the slice: compiles")
+    @Test
+    public void subList() throws Exception {
+        List<TypeInfo> types = parse(SUB_LIST);
+        TypeInfo args = types.getFirst();
+        nonModifying(args, "count", "rest", "head");
+        borrowed(method(args, "count").parameters().getFirst());
+        borrowed(method(args, "rest").parameters().getFirst());
+        borrowed(method(args, "head").parameters().getFirst());
+        translate(types, RustFacts.STORED);
+        String rust = module("a.b");
+        contains(rust, "return Self::count(&args[1..args.len()].to_vec());");
+        contains(rust, "return args[0..2].to_vec();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String FIELD_OF_LOCAL = """
             package a.b;
             import java.util.ArrayList;

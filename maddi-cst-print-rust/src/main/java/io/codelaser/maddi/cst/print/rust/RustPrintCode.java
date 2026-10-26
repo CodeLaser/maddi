@@ -64,6 +64,8 @@ public enum RustPrintCode implements PrintMessage.Code {
     BIGDECIMAL_AS_F64(Severity.BEHAVIOUR_CHANGE),
     /** {@code LocalDateTime}, {@code Instant}: a {@code SystemTime}, an instant without Java's calendar fields. */
     TIME_AS_SYSTEM_TIME(Severity.BEHAVIOUR_CHANGE),
+    /** {@code List.subList}: a copy of the range, where Java's view writes through to the list. */
+    SUBLIST_COPY(Severity.BEHAVIOUR_CHANGE),
     /** {@code String.format}: Java's specifiers as {@code format!}'s; one without a counterpart is printed as is. */
     FORMAT(Severity.INFO),
     /** {@code >>>}: printed as {@code >>} on the unsigned type. */
