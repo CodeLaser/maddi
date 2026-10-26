@@ -91,6 +91,12 @@ final class RustContext {
         RustFacts.Passing passing = facts.passing(parameter);
         // returned as it is or replaced by a new object holding it ('s = new Wrapper(s); return s;'): moved in
         if (RustFacts.renewedResult(parameter)) return RustFacts.Passing.OWNED;
+        // a string the body assigns ('p = decode(p)'): its own String, as a &str cannot hold the new one
+        if (RustTypes.isString(parameter.parameterizedType()) && parameter.parameterizedType().arrays() == 0
+            && parameter.methodInfo().methodBody() != null
+            && RustTypePrinter.reassigned(parameter.methodInfo().methodBody(), parameter)) {
+            return RustFacts.Passing.OWNED;
+        }
         if (parameter.equals(facts.resultBorrows(parameter.methodInfo()))) {
             // the result is part of it: borrowed for as long as the result lives, never moved in
             return passing == RustFacts.Passing.OWNED ? RustFacts.Passing.SHARED : passing;

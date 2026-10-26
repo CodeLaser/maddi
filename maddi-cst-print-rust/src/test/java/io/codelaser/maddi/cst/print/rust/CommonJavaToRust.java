@@ -160,6 +160,12 @@ public abstract class CommonJavaToRust {
         parameter.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT);
     }
 
+    /** A parameter the method modifies and does not keep: {@code &mut T}. */
+    protected static void exclusive(ParameterInfo parameter) {
+        parameter.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.FALSE);
+        parameter.analysis().set(PropertyImpl.INDEPENDENT_PARAMETER, ValueImpl.IndependentImpl.INDEPENDENT);
+    }
+
     /** A parameter the method keeps: {@code T}. */
     protected static void kept(ParameterInfo parameter, Value.Independent independent) {
         parameter.analysis().set(PropertyImpl.UNMODIFIED_PARAMETER, ValueImpl.BoolImpl.TRUE);

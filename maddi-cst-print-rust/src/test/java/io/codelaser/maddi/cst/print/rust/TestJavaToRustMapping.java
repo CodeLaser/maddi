@@ -577,6 +577,363 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String PATTERNS = """
+            package a.b;
+            public class Pat {
+                static final class M {
+                    private int i;
+                    int getI() { return i; }
+                    void setI(int i) { this.i = i; }
+                }
+                static int find(Object o) { if (o instanceof M m) return m.getI(); return -1; }
+                static void bump(Object o) { if (o instanceof M m) { m.setI(m.getI() + 1); } }
+                static String text(Object o) { if (o instanceof String s) return s; return ""; }
+                static int number(Object o) { if (o instanceof Integer i) return i; return o instanceof M ? 1 : 0; }
+            }
+            """;
+
+    /** {@code instanceof} of an Object downcasts its {@code Box<dyn Any>}: a pattern variable is an {@code if let}. */
+    @DisplayName("instanceof of an Object, with and without a pattern variable: compiles")
+    @Test
+    public void instanceOfDowncast() throws Exception {
+        List<TypeInfo> types = parse(PATTERNS);
+        TypeInfo pat = types.getFirst();
+        TypeInfo m = pat.subTypes().getFirst();
+        nonModifying(m, "getI");
+        for (String name : List.of("find", "text", "number")) borrowed(method(pat, name).parameters().getFirst());
+        exclusive(method(pat, "bump").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "if let Some(m) = o.downcast_ref::<PatM>() {\nreturn m.get_i();");
+        contains(rust, "if let Some(m) = o.downcast_mut::<PatM>() {\nm.set_i(m.get_i() + 1);");
+        contains(rust, "if let Some(s) = o.downcast_ref::<String>() {");
+        contains(rust, "if let Some(&i) = o.downcast_ref::<i32>() {\nreturn i;");
+        contains(rust, "return if o.is::<PatM>() { 1 } else { 0 };");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SEQUENCED = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Seq {
+                static int ends(List<String> parts) {
+                    List<String> copy = new ArrayList<>(parts);
+                    String first = copy.removeFirst();
+                    String last = copy.removeLast();
+                    StringBuilder sb = new StringBuilder(first);
+                    sb.append(last);
+                    return sb.length() + copy.size();
+                }
+                static String head() {
+                    List<String> l = new ArrayList<>();
+                    return l.removeFirst();
+                }
+                static List<String> all(List<String> in) {
+                    List<String> out = new ArrayList<>();
+                    in.forEach(out::add);
+                    java.util.Set<String> seen = new java.util.HashSet<>();
+                    in.forEach(seen::add);
+                    return out;
+                }
+            }
+            """;
+
+    /**
+     * A list's removeFirst and removeLast; StringBuilder's length, declared by AbstractStringBuilder; a bound
+     * {@code out::add} as a closure.
+     */
+    @DisplayName("removeFirst, removeLast, StringBuilder.length and out::add: compiles")
+    @Test
+    public void sequencedAndBuilderLength() throws Exception {
+        List<TypeInfo> types = parse(SEQUENCED);
+        borrowed(method(types.getFirst(), "ends").parameters().getFirst());
+        borrowed(method(types.getFirst(), "all").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let first = copy.remove(0);");
+        contains(rust, "let last = copy.pop().unwrap();");
+        contains(rust, "return sb.len() as i32");
+        contains(rust, "r#in.iter().for_each(|x| { out.push(x.clone()); });");
+        // nothing is added to l: Rust has no element type to infer
+        contains(rust, "let mut l: Vec<String> = Vec::new();");
+        contains(rust, "r#in.iter().for_each(|x| { seen.insert(x.clone()); });");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String APPENDED_T = """
+            package a.b;
+            import java.util.List;
+            public class Nice<T> {
+                public String nice(List<T> list) {
+                    StringBuilder sb = new StringBuilder();
+                    for (T t : list) sb.append(t);
+                    return sb.toString();
+                }
+            }
+            """;
+
+    /** A type parameter appended to a StringBuilder is formatted: {@code T: std::fmt::Display}. */
+    @DisplayName("a type parameter appended to a StringBuilder is Display: compiles")
+    @Test
+    public void appendedTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(APPENDED_T);
+        borrowed(method(types.getFirst(), "nice").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "std::fmt::Display");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ITERATED = """
+            package a.b;
+            import java.util.Iterator;
+            import java.util.List;
+            public class It<T> {
+                int first(List<String> list) {
+                    Iterator<String> iterator = list.iterator();
+                    String next = iterator.next();
+                    return next.length();
+                }
+                int sum(List<Integer> list) {
+                    int s = 0;
+                    Iterator<Integer> it = list.iterator();
+                    while (it.hasNext()) s += it.next();
+                    return s;
+                }
+            }
+            """;
+
+    /** A collection's iterator is a peekable {@code iter()}: {@code hasNext()} peeks, {@code next()} unwraps. */
+    @DisplayName("iterator, hasNext and next: compiles")
+    @Test
+    public void iterated() throws Exception {
+        List<TypeInfo> types = parse(ITERATED);
+        TypeInfo it = types.getFirst();
+        nonModifying(it, "first", "sum");
+        borrowed(method(it, "first").parameters().getFirst());
+        borrowed(method(it, "sum").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut iterator = list.iter().peekable();");
+        contains(rust, "while it.peek().is_some() {");
+        contains(rust, "*it.next().unwrap()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ENUM_STATE = """
+            package a.b;
+            public class Sky {
+                enum Planet {
+                    EARTH(9.8, "earth"), MARS(3.7, "mars");
+                    private final double gravity;
+                    private final String label;
+                    Planet(double g, String label) { this.gravity = g; this.label = label; }
+                    double gravity() { return gravity; }
+                    String label() { return label; }
+                    boolean heavier(Planet other) { return gravity > other.gravity; }
+                }
+                static double weight(Planet p, double mass) { return mass * p.gravity(); }
+                static int labelLength(Planet p) { return p.label().length(); }
+            }
+            """;
+
+    /** An enum field each constant sets to a literal is a match over the variants. */
+    @DisplayName("an enum's constant state is a match over its variants: compiles")
+    @Test
+    public void enumConstantState() throws Exception {
+        List<TypeInfo> types = parse(ENUM_STATE);
+        TypeInfo planet = types.getFirst().subTypes().getFirst();
+        nonModifying(planet, "gravity", "label", "heavier");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn gravity_value(self) -> f64 {\nmatch self {\nSelf::Earth => 9.8,\nSelf::Mars => 3.7,");
+        contains(rust, "fn label_value(self) -> &'static str {");
+        contains(rust, "return self.gravity_value() > other.gravity_value();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SHADOWED_T = """
+            package a.b;
+            import java.util.List;
+            public class Box2<T> {
+                private final List<T> items;
+                public Box2(List<T> items) { this.items = items; }
+                static <T> int count(List<T> list) { return list.size(); }
+                <T> int size(List<T> other) { return other.size() + items.size(); }
+            }
+            """;
+
+    /** A method's type parameter named like its class's is renamed: Rust refuses the shadowing (E0403). */
+    @DisplayName("a method type parameter shadowing the class's is renamed: compiles")
+    @Test
+    public void shadowedTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(SHADOWED_T);
+        TypeInfo box = types.getFirst();
+        nonModifying(box, "count", "size");
+        borrowed(method(box, "count").parameters().getFirst());
+        borrowed(method(box, "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn count<T2>(list: &Vec<T2>) -> i32 {");
+        contains(rust, "fn size<T2>(&self, other: &Vec<T2>) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String OWNED_STRINGS = """
+            package a.b;
+            import java.util.List;
+            import java.util.function.Consumer;
+            public class Str {
+                private String f;
+                void guarded(String s) {
+                    String x = s;
+                    if (x.isEmpty()) x = "default";
+                    this.f = x;
+                }
+                static void forAll(List<String> xs, Consumer<String> c) { for (String x : xs) c.accept(x); }
+                void each(List<String> xs, List<String> out) { forAll(xs, it -> out.add(it)); }
+            }
+            """;
+
+    /**
+     * A string local an assignment gives an owned string owns its first value too; a closure's {@code &str}
+     * parameter is made a {@code String} with {@code to_string()}, which {@code clone()} would leave a {@code &str}.
+     */
+    @DisplayName("a reassigned string local and a &str closure parameter are owned: compiles")
+    @Test
+    public void ownedStrings() throws Exception {
+        List<TypeInfo> types = parse(OWNED_STRINGS);
+        TypeInfo str = types.getFirst();
+        modifying(str, "guarded");
+        nonModifying(str, "forAll", "each");
+        borrowed(method(str, "guarded").parameters().getFirst());
+        borrowed(method(str, "forAll").parameters().getFirst());
+        exclusive(method(str, "forAll").parameters().getLast());
+        borrowed(method(str, "each").parameters().getFirst());
+        exclusive(method(str, "each").parameters().getLast());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "let mut x = s.to_string();");
+        contains(rust, "out.push(it.to_string())");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String RETURNED_CLOSURE = """
+            package a.b;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            public class Fns {
+                static Function<String, Integer> length() { return s -> s.length(); }
+                static Supplier<String> constant(String c) { return () -> c + "!"; }
+            }
+            """;
+
+    /** A returned lambda is the {@code Box<dyn Fn…>} the signature declares. */
+    @DisplayName("a returned lambda is boxed: compiles")
+    @Test
+    public void returnedClosure() throws Exception {
+        List<TypeInfo> types = parse(RETURNED_CLOSURE);
+        // the closure keeps c: owned, as the analysis says of a captured parameter
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "return Box::new(move |s");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String GENERIC_CALLEE = """
+            package a.b;
+            import java.util.List;
+            import java.util.function.Function;
+            public class Gen {
+                static <T, R> R first(List<T> list, Function<T, R> f) { return f.apply(list.get(0)); }
+                static int firstLength(List<String> list) { return first(list, s -> s.length()); }
+            }
+            """;
+
+    /** A closure passed to a generic method takes the call's types: {@code &str}, not the callee's {@code &T}. */
+    @DisplayName("a closure for a generic callee is typed with the call's types: compiles")
+    @Test
+    public void closureForGenericCallee() throws Exception {
+        List<TypeInfo> types = parse(GENERIC_CALLEE);
+        TypeInfo gen = types.getFirst();
+        nonModifying(gen, "first", "firstLength");
+        borrowed(method(gen, "first").parameters().getFirst());
+        borrowed(method(gen, "first").parameters().getLast());
+        borrowed(method(gen, "firstLength").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        assertFalse(rust.contains("|s: &T|"), rust);
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String STRING_CONSTANT = """
+            package a.b;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Keys {
+                static final String PASSWORD = "password";
+                static int size(String value) {
+                    Map<String, String> body = new HashMap<>();
+                    body.put(PASSWORD, value);
+                    return body.get(PASSWORD).length();
+                }
+            }
+            """;
+
+    /** A string constant is a {@code &'static str}: owned where a map keeps it, borrowed as it is for a lookup. */
+    @DisplayName("a string constant as a map key: compiles")
+    @Test
+    public void stringConstantKey() throws Exception {
+        List<TypeInfo> types = parse(STRING_CONSTANT);
+        borrowed(method(types.getFirst(), "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "body.insert(Self::PASSWORD.to_string(), value.to_string());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String ARRAYS = """
+            package a.b;
+            public class Arrs {
+                static class Slot { int v; }
+                static int fill(int n) {
+                    Object[] objects = new Object[n];
+                    objects[0] = "x";
+                    Slot[] slots = new Slot[n];
+                    slots[0].v = 3;
+                    return objects.length + slots[0].v;
+                }
+            }
+            """;
+
+    /**
+     * {@code new T[n]} of a class with a constructor without parameters builds an object per element, where Java has
+     * nulls (vec![x; n] would need Clone); an Object array holds the runtime's null, and takes boxed elements.
+     */
+    @DisplayName("arrays of objects and of a class without Clone: compiles")
+    @Test
+    public void referenceArrays() throws Exception {
+        List<TypeInfo> types = parse(ARRAYS);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "(0..n as usize).map(|_| crate::jrt::null()).collect::<Vec<Box<dyn std::any::Any>>>()");
+        contains(rust, "objects[0] = Box::new(\"x\".to_string());");
+        contains(rust, "let mut slots = (0..n as usize).map(|_| ArrsSlot::new()).collect::<Vec<_>>();");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String RENEWED = """
             package a.b;
             public class Sel {
@@ -618,6 +975,136 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         // a class's object where its interface is held is boxed
         contains(rust, "s = Box::new(SelWrapper::new(s));");
         contains(rust, "let mut s: Box<dyn SelSelector> = Box::new(SelAny::new());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String SWITCH_RESULT = """
+            package a.b;
+            import java.util.List;
+            public class Sw {
+                List<String> list1;
+                List<String> list2;
+                public List<String> pick(List<String> list3) {
+                    return switch (list3.getFirst()) {
+                        case "a" -> null;
+                        case "b" -> list1;
+                        case "c" -> {
+                            if (list3.size() > 1) yield list2;
+                            yield list1;
+                        }
+                        default -> throw new UnsupportedOperationException();
+                    };
+                }
+                public String label(boolean b, String s) { return b ? s : null; }
+            }
+            """;
+
+    /**
+     * A switch expression or a conditional returned: each arm is converted as the result is, a field's Option borrowed,
+     * a value in Some, null as None; a yield before the arm's end breaks out of the arm's labeled block.
+     */
+    @DisplayName("a returned switch expression converts each arm; an early yield is a labeled break: compiles")
+    @Test
+    public void switchExpressionResult() throws Exception {
+        List<TypeInfo> types = parse(SWITCH_RESULT);
+        TypeInfo sw = types.getFirst();
+        nonModifying(sw, "pick", "label");
+        dependentResult(sw, "pick");
+        borrowed(method(sw, "pick").parameters().getFirst());
+        translate(types, nullable(java.util.Set.of("list1", "list2", "pick()", "label()")));
+        String rust = module("a.b");
+        contains(rust, "\"a\" => None,");
+        contains(rust, "\"b\" => self.list1.as_ref(),");
+        contains(rust, "break 'y0 self.list2.as_ref();");
+        contains(rust, "self.list1.as_ref()\n");
+        contains(rust, "return if b { Some(s) } else { None };");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String STRINGS_AND_CLOSURES = """
+            package a.b;
+            public class Dec {
+                public interface Measure { int of(String s); }
+                private Measure measure;
+                static String decode(String s) { return s.trim(); }
+                public static String norm(String p) {
+                    p = decode(p);
+                    return p;
+                }
+                public void setMeasure(Measure measure) { this.measure = measure; }
+                public static void use(Dec d) { d.setMeasure(x -> x.length()); }
+                private String response;
+                public String response() { return java.util.Optional.ofNullable(response).orElse("x"); }
+            }
+            """;
+
+    /**
+     * A string parameter the body assigns is its own {@code String}: a {@code &str} cannot hold the new value. A closure
+     * passed for a nullable parameter is in {@code Some}; Optional.ofNullable of a nullable value is that Option.
+     */
+    @DisplayName("a reassigned string parameter is owned; a closure for a nullable parameter is Some: compiles")
+    @Test
+    public void reassignedStringNullableClosure() throws Exception {
+        List<TypeInfo> types = parse(STRINGS_AND_CLOSURES);
+        TypeInfo dec = types.getFirst();
+        modifying(dec, "setMeasure");
+        nonModifying(dec, "norm", "decode", "use", "response");
+        translate(types, nullable(java.util.Set.of("measure", "response")));
+        String rust = module("a.b");
+        contains(rust, "pub fn norm(mut p: String) -> String {");
+        contains(rust, "d.set_measure(Some(Box::new(");
+        // Optional.ofNullable of a nullable field is a copy of its Option
+        contains(rust, "return self.response.clone().unwrap_or(\"x\".to_string());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String FIELD_OF_LOCAL = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Fl {
+                static class A {
+                    final List<String> list1 = new ArrayList<>();
+                }
+                public static int fill(String s) {
+                    A a = new A();
+                    a.list1.add(s);
+                    return a.list1.size();
+                }
+                public static int viaLocal(String s) {
+                    A a = new A();
+                    List<String> l = a.list1;
+                    l.add(s);
+                    List<Integer> sorted = new ArrayList<>(List.of(3, 1));
+                    java.util.Collections.sort(sorted);
+                    return l.size() + sorted.get(0);
+                }
+                public static void append(StringBuilder sb) {
+                    if (sb != null) sb.append("x");
+                }
+            }
+            """;
+
+    /**
+     * A local whose object is modified through one of its fields ({@code a.list1.add(s)}), or through a local referring
+     * to one, or by a JDK static ({@code Collections.sort}), is a mutable binding; so is a nullable exclusive parameter.
+     */
+    @DisplayName("a local modified through its field, a local over it or Collections.sort is let mut: compiles")
+    @Test
+    public void localModifiedThroughField() throws Exception {
+        List<TypeInfo> types = parse(FIELD_OF_LOCAL);
+        nonModifying(types.getFirst(), "fill", "viaLocal", "append");
+        exclusive(method(types.getFirst(), "append").parameters().getFirst());
+        translate(types, nullable(java.util.Set.of("sb")));
+        String rust = module("a.b");
+        contains(rust, "let mut a = FlA::new();");
+        // a &mut of a's field, a sorted list, an Option<&mut> reached through as_mut()
+        contains(rust, "let mut a = FlA::new();\nlet l = &mut a.list1;");
+        contains(rust, "let mut sorted = ");
+        contains(rust, "pub fn append(mut sb: Option<&mut String>) {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -845,6 +1332,51 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "b.items_mut().push(\"x\".to_string());");
         contains(rust, "b.inner_mut().i = 3;");
         contains(rust, "return self.items().len() as i32;");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String INTERFACE_GETTERS = """
+            package a.b;
+            import java.util.ArrayList;
+            import java.util.List;
+            public class Buf {
+                public interface Buffer {
+                    List<String> items();
+                    String name();
+                    default void add(String s) { items().add(s); }
+                }
+                static class Impl implements Buffer {
+                    private final List<String> list = new ArrayList<>();
+                    public List<String> items() { return list; }
+                    public String name() { return "impl"; }
+                }
+                public static void reset(Buffer b) { b.items().clear(); }
+            }
+            """;
+
+    /**
+     * An interface's getter that a caller, or a default method, modifies through gets an exclusive twin declared in
+     * the trait, and each implementation (a field getter) its own, without visibility in the trait's impl.
+     */
+    @DisplayName("an interface getter a default method modifies through gets an _mut twin in the trait: compiles")
+    @Test
+    public void interfaceGetterTwin() throws Exception {
+        List<TypeInfo> types = parse(INTERFACE_GETTERS);
+        TypeInfo buffer = types.getFirst().findSubType("Buffer");
+        TypeInfo impl = types.getFirst().findSubType("Impl");
+        nonModifying(buffer, "items", "name");
+        modifying(buffer, "add");
+        dependentResult(buffer, "items");
+        nonModifying(impl, "items", "name");
+        dependentResult(impl, "items");
+        modified(method(types.getFirst(), "reset").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "fn items_mut(&mut self) -> &mut Vec<String>;");
+        contains(rust, "self.items_mut().push(s);");
+        contains(rust, "fn items_mut(&mut self) -> &mut Vec<String> {\n&mut self.list\n}");
+        contains(rust, "b.items_mut().clear();");
         assertEquals(List.of(), rustcErrors(), rust);
     }
 
@@ -1143,6 +1675,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 private static int count;
                 static final List<String> names = new ArrayList<>();
                 static List<String> log = new ArrayList<>();
+                private static final List<String> ALL = new ArrayList<>();
+                static void register(String s) { ALL.add(s); }
                 public static int next() { return ++count; }
                 public static int peek() { return count; }
                 public static int nextTwice() { return next() + next(); }
@@ -1180,6 +1714,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         String rust = counter(false);
         contains(rust, "static mut COUNTER_COUNT: i32 = 0;");
         contains(rust, "pub static mut COUNTER_LOG: Vec<String> = Vec::new();");
+        // final, but its list is modified
+        contains(rust, "static mut COUNTER_ALL: Vec<String> = Vec::new();");
         contains(rust, "pub unsafe fn next() -> i32 {\nunsafe {");
         contains(rust, "pub unsafe fn peek() -> i32 {");
         contains(rust, "pub unsafe fn next_twice() -> i32 {");

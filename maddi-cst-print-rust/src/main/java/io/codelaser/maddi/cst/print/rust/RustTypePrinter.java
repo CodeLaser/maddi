@@ -87,6 +87,45 @@ final class RustTypePrinter {
     }
 
     /** No instance fields and no constructor with parameters: Rust's {@code enum} of unit variants, {@code Copy}. */
+    /**
+     * An enum's field that its one constructor sets from a parameter, and every constant from a literal, a primitive
+     * or a string: the literals in the constants' order. {@code null} for any other field.
+     */
+    static List<Expression> constantField(FieldInfo f) {
+        TypeInfo e = f.owner();
+        if (f.isStatic() || !e.typeNature().isEnum() || !f.isFinal() || e.constructors().size() != 1) return null;
+        ParameterizedType type = f.type();
+        if (type.arrays() > 0 || !type.isPrimitiveExcludingVoid() && !RustTypes.isString(type)) return null;
+        MethodInfo constructor = e.constructors().getFirst();
+        int index = -1;
+        for (Statement s : constructor.methodBody().statements()) {
+            if (s instanceof ExpressionAsStatement eas && eas.expression() instanceof Assignment a
+                && a.variableTarget() instanceof FieldReference fr && fr.fieldInfo() == f) {
+                if (index >= 0 || !(CstQueries.unwrap(a.value()) instanceof VariableExpression ve
+                                    && ve.variable() instanceof ParameterInfo pi)) {
+                    return null;
+                }
+                index = pi.index();
+            }
+        }
+        if (index < 0) return null;
+        List<Expression> literals = new ArrayList<>();
+        for (FieldInfo constant : e.fields()) {
+            if (!constant.isStatic() || constant.type().typeInfo() != e) continue;
+            if (!(constant.initializer() instanceof ConstructorCall cc) || cc.parameterExpressions().size() <= index
+                || !(cc.parameterExpressions().get(index) instanceof ConstantExpression<?> literal)) {
+                return null;
+            }
+            literals.add(literal);
+        }
+        return literals;
+    }
+
+    /** The method that reads a {@link #constantField}: {@code gravity_value()}. */
+    static String constantFieldMethod(FieldInfo f) {
+        return RustNames.snake(f.name()) + "_value";
+    }
+
     static boolean plainEnum(TypeInfo typeInfo) {
         return typeInfo.fields().stream().noneMatch(f -> !f.isStatic() && !f.isSynthetic())
                && typeInfo.constructors().stream().allMatch(c -> c.parameters().isEmpty());
@@ -111,6 +150,7 @@ final class RustTypePrinter {
             sb.append(INDENT).append(bodyless ? signature.replaceAll("\\bmut ((r#)?\\w+): ", "$1: ") : signature);
             if (bodyless) sb.append(";\n");
             else sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
+            if (bodyless && context.mutableGetters.contains(m)) sb.append(INDENT).append(mutableGetterSignature(m)).append(";\n");
         }
         sb.append("}\n");
         MethodInfo sam = functionalMethod(typeInfo);
@@ -161,7 +201,10 @@ final class RustTypePrinter {
     }
 
     private String enumType(TypeInfo typeInfo) {
-        if (!plainEnum(typeInfo)) context.message(RustPrintCode.ENUM_WITH_STATE, typeInfo, typeInfo.simpleName());
+        List<FieldInfo> state = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
+        if (!plainEnum(typeInfo) && !state.stream().allMatch(f -> constantField(f) != null)) {
+            context.message(RustPrintCode.ENUM_WITH_STATE, typeInfo, typeInfo.simpleName());
+        }
         List<String> variants = typeInfo.fields().stream()
                 .filter(f -> f.isStatic() && f.type().typeInfo() == typeInfo)
                 .map(f -> RustNames.variant(f.name())).toList();
@@ -188,6 +231,19 @@ final class RustTypePrinter {
                     .append(constants.get(i)).append("\",\n");
         }
         sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        // a field each constant sets to a literal: a match over the variants
+        for (FieldInfo f : state) {
+            List<Expression> literals = constantField(f);
+            if (literals == null) continue;
+            String type = RustTypes.isString(f.type()) ? "&'static str" : RustTypes.primitive(f.type().typeInfo());
+            sb.append(INDENT).append("fn ").append(constantFieldMethod(f)).append("(self) -> ").append(type)
+                    .append(" {\n").append(INDENT).append(INDENT).append("match self {\n");
+            for (int i = 0; i < n; i++) {
+                sb.append(INDENT.repeat(3)).append("Self::").append(variants.get(i)).append(" => ")
+                        .append(new RustBodyPrinter(context).text(literals.get(i))).append(",\n");
+            }
+            sb.append(INDENT).append(INDENT).append("}\n").append(INDENT).append("}\n");
+        }
         for (MethodInfo m : typeInfo.methods()) {
             if (!m.isSynthetic() && !m.isStaticInitializer() && !m.isInstanceInitializer()) sb.append(method(m));
         }
@@ -204,7 +260,12 @@ final class RustTypePrinter {
                 .equals("java.lang.Record")) {
             context.message(RustPrintCode.INHERITANCE, typeInfo, parent.typeInfo().fullyQualifiedName());
         }
-        this.base = base == null ? null : RustTypes.owned(parent, context, typeInfo);
+        String baseType = base == null ? null : RustTypes.owned(parent, context, typeInfo);
+        // the parent's part of the object, owned by it: not the Rc an object of the parent class is shared in
+        if (baseType != null && baseType.startsWith("Rc<") && baseType.endsWith(">")) {
+            baseType = baseType.substring("Rc<".length(), baseType.length() - 1);
+        }
+        this.base = baseType;
         List<FieldInfo> fields = typeInfo.fields().stream().filter(f -> !f.isStatic() && !f.isSynthetic()).toList();
         String name = RustNames.type(typeInfo);
         boolean typestate = RustTypestate.typestate(typeInfo, context);
@@ -223,7 +284,10 @@ final class RustTypePrinter {
         }
 
         StringBuilder sb = new StringBuilder(doc(typeInfo));
-        if (record) sb.append("#[derive(Debug, Clone, PartialEq)]\n");
+        // derive(PartialEq) bounds T by PartialEq, where a HashSet<T> compares only with T: Eq + Hash: field-wise
+        boolean hashedFields = record && !typeInfo.typeParameters().isEmpty() && fields.stream()
+                .map(this::fieldType).anyMatch(t -> t.contains("HashSet<") || t.contains("HashMap<"));
+        if (record) sb.append(hashedFields ? "#[derive(Debug, Clone)]\n" : "#[derive(Debug, Clone, PartialEq)]\n");
         else if (context.facts.immutable(typeInfo)) sb.append("#[derive(Clone)]\n");
         String declaredGenerics = typestate ? "<" + RustTypestate.STATE + " = " + RustTypestate.BEFORE + ">" : generics;
         sb.append(visibility(typeInfo.isPrivate())).append("struct ").append(name).append(declaredGenerics).append(" {\n");
@@ -333,6 +397,13 @@ final class RustTypePrinter {
             sb.append("}\n");
         }
         if (equals != null) sb.append(partialEq(equals, name, generics, implGenerics));
+        else if (hashedFields) {
+            String eq = fields.stream().map(f -> "self." + RustNames.snake(f.name()) + " == other." + RustNames.snake(f.name()))
+                    .collect(Collectors.joining(" && "));
+            sb.append("\nimpl").append(implGenerics).append(" PartialEq for ").append(name).append(generics)
+                    .append(" {\n").append(INDENT).append("fn eq(&self, other: &Self) -> bool {\n").append(INDENT)
+                    .append(INDENT).append(eq.isEmpty() ? "true" : eq).append("\n").append(INDENT).append("}\n}\n");
+        }
         if (hasToString(typeInfo)) {
             // Java's string conversion calls toString(): Rust's Display, through the inherent to_string
             sb.append("\nimpl").append(implGenerics).append(" std::fmt::Display for ").append(name).append(generics)
@@ -525,11 +596,16 @@ final class RustTypePrinter {
     /**
      * The initial value of a static field that is Java's mutable static state, a module-level {@code static mut}: not
      * final, of a type whose empty value Rust can build at compile time (a primitive, {@code String}, {@code Vec},
-     * {@code VecDeque}, {@code BTreeMap}, {@code BTreeSet}), initialized with a constant or not at all. {@code null}
-     * for any other static field.
+     * {@code VecDeque}, {@code BTreeMap}, {@code BTreeSet}), initialized with a constant or not at all; or a final
+     * collection of those whose object is modified ({@code static final List<String> ALL = new ArrayList<>()}).
+     * {@code null} for any other static field.
      */
     static String mutableStaticValue(FieldInfo f, RustContext context) {
-        if (!f.isStatic() || f.isFinal() || f.owner().compilationUnit().externalLibrary()) return null;
+        if (!f.isStatic() || f.owner().compilationUnit().externalLibrary()) return null;
+        if (f.isFinal() && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type())
+                            || context.facts.unmodified(f))) {
+            return null;
+        }
         Expression init = f.initializer();
         boolean empty = init == null || init instanceof EmptyExpression
                         || init instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty();
@@ -802,23 +878,38 @@ final class RustTypePrinter {
                     .append(INDENT).append("}\n").append(INDENT).append("}\n").toString();
         }
         sb.append(" {\n").append(body(m, 2)).append(INDENT).append("}\n");
-        if (!inTrait && context.mutableGetters.contains(m)) sb.append(mutableGetter(m));
+        if (context.mutableGetters.contains(m)) sb.append(mutableGetter(m, inTrait));
         return sb.toString();
     }
 
     /** The exclusive twin of a getter a caller modifies through ({@link RustGetters}): the field, borrowed mutably. */
-    private String mutableGetter(MethodInfo m) {
+    private String mutableGetter(MethodInfo m, boolean inTrait) {
         FieldInfo f = RustGetters.field(m);
         if (f == null || context.boxes.isBoxed(f) || context.cells.isCell(f)
             || context.borrows.fields(f.owner()).containsKey(f)) {
             return "";
         }
+        // in an impl of a trait, the twin the trait declares (RustGetters): as the trait declares it, no visibility
+        MethodInfo declared = inTrait ? m.overrides().stream().filter(RustGetters::abstractGetter)
+                .filter(context.mutableGetters::contains).findFirst().orElse(null) : null;
+        if (inTrait && declared == null) return "";
         boolean nullable = RustFacts.nullable(context.facts.field(f));
-        String type = RustTypes.owned(f.type(), context, m);
         String field = "self." + RustNames.snake(f.name());
-        return INDENT + visibility(m.access().isPrivate()) + "fn " + RustNames.method(m) + RustGetters.SUFFIX
-               + "(&mut self) -> " + (nullable ? "Option<&mut " + type + ">" : "&mut " + type) + " {\n"
-               + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n" + INDENT + "}\n";
+        String signature = declared != null ? mutableGetterSignature(declared)
+                : visibility(m.access().isPrivate()) + mutableGetterSignature(m, f.type(), nullable);
+        return INDENT + signature + " {\n" + INDENT + INDENT + (nullable ? field + ".as_mut()" : "&mut " + field) + "\n"
+               + INDENT + "}\n";
+    }
+
+    /* an interface getter's twin, from its declared result */
+    private String mutableGetterSignature(MethodInfo m) {
+        return mutableGetterSignature(m, m.returnType(), RustFacts.nullable(context.facts.returnType(m)));
+    }
+
+    private String mutableGetterSignature(MethodInfo m, ParameterizedType type, boolean nullable) {
+        String rust = RustTypes.owned(type, context, m);
+        return "fn " + RustNames.method(m) + RustGetters.SUFFIX + "(&mut self) -> "
+               + (nullable ? "Option<&mut " + rust + ">" : "&mut " + rust);
     }
 
     /**
@@ -932,13 +1023,13 @@ final class RustTypePrinter {
             else if (keptLifetime(m) != null && context.facts.keptInNewResult(p) && passing != Passing.OWNED) {
                 rust = rust.replaceFirst("^&", "&" + keptLifetime(m) + " ");
             }
-            // an owned value the method modifies needs a mutable binding
-            mut |= passing == Passing.OWNED && !p.isUnmodified();
+            // an owned value the method modifies needs a mutable binding; so does an Option<&mut T>, reached by as_mut()
+            mut |= passing == Passing.OWNED && !p.isUnmodified() || passing == Passing.EXCLUSIVE && nullable;
         }
         return (mut ? "mut " : "") + RustNames.snake(p.name()) + ": " + RustTypes.option(rust, nullable);
     }
 
-    private static boolean reassigned(Block body, ParameterInfo p) {
+    static boolean reassigned(Block body, ParameterInfo p) {
         boolean[] found = {false};
         body.visit(e -> {
             if (e instanceof Assignment a && p.equals(a.variableTarget())) found[0] = true;
@@ -958,7 +1049,7 @@ final class RustTypePrinter {
         if (typeParameters.isEmpty() && !lifetime) return "";
         List<String> names = new ArrayList<>();
         if (lifetime) names.add(RustBorrows.LIFETIME);
-        typeParameters.forEach(tp -> names.add(tp.simpleName()));
+        typeParameters.forEach(tp -> names.add(RustNames.typeParameter(tp)));
         return "<" + String.join(", ", names) + ">";
     }
 

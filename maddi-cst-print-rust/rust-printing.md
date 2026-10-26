@@ -142,7 +142,8 @@ Analyzer issues the oracle found, each with a minimal repro:
   conflicting borrow is a run-time `BorrowMutError`, the price of the annotation.
 - `@Immutable(hc=true)`: an `Rc<T>` wherever it is held, `Rc::new` at construction, cloned (shared) where Java
   shares it; its hidden content is cloned under a `T: Clone` bound on the impls.
-- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`. A method is
+- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`; so is a
+  `static final` collection whose object is modified (`ALL = new ArrayList<>()`, `ALL.add(s)`). A method is
   an `unsafe fn` with an `unsafe` body when it reads or writes one (of any type), calls, constructs or references
   (`Counter::next`) a method that is, transitively, or has the `@StaticSideEffects` verdict (`RustUnsafety`); a
   method call on a non-`Copy` static goes through `&raw mut`, as Rust 2024 refuses a reference to it.
@@ -154,15 +155,23 @@ Analyzer issues the oracle found, each with a minimal repro:
   `UNMODIFIED_FIELD` verdict), of a type Rust can share between threads, and untouched by a static initializer, is a
   module-level `static OWNER_NAME: LazyLock<T>`, built on first use and read-only: a wrong verdict is rustc's E0596.
   Other static state is a `static mut` (see below) or reported (`STATIC_STATE`).
-- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it.
+- An enum without state gets `VALUES`, `values()`, `ordinal()` and `name()`, what `java.lang.Enum` gives it. A field
+  its one constructor sets from a parameter, and each constant from a primitive or string literal (`EARTH(9.8)`), is
+  a match over the variants, `gravity_value()`, which every read of the field calls. Other state is
+  `ENUM_WITH_STATE`.
 - A switch (old style with its fall-through, new style, expression) is a `match`; a statement over part of the
   cases gets `_ => {}`. A `break` inside an arm would leave an enclosing loop in Rust, and is reported.
 - `equals(Object)` is `impl PartialEq`, the usual preamble (`this == o`, `instanceof`, `getClass()`) left out
   because `other: &Self` already guarantees it; `hashCode()` stays a method and `impl Hash` feeds it to the hasher
   (with `impl Eq` when both are there). A call `a.equals(b)` is `a == b`.
-- A method reference is a closure (`Order::customer` → `|x| x.customer()`); a stream is an iterator (`map`,
+- `o instanceof T t` of an `Object`, `T` a class without type parameters, is `if let Some(t) = o.downcast_ref::<T>()`
+  (`downcast_mut` when `t` is modified, `Some(&t)` for a copy type); without a pattern variable it is `o.is::<T>()`.
+  An interface, a generic type and a record pattern stay `todo!()`: `Any` cannot tell them apart.
+- A method reference is a closure (`Order::customer` → `|x| x.customer()`, `out::add` → `|x| { out.push(x.clone()); }`); a stream is an iterator (`map`,
   `filter`, `anyMatch`, `count`, `sum`, `toList`; `distinct` folds into a vector to keep Java's order).
 - `sb.append(a).append(b)` is one `push_str`/`push` per append.
+- A collection's `iterator()` is a peekable `iter()`: `hasNext()` is `peek().is_some()`, `next()` is
+  `next().unwrap()`, a panic where Java throws. `remove()` through it is not mapped.
 - A closure's parameter is the element (`map` over `.cloned()`) or a reference to it (`filter`): it is passed as `&x`
   where a borrow is expected and `x.clone()` where an owned string is, which deref coercion and auto-deref accept
   either way. A comparator (`comparing`, `comparingByValue`, `reversed`, `thenComparing`, a two-parameter lambda) is
@@ -210,7 +219,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   nullable scope is `as_mut().unwrap()`, a map's value `get_mut(k)`; the arguments and indices in it are only read.
 - A getter returning one of its object's fields (`return items;`) that some caller modifies through
   (`b.items().clear()`) gets an exclusive twin, `items_mut(&mut self) -> &mut T`, which those callers call
-  (`RustGetters`); not yet for an interface's method or a computed result.
+  (`RustGetters`). An interface's getter (`items()` that a default method's `items().add(s)` modifies through) has
+  its twin declared in the trait when every implementation is such a getter, each defining its own; not a functional
+  interface's method, nor a computed result.
 - A function parameter that some call site passes a closure writing what it captures (`this::parse` assigning a
   field) is `&mut dyn FnMut`, for every caller (`RustClosures`); otherwise a `dyn Fn` is called through `&`.
 - A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
@@ -231,6 +242,14 @@ Analyzer issues the oracle found, each with a minimal repro:
   type first, so the box holds a `String`, as a collection's value or a field's initializer does.
   A class's object where its interface is held (a local, an assignment, an argument, a result) is boxed as the
   `Box<dyn I>` the declaration prints; a closure and an `Rc` are not.
+- A string parameter the body assigns (`p = decode(p)`) is taken as its own `String`; a closure passed for a nullable
+  parameter is `Some(Box::new(...))`; `Optional.ofNullable(x)` of a nullable `x` is a copy of its `Option`, not `Some(x)`.
+- A local is a mutable binding when its object is modified through one of its fields (`a.list1.add(s)`), through a
+  local referring to one (`let l = &mut a.list1`), or by a JDK static modifying its first argument
+  (`Collections.sort`); a nullable exclusive parameter (`Option<&mut T>`, reached by `as_mut()`) is `mut` too.
+- A returned switch expression or conditional converts each arm as the result is (`None`, `self.f.as_ref()`,
+  `Some(v)`), not the whole; a `yield` before an arm's last statement is a `break 'yN value` out of the arm's labeled
+  block.
 - A parameter the body may replace by a new object and returns (`if (flag) s = new Wrapper(s); return s;`) is a
   result new on one path and existing on the other: moved in, returned owned.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
@@ -245,7 +264,7 @@ the result better than a generic formatter would.
 
 ## Not yet
 
-Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` and type patterns outside `equals`,
+Inheritance from a JDK class (`INHERITANCE`), dynamic dispatch through a parent, anonymous and local classes, `instanceof` of an interface or generic type and record patterns,
 try/catch (`TRY_BODY_ONLY`), static state of other types (a `HashMap`, an object), generic bounds beyond `Clone`, sorting and collectors
 beyond `toList`, and most of the JDK beyond the collections. Each unsupported construct prints `todo!()` and an
 `UNSUPPORTED` message.

@@ -295,4 +295,59 @@ public class TestJavaToRustStructure extends CommonJavaToRust {
         contains(rust, "pub fn is_valid(&self) -> bool {");
         assertEquals(List.of(), rustcErrors(), rust);
     }
+
+    @Language("java")
+    private static final String SHARED_BASE = """
+            package a.b;
+            import java.util.List;
+            public class Stmts {
+                static class Statement {
+                    private final List<String> labels;
+                    Statement(List<String> labels) { this.labels = labels; }
+                    int count() { return labels.size(); }
+                }
+                static class Switch extends Statement {
+                    Switch() { super(List.of()); }
+                }
+            }
+            """;
+
+    /** A superclass whose objects are shared in an {@code Rc} is still owned as the {@code base} part. */
+    @DisplayName("a base whose class is shared in an Rc is the plain struct: compiles")
+    @Test
+    public void sharedBase() throws Exception {
+        List<TypeInfo> types = parse(SHARED_BASE);
+        TypeInfo statement = types.getFirst().findSubType("Statement");
+        immutable(statement, ValueImpl.ImmutableImpl.IMMUTABLE_HC);
+        nonModifying(statement, "count");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub base: StmtsStatement,");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
+    private static final String HASHED_RECORD = """
+            package a.b;
+            import java.util.List;
+            import java.util.Set;
+            public class Recs {
+                record R<T>(Set<T> s, List<T> l) {}
+                static <T> boolean same(R<T> a, R<T> b) { return a.equals(b); }
+            }
+            """;
+
+    /** A generic record with a set: a field-wise PartialEq, bounded as its impl is; derive would bound T by PartialEq. */
+    @DisplayName("a generic record with a HashSet field compares field-wise: compiles")
+    @Test
+    public void hashedRecord() throws Exception {
+        List<TypeInfo> types = parse(HASHED_RECORD);
+        TypeInfo recs = types.getFirst();
+        nonModifying(recs, "same");
+        method(recs, "same").parameters().forEach(CommonJavaToRust::borrowed);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "PartialEq for RecsR<T> {\nfn eq(&self, other: &Self) -> bool {\nself.s == other.s && self.l == other.l");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
 }

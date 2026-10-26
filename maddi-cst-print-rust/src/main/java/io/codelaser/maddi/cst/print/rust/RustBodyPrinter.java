@@ -31,7 +31,9 @@ import io.codelaser.maddi.cst.print.rust.RustFacts.Passing;
 import io.codelaser.maddi.cst.print.rust.RustFacts.Receiver;
 import io.codelaser.maddi.cst.print.translate.CstQueries;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -52,6 +54,8 @@ final class RustBodyPrinter {
     private boolean mutatingPlace;
     // the parameters movable() lets their one read take, by name, and its memo
     private final Set<String> moved = new HashSet<>();
+    /* closure parameters typed '&str' (a source functional interface's String parameter): not a place to clone */
+    private final Set<ParameterInfo> strClosureParameters = new HashSet<>();
     private final Map<ParameterInfo, Boolean> movable = new HashMap<>();
 
     /** How an expression's value is held, which decides how it is passed on. */
@@ -88,6 +92,14 @@ final class RustBodyPrinter {
     private boolean optionalResult;
     /** The lambda being printed is Optional.orElseGet's supplier: its result is a value of its own, copied. */
     private boolean copiedResult;
+    /** The switch expression being printed is a method's result: each arm's value is converted as the result is. */
+    private java.util.function.Function<Expression, String> armResult;
+    /** The labeled blocks of the switch arms being printed, innermost first: a yield is a break out of one. */
+    private final Deque<YieldTarget> yieldTargets = new ArrayDeque<>();
+    private int yieldCount;
+
+    private record YieldTarget(String label, java.util.function.Function<Expression, String> value) {
+    }
     /** Variables printed as another name: in {@code eq}, Java's parameter and its cast or pattern are {@code other}. */
     private final Map<Variable, String> aliases = new HashMap<>();
 
@@ -125,6 +137,8 @@ final class RustBodyPrinter {
                     : " '" + RustNames.snake(bs.goToLabel())) + ";\n";
             case ContinueStatement cs -> pad + "continue" + (cs.goToLabel() == null ? ""
                     : " '" + RustNames.snake(cs.goToLabel())) + ";\n";
+            case YieldStatement ys when !yieldTargets.isEmpty() -> pad + "break " + yieldTargets.peek().label() + " "
+                    + yieldTargets.peek().value().apply(ys.expression()) + ";\n";
             case EmptyStatement ignored -> "";
             case AssertStatement as -> pad + "assert!(" + condition(as.expression()) + ");\n";
             case TryStatement ts -> {
@@ -231,7 +245,12 @@ final class RustBodyPrinter {
         boolean mutated = mutated(lv);
         String text = value.text;
         Held held = value.held;
-        if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
+        if (reassigned && (held == Held.SHARED || held == Held.STR) && RustTypes.isString(lv.parameterizedType())
+            && !(init instanceof NullConstant)) {
+            // 'String x = s; … x = "default";': an assignment gives the local an owned string, so it owns its first
+            text = value.nullable ? text + ".map(|v| v.to_string())" : text + ".to_string()";
+            held = Held.VALUE;
+        } else if (held == Held.PLACE && (RustTypes.isString(lv.parameterizedType())
                                    || RustTypes.isImmutableValue(lv.parameterizedType(), context.facts))) {
             // an immutable value: the local is a copy, so that the field may be assigned while it lives
             text = text + ".clone()";
@@ -263,7 +282,7 @@ final class RustBodyPrinter {
         boolean mut = reassigned || mutated && (held == Held.VALUE || nullable);
         String type = init instanceof NullConstant
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true)
-                : (dyn || mentionsObject(lv.parameterizedType())) && held == Held.VALUE
+                : (dyn || mentionsObject(lv.parameterizedType()) || emptyCollection(init)) && held == Held.VALUE
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable) : "";
         return "let " + (mut ? "mut " : "") + name + type + " = " + text;
     }
@@ -277,12 +296,39 @@ final class RustBodyPrinter {
             // 'return this': the borrow of the receiver the signature hands back
             return "return " + context.receiver;
         }
+        return "return " + resultValue(e);
+    }
+
+    /*
+     e as the method's result. A switch expression's or a conditional's arms are each converted, as each may be held
+     otherwise: null, a field, a parameter ('case "a" -> null; case "b" -> list1; default -> list3').
+     */
+    private String resultValue(Expression e) {
+        MethodInfo method = context.method;
+        if (e instanceof SwitchExpression se && !RustTypes.isCopy(method.returnType())) {
+            java.util.function.Function<Expression, String> outer = armResult;
+            armResult = this::resultValue;
+            try {
+                return switchExpression(se).text;
+            } finally {
+                armResult = outer;
+            }
+        }
+        if (e instanceof InlineConditional ic && !RustTypes.isCopy(method.returnType())) {
+            return "if " + condition(ic.condition()) + " { " + resultValue(ic.ifTrue()) + " } else { "
+                   + resultValue(ic.ifFalse()) + " }";
+        }
         boolean nullable = RustFacts.nullable(context.facts.returnType(method));
+        if (isClosure(e) && RustTypes.isFunctional(method.returnType())) {
+            // the Box<dyn Fn…> the signature declares
+            String boxed = boxed(closure(e, method.returnType()).text);
+            return nullable ? "Some(" + boxed + ")" : boxed;
+        }
         boolean borrows = context.facts.resultBorrowsReceiver(method) && context.facts.receiver(method) != Receiver.NONE
                           || context.facts.resultBorrows(method) != null;
         Printed value = widen(expression(e), e, method.returnType());
         // what is not translated diverges: '!' is any result type, a borrow too
-        if (value.text.startsWith("todo!(")) return "return " + value.text;
+        if (value.text.startsWith("todo!(") || value.text.startsWith("panic!(")) return value.text;
         String text;
         if (RustTypes.isCopy(method.returnType())) {
             text = value.text;
@@ -295,7 +341,7 @@ final class RustBodyPrinter {
             // temporary moved out of the field)
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
             Printed inner = value.text.startsWith("if ") ? new Printed("(" + value.text + ")", value.held, true) : value;
-            return "return " + nullableBorrow(inner, e, RustTypes.isString(method.returnType()),
+            return nullableBorrow(inner, e, RustTypes.isString(method.returnType()),
                     method.returnType().arrays() > 0) + ".unwrap()";
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
@@ -313,12 +359,13 @@ final class RustBodyPrinter {
             context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, e, value.text);
             text = text + ".unwrap()";
         }
-        return "return " + text;
+        return text;
     }
 
     private String ifElse(IfElseStatement ife, int depth) {
         String pad = INDENT.repeat(depth);
-        StringBuilder sb = new StringBuilder("if " + condition(ife.expression()) + " {\n"
+        String downcast = downcastPattern(ife.expression());
+        StringBuilder sb = new StringBuilder("if " + (downcast != null ? downcast : condition(ife.expression())) + " {\n"
                                              + statements(ife.block(), depth + 1) + pad + "}");
         Block elseBlock = ife.elseBlock();
         if (elseBlock != null && !elseBlock.statements().isEmpty()) {
@@ -329,6 +376,37 @@ final class RustBodyPrinter {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * {@code o instanceof T t} of an Object, T a class: {@code let Some(t) = o.downcast_ref::<T>()}, or
+     * {@code downcast_mut} when {@code t} is modified. {@code null} for anything else.
+     */
+    private String downcastPattern(Expression condition) {
+        if (!(CstQueries.unwrap(condition) instanceof InstanceOf io) || io.patternVariable() == null) return null;
+        LocalVariable lv = io.patternVariable().localVariable();
+        if (lv == null || !isObject(io.expression().parameterizedType())) return null;
+        ParameterizedType type = lv.parameterizedType();
+        if (!RustTypes.isDowncastTarget(type)) return null;
+        context.message(RustPrintCode.DOWNCAST, io, type.fullyQualifiedName());
+        boolean mutated = mutated(lv);
+        boolean copy = RustTypes.isCopy(type);
+        locals.put(lv, copy && !mutated ? Held.VALUE : mutated ? Held.EXCLUSIVE : Held.SHARED);
+        String downcast = (mutated ? "downcast_mut" : "downcast_ref") + "::<" + RustTypes.owned(type, context, io) + ">()";
+        Printed tested = expression(io.expression());
+        String value = tested.nullable
+                ? tested.text + (mutated ? ".as_mut()" : ".as_ref()") + ".and_then(|o| o." + downcast + ")"
+                : tested.text + "." + downcast;
+        return "let Some(" + (copy && !mutated ? "&" : "") + RustNames.snake(lv.simpleName()) + ") = " + value;
+    }
+
+    /** {@code o instanceof T} of an Object, T a class: {@code o.is::<T>()}. */
+    private Printed isInstance(InstanceOf io) {
+        context.message(RustPrintCode.DOWNCAST, io, io.testType().fullyQualifiedName());
+        String test = "is::<" + RustTypes.owned(io.testType(), context, io) + ">()";
+        Printed tested = expression(io.expression());
+        return value(tested.nullable ? tested.text + ".as_ref().is_some_and(|o| o." + test + ")"
+                : tested.text + "." + test);
     }
 
     private String forEach(ForEachStatement fe, String label, int depth) {
@@ -571,14 +649,27 @@ final class RustBodyPrinter {
                 List<Statement> body = CstQueries.own(b.statements());
                 if (body.size() == 1) return armValue(body.getFirst(), type, depth);
                 String pad = INDENT.repeat(depth);
-                StringBuilder sb = new StringBuilder("{\n");
-                for (int i = 0; i < body.size(); i++) {
-                    Statement st = body.get(i);
-                    if (i == body.size() - 1 && st instanceof YieldStatement ys) {
-                        sb.append(pad).append(INDENT).append(armExpression(ys.expression(), type)).append("\n");
-                    } else {
-                        sb.append(statement(st, depth + 1));
+                // a yield before the last statement leaves the arm: a labeled block, broken out of with the value
+                java.util.function.Function<Expression, String> result = armResult;
+                java.util.function.Function<Expression, String> value = e -> result != null ? result.apply(e)
+                        : armExpression(e, type);
+                boolean early = yieldsEarly(body);
+                String label = early ? "'y" + (yieldCount++) : null;
+                StringBuilder sb = new StringBuilder(early ? label + ": {\n" : "{\n");
+                armResult = null;
+                if (early) yieldTargets.push(new YieldTarget(label, value));
+                try {
+                    for (int i = 0; i < body.size(); i++) {
+                        Statement st = body.get(i);
+                        if (i == body.size() - 1 && st instanceof YieldStatement ys) {
+                            sb.append(pad).append(INDENT).append(value.apply(ys.expression())).append("\n");
+                        } else {
+                            sb.append(statement(st, depth + 1));
+                        }
                     }
+                } finally {
+                    if (early) yieldTargets.pop();
+                    armResult = result;
                 }
                 return sb.append(pad).append("}").toString();
             }
@@ -588,7 +679,28 @@ final class RustBodyPrinter {
         }
     }
 
+    /* a yield nested in the arm's statements, not its last one; not one of a switch expression inside it */
+    private static boolean yieldsEarly(List<Statement> body) {
+        boolean[] found = {false};
+        for (int i = 0; i < body.size() - 1; i++) {
+            body.get(i).visit(e -> {
+                if (e instanceof YieldStatement) found[0] = true;
+                return !found[0] && !(e instanceof SwitchExpression) && !(e instanceof Lambda);
+            });
+        }
+        return found[0];
+    }
+
     private String armExpression(Expression e, ParameterizedType type) {
+        if (armResult != null) {
+            java.util.function.Function<Expression, String> result = armResult;
+            armResult = null;
+            try {
+                return result.apply(e);
+            } finally {
+                armResult = result;
+            }
+        }
         Printed p = widen(expression(e), e, type);
         return RustTypes.isCopy(type) ? p.text : owned(p, type);
     }
@@ -683,6 +795,8 @@ final class RustBodyPrinter {
             case Or or -> value(or.expressions().stream().map(this::operand).collect(Collectors.joining(" || ")));
             case TypeExpression te -> value(RustTypes.owned(te.parameterizedType(), context, te));
             case MethodReference mr -> methodReference(mr);
+            case InstanceOf io when io.patternVariable() == null && isObject(io.expression().parameterizedType())
+                                    && RustTypes.isDowncastTarget(io.testType()) -> isInstance(io);
             default -> value(unsupported(e, e.getClass().getSimpleName()));
         };
     }
@@ -721,7 +835,9 @@ final class RustBodyPrinter {
         // Rust hands a closure the element ('map' over '.cloned()') or a reference to it ('filter'): a place, which
         // '&x' borrows and '.clone()' copies either way (deref coercion, auto-deref)
         // an element is never an Option: the collections hold their values as they are
-        if (closures.contains(pi.methodInfo())) return new Printed(name, Held.PLACE, false);
+        if (closures.contains(pi.methodInfo())) {
+            return new Printed(name, strClosureParameters.contains(pi) ? Held.STR : Held.PLACE, false);
+        }
         if (movable(pi)) moved.add(name);
         Passing passing = context.passing(pi);
         Held held = switch (passing) {
@@ -761,10 +877,17 @@ final class RustBodyPrinter {
                 if (!module.equals(context.module)) context.use("crate::" + module + "::" + name);
                 return new Printed(name, Held.PLACE, nullable);
             }
-            return new Printed(prefix + "::" + RustNames.constant(f.name()), Held.VALUE, nullable);
+            // a string constant is a &'static str
+            return new Printed(prefix + "::" + RustNames.constant(f.name()),
+                               RustTypes.isString(f.type()) && RustTypePrinter.constant(f) ? Held.STR : Held.VALUE, nullable);
         }
         boolean own = fr.scopeIsThis() || fr.isDefaultScope();
         String scope = own ? context.receiver : dereference(expression(fr.scope()));
+        if (RustTypePrinter.constantField(f) != null) {
+            // an enum's state set by its constants: a match over the variants (RustTypePrinter.enumType)
+            return new Printed(scope + "." + RustTypePrinter.constantFieldMethod(f) + "()",
+                               RustTypes.isString(f.type()) ? Held.STR : Held.VALUE, false);
+        }
         TypeInfo scopeType = own ? context.type : fr.scope().parameterizedType().typeInfo();
         // an inherited field is in the base
         String path = scopeType == null ? "" : RustTypePrinter.basePath(scopeType, f.owner());
@@ -820,7 +943,9 @@ final class RustBodyPrinter {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
         String text = RustTypes.isCopy(targetType) ? value.text
-                : value.nullable ? owned(value, targetType) : asDyn(owned(value, targetType), a.value(), targetType);
+                : value.nullable ? owned(value, targetType)
+                : objectTarget(targetType) ? asObject(owned(value, a.value().parameterizedType()), a.value(), targetType)
+                : asDyn(owned(value, targetType), a.value(), targetType);
         boolean nullableTarget = targetNullable(a.variableTarget());
         if (boxed && !target.startsWith("(*")) {
             text = RustBoxes.box(a.value() instanceof NullConstant ? "None" : text, nullableTarget, value.nullable);
@@ -1112,6 +1237,11 @@ final class RustBodyPrinter {
         copiedResult = false;
         List<String> names = m.parameters().stream().map(p -> RustNames.snake(p.name())).toList();
         String params = typed(names, types);
+        if (types != null && types.size() == names.size()) {
+            for (int i = 0; i < names.size(); i++) {
+                if ("&str".equals(types.get(i))) strClosureParameters.add(m.parameters().get(i));
+            }
+        }
         Expression single = lambda.singleExpression();
         MethodInfo outer = context.method;
         closures.add(m);
@@ -1229,6 +1359,14 @@ final class RustBodyPrinter {
         int n = params.size();
         String closure = "";
         if (m.typeInfo().compilationUnit().externalLibrary()) {
+            if (!m.isStatic() && !(mr.scope() instanceof TypeExpression)) {
+                // bound: 'out::add' adds to out, the closure's parameter its argument
+                ParameterizedType scope = mr.scope().parameterizedType();
+                String kind = scope.typeInfo() == null ? null : RustTypes.mapped(scope.typeInfo());
+                String body = RustJdk.boundReference(m, kind, expression(mr.scope()).text, params);
+                // a Consumer drops add's boolean
+                return body != null && mr.concreteReturnType().isVoid() ? "{ " + body + "; }" : body;
+            }
             String jdk = RustJdk.reference(m, params);
             // an entry's key or value is a reference into the map: a copy, or a clone for a string
             if (jdk != null && (jdk.endsWith(".0") || jdk.endsWith(".1"))) {
@@ -1344,8 +1482,27 @@ final class RustBodyPrinter {
                         .collect(Collectors.joining(", ")) + "]");
             }
             if (cc.parameterExpressions().size() == 1) {
-                String element = RustTypes.empty(type.componentType(), false, context, cc);
-                return value("vec![" + element + "; " + index(cc.parameterExpressions().getFirst()) + "]");
+                ParameterizedType component = type.componentType();
+                String n = index(cc.parameterExpressions().getFirst());
+                if (component.typeInfo() != null && component.typeInfo().isJavaLangObject() && component.arrays() == 0) {
+                    // Java's nulls, until the array is filled
+                    return value("(0.." + n + ").map(|_| crate::jrt::null()).collect::<Vec<Box<dyn std::any::Any>>>()");
+                }
+                String element = RustTypes.empty(component, false, context, cc);
+                TypeInfo ct = component.typeInfo();
+                if (component.arrays() == 0 && ct != null && !ct.compilationUnit().externalLibrary() && !ct.isInterface()
+                    && !ct.typeNature().isEnum() && ct.typeParameters().isEmpty()
+                    && (ct.constructors().isEmpty() || ct.constructors().stream().anyMatch(c -> c.parameters().isEmpty()))) {
+                    // a class with a constructor without parameters: an object of it where Java has a null
+                    String owned = RustTypes.owned(component, context, cc);
+                    String plain = owned.startsWith("Rc<") ? owned.substring(3, owned.length() - 1) : owned;
+                    element = owned.startsWith("Rc<") ? "Rc::new(" + plain + "::new())" : plain + "::new()";
+                }
+                if (RustTypes.isCopy(component) || RustTypes.isString(component) || component.arrays() > 0) {
+                    return value("vec![" + element + "; " + n + "]");
+                }
+                // vec![x; n] clones x, which a class need not allow: each element built on its own
+                return value("(0.." + n + ").map(|_| " + element + ").collect::<Vec<_>>()");
             }
             return value(unsupported(cc, "multi-dimensional array"));
         }
@@ -1461,13 +1618,17 @@ final class RustBodyPrinter {
         ParameterizedType type = pi.parameterizedType().isTypeParameter() && argument.parameterizedType().typeInfo() != null
                 ? argument.parameterizedType() : pi.parameterizedType();
         if (isClosure(argument) && RustTypes.isFunctional(type)) {
-            Printed c = closure(argument, type);
+            // 'Function<T, R> f' of a generic method: the closure's parameters are the call's types, not its T
+            ParameterizedType concrete = argument.parameterizedType();
+            Printed c = closure(argument, mentionsMethodTypeParameter(type) && concrete.typeInfo() != null
+                                          && RustTypes.isFunctional(concrete) ? concrete : type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
-            return switch (context.passing(pi)) {
+            String text = switch (context.passing(pi)) {
                 case OWNED -> boxed(c.text);
                 case SHARED -> "&" + c.text;
                 case EXCLUSIVE -> "&mut " + c.text;
             };
+            return RustFacts.nullable(context.facts.parameter(pi)) ? "Some(" + text + ")" : text;
         }
         p = widen(p, argument, type);
         boolean nullable = RustFacts.nullable(context.facts.parameter(pi));
@@ -1580,6 +1741,19 @@ final class RustBodyPrinter {
      * {@code Map<String, Object>}: Rust infers a collection's element type from its first insert ({@code Box<f64>}),
      * so the declaration states it ({@code Box<dyn Any>}).
      */
+    private static boolean mentionsMethodTypeParameter(ParameterizedType type) {
+        if (type.isTypeParameter()) return type.typeParameter().isMethodTypeParameter();
+        return type.parameters().stream().anyMatch(RustBodyPrinter::mentionsMethodTypeParameter);
+    }
+
+    /* 'new ArrayList<>()': Rust infers the element type from a later insert, which a list only read or cleared lacks */
+    private static boolean emptyCollection(Expression init) {
+        return CstQueries.unwrap(init) instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty()
+               && cc.anonymousClass() == null && !cc.parameterizedType().parameters().isEmpty()
+               && cc.constructor() != null && cc.constructor().typeInfo().compilationUnit().externalLibrary()
+               && RustTypes.mapped(cc.constructor().typeInfo()) != null;
+    }
+
     private static boolean mentionsObject(ParameterizedType type) {
         if (type.typeInfo() != null && type.typeInfo().isJavaLangObject()) return true;
         return type.parameters().stream().anyMatch(RustBodyPrinter::mentionsObject);
@@ -1679,6 +1853,18 @@ final class RustBodyPrinter {
      */
     String copiedText(Expression e) {
         return copied(expression(e), e);
+    }
+
+    /** {@code e} as an owned {@code Option}: a nullable value copied as it is, another in {@code Some}. */
+    String optionText(Expression e) {
+        Printed p = expression(e);
+        if (!p.nullable) return "Some(" + owned(p, e.parameterizedType()) + ")";
+        if (e instanceof NullConstant) return "None";
+        return switch (p.held) {
+            case PLACE -> p.text + ".clone()";
+            case SHARED, EXCLUSIVE -> p.text + ".cloned()";
+            default -> p.text;
+        };
     }
 
     /** Optional.orElseGet's supplier, whose result is copied like {@link #copiedText}'s. */
@@ -1814,7 +2000,7 @@ final class RustBodyPrinter {
         context.method.methodBody().visit(e -> {
             if (found[0]) return false;
             if (e instanceof MethodCall mc) {
-                if (isLocal(mc.object(), lv) && modifies(mc)) found[0] = true;
+                if (rootedIn(mc.object(), lv) && modifies(mc)) found[0] = true;
                 List<Expression> args = mc.parameterExpressions();
                 MethodInfo callee = mc.methodInfo();
                 for (int i = 0; i < args.size() && i < callee.parameters().size(); i++) {
@@ -1823,8 +2009,20 @@ final class RustBodyPrinter {
                         found[0] = true;
                     }
                 }
+                // Collections.sort(list), Arrays.fill(a, v): the JDK static modifies its first argument
+                if (!args.isEmpty() && rootedIn(args.getFirst(), lv) && RustJdk.modifiesFirstArgument(mc)) found[0] = true;
+            } else if (e instanceof MethodReference mr && !(mr.scope() instanceof TypeExpression)
+                       && rootedIn(mr.scope(), lv) && modifies(mr.methodInfo())) {
+                found[0] = true; // 'in.forEach(out::add)'
+            } else if (e instanceof LocalVariableCreation lvc) {
+                // 'Set<T> set2 = r.s; set2.add(t)': a &mut of r's field, which needs r mutable
+                lvc.localVariableStream().filter(other -> other != lv && other.assignmentExpression() != null
+                                                          && !isLocal(other.assignmentExpression(), lv)
+                                                          && rootedIn(other.assignmentExpression(), lv)
+                                                          && mutated(other))
+                        .findFirst().ifPresent(other -> found[0] = true);
             } else if (e instanceof Assignment a && a.target().variable() instanceof FieldReference fr
-                       && isLocal(fr.scope(), lv)) {
+                       && rootedIn(fr.scope(), lv)) {
                 found[0] = true;
             } else if (e instanceof Assignment a && a.target().variable() instanceof DependentVariable dv
                        && isLocal(dv.arrayExpression(), lv)) {
@@ -1836,13 +2034,27 @@ final class RustBodyPrinter {
     }
 
     private boolean modifies(MethodCall mc) {
-        MethodInfo callee = mc.methodInfo();
-        if (callee.typeInfo().compilationUnit().externalLibrary()) return RustJdk.modifies(mc);
+        return modifies(mc.methodInfo());
+    }
+
+    private boolean modifies(MethodInfo callee) {
+        if (callee.typeInfo().compilationUnit().externalLibrary()) return RustJdk.modifies(callee);
         return context.facts.receiver(callee) == Receiver.EXCLUSIVE;
     }
 
     private static boolean isLocal(Expression e, LocalVariable lv) {
         return e instanceof VariableExpression ve && lv.equals(ve.variable());
+    }
+
+    /* the local, or a field of the object it holds ('a.list1.add(x)' modifies what 'a' owns) */
+    private static boolean rootedIn(Expression e, LocalVariable lv) {
+        if (isLocal(e, lv)) return true;
+        // or an element of the array it holds ('slots[0].v = 3')
+        if (e instanceof VariableExpression ve && ve.variable() instanceof DependentVariable dv) {
+            return rootedIn(dv.arrayExpression(), lv);
+        }
+        return e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null
+               && rootedIn(fr.scope(), lv);
     }
 
     // ---- literals

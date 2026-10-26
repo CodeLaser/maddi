@@ -146,7 +146,14 @@ public final class RustTranslator {
                 if let Some(x) = v.downcast_ref::<bool>() { return x.to_string(); }
                 if let Some(x) = v.downcast_ref::<char>() { return x.to_string(); }
                 if let Some(x) = v.downcast_ref::<Vec<String>>() { return format!("[{}]", x.join(", ")); }
+                if v.is::<Null>() { return "null".to_string(); }
                 "java.lang.Object".to_string()
+            }
+
+            /// What `new Object[n]` holds before it is filled: Java's null, as a `Box<dyn Any>`.
+            pub struct Null;
+            pub fn null() -> Box<dyn Any> {
+                Box::new(Null)
             }
 
             /// `String.hashCode()`: Java's polynomial over the UTF-16 units.

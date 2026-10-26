@@ -165,7 +165,7 @@ final class RustTypes {
             return "Vec<" + owned(type.copyWithArrays(type.arrays() - 1), context, where) + ">";
         }
         if (type.isPrimitiveExcludingVoid()) return primitive(type.typeInfo());
-        if (type.isTypeParameter()) return type.typeParameter().simpleName();
+        if (type.isTypeParameter()) return RustNames.typeParameter(type.typeParameter());
         TypeInfo ti = type.typeInfo();
         if (ti == null) {
             // an unbounded wildcard, '?'
@@ -216,6 +216,13 @@ final class RustTypes {
     static boolean isDyn(ParameterizedType type) {
         TypeInfo ti = type == null ? null : type.typeInfo();
         return ti != null && type.arrays() == 0 && isInterface(ti) && !isFunctional(ti) && !isEntry(ti);
+    }
+
+    /** A class a {@code Box<dyn Any>} can be downcast to: no interface, no type parameters Any could not tell apart. */
+    static boolean isDowncastTarget(ParameterizedType type) {
+        TypeInfo ti = type == null ? null : type.typeInfo();
+        return ti != null && type.arrays() == 0 && !type.isTypeParameter() && !ti.isJavaLangObject() && !ti.isInterface()
+               && ti.typeParameters().isEmpty();
     }
 
     private static boolean isInterface(TypeInfo ti) {

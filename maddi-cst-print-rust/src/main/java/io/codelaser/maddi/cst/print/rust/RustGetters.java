@@ -35,7 +35,9 @@ import java.util.Set;
  * returns ({@code b.items().clear()}, {@code t.s().r().i = 3}) needs it exclusively. Such a getter gets a twin,
  * {@code fn items_mut(&mut self) -> &mut T}, and those call sites call it, as Rust's own collections pair
  * {@code get} and {@code get_mut}. Only for a getter that returns one of its object's fields as it is
- * ({@code return items;}): the twin borrows that field.
+ * ({@code return items;}): the twin borrows that field. An interface's getter ({@code List<String> items();}, a default
+ * method's {@code items().add(s)}) gets one declared in its trait when every implementation translated with it is
+ * such a getter, and each implementation its own; not a functional interface's method, which a closure implements.
  */
 final class RustGetters {
     static final String SUFFIX = "_mut";
@@ -58,11 +60,43 @@ final class RustGetters {
         return null;
     }
 
+    /** An interface's getter: abstract, without parameters, declared in source. */
+    static boolean abstractGetter(MethodInfo m) {
+        return m.isAbstract() && !m.isStatic() && m.parameters().isEmpty() && m.typeInfo().isInterface()
+               && !m.typeInfo().compilationUnit().externalLibrary()
+               && m.typeInfo().methods().stream().filter(MethodInfo::isAbstract).count() > 1;
+    }
+
+    private static boolean getter(MethodInfo m) {
+        return field(m) != null || abstractGetter(m);
+    }
+
     /** The getters of {@code types} that a call site in them modifies through. */
     static Set<MethodInfo> modifiedThrough(List<TypeInfo> types, RustFacts facts) {
         Set<MethodInfo> out = new HashSet<>();
         for (TypeInfo type : types) visit(type, facts, out);
+        // a field getter overriding an interface's getter: the trait declares the twin, an impl block cannot add one
+        for (MethodInfo m : Set.copyOf(out)) {
+            m.overrides().stream().filter(RustGetters::abstractGetter).forEach(out::add);
+        }
+        List<MethodInfo> all = new java.util.ArrayList<>();
+        for (TypeInfo type : types) collect(type, all);
+        for (MethodInfo a : Set.copyOf(out)) {
+            if (!abstractGetter(a)) continue;
+            List<MethodInfo> implementations = all.stream().filter(m -> m.overrides().contains(a)).toList();
+            if (implementations.stream().allMatch(m -> field(m) != null)) {
+                out.addAll(implementations);
+            } else {
+                out.remove(a);
+                out.removeAll(implementations);
+            }
+        }
         return out;
+    }
+
+    private static void collect(TypeInfo type, List<MethodInfo> all) {
+        all.addAll(type.methods());
+        type.subTypes().forEach(sub -> collect(sub, all));
     }
 
     private static void visit(TypeInfo type, RustFacts facts, Set<MethodInfo> out) {
@@ -90,7 +124,7 @@ final class RustGetters {
         while (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr && fr.scope() != null) {
             e = CstQueries.unwrap(fr.scope());
         }
-        if (e instanceof MethodCall g && field(g.methodInfo()) != null && !RustTypes.isCopy(g.methodInfo().returnType())
+        if (e instanceof MethodCall g && getter(g.methodInfo()) && !RustTypes.isCopy(g.methodInfo().returnType())
             && out.add(g.methodInfo()) && g.object() != null) {
             through(g.object(), facts, out);
         }

@@ -35,17 +35,36 @@ import java.util.Set;
  */
 final class RustJdk {
 
-    /** The methods that modify their receiver, by simple name, for the collections and {@code StringBuilder}. */
+    /**
+     * The methods that modify their receiver, by simple name, for the collections, {@code StringBuilder} and an
+     * iterator (a peekable one advances on {@code hasNext}'s {@code peek}).
+     */
     private static final Set<String> MODIFYING = Set.of("add", "addAll", "put", "putAll", "remove", "removeAll",
             "clear", "set", "push", "pop", "poll", "offer", "addFirst", "addLast", "removeFirst", "removeLast",
             "append", "insert", "sort", "retainAll", "merge", "compute", "computeIfAbsent", "computeIfPresent",
-            "putIfAbsent", "replaceAll", "removeIf");
+            "putIfAbsent", "replaceAll", "removeIf", "next", "hasNext");
 
     private RustJdk() {
     }
 
     static boolean modifies(MethodCall mc) {
-        return MODIFYING.contains(mc.methodInfo().name());
+        return modifies(mc.methodInfo());
+    }
+
+    static boolean modifies(MethodInfo m) {
+        return MODIFYING.contains(m.name());
+    }
+
+    /** A JDK static that modifies its first argument: {@code Collections.sort(list)}, {@code Arrays.fill(a, v)}. */
+    static boolean modifiesFirstArgument(MethodCall mc) {
+        MethodInfo m = mc.methodInfo();
+        if (!m.isStatic()) return false;
+        return switch (m.typeInfo().fullyQualifiedName()) {
+            case "java.util.Collections" -> Set.of("sort", "reverse", "shuffle", "swap", "fill", "addAll", "rotate")
+                    .contains(m.name());
+            case "java.util.Arrays" -> Set.of("sort", "fill", "parallelSort", "setAll").contains(m.name());
+            default -> false;
+        };
     }
 
     static Printed call(MethodCall mc, RustBodyPrinter printer) {
@@ -73,6 +92,20 @@ final class RustJdk {
                 case "name/0", "toString/0" -> RustBodyPrinter.printed(o + ".name()", Held.STR, false);
                 default -> null;
             };
+        }
+        if ("java.util.Iterator".equals(fqn)) {
+            return switch (name + "/" + args.size()) {
+                // Java throws on an exhausted iterator, Rust panics; an element is a reference into the collection
+                case "next/0" -> RustTypes.isCopy(mc.parameterizedType()) ? value("*" + o + ".next().unwrap()")
+                        : RustBodyPrinter.printed(o + ".next().unwrap()", Held.SHARED, false);
+                case "hasNext/0" -> value(o + ".peek().is_some()");
+                default -> null;
+            };
+        }
+        if ("iterator/0".equals(name + "/" + args.size())
+            && Set.of("Vec", "HashSet", "BTreeSet", "VecDeque").contains(String.valueOf(RustTypes.mapped(owner)))) {
+            // peekable: hasNext() looks at the next element without taking it
+            return value(iter(o) + ".peekable()");
         }
         if (fqn.startsWith("java.util.stream.")) return stream(o, fqn, name, args, printer);
         if (RustTypes.isEntry(owner)) return entry(o, name, mc);
@@ -117,6 +150,11 @@ final class RustJdk {
             return value(iter(o));
         }
         String collection = RustTypes.mapped(owner);
+        if (collection == null && Set.of("java.lang.AbstractStringBuilder", "java.lang.CharSequence").contains(fqn)
+            && mc.object() != null && mc.object().parameterizedType().typeInfo() != null) {
+            // StringBuilder's length() is AbstractStringBuilder's: a String's all the same
+            collection = RustTypes.mapped(mc.object().parameterizedType().typeInfo());
+        }
         if ("String".equals(collection)) return string(o, name, args, printer, mc);
         if ("java.lang.Object".equals(fqn)) {
             return switch (name) {
@@ -228,8 +266,9 @@ final class RustJdk {
             case "java.util.Arrays.copyOf/2" -> value("{ let mut c = " + printer.text(args.get(0))
                     + ".to_vec(); c.resize(" + printer.text(args.get(1)) + " as usize, Default::default()); c }");
             case "java.util.Optional.empty/0" -> new Printed("None", Held.VALUE, true);
-            case "java.util.Optional.of/1", "java.util.Optional.ofNullable/1" ->
-                    value("Some(" + printer.ownedText(args.getFirst()) + ")");
+            case "java.util.Optional.of/1" -> value("Some(" + printer.ownedText(args.getFirst()) + ")");
+            // a value that may be null is an Option already: its own copy, not an Option in Some
+            case "java.util.Optional.ofNullable/1" -> value(printer.optionText(args.getFirst()));
             default -> {
                 if (fqn.equals("java.util.Collections") && name.equals("addAll") && n >= 2) {
                     List<String> values = args.subList(1, n).stream().map(printer::ownedText).toList();
@@ -614,6 +653,21 @@ final class RustJdk {
         };
     }
 
+    /**
+     * A bound JDK method reference's body: {@code out::add} is {@code out.push(x.clone())}, the closure's parameter a
+     * reference to an element. {@code kind} is the Rust type of the receiver ({@code Vec}, …).
+     */
+    static String boundReference(MethodInfo m, String kind, String scope, List<String> params) {
+        if (kind == null || params.size() != 1 || !"add".equals(m.name())) return null;
+        String element = params.getFirst() + ".clone()";
+        return switch (kind) {
+            case "Vec" -> scope + ".push(" + element + ")";
+            case "VecDeque" -> scope + ".push_back(" + element + ")";
+            case "HashSet", "BTreeSet" -> scope + ".insert(" + element + ")";
+            default -> null;
+        };
+    }
+
     private static Printed vec(String o, String name, List<Expression> args, RustBodyPrinter printer, MethodCall mc) {
         int n = args.size();
         return switch (name + "/" + n) {
@@ -643,6 +697,9 @@ final class RustJdk {
                     : value("if let Some(p) = " + o + ".iter().position(|e| e == " + printer.reference(args.getFirst())
                             + ") { " + o + ".remove(p); }");
             case "getLast/0" -> RustBodyPrinter.printed(o + "[" + o + ".len() - 1]", Held.PLACE, false);
+            // Java throws on an empty list, Rust panics
+            case "removeFirst/0" -> value(o + ".remove(0)");
+            case "removeLast/0" -> value(o + ".pop().unwrap()");
             default -> null;
         };
     }
