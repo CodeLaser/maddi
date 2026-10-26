@@ -429,6 +429,44 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String STORED_T = """
+            package a.b;
+            import java.util.List;
+            public class G {
+                public static <T> void listAdd(List<T> list, T t) { list.add(t); }
+                public static <T> T same(T t) { return t; }
+                public static <T> List<T> one(T t) { return List.of(t); }
+                public static <T> int size(List<T> list, T t) { return t == null ? 0 : list.size(); }
+            }
+            """;
+
+    /**
+     * A {@code T} parameter is independent whatever the body does with it (an unbounded {@code T} has no content to
+     * modify; independence is measured against {@code this} and the result). The body decides: one it stores is moved
+     * in, one it only looks at is borrowed.
+     */
+    @DisplayName("a T parameter the body stores is moved in, one it only reads is borrowed: compiles")
+    @Test
+    public void storedTypeParameter() throws Exception {
+        List<TypeInfo> types = parse(STORED_T);
+        TypeInfo g = types.getFirst();
+        for (String m : List.of("listAdd", "same", "one", "size")) {
+            method(g, m).parameters().forEach(p -> {
+                if (p.parameterizedType().isTypeParameter()) borrowed(p);
+            });
+        }
+        modified(method(g, "listAdd").parameters().getFirst());
+        borrowed(method(g, "size").parameters().getFirst());
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn list_add<T>(list: &mut Vec<T>, t: T) {");
+        contains(rust, "pub fn same<T>(t: T) -> T {");
+        contains(rust, "pub fn one<T>(t: T) -> Vec<T> {");
+        contains(rust, "pub fn size<T>(list: &Vec<T>, t: &T) -> i32 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

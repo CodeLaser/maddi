@@ -190,6 +190,8 @@ Analyzer issues the oracle found, each with a minimal repro:
 - Java's `==` on objects of source classes is identity: `std::ptr::eq(a, b)`. Enum constants, strings and boxed
   primitives are values, compared with `==`.
 - A nullable value assigned where the verdicts hold the target non-null is unwrapped (`UNWRAP_AT_DEREFERENCE`).
+- A `T` parameter is independent whatever the body does with it, so the body decides its passing: stored (returned,
+  assigned, `list.add(t)`, `List.of(t)`, a source callee taking it owned) it is moved in, `T`; otherwise `&T`.
 - A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
   one, `getKey()`/`getValue()` are `.0`/`.1`.
 - `System.exit`, `lineSeparator`, `arraycopy` (`clone_from_slice`, `copy_within` inside one array);

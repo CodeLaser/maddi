@@ -16,12 +16,22 @@ package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
+import io.codelaser.maddi.cst.api.expression.Assignment;
+import io.codelaser.maddi.cst.api.expression.ConstructorCall;
+import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
+import io.codelaser.maddi.cst.api.info.ParameterInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.cst.api.statement.ReturnStatement;
+import io.codelaser.maddi.cst.print.translate.CstQueries;
 import io.codelaser.maddi.cst.print.translate.PrintMessage;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -67,7 +77,7 @@ final class RustContext {
      * the analysis marks a functional parameter modified because applying it may modify (the applied marker its
      * callers resolve, maddi-mod#69), which says nothing about the borrow.
      */
-    RustFacts.Passing passing(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
+    RustFacts.Passing passing(ParameterInfo parameter) {
         RustTypes.Form borrowed = borrows.parameter(parameter);
         if (borrowed != null) {
             return borrowed == RustTypes.Form.SHARED ? RustFacts.Passing.SHARED : RustFacts.Passing.EXCLUSIVE;
@@ -76,7 +86,65 @@ final class RustContext {
         if (passing == RustFacts.Passing.EXCLUSIVE && RustTypes.isFn(parameter.parameterizedType())) {
             return RustFacts.Passing.SHARED;
         }
+        if (passing == RustFacts.Passing.SHARED && parameter.parameterizedType().isTypeParameter()
+            && parameter.parameterizedType().arrays() == 0 && stored(parameter)) {
+            return RustFacts.Passing.OWNED;
+        }
         return passing;
+    }
+
+    private final Map<ParameterInfo, Boolean> stored = new HashMap<>();
+
+    /*
+     A T parameter's independence says nothing about keeping it: an unbounded T has no content to modify, and
+     independence is measured against 'this' and the result, not against the list the value goes into. So the body
+     decides: returned, assigned, or handed to a JDK method's type-variable parameter (add(E), put(K, V), List.of) or
+     to a source callee that takes it owned, it is moved in ('list.add(t)' was 'list.push(t)' with 't: &T', E0308).
+     */
+    private boolean stored(ParameterInfo parameter) {
+        Boolean known = stored.get(parameter);
+        if (known != null) return known;
+        stored.put(parameter, false); // a recursive call passing it on is not evidence
+        var body = parameter.methodInfo().methodBody();
+        boolean[] keeps = {false};
+        if (body != null) {
+            body.visit(e -> {
+                switch (e) {
+                    case ReturnStatement rs
+                            when is(rs.expression(), parameter) -> keeps[0] = true;
+                    case Assignment a when is(a.value(), parameter) -> keeps[0] = true;
+                    case MethodCall mc ->
+                            keeps[0] |= handedOn(mc.methodInfo(), mc.parameterExpressions(), parameter);
+                    case ConstructorCall cc when cc.constructor() != null ->
+                            keeps[0] |= handedOn(cc.constructor(), cc.parameterExpressions(), parameter);
+                    default -> { }
+                }
+                return !keeps[0];
+            });
+        }
+        stored.put(parameter, keeps[0]);
+        return keeps[0];
+    }
+
+    private boolean handedOn(MethodInfo callee, List<Expression> args,
+                             ParameterInfo parameter) {
+        var formals = callee.parameters();
+        for (int i = 0; i < args.size(); i++) {
+            if (!is(args.get(i), parameter) || formals.isEmpty()) continue;
+            var formal = formals.get(Math.min(i, formals.size() - 1));
+            if (callee.typeInfo().compilationUnit().externalLibrary()) {
+                if (formal.parameterizedType().isTypeParameter()) return true;
+            } else if (formal != parameter && passing(formal) == RustFacts.Passing.OWNED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean is(Expression e,
+                              ParameterInfo parameter) {
+        return e != null && CstQueries.unwrap(e)
+                instanceof VariableExpression ve && parameter.equals(ve.variable());
     }
 
     void use(String path) {
