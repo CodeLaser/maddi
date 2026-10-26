@@ -577,6 +577,51 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String RENEWED = """
+            package a.b;
+            public class Sel {
+                public interface Selector { boolean test(String s); }
+                static class Any implements Selector { public boolean test(String s) { return true; } }
+                static class Wrapper implements Selector {
+                    private final Selector inner;
+                    Wrapper(Selector inner) { this.inner = inner; }
+                    public boolean test(String s) { return !inner.test(s); }
+                }
+                private boolean flag;
+                public Selector filter(Selector s) {
+                    if (flag) s = new Wrapper(s);
+                    return s;
+                }
+                public Selector chain() {
+                    Selector s = new Any();
+                    s = filter(s);
+                    return filter(s);
+                }
+            }
+            """;
+
+    /**
+     * A parameter the body may replace by a new object and returns is the result new on one path and existing on the
+     * other: moved in and returned owned, not a borrow the new object could not be. A class's object where its
+     * interface is held, as a local, an assignment, an argument or a result, is boxed.
+     */
+    @DisplayName("a parameter replaced by a new object and returned is moved in and out; Box<dyn I>: compiles")
+    @Test
+    public void renewedParameter() throws Exception {
+        List<TypeInfo> types = parse(RENEWED);
+        TypeInfo sel = types.getFirst();
+        nonModifying(sel, "filter", "chain");
+        dependentResult(sel, "filter");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn filter(&self, mut s: Box<dyn SelSelector>) -> Box<dyn SelSelector> {");
+        // a class's object where its interface is held is boxed
+        contains(rust, "s = Box::new(SelWrapper::new(s));");
+        contains(rust, "let mut s: Box<dyn SelSelector> = Box::new(SelAny::new());");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String STREAMS = """
             package a.b;
             import java.util.List;

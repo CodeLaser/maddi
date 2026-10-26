@@ -16,9 +16,11 @@ package io.codelaser.maddi.cst.print.rust;
 
 import io.codelaser.maddi.cst.api.analysis.Value;
 import io.codelaser.maddi.cst.api.element.Element;
+import io.codelaser.maddi.cst.api.expression.Assignment;
 import io.codelaser.maddi.cst.api.expression.ConstructorCall;
 import io.codelaser.maddi.cst.api.expression.Lambda;
 import io.codelaser.maddi.cst.api.expression.MethodCall;
+import io.codelaser.maddi.cst.api.expression.VariableExpression;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.ParameterInfo;
@@ -27,9 +29,11 @@ import io.codelaser.maddi.cst.api.statement.ReturnStatement;
 import io.codelaser.maddi.cst.api.type.NullableState;
 import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
+import io.codelaser.maddi.cst.api.variable.Variable;
 import io.codelaser.maddi.cst.impl.analysis.LinkFacts;
 import io.codelaser.maddi.cst.impl.analysis.NullabilityFacts;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import io.codelaser.maddi.cst.impl.analysis.PropertyImpl;
@@ -413,15 +417,42 @@ public interface RustFacts extends NullabilityFacts {
 
     /*
      a result that is new on one path and existing on another, which the facts cannot say: opt.orElseGet(Box::new),
-     opt.orElse(new Box()) is the Option's content or a new object, which Rust's unwrap_or_else returns owned
+     opt.orElse(new Box()) is the Option's content or a new object, which Rust's unwrap_or_else returns owned; so is a
+     parameter the body may replace by a new object ('if (flag) s = new Wrapper(s); return s;'), which it takes owned
      */
     private static boolean newOrExisting(MethodInfo method) {
         if (method.methodBody() == null) return false;
         boolean[] found = {false};
+        Set<Variable> renewed = new HashSet<>();
+        method.methodBody().visit(e -> {
+            if (e instanceof Assignment a && a.value() instanceof ConstructorCall
+                && a.variableTarget() instanceof ParameterInfo pi && pi.methodInfo() == method) {
+                renewed.add(pi);
+            }
+            return !(e instanceof Lambda);
+        });
         method.methodBody().visit(e -> {
             if (e instanceof ReturnStatement rs && rs.expression() instanceof MethodCall mc
                 && ("orElse".equals(mc.methodInfo().name()) || "orElseGet".equals(mc.methodInfo().name()))
                 && "java.util.Optional".equals(mc.methodInfo().typeInfo().fullyQualifiedName())) {
+                found[0] = true;
+            }
+            if (e instanceof ReturnStatement rs && rs.expression() instanceof VariableExpression ve
+                && renewed.contains(ve.variable())) {
+                found[0] = true;
+            }
+            return !found[0] && !(e instanceof Lambda);
+        });
+        return found[0];
+    }
+
+    /** {@code parameter} may be replaced by a new object and returned: the method takes it owned. */
+    static boolean renewedResult(ParameterInfo parameter) {
+        MethodInfo method = parameter.methodInfo();
+        if (method.methodBody() == null || !newOrExisting(method)) return false;
+        boolean[] found = {false};
+        method.methodBody().visit(e -> {
+            if (e instanceof Assignment a && a.value() instanceof ConstructorCall && parameter.equals(a.variableTarget())) {
                 found[0] = true;
             }
             return !found[0] && !(e instanceof Lambda);

@@ -89,6 +89,8 @@ final class RustContext {
             return borrowed == RustTypes.Form.SHARED ? RustFacts.Passing.SHARED : RustFacts.Passing.EXCLUSIVE;
         }
         RustFacts.Passing passing = facts.passing(parameter);
+        // returned as it is or replaced by a new object holding it ('s = new Wrapper(s); return s;'): moved in
+        if (RustFacts.renewedResult(parameter)) return RustFacts.Passing.OWNED;
         if (parameter.equals(facts.resultBorrows(parameter.methodInfo()))) {
             // the result is part of it: borrowed for as long as the result lives, never moved in
             return passing == RustFacts.Passing.OWNED ? RustFacts.Passing.SHARED : passing;

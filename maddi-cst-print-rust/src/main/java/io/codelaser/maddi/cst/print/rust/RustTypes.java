@@ -212,6 +212,12 @@ final class RustTypes {
         };
     }
 
+    /** A source interface, not a closure: held as a {@code Box<dyn I>}. */
+    static boolean isDyn(ParameterizedType type) {
+        TypeInfo ti = type == null ? null : type.typeInfo();
+        return ti != null && type.arrays() == 0 && isInterface(ti) && !isFunctional(ti) && !isEntry(ti);
+    }
+
     private static boolean isInterface(TypeInfo ti) {
         return ti.isInterface() && JDK.get(ti.fullyQualifiedName()) == null;
     }

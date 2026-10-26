@@ -229,6 +229,10 @@ Analyzer issues the oracle found, each with a minimal repro:
 - An unmodifiable view (`Collections.unmodifiableList(x)`) is `x` borrowed: Rust's `&` is a read-only view.
 - A value passed or returned where an `Object` is expected is boxed, `Box::new("x".to_string())`: owned as its own
   type first, so the box holds a `String`, as a collection's value or a field's initializer does.
+  A class's object where its interface is held (a local, an assignment, an argument, a result) is boxed as the
+  `Box<dyn I>` the declaration prints; a closure and an `Rc` are not.
+- A parameter the body may replace by a new object and returns (`if (flag) s = new Wrapper(s); return s;`) is a
+  result new on one path and existing on the other: moved in, returned owned.
 - `BigDecimal` is an `f64` (`BIGDECIMAL_AS_F64`), `LocalDateTime` and `Instant` a `SystemTime`
   (`TIME_AS_SYSTEM_TIME`): both change behaviour, and are reported.
 - The JDK maps onto `std`: the collections (`Vec`, `HashMap`, `HashSet`, `BTreeMap`, `VecDeque`), `Option`,

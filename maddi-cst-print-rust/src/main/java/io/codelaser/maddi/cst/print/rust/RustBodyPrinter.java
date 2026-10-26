@@ -254,13 +254,16 @@ final class RustBodyPrinter {
             text = text.substring(0, at) + ".get_mut(" + text.substring(at + ".get(".length());
             held = Held.EXCLUSIVE;
         }
+        String boxed = held == Held.VALUE && !value.nullable ? asDyn(text, init, lv.parameterizedType()) : text;
+        boolean dyn = !boxed.equals(text);
+        text = boxed;
         if (nullable && !value.nullable && !(init instanceof NullConstant)) text = "Some(" + text + ")";
         locals.put(lv, held);
         // an Option is unwrapped with as_mut() to modify what it holds, which needs a mutable binding
         boolean mut = reassigned || mutated && (held == Held.VALUE || nullable);
         String type = init instanceof NullConstant
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true)
-                : mentionsObject(lv.parameterizedType()) && held == Held.VALUE
+                : (dyn || mentionsObject(lv.parameterizedType())) && held == Held.VALUE
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable) : "";
         return "let " + (mut ? "mut " : "") + name + type + " = " + text;
     }
@@ -297,9 +300,9 @@ final class RustBodyPrinter {
         } else if (borrows) {
             text = adapt(value, RustTypes.isString(method.returnType()) ? Held.STR : Held.SHARED);
         } else {
-            text = value.nullable ? owned(value, method.returnType())
-                    : asObject(owned(value, objectTarget(method.returnType()) ? e.parameterizedType() : method.returnType()),
-                    e, method.returnType());
+            text = value.nullable ? owned(value, method.returnType()) : asDyn(
+                    asObject(owned(value, objectTarget(method.returnType()) ? e.parameterizedType() : method.returnType()),
+                            e, method.returnType()), e, method.returnType());
         }
         if (RustTypes.streamItem(method.returnType(), context, method) != null && !text.startsWith("Box::new(")) {
             text = "Box::new(" + text + ")"; // the chain's own iterator type, behind the declared dyn Iterator
@@ -816,7 +819,8 @@ final class RustBodyPrinter {
         if ("+=".equals(operator) && RustTypes.isString(targetType)) {
             return target + ".push_str(" + adapt(value, Held.STR) + ")";
         }
-        String text = RustTypes.isCopy(targetType) ? value.text : owned(value, targetType);
+        String text = RustTypes.isCopy(targetType) ? value.text
+                : value.nullable ? owned(value, targetType) : asDyn(owned(value, targetType), a.value(), targetType);
         boolean nullableTarget = targetNullable(a.variableTarget());
         if (boxed && !target.startsWith("(*")) {
             text = RustBoxes.box(a.value() instanceof NullConstant ? "None" : text, nullableTarget, value.nullable);
@@ -1474,8 +1478,9 @@ final class RustBodyPrinter {
             text = switch (context.passing(pi)) {
                 case SHARED -> adapt(p, RustTypes.isString(type) ? Held.STR : Held.SHARED);
                 case EXCLUSIVE -> adapt(p, Held.EXCLUSIVE);
-                case OWNED -> p.nullable ? owned(p, type)
-                        : asObject(owned(p, objectTarget(type) ? argument.parameterizedType() : type), argument, type);
+                case OWNED -> p.nullable ? owned(p, type) : asDyn(
+                        asObject(owned(p, objectTarget(type) ? argument.parameterizedType() : type), argument, type),
+                        argument, type);
             };
         }
         if (nullable && !p.nullable && !(argument instanceof NullConstant)) return "Some(" + text + ")";
@@ -1720,6 +1725,17 @@ final class RustBodyPrinter {
      an owned value where an Object is held: boxed, as a Box<dyn Any>, unless it is one already; owned as its own type
      first ('"x".to_string()', a String in the box)
      */
+    /*
+     an owned object of a class where its interface is held: boxed, as the Box<dyn I> the declaration prints ('Selector
+     s = new Any()'); not an Rc, which shares the object
+     */
+    private static String asDyn(String text, Expression e, ParameterizedType target) {
+        if (!RustTypes.isDyn(target) || e instanceof NullConstant || isClosure(e) || text.startsWith("Rc::")) return text;
+        TypeInfo from = e.parameterizedType().typeInfo();
+        return from == null || from == target.typeInfo() || from.isInterface() || e.parameterizedType().arrays() > 0
+                ? text : "Box::new(" + text + ")";
+    }
+
     private static boolean objectTarget(ParameterizedType target) {
         return target != null && target.typeInfo() != null && target.typeInfo().isJavaLangObject() && target.arrays() == 0;
     }
