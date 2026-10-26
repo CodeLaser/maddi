@@ -581,11 +581,16 @@ final class RustTypePrinter {
     /**
      * The initial value of a static field that is Java's mutable static state, a module-level {@code static mut}: not
      * final, of a type whose empty value Rust can build at compile time (a primitive, {@code String}, {@code Vec},
-     * {@code VecDeque}, {@code BTreeMap}, {@code BTreeSet}), initialized with a constant or not at all. {@code null}
-     * for any other static field.
+     * {@code VecDeque}, {@code BTreeMap}, {@code BTreeSet}), initialized with a constant or not at all; or a final
+     * collection of those whose object is modified ({@code static final List<String> ALL = new ArrayList<>()}).
+     * {@code null} for any other static field.
      */
     static String mutableStaticValue(FieldInfo f, RustContext context) {
-        if (!f.isStatic() || f.isFinal() || f.owner().compilationUnit().externalLibrary()) return null;
+        if (!f.isStatic() || f.owner().compilationUnit().externalLibrary()) return null;
+        if (f.isFinal() && (f.type().isPrimitiveExcludingVoid() || RustTypes.isString(f.type())
+                            || context.facts.unmodified(f))) {
+            return null;
+        }
         Expression init = f.initializer();
         boolean empty = init == null || init instanceof EmptyExpression
                         || init instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty();

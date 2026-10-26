@@ -142,7 +142,8 @@ Analyzer issues the oracle found, each with a minimal repro:
   conflicting borrow is a run-time `BorrowMutError`, the price of the annotation.
 - `@Immutable(hc=true)`: an `Rc<T>` wherever it is held, `Rc::new` at construction, cloned (shared) where Java
   shares it; its hidden content is cloned under a `T: Clone` bound on the impls.
-- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`. A method is
+- Java's mutable static state, of a type with a compile-time empty value, is a module-level `static mut`; so is a
+  `static final` collection whose object is modified (`ALL = new ArrayList<>()`, `ALL.add(s)`). A method is
   an `unsafe fn` with an `unsafe` body when it reads or writes one (of any type), calls, constructs or references
   (`Counter::next`) a method that is, transitively, or has the `@StaticSideEffects` verdict (`RustUnsafety`); a
   method call on a non-`Copy` static goes through `&raw mut`, as Rust 2024 refuses a reference to it.

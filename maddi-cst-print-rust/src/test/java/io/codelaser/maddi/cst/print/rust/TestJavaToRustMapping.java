@@ -1493,6 +1493,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                 private static int count;
                 static final List<String> names = new ArrayList<>();
                 static List<String> log = new ArrayList<>();
+                private static final List<String> ALL = new ArrayList<>();
+                static void register(String s) { ALL.add(s); }
                 public static int next() { return ++count; }
                 public static int peek() { return count; }
                 public static int nextTwice() { return next() + next(); }
@@ -1530,6 +1532,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         String rust = counter(false);
         contains(rust, "static mut COUNTER_COUNT: i32 = 0;");
         contains(rust, "pub static mut COUNTER_LOG: Vec<String> = Vec::new();");
+        // final, but its list is modified
+        contains(rust, "static mut COUNTER_ALL: Vec<String> = Vec::new();");
         contains(rust, "pub unsafe fn next() -> i32 {\nunsafe {");
         contains(rust, "pub unsafe fn peek() -> i32 {");
         contains(rust, "pub unsafe fn next_twice() -> i32 {");
