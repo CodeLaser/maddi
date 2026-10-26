@@ -60,7 +60,11 @@ package, one crate, `cargo build`): no error, no warning; also with row 13 exten
 That run found two printer faults the per-test crates could not: the example class `Box` was printed as `Box`, so
 every `Box<dyn Fn…>` of the module meant that struct (a type named as one of Rust's own is now `JBox`); and a
 closure parameter borrowed by the analysis's verdict was declared `&mut Box<dyn Fn…>` while the caller passed
-`&mut || …` (now `&mut dyn Fn…`).
+`&mut || …` (now `&mut dyn Fn…`). A `dyn Fn` closure is called through `&`: it is `&dyn Fn…` also where the analysis marks the
+parameter modified, as it does every functional parameter it applies (the applied marker that the callers resolve,
+maddi-mod#69; declaring the SAMs `@NotModified` instead would lose the side effects of a function passed in). A
+`Consumer` or `Runnable` is an `FnMut`, `&mut dyn FnMut…`. Which closures are `FnMut` is the open question: a
+`Function` whose passed functions modify what they capture is E0596.
 
 | row | status | evidence |
 |---|---|---|

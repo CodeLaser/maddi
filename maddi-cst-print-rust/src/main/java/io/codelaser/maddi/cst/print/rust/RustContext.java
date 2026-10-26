@@ -61,14 +61,20 @@ final class RustContext {
 
     /**
      * How a parameter is passed: as the facts say, except a constructor parameter stored in a borrowed field, which is
-     * that borrow (see {@link RustBorrows}).
+     * that borrow (see {@link RustBorrows}), and a {@code dyn Fn} closure, which is called through a shared borrow:
+     * the analysis marks a functional parameter modified because applying it may modify (the applied marker its
+     * callers resolve, maddi-mod#69), which says nothing about the borrow.
      */
     RustFacts.Passing passing(io.codelaser.maddi.cst.api.info.ParameterInfo parameter) {
         RustTypes.Form borrowed = borrows.parameter(parameter);
         if (borrowed != null) {
             return borrowed == RustTypes.Form.SHARED ? RustFacts.Passing.SHARED : RustFacts.Passing.EXCLUSIVE;
         }
-        return facts.passing(parameter);
+        RustFacts.Passing passing = facts.passing(parameter);
+        if (passing == RustFacts.Passing.EXCLUSIVE && RustTypes.isFn(parameter.parameterizedType())) {
+            return RustFacts.Passing.SHARED;
+        }
+        return passing;
     }
 
     void use(String path) {

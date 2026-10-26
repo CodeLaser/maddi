@@ -177,6 +177,20 @@ final class RustTypes {
         return type.isFunctionalInterface() || type.typeInfo() != null && type.arrays() == 0 && isFunctional(type.typeInfo());
     }
 
+    /** A JDK functional interface printed as a {@code dyn Fn}, not an {@code FnMut}: see {@link #function}. */
+    static boolean isFn(ParameterizedType type) {
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || type.arrays() > 0 || !isFunctional(ti)) return false;
+        return switch (ti.simpleName()) {
+            case "Runnable", "Consumer", "BiConsumer" -> false;
+            case "Supplier", "Function", "BiFunction", "Predicate", "UnaryOperator", "BinaryOperator" -> true;
+            default -> {
+                MethodInfo sam = ownAbstractMethod(ti);
+                yield sam != null && !sam.noReturnValue();
+            }
+        };
+    }
+
     /** The JDK's functional interfaces, as closure traits. */
     private static boolean isFunctional(TypeInfo ti) {
         return ti.packageName().equals("java.util.function") || "java.lang.Runnable".equals(ti.fullyQualifiedName());
