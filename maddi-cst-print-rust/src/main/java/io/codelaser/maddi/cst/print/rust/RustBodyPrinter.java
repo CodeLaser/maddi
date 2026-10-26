@@ -282,7 +282,7 @@ final class RustBodyPrinter {
         boolean mut = reassigned || mutated && (held == Held.VALUE || nullable);
         String type = init instanceof NullConstant
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), true)
-                : (dyn || mentionsObject(lv.parameterizedType())) && held == Held.VALUE
+                : (dyn || mentionsObject(lv.parameterizedType()) || emptyCollection(init)) && held == Held.VALUE
                 ? ": " + RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable) : "";
         return "let " + (mut ? "mut " : "") + name + type + " = " + text;
     }
@@ -1715,6 +1715,14 @@ final class RustBodyPrinter {
      * {@code Map<String, Object>}: Rust infers a collection's element type from its first insert ({@code Box<f64>}),
      * so the declaration states it ({@code Box<dyn Any>}).
      */
+    /* 'new ArrayList<>()': Rust infers the element type from a later insert, which a list only read or cleared lacks */
+    private static boolean emptyCollection(Expression init) {
+        return CstQueries.unwrap(init) instanceof ConstructorCall cc && cc.parameterExpressions().isEmpty()
+               && cc.anonymousClass() == null && !cc.parameterizedType().parameters().isEmpty()
+               && cc.constructor() != null && cc.constructor().typeInfo().compilationUnit().externalLibrary()
+               && RustTypes.mapped(cc.constructor().typeInfo()) != null;
+    }
+
     private static boolean mentionsObject(ParameterizedType type) {
         if (type.typeInfo() != null && type.typeInfo().isJavaLangObject()) return true;
         return type.parameters().stream().anyMatch(RustBodyPrinter::mentionsObject);

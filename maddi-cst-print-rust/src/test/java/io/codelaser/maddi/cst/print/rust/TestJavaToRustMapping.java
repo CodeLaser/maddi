@@ -626,6 +626,10 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
                     sb.append(last);
                     return sb.length() + copy.size();
                 }
+                static String head() {
+                    List<String> l = new ArrayList<>();
+                    return l.removeFirst();
+                }
                 static List<String> all(List<String> in) {
                     List<String> out = new ArrayList<>();
                     in.forEach(out::add);
@@ -652,6 +656,8 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
         contains(rust, "let last = copy.pop().unwrap();");
         contains(rust, "return sb.len() as i32");
         contains(rust, "r#in.iter().for_each(|x| { out.push(x.clone()); });");
+        // nothing is added to l: Rust has no element type to infer
+        contains(rust, "let mut l: Vec<String> = Vec::new();");
         contains(rust, "r#in.iter().for_each(|x| { seen.insert(x.clone()); });");
         assertEquals(List.of(), rustcErrors(), rust);
     }
