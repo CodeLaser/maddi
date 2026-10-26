@@ -3940,7 +3940,8 @@ public class KotlinExpressionPrinter {
     // ---------------------------------------------------------------- assignments
 
     private static OutputBuilder assignmentAsStatement(Assignment a, Qualification q) {
-        OutputBuilder target = variable(a.variableTarget(), q);
+        OutputBuilder target = writtenVarargs(a.variableTarget(), q);
+        if (target == null) target = variable(a.variableTarget(), q);
         OutputBuilder increment = Emission.increment(a, target);
         if (increment != null) return increment;
         String op = a.assignmentOperator() == null ? "=" : a.assignmentOperator().name();
@@ -3970,6 +3971,30 @@ public class KotlinExpressionPrinter {
         return new OutputBuilderImpl().add(target).add(KotlinSymbols.assignment(op))
                 .add(KotlinNullability.toTarget(a.value(), targetType, translated,
                         assigned(a.value(), targetType != null ? targetType : a.variableTarget().parameterizedType(), q), q));
+    }
+
+    /**
+     * guava's Iterators.consumingForArray: {@code elements[index] = null} into the method's own varargs, a Kotlin
+     * {@code Array<out I>} that takes no element. The write goes through the invariant array, {@code (elements as
+     * Array<I?>)[index]}: the same array at runtime. Null for any other target.
+     */
+    private static OutputBuilder writtenVarargs(Variable v, Qualification q) {
+        if (!KotlinContext.translatingJava() || !(v instanceof DependentVariable dv)
+            || !(unwrap(dv.arrayExpression()) instanceof VariableExpression ve) || !(ve.variable() instanceof ParameterInfo pi)
+            || !pi.isVarArgs() || KotlinTypePrinter.varargsAsArray(pi.methodInfo())) {
+            return null;
+        }
+        ParameterizedType array = KotlinNullability.kotlinType(dv.arrayExpression());
+        if (array == null || array.arrays() != 1) array = pi.parameterizedType();
+        ParameterizedType component = array.componentType();
+        if (component == null || component.isPrimitiveExcludingVoid()) return null;
+        KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, dv.arrayExpression(), KotlinContext.describe(dv.arrayExpression()));
+        String invariant = "Array<" + KotlinTypeName.of(component.withNullable(
+                io.codelaser.maddi.cst.api.type.NullableState.NULLABLE), q) + ">";
+        return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(print(dv.arrayExpression(), q))
+                .add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(invariant))
+                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SymbolEnum.LEFT_BRACKET).add(arrayIndex(dv.indexExpression(), q))
+                .add(SymbolEnum.RIGHT_BRACKET);
     }
 
     /** The type a variable was declared with in Kotlin: the nullability verdict's, where there is one. */

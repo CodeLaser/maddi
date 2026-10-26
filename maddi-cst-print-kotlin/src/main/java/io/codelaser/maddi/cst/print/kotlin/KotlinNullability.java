@@ -866,6 +866,15 @@ final class KotlinNullability {
                     .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
                     .add(SymbolEnum.RIGHT_PARENTHESIS);
         }
+        if (targetTranslated && target != null && !(value instanceof NullConstant)
+            && onlyTypeVariableArgumentsNullable(value, target)) {
+            // guava's Iterators.partition: partitionImpl's Iterator<List<@Nullable T>> returned as an
+            // Iterator<List<T>>. Java's annotation is no type, Kotlin's T? is: an unchecked cast, erased
+            KotlinContext.message(KotlinPrintCode.UNCHECKED_CAST, value, KotlinContext.describe(value));
+            return new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(printed).add(SpaceEnum.ONE)
+                    .add(KotlinKeyword.AS).add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(target, q)))
+                    .add(SymbolEnum.RIGHT_PARENTHESIS);
+        }
         if (targetTranslated && testNullAsserted(value, target)) {
             // assertThrows(NullPointerException.class, () -> map.putInstance(null, 1)) into a non-null parameter: the
             // test expects the throw, which `!!` gives; typed, so that overload resolution sees the parameter's type,
@@ -954,6 +963,44 @@ final class KotlinNullability {
     private static boolean typeVariableArgument(ParameterizedType type) {
         return type.arrays() == 0 && type.parameters().stream()
                 .anyMatch(a -> a != null && a.arrays() == 0 && unboundTypeVariable(a) && !isNullable(a));
+    }
+
+    /**
+     * {@code value} has {@code target}'s type but for a type argument, at any depth, that is a type variable nullable in
+     * Kotlin and non-null in {@code target}: {@code Iterator<List<T?>>} into {@code Iterator<List<T>>}. Java's inferred
+     * type says which type variable an argument is (a callee's own T is the caller's T there), Kotlin's its state.
+     */
+    private static boolean onlyTypeVariableArgumentsNullable(Expression value, ParameterizedType target) {
+        ParameterizedType kotlin = kotlinType(value);
+        return kotlin != null && sameButNullableTypeVariables(kotlin, value.parameterizedType(), target, true) == Boolean.TRUE;
+    }
+
+    /** True: the same, but for at least one such argument; false: the same; null: different. */
+    private static Boolean sameButNullableTypeVariables(ParameterizedType kotlin, ParameterizedType java,
+                                                        ParameterizedType target, boolean top) {
+        if (kotlin == null || java == null || target == null || java.arrays() != target.arrays()
+            || kotlin.arrays() != java.arrays() || java.wildcard() != target.wildcard()) {
+            return null;
+        }
+        if (java.typeParameter() != null || target.typeParameter() != null) {
+            if (java.typeParameter() != target.typeParameter()) return null;
+            if (isNullable(kotlin) == isNullable(target)) return false;
+            return !top && isNullable(kotlin) && java.arrays() == 0 ? Boolean.TRUE : null;
+        }
+        if (java.typeInfo() == null || java.typeInfo() != target.typeInfo() || kotlin.typeInfo() != java.typeInfo()
+            || java.parameters().size() != target.parameters().size()
+            || kotlin.parameters().size() != java.parameters().size()
+            || !top && isNullable(kotlin) != isNullable(target)) {
+            return null;
+        }
+        boolean differs = false;
+        for (int i = 0; i < java.parameters().size(); i++) {
+            Boolean d = sameButNullableTypeVariables(kotlin.parameters().get(i), java.parameters().get(i),
+                    target.parameters().get(i), false);
+            if (d == null) return null;
+            differs |= d;
+        }
+        return differs;
     }
 
     /**

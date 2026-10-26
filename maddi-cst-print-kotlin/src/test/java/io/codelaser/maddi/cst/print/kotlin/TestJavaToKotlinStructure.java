@@ -3592,4 +3592,52 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("as Bi<"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's Iterators.consumingForArray: {@code elements[index] = null} into its own varargs. Kotlin's vararg is an
+     * {@code Array<out I?>}, which takes no element; the write goes through the invariant array.
+     */
+    @Test
+    public void varargsElementWritten() {
+        String kotlin = kotlin("""
+                package a.w;
+                import java.util.Iterator;
+                class Consuming {
+                    @SafeVarargs
+                    static <I extends Iterator<?>> I take(I... elements) {
+                        I result = elements[0];
+                        elements[0] = null;
+                        return result;
+                    }
+                }
+                """);
+        contains(kotlin, "(elements as Array<I?>)[0] = null");
+        compiles(kotlin);
+    }
+
+    /**
+     * guava's Iterators.partition: it returns partitionImpl's {@code Iterator<List<@Nullable T>>} as an
+     * {@code Iterator<List<T>>}. Java's annotation is no type; Kotlin's {@code T?} is, and wants the unchecked cast.
+     */
+    @Test
+    public void nullableTypeArgumentReturned() {
+        String kotlin = kotlin("""
+                package a.p;
+                import java.util.ArrayList;
+                import java.util.Iterator;
+                import java.util.List;
+                import org.jspecify.annotations.Nullable;
+                class Parts {
+                    static <T extends @Nullable Object> Iterator<List<T>> partition(Iterator<T> it) {
+                        return padded(it);
+                    }
+                    static <T extends @Nullable Object> Iterator<List<@Nullable T>> padded(Iterator<T> it) {
+                        List<List<@Nullable T>> out = new ArrayList<>();
+                        return out.iterator();
+                    }
+                }
+                """);
+        contains(kotlin, "as MutableIterator<MutableList<T>>)");
+        compiles(kotlin, java.util.List.of("org/jspecify/annotations"));
+    }
 }
