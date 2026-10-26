@@ -692,6 +692,35 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String INITIALIZED_ARRAYS = """
+            package a.b;
+            public class Inits {
+                private static final char[] HEX = {'0', '1'};
+                private final String[] names = {"a", "b"};
+                private final int[][] grid = {{1, 2}, {3}};
+                int sum() {
+                    int[] b = {1, 2};
+                    return b[0] + grid[1][0] + names.length + HEX.length;
+                }
+            }
+            """;
+
+    /** An array initializer, also without {@code new}: a vec of owned elements, nested for a nested array. */
+    @DisplayName("array initializers: compiles")
+    @Test
+    public void initializedArrays() throws Exception {
+        List<TypeInfo> types = parse(INITIALIZED_ARRAYS);
+        unmodifiedField(types.getFirst(), "HEX");
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "vec!['0', '1']");
+        contains(rust, "vec![\"a\".to_string(), \"b\".to_string()]");
+        contains(rust, "vec![vec![1, 2], vec![3]]");
+        contains(rust, "let b = vec![1, 2];");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String APPENDED_T = """
             package a.b;
             import java.util.List;
