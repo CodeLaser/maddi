@@ -85,7 +85,7 @@ final class RustBorrows {
         for (FieldInfo f : typeInfo.fields()) {
             if (f.isStatic() || f.isSynthetic() || !f.isFinal() || f.initializer() != null && !f.initializer().isEmpty()
                 || RustTypes.isCopy(f.type()) || RustTypes.isString(f.type()) || f.type().isTypeParameter()
-                || RustTypes.isImmutableValue(f.type(), facts) || f.type().isFunctionalInterface()) {
+                || RustTypes.isImmutableValue(f.type(), facts) || RustTypes.isFunctional(f.type())) {
                 continue;
             }
             boolean all = true;

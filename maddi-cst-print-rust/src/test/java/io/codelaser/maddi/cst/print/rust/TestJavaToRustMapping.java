@@ -290,6 +290,54 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String PRIMITIVE_FUNCTIONS = """
+            package a.b;
+            import java.util.function.*;
+            public class Functions {
+                static int supply(IntSupplier s) { return s.getAsInt(); }
+                static boolean test(IntPredicate p, int i) { return p.test(i); }
+                static int length(ToIntFunction<String> f, String s) { return f.applyAsInt(s); }
+                static String join(BinaryOperator<String> op, String a, String b) { return op.apply(a, b); }
+                static boolean same(BiPredicate<String, String> p, String a, String b) { return p.test(a, b); }
+                static int combine(IntBinaryOperator op) { return op.applyAsInt(3, 4); }
+                static long widen(IntToLongFunction f) { return f.applyAsLong(5); }
+                static void each(IntConsumer c) { c.accept(1); c.accept(2); }
+                static int all() {
+                    int n = supply(() -> 1) + length(s -> s.length(), "abc") + combine((x, y) -> x * y);
+                    each(i -> System.out.println(i));
+                    if (test(i -> i > 0, n) && same((a, b) -> a.equals(b), "x", join((a, b) -> a + b, "", "x"))) {
+                        return (int) widen(i -> i * 2L);
+                    }
+                    return n;
+                }
+            }
+            """;
+
+    /**
+     * The primitive specializations of {@code java.util.function} and the interfaces without a closure of their own
+     * ({@code BinaryOperator}, {@code BiPredicate}, {@code ToIntFunction}) are the closure their method describes: a
+     * primitive by value, a type argument borrowed, a {@code void} method an {@code FnMut}.
+     */
+    @DisplayName("row 13b: IntSupplier, ToIntFunction, BinaryOperator, … are closures of their method's shape: compiles")
+    @Test
+    public void primitiveFunctions() throws Exception {
+        List<TypeInfo> types = parse(PRIMITIVE_FUNCTIONS);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn supply(mut s: Box<dyn Fn() -> i32>) -> i32 {");
+        contains(rust, "pub fn test(mut p: Box<dyn Fn(i32) -> bool>, i: i32) -> bool {");
+        contains(rust, "pub fn length(mut f: Box<dyn Fn(&str) -> i32>,");
+        contains(rust, "return (f)(&s);");
+        contains(rust, "pub fn join(mut op: Box<dyn Fn(&str, &str) -> String>,");
+        contains(rust, "pub fn same(mut p: Box<dyn Fn(&str, &str) -> bool>,");
+        contains(rust, "pub fn combine(mut op: Box<dyn Fn(i32, i32) -> i32>) -> i32 {");
+        contains(rust, "pub fn widen(mut f: Box<dyn Fn(i32) -> i64>) -> i64 {");
+        contains(rust, "pub fn each(mut c: Box<dyn FnMut(i32)>) {");
+        contains(rust, "Self::combine(Box::new(|x: i32, y: i32| x * y))");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

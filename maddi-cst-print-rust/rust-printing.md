@@ -169,6 +169,12 @@ Analyzer issues the oracle found, each with a minimal repro:
   interface is expected has its parameters typed, which rustc cannot infer for a `dyn` target; a kept one is a
   `Box::new(...)`. A stored listener that captures `self` mutably (an observer registering itself) is aliasing plus
   modification: rustc's E0500/E0501, which the strict printer leaves.
+- A `java.util.function` interface is a `dyn Fn…`: `Supplier`, `Function`, `Consumer` (an `FnMut`) and their kin by
+  hand, every other one (`IntSupplier`, `IntPredicate`, `ToIntFunction`, `IntBinaryOperator`, `BiPredicate`, …) from
+  the abstract method it declares: a primitive by value, a type argument borrowed, a `void` method an `FnMut`. A
+  `String` argument is borrowed as `&str`, as a `String` parameter is, and calling the closure borrows what it is
+  passed. The in-memory parse of the tests leaves these types lazily loaded, without a single abstract method; the
+  printer knows them by package.
 - `src/jrt.rs`, written with every crate, holds what `std` has no counterpart for: `String.valueOf(Object)` of a
   `Box<dyn Any>` (the values the translation boxes), `String.hashCode()`.
 - A nullable value where `Option<&str>` is expected is `None`, `.as_deref()` or `.map(|s| s.as_str())`; one stored in

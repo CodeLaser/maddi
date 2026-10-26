@@ -189,7 +189,7 @@ final class RustBodyPrinter {
             String type = RustTypes.option(RustTypes.owned(lv.parameterizedType(), context, lvc), nullable);
             return "let " + (reassigned ? "mut " : "") + name + ": " + type;
         }
-        Printed value = isClosure(init) && lv.parameterizedType().isFunctionalInterface()
+        Printed value = isClosure(init) && RustTypes.isFunctional(lv.parameterizedType())
                 ? closure(init, lv.parameterizedType()) : widen(expression(init), init, lv.parameterizedType());
         nullable |= value.nullable;
         nullableLocals.put(lv, nullable);
@@ -1321,7 +1321,7 @@ final class RustBodyPrinter {
         // a type parameter takes the argument's own type: Pair<String>'s T is a String, owned
         ParameterizedType type = pi.parameterizedType().isTypeParameter() && argument.parameterizedType().typeInfo() != null
                 ? argument.parameterizedType() : pi.parameterizedType();
-        if (isClosure(argument) && type.isFunctionalInterface()) {
+        if (isClosure(argument) && RustTypes.isFunctional(type)) {
             Printed c = closure(argument, type);
             // a closure kept by the callee is a Box<dyn ...>; one it only calls is borrowed as a &dyn
             return switch (context.passing(pi)) {
@@ -1470,7 +1470,7 @@ final class RustBodyPrinter {
      * ({@code Box<dyn Any>}) and the value is not.
      */
     String ownedAs(Expression e, ParameterizedType target) {
-        if (target != null && isClosure(e) && target.isFunctionalInterface()) {
+        if (target != null && isClosure(e) && RustTypes.isFunctional(target)) {
             return "Box::new(" + closure(e, target).text + ")";
         }
         Printed p = expression(e);
@@ -1488,7 +1488,7 @@ final class RustBodyPrinter {
 
     /** What a field of {@code type} is initialized with: owned, and in {@code Some} when the field is nullable. */
     String fieldValue(Expression e, ParameterizedType type, boolean nullable) {
-        if (isClosure(e) && type.isFunctionalInterface()) {
+        if (isClosure(e) && RustTypes.isFunctional(type)) {
             String boxed = "Box::new(" + closure(e, type).text + ")";
             return nullable ? "Some(" + boxed + ")" : boxed;
         }
