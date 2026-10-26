@@ -1267,6 +1267,9 @@ final class RustBodyPrinter {
                     // an element is never an Option: Java's null in the result, a panic here
                     context.message(RustPrintCode.UNWRAP_AT_DEREFERENCE, single, body);
                     body = owned(new Printed(body + ".unwrap()", p.held, false), single.parameterizedType());
+                } else if (p.held == Held.STR && RustTypes.isString(single.parameterizedType())) {
+                    // a closure's String result is owned: 'x -> "s"' in a stream mapped to a List<String>
+                    body = owned(p, single.parameterizedType());
                 }
                 return value("|" + params + "| " + body);
             }
