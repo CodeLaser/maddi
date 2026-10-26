@@ -258,6 +258,9 @@ final class RustBodyPrinter {
         } else {
             text = owned(value, method.returnType());
         }
+        if (RustTypes.streamItem(method.returnType(), context, method) != null && !text.startsWith("Box::new(")) {
+            text = "Box::new(" + text + ")"; // the chain's own iterator type, behind the declared dyn Iterator
+        }
         if (nullable && !value.nullable && !(e instanceof NullConstant)) text = "Some(" + text + ")";
         if (!nullable && value.nullable) {
             // the verdict says the result is never null: Java's value is used as it is, Rust's unwrapped

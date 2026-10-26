@@ -130,6 +130,10 @@ final class RustTypes {
         if (type.isVoid()) return "()";
         TypeInfo ti = type.typeInfo();
         if (form == Form.SHARED && isString(type)) return "&str";
+        if (form != Form.OWNED && ti != null && type.arrays() == 0 && streamItem(type, context, where) != null) {
+            // a stream parameter is consumed, as Java's is: any iterator of the items
+            return "impl Iterator<Item = " + streamItem(type, context, where) + ">";
+        }
         if (form != Form.OWNED && ti != null && type.arrays() == 0 && isEntry(ti)) {
             return (form == Form.SHARED ? "&" : "&mut ") + owned(type, context, where);
         }
@@ -169,6 +173,8 @@ final class RustTypes {
             return "Box<dyn Any>";
         }
         if (isFunctional(ti)) return "Box<" + function(type, context, where) + ">";
+        String item = streamItem(type, context, where);
+        if (item != null) return "Box<dyn Iterator<Item = " + item + ">>";
         if (isEntry(ti)) {
             // a map's entry is the (key, value) pair its iteration yields; getKey/getValue are .0/.1 (RustJdk.entry)
             List<ParameterizedType> kv = type.parameters();
@@ -178,6 +184,23 @@ final class RustTypes {
         }
         if (isInterface(ti)) return "Box<dyn " + named(type, context, where) + ">";
         return named(type, context, where);
+    }
+
+    /**
+     * The item of a {@code java.util.stream} stream, which the body prints as an iterator chain: {@code Stream<T>}'s
+     * {@code T}, {@code IntStream}'s {@code i32}; {@code null} for another type.
+     */
+    static String streamItem(ParameterizedType type, RustContext context, Element where) {
+        TypeInfo ti = type.typeInfo();
+        if (ti == null || type.arrays() > 0) return null;
+        return switch (ti.fullyQualifiedName()) {
+            case "java.util.stream.Stream" -> type.parameters().size() == 1 ? owned(type.parameters().getFirst(), context, where)
+                    : null;
+            case "java.util.stream.IntStream" -> "i32";
+            case "java.util.stream.LongStream" -> "i64";
+            case "java.util.stream.DoubleStream" -> "f64";
+            default -> null;
+        };
     }
 
     /** {@code Map.Entry} and its JDK implementations: a tuple. */

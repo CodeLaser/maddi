@@ -868,6 +868,10 @@ final class RustTypePrinter {
         boolean borrows = context.facts.resultBorrowsReceiver(m) && receiver != Receiver.NONE
                           && !RustTypes.isCopy(m.returnType());
         String type = RustTypes.type(m.returnType(), borrows ? Form.SHARED : Form.OWNED, context, m);
+        if (receiver != Receiver.NONE && RustTypes.streamItem(m.returnType(), context, m) != null) {
+            // a stream over the object's contents borrows it
+            type = type.replaceFirst(">>$", "> + '_>");
+        }
         return " -> " + RustTypes.option(type, RustFacts.nullable(context.facts.returnType(m)));
     }
 

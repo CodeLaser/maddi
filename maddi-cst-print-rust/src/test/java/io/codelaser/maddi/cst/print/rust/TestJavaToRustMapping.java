@@ -504,6 +504,37 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String STREAMS = """
+            package a.b;
+            import java.util.List;
+            import java.util.stream.Stream;
+            public class Names {
+                private final List<String> names;
+                public Names(List<String> names) { this.names = names; }
+                public Stream<String> longOnes() { return names.stream().filter(n -> n.length() > 3); }
+                public static long count(Stream<String> s) { return s.count(); }
+            }
+            """;
+
+    /**
+     * A stream is an iterator chain: {@code Box<dyn Iterator<Item = T>>}, {@code + '_} as a method's result (it borrows
+     * the object), {@code impl Iterator} as a borrowed parameter.
+     */
+    @DisplayName("Stream<T> as a declared type is a dyn Iterator, boxed where returned: compiles")
+    @Test
+    public void streamsAsIterators() throws Exception {
+        List<TypeInfo> types = parse(STREAMS);
+        TypeInfo names = types.getFirst();
+        nonModifying(names, "longOnes");
+        kept(names.constructors().getFirst().parameters().getFirst(), ValueImpl.IndependentImpl.DEPENDENT);
+        translate(types);
+        String rust = module("a.b");
+        contains(rust, "pub fn long_ones(&self) -> Box<dyn Iterator<Item = String> + '_> {");
+        contains(rust, "pub fn count(mut s: Box<dyn Iterator<Item = String>>) -> i64 {");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String PAIR = """
             package a.b;
             public record Pair<T>(T left, T right) {

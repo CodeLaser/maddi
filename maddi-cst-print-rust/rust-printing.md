@@ -196,6 +196,9 @@ Analyzer issues the oracle found, each with a minimal repro:
   `Eq + std::hash::Hash` as a `HashSet` element or `HashMap` key, `Ord` for the sorted ones and `compareTo`,
   `PartialEq` for `==`, `equals`, `contains`, `indexOf`, `std::fmt::Display` in a string, `Clone` for a copy of a
   collection of them or as the argument of an `@Immutable(hc=true)` type. A struct declaration carries none.
+- A `Stream<T>` (`IntStream`: `i32`, …) as a declared type is the iterator chain the body prints:
+  `Box<dyn Iterator<Item = T>>`, `+ '_` as the result of a method on the object, `impl Iterator<Item = T>` as a
+  borrowed parameter; a returned chain is boxed.
 - A `Map.Entry` is the `(K, V)` tuple a map's iteration yields; `new SimpleEntry<>(k, v)` and `Map.entry(k, v)` build
   one, `getKey()`/`getValue()` are `.0`/`.1`.
 - `System.exit`, `lineSeparator`, `arraycopy` (`clone_from_slice`, `copy_within` inside one array);
