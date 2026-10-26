@@ -2440,6 +2440,29 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("describe(c)!!"), kotlin);
     }
 
+    @Language("java")
+    private static final String CAST_GENERIC_ARGUMENT = """
+            package a;
+            import java.util.*;
+            class Guard {
+                Guard(String text, List<String> failures) { }
+                Guard(Integer code, List<String> others) { }
+                Guard() { this("ok", Collections.emptyList()); }
+            }
+            """;
+
+    /**
+     * langchain4j's OutputGuardrailResult: {@code this(…, Collections.emptyList())} into a nullable {@code failures}
+     * beside a constructor taking the list non-null. The cast that keeps Java's choice leaves {@code emptyList} no
+     * expected type, so its type argument is written.
+     */
+    @Test
+    public void castGenericArgument() {
+        String kotlin = kotlin(CAST_GENERIC_ARGUMENT, new KotlinPrintOptions(new ByName(Set.of("failures")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "(Collections.emptyList<String>() as MutableList<String>?)");
+    }
+
     private static final String SMART_CASTS = """
             package a;
             class SC {

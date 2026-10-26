@@ -1497,7 +1497,17 @@ public class KotlinExpressionPrinter {
                 // nacos's AbstractNacosRestTemplate: handlers.put(type, new BeanResponseHandler()) into a
                 // Map<String, ResponseHandler>, whose raw V fixes no type arguments
                 Expression arg = args.get(i);
-                OutputBuilder widenedArgument = intoRawTarget(arg, declared, () -> widened(arg, widenTo, q));
+                // langchain4j's OutputGuardrailResult: this(…, Collections.emptyList()) cast below to keep Java's
+                // overload; a cast's operand has no expected type, so emptyList's type argument is written
+                boolean overloadCast = hasParameter && castable(method, i)
+                                       && !covariantArrayArgument(method, i, arg) && !nullableElementsParameter(method, i, arg)
+                                       && !varargsIntoArray(method, i, arg)
+                                       && (nullabilityTiesOverload(method, i, arg) || boxedIntoReference(method, i, arg)
+                                           || collectionBesideObject(method, i) || nullableBesideVarargs(method, i));
+                ParameterizedType rawTarget = declared;
+                OutputBuilder widenedArgument = overloadCast
+                        ? withoutExpectedType(arg, () -> intoRawTarget(arg, rawTarget, () -> widened(arg, widenTo, q)))
+                        : intoRawTarget(arg, declared, () -> widened(arg, widenTo, q));
                 // langchain4j's getOrDefault(parameters.modelName(), modelName) into <T> getOrDefault(T?, T): the
                 // callee's unbounded T is instantiated nullable at this call, as Java's erasure lets the null through;
                 // `!!` would throw
