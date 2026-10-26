@@ -877,8 +877,29 @@ public class CountAccess<K> {
 Nevertheless, we introduce the following rule which does distinguish between modifications on static and instance types:
 
 ****
-When static modifying methods are called, on a field not belonging to the primary type, any of its enclosing types, or any of its parent types, or directly on a type different from the primary type, any of its enclosing types, or parent types, we classify the modification as a _static side effect_.
+When a method modifies the static state of a type -- it assigns one of that type's static fields, calls a modifying method on one, or calls a method or constructor that does either, transitively -- and that type is neither the method's primary type, nor any of its enclosing types, nor any of its parent types, we classify the modification as a _static side effect_.
 ****
+
+The callee may be static or not, or a constructor: what counts is whose static state changes, not how it is reached.
+A type modifying its own static state has no static side effect, but its callers in other types do:
+
+.Example {counter:example}, own static state, seen from another type
+[source,java]
+----
+class Counter {
+    private static int count;
+    static int next() { return ++count; } // <1>
+}
+class Client {
+    @StaticSideEffects // <2>
+    static int twice() { return Counter.next() + Counter.next(); }
+}
+----
+
+<1> Counter's own static state: not a static side effect.
+<2> Not Client's: a static side effect. Constructing a `HasUniqueIdentifier` from another type is one too.
+
+The analyzer records, per method, the set of types whose static state it modifies (its own included); the static side effect is the part of that set the method does not own.
 
 This is still consistent with the rules of immutable types, which only look at the fields and assume that when methods do not modify the fields, they are actually non-modifying.
 Without an {ignoreModifications} annotation on the field `System.out` (which we would typically add), printing to the console results in
@@ -1033,8 +1054,7 @@ add, `println` is {sse}; with it, the effect is sanctioned hidden content.
 === Recognising an invisible escape: the safe-surface contract
 
 For a source method the analyzer _computes_ the {sse}: it sees the assignment to, or the modifying call on,
-another type's static field.
-(The computation is behind the `SSE` environment gate until a broader corpus A/B clears it; the containment arm of the guard is silent without it.)
+another type's static field, and the static state its callees modify.
 But the sharpest escape is invisible from source.
 `System.setOut(other)` replaces the process-wide `System.out`; nothing in the JDK source the analyzer can reach
 says so, and its own body is empty to us.

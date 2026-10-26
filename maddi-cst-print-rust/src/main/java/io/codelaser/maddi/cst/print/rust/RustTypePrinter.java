@@ -543,21 +543,12 @@ final class RustTypePrinter {
     }
 
     /**
-     * A method with static side effects, by its verdict, or one that touches its own type's {@code static mut}: an
-     * {@code unsafe fn}, its body an {@code unsafe} block. A call of it from a method that is neither is rustc's E0133.
+     * A method that touches a {@code static mut}, of any type, or calls one that does, or has static side effects by
+     * its verdict ({@link RustUnsafety}): an {@code unsafe fn}, its body an {@code unsafe} block. A call of it from a
+     * method that is not is rustc's E0133.
      */
     static boolean unsafeMethod(MethodInfo m, RustContext context) {
-        if (context.facts.staticSideEffects(m)) return true;
-        if (m.methodBody() == null) return false;
-        boolean[] found = {false};
-        m.methodBody().visit(e -> {
-            if (e instanceof VariableExpression ve && ve.variable() instanceof FieldReference fr
-                && fr.fieldInfo().owner() == m.typeInfo() && mutableStaticValue(fr.fieldInfo(), context) != null) {
-                found[0] = true;
-            }
-            return !found[0];
-        });
-        return found[0];
+        return context.unsafety.unsafe(m, context);
     }
 
     /** The module-level name of a {@link #lazyStatic} field: its owner's name and its own. */
