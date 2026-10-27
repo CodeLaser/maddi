@@ -5064,8 +5064,8 @@
  {"name": "MtoMap(33,java.lang.Iterable,M)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MtoMap(34,java.util.Map)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MtoMap(34,java.util.Map)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "P$this$toMap(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
  {"name": "MtoMap(35,java.util.Map,M)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "P$this$toMap(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Pdestination(1)", "data":{"containerParameter":1,"unmodifiedParameter":0}}]},

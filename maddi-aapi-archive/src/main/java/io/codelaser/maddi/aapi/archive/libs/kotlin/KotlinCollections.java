@@ -770,6 +770,13 @@ public class KotlinCollections {
             return null;
         }
 
+        /* a fresh read-only copy ('val entries = entries.toMap()'): shares the receiver's keys and values */
+        @Independent(hc = true)
+        @NotNull
+        static <K, V> Map<K, V> toMap(@NotModified Map<? extends K, ? extends V> receiver) {
+            return null;
+        }
+
         @Independent(hc = true)
         @NotNull
         static <K, V> Map<K, V> plus(@NotModified Map<? extends K, ? extends V> receiver, @NotModified Pair<? extends K, ? extends V> pair) {
