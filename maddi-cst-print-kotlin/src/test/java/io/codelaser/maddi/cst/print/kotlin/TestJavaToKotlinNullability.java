@@ -3437,4 +3437,34 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("MutableSet<*>"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's Iterators.filter: inside the anonymous AbstractIterator, {@code retainIfTrue.apply(element)} hands a
+     * nullable element of filter's own T, an enclosing method's, to a {@code Predicate<? super T>}. Java passes the
+     * null through, as for any T; {@code !!} would throw (guava's null-element collection tests).
+     */
+    @Test
+    public void enclosingMethodTypeVariableArgument() {
+        String kotlin = kotlin("""
+                package a.f;
+                import java.util.Iterator;
+                import java.util.function.Predicate;
+                class Filters {
+                    interface Next<T> { T next(); }
+                    static <T> Next<T> filter(Iterator<T> unfiltered, Predicate<? super T> retainIfTrue) {
+                        return new Next<T>() {
+                            public T next() {
+                                while (unfiltered.hasNext()) {
+                                    T element = unfiltered.next();
+                                    if (retainIfTrue.test(element)) return element;
+                                }
+                                return null;
+                            }
+                        };
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("element", "next()")), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("element!!"), kotlin);
+        compiles(kotlin);
+    }
 }

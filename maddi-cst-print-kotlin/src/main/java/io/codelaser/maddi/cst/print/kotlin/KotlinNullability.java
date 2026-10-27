@@ -1038,9 +1038,12 @@ final class KotlinNullability {
         io.codelaser.maddi.cst.api.info.TypeParameter tp = type.typeParameter();
         if (tp.typeBounds().stream().anyMatch(b -> !b.isJavaLangObject())) return false;
         if (!tp.isMethodTypeParameter()) return true;
-        // a method's: only the current one's, whose bound is known here (a callee's may be printed T : Any)
+        // a method's: only the current one's or an enclosing one's, whose bound is known here (a callee's may be
+        // printed T : Any). guava's Iterators.filter: filter's T in the computeNext of its anonymous AbstractIterator
         MethodInfo method = KotlinContext.currentMethod();
-        return method != null && method.typeParameters().contains(tp) && !KotlinMethodPrinter.nonNullBound(method, tp);
+        if (method != null && method.typeParameters().contains(tp)) return !KotlinMethodPrinter.nonNullBound(method, tp);
+        MethodInfo enclosing = KotlinContext.enclosingMethodOf(tp);
+        return enclosing != null && !KotlinMethodPrinter.nonNullBound(enclosing, tp);
     }
 
     /** What a for-each loops over: {@code xs!!} when Kotlin types it nullable (a loop over null throws in Java too). */

@@ -303,6 +303,13 @@ final class KotlinContext {
                && STATE.get().methods().stream().anyMatch(m -> m.typeParameters().contains(typeParameter));
     }
 
+    /** The method being printed, or one enclosing it, that declares {@code typeParameter}; null when none does. */
+    static io.codelaser.maddi.cst.api.info.MethodInfo enclosingMethodOf(
+            io.codelaser.maddi.cst.api.info.TypeParameter typeParameter) {
+        return STATE.get().methods().stream().filter(m -> m.typeParameters().contains(typeParameter))
+                .findFirst().orElse(null);
+    }
+
     /** {@code x instanceof T t}: from here on, {@code t} prints as {@code replacement}. */
     static void patternVariable(Variable variable, Supplier<OutputBuilder> replacement) {
         PATTERNS.get().put(variable.simpleName(), replacement);
