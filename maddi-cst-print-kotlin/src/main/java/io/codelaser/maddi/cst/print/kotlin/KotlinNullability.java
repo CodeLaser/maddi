@@ -287,7 +287,25 @@ final class KotlinNullability {
         if (!methodInfo.returnType().isTypeParameter() || methodInfo.returnType().arrays() > 0) return false;
         if (kotlinNullableMapResult(methodInfo)) return false;
         return methodInfo.overrides().stream().anyMatch(m -> m.returnType().isTypeParameter()
-                && declaredInKotlin(m.typeInfo()) && !isNullable(declaredReturnType(m)));
+                && declaredInKotlin(m.typeInfo()) && !isNullable(declaredReturnType(m))
+                && !nullablyInstantiated(methodInfo.typeInfo(), m));
+    }
+
+    /**
+     * guava's ArrayTable: {@code Row extends ArrayMap<C, @Nullable V>}, a direct supertype of {@code type} that
+     * instantiates the type variable {@code overridden} returns nullable. Kotlin's {@code ArrayMap<C, V?>} then
+     * declares {@code getValue(): V?} for Row, and the override may return {@code V?}.
+     */
+    private static boolean nullablyInstantiated(TypeInfo type, MethodInfo overridden) {
+        io.codelaser.maddi.cst.api.info.TypeParameter tp = overridden.returnType().typeParameter();
+        int index = overridden.typeInfo().typeParameters().indexOf(tp);
+        if (index < 0) return false;
+        List<ParameterizedType> supertypes = new java.util.ArrayList<>();
+        if (type.parentClass() != null) supertypes.add(KotlinTypePrinter.parentClass(type));
+        supertypes.addAll(type.interfacesImplemented());
+        return supertypes.stream().filter(s -> s != null && s.typeInfo() == overridden.typeInfo())
+                .map(KotlinTypePrinter::declaredArguments)
+                .anyMatch(s -> index < s.parameters().size() && isNullable(s.parameters().get(index)));
     }
 
     /**

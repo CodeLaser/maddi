@@ -3496,4 +3496,30 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("next()!!"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's ArrayTable: {@code Row extends ArrayMap<C, @Nullable V>} overrides ArrayMap's {@code abstract V
+     * getValue(int)} with a nullable {@code at(…)}. ArrayMap's V is non-null, but Row's class instantiates it
+     * nullable, so {@code getValue(): V?} is a legal override; keeping {@code V} and casting threw on a null cell.
+     */
+    @Test
+    public void overrideOfNullablyInstantiatedTypeVariable() {
+        String kotlin = kotlin("""
+                package a.t;
+                class Grid<V> {
+                    abstract static class Slots<W> {
+                        abstract W getValue(int index);
+                        W get(int index) { return getValue(index); }
+                    }
+                    V at(int index) { return null; }
+                    class Row extends Slots<V> {
+                        V getValue(int index) { return at(index); }
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("super:Row", "Row.getValue()", "at()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun getValue(index: Int): V?");
+        assertFalse(kotlin.contains("as V)"), kotlin);
+        compiles(kotlin);
+    }
 }
