@@ -194,7 +194,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             } else {
                 out.add(KeywordImpl.CLASS);
             }
-            out.add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.name(typeInfo.simpleName())));
+            out.add(SpaceEnum.ONE).add(new TextImpl(simpleName(typeInfo)));
 
             if (!typeInfo.typeParameters().isEmpty()) {
                 out.add(SymbolEnum.LEFT_ANGLE_BRACKET);
@@ -913,6 +913,28 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     private static boolean memberOfAnonymous(TypeInfo typeInfo) {
         TypeInfo enclosing = CstQueries.enclosing(typeInfo);
         return enclosing != null && enclosing.isAnonymous() && typeInfo.enclosingMethod() == null;
+    }
+
+    /**
+     * A type's simple name, escaped. kotlinc names a local class after its method only, so the local classes of the
+     * same name in the overloads of one method share a JVM class name (guava's Streams: a class Splitr in each of the
+     * four mapWithIndex overloads). All but the first of them, in declaration order, take a number.
+     */
+    static String simpleName(TypeInfo typeInfo) {
+        MethodInfo method = typeInfo.enclosingMethod();
+        if (method == null || method.isConstructor() || !isLocal(typeInfo)) return KotlinNames.name(typeInfo.simpleName());
+        List<TypeInfo> sameName = new ArrayList<>();
+        method.typeInfo().methods().stream().filter(m -> m.name().equals(method.name()) && m.methodBody() != null)
+                .forEach(m -> m.methodBody().visit((Element e) -> {
+                    if (e instanceof io.codelaser.maddi.cst.api.statement.LocalTypeDeclaration ltd
+                        && ltd.typeInfo().simpleName().equals(typeInfo.simpleName())
+                        && ltd.typeInfo().enclosingMethod() == m) {
+                        sameName.add(ltd.typeInfo());
+                    }
+                    return true;
+                }));
+        int index = sameName.indexOf(typeInfo);
+        return KotlinNames.name(index <= 0 ? typeInfo.simpleName() : typeInfo.simpleName() + (index + 1));
     }
 
     static boolean isLocal(TypeInfo typeInfo) {

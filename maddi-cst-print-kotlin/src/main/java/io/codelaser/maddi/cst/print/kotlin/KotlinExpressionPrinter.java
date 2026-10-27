@@ -274,9 +274,9 @@ public class KotlinExpressionPrinter {
         if (explicit == null && IN_ANONYMOUS_SUPER_ARGUMENTS.get() && t.typeInfo() != null && !t.typeInfo().isAnonymous()) {
             // guava's Joiner.useForNull: new Joiner(this) { … }. In an object expression's supertype call, Kotlin's
             // this is not the enclosing instance
-            return "this@" + t.typeInfo().simpleName();
+            return "this@" + KotlinTypePrinter.simpleName(t.typeInfo());
         }
-        return explicit == null ? "this" : "this@" + explicit.simpleName();
+        return explicit == null ? "this" : "this@" + KotlinTypePrinter.simpleName(explicit);
     }
 
     private static final ThreadLocal<Boolean> IN_ANONYMOUS_SUPER_ARGUMENTS = ThreadLocal.withInitial(() -> false);
@@ -299,7 +299,7 @@ public class KotlinExpressionPrinter {
                 && KotlinFieldPrinter.mappedPropertyOf(current, fr.fieldInfo().name())) {
                 // guava's DenseImmutableTable.Column, an inner ImmutableMap: Java's values is the outer table's field,
                 // Kotlin's the inherited Map.values property
-                return text("this@" + owner.simpleName() + "." + name);
+                return text("this@" + KotlinTypePrinter.simpleName(owner) + "." + name);
             }
             return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name()) ? "this." + name : name);
         }
@@ -3539,7 +3539,7 @@ public class KotlinExpressionPrinter {
      * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve.
      */
     private static String simpleInner(String constructed, TypeInfo inner) {
-        String simple = KotlinNames.name(inner.simpleName());
+        String simple = KotlinTypePrinter.simpleName(inner);
         int lt = constructed.indexOf('<');
         String head = lt < 0 ? constructed : constructed.substring(0, lt);
         return head.endsWith("." + simple) ? simple + (lt < 0 ? "" : constructed.substring(lt)) : constructed;

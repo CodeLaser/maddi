@@ -509,8 +509,10 @@ public class KotlinTypeName {
         if (typeInfo.isPrimaryType() && shadowsKotlinBuiltIn(typeInfo.fullyQualifiedName())) {
             return KotlinNames.dotted(typeInfo.fullyQualifiedName());
         }
-        if (innerOfGenericInScope(typeInfo)) return KotlinNames.name(typeInfo.simpleName());
-        if (q == null) return KotlinNames.name(typeInfo.simpleName());
+        if (innerOfGenericInScope(typeInfo) || q == null || typeInfo.enclosingMethod() != null
+                                                           && KotlinTypePrinter.isLocal(typeInfo)) {
+            return KotlinTypePrinter.simpleName(typeInfo);
+        }
         String minimal = TypeNameImpl.typeName(typeInfo, q.qualifierRequired(typeInfo), false).minimal();
         if (minimal.indexOf('.') < 0 && notInKotlinScope(typeInfo)) {
             // @ReflectionSupport(ReflectionSupport.Level.FULL) on guava's AbstractFuture: Java's simple name, where

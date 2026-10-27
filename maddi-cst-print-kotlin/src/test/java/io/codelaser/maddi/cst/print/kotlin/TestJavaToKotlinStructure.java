@@ -3687,4 +3687,30 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         compiles(kotlin);
     }
+
+    /** guava's Streams.mapWithIndex: kotlinc names a local class after its method, not after the overload. */
+    @Test
+    public void sameNamedLocalClassesInOverloads() {
+        String kotlin = kotlin("""
+                package a.t;
+                class Streams {
+                    static int map(String s) {
+                        class Splitr {
+                            int n() { return s.length(); }
+                        }
+                        Splitr splitr = new Splitr();
+                        return splitr.n();
+                    }
+                    static int map(int i) {
+                        class Splitr {
+                            int n() { return i; }
+                            int twice() { return Splitr.this.n() * 2; }
+                        }
+                        return new Splitr().twice();
+                    }
+                }
+                """);
+        assertTrue(kotlin.contains("class Splitr2"), kotlin);
+        compiles(kotlin);
+    }
 }
