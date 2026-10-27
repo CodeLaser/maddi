@@ -3661,4 +3661,27 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
         contains(kotlin, "supertype as Class<Any?>)");
         compiles(kotlin);
     }
+
+    /**
+     * guava's TypeToken.getArraySupertype: {@code componentType.getSupertype(supertype.getComponentType())} on a raw
+     * {@code TypeToken} local. Java's raw receiver erases the parameter to a raw {@code Class}; Kotlin's
+     * {@code TypeToken<Any?>} wants a {@code Class<in Any?>}, which the {@code Class<*>} argument is not.
+     */
+    @Test
+    public void rawReceiverSuperWildcardArgument() {
+        String kotlin = kotlin("""
+                package a.c;
+                class Token<T> {
+                    Token<? super T> getSupertype(Class<? super T> superclass) { return this; }
+                    Token<?> getComponentType() { return this; }
+                    @SuppressWarnings({"rawtypes", "unchecked"})
+                    Token<?> arraySupertype(Class<? super T> supertype) {
+                        Token componentType = getComponentType();
+                        Token<?> componentSupertype = componentType.getSupertype(supertype.getComponentType());
+                        return componentSupertype;
+                    }
+                }
+                """);
+        compiles(kotlin);
+    }
 }

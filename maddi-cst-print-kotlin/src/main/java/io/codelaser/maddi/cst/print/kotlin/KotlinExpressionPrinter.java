@@ -3352,6 +3352,13 @@ public class KotlinExpressionPrinter {
             return null;
         }
         io.codelaser.maddi.cst.api.info.MethodInfo method = call.methodInfo();
+        if (call.object() != null && rawReceiver(call.object(), method) && i < method.parameters().size()) {
+            // guava's TypeToken: componentType.getSupertype(supertype.getComponentType()) on a raw TypeToken, cast to
+            // TypeToken<Any?>, whose Class<in Any?> parameter no Class<*> is. Java's raw call takes a raw Class
+            ParameterizedType p = method.parameters().get(i).parameterizedType();
+            ParameterizedType anyInSuper = superWildcardsAsAny(p);
+            if (anyInSuper != p && !CstQueries.mentionsAny(anyInSuper, method.typeInfo().typeParameters())) return anyInSuper;
+        }
         if (call.object() != null && rawReceiver(call.object(), method) && unwrap(arg) instanceof MethodCall argCall
             && argCall.methodInfo() != null && !argCall.methodInfo().typeParameters().isEmpty()
             && argCall.typeArguments().isEmpty()) {
