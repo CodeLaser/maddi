@@ -294,18 +294,41 @@ final class KotlinNullability {
     /**
      * guava's ArrayTable: {@code Row extends ArrayMap<C, @Nullable V>}, a direct supertype of {@code type} that
      * instantiates the type variable {@code overridden} returns nullable. Kotlin's {@code ArrayMap<C, V?>} then
-     * declares {@code getValue(): V?} for Row, and the override may return {@code V?}.
+     * declares {@code getValue(): V?} for Row, and the override may return {@code V?}. Also through intermediate
+     * supertypes: ArrayTable's anonymous {@code Tables.AbstractCell<R, C, @Nullable V>} overrides
+     * {@code Table.Cell<R, C, V>.getValue()}, AbstractCell passing its own V on.
      */
     private static boolean nullablyInstantiated(TypeInfo type, MethodInfo overridden) {
         io.codelaser.maddi.cst.api.info.TypeParameter tp = overridden.returnType().typeParameter();
         int index = overridden.typeInfo().typeParameters().indexOf(tp);
         if (index < 0) return false;
+        return directSupertypes(type).stream().map(s -> instantiation(s, overridden.typeInfo(), index))
+                .anyMatch(a -> a != null && isNullable(a));
+    }
+
+    private static List<ParameterizedType> directSupertypes(TypeInfo type) {
         List<ParameterizedType> supertypes = new java.util.ArrayList<>();
         if (type.parentClass() != null) supertypes.add(KotlinTypePrinter.parentClass(type));
         supertypes.addAll(type.interfacesImplemented());
-        return supertypes.stream().filter(s -> s != null && s.typeInfo() == overridden.typeInfo())
-                .map(KotlinTypePrinter::declaredArguments)
-                .anyMatch(s -> index < s.parameters().size() && isNullable(s.parameters().get(index)));
+        supertypes.removeIf(java.util.Objects::isNull);
+        return supertypes;
+    }
+
+    /**
+     * The argument {@code supertype}, as declared, gives the {@code index}th type parameter of {@code target}, one of
+     * its own supertypes or itself; null when it does not reach {@code target}.
+     */
+    private static ParameterizedType instantiation(ParameterizedType supertype, TypeInfo target, int index) {
+        List<ParameterizedType> arguments = KotlinTypePrinter.declaredArguments(supertype).parameters();
+        if (supertype.typeInfo() == target) return index < arguments.size() ? arguments.get(index) : null;
+        for (ParameterizedType further : directSupertypes(supertype.typeInfo())) {
+            ParameterizedType a = instantiation(further, target, index);
+            if (a == null) continue;
+            if (isNullable(a) || !a.isTypeParameter()) return a;
+            int own = supertype.typeInfo().typeParameters().indexOf(a.typeParameter());
+            return own >= 0 && own < arguments.size() ? arguments.get(own) : a;
+        }
+        return null;
     }
 
     /**

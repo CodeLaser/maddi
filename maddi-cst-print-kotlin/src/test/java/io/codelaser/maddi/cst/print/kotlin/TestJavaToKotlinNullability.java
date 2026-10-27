@@ -3522,4 +3522,32 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("as V)"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's ArrayTable: an anonymous {@code Tables.AbstractCell<R, C, @Nullable V>} overrides
+     * {@code Table.Cell<R, C, V>.getValue()}; the nullable instantiation reaches Cell through AbstractCell, whose type
+     * parameters are in another order.
+     */
+    @Test
+    public void overrideOfTypeVariableNullablyInstantiatedThroughSupertype() {
+        String kotlin = kotlin("""
+                package a.t;
+                class Grid<V> {
+                    interface Cell<K, B> {
+                        B getValue();
+                    }
+                    abstract static class AbstractCell<Y, K> implements Cell<K, Y> {
+                        public int hashCode() { return java.util.Objects.hashCode(getValue()); }
+                    }
+                    V at() { return null; }
+                    class Slot extends AbstractCell<V, String> {
+                        public V getValue() { return at(); }
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("super:Slot", "Slot.getValue()", "at()")),
+                KotlinPrintOptions.NullCheck.ASSERT));
+        contains(kotlin, "override fun getValue(): V?");
+        assertFalse(kotlin.contains("as V)"), kotlin);
+        compiles(kotlin);
+    }
 }
