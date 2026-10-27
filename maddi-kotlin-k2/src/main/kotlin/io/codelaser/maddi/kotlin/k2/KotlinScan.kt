@@ -1205,9 +1205,8 @@ class KotlinScan(
         ctorSymbols.zip(typeInfo.constructors()).forEach { (sym, cst) ->
             val statements = mutableListOf<Statement>()
             explicitConstructorInvocation(typeInfo, declaration, sym, cst)?.let { statements.add(it) } // index "0"
-            cst.parameters().forEach { param ->
-                typeInfo.fields().firstOrNull { it.name() == param.name() }
-                    ?.let { statements.add(assignFieldFromParam(typeInfo, it, param, false)) }
+            propertyParameters(declaration, sym.isPrimary, cst, typeInfo).forEach { (param, field) ->
+                statements.add(assignFieldFromParam(typeInfo, field, param, false))
             }
             cst.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(statements, initBlocksOf.remove(cst))))
             references.attach(runtime, cst)
@@ -1216,6 +1215,20 @@ class KotlinScan(
         typeInfo.constructors().filter { defaultsConstructors.remove(it) }.forEach { it.builder().commit() }
         references.attach(runtime, typeInfo)
         typeInfo.builder().commit() // access already computed in convertMembers (B1)
+    }
+
+    /**
+     * The parameters of [ctor] that declare a property, each with its field: a primary constructor's `val`/`var`
+     * parameters. A plain parameter named as a property is not one: in `class S(lines: List<String>) { val lines =
+     * lines.toList() }` the property's initializer assigns the field, and an assignment from the parameter before it
+     * linked the field to the parameter instead of to the copy.
+     */
+    private fun propertyParameters(declaration: KtClassOrObject, primary: Boolean, ctor: MethodInfo,
+                                   owner: TypeInfo): List<Pair<ParameterInfo, FieldInfo>> {
+        if (!primary) return emptyList()
+        val declared = declaration.primaryConstructorParameters.filter { it.hasValOrVar() }.mapNotNull { it.name }.toSet()
+        return ctor.parameters().filter { it.name() in declared }
+            .mapNotNull { p -> owner.fields().firstOrNull { it.name() == p.name() }?.let { p to it } }
     }
 
     /**
@@ -1266,7 +1279,8 @@ class KotlinScan(
         val symbol = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
             ?.filterIsInstance<KaConstructorSymbol>()?.toList()?.getOrNull(owner.constructors().indexOf(ctor))
         val invocation = if (symbol != null && hasExplicitInvocation(declaration, symbol)) 1 else 0
-        val prefix = invocation + ctor.parameters().count { p -> owner.fields().any { it.name() == p.name() } }
+        // an unresolved symbol counts as primary: a slot planned too many stays empty (constructorBody)
+        val prefix = invocation + propertyParameters(declaration, symbol?.isPrimary ?: true, ctor, owner).size
         val total = prefix + inits.size
         val blocks = inits.mapIndexed { j, init ->
             val index = bodyConverter.pad(prefix + j, total)
