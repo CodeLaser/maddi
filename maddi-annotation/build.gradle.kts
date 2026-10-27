@@ -1,6 +1,6 @@
 /*
  * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2026, Bart Naudts, https://github.com/CodeLaser/maddi
+ * Copyright 2020-2026, CodeLaser BV, https://github.com/CodeLaser/maddi
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ jreleaser {
         description = "Annotations for Maddi, a modification analyzer for duplication detection and immutability."
         license.set("Apache-2.0")
         authors.set(listOf("Bart Naudts"))
-        copyright.set("2020-2026 Bart Naudts")
+        copyright.set("2020-2026 CodeLaser BV")
 
         links {
             homepage.set("https://github.com/CodeLaser/maddi")

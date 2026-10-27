@@ -18,7 +18,8 @@ TARGET BRANCH: `devel`, not `main`. GitHub proposes `main` (the default branch);
 - [ ] New or changed behaviour has a test. For link-engine behaviour, extend
       `TestLinkMethodCall` and friends rather than asserting ad hoc elsewhere.
 - [ ] Any test that parses a real-world corpus is tagged `@Tag("slow")`.
-- [ ] Every commit is signed off (`git commit -s`) — the [DCO](../DCO). A CI job checks this.
+- [ ] I have signed the [Contributor License Agreement](../CLA.md); the bot on this PR asks for it
+      once, and one signature covers maddi, maddi-mod and maddi-dist.
 
 ## If this touches the engine
 
@@ -43,6 +44,6 @@ absent corpus, vacuous, or heap-starved. AGENTS.md §Commands lists the four thi
 
 ## Licence
 
-maddi is **LGPL-3.0**, except `maddi-support` (the annotations) which is **Apache-2.0** from
-0.9.0 onward. By signing off you contribute under the licence of the module you touched. There is
-no CLA and no copyright assignment.
+maddi is **Apache-2.0** from 0.9.6 onward. You contribute under the [CLA](../CLA.md): you keep
+your copyright, and CodeLaser BV receives a licence to your contribution. There is no copyright
+assignment.

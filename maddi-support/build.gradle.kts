@@ -1,6 +1,6 @@
 /*
  * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2026, Bart Naudts, https://github.com/CodeLaser/maddi
+ * Copyright 2020-2026, CodeLaser BV, https://github.com/CodeLaser/maddi
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,9 +78,6 @@ publishing {
                 version = project.version.toString()
 
                 url.set("https://github.com/CodeLaser/maddi")
-                // maddi-support is the one artifact user code compiles against, so it is permissively
-                // licensed; the analyzer itself stays LGPL-3.0. Versions up to and including 0.8.2 were
-                // published under LGPL-3.0-or-later and remain so. See PUBLISHING.md.
                 licenses {
                     license {
                         name.set("Apache-2.0")
@@ -116,7 +113,7 @@ jreleaser {
         description = "Support library for Maddi, a modification analyzer for duplication detection and immutability."
         license.set("Apache-2.0")
         authors.set(listOf("Bart Naudts"))
-        copyright.set("2020-2026 Bart Naudts")
+        copyright.set("2020-2026 CodeLaser BV")
 
         links {
             homepage.set("https://github.com/CodeLaser/maddi")
