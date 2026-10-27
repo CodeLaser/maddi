@@ -3467,4 +3467,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("element!!"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's Iterators.removeAll: {@code elementsToRemove.contains(removeFrom.next())} on a {@code Collection<?>}, an
+     * element of an {@code Iterator<?>}. Java's contains takes the null and finds nothing; {@code !!} would throw
+     * (guava's retainAll/removeAll null tests). Kotlin's {@code Collection<*>} takes any {@code Any?} through the
+     * stdlib extension.
+     */
+    @Test
+    public void lookupInWildcardCollection() {
+        String kotlin = kotlin("""
+                package a.r;
+                import java.util.Collection;
+                import java.util.Iterator;
+                class Removal {
+                    static boolean removeAll(Iterator<?> removeFrom, Collection<?> elementsToRemove) {
+                        boolean result = false;
+                        while (removeFrom.hasNext()) {
+                            if (elementsToRemove.contains(removeFrom.next())) {
+                                removeFrom.remove();
+                                result = true;
+                            }
+                        }
+                        return result;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("next()!!"), kotlin);
+        compiles(kotlin);
+    }
 }

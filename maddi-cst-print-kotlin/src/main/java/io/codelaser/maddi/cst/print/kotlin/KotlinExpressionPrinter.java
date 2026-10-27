@@ -2121,6 +2121,12 @@ public class KotlinExpressionPrinter {
                         && (element.typeInfo() == argumentType.typeInfo()
                             || element.arrays() == 0
                                && isSubtype(argumentType.typeInfo(), element.typeInfo(), new java.util.HashSet<>()));
+        if (!found && element != null && element.wildcard() != null && !element.wildcard().isSuper()
+            && KotlinNullability.nullableInKotlin(argument)) {
+            // guava's Iterators.removeAll: elementsToRemove.contains(removeFrom.next()) on a Collection<?>. Kotlin's
+            // Collection<*> takes any Any? through the extension; `!!` would throw where Java finds nothing
+            return p;
+        }
         if (!found && lookup == method && unrelatedLookup(element, argumentType)) {
             // jenkins's View: viewItems.contains(currentTask), a Queue.Task in a Collection<TopLevelItem>. The
             // extension's T would be their common supertype, which is no input type; a cast to the element class
