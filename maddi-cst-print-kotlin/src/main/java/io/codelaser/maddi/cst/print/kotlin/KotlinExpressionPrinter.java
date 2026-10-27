@@ -1520,8 +1520,10 @@ public class KotlinExpressionPrinter {
                                                      .allMatch(ParameterizedType::isJavaLangObject)
                                              && !KotlinMethodPrinter.nonNullBound(method, declared.typeParameter())
                                              // the signature says where null goes: another parameter is a T?. Without
-                                             // verdicts none is, and Kotlin would infer T nullable for the result too
-                                             && nullableSibling(method, i, declared.typeParameter());
+                                             // verdicts none is, and Kotlin would infer T nullable for the result too.
+                                             // Or the value is read through a `*`: Kotlin's Any? already, so T is
+                                             && (nullableSibling(method, i, declared.typeParameter())
+                                                 || starProjectedRead(args.get(i)));
                 OutputBuilder argument = calleeTypeVariable ? widenedArgument
                         : KotlinNullability.toTarget(args.get(i), declared, argumentTranslated, widenedArgument, q);
                 if (hasParameter && (covariantArrayArgument(method, i, args.get(i))
@@ -1803,6 +1805,22 @@ public class KotlinExpressionPrinter {
      * An argument passed as one of the varargs: {@code runtime(format, key, value)} into {@code vararg args: Any}, the
      * element's type with its verdict. Null when {@code i} is no varargs position.
      */
+    /**
+     * A value of a type variable read through a {@code ?} argument of its receiver: guava's AbstractTable.CellSet, a
+     * {@code Cell<?, ?, ?>}'s {@code cell.getValue()}, Kotlin's {@code Any?} from a {@code Cell<*, *, *>}.
+     */
+    private static boolean starProjectedRead(Expression value) {
+        if (!(unwrap(value) instanceof MethodCall mc) || mc.methodInfo() == null || mc.object() == null
+            || mc.objectIsImplicit()) return false;
+        ParameterizedType result = mc.methodInfo().returnType();
+        ParameterizedType receiver = mc.object().parameterizedType();
+        if (result.arrays() > 0 || result.typeParameter() == null || receiver == null
+            || receiver.typeInfo() != mc.methodInfo().typeInfo()) return false;
+        int index = receiver.typeInfo().typeParameters().indexOf(result.typeParameter());
+        return index >= 0 && index < receiver.parameters().size() && receiver.parameters().get(index) != null
+               && receiver.parameters().get(index).isUnboundWildcard();
+    }
+
     /** Another parameter than the i-th is typed {@code tp?}: {@code getOrDefault(value: T?, defaultValue: T)}. */
     private static boolean nullableSibling(io.codelaser.maddi.cst.api.info.MethodInfo method, int i,
                                            io.codelaser.maddi.cst.api.info.TypeParameter tp) {

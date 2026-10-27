@@ -3550,4 +3550,33 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("as V)"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * guava's AbstractTable.CellSet.contains: {@code Maps.immutableEntry(cell.getColumnKey(), cell.getValue())} on a
+     * {@code Cell<?, ?, ?>} instantiates immutableEntry's nullable-bounded type variables with the captures; their
+     * values were asserted non-null, and a null cell value threw.
+     */
+    @Test
+    public void wildcardGettersIntoTypeVariableParameters() {
+        String kotlin = kotlin("""
+                package a.t;
+                import java.util.*;
+                class Tab {
+                    interface Cell<C, V> {
+                        C getColumnKey();
+                        V getValue();
+                    }
+                    static <K, W> Map.Entry<K, W> entry(K k, W w) { return new AbstractMap.SimpleImmutableEntry<>(k, w); }
+                    boolean contains(Collection<?> entries, Object o) {
+                        if (o instanceof Cell) {
+                            Cell<?, ?> cell = (Cell<?, ?>) o;
+                            return entries.contains(entry(cell.getColumnKey(), cell.getValue()));
+                        }
+                        return false;
+                    }
+                }
+                """, new KotlinPrintOptions(new ByName(Set.of("o"), Set.of()), KotlinPrintOptions.NullCheck.ASSERT));
+        assertFalse(kotlin.contains("!!"), kotlin);
+        compiles(kotlin);
+    }
 }
