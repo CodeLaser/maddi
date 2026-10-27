@@ -287,7 +287,10 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         // compile 1: everything, for the syntax errors
         List<String> classPath = new ArrayList<>(libraries(corpus.config()));
         if (corpus.siblings()) classPath.addAll(siblingClasses(corpus));
-        Compiled all = compile(files, classPath, out.resolve("compile-all"));
+        // kotlinc held to the JDK API the Java build compiles against (guava's main: --release 9, where Comparator
+        // has no min/max for Ordering's to override), as the translation's javac resolved it (maddi#173)
+        int release = corpus.main().sourceRelease();
+        Compiled all = compile(files, classPath, release, out.resolve("compile-all"));
         Map<Path, Long> syntaxPerFile = all.errors.stream().filter(d -> d.message.toLowerCase().startsWith("syntax error"))
                 .collect(Collectors.groupingBy(d -> d.file, TreeMap::new, Collectors.counting()));
         List<Path> syntaxClean = files.stream().filter(f -> !syntaxPerFile.containsKey(f)).toList();
@@ -295,7 +298,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         // compile 2: the syntax-clean files, against the original classes for the rest
         List<String> withOriginals = new ArrayList<>(classPath);
         withOriginals.add(Path.of(corpus.main().uri()).toString());
-        Compiled clean = compile(syntaxClean, withOriginals, out.resolve("compile-clean"));
+        Compiled clean = compile(syntaxClean, withOriginals, release, out.resolve("compile-clean"));
         Set<Path> withErrors = clean.errors.stream().map(d -> d.file).collect(Collectors.toCollection(HashSet::new));
         // a file the compiler crashed on was not accepted either, whatever diagnostics it did not get to print
         clean.crashes.forEach(c -> {
@@ -311,7 +314,7 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
         List<String> behind = new ArrayList<>(withOriginals);
         testSet.map(t -> Path.of(t.uri())).filter(Files::isDirectory).ifPresent(t -> behind.add(t.toString()));
         List<Path> compilingList = syntaxClean.stream().filter(f -> !withErrors.contains(f)).toList();
-        Bytecode bytecode = toBytecode(compilingList, withOriginals, behind, out.resolve("compile-classes"));
+        Bytecode bytecode = toBytecode(compilingList, withOriginals, behind, release, out.resolve("compile-classes"));
 
         Map<String, Long> measured = new LinkedHashMap<>();
         measured.put("types", (long) corpus.types().size());
@@ -342,7 +345,8 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
                 testClassPath.add(bytecode.classes.toAbsolutePath().toString());
                 testClassPath.add(Path.of(corpus.main().uri()).toString());
                 testClassPath.add(testClasses.toString());
-                testBytecode = toBytecode(tests.files, testClassPath, testClassPath, out.resolve("compile-tests"));
+                testBytecode = toBytecode(tests.files, testClassPath, testClassPath, testSet.get().sourceRelease(),
+                        out.resolve("compile-tests"));
                 affected = affected(testBytecode.classes, testClasses);
             }
             Tests original = null, rest = null;
@@ -445,14 +449,20 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * kotlinc in a child JVM (see build.gradle.kts for why). The arguments go through an @-file: 199 paths do not
      * belong on a command line.
      */
-    private static Compiled compile(List<Path> files, List<String> classPath, Path dir) throws Exception {
+    private static Compiled compile(List<Path> files, List<String> classPath, int release, Path dir)
+            throws Exception {
         Files.createDirectories(dir);
         if (files.isEmpty()) return new Compiled(0, List.of(), List.of());
         String compilerClassPath = compilerClassPath();
         List<String> cp = new ArrayList<>(classPath);
         cp.addFirst(stdlib());
 
-        List<String> args = new ArrayList<>(List.of("-no-stdlib", "-no-reflect", "-jvm-target", "21",
+        // -Xjdk-release (kotlinc 2.4 has no -jdk-release yet) sets the JVM target too, and refuses a -jvm-target
+        // beside it
+        List<String> args = new ArrayList<>(List.of("-no-stdlib", "-no-reflect"));
+        if (release > 0) args.add("-Xjdk-release=" + (release == 8 ? "1.8" : String.valueOf(release)));
+        else args.addAll(List.of("-jvm-target", "21"));
+        args.addAll(List.of(
                 "-classpath", String.join(java.io.File.pathSeparator, cp),
                 "-d", dir.resolve("classes").toAbsolutePath().toString()));
         files.forEach(f -> args.add(f.toString()));
@@ -512,13 +522,13 @@ public record JavaToKotlinRatchet(String name, Path ratchetFile, Set<String> rep
      * does a round whose classes an original Java class cannot extend ({@link #finalOverridden}): one in a directory
      * of {@code behind}, the class path the Kotlin classes will stand in front of when the tests run.
      */
-    private static Bytecode toBytecode(List<Path> files, List<String> classPath, List<String> behind, Path dir)
-            throws Exception {
+    private static Bytecode toBytecode(List<Path> files, List<String> classPath, List<String> behind, int release,
+                                       Path dir) throws Exception {
         List<Path> remaining = new ArrayList<>(files);
         List<List<Path>> leftOut = new ArrayList<>();
         for (int round = 0; round < 20 && !remaining.isEmpty(); round++) {
             deleteRecursively(dir);
-            Compiled c = compile(remaining, classPath, dir);
+            Compiled c = compile(remaining, classPath, release, dir);
             if (c.exitCode == 0) {
                 Map<Path, String> overridden = finalOverridden(remaining, dir.resolve("classes"), behind);
                 if (overridden.isEmpty()) return new Bytecode(remaining, dir.resolve("classes"), leftOut);
