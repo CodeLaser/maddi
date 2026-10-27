@@ -6,8 +6,6 @@ types: the eventually immutable building blocks that you can use in your project
 of whether you want analyzer support or not.
 The annotations themselves live in a separate library, `maddi-annotation`, which is the single
 dependency `maddi-support` declares.
-That split is also a licence boundary: the annotations and the support types -- the two artifacts your own code
-compiles against -- are Apache-2.0 (from 0.9.0), so that using them commits you to nothing, while the analyzer is LGPL-3.0.
 
 We discuss a selection of the building blocks here.
 

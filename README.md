@@ -248,7 +248,7 @@ examples.
 ## The annotations
 
 The one thing your own code could compile against is the annotations library. It is on Maven Central, targets Java 17,
-and is **Apache-2.0** licensed, so you can depend on it without taking on the analyzer's LGPL:
+and is **Apache-2.0** licensed, so you can depend on it:
 
 ```kotlin
 implementation("io.codelaser:maddi-annotation:0.9.5")   // Gradle
@@ -333,11 +333,10 @@ maddi re-implements [e2immu](https://www.e2immu.org), which ran from 2020 until 
 package was `org.e2immu.*`, after the predecessor; it became `io.codelaser.maddi.*` in 0.9.1 (see
 [`docs/project/release-notes-0.9.1.md`](docs/project/release-notes-0.9.1.md)).
 
-maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at [CodeLaser](https://codelaser.io), and is
-and will remain open source. The **analyzer** is LGPL-3.0. The **annotations** (`maddi-annotation`, with
-`maddi-support`), the only artifacts your own code compiles against, are **Apache-2.0** from 0.9.0 onward, so
-depending on them carries no obligation. CodeLaser's commercial Refactor product is built on maddi. Questions, use cases and criticism are all welcome: mail, or open an issue.
+maddi is developed by [Bart Naudts](mailto:bart.naudts@codelaser.io) at [CodeLaser](https://codelaser.io), accepts contributions, and is
+and will remain open source. From 0.9.6 onward, the whole project is **Apache-2.0** licensed.
+CodeLaser's commercial Refactor product is built on maddi. Questions, use cases and criticism are all welcome: mail, or open an issue.
 
 ___
 
-(C) Copyright Bart Naudts, 2020-2026.
+(C) Copyright CodeLaser BV, 2020-2026.

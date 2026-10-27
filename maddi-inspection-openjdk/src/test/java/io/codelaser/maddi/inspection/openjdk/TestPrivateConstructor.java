@@ -1,6 +1,6 @@
 /*
  * maddi: a modification analyzer for duplication detection and immutability.
- * Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
+ * Copyright 2020-2026, CodeLaser BV, https://github.com/CodeLaser/maddi
  */
 package io.codelaser.maddi.inspection.openjdk;
 

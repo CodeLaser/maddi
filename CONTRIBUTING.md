@@ -79,21 +79,20 @@ change the PR's base to `devel`. `main` only moves when a release gate promotes 
 maintainer pushes directly; contributors open PRs. CI runs
 `./gradlew build` (compile plus everything not tagged `slow`) on every PR, and it must be green.
 
-**Sign off your commits.** maddi uses the [Developer Certificate of Origin](DCO) — a statement that
-you have the right to submit the code you are contributing. There is nothing to sign and no account
-to create: add a `Signed-off-by` line to each commit, which `git` writes for you:
+**Sign the Contributor License Agreement, once.** maddi is Apache-2.0, and contributions are made
+under the [CodeLaser Contributor License Agreement](CLA.md). In short: you keep the copyright in
+what you write; CodeLaser BV receives a licence to use it, including under other terms than
+Apache-2.0, and undertakes to keep it available under a free licence; and you confirm that it is
+yours to contribute. The agreement's first section says the same in plain words.
 
-```bash
-git commit -s -m "your message"          # or, to fix a branch you already wrote:
-git rebase --signoff devel
-```
+On your first pull request a bot asks for the signature. Reply with the comment it quotes,
+*I have read the CLA Document and I hereby sign the CLA*, and the check turns green. The signature
+covers every later pull request to maddi, maddi-mod and maddi-dist. Contributing on behalf of your
+employer, or as a company? Have someone who can sign for it send the agreement to
+cla@codelaser.io, as [its §9](CLA.md#9-how-to-accept) explains.
 
-A CI job checks it. There is no CLA — contributions stay under the licence of the module you
-touched, and that licence differs by module:
-
-- **`maddi-support`** (the annotations, the only artifact your own code compiles against) is
-  **Apache-2.0** from 0.9.0 onward.
-- **Everything else** — the analyzer — is **LGPL-3.0**.
+Commits need no `Signed-off-by` line. maddi used the Developer Certificate of Origin until 0.9.5;
+the CLA replaces it.
 
 Before opening the PR, the two rules most likely to send it back: an engine or performance change
 needs a byte-identical `FPDUMP` A/B run on the proving-ground corpora, and a change to what the

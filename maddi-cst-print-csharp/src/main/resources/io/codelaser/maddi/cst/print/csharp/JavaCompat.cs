@@ -1,6 +1,6 @@
 // maddi: a modification analyzer for duplication detection and immutability.
-// Copyright 2020-2025, Bart Naudts, https://github.com/CodeLaser/maddi
-// Licensed under the GNU Lesser General Public License, version 3 or later.
+// Copyright 2020-2026, CodeLaser BV, https://github.com/CodeLaser/maddi
+// Licensed under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 //
 // Maddi.JavaCompat: what the Java library does that the BCL does not, or not the same way. maddi's Java -> C#
 // translation (maddi-cst-print-csharp) prefers the BCL's own members; it calls these only where Java's behaviour

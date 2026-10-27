@@ -10,7 +10,7 @@ chapter only when detail is missing here. Last checked against the code and the 
   objects flow where, which share state) feeds three applications: modification/independence/immutability (this
   file's core), **nullability** (§Nullability, since 2026-10) and the Java→Kotlin / Java→C# **translations**, which
   read the verdicts (read-only collection types from the structural twins and unmodifiable views; `?`/`!!` from
-  nullability). Annotations: `maddi-annotation` (Apache-2.0, with `maddi-support`); analyzer LGPL-3.0.
+  nullability). Apache-2.0 licensed.
 - **Mutable** means "not immutable at any positive level"; `@Mutable` is the explicit bottom verdict.
 - **Content** of an object = the objects reachable from its fields (the object graph), split into:
   - **accessible content** — reachable through fields/accessors the analyzer can see and name;
