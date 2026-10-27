@@ -5950,7 +5950,9 @@ internal class KotlinBodyConverter(
         // a property with no backing field (interface/abstract/computed) accessed unqualified: `name` in a
         // default method means `this.getName()` -- resolve the accessor on the enclosing type via `this`
         if (!method.isStatic || singleton(method.typeInfo()) != null) resolveAccessor(method.typeInfo(), name)?.let { accessor ->
-            return accessorCall(self(method), accessor)
+            // a STATIC one is read on the type: a bare `entries` in a member of its own enum is `E.getEntries()`, and
+            // `this.getEntries()` made prep isolate the method (maddi-kotlin-demo Color.next(), 2026-10-27)
+            return accessorCall(if (accessor.isStatic) staticQualifier(method.typeInfo()) else self(method), accessor)
         }
         // a field INHERITED from a superclass: `modCount` in a subclass of java.util.AbstractList
         if (!method.isStatic) inheritedField(method.typeInfo(), name)?.let { field ->

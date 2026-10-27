@@ -19,6 +19,7 @@ package io.codelaser.maddi.kotlin.k2
 
 import io.codelaser.maddi.cst.api.element.Element
 import io.codelaser.maddi.cst.api.expression.MethodCall
+import io.codelaser.maddi.cst.api.expression.TypeExpression
 import io.codelaser.maddi.cst.api.info.MethodInfo
 import io.codelaser.maddi.cst.api.info.TypeInfo
 import io.codelaser.maddi.kotlin.api.PlaceholderCensus
@@ -36,7 +37,11 @@ class EnumEntriesTest : KotlinScanTestBase() {
     private val types: List<TypeInfo> by lazy {
         KotlinScan(runtime, sourceSet).parse("ee/Ee.kt", """
             package ee
-            enum class Sev { LOW, HIGH; companion object { fun count(): Int = entries.size } }
+            enum class Sev {
+                LOW, HIGH;
+                fun next(): Sev = entries[(ordinal + 1) % entries.size]
+                companion object { fun count(): Int = entries.size }
+            }
             class K {
                 fun source(): Int = Sev.entries.size
                 fun library(): Int = LazyThreadSafetyMode.entries.size
@@ -46,13 +51,15 @@ class EnumEntriesTest : KotlinScanTestBase() {
 
     private fun type(name: String) = types.flatMap { it.recursiveSubTypeStream().toList() }.first { it.simpleName() == name }
 
-    private fun getEntries(method: MethodInfo): MethodCall {
+    private fun getEntries(method: MethodInfo): MethodCall = allGetEntries(method).single()
+
+    private fun allGetEntries(method: MethodInfo): List<MethodCall> {
         val calls = mutableListOf<MethodCall>()
         method.methodBody().visit { e: Element ->
             if (e is MethodCall && e.methodInfo().name() == "getEntries") calls += e
             true
         }
-        return calls.single()
+        return calls
     }
 
     @Test
@@ -67,6 +74,14 @@ class EnumEntriesTest : KotlinScanTestBase() {
     @Test
     fun aBareEntriesInsideTheEnum() {
         assertEquals("Sev", getEntries(type("Companion").findUniqueMethod("count", 0)).methodInfo().typeInfo().simpleName())
+    }
+
+    /* in a member of the enum itself: on the type, not on `this`, which prep refused (maddi-kotlin-demo Color.next()) */
+    @Test
+    fun aBareEntriesInAMemberOfTheEnum() {
+        val calls = allGetEntries(type("Sev").findUniqueMethod("next", 0))
+        assertEquals(2, calls.size)
+        calls.forEach { assertTrue(it.`object`() is TypeExpression, "read on the type, not on ${it.`object`()}") }
     }
 
     @Test
