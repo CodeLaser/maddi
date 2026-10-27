@@ -1176,6 +1176,28 @@ public class TestJavaToRustMapping extends CommonJavaToRust {
     }
 
     @Language("java")
+    private static final String LITERAL_RESULT = """
+            package a.b;
+            import java.util.List;
+            public class Labels {
+                public static List<String> labels(List<Integer> in) { return in.stream().map(x -> "s").toList(); }
+            }
+            """;
+
+    /** A closure returning a string literal returns an owned String, as its declared result is. */
+    @DisplayName("a closure's string literal result is owned: compiles")
+    @Test
+    public void literalClosureResult() throws Exception {
+        List<TypeInfo> types = parse(LITERAL_RESULT);
+        nonModifying(types.getFirst(), "labels");
+        borrowed(method(types.getFirst(), "labels").parameters().getFirst());
+        translate(types, RustFacts.STORED);
+        String rust = module("a.b");
+        contains(rust, "|x| \"s\".to_string()");
+        assertEquals(List.of(), rustcErrors(), rust);
+    }
+
+    @Language("java")
     private static final String CHECKED_FIELD = """
             package a.b;
             public class Checked {
