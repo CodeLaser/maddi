@@ -308,6 +308,9 @@ class KotlinScan(
     private fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String) =
         inBody { with(bodyConverter) { convertInitBlock(init, method, index) } }
 
+    private fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String) =
+        inBody { with(bodyConverter) { convertConstructorBody(body, method, index) } }
+
     private fun KaSession.convertAccessorBody(accessor: KtPropertyAccessor, returning: Boolean, method: MethodInfo,
                                               locals: MutableMap<String, Variable>) =
         inBody { with(bodyConverter) { convertAccessorBody(accessor, returning, method, locals) } }
@@ -763,6 +766,9 @@ class KotlinScan(
     private val initBlocksOf = java.util.IdentityHashMap<MethodInfo, PlannedInitBlocks>()
     private class PlannedInitBlocks(val prefix: Int, val total: Int, val blocks: List<Statement>)
 
+    // secondary constructors' own bodies, converted in pass B1 next to the init blocks: see convertSecondaryBodies
+    private val secondaryBodyOf = java.util.IdentityHashMap<MethodInfo, Block>()
+
     /** Pass A: create + register the file-facade [TypeInfo] `<FileName>Kt`. Members are added in pass B1. */
     private fun registerFacade(compilationUnit: CompilationUnit, ktFile: KtFile): TypeInfo {
         val facade = runtime.newTypeInfo(compilationUnit, facadeSimpleName(ktFile))
@@ -913,6 +919,7 @@ class KotlinScan(
             // anonymous type on its builder) and its own methods exist. See convertInitializers, convertInitBlocks.
             convertInitializers(typeInfo)
             convertInitBlocks(declaration, typeInfo)
+            convertSecondaryBodies(declaration, typeInfo)
         }
         addDelegatedMembers(declaration, typeInfo)
         // a data class gets synthetic structural equals/hashCode/toString (like a Java record), unless the
@@ -1205,7 +1212,8 @@ class KotlinScan(
             propertyParameters(declaration, sym.isPrimary, cst, typeInfo).forEach { (param, field) ->
                 statements.add(assignFieldFromParam(typeInfo, field, param, false))
             }
-            cst.builder().setMethodBody(bodyConverter.normalizeIndices(constructorBody(statements, initBlocksOf.remove(cst))))
+            val body = constructorBody(statements, initBlocksOf.remove(cst), secondaryBodyOf.remove(cst))
+            cst.builder().setMethodBody(bodyConverter.normalizeIndices(body))
             references.attach(runtime, cst)
             cst.builder().commit()
         }
@@ -1232,9 +1240,10 @@ class KotlinScan(
      * A constructor's body: [prefix] (the `this(...)`/`super(...)` invocation, the parameter-property assignments),
      * then the `init` blocks [planned] for it in pass B1, whose statement indices were fixed then. The prefix is
      * indexed into the slots planned for it, right-aligned: a planned invocation that did not resolve leaves its slot
-     * empty rather than shifting indices the blocks already carry.
+     * empty rather than shifting indices the blocks already carry. A secondary constructor's own body [own] comes
+     * last, as kotlinc runs it; normalizeIndices renumbers it into place.
      */
-    private fun constructorBody(prefix: List<Statement>, planned: PlannedInitBlocks?): Block {
+    private fun constructorBody(prefix: List<Statement>, planned: PlannedInitBlocks?, own: Block? = null): Block {
         val body = runtime.newBlockBuilder()
         if (planned == null) {
             prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i, prefix.size))) }
@@ -1244,7 +1253,23 @@ class KotlinScan(
             prefix.forEachIndexed { i, s -> body.addStatement(bodyConverter.indexed(s, bodyConverter.pad(i + shift, planned.total))) }
             planned.blocks.forEach { body.addStatement(it) }
         }
+        own?.let { body.addStatement(it) }
         return body.build()
+    }
+
+    /**
+     * Convert the `{ … }` body of each of [declaration]'s secondary constructors, in pass B1 for the reason
+     * convertInitBlocks gives: what it declares must exist before references are recorded. Each is a nested block at
+     * the end of its constructor's body (constructorBody), indexed there by normalizeIndices.
+     */
+    private fun KaSession.convertSecondaryBodies(declaration: KtClassOrObject, owner: TypeInfo) {
+        val symbols = (declaration.symbol as? KaNamedClassSymbol)?.declaredMemberScope?.declarations
+            ?.filterIsInstance<KaConstructorSymbol>()?.toList() ?: return
+        symbols.zip(owner.constructors()).forEach { (symbol, ctor) ->
+            val block = (symbol.psi as? KtSecondaryConstructor)?.bodyBlockExpression ?: return@forEach
+            if (block.statements.isEmpty()) return@forEach
+            secondaryBodyOf[ctor] = convertConstructorBody(block, ctor, "0") // its index: normalizeIndices
+        }
     }
 
     /**
