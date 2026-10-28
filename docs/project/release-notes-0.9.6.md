@@ -52,6 +52,21 @@ copyright.
   component is used. The same holds for `instanceof` with a record pattern. A case with several patterns and a guard
   has no Kotlin form; the printer reports it and keeps the Java.
 
+## IDE plugins
+
+- **The IntelliJ and Eclipse plugins are published** for the first time: on JetBrains Marketplace (*maddi*), and as an
+  Eclipse update site, `https://codelaser.github.io/maddi-dist/eclipse/`, listed on the Eclipse Marketplace. Both
+  bundle the analysis daemon and need a JDK 25 or later to run it on, which they pick from the IDE's own JDKs.
+- **Hints where you would write the annotation**: on the line above a declaration, and before a parameter's type.
+  A type parameter or an enum constant no longer repeats its class's annotations, an annotation you wrote is not
+  shown again as computed, and one implied by another (`@Independent` beside `@Fluent`) is hidden by default
+  ([maddi-dist#6](https://github.com/CodeLaser/maddi-dist/issues/6)).
+- **The Eclipse plugin caught up with IntelliJ** for Java: per-project source sets with their own class paths, the
+  JDK from *Installed JREs*, a build before each analysis, a Findings view with the run's progress, the findings'
+  reasons and a run log, ruler icons with a separate one for eventual verdicts, and underlined guard findings.
+- **A Kotlin front end that is missing or set wrongly says so**, and says which setting to change.
+- The daemon runs the same passes as the command line (reachability and nullability), so the IDE and the CLI agree.
+
 ## Installing
 
 <!-- Copy from release-notes-0.9.5.md §Installing with the version bumped, once the artifacts are published. -->

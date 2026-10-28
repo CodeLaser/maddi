@@ -152,14 +152,15 @@ Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-
 The IDE plugins (Package 2)
 ---------------------------
 
-> **Status: nothing published.** `./gradlew :maddi-intellij:buildPlugin` produces
-> `maddi-intellij/build/distributions/maddi-<version>.zip` (13.4 MB) and that is as far as it has ever
-> gone. This section is what stands between that zip and a listing; it was written on 2026-08-26 from
-> the current Marketplace rules; steps 1 and 3 of the order of operations below are done.
+> **Status: nothing published; ready to upload from 0.9.6 (prepared 2026-10-28).** Two plugins ship in 0.9.6,
+> IntelliJ (JetBrains Marketplace) and Eclipse (an update site on GitHub Pages, listed on the Eclipse
+> Marketplace). VS Code waits for a later release. Everything that does not need a CodeLaser account is done;
+> what remains is listed under *What only an account holder can do* below, in order.
 
-Three front-ends exist (`maddi-intellij`, `maddi-eclipse`, `maddi-vscode`) and they publish to three
-unrelated stores. Only IntelliJ is worked out here; Eclipse (Eclipse Marketplace) and VS Code
-(Open VSX / the VS Code Marketplace) are untouched, and both are unbuilt in some worktrees.
+Both plugins bundle the same daemon distribution, so they share the release version, the licence files and
+`THIRD-PARTY.txt` (maddi-dist root; `:maddi-ide-daemon:checkThirdPartyNotices` fails the build when a bundled
+library is missing from it). The user-facing changes per release are in maddi-dist's `docs/ide-changelog.md`; the
+IntelliJ change notes are built from it.
 
 ⚠ **A plugin release needs the CLI release of the same version.** The plugin does not bundle the Kotlin front
 end; on a project with `.kt` sources it offers to download `maddi-kotlin-<version>.zip` from the `v<version>`
@@ -201,22 +202,30 @@ version it has already seen. So these were settled before any upload:
 * **Logo — DONE.** `META-INF/pluginIcon.svg` + `pluginIcon_dark.svg`, the CodeLaser icon from the 2022
   brand set, squared to the required 40x40 SVG. Required at upload, and it must not be the IntelliJ
   template's default.
-* **Description.** The first 40 characters become the preview card, so they must be a plain English
-  summary. The present text leads with unexplained jargon ("guard-system contract violations with their
-  why-chain") and never states the two things a user must know before installing: it needs a **JDK 25+**,
-  and it runs an out-of-process daemon.
-* **`<change-notes>`.** Absent, and required content per version. `org.jetbrains.changelog` reading a
-  `CHANGELOG.md` is the conventional wiring.
-* **Vendor.** `<vendor>` carries no `email`; the guidelines require the vendor website and email to be
-  "provided, valid, and functional". A CodeLaser vendor profile must exist and the Developer Agreement
-  be accepted before the form will take anything.
-* **License.** Mandatory, and an open-source license requires a source-code link. ⚠ The plugin is
-  **LGPL-3.0-or-later**, like the analyzer it bundles — the Apache-2.0 relicensing covers only
-  `maddi-annotation` / `maddi-support` (see the 0.9.1 release notes). Independently of the form: the zip
-  today contains **no COPYING or NOTICE at all** while bundling ~14 MB of third-party jars.
-* **Tags** on the upload form — they are the search filters, so they decide discoverability.
+* **Description — DONE (2026-10-28).** Its first sentence, the preview card, is plain: *"Immutability,
+  modification and nullability analysis for Java and Kotlin, shown in the editor."* It states the JDK 25+
+  requirement (picked from the IDE's JDKs), the separate daemon process, that nothing leaves the machine, and the
+  Kotlin front-end download.
+* **`<change-notes>` — DONE (2026-10-28).** `patchPluginXml` renders the `## <version>` section of
+  maddi-dist's `docs/ide-changelog.md` (plain bullets), and fails the build when the section is missing. No
+  `org.jetbrains.changelog`: one small function in `maddi-intellij/build.gradle.kts` does it.
+* **Vendor — OPEN.** `<vendor>` carries no `email`; the guidelines require the vendor website and email to be
+  "provided, valid, and functional". Which address is a CodeLaser decision. A CodeLaser vendor profile must exist
+  and the Developer Agreement be accepted before the form will take anything.
+* **License — DONE (2026-10-28).** Apache-2.0 since 0.9.6, plugins included; the form needs the source link,
+  `https://github.com/CodeLaser/maddi-dist`. The zip now carries `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` at
+  the plugin root, beside `lib/` and `daemon/`; until 0.9.6 it shipped no licence text at all.
+* **Tags** on the upload form — they are the search filters, so they decide discoverability. Proposed: *Code
+  analysis*, *Java*, *Kotlin*, *Inspection*, *Code tools*.
+* **Screenshots** (recommended): the Java demo (`maddi-java-demo`) with hints above declarations, a guard
+  finding's tooltip, and the tool window mid-run.
 
-=== The Plugin Verifier — wired and run (2026-08-26)
+=== The Plugin Verifier — wired and run (2026-08-26, rerun 2026-10-28)
+
+**Rerun 2026-10-28 on 0.9.6: `Compatible` against IU-253.33813.55, IU-261.27258.48, IU-262.10968.63 and
+IU-263.7307.44 (2026.3).** The same one internal and two experimental usages as below, and one deprecated
+(`ReadAction.compute`, from 2026.1). 2026.3 had deprecated a second call, `FileEditorManager.openFile(file, focus)`
+in the "Open daemon log" action; it now uses `OpenFileDescriptor.navigate`. The August run follows.
 
 The Marketplace runs the IntelliJ Plugin Verifier on upload, so `pluginVerification { ides { recommended() } }`
 runs it here first. `recommended()` resolves the same set `printProductsReleases` prints — with an
@@ -258,46 +267,67 @@ override-only, non-extendable), **a NEW internal usage would not fail the build 
 always prints its counts; read them, not the exit code. Reports land in
 `maddi-intellij/build/reports/pluginVerifier/<IDE>`.
 
-=== Build wiring that still does not exist
+=== Build wiring
 
-```kotlin
-intellijPlatform {
-    signing { certificateChain; privateKey; password }
-    publishing { token = providers.gradleProperty("intellijPlatformPublishingToken") }
-}
-```
-
-`signPlugin` chains ahead of `publishPlugin` and needs a certificate we do not have. Two existing settings
-are deliberate but worth re-reading before a release: `buildSearchableOptions = false` (costs the
-Settings-search entry for our configurable) and `untilBuild = null`, which matches JetBrains' advice —
-*"highly recommended not to set this attribute"*.
+`publishing { token = providers.gradleProperty("intellijPlatformPublishingToken") }` is wired (2026-10-28), for the
+updates after the first upload. **Signing is not**: `signPlugin` needs a certificate we do not have. Author
+signing is optional as far as we know (the Marketplace adds its own signature); confirm on the upload form. Two existing settings are deliberate but worth re-reading before a
+release: `buildSearchableOptions = false` (costs the Settings-search entry for our configurable) and
+`untilBuild = null`, which matches JetBrains' advice — *"highly recommended not to set this attribute"*.
 
 === What a first impression should not include
 
-* ⛔ **The JDK wall.** `MaddiAnalysisService` requires `settings.jdkHome` to be set by hand; empty means
-  a warning balloon and no analysis at all. Every Marketplace user's first run hits it. Detect the JDK
-  (project SDK, `ProjectJdkTable`, `JAVA_HOME`) and keep the setting as an override.
-* The input-configuration gaps (`docs/roadmap/ide-todo.md` §4b) — a modular source set cannot
-  read a class-path jar (314 -> 153 dropped units when fixed). A dropped unit reads to a user as "maddi
-  has no opinion about this type", not as a failure.
-* Whole-project re-analysis on every trigger (`docs/roadmap/ide-todo.md` §1) on a large project.
+* **The JDK wall — GONE (2026-10-27).** The plugin picks a JDK 25+ from the IDE's own JDKs (`MaddiJdks`), and the
+  settings offer them in a list with *Add / Download JDK*.
+* The input-configuration gaps — closed by per-module source sets (maddi-dist `docs/roadmap/ide-todo.md` §5).
+* Whole-project re-analysis on every trigger (`docs/roadmap/ide-todo.md` §1) on a large project. Still so.
 
 === Order of operations
 
 . **DONE (2026-08-26)** — id renamed, versions centralized, `verifyPluginStructure` clean, logo added,
   `PluginIdentityTest` guarding all of it.
-. Description rewrite, `<change-notes>` + CHANGELOG, vendor email, license files inside the zip.
-. **DONE (2026-08-26)** — `verifyPlugin` wired and run: Compatible against all three IDEs, with one
-  deliberately-kept internal usage (above).
+. **DONE (2026-10-28)** — description, `<change-notes>` from `docs/ide-changelog.md`, licence files inside the zip.
+. **DONE (2026-08-26, rerun 2026-10-28)** — `verifyPlugin`: see above.
+. The vendor email (`<vendor email="…">` in `plugin.xml`).
 . Create the CodeLaser vendor profile; accept the JetBrains Marketplace Developer Agreement.
+. Release the CLI for the same version first (`release-cli.sh v<version>`): the plugin downloads its Kotlin front
+  end from that release.
 . **Upload the zip by hand** at `plugins.jetbrains.com/plugin/add`. The first version cannot be
   published any other way — `publishPlugin` and the API only *update* an existing plugin. Manual review
-  follows, with no guaranteed turnaround. (Maximum plugin size is 400 MB; we are at 13.4 MB.)
+  follows, with no guaranteed turnaround. (Maximum plugin size is 400 MB; we are at ~18 MB.)
 . Afterwards, updates are
   `./gradlew :maddi-intellij:publishPlugin -PintellijPlatformPublishingToken=<token>` (a Marketplace
-  personal access token). The alpha/beta/eap channels are separate repositories that users must add by
-  URL, so they are not a soft-launch shortcut.
+  personal access token; `publishing { token }` is wired). The alpha/beta/eap channels are
+  separate repositories that users must add by URL, so they are not a soft-launch shortcut.
 
+=== Eclipse: an update site, and an Eclipse Marketplace listing
+
+Eclipse installs from a **p2 update site**: a URL serving `content.jar`/`artifacts.jar` and the bundles. The
+Eclipse Marketplace only *lists* a plugin and points at such a URL; it hosts nothing. So the Eclipse leg is a
+site of our own plus a listing.
+
+* **Built by** the Tycho reactor in maddi-dist's `maddi-eclipse/` (its README): bundle, headless tests, feature,
+  repository. Needs **Maven 3.9** (3.10 breaks Tycho 5.0.3). Versions are the release version (`0.9.6.qualifier`
+  in the manifests and the feature, `0.9.6-SNAPSHOT` in the poms); the embedded client is copied from the Gradle
+  build, not taken from `~/.m2`.
+* **Published by** `release-eclipse.sh v<version>` (maddi-dist): it checks the versions, builds, then
+  - pushes the repository to the **`gh-pages` branch** of maddi-dist as `eclipse/<version>/`, and rewrites the
+    composite at `eclipse/` that lists every version. The composite URL never changes:
+    **`https://codelaser.github.io/maddi-dist/eclipse/`** is what users add and what the listing names;
+  - attaches the same repository as `maddi-eclipse-<version>.zip` (+ `.sha256`) to maddi's `v<version>` release,
+    for offline installs.
+
+  `DRY_RUN=1` builds and prepares the `gh-pages` commit without pushing or uploading. A version is never
+  republished: Eclipse caches a repository by URL.
+* **Unsigned.** p2 shows an "unsigned content" warning that the user accepts once. Signing needs a code-signing
+  certificate (bought, identity-checked: days to weeks); later.
+* **Eclipse Marketplace** (`marketplace.eclipse.org`, *Add content*, needs an Eclipse account): name *maddi*,
+  the update-site URL above, categories *Code Analysis* / *Languages: Java*, licence Apache 2.0, the feature
+  description as the text, screenshots as for IntelliJ. Moderated; usually quick, not guaranteed.
+
+Account-holder steps, in order: enable GitHub Pages on maddi-dist (Settings → Pages: branch `gh-pages`, root);
+run `release-eclipse.sh v<version>` after `release-cli.sh`; check the site installs in a clean Eclipse
+(*Help → Install New Software → Add…* the URL); then the Marketplace listing.
 
 Versioning
 ----------
