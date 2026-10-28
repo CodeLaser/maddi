@@ -274,9 +274,35 @@ public class KotlinExpressionPrinter {
         if (explicit == null && IN_ANONYMOUS_SUPER_ARGUMENTS.get() && t.typeInfo() != null && !t.typeInfo().isAnonymous()) {
             // guava's Joiner.useForNull: new Joiner(this) { … }. In an object expression's supertype call, Kotlin's
             // this is not the enclosing instance
-            return "this@" + t.typeInfo().simpleName();
+            return "this@" + KotlinTypePrinter.simpleName(t.typeInfo());
         }
-        return explicit == null ? "this" : "this@" + explicit.simpleName();
+        return explicit == null ? "this" : "this@" + KotlinTypePrinter.simpleName(explicit);
+    }
+
+    /**
+     * A field of this local or anonymous class, own or inherited, named as a parameter or local variable of an
+     * enclosing method. Java's member wins there, Kotlin's captured local: {@code this.x}. guava's Streams.mapWithIndex:
+     * Splitr's fromSpliterator is its MapWithIndexSpliterator's part, not the method's whole spliterator.
+     */
+    private static boolean shadowedByCapturedLocal(TypeInfo current, TypeInfo owner, String name) {
+        if (current == null || owner == null || !isSubtype(current, owner, new java.util.HashSet<>())) return false;
+        for (TypeInfo t = current; t != null; t = CstQueries.enclosing(t)) {
+            io.codelaser.maddi.cst.api.info.MethodInfo method = t.enclosingMethod();
+            if (method == null) continue;
+            if (method.parameters().stream().anyMatch(p -> p.name().equals(name))) return true;
+            boolean[] declared = {false};
+            if (method.methodBody() != null) {
+                method.methodBody().visit((Element e) -> {
+                    if (e instanceof io.codelaser.maddi.cst.api.statement.LocalVariableCreation lvc
+                        && lvc.localVariableStream().anyMatch(lv -> lv.simpleName().equals(name))) {
+                        declared[0] = true;
+                    }
+                    return !declared[0];
+                });
+            }
+            if (declared[0]) return true;
+        }
+        return false;
     }
 
     private static final ThreadLocal<Boolean> IN_ANONYMOUS_SUPER_ARGUMENTS = ThreadLocal.withInitial(() -> false);
@@ -299,9 +325,10 @@ public class KotlinExpressionPrinter {
                 && KotlinFieldPrinter.mappedPropertyOf(current, fr.fieldInfo().name())) {
                 // guava's DenseImmutableTable.Column, an inner ImmutableMap: Java's values is the outer table's field,
                 // Kotlin's the inherited Map.values property
-                return text("this@" + owner.simpleName() + "." + name);
+                return text("this@" + KotlinTypePrinter.simpleName(owner) + "." + name);
             }
-            return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name()) ? "this." + name : name);
+            return text(KotlinContext.shadowedByParameter(fr.fieldInfo().name())
+                        || shadowedByCapturedLocal(current, owner, fr.fieldInfo().name()) ? "this." + name : name);
         }
         return new OutputBuilderImpl().add(KotlinNullability.receiverWithDot(scope, q)).add(new TextImpl(name));
     }
@@ -3539,7 +3566,7 @@ public class KotlinExpressionPrinter {
      * {@code g.new In()} names it relative to g's type; {@code g.a.Top.G.In()} does not resolve.
      */
     private static String simpleInner(String constructed, TypeInfo inner) {
-        String simple = KotlinNames.name(inner.simpleName());
+        String simple = KotlinTypePrinter.simpleName(inner);
         int lt = constructed.indexOf('<');
         String head = lt < 0 ? constructed : constructed.substring(0, lt);
         return head.endsWith("." + simple) ? simple + (lt < 0 ? "" : constructed.substring(lt)) : constructed;

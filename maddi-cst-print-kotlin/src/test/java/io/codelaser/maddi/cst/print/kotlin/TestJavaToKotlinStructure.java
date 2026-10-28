@@ -3687,4 +3687,54 @@ public class TestJavaToKotlinStructure extends CommonJavaToKotlin {
                 """);
         compiles(kotlin);
     }
+
+    /** guava's Streams.mapWithIndex: kotlinc names a local class after its method, not after the overload. */
+    @Test
+    public void sameNamedLocalClassesInOverloads() {
+        String kotlin = kotlin("""
+                package a.t;
+                class Streams {
+                    static int map(String s) {
+                        class Splitr {
+                            int n() { return s.length(); }
+                        }
+                        Splitr splitr = new Splitr();
+                        return splitr.n();
+                    }
+                    static int map(int i) {
+                        class Splitr {
+                            int n() { return i; }
+                            int twice() { return Splitr.this.n() * 2; }
+                        }
+                        return new Splitr().twice();
+                    }
+                }
+                """);
+        assertTrue(kotlin.contains("class Splitr2"), kotlin);
+        compiles(kotlin);
+    }
+
+    /** guava's Streams.mapWithIndex: in Java the local class's inherited field hides the method's local, in Kotlin not. */
+    @Test
+    public void inheritedFieldOverCapturedLocal() {
+        String kotlin = kotlin("""
+                package a.t;
+                class Streams {
+                    abstract static class Base {
+                        final String from;
+                        Base(String from) { this.from = from; }
+                    }
+                    static int map(String s) {
+                        String from = s + s;
+                        class Splitr extends Base {
+                            Splitr(String part) { super(part); }
+                            int n() { return from.length(); }
+                        }
+                        return new Splitr(s).n() + from.length();
+                    }
+                }
+                """);
+        assertTrue(kotlin.contains("this.from.length"), kotlin);
+        compiles(kotlin);
+    }
 }
