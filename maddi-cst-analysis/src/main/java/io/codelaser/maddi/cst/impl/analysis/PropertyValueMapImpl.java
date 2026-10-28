@@ -36,7 +36,7 @@ UNMODIFIED_PARAMETER on the callee's parameters), so under intra-iteration paral
 the same element's map. External compound check-then-act sequences (TolerantWrite) synchronize on the map
 object as well — same monitor.
  */
-public class PropertyValueMapImpl implements PropertyValueMap {
+public class PropertyValueMapImpl implements PropertyValueMap, AnalysisAccessRecorder.Owner {
     private final Map<Property, Value> map = new HashMap<>();
 
     /**
@@ -63,24 +63,34 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     @Override
     public synchronized Stream<PropertyValue> propertyValueStream() {
         // snapshot under the lock; the returned stream is safe to consume without it
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
         return map.entrySet().stream().map(e -> new PropertyValue(e.getKey(), e.getValue())).toList().stream();
     }
 
     @Override
     public synchronized boolean haveAnalyzedValueFor(Property property) {
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, map.get(property));
         return map.containsKey(property);
+    }
+
+    /** the current value, without recording the access (AnalysisAccessRecorder's validation) */
+    @Override
+    public synchronized Value peek(Object property) {
+        return map.get(property);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public synchronized <V extends Value> V getOrDefault(Property property, V defaultValue) {
         assert defaultValue != null;
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, map.get(property));
         return (V) map.getOrDefault(property, defaultValue);
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public synchronized <V extends Value> V getOrNull(Property property, Class<? extends V> clazz) {
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, map.get(property));
         return (V) map.get(property);
     }
 
@@ -88,9 +98,13 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     @Override
     public synchronized <V extends Value> V getOrCreate(Property property, Supplier<V> computeValue) {
         V v = (V) map.get(property);
-        if (v != null) return v;
+        if (v != null) {
+            if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, v);
+            return v;
+        }
         V vv = computeValue.get();
         if (vv != null) {
+            if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
             map.put(property, vv);
         }
         return vv;
@@ -101,6 +115,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
         assert value != null : "Not allowed to write null";
 
         assert property.classOfValue().isAssignableFrom(value.getClass());
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
         if (map.put(property, value) != null) {
             throw new IllegalArgumentException("Trying to overwrite a value for property " + property);
         }
@@ -111,12 +126,15 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     public synchronized <V extends Value> boolean setAllowControlledOverwrite(Property property, V value) {
         assert value != null : "Not allowed to write null";
         V current = (V) map.get(property);
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.read(this, property, current);
         if (current == null) {
+            if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
             map.put(property, value);
             return true;
         }
         if (!current.equals(value)) {
             if (current.overwriteAllowed(value)) {
+                if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
                 map.put(property, value);
                 return true;
             }
@@ -130,6 +148,7 @@ public class PropertyValueMapImpl implements PropertyValueMap {
     public synchronized <V extends Value> boolean overwrite(Property property, V value) {
         assert value != null : "Not allowed to write null";
         assert property.classOfValue().isAssignableFrom(value.getClass());
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.write(this, property);
         Value prev = map.put(property, value);
         return !value.equals(prev);
     }
@@ -141,11 +160,20 @@ public class PropertyValueMapImpl implements PropertyValueMap {
 
     @Override
     public synchronized void removeIf(java.util.function.Predicate<Property> filter) {
+        if (AnalysisAccessRecorder.active()) {
+            map.keySet().removeIf(p -> {
+                boolean remove = filter.test(p);
+                if (remove) AnalysisAccessRecorder.write(this, p);
+                return remove;
+            });
+            return;
+        }
         map.keySet().removeIf(filter);
     }
 
     @Override
     public synchronized boolean isEmpty() {
+        if (AnalysisAccessRecorder.active()) AnalysisAccessRecorder.readAll();
         return map.isEmpty();
     }
 }
