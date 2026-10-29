@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 
@@ -832,6 +833,9 @@ public class JavaTime {
         static java.time.Clock tickMinutes(@NotNull java.time.ZoneId p0) { return null; }
         static java.time.Clock tickSeconds(@NotNull java.time.ZoneId p0) { return null; }
         java.time.Clock withZone(@NotNull java.time.ZoneId p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.time.ZoneId getZone() { return null; }
     }
 
     //public java.time.DateTimeException (shadow created for its nullability, generated)
@@ -856,11 +860,18 @@ public class JavaTime {
         java.time.temporal.Temporal adjustInto(@NotNull java.time.temporal.Temporal p0) { return null; }
         static java.time.Month from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
         int get(@NotNull java.time.temporal.TemporalField p0) { return 0; }
-        java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
         long getLong(@NotNull java.time.temporal.TemporalField p0) { return 0; }
         boolean isSupported(@NotNull java.time.temporal.TemporalField p0) { return false; }
         <R> R query(@NotNull java.time.temporal.TemporalQuery<R> p0) { return null; }
         java.time.temporal.ValueRange range(@NotNull java.time.temporal.TemporalField p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getValue() { return 0; }
+        @NotModified int length(boolean p0) { return 0; }
+        @NotModified int maxLength() { return 0; }
+        @NotModified int minLength() { return 0; }
+        @NotModified java.time.Month minus(long p0) { return null; }
     }
 
     //public java.time.MonthDay (shadow created for its nullability, generated)

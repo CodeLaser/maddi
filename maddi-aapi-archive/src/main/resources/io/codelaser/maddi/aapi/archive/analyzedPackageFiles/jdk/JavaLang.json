@@ -2619,8 +2619,8 @@
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "McheckWrite(26,java.io.FileDescriptor)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetSecurityContext(28)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
- {"name": "MgetThreadGroup(29)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+ {"name": "MgetSecurityContext(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}},
+ {"name": "MgetThreadGroup(29)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.lang.Short", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"immutableType":3,"independentType":2}, "subs":[
  {"name": "FBYTES(0)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
@@ -2714,7 +2714,7 @@
   {"name": "MgetClassName(1)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
   {"name": "MgetDeclaringClass(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
   {"name": "MgetDescriptor(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "MgetFileName(4)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+  {"name": "MgetFileName(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
   {"name": "MgetLineNumber(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
   {"name": "MgetMethodName(6)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
   {"name": "MgetMethodType(7)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -3254,8 +3254,8 @@
    {"name": "FOFF(4)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
    {"name": "FTRACE(5)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
    {"name": "FWARNING(6)", "data":{"annotatedApi":1,"finalField":1,"nullabilityField":"N"}},
-   {"name": "MgetName(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
-   {"name": "MgetSeverity(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+   {"name": "MgetName(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+   {"name": "MgetSeverity(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
    {"name": "MvalueOf(2,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
     {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
    {"name": "Mvalues(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}}]},
@@ -3294,13 +3294,13 @@
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]}]},
  {"name": "SLoggerFinder(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MgetLocalizedLogger(0,java.lang.String,java.util.ResourceBundle,java.lang.Module)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MgetLocalizedLogger(0,java.lang.String,java.util.ResourceBundle,java.lang.Module)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}},
-   {"name": "Parg2(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}}]},
-  {"name": "MgetLogger(1,java.lang.String,java.lang.Module)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}},
+   {"name": "Parg2(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+  {"name": "MgetLogger(1,java.lang.String,java.lang.Module)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}}]},
+   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}]},
   {"name": "MgetLoggerFinder(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
  {"name": "Ferr(0)", "data":{"annotatedApi":1,"finalField":1,"ignoreModificationsField":1,"nullabilityField":"N"}},
  {"name": "Fin(1)", "data":{"annotatedApi":1,"finalField":1,"ignoreModificationsField":1,"independentField":2,"nullabilityField":"N"}},

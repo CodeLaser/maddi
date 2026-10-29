@@ -18,6 +18,7 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
@@ -26,7 +27,7 @@ public class JavaLangRef {
     public static final String PACKAGE_NAME = "java.lang.ref";
 
     class Reference$<T> {
-        @Nullable T get() { return null; }
+        @NotModified @Nullable T get() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static void reachabilityFence(@Nullable java.lang.Object p0) { }
@@ -35,6 +36,9 @@ public class JavaLangRef {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void clear() { }
         @Modified boolean enqueue() { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean isEnqueued() { return false; }
     }
 
     //public java.lang.ref.Cleaner (shadow created for its nullability, generated)
@@ -48,7 +52,7 @@ public class JavaLangRef {
     class PhantomReference$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         PhantomReference$(@Nullable T p0, @Nullable java.lang.ref.ReferenceQueue<? super T> p1) { }
-        @Nullable T get() { return null; }
+        @NotModified @Nullable T get() { return null; }
     }
 
     //public java.lang.ref.ReferenceQueue (shadow created for its nullability, generated)
@@ -66,7 +70,7 @@ public class JavaLangRef {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         SoftReference$(@Nullable T p0) { }
         SoftReference$(@Nullable T p0, @Nullable java.lang.ref.ReferenceQueue<? super T> p1) { }
-        @Nullable T get() { return null; }
+        @NotModified @Nullable T get() { return null; }
     }
 
     //public java.lang.ref.WeakReference (shadow created for its nullability, generated)

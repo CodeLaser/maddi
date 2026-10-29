@@ -37,7 +37,7 @@ public class JavaSecurity {
         static MessageDigest getInstance(@NotNull String algorithm) { return null; }
         static MessageDigest getInstance(@NotNull String algorithm, @NotNull String provider) { return null; }
         static MessageDigest getInstance(@NotNull String algorithm, @NotNull @NotModified Provider provider) { return null; }
-        @Nullable Provider getProvider() { return null; }
+        @NotModified @Nullable Provider getProvider() { return null; }
         @Modified void update(byte input) { }
         @Modified void update(@NotNull @NotModified byte [] input, int offset, int len) { }
         @Modified void update(@NotNull @NotModified byte [] input) { }
@@ -79,7 +79,7 @@ public class JavaSecurity {
         public int hashCode() { return 0; }
 
         //frequency 1
-        String getName() { return null; }
+        @NotModified String getName() { return null; }
         boolean implies(Subject subject) { return false; }
     }
 
@@ -124,7 +124,7 @@ public class JavaSecurity {
     //public java.security.AsymmetricKey (shadow created for its nullability, generated)
     class AsymmetricKey$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.security.spec.AlgorithmParameterSpec getParams() { return null; }
+        @NotModified @Nullable java.security.spec.AlgorithmParameterSpec getParams() { return null; }
     }
 
     //public java.security.CodeSource (shadow created for its nullability, generated)
@@ -132,16 +132,20 @@ public class JavaSecurity {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CodeSource$(@Nullable java.net.URL p0, @Nullable java.security.cert.Certificate[] p1) { }
         CodeSource$(@Nullable java.net.URL p0, @Nullable java.security.CodeSigner[] p1) { }
-        @Nullable java.security.cert.Certificate[] getCertificates() { return null; }
-        @Nullable java.security.CodeSigner[] getCodeSigners() { return null; }
-        @Nullable java.net.URL getLocation() { return null; }
+        @NotModified @Nullable java.security.cert.Certificate[] getCertificates() { return null; }
+        @NotModified @Nullable java.security.CodeSigner[] getCodeSigners() { return null; }
+        @NotModified @Nullable java.net.URL getLocation() { return null; }
         boolean implies(@Nullable java.security.CodeSource p0) { return false; }
     }
 
     //public java.security.DomainLoadStoreParameter (shadow created for its nullability, generated)
     class DomainLoadStoreParameter$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.security.KeyStore.ProtectionParameter getProtectionParameter() { return null; }
+        @NotModified @Nullable java.security.KeyStore.ProtectionParameter getProtectionParameter() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.net.URI getConfiguration() { return null; }
+        @NotModified java.util.Map<String, java.security.KeyStore.ProtectionParameter> getProtectionParams() { return null; }
     }
 
     //public java.security.GeneralSecurityException (shadow created for its nullability, generated)
@@ -155,32 +159,35 @@ public class JavaSecurity {
     //public java.security.Key (shadow created for its nullability, generated)
     class Key$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable byte[] getEncoded() { return null; }
-        @Nullable java.lang.String getFormat() { return null; }
+        @NotModified @Nullable byte[] getEncoded() { return null; }
+        @NotModified @Nullable java.lang.String getFormat() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getAlgorithm() { return null; }
     }
 
     //public java.security.KeyStore (shadow created for its nullability, generated)
     class KeyStore$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         KeyStore$(@NotNull java.security.KeyStoreSpi p0, java.security.Provider p1, @NotNull java.lang.String p2) { }
-        boolean containsAlias(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean containsAlias(@NotNull java.lang.String p0) { return false; }
         @Modified void deleteEntry(@NotNull java.lang.String p0) { }
         boolean entryInstanceOf(@NotNull java.lang.String p0, @NotNull java.lang.Class<? extends java.security.KeyStore.Entry> p1) { return false; }
-        java.util.Set<java.security.KeyStore.Entry.Attribute> getAttributes(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.security.cert.Certificate getCertificate(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.String getCertificateAlias(@NotNull java.security.cert.Certificate p0) { return null; }
-        @Nullable java.security.cert.Certificate[] getCertificateChain(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.util.Date getCreationDate(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.time.Instant getCreationInstant(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.security.KeyStore.Entry getEntry(@NotNull java.lang.String p0, @Nullable java.security.KeyStore.ProtectionParameter p1) { return null; }
+        @NotModified java.util.Set<java.security.KeyStore.Entry.Attribute> getAttributes(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.security.cert.Certificate getCertificate(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.lang.String getCertificateAlias(@NotNull java.security.cert.Certificate p0) { return null; }
+        @NotModified @Nullable java.security.cert.Certificate[] getCertificateChain(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.util.Date getCreationDate(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.time.Instant getCreationInstant(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.security.KeyStore.Entry getEntry(@NotNull java.lang.String p0, @Nullable java.security.KeyStore.ProtectionParameter p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.io.File p0, @Nullable java.security.KeyStore.LoadStoreParameter p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.io.File p0, @Nullable char[] p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0, @NotNull java.security.Provider p1) { return null; }
         static java.security.KeyStore getInstance(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
-        @Nullable java.security.Key getKey(@NotNull java.lang.String p0, @Nullable char[] p1) { return null; }
-        boolean isCertificateEntry(@NotNull java.lang.String p0) { return false; }
-        boolean isKeyEntry(@NotNull java.lang.String p0) { return false; }
+        @NotModified @Nullable java.security.Key getKey(@NotNull java.lang.String p0, @Nullable char[] p1) { return null; }
+        @NotModified boolean isCertificateEntry(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean isKeyEntry(@NotNull java.lang.String p0) { return false; }
         @Modified void load(@Nullable java.io.InputStream p0, @Nullable char[] p1) { }
         @Modified void load(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
         @Modified void setCertificateEntry(@NotNull java.lang.String p0, @NotNull java.security.cert.Certificate p1) { }
@@ -193,7 +200,7 @@ public class JavaSecurity {
         //public java.security.KeyStore.Builder (shadow created for its nullability, generated)
         class Builder {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            java.security.KeyStore.ProtectionParameter getProtectionParameter(@NotNull java.lang.String p0) { return null; }
+            @NotModified java.security.KeyStore.ProtectionParameter getProtectionParameter(@NotNull java.lang.String p0) { return null; }
             static java.security.KeyStore.Builder newInstance(@NotNull java.io.File p0, @NotNull java.security.KeyStore.ProtectionParameter p1) { return null; }
             static java.security.KeyStore.Builder newInstance(@NotNull java.security.KeyStore p0, @NotNull java.security.KeyStore.ProtectionParameter p1) { return null; }
             static java.security.KeyStore.Builder newInstance(@NotNull java.lang.String p0, @Nullable java.security.Provider p1, @NotNull java.io.File p2, @NotNull java.security.KeyStore.ProtectionParameter p3) { return null; }
@@ -207,16 +214,16 @@ public class JavaSecurity {
         //public java.security.KeyStore.LoadStoreParameter (shadow created for its nullability, generated)
         class LoadStoreParameter {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable java.security.KeyStore.ProtectionParameter getProtectionParameter() { return null; }
+            @NotModified @Nullable java.security.KeyStore.ProtectionParameter getProtectionParameter() { return null; }
         }
         //public java.security.KeyStore.PasswordProtection (shadow created for its nullability, generated)
         class PasswordProtection {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             PasswordProtection(@Nullable char[] p0) { }
             PasswordProtection(@Nullable char[] p0, @NotNull java.lang.String p1, @Nullable java.security.spec.AlgorithmParameterSpec p2) { }
-            @Nullable char[] getPassword() { return null; }
-            @Nullable java.lang.String getProtectionAlgorithm() { return null; }
-            @Nullable java.security.spec.AlgorithmParameterSpec getProtectionParameters() { return null; }
+            @NotModified @Nullable char[] getPassword() { return null; }
+            @NotModified @Nullable java.lang.String getProtectionAlgorithm() { return null; }
+            @NotModified @Nullable java.security.spec.AlgorithmParameterSpec getProtectionParameters() { return null; }
         }
         //public java.security.KeyStore.PrivateKeyEntry (shadow created for its nullability, generated)
         class PrivateKeyEntry {
@@ -236,6 +243,11 @@ public class JavaSecurity {
             TrustedCertificateEntry(@NotNull java.security.cert.Certificate p0) { }
             TrustedCertificateEntry(@NotNull java.security.cert.Certificate p0, @NotNull java.util.Set<java.security.KeyStore.Entry.Attribute> p1) { }
         }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.security.Provider getProvider() { return null; }
+        @NotModified String getType() { return null; }
+        @NotModified int size() { return 0; }
     }
 
     //public java.security.KeyStoreSpi (shadow created for its nullability, generated)
@@ -255,14 +267,22 @@ public class JavaSecurity {
     class Permission$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.security.PermissionCollection newPermissionCollection() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getActions() { return null; }
+        @NotModified String getName() { return null; }
     }
 
     //public java.security.Policy (shadow created for its nullability, generated)
     class Policy$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.security.Policy.Parameters getParameters() { return null; }
-        @Nullable java.security.Provider getProvider() { return null; }
-        @Nullable java.lang.String getType() { return null; }
+        @NotModified @Nullable java.security.Policy.Parameters getParameters() { return null; }
+        @NotModified @Nullable java.security.Provider getProvider() { return null; }
+        @NotModified @Nullable java.lang.String getType() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.security.PermissionCollection getPermissions(java.security.CodeSource p0) { return null; }
+        @NotModified java.security.PermissionCollection getPermissions(java.security.ProtectionDomain p0) { return null; }
     }
 
     //public java.security.ProtectionDomain (shadow created for its nullability, generated)
@@ -270,10 +290,13 @@ public class JavaSecurity {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ProtectionDomain$(@Nullable java.security.CodeSource p0, @Nullable java.security.PermissionCollection p1) { }
         ProtectionDomain$(@Nullable java.security.CodeSource p0, @Nullable java.security.PermissionCollection p1, @Nullable java.lang.ClassLoader p2, @Nullable java.security.Principal[] p3) { }
-        @Nullable java.lang.ClassLoader getClassLoader() { return null; }
-        @Nullable java.security.CodeSource getCodeSource() { return null; }
-        @Nullable java.security.PermissionCollection getPermissions() { return null; }
+        @NotModified @Nullable java.lang.ClassLoader getClassLoader() { return null; }
+        @NotModified @Nullable java.security.CodeSource getCodeSource() { return null; }
+        @NotModified @Nullable java.security.PermissionCollection getPermissions() { return null; }
         boolean implies(@NotNull java.security.Permission p0) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.security.Principal[] getPrincipals() { return null; }
     }
 
     //public java.security.Provider (shadow created for its nullability, generated)
@@ -283,7 +306,7 @@ public class JavaSecurity {
         @Nullable java.lang.Object get(java.lang.Object p0) { return null; }
         java.lang.Object getOrDefault(java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
         @Nullable java.lang.String getProperty(java.lang.String p0) { return null; }
-        @Nullable java.security.Provider.Service getService(java.lang.String p0, java.lang.String p1) { return null; }
+        @NotModified @Nullable java.security.Provider.Service getService(java.lang.String p0, java.lang.String p1) { return null; }
         @Modified @Nullable java.lang.Object put(java.lang.Object p0, java.lang.Object p1) { return null; }
         @Modified @Nullable java.lang.Object putIfAbsent(java.lang.Object p0, java.lang.Object p1) { return null; }
         @Modified @Nullable java.lang.Object remove(java.lang.Object p0) { return null; }
@@ -293,10 +316,18 @@ public class JavaSecurity {
         class Service {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             Service(java.security.Provider p0, java.lang.String p1, java.lang.String p2, java.lang.String p3, @Nullable java.util.List<java.lang.String> p4, @Nullable java.util.Map<java.lang.String, java.lang.String> p5) { }
-            @Nullable java.lang.String getAttribute(java.lang.String p0) { return null; }
+            @NotModified @Nullable java.lang.String getAttribute(java.lang.String p0) { return null; }
             java.lang.Object newInstance(@Nullable java.lang.Object p0) { return null; }
             boolean supportsParameter(@Nullable java.lang.Object p0) { return false; }
         }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getInfo() { return null; }
+        @NotModified String getName() { return null; }
+        @NotModified java.util.Set<java.security.Provider.Service> getServices() { return null; }
+        @NotModified double getVersion() { return 0; }
+        @NotModified String getVersionStr() { return null; }
+        @NotModified boolean isConfigured() { return false; }
     }
 
     //public java.security.SecureClassLoader (shadow created for its nullability, generated)
@@ -325,7 +356,13 @@ public class JavaSecurity {
     //public java.security.UnresolvedPermission (shadow created for its nullability, generated)
     class UnresolvedPermission$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.security.cert.Certificate[] getUnresolvedCerts() { return null; }
+        @NotModified @Nullable java.security.cert.Certificate[] getUnresolvedCerts() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getActions() { return null; }
+        @NotModified String getUnresolvedActions() { return null; }
+        @NotModified String getUnresolvedName() { return null; }
+        @NotModified String getUnresolvedType() { return null; }
     }
 
     //public java.security.DrbgParameters (shadow created to hold nested types, generated)
@@ -333,17 +370,22 @@ public class JavaSecurity {
         //public java.security.DrbgParameters.Instantiation (shadow created for its nullability, generated)
         class Instantiation {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable byte[] getPersonalizationString() { return null; }
+            @NotModified @Nullable byte[] getPersonalizationString() { return null; }
         }
         //public java.security.DrbgParameters.NextBytes (shadow created for its nullability, generated)
         class NextBytes {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable byte[] getAdditionalInput() { return null; }
+            @NotModified @Nullable byte[] getAdditionalInput() { return null; }
         }
         //public java.security.DrbgParameters.Reseed (shadow created for its nullability, generated)
         class Reseed {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable byte[] getAdditionalInput() { return null; }
+            @NotModified @Nullable byte[] getAdditionalInput() { return null; }
         }
+    }
+
+    class BasicPermission$ {
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getActions() { return null; }
     }
 }

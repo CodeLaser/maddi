@@ -22,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.*;
 import java.util.Comparator;
 
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
@@ -277,9 +278,14 @@ public class JavaTimeChrono {
         java.time.temporal.Temporal addTo(@NotNull java.time.temporal.Temporal p0) { return null; }
         static java.time.chrono.ChronoPeriod between(@NotNull java.time.chrono.ChronoLocalDate p0, @NotNull java.time.chrono.ChronoLocalDate p1) { return null; }
         long get(@NotNull java.time.temporal.TemporalUnit p0) { return 0; }
-        java.time.chrono.ChronoPeriod minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
+        @NotModified java.time.chrono.ChronoPeriod minus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
         java.time.chrono.ChronoPeriod plus(@NotNull java.time.temporal.TemporalAmount p0) { return null; }
         java.time.temporal.Temporal subtractFrom(@NotNull java.time.temporal.Temporal p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.time.chrono.Chronology getChronology() { return null; }
+        @NotModified boolean isNegative() { return false; }
+        @NotModified boolean isZero() { return false; }
     }
 
     //public java.time.chrono.Chronology (shadow created for its nullability, generated)
@@ -294,15 +300,20 @@ public class JavaTimeChrono {
         long epochSecond(@NotNull java.time.chrono.Era p0, int p1, int p2, int p3, int p4, int p5, int p6, @NotNull java.time.ZoneOffset p7) { return 0; }
         long epochSecond(int p0, int p1, int p2, int p3, int p4, int p5, @NotNull java.time.ZoneOffset p6) { return 0; }
         static java.time.chrono.Chronology from(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
-        @Nullable java.lang.String getCalendarType() { return null; }
-        java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
+        @NotModified @Nullable java.lang.String getCalendarType() { return null; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.time.format.TextStyle p0, @NotNull java.util.Locale p1) { return null; }
         java.time.chrono.ChronoLocalDateTime<? extends java.time.chrono.ChronoLocalDate> localDateTime(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
         static java.time.chrono.Chronology of(@NotNull java.lang.String p0) { return null; }
         static java.time.chrono.Chronology ofLocale(@NotNull java.util.Locale p0) { return null; }
         int prolepticYear(@NotNull java.time.chrono.Era p0, int p1) { return 0; }
-        java.time.temporal.ValueRange range(@NotNull java.time.temporal.ChronoField p0) { return null; }
+        @NotModified java.time.temporal.ValueRange range(@NotNull java.time.temporal.ChronoField p0) { return null; }
         @Nullable java.time.chrono.ChronoLocalDate resolveDate(@NotNull java.util.Map<java.time.temporal.TemporalField, java.lang.Long> p0, @NotNull java.time.format.ResolverStyle p1) { return null; }
         java.time.chrono.ChronoZonedDateTime<? extends java.time.chrono.ChronoLocalDate> zonedDateTime(@NotNull java.time.Instant p0, @NotNull java.time.ZoneId p1) { return null; }
         java.time.chrono.ChronoZonedDateTime<? extends java.time.chrono.ChronoLocalDate> zonedDateTime(@NotNull java.time.temporal.TemporalAccessor p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getId() { return null; }
+        @NotModified boolean isIsoBased() { return false; }
+        @NotModified boolean isLeapYear(long p0) { return false; }
     }
 }

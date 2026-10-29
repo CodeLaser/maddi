@@ -2192,6 +2192,10 @@ public class JavaUtil {
     class Enumeration$<E> {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified E nextElement() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.Iterator<E> asIterator() { return null; }
+        @NotModified boolean hasMoreElements() { return false; }
     }
 
     //@Container[M]
@@ -2425,7 +2429,7 @@ public class JavaUtil {
     @Container
     @Independent(hc = true)
     class Iterator$<E> {
-        boolean hasNext() { return false; }
+        @NotModified boolean hasNext() { return false; }
         //frequency 2
         @Modified @Independent(hc = true)
         E next() { return null; }
@@ -2842,6 +2846,10 @@ public class JavaUtil {
         @Modified void add(E p0) { }
         @Modified int nextIndex() { return 0; }
         @Modified void set(E p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean hasNext() { return false; }
+        @NotModified boolean hasPrevious() { return false; }
     }
 
     //public final class Locale implements Cloneable, Serializable
@@ -2941,8 +2949,8 @@ public class JavaUtil {
             static final double MIN_WEIGHT = 0.0;
             LanguageRange(@NotNull String range) { }
             LanguageRange(@NotNull String range, double weight) { }
-            String getRange() { return null; }
-            double getWeight() { return 0.0; }
+            @NotModified String getRange() { return null; }
+            @NotModified double getWeight() { return 0.0; }
             //@Independent[T]
             static List<Locale.LanguageRange> parse(@NotNull String ranges) { return null; }
 
@@ -4803,8 +4811,8 @@ public class JavaUtil {
         boolean after(@NotNull java.lang.Object p0) { return false; }
         boolean before(@NotNull java.lang.Object p0) { return false; }
         int compareTo(@NotNull java.util.Calendar p0) { return 0; }
-        @Nullable java.lang.String getDisplayName(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
-        @Nullable java.util.Map<java.lang.String, java.lang.Integer> getDisplayNames(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        @NotModified @Nullable java.lang.String getDisplayName(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        @NotModified @Nullable java.util.Map<java.lang.String, java.lang.Integer> getDisplayNames(int p0, int p1, @NotNull java.util.Locale p2) { return null; }
         static java.util.Calendar getInstance(@NotNull java.util.Locale p0) { return null; }
         static java.util.Calendar getInstance(@NotNull java.util.TimeZone p0) { return null; }
         static java.util.Calendar getInstance(@NotNull java.util.TimeZone p0, @NotNull java.util.Locale p1) { return null; }
@@ -4834,18 +4842,49 @@ public class JavaUtil {
         @Modified void setMinimalDaysInFirstWeek(int p0) { }
         @Modified void setTimeInMillis(long p0) { }
         @Modified void setWeekDate(int p0, int p1, int p2) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int get(int p0) { return 0; }
+        @NotModified int getActualMaximum(int p0) { return 0; }
+        @NotModified int getActualMinimum(int p0) { return 0; }
+        @NotModified String getCalendarType() { return null; }
+        @NotModified int getFirstDayOfWeek() { return 0; }
+        @NotModified int getGreatestMinimum(int p0) { return 0; }
+        @NotModified int getLeastMaximum(int p0) { return 0; }
+        @NotModified int getMaximum(int p0) { return 0; }
+        @NotModified int getMinimalDaysInFirstWeek() { return 0; }
+        @NotModified int getMinimum(int p0) { return 0; }
+        @NotModified java.util.Date getTime() { return null; }
+        @NotModified long getTimeInMillis() { return 0; }
+        @NotModified java.util.TimeZone getTimeZone() { return null; }
+        @NotModified int getWeekYear() { return 0; }
+        @NotModified int getWeeksInWeekYear() { return 0; }
+        @NotModified boolean isLenient() { return false; }
+        @NotModified boolean isSet(int p0) { return false; }
+        @NotModified boolean isWeekDateSupported() { return false; }
+        @NotModified java.time.Instant toInstant() { return null; }
     }
 
     //public java.util.DoubleSummaryStatistics (shadow created for its nullability, generated)
     class DoubleSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void combine(@NotNull java.util.DoubleSummaryStatistics p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified double getAverage() { return 0; }
+        @NotModified long getCount() { return 0; }
+        @NotModified double getMax() { return 0; }
+        @NotModified double getMin() { return 0; }
+        @NotModified double getSum() { return 0; }
     }
 
     //public java.util.EventObject (shadow created for its nullability, generated)
     class EventObject$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         EventObject$(@NotNull java.lang.Object p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Object getSource() { return null; }
     }
 
     //public java.util.Formattable (shadow created for its nullability, generated)
@@ -4895,6 +4934,22 @@ public class JavaUtil {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void add(int p0, int p1) { }
         @Modified void setWeekDate(int p0, int p1, int p2) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getActualMaximum(int p0) { return 0; }
+        @NotModified int getActualMinimum(int p0) { return 0; }
+        @NotModified String getCalendarType() { return null; }
+        @NotModified int getGreatestMinimum(int p0) { return 0; }
+        @NotModified java.util.Date getGregorianChange() { return null; }
+        @NotModified int getLeastMaximum(int p0) { return 0; }
+        @NotModified int getMaximum(int p0) { return 0; }
+        @NotModified int getMinimum(int p0) { return 0; }
+        @NotModified java.util.TimeZone getTimeZone() { return null; }
+        @NotModified int getWeekYear() { return 0; }
+        @NotModified int getWeeksInWeekYear() { return 0; }
+        @NotModified boolean isLeapYear(int p0) { return false; }
+        @NotModified boolean isWeekDateSupported() { return false; }
+        @NotModified java.time.ZonedDateTime toZonedDateTime() { return null; }
     }
 
     //public java.util.HexFormat (shadow created for its nullability, generated)
@@ -4923,18 +4978,35 @@ public class JavaUtil {
     class IntSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void combine(@NotNull java.util.IntSummaryStatistics p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified double getAverage() { return 0; }
+        @NotModified long getCount() { return 0; }
+        @NotModified int getMax() { return 0; }
+        @NotModified int getMin() { return 0; }
+        @NotModified long getSum() { return 0; }
     }
 
     //public java.util.ListResourceBundle (shadow created for its nullability, generated)
     class ListResourceBundle$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.lang.Object handleGetObject(@Nullable java.lang.String p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.Enumeration<String> getKeys() { return null; }
     }
 
     //public java.util.LongSummaryStatistics (shadow created for its nullability, generated)
     class LongSummaryStatistics$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void combine(@NotNull java.util.LongSummaryStatistics p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified double getAverage() { return 0; }
+        @NotModified long getCount() { return 0; }
+        @NotModified long getMax() { return 0; }
+        @NotModified long getMin() { return 0; }
+        @NotModified long getSum() { return 0; }
     }
 
     //public java.util.Observable (shadow created for its nullability, generated)
@@ -4946,6 +5018,10 @@ public class JavaUtil {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void deleteObservers() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int countObservers() { return 0; }
+        @NotModified boolean hasChanged() { return false; }
     }
 
     //public java.util.Observer (shadow created for its nullability, generated)
@@ -4969,14 +5045,17 @@ public class JavaUtil {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         PropertyPermission$(@NotNull java.lang.String p0, @Nullable java.lang.String p1) { }
         boolean implies(@NotNull java.security.Permission p0) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getActions() { return null; }
     }
 
     //public java.util.ResourceBundle (shadow created for its nullability, generated)
     class ResourceBundle$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static void clearCache(@NotNull java.lang.ClassLoader p0) { }
-        boolean containsKey(@NotNull java.lang.String p0) { return false; }
-        @Nullable java.lang.String getBaseBundleName() { return null; }
+        @NotModified boolean containsKey(@NotNull java.lang.String p0) { return false; }
+        @NotModified @Nullable java.lang.String getBaseBundleName() { return null; }
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0) { return null; }
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.ResourceBundle.Control p1) { return null; }
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
@@ -4985,26 +5064,30 @@ public class JavaUtil {
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.util.ResourceBundle.Control p2) { return null; }
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.Module p2) { return null; }
         static java.util.ResourceBundle getBundle(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
-        java.lang.Object getObject(@NotNull java.lang.String p0) { return null; }
-        java.lang.String getString(@NotNull java.lang.String p0) { return null; }
-        java.lang.String[] getStringArray(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.Object getObject(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.String getString(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.String[] getStringArray(@NotNull java.lang.String p0) { return null; }
         @Nullable java.lang.Object handleGetObject(@NotNull java.lang.String p0) { return null; }
         void setParent(@Nullable java.util.ResourceBundle p0) { }
 
         //public java.util.ResourceBundle.Control (shadow created for its nullability, generated)
         class Control {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            java.util.List<java.util.Locale> getCandidateLocales(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            @NotModified java.util.List<java.util.Locale> getCandidateLocales(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
             static java.util.ResourceBundle.Control getControl(@NotNull java.util.List<java.lang.String> p0) { return null; }
-            @Nullable java.util.Locale getFallbackLocale(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
-            java.util.List<java.lang.String> getFormats(@NotNull java.lang.String p0) { return null; }
+            @NotModified @Nullable java.util.Locale getFallbackLocale(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            @NotModified java.util.List<java.lang.String> getFormats(@NotNull java.lang.String p0) { return null; }
             static java.util.ResourceBundle.Control getNoFallbackControl(@NotNull java.util.List<java.lang.String> p0) { return null; }
-            long getTimeToLive(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return 0; }
+            @NotModified long getTimeToLive(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return 0; }
             boolean needsReload(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.String p2, @NotNull java.lang.ClassLoader p3, @NotNull java.util.ResourceBundle p4, long p5) { return false; }
             @Nullable java.util.ResourceBundle newBundle(@NotNull java.lang.String p0, @NotNull java.util.Locale p1, @NotNull java.lang.String p2, @NotNull java.lang.ClassLoader p3, boolean p4) { return null; }
-            java.lang.String toBundleName(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
-            java.lang.String toResourceName(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
+            @NotModified java.lang.String toBundleName(@NotNull java.lang.String p0, @NotNull java.util.Locale p1) { return null; }
+            @NotModified java.lang.String toResourceName(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
         }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.Enumeration<String> getKeys() { return null; }
+        @NotModified java.util.Locale getLocale() { return null; }
     }
 
     //public java.util.Scanner (shadow created for its nullability, generated)
@@ -5030,8 +5113,8 @@ public class JavaUtil {
         @Nullable java.lang.String findInLine(@NotNull java.lang.String p0) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.util.regex.Pattern p0, int p1) { return null; }
         @Nullable java.lang.String findWithinHorizon(@NotNull java.lang.String p0, int p1) { return null; }
-        boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
-        boolean hasNext(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean hasNext(@NotNull java.util.regex.Pattern p0) { return false; }
+        @NotModified boolean hasNext(@NotNull java.lang.String p0) { return false; }
         @Nullable java.io.IOException ioException() { return null; }
         @Modified java.lang.String next(@NotNull java.util.regex.Pattern p0) { return null; }
         @Modified java.lang.String next(@NotNull java.lang.String p0) { return null; }
@@ -5058,6 +5141,24 @@ public class JavaUtil {
         @Modified short nextShort() { return 0; }
         @Modified short nextShort(int p0) { return 0; }
         @Modified java.util.Scanner reset() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean hasNext() { return false; }
+        @NotModified boolean hasNextBigDecimal() { return false; }
+        @NotModified boolean hasNextBigInteger() { return false; }
+        @NotModified boolean hasNextBigInteger(int p0) { return false; }
+        @NotModified boolean hasNextBoolean() { return false; }
+        @NotModified boolean hasNextByte() { return false; }
+        @NotModified boolean hasNextByte(int p0) { return false; }
+        @NotModified boolean hasNextDouble() { return false; }
+        @NotModified boolean hasNextFloat() { return false; }
+        @NotModified boolean hasNextInt() { return false; }
+        @NotModified boolean hasNextInt(int p0) { return false; }
+        @NotModified boolean hasNextLine() { return false; }
+        @NotModified boolean hasNextLong() { return false; }
+        @NotModified boolean hasNextLong(int p0) { return false; }
+        @NotModified boolean hasNextShort() { return false; }
+        @NotModified boolean hasNextShort(int p0) { return false; }
     }
 
     //public java.util.ServiceLoader (shadow created for its nullability, generated)
@@ -5076,7 +5177,7 @@ public class JavaUtil {
         SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9) { }
         SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10) { }
         SimpleTimeZone$(int p0, @NotNull java.lang.String p1, int p2, int p3, int p4, int p5, int p6, int p7, int p8, int p9, int p10, int p11, int p12) { }
-        boolean hasSameRules(@NotNull java.util.TimeZone p0) { return false; }
+        @NotModified boolean hasSameRules(@NotNull java.util.TimeZone p0) { return false; }
         boolean inDaylightTime(@NotNull java.util.Date p0) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -5089,6 +5190,12 @@ public class JavaUtil {
         @Modified void setStartRule(int p0, int p1, int p2, int p3) { }
         @Modified void setStartRule(int p0, int p1, int p2, int p3, boolean p4) { }
         @Modified void setStartYear(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getDSTSavings() { return 0; }
+        @NotModified int getOffset(int p0, int p1, int p2, int p3, int p4, int p5) { return 0; }
+        @NotModified int getOffset(long p0) { return 0; }
+        @NotModified int getRawOffset() { return 0; }
     }
 
     //public java.util.Spliterators (shadow created for its nullability, generated)
@@ -5141,17 +5248,27 @@ public class JavaUtil {
     //public java.util.TimeZone (shadow created for its nullability, generated)
     class TimeZone$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
-        java.lang.String getDisplayName(boolean p0, int p1, @NotNull java.util.Locale p2) { return null; }
+        @NotModified java.lang.String getDisplayName(@NotNull java.util.Locale p0) { return null; }
+        @NotModified java.lang.String getDisplayName(boolean p0, int p1, @NotNull java.util.Locale p2) { return null; }
         static java.util.TimeZone getTimeZone(@NotNull java.lang.String p0) { return null; }
         static java.util.TimeZone getTimeZone(@NotNull java.time.ZoneId p0) { return null; }
-        boolean hasSameRules(@Nullable java.util.TimeZone p0) { return false; }
+        @NotModified boolean hasSameRules(@Nullable java.util.TimeZone p0) { return false; }
         boolean inDaylightTime(@NotNull java.util.Date p0) { return false; }
         static void setDefault(@Nullable java.util.TimeZone p0) { }
         @Modified void setID(@NotNull java.lang.String p0) { }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setRawOffset(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getDSTSavings() { return 0; }
+        @NotModified String getDisplayName() { return null; }
+        @NotModified String getDisplayName(boolean p0, int p1) { return null; }
+        @NotModified String getID() { return null; }
+        @NotModified int getOffset(int p0, int p1, int p2, int p3, int p4, int p5) { return 0; }
+        @NotModified int getOffset(long p0) { return 0; }
+        @NotModified int getRawOffset() { return 0; }
+        @NotModified java.time.ZoneId toZoneId() { return null; }
     }
 
     //public java.util.Timer (shadow created for its nullability, generated)

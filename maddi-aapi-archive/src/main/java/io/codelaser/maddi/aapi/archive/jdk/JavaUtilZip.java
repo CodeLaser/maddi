@@ -58,6 +58,9 @@ public class JavaUtilZip {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void reset() { }
         @Modified void update(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified long getValue() { return 0; }
     }
 
     //public java.util.zip.CRC32 (shadow created for its nullability, generated)
@@ -69,6 +72,9 @@ public class JavaUtilZip {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void reset() { }
         @Modified void update(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified long getValue() { return 0; }
     }
 
     //public java.util.zip.Checksum (shadow created for its nullability, generated)
@@ -81,6 +87,9 @@ public class JavaUtilZip {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void reset() { }
         @Modified void update(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified long getValue() { return 0; }
     }
 
     //public java.util.zip.DataFormatException (shadow created for its nullability, generated)
@@ -109,6 +118,13 @@ public class JavaUtilZip {
         @Modified void reset() { }
         @Modified void setLevel(int p0) { }
         @Modified void setStrategy(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getAdler() { return 0; }
+        @NotModified long getBytesRead() { return 0; }
+        @NotModified long getBytesWritten() { return 0; }
+        @NotModified int getTotalIn() { return 0; }
+        @NotModified int getTotalOut() { return 0; }
     }
 
     //public java.util.zip.DeflaterOutputStream (shadow created for its nullability, generated)
@@ -157,6 +173,14 @@ public class JavaUtilZip {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void close() { }
         @Modified void reset() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getAdler() { return 0; }
+        @NotModified long getBytesRead() { return 0; }
+        @NotModified long getBytesWritten() { return 0; }
+        @NotModified int getRemaining() { return 0; }
+        @NotModified int getTotalIn() { return 0; }
+        @NotModified int getTotalOut() { return 0; }
     }
 
     //public java.util.zip.InflaterInputStream (shadow created for its nullability, generated)
@@ -182,11 +206,11 @@ public class JavaUtilZip {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ZipEntry$(@NotNull java.lang.String p0) { }
         ZipEntry$(@NotNull java.util.zip.ZipEntry p0) { }
-        @Nullable java.lang.String getComment() { return null; }
-        @Nullable java.nio.file.attribute.FileTime getCreationTime() { return null; }
-        @Nullable byte[] getExtra() { return null; }
-        @Nullable java.nio.file.attribute.FileTime getLastAccessTime() { return null; }
-        @Nullable java.nio.file.attribute.FileTime getLastModifiedTime() { return null; }
+        @NotModified @Nullable java.lang.String getComment() { return null; }
+        @NotModified @Nullable java.nio.file.attribute.FileTime getCreationTime() { return null; }
+        @NotModified @Nullable byte[] getExtra() { return null; }
+        @NotModified @Nullable java.nio.file.attribute.FileTime getLastAccessTime() { return null; }
+        @NotModified @Nullable java.nio.file.attribute.FileTime getLastModifiedTime() { return null; }
         @Modified void setComment(@Nullable java.lang.String p0) { }
         @Modified java.util.zip.ZipEntry setCreationTime(@NotNull java.nio.file.attribute.FileTime p0) { return null; }
         @Modified void setExtra(@Nullable byte[] p0) { }
@@ -200,6 +224,16 @@ public class JavaUtilZip {
         @Modified void setMethod(int p0) { }
         @Modified void setSize(long p0) { }
         @Modified void setTime(long p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified long getCompressedSize() { return 0; }
+        @NotModified long getCrc() { return 0; }
+        @NotModified int getMethod() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified long getSize() { return 0; }
+        @NotModified long getTime() { return 0; }
+        @NotModified java.time.LocalDateTime getTimeLocal() { return null; }
+        @NotModified boolean isDirectory() { return false; }
     }
 
     //public java.util.zip.ZipException (shadow created for its nullability, generated)
@@ -217,9 +251,13 @@ public class JavaUtilZip {
         ZipFile$(@NotNull java.io.File p0, int p1, @NotNull java.nio.charset.Charset p2) { }
         ZipFile$(@NotNull java.lang.String p0) { }
         ZipFile$(@NotNull java.lang.String p0, @NotNull java.nio.charset.Charset p1) { }
-        @Nullable java.lang.String getComment() { return null; }
-        @Nullable java.util.zip.ZipEntry getEntry(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.io.InputStream getInputStream(@NotNull java.util.zip.ZipEntry p0) { return null; }
+        @NotModified @Nullable java.lang.String getComment() { return null; }
+        @NotModified @Nullable java.util.zip.ZipEntry getEntry(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.io.InputStream getInputStream(@NotNull java.util.zip.ZipEntry p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getName() { return null; }
+        @NotModified int size() { return 0; }
     }
 
     //public java.util.zip.ZipInputStream (shadow created for its nullability, generated)

@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.Charset;
 
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Nullable;
@@ -211,13 +212,16 @@ public class JavaNet {
     //public java.net.ContentHandler (shadow created for its nullability, generated)
     class ContentHandler$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Object getContent(java.net.URLConnection p0, java.lang.Class[] p1) { return null; }
+        @NotModified @Nullable java.lang.Object getContent(java.net.URLConnection p0, java.lang.Class[] p1) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Object getContent(java.net.URLConnection p0) { return null; }
     }
 
     //public java.net.CookieHandler (shadow created for its nullability, generated)
     class CookieHandler$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
+        @NotModified java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
         @Nullable static java.net.CookieHandler getDefault() { return null; }
         @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
         static void setDefault(@Nullable java.net.CookieHandler p0) { }
@@ -227,9 +231,12 @@ public class JavaNet {
     class CookieManager$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CookieManager$(@Nullable java.net.CookieStore p0, @Nullable java.net.CookiePolicy p1) { }
-        java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
+        @NotModified java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
         @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
         @Modified void setCookiePolicy(@Nullable java.net.CookiePolicy p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.net.CookieStore getCookieStore() { return null; }
     }
 
     //public java.net.CookiePolicy (shadow created for its nullability, generated)
@@ -242,11 +249,15 @@ public class JavaNet {
     class CookieStore$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Modified void add(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { }
-        java.util.List<java.net.HttpCookie> get(@NotNull java.net.URI p0) { return null; }
+        @NotModified java.util.List<java.net.HttpCookie> get(@NotNull java.net.URI p0) { return null; }
         @Modified boolean remove(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { return false; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean removeAll() { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.List<java.net.HttpCookie> getCookies() { return null; }
+        @NotModified java.util.List<java.net.URI> getURIs() { return null; }
     }
 
     //public java.net.DatagramSocket (shadow created for its nullability, generated)
@@ -258,12 +269,12 @@ public class JavaNet {
         void bind(@Nullable java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.InetAddress p0, int p1) { }
         void connect(@NotNull java.net.SocketAddress p0) { }
-        @Nullable java.nio.channels.DatagramChannel getChannel() { return null; }
-        @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @Nullable java.net.InetAddress getLocalAddress() { return null; }
-        @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
-        @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
+        @NotModified @Nullable java.nio.channels.DatagramChannel getChannel() { return null; }
+        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable java.net.InetAddress getLocalAddress() { return null; }
+        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
+        @NotModified @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
         void joinGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
         void leaveGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
         void receive(@NotNull java.net.DatagramPacket p0) { }
@@ -278,17 +289,30 @@ public class JavaNet {
         @Modified void setSendBufferSize(int p0) { }
         @Modified void setSoTimeout(int p0) { }
         @Modified void setTrafficClass(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean getBroadcast() { return false; }
+        @NotModified int getLocalPort() { return 0; }
+        @NotModified int getPort() { return 0; }
+        @NotModified int getReceiveBufferSize() { return 0; }
+        @NotModified boolean getReuseAddress() { return false; }
+        @NotModified int getSendBufferSize() { return 0; }
+        @NotModified int getSoTimeout() { return 0; }
+        @NotModified int getTrafficClass() { return 0; }
+        @NotModified boolean isBound() { return false; }
+        @NotModified boolean isClosed() { return false; }
+        @NotModified boolean isConnected() { return false; }
     }
 
     //public java.net.HttpCookie (shadow created for its nullability, generated)
     class HttpCookie$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static boolean domainMatches(@Nullable java.lang.String p0, @Nullable java.lang.String p1) { return false; }
-        @Nullable java.lang.String getComment() { return null; }
-        @Nullable java.lang.String getCommentURL() { return null; }
-        @Nullable java.lang.String getDomain() { return null; }
-        @Nullable java.lang.String getPath() { return null; }
-        @Nullable java.lang.String getPortlist() { return null; }
+        @NotModified @Nullable java.lang.String getComment() { return null; }
+        @NotModified @Nullable java.lang.String getCommentURL() { return null; }
+        @NotModified @Nullable java.lang.String getDomain() { return null; }
+        @NotModified @Nullable java.lang.String getPath() { return null; }
+        @NotModified @Nullable java.lang.String getPortlist() { return null; }
         static java.util.List<java.net.HttpCookie> parse(@NotNull java.lang.String p0) { return null; }
         @Modified void setComment(@Nullable java.lang.String p0) { }
         @Modified void setCommentURL(@Nullable java.lang.String p0) { }
@@ -303,6 +327,16 @@ public class JavaNet {
         @Modified void setSecure(boolean p0) { }
         @Modified void setValue(String p0) { }
         @Modified void setVersion(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean getDiscard() { return false; }
+        @NotModified long getMaxAge() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified boolean getSecure() { return false; }
+        @NotModified String getValue() { return null; }
+        @NotModified int getVersion() { return 0; }
+        @NotModified boolean hasExpired() { return false; }
+        @NotModified boolean isHttpOnly() { return false; }
     }
 
     //public java.net.HttpURLConnection (shadow created for its nullability, generated)
@@ -319,6 +353,11 @@ public class JavaNet {
         @Modified void setFixedLengthStreamingMode(long p0) { }
         @Modified void setInstanceFollowRedirects(boolean p0) { }
         @Modified void setRequestMethod(String p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean getInstanceFollowRedirects() { return false; }
+        @NotModified java.security.Permission getPermission() { return null; }
+        @NotModified String getRequestMethod() { return null; }
     }
 
     //public java.net.Inet4Address (shadow created for its nullability, generated)
@@ -333,8 +372,12 @@ public class JavaNet {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, @Nullable java.net.NetworkInterface p2) { return null; }
         static java.net.Inet6Address getByAddress(@Nullable java.lang.String p0, @NotNull byte[] p1, int p2) { return null; }
-        @Nullable java.net.NetworkInterface getScopedInterface() { return null; }
+        @NotModified @Nullable java.net.NetworkInterface getScopedInterface() { return null; }
         static java.net.InetAddress ofLiteral(@NotNull java.lang.String p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getScopeId() { return 0; }
+        @NotModified boolean isIPv4CompatibleAddress() { return false; }
     }
 
     //public java.net.InetSocketAddress (shadow created for its nullability, generated)
@@ -343,7 +386,13 @@ public class JavaNet {
         InetSocketAddress$(@Nullable java.net.InetAddress p0, int p1) { }
         InetSocketAddress$(@NotNull java.lang.String p0, int p1) { }
         static java.net.InetSocketAddress createUnresolved(@NotNull java.lang.String p0, int p1) { return null; }
-        @Nullable java.net.InetAddress getAddress() { return null; }
+        @NotModified @Nullable java.net.InetAddress getAddress() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getHostName() { return null; }
+        @NotModified String getHostString() { return null; }
+        @NotModified int getPort() { return 0; }
+        @NotModified boolean isUnresolved() { return false; }
     }
 
     //public java.net.JarURLConnection (shadow created for its nullability, generated)
@@ -354,6 +403,10 @@ public class JavaNet {
         @Nullable java.util.jar.JarEntry getJarEntry() { return null; }
         @Nullable java.util.jar.Attributes getMainAttributes() { return null; }
         @Nullable java.util.jar.Manifest getManifest() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getEntryName() { return null; }
+        @NotModified java.net.URL getJarFileURL() { return null; }
     }
 
     //public java.net.MalformedURLException (shadow created for its nullability, generated)
@@ -376,6 +429,12 @@ public class JavaNet {
         @Modified void setLoopbackMode(boolean p0) { }
         @Modified void setNetworkInterface(java.net.NetworkInterface p0) { }
         @Modified void setTimeToLive(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.net.InetAddress getInterface() { return null; }
+        @NotModified boolean getLoopbackMode() { return false; }
+        @NotModified java.net.NetworkInterface getNetworkInterface() { return null; }
+        @NotModified int getTimeToLive() { return 0; }
     }
 
     //public java.net.NetworkInterface (shadow created for its nullability, generated)
@@ -384,9 +443,21 @@ public class JavaNet {
         @Nullable static java.net.NetworkInterface getByIndex(int p0) { return null; }
         @Nullable static java.net.NetworkInterface getByInetAddress(@NotNull java.net.InetAddress p0) { return null; }
         @Nullable static java.net.NetworkInterface getByName(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.String getDisplayName() { return null; }
-        @Nullable byte[] getHardwareAddress() { return null; }
-        @Nullable java.net.NetworkInterface getParent() { return null; }
+        @NotModified @Nullable java.lang.String getDisplayName() { return null; }
+        @NotModified @Nullable byte[] getHardwareAddress() { return null; }
+        @NotModified @Nullable java.net.NetworkInterface getParent() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getIndex() { return 0; }
+        @NotModified java.util.Enumeration<java.net.InetAddress> getInetAddresses() { return null; }
+        @NotModified java.util.List<java.net.InterfaceAddress> getInterfaceAddresses() { return null; }
+        @NotModified int getMTU() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified java.util.Enumeration<java.net.NetworkInterface> getSubInterfaces() { return null; }
+        @NotModified boolean isLoopback() { return false; }
+        @NotModified boolean isPointToPoint() { return false; }
+        @NotModified boolean isUp() { return false; }
+        @NotModified boolean isVirtual() { return false; }
     }
 
     //public java.net.NoRouteToHostException (shadow created for its nullability, generated)
@@ -414,10 +485,10 @@ public class JavaNet {
         ServerSocket$(int p0, int p1, @Nullable java.net.InetAddress p2) { }
         void bind(@Nullable java.net.SocketAddress p0) { }
         void bind(@Nullable java.net.SocketAddress p0, int p1) { }
-        @Nullable java.nio.channels.ServerSocketChannel getChannel() { return null; }
-        @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
+        @NotModified @Nullable java.nio.channels.ServerSocketChannel getChannel() { return null; }
+        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
         void implAccept(@NotNull java.net.Socket p0) { }
         @Modified <T> java.net.ServerSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
         static void setSocketFactory(@NotNull java.net.SocketImplFactory p0) { }
@@ -427,6 +498,14 @@ public class JavaNet {
         @Modified void setReceiveBufferSize(int p0) { }
         @Modified void setReuseAddress(boolean p0) { }
         @Modified void setSoTimeout(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getLocalPort() { return 0; }
+        @NotModified int getReceiveBufferSize() { return 0; }
+        @NotModified boolean getReuseAddress() { return false; }
+        @NotModified int getSoTimeout() { return 0; }
+        @NotModified boolean isBound() { return false; }
+        @NotModified boolean isClosed() { return false; }
     }
 
     //public java.net.Socket (shadow created for its nullability, generated)
@@ -443,11 +522,11 @@ public class JavaNet {
         void bind(@Nullable java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.SocketAddress p0) { }
         void connect(@NotNull java.net.SocketAddress p0, int p1) { }
-        @Nullable java.nio.channels.SocketChannel getChannel() { return null; }
-        @Nullable java.net.InetAddress getInetAddress() { return null; }
-        @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
-        <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
-        @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
+        @NotModified @Nullable java.nio.channels.SocketChannel getChannel() { return null; }
+        @NotModified @Nullable java.net.InetAddress getInetAddress() { return null; }
+        @NotModified @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
+        @NotModified <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
+        @NotModified @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
         @Modified <T> java.net.Socket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
         static void setSocketImplFactory(@Nullable java.net.SocketImplFactory p0) { }
 
@@ -464,6 +543,27 @@ public class JavaNet {
         @Modified void setTrafficClass(int p0) { }
         @Modified void shutdownInput() { }
         @Modified void shutdownOutput() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.io.InputStream getInputStream() { return null; }
+        @NotModified boolean getKeepAlive() { return false; }
+        @NotModified java.net.InetAddress getLocalAddress() { return null; }
+        @NotModified int getLocalPort() { return 0; }
+        @NotModified boolean getOOBInline() { return false; }
+        @NotModified java.io.OutputStream getOutputStream() { return null; }
+        @NotModified int getPort() { return 0; }
+        @NotModified int getReceiveBufferSize() { return 0; }
+        @NotModified boolean getReuseAddress() { return false; }
+        @NotModified int getSendBufferSize() { return 0; }
+        @NotModified int getSoLinger() { return 0; }
+        @NotModified int getSoTimeout() { return 0; }
+        @NotModified boolean getTcpNoDelay() { return false; }
+        @NotModified int getTrafficClass() { return 0; }
+        @NotModified boolean isBound() { return false; }
+        @NotModified boolean isClosed() { return false; }
+        @NotModified boolean isConnected() { return false; }
+        @NotModified boolean isInputShutdown() { return false; }
+        @NotModified boolean isOutputShutdown() { return false; }
     }
 
     //public java.net.SocketException (shadow created for its nullability, generated)
@@ -485,6 +585,11 @@ public class JavaNet {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         URISyntaxException$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
         URISyntaxException$(@NotNull java.lang.String p0, @NotNull java.lang.String p1, int p2) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getIndex() { return 0; }
+        @NotModified String getInput() { return null; }
+        @NotModified String getReason() { return null; }
     }
 
     //public java.net.URLClassLoader (shadow created for its nullability, generated)
@@ -504,6 +609,9 @@ public class JavaNet {
         @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
         static java.net.URLClassLoader newInstance(@NotNull java.net.URL[] p0) { return null; }
         static java.net.URLClassLoader newInstance(@NotNull java.net.URL[] p0, @Nullable java.lang.ClassLoader p1) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.net.URL[] getURLs() { return null; }
     }
 
     //public java.net.URLConnection (shadow created for its nullability, generated)
@@ -516,8 +624,8 @@ public class JavaNet {
         @Nullable java.lang.String getHeaderField(java.lang.String p0) { return null; }
         @Nullable java.lang.String getHeaderField(int p0) { return null; }
         @Nullable java.lang.String getHeaderFieldKey(int p0) { return null; }
-        @Nullable java.security.Permission getPermission() { return null; }
-        @Nullable java.lang.String getRequestProperty(java.lang.String p0) { return null; }
+        @NotModified @Nullable java.security.Permission getPermission() { return null; }
+        @NotModified @Nullable java.lang.String getRequestProperty(java.lang.String p0) { return null; }
         @Nullable static java.lang.String guessContentTypeFromStream(java.io.InputStream p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -531,6 +639,18 @@ public class JavaNet {
         @Modified void setReadTimeout(int p0) { }
         @Modified void setRequestProperty(String p0, String p1) { }
         @Modified void setUseCaches(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean getAllowUserInteraction() { return false; }
+        @NotModified int getConnectTimeout() { return 0; }
+        @NotModified boolean getDefaultUseCaches() { return false; }
+        @NotModified boolean getDoInput() { return false; }
+        @NotModified boolean getDoOutput() { return false; }
+        @NotModified long getIfModifiedSince() { return 0; }
+        @NotModified int getReadTimeout() { return 0; }
+        @NotModified java.util.Map<String, java.util.List<String>> getRequestProperties() { return null; }
+        @NotModified java.net.URL getURL() { return null; }
+        @NotModified boolean getUseCaches() { return false; }
     }
 
     //public java.net.URLStreamHandlerFactory (shadow created for its nullability, generated)

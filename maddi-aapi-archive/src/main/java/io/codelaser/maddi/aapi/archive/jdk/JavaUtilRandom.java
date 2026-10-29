@@ -18,6 +18,7 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.random.RandomGenerator;
 import java.util.stream.*;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotNull;
 public class JavaUtilRandom {
@@ -106,7 +107,7 @@ public class JavaUtilRandom {
         }
         static RandomGenerator of(@NotNull String name) { return null; }
         static RandomGenerator getDefault() { return null; }
-        boolean isDeprecated() { return false; }
+        @NotModified boolean isDeprecated() { return false; }
         DoubleStream doubles() { return null; }
         DoubleStream doubles(double randomNumberOrigin, double d) { return null; }
         DoubleStream doubles(long streamSize) { return null; }
@@ -147,5 +148,17 @@ public class JavaUtilRandom {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         T create(@NotNull byte[] p0) { return null; }
         static <T extends java.util.random.RandomGenerator> java.util.random.RandomGeneratorFactory<T> of(@NotNull java.lang.String p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean isArbitrarilyJumpable() { return false; }
+        @NotModified boolean isDeprecated() { return false; }
+        @NotModified boolean isHardware() { return false; }
+        @NotModified boolean isJumpable() { return false; }
+        @NotModified boolean isLeapable() { return false; }
+        @NotModified boolean isSplittable() { return false; }
+        @NotModified boolean isStatistical() { return false; }
+        @NotModified boolean isStochastic() { return false; }
+        @NotModified boolean isStreamable() { return false; }
+        @NotModified String name() { return null; }
     }
 }

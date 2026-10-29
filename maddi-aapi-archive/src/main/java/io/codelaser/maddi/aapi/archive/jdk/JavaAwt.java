@@ -343,7 +343,7 @@ public class JavaAwt {
         void move(int x, int y) { }
         @Modified void setLocation(Point p) { }
         @NotModified Dimension getSize() { return null; }
-        Dimension size() { return null; }
+        @NotModified Dimension size() { return null; }
         @Modified void setSize(int width, int height) { }
         void resize(int width, int height) { }
         @Modified void setSize(Dimension d) { }
@@ -369,7 +369,7 @@ public class JavaAwt {
         @Modified void setMinimumSize(Dimension minimumSize) { }
         @NotModified boolean isMinimumSizeSet() { return false; }
         @NotModified Dimension getMinimumSize() { return null; }
-        Dimension minimumSize() { return null; }
+        @NotModified Dimension minimumSize() { return null; }
         @Modified void setMaximumSize(Dimension maximumSize) { }
         @NotModified boolean isMaximumSizeSet() { return false; }
         @NotModified Dimension getMaximumSize() { return null; }
@@ -408,9 +408,9 @@ public class JavaAwt {
         int checkImage(Image image, int width, int height, ImageObserver observer) { return 0; }
         @Modified void setIgnoreRepaint(boolean ignoreRepaint) { }
         @NotModified boolean getIgnoreRepaint() { return false; }
-        boolean contains(int x, int y) { return false; }
+        @NotModified boolean contains(int x, int y) { return false; }
         boolean inside(int x, int y) { return false; }
-        boolean contains(Point p) { return false; }
+        @NotModified boolean contains(Point p) { return false; }
         @NotModified Component getComponentAt(int x, int y) { return null; }
         Component locate(int x, int y) { return null; }
         @NotModified Component getComponentAt(Point p) { return null; }
@@ -524,7 +524,7 @@ public class JavaAwt {
     class Container$ {
         Container$() { }
         @NotModified int getComponentCount() { return 0; }
-        int countComponents() { return 0; }
+        @NotModified int countComponents() { return 0; }
         @NotModified Component getComponent(int n) { return null; }
         @NotModified Component [] getComponents() { return null; }
         @NotModified Insets getInsets() { return null; }
@@ -573,7 +573,7 @@ public class JavaAwt {
         @NotModified Dimension getMinimumSize() { return null; }
 
         //override from java.awt.Component
-        Dimension minimumSize() { return null; }
+        @NotModified Dimension minimumSize() { return null; }
 
         //override from java.awt.Component
         @NotModified Dimension getMaximumSize() { return null; }
@@ -758,10 +758,21 @@ public class JavaAwt {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void addItemListener(java.awt.event.ItemListener p0) { }
         @Modified void removeItemListener(java.awt.event.ItemListener p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Object[] getSelectedObjects() { return null; }
     }
 
     class MenuContainer$ {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void remove(java.awt.MenuComponent p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.awt.Font getFont() { return null; }
+    }
+
+    class Transparency$ {
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getTransparency() { return 0; }
     }
 }

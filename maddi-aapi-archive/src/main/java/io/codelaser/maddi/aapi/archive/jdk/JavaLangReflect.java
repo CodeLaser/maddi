@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Nullable;
 import java.lang.reflect.Method;
 import io.codelaser.maddi.annotation.ImmutableContainer;
@@ -61,7 +62,7 @@ public class JavaLangReflect {
 
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        default boolean canAccess(@Nullable java.lang.Object p0) { return false; }
+        @NotModified default boolean canAccess(@Nullable java.lang.Object p0) { return false; }
         @Nullable default <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         default <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
         @Nullable default <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
@@ -71,6 +72,9 @@ public class JavaLangReflect {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified default void setAccessible(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified default boolean isAccessible() { return false; }
     }
 
     //public final class Array
@@ -186,36 +190,69 @@ public class JavaLangReflect {
     //public java.lang.reflect.Constructor (shadow created for its nullability, generated)
     class Constructor$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
+        @NotModified @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         T newInstance(@Nullable(nullableArguments = 0) java.lang.Object... p0) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setAccessible(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedReturnType() { return null; }
+        @NotModified Class<T> getDeclaringClass() { return null; }
+        @NotModified Class<?>[] getExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericParameterTypes() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified java.lang.annotation.Annotation[][] getParameterAnnotations() { return null; }
+        @NotModified int getParameterCount() { return 0; }
+        @NotModified Class<?>[] getParameterTypes() { return null; }
+        @NotModified boolean isSynthetic() { return false; }
+        @NotModified boolean isVarArgs() { return false; }
+        @NotModified String toGenericString() { return null; }
     }
 
     //public java.lang.reflect.Executable (shadow created for its nullability, generated)
     class Executable$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
+        @NotModified @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.AnnotatedType[] getAnnotatedExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.AnnotatedType[] getAnnotatedParameterTypes() { return null; }
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedReturnType() { return null; }
+        @NotModified Class<?> getDeclaringClass() { return null; }
+        @NotModified Class<?>[] getExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericParameterTypes() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified java.lang.annotation.Annotation[][] getParameterAnnotations() { return null; }
+        @NotModified int getParameterCount() { return 0; }
+        @NotModified Class<?>[] getParameterTypes() { return null; }
+        @NotModified java.lang.reflect.Parameter[] getParameters() { return null; }
+        @NotModified boolean isSynthetic() { return false; }
+        @NotModified boolean isVarArgs() { return false; }
+        @NotModified String toGenericString() { return null; }
     }
 
     //public java.lang.reflect.Field (shadow created for its nullability, generated)
     class Field$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Object get(@Nullable java.lang.Object p0) { return null; }
+        @NotModified @Nullable java.lang.Object get(@Nullable java.lang.Object p0) { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
-        boolean getBoolean(@Nullable java.lang.Object p0) { return false; }
-        byte getByte(@Nullable java.lang.Object p0) { return 0; }
-        char getChar(@Nullable java.lang.Object p0) { return 0; }
-        double getDouble(@Nullable java.lang.Object p0) { return 0; }
-        float getFloat(@Nullable java.lang.Object p0) { return 0; }
-        int getInt(@Nullable java.lang.Object p0) { return 0; }
-        long getLong(@Nullable java.lang.Object p0) { return 0; }
-        short getShort(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified boolean getBoolean(@Nullable java.lang.Object p0) { return false; }
+        @NotModified byte getByte(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified char getChar(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified double getDouble(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified float getFloat(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified int getInt(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified long getLong(@Nullable java.lang.Object p0) { return 0; }
+        @NotModified short getShort(@Nullable java.lang.Object p0) { return 0; }
         @Modified void set(@Nullable java.lang.Object p0, @Nullable java.lang.Object p1) { }
         @Modified void setBoolean(@Nullable java.lang.Object p0, boolean p1) { }
         @Modified void setByte(@Nullable java.lang.Object p0, byte p1) { }
@@ -228,6 +265,17 @@ public class JavaLangReflect {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setAccessible(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedType() { return null; }
+        @NotModified Class<?> getDeclaringClass() { return null; }
+        @NotModified java.lang.reflect.Type getGenericType() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified Class<?> getType() { return null; }
+        @NotModified boolean isEnumConstant() { return false; }
+        @NotModified boolean isSynthetic() { return false; }
+        @NotModified String toGenericString() { return null; }
     }
 
     //public java.lang.reflect.InvocationTargetException (shadow created for its nullability, generated)
@@ -236,18 +284,37 @@ public class JavaLangReflect {
         InvocationTargetException$(@Nullable java.lang.Throwable p0) { }
         InvocationTargetException$(@Nullable java.lang.Throwable p0, @Nullable java.lang.String p1) { }
         @Nullable java.lang.Throwable getCause() { return null; }
-        @Nullable java.lang.Throwable getTargetException() { return null; }
+        @NotModified @Nullable java.lang.Throwable getTargetException() { return null; }
     }
 
     //public java.lang.reflect.Method (shadow created for its nullability, generated)
     class Method$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        @Nullable java.lang.Object getDefaultValue() { return null; }
+        @NotModified @Nullable java.lang.Object getDefaultValue() { return null; }
         @Nullable java.lang.Object invoke(@Nullable java.lang.Object p0, @Nullable(nullableArguments = 0) java.lang.Object... p1) { return null; }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setAccessible(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedReturnType() { return null; }
+        @NotModified Class<?> getDeclaringClass() { return null; }
+        @NotModified Class<?>[] getExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericExceptionTypes() { return null; }
+        @NotModified java.lang.reflect.Type[] getGenericParameterTypes() { return null; }
+        @NotModified java.lang.reflect.Type getGenericReturnType() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified java.lang.annotation.Annotation[][] getParameterAnnotations() { return null; }
+        @NotModified int getParameterCount() { return 0; }
+        @NotModified Class<?>[] getParameterTypes() { return null; }
+        @NotModified Class<?> getReturnType() { return null; }
+        @NotModified boolean isBridge() { return false; }
+        @NotModified boolean isDefault() { return false; }
+        @NotModified boolean isSynthetic() { return false; }
+        @NotModified boolean isVarArgs() { return false; }
+        @NotModified String toGenericString() { return null; }
     }
 
     //public java.lang.reflect.Parameter (shadow created for its nullability, generated)
@@ -257,12 +324,28 @@ public class JavaLangReflect {
         <T extends java.lang.annotation.Annotation> T[] getAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getDeclaredAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedType() { return null; }
+        @NotModified java.lang.reflect.Executable getDeclaringExecutable() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified java.lang.reflect.Type getParameterizedType() { return null; }
+        @NotModified Class<?> getType() { return null; }
+        @NotModified boolean isImplicit() { return false; }
+        @NotModified boolean isNamePresent() { return false; }
+        @NotModified boolean isSynthetic() { return false; }
+        @NotModified boolean isVarArgs() { return false; }
     }
 
     //public java.lang.reflect.ParameterizedType (shadow created for its nullability, generated)
     class ParameterizedType$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.reflect.Type getOwnerType() { return null; }
+        @NotModified @Nullable java.lang.reflect.Type getOwnerType() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.Type[] getActualTypeArguments() { return null; }
+        @NotModified java.lang.reflect.Type getRawType() { return null; }
     }
 
     //public java.lang.reflect.Proxy (shadow created for its nullability, generated)
@@ -279,6 +362,22 @@ public class JavaLangReflect {
     class RecordComponent$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        @Nullable java.lang.String getGenericSignature() { return null; }
+        @NotModified @Nullable java.lang.String getGenericSignature() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.lang.reflect.Method getAccessor() { return null; }
+        @NotModified java.lang.reflect.AnnotatedType getAnnotatedType() { return null; }
+        @NotModified Class<?> getDeclaringRecord() { return null; }
+        @NotModified java.lang.reflect.Type getGenericType() { return null; }
+        @NotModified String getName() { return null; }
+        @NotModified Class<?> getType() { return null; }
+    }
+
+    class Member$ {
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Class<?> getDeclaringClass() { return null; }
+        @NotModified int getModifiers() { return 0; }
+        @NotModified String getName() { return null; }
+        @NotModified boolean isSynthetic() { return false; }
     }
 }

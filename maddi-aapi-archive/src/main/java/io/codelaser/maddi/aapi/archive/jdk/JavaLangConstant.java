@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
 import io.codelaser.maddi.annotation.NotNull;
@@ -49,5 +50,10 @@ public class JavaLangConstant {
     class ClassDesc$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.lang.constant.ClassDesc componentType() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean isArray() { return false; }
+        @NotModified boolean isClassOrInterface() { return false; }
+        @NotModified boolean isPrimitive() { return false; }
     }
 }

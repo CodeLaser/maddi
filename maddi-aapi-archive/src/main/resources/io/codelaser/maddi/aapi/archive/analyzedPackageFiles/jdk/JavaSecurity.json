@@ -2,7 +2,21 @@
 {"format": "maddi-analysis-results", "version": 1},
 
 {"name": "Tjava.security.AsymmetricKey", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "sub":
- {"name": "MgetParams(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}}},
+ {"name": "MgetParams(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}}},
+
+{"name": "Tjava.security.BasicPermission", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
+ {"name": "C<init>(0,java.lang.String)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
+ {"name": "C<init>(1,java.lang.String,java.lang.String)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
+  {"name": "Parg1(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
+ {"name": "Mequals(0,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
+ {"name": "MgetActions(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MhashCode(2)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "Mimplies(3,java.security.Permission)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MnewPermissionCollection(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}}]},
 
 {"name": "Tjava.security.CodeSource", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "C<init>(0,java.net.URL,java.security.CodeSigner[])", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -13,9 +27,9 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
  {"name": "Mequals(0,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetCertificates(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetCodeSigners(2)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetLocation(3)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MgetCertificates(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetCodeSigners(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetLocation(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "MhashCode(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mimplies(5,java.security.CodeSource)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"Q","unmodifiedParameter":0}}},
@@ -25,22 +39,22 @@
  {"name": "C<init>(0,java.net.URI,java.util.Map)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}]},
- {"name": "MgetConfiguration(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetProtectionParameter(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetProtectionParams(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
+ {"name": "MgetConfiguration(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetProtectionParameter(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetProtectionParams(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}}]},
 
 {"name": "Tjava.security.DrbgParameters", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SInstantiation(1)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "MgetCapability(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
-  {"name": "MgetPersonalizationString(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+  {"name": "MgetPersonalizationString(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
   {"name": "MgetStrength(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
   {"name": "MtoString(3)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}}]},
  {"name": "SNextBytes(2)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MgetAdditionalInput(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+  {"name": "MgetAdditionalInput(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
   {"name": "MgetPredictionResistance(1)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
   {"name": "MgetStrength(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
  {"name": "SReseed(3)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MgetAdditionalInput(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+  {"name": "MgetAdditionalInput(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
   {"name": "MgetPredictionResistance(1)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
  {"name": "Minstantiation(0,int,java.security.DrbgParameters.Capability,byte[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -66,14 +80,14 @@
 
 {"name": "Tjava.security.Key", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FserialVersionUID(0)", "data":{"finalField":1,"immutableField":3,"independentField":2,"nullabilityField":"N","unmodifiedField":1}},
- {"name": "MgetAlgorithm(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetEncoded(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetFormat(2)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}}]},
+ {"name": "MgetAlgorithm(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetEncoded(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetFormat(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}}]},
 
 {"name": "Tjava.security.KeyStore", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SBuilder(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "MgetKeyStore(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
-  {"name": "MgetProtectionParameter(1,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MgetProtectionParameter(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
   {"name": "MnewInstance(2,java.lang.String,java.security.Provider,java.io.File,java.security.KeyStore.ProtectionParameter)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
@@ -95,7 +109,7 @@
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}}},
   {"name": "MgetCallbackHandler(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}}]},
  {"name": "SLoadStoreParameter(3)", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "sub":
-  {"name": "MgetProtectionParameter(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}}},
+  {"name": "MgetProtectionParameter(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}}},
  {"name": "SPasswordProtection(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "C<init>(0,char[])", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}},
@@ -104,9 +118,9 @@
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
    {"name": "Parg2(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
   {"name": "Mdestroy(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "MgetPassword(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
-  {"name": "MgetProtectionAlgorithm(2)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
-  {"name": "MgetProtectionParameters(3)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+  {"name": "MgetPassword(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+  {"name": "MgetProtectionAlgorithm(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+  {"name": "MgetProtectionParameters(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
   {"name": "MisDestroyed(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}}]},
  {"name": "SPrivateKeyEntry(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
   {"name": "C<init>(0,java.security.PrivateKey,java.security.cert.Certificate[])", "data":{"annotatedApi":1,"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -144,29 +158,29 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1}}]},
  {"name": "Maliases(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "McontainsAlias(1,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "McontainsAlias(1,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MdeleteEntry(2,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MentryInstanceOf(3,java.lang.String,java.lang.Class)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MgetAttributes(4,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MgetAttributes(4,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetCertificate(5,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MgetCertificate(5,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetCertificateAlias(6,java.security.cert.Certificate)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
-  {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MgetCertificateChain(7,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MgetCertificateAlias(6,java.security.cert.Certificate)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
+ {"name": "MgetCertificateChain(7,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetCreationDate(8,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MgetCreationDate(8,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetCreationInstant(9,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
+ {"name": "MgetCreationInstant(9,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MgetDefaultType(10)", "data":{"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetEntry(11,java.lang.String,java.security.KeyStore.ProtectionParameter)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetEntry(11,java.lang.String,java.security.KeyStore.ProtectionParameter)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
  {"name": "MgetInstance(12,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MgetInstance(13,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
@@ -181,14 +195,14 @@
  {"name": "MgetInstance(16,java.io.File,java.security.KeyStore.LoadStoreParameter)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":2,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
- {"name": "MgetKey(17,java.lang.String,char[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetKey(17,java.lang.String,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
-  {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
- {"name": "MgetProvider(18)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MgetType(19)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MisCertificateEntry(20,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+  {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
+ {"name": "MgetProvider(18)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MgetType(19)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MisCertificateEntry(20,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MisKeyEntry(21,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
+ {"name": "MisKeyEntry(21,java.lang.String)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mload(22,java.io.InputStream,char[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"Q","unmodifiedParameter":0}},
@@ -211,7 +225,7 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
- {"name": "Msize(28)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "Msize(28)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mstore(29,java.io.OutputStream,char[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
@@ -301,7 +315,7 @@
  {"name": "MgetInstance(8,java.lang.String,java.security.Provider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MgetProvider(9)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MgetProvider(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "MisEqual(10,byte[],byte[])", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
@@ -346,8 +360,8 @@
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mequals(1,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetActions(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetName(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetActions(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetName(3)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MhashCode(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mimplies(5,java.security.Permission)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
@@ -368,14 +382,14 @@
   {"name": "Parg0(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
- {"name": "MgetParameters(3)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetPermissions(4,java.security.CodeSource)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
- {"name": "MgetPermissions(5,java.security.ProtectionDomain)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MgetParameters(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetPermissions(4,java.security.CodeSource)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
+ {"name": "MgetPermissions(5,java.security.ProtectionDomain)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}, "sub":
+  {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MgetPolicy(6)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MgetProvider(7)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetType(8)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
+ {"name": "MgetProvider(7)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetType(8)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
  {"name": "Mimplies(9,java.security.ProtectionDomain,java.security.Permission)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "subs":[
   {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
@@ -386,7 +400,7 @@
 {"name": "Tjava.security.Principal", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "Mequals(0,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetName(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetName(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MhashCode(2)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mimplies(3,javax.security.auth.Subject)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
@@ -401,10 +415,10 @@
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"Q","unmodifiedParameter":0}},
   {"name": "Parg2(2)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"Q","unmodifiedParameter":0}},
   {"name": "Parg3(3)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
- {"name": "MgetClassLoader(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetCodeSource(1)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetPermissions(2)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetPrincipals(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0}},
+ {"name": "MgetClassLoader(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetCodeSource(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetPermissions(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetPrincipals(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1}},
  {"name": "Mimplies(4,java.security.Permission)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "MstaticPermissionsOnly(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
@@ -420,7 +434,7 @@
    {"name": "Parg4(4)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}},
    {"name": "Parg5(5)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"nullabilityParameter":"Q","unmodifiedParameter":0}}]},
   {"name": "MgetAlgorithm(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "MgetAttribute(1,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "sub":
+  {"name": "MgetAttribute(1,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
   {"name": "MgetClassName(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
   {"name": "MgetProvider(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
@@ -448,20 +462,20 @@
   {"name": "Parg0(0)", "data":{"ignoreModsParameter":1,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":0}}},
  {"name": "Mget(8,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetInfo(9)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetName(10)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetInfo(9)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetName(10)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MgetOrDefault(11,java.lang.Object,java.lang.Object)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":1}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}]},
  {"name": "MgetProperty(12,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
- {"name": "MgetService(13,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}, "subs":[
+ {"name": "MgetService(13,java.lang.String,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MgetServices(14)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MgetVersion(15)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
- {"name": "MgetVersionStr(16)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MisConfigured(17)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
+ {"name": "MgetServices(14)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
+ {"name": "MgetVersion(15)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MgetVersionStr(16)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MisConfigured(17)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "MkeySet(18)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "Mkeys(19)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"nonModifyingMethod":1}},
  {"name": "Mload(20,java.io.InputStream)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -599,11 +613,11 @@
   {"name": "Parg3(3)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mequals(0,java.lang.Object)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":2,"nullabilityParameter":"Q","unmodifiedParameter":1}}},
- {"name": "MgetActions(1)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetUnresolvedActions(2)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetUnresolvedCerts(3)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":0,"nullabilityMethod":"Q"}},
- {"name": "MgetUnresolvedName(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
- {"name": "MgetUnresolvedType(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0}},
+ {"name": "MgetActions(1)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetUnresolvedActions(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetUnresolvedCerts(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"nonModifyingMethod":1,"nullabilityMethod":"Q"}},
+ {"name": "MgetUnresolvedName(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
+ {"name": "MgetUnresolvedType(5)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1}},
  {"name": "MhashCode(6)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
  {"name": "Mimplies(7,java.security.Permission)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}, "sub":
   {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},

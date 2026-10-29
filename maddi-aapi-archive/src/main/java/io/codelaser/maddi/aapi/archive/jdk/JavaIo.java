@@ -177,13 +177,13 @@ public class JavaIo {
         //@Independent[O]
         @NotModified @NotNull
         byte [] toByteArray() { return null; }
-        int size() { return 0; }
+        @NotModified int size() { return 0; }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
-        String toString(String charsetName) { return null; }
-        String toString(/*@Independent[T]*/ Charset charset) { return null; }
-        String toString(int hibyte) { return null; }
+        @NotModified String toString(String charsetName) { return null; }
+        @NotModified String toString(/*@Independent[T]*/ Charset charset) { return null; }
+        @NotModified String toString(int hibyte) { return null; }
         //override from java.io.Closeable, java.io.OutputStream, java.lang.AutoCloseable
         //@AllowsInterrupt[H]
         @Modified void close() { }
@@ -372,10 +372,10 @@ public class JavaIo {
         @Modified void close() { }
 
         //@Independent[O]
-        FileDescriptor getFD() { return null; }
+        @NotModified FileDescriptor getFD() { return null; }
 
         //@Independent[O]
-        FileChannel getChannel() { return null; }
+        @NotModified FileChannel getChannel() { return null; }
     }
 
     //public class FileWriter extends OutputStreamWriter
@@ -485,7 +485,7 @@ public class JavaIo {
         OutputStreamWriter$(@NotNull OutputStream out) { }
         OutputStreamWriter$(@NotNull OutputStream out, @NotNull Charset cs) { }
         OutputStreamWriter$(@NotNull OutputStream out, @NotNull CharsetEncoder enc) { }
-        @Nullable String getEncoding() { return null; }
+        @NotModified @Nullable String getEncoding() { return null; }
         //override from java.io.Writer
         //@AllowsInterrupt[H]
         @Modified void write(int c) { }
@@ -633,7 +633,7 @@ public class JavaIo {
 
         //override from java.io.DataOutput
         @Modified void write(@NotNull @NotModified byte [] b, int off, int len) { }
-        long getFilePointer() { return 0L; }
+        @NotModified long getFilePointer() { return 0L; }
         @AllowsInterrupt
         void seek(long pos) { }
         @NotModified @AllowsInterrupt
@@ -860,6 +860,10 @@ public class JavaIo {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void reset() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int size() { return 0; }
+        @NotModified char[] toCharArray() { return null; }
     }
 
     //public java.io.Console (shadow created for its nullability, generated)
@@ -878,6 +882,10 @@ public class JavaIo {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void flush() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.nio.charset.Charset charset() { return null; }
+        @NotModified boolean isTerminal() { return false; }
     }
 
     //public java.io.DataInputStream (shadow created for its nullability, generated)
@@ -945,6 +953,9 @@ public class JavaIo {
         @Modified void writeInt(int p0) { }
         @Modified void writeLong(long p0) { }
         @Modified void writeShort(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int size() { return 0; }
     }
 
     //public java.io.Externalizable (shadow created for its nullability, generated)
@@ -970,6 +981,10 @@ public class JavaIo {
         FileOutputStream$(@NotNull java.lang.String p0, boolean p1) { }
         @Modified void write(@NotNull byte[] p0) { }
         @Modified void write(@NotNull byte[] p0, int p1, int p2) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.nio.channels.FileChannel getChannel() { return null; }
+        @NotModified java.io.FileDescriptor getFD() { return null; }
     }
 
     //public java.io.FilePermission (shadow created for its nullability, generated)
@@ -977,6 +992,9 @@ public class JavaIo {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         FilePermission$(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { }
         boolean implies(@Nullable java.security.Permission p0) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getActions() { return null; }
     }
 
     //public java.io.FileReader (shadow created for its nullability, generated)
@@ -1025,7 +1043,7 @@ public class JavaIo {
         InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.Charset p1) { }
         InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.nio.charset.CharsetDecoder p1) { }
         InputStreamReader$(@NotNull java.io.InputStream p0, @NotNull java.lang.String p1) { }
-        @Nullable java.lang.String getEncoding() { return null; }
+        @NotModified @Nullable java.lang.String getEncoding() { return null; }
         @Modified int read(@NotNull java.nio.CharBuffer p0) { return 0; }
         @Modified int read(@NotNull char[] p0, int p1, int p2) { return 0; }
     }
@@ -1053,6 +1071,9 @@ public class JavaIo {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setLineNumber(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getLineNumber() { return 0; }
     }
 
     //public java.io.ObjectInput (shadow created for its nullability, generated)
@@ -1066,6 +1087,9 @@ public class JavaIo {
         @Modified int read() { return 0; }
         @Modified Object readObject() { return null; }
         @Modified long skip(long p0) { return 0; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int available() { return 0; }
     }
 
     //public java.io.ObjectInputFilter (shadow created for its nullability, generated)
@@ -1084,7 +1108,7 @@ public class JavaIo {
     class ObjectInputStream$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ObjectInputStream$(@NotNull java.io.InputStream p0) { }
-        @Nullable java.io.ObjectInputFilter getObjectInputFilter() { return null; }
+        @NotModified @Nullable java.io.ObjectInputFilter getObjectInputFilter() { return null; }
         @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
         @Modified void readFully(@NotNull byte[] p0) { }
         @Modified void readFully(@NotNull byte[] p0, int p1, int p2) { }
@@ -1100,15 +1124,15 @@ public class JavaIo {
         class GetField {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             boolean defaulted(@NotNull java.lang.String p0) { return false; }
-            java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
-            boolean get(@NotNull java.lang.String p0, boolean p1) { return false; }
-            byte get(@NotNull java.lang.String p0, byte p1) { return 0; }
-            char get(@NotNull java.lang.String p0, char p1) { return 0; }
-            double get(@NotNull java.lang.String p0, double p1) { return 0; }
-            float get(@NotNull java.lang.String p0, float p1) { return 0; }
-            int get(@NotNull java.lang.String p0, int p1) { return 0; }
-            long get(@NotNull java.lang.String p0, long p1) { return 0; }
-            short get(@NotNull java.lang.String p0, short p1) { return 0; }
+            @NotModified java.lang.Object get(@NotNull java.lang.String p0, @Nullable java.lang.Object p1) { return null; }
+            @NotModified boolean get(@NotNull java.lang.String p0, boolean p1) { return false; }
+            @NotModified byte get(@NotNull java.lang.String p0, byte p1) { return 0; }
+            @NotModified char get(@NotNull java.lang.String p0, char p1) { return 0; }
+            @NotModified double get(@NotNull java.lang.String p0, double p1) { return 0; }
+            @NotModified float get(@NotNull java.lang.String p0, float p1) { return 0; }
+            @NotModified int get(@NotNull java.lang.String p0, int p1) { return 0; }
+            @NotModified long get(@NotNull java.lang.String p0, long p1) { return 0; }
+            @NotModified short get(@NotNull java.lang.String p0, short p1) { return 0; }
         }
 
         // a modifying method, declared so (generated from the assumed-defaults list)
@@ -1192,9 +1216,14 @@ public class JavaIo {
     class ObjectStreamClass$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.lang.Class<?> forClass() { return null; }
-        @Nullable java.io.ObjectStreamField getField(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.io.ObjectStreamField getField(@NotNull java.lang.String p0) { return null; }
         @Nullable static java.io.ObjectStreamClass lookup(@NotNull java.lang.Class<?> p0) { return null; }
         static java.io.ObjectStreamClass lookupAny(@NotNull java.lang.Class<?> p0) { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.io.ObjectStreamField[] getFields() { return null; }
+        @NotModified String getName() { return null; }
+        @NotModified long getSerialVersionUID() { return 0; }
     }
 
     //public java.io.ObjectStreamException (shadow created for its nullability, generated)
@@ -1211,7 +1240,15 @@ public class JavaIo {
         ObjectStreamField$(@NotNull java.lang.String p0, @NotNull java.lang.Class<?> p1) { }
         ObjectStreamField$(@NotNull java.lang.String p0, @NotNull java.lang.Class<?> p1, boolean p2) { }
         int compareTo(@NotNull java.lang.Object p0) { return 0; }
-        @Nullable java.lang.String getTypeString() { return null; }
+        @NotModified @Nullable java.lang.String getTypeString() { return null; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified String getName() { return null; }
+        @NotModified int getOffset() { return 0; }
+        @NotModified Class<?> getType() { return null; }
+        @NotModified char getTypeCode() { return 0; }
+        @NotModified boolean isPrimitive() { return false; }
+        @NotModified boolean isUnshared() { return false; }
     }
 
     //public java.io.PipedOutputStream (shadow created for its nullability, generated)
@@ -1348,6 +1385,9 @@ public class JavaIo {
         @Modified void write(@NotNull java.lang.String p0) { }
         @Modified void write(@NotNull java.lang.String p0, int p1, int p2) { }
         @Modified void write(@NotNull char[] p0, int p1, int p2) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified StringBuffer getBuffer() { return null; }
     }
 
     //public java.io.UnsupportedEncodingException (shadow created for its nullability, generated)

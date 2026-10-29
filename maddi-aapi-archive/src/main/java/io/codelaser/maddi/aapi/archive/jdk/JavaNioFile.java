@@ -420,10 +420,10 @@ public class JavaNioFile {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         FileSystemException$(@Nullable java.lang.String p0) { }
         FileSystemException$(@Nullable java.lang.String p0, @Nullable java.lang.String p1, @Nullable java.lang.String p2) { }
-        @Nullable java.lang.String getFile() { return null; }
+        @NotModified @Nullable java.lang.String getFile() { return null; }
         @Nullable java.lang.String getMessage() { return null; }
-        @Nullable java.lang.String getOtherFile() { return null; }
-        @Nullable java.lang.String getReason() { return null; }
+        @NotModified @Nullable java.lang.String getOtherFile() { return null; }
+        @NotModified @Nullable java.lang.String getReason() { return null; }
     }
 
     //public java.nio.file.FileSystems (shadow created for its nullability, generated)

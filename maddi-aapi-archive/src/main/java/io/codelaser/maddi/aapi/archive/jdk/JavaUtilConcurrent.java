@@ -244,7 +244,7 @@ public class JavaUtilConcurrent {
             @NotNull Executor executor) { return null; }
 
         //override from java.util.concurrent.CompletionStage
-        CompletableFuture<T> toCompletableFuture() { return null; }
+        @NotModified CompletableFuture<T> toCompletableFuture() { return null; }
 
         //override from java.util.concurrent.CompletionStage
         CompletableFuture<T> exceptionally(/*@IgnoreModifications[T]*/ @NotNull Function<Throwable, ? extends T> fn) {
@@ -292,7 +292,7 @@ public class JavaUtilConcurrent {
         <U> CompletableFuture<U> newIncompleteFuture() { return null; }
         Executor defaultExecutor() { return null; }
         CompletableFuture<T> copy() { return null; }
-        CompletionStage<T> minimalCompletionStage() { return null; }
+        @NotModified CompletionStage<T> minimalCompletionStage() { return null; }
         @Modified CompletableFuture<T> completeAsync(
             /*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> supplier,
             @NotNull Executor executor) { return null; }
@@ -459,7 +459,7 @@ public class JavaUtilConcurrent {
         CompletionStage<T> exceptionallyComposeAsync(
             /*@IgnoreModifications[T]*/ @NotNull Function<Throwable, ? extends CompletionStage<T>> fn,
             @NotNull Executor executor) { return null; }
-        CompletableFuture<T> toCompletableFuture() { return null; }
+        @NotModified CompletableFuture<T> toCompletableFuture() { return null; }
     }
 
     //public class ConcurrentHashMap extends AbstractMap<K,V> implements ConcurrentMap<K,V>, Serializable
@@ -468,7 +468,7 @@ public class JavaUtilConcurrent {
         //public static final class KeySetView extends CollectionView<K,V,K> implements Set<K>, Serializable
         class KeySetView<K, V> {
             //@Independent(hc=true)[T]
-            V getMappedValue() { return null; }
+            @NotModified V getMappedValue() { return null; }
 
             //override from java.util.Collection, java.util.Set, java.util.concurrent.ConcurrentHashMap.CollectionView
             //@NotModified[H]
@@ -912,8 +912,8 @@ public class JavaUtilConcurrent {
         //frequency 1
         @Modified void shutdown() { }
         @Modified List<Runnable> shutdownNow() { return null; }
-        boolean isShutdown() { return false; }
-        boolean isTerminated() { return false; }
+        @NotModified boolean isShutdown() { return false; }
+        @NotModified boolean isTerminated() { return false; }
         boolean awaitTermination(long l, @NotNull TimeUnit timeUnit) { return false; }
         @Modified <T> Future<T> submit(@NotNull Callable<T> callable) { return null; }
         @Modified <T> Future<T> submit(@NotNull Runnable runnable, /*@Independent(hc=true)[T] @NotModified[T]*/ T t) { return null; }
@@ -1331,6 +1331,10 @@ public class JavaUtilConcurrent {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified boolean addIfAbsent(E p0) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int indexOf(E p0, int p1) { return 0; }
+        @NotModified int lastIndexOf(E p0, int p1) { return 0; }
     }
 
     //public java.util.concurrent.CopyOnWriteArraySet (shadow created for its nullability, generated)
@@ -1363,6 +1367,12 @@ public class JavaUtilConcurrent {
         @Modified void complete(T p0) { }
         @Modified void compute() { }
         @Modified void setPendingCount(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.concurrent.CountedCompleter<?> getCompleter() { return null; }
+        @NotModified int getPendingCount() { return 0; }
+        @NotModified T getRawResult() { return null; }
+        @NotModified java.util.concurrent.CountedCompleter<?> getRoot() { return null; }
     }
 
     //public java.util.concurrent.DelayQueue (shadow created for its nullability, generated)
@@ -1388,7 +1398,7 @@ public class JavaUtilConcurrent {
     //public java.util.concurrent.Delayed (shadow created for its nullability, generated)
     class Delayed$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        long getDelay(@NotNull java.util.concurrent.TimeUnit p0) { return 0; }
+        @NotModified long getDelay(@NotNull java.util.concurrent.TimeUnit p0) { return 0; }
     }
 
     //public java.util.concurrent.ExecutionException (shadow created for its nullability, generated)
@@ -1446,6 +1456,13 @@ public class JavaUtilConcurrent {
         @Modified void complete(V p0) { }
         @Modified void completeExceptionally(Throwable p0) { }
         @Modified short setForkJoinTaskTag(short p0) { return 0; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Throwable getException() { return null; }
+        @NotModified short getForkJoinTaskTag() { return 0; }
+        @NotModified V getRawResult() { return null; }
+        @NotModified boolean isCompletedAbnormally() { return false; }
+        @NotModified boolean isCompletedNormally() { return false; }
     }
 
     //public java.util.concurrent.FutureTask (shadow created for its nullability, generated)
@@ -1549,12 +1566,16 @@ public class JavaUtilConcurrent {
         @Modified void put(E p0) { }
         @Modified E take() { return null; }
         @Modified void transfer(E p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getWaitingConsumerCount() { return 0; }
+        @NotModified boolean hasWaitingConsumer() { return false; }
     }
 
     //public java.util.concurrent.RecursiveAction (shadow created for its nullability, generated)
     class RecursiveAction$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Void getRawResult() { return null; }
+        @NotModified @Nullable java.lang.Void getRawResult() { return null; }
         void setRawResult(@Nullable java.lang.Void p0) { }
     }
 
@@ -1588,6 +1609,12 @@ public class JavaUtilConcurrent {
         @Modified void setContinueExistingPeriodicTasksAfterShutdownPolicy(boolean p0) { }
         @Modified void setExecuteExistingDelayedTasksAfterShutdownPolicy(boolean p0) { }
         @Modified void setRemoveOnCancelPolicy(boolean p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified boolean getContinueExistingPeriodicTasksAfterShutdownPolicy() { return false; }
+        @NotModified boolean getExecuteExistingDelayedTasksAfterShutdownPolicy() { return false; }
+        @NotModified java.util.concurrent.BlockingQueue<Runnable> getQueue() { return null; }
+        @NotModified boolean getRemoveOnCancelPolicy() { return false; }
     }
 
     //public java.util.concurrent.SynchronousQueue (shadow created for its nullability, generated)
@@ -1623,7 +1650,7 @@ public class JavaUtilConcurrent {
         boolean awaitTermination(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return false; }
         void beforeExecute(@NotNull java.lang.Thread p0, @NotNull java.lang.Runnable p1) { }
         @Modified void execute(@NotNull java.lang.Runnable p0) { }
-        long getKeepAliveTime(@NotNull java.util.concurrent.TimeUnit p0) { return 0; }
+        @NotModified long getKeepAliveTime(@NotNull java.util.concurrent.TimeUnit p0) { return 0; }
         @Modified boolean remove(@NotNull java.lang.Runnable p0) { return false; }
         @Modified void setKeepAliveTime(long p0, @NotNull java.util.concurrent.TimeUnit p1) { }
         @Modified void setRejectedExecutionHandler(@NotNull java.util.concurrent.RejectedExecutionHandler p0) { }
@@ -1653,6 +1680,21 @@ public class JavaUtilConcurrent {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void setCorePoolSize(int p0) { }
         @Modified void setMaximumPoolSize(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getActiveCount() { return 0; }
+        @NotModified long getCompletedTaskCount() { return 0; }
+        @NotModified int getCorePoolSize() { return 0; }
+        @NotModified int getLargestPoolSize() { return 0; }
+        @NotModified int getMaximumPoolSize() { return 0; }
+        @NotModified int getPoolSize() { return 0; }
+        @NotModified java.util.concurrent.BlockingQueue<Runnable> getQueue() { return null; }
+        @NotModified java.util.concurrent.RejectedExecutionHandler getRejectedExecutionHandler() { return null; }
+        @NotModified long getTaskCount() { return 0; }
+        @NotModified java.util.concurrent.ThreadFactory getThreadFactory() { return null; }
+        @NotModified boolean isShutdown() { return false; }
+        @NotModified boolean isTerminated() { return false; }
+        @NotModified boolean isTerminating() { return false; }
     }
 
     //public java.util.concurrent.TimeoutException (shadow created for its nullability, generated)
@@ -1668,5 +1710,9 @@ public class JavaUtilConcurrent {
 
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void transfer(E p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified int getWaitingConsumerCount() { return 0; }
+        @NotModified boolean hasWaitingConsumer() { return false; }
     }
 }

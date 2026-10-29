@@ -218,6 +218,13 @@ public class JavaUtilConcurrentAtomic {
         @Modified boolean weakCompareAndSetPlain(int p0, E p1, E p2) { return false; }
         @Modified boolean weakCompareAndSetRelease(int p0, E p1, E p2) { return false; }
         @Modified boolean weakCompareAndSetVolatile(int p0, E p1, E p2) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified E get(int p0) { return null; }
+        @NotModified E getAcquire(int p0) { return null; }
+        @NotModified E getOpaque(int p0) { return null; }
+        @NotModified E getPlain(int p0) { return null; }
+        @NotModified int length() { return 0; }
     }
 
     //public java.util.concurrent.atomic.AtomicReferenceFieldUpdater (shadow created for its nullability, generated)
@@ -235,5 +242,8 @@ public class JavaUtilConcurrentAtomic {
         @Modified void lazySet(T p0, V p1) { }
         @Modified void set(T p0, V p1) { }
         @Modified boolean weakCompareAndSet(T p0, V p1, V p2) { return false; }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified V get(T p0) { return null; }
     }
 }

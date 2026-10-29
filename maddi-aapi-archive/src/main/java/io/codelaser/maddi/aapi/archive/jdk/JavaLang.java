@@ -2637,8 +2637,8 @@ public class JavaLang {
                 static final System.Logger.Level OFF = null;
                 static System.Logger.Level [] values() { return null; }
                 static System.Logger.Level valueOf(String name) { return null; }
-                String getName() { return null; }
-                int getSeverity() { return 0; }
+                @NotModified String getName() { return null; }
+                @NotModified int getSeverity() { return 0; }
             }
             @NotModified String getName() { return null; }
             @NotModified boolean isLoggable(/*@Independent[M]*/ @NotNull System.Logger.Level level) { return false; }
@@ -2685,8 +2685,8 @@ public class JavaLang {
 
         //public abstract static class LoggerFinder
         class LoggerFinder {
-            System.Logger getLogger(@NotNull String string, @NotNull Module module) { return null; }
-            System.Logger getLocalizedLogger(@NotNull String name, @NotNull ResourceBundle bundle, @NotNull Module module) { return null; }
+            @NotModified System.Logger getLogger(@NotNull String string, @NotNull Module module) { return null; }
+            @NotModified System.Logger getLocalizedLogger(@NotNull String name, @NotNull ResourceBundle bundle, @NotNull Module module) { return null; }
             static System.LoggerFinder getLoggerFinder() { return null; }
         }
         // reconfiguring the process-wide streams is a static side effect (road-to-immutability section 050): the
@@ -3432,6 +3432,10 @@ public class JavaLang {
         @NotModified void checkSecurityAccess(@NotNull java.lang.String p0) { }
         @NotModified void checkWrite(@NotModified @NotNull java.io.FileDescriptor p0) { }
         @NotModified void checkWrite(@NotNull java.lang.String p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified Object getSecurityContext() { return null; }
+        @NotModified ThreadGroup getThreadGroup() { return null; }
     }
 
     //public java.lang.StackOverflowError (shadow created for its nullability, generated)
@@ -3452,7 +3456,7 @@ public class JavaLang {
         //public java.lang.StackWalker.StackFrame (shadow created for its nullability, generated)
         class StackFrame {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-            @Nullable java.lang.String getFileName() { return null; }
+            @NotModified @Nullable java.lang.String getFileName() { return null; }
         }
 
         // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)

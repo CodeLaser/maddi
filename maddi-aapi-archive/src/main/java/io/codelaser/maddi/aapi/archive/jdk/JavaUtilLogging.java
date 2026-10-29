@@ -123,10 +123,10 @@ public class JavaUtilLogging {
     //public java.util.logging.Handler (shadow created for its nullability, generated)
     class Handler$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.String getEncoding() { return null; }
-        @Nullable java.util.logging.Filter getFilter() { return null; }
-        @Nullable java.util.logging.Formatter getFormatter() { return null; }
-        boolean isLoggable(@Nullable java.util.logging.LogRecord p0) { return false; }
+        @NotModified @Nullable java.lang.String getEncoding() { return null; }
+        @NotModified @Nullable java.util.logging.Filter getFilter() { return null; }
+        @NotModified @Nullable java.util.logging.Formatter getFormatter() { return null; }
+        @NotModified boolean isLoggable(@Nullable java.util.logging.LogRecord p0) { return false; }
         void publish(@Nullable java.util.logging.LogRecord p0) { }
         void reportError(@Nullable java.lang.String p0, @Nullable java.lang.Exception p1, int p2) { }
         @Modified void setEncoding(@Nullable java.lang.String p0) { }
@@ -138,20 +138,24 @@ public class JavaUtilLogging {
         // a modifying method, declared so (generated from the assumed-defaults list)
         @Modified void close() { }
         @Modified void flush() { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.util.logging.ErrorManager getErrorManager() { return null; }
+        @NotModified java.util.logging.Level getLevel() { return null; }
     }
 
     //public java.util.logging.LogRecord (shadow created for its nullability, generated)
     class LogRecord$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         LogRecord$(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1) { }
-        @Nullable java.lang.String getLoggerName() { return null; }
-        @Nullable java.lang.String getMessage() { return null; }
-        @Nullable(nullableArguments = 0) java.lang.Object[] getParameters() { return null; }
-        @Nullable java.util.ResourceBundle getResourceBundle() { return null; }
-        @Nullable java.lang.String getResourceBundleName() { return null; }
-        @Nullable java.lang.String getSourceClassName() { return null; }
-        @Nullable java.lang.String getSourceMethodName() { return null; }
-        @Nullable java.lang.Throwable getThrown() { return null; }
+        @NotModified @Nullable java.lang.String getLoggerName() { return null; }
+        @NotModified @Nullable java.lang.String getMessage() { return null; }
+        @NotModified @Nullable(nullableArguments = 0) java.lang.Object[] getParameters() { return null; }
+        @NotModified @Nullable java.util.ResourceBundle getResourceBundle() { return null; }
+        @NotModified @Nullable java.lang.String getResourceBundleName() { return null; }
+        @NotModified @Nullable java.lang.String getSourceClassName() { return null; }
+        @NotModified @Nullable java.lang.String getSourceMethodName() { return null; }
+        @NotModified @Nullable java.lang.Throwable getThrown() { return null; }
         @Modified void setInstant(@NotNull java.time.Instant p0) { }
         @Modified void setLevel(@NotNull java.util.logging.Level p0) { }
         @Modified void setLoggerName(@Nullable java.lang.String p0) { }
@@ -168,5 +172,13 @@ public class JavaUtilLogging {
         @Modified void setMillis(long p0) { }
         @Modified void setSequenceNumber(long p0) { }
         @Modified void setThreadID(int p0) { }
+
+        // a query, declared so (generated from the assumed-defaults list)
+        @NotModified java.time.Instant getInstant() { return null; }
+        @NotModified java.util.logging.Level getLevel() { return null; }
+        @NotModified long getLongThreadID() { return 0; }
+        @NotModified long getMillis() { return 0; }
+        @NotModified long getSequenceNumber() { return 0; }
+        @NotModified int getThreadID() { return 0; }
     }
 }
