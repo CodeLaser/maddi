@@ -100,6 +100,25 @@ public class PropertyImpl implements Property {
      */
     public static final Property STATIC_SIDE_EFFECTS_CULPRIT_METHOD = new PropertyImpl(
             "staticSideEffectsCulpritMethod", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a method, parameter or field is modified ({@code NON_MODIFYING_METHOD}, {@code UNMODIFIED_PARAMETER},
+     * {@code UNMODIFIED_FIELD} FALSE): the reachability pass's chain from the element back to the modification
+     * itself, at the statements that carry it. Written only when a run asks for culprits, and only under that pass;
+     * absent otherwise.
+     */
+    public static final Property MODIFIED_CULPRIT = new PropertyImpl("modifiedCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a method or parameter is dependent ({@code INDEPENDENT_METHOD}, {@code INDEPENDENT_PARAMETER} DEPENDENT): the
+     * statement that links the return value or the parameter to a mutable field of the instance, then that field.
+     * Written only when a run asks for culprits; absent otherwise.
+     */
+    public static final Property DEPENDENT_CULPRIT = new PropertyImpl("dependentCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a field, parameter or method return is nullable (NULLABILITY_* NULLABLE at the top level): the nullability
+     * pass's chain from the element back to the null itself, at the statements that carry it, the seed's origin last.
+     * Written only when a run asks for culprits; absent otherwise.
+     */
+    public static final Property NULLABLE_CULPRIT = new PropertyImpl("nullableCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
