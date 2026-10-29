@@ -2903,7 +2903,7 @@ public class JavaLang {
         @Nullable Throwable getCause() { return null; }
         Throwable initCause(@Nullable @NotModified Throwable cause) { return null; }
         public String toString() { return null; }
-        @NotModified @IgnoreModifications void printStackTrace() { }
+        @IgnoreModifications void printStackTrace() { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintStream s) { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintWriter s) { }
         Throwable fillInStackTrace() { return null; }
