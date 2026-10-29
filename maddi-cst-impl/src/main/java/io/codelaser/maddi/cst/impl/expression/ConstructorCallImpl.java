@@ -378,8 +378,10 @@ public class ConstructorCallImpl extends ExpressionImpl implements ConstructorCa
                 : anonymousClass.typesReferenced(predicate);
         Stream<Element.TypeReference> objectStream = object == null ? Stream.of() : object.typesReferenced(predicate);
         Stream<Element.TypeReference> paramStream = parameterExpressions.stream().flatMap(expression -> expression.typesReferenced(predicate));
-        Stream<Element.TypeReference> ccTypeStream = concreteReturnType
-                .typesReferenced(TypeReferenceNature.IMPLICIT, detailedSources);
+        // 'new Box<Sol>(4)' prints its type arguments (SHOW_ALL), so they need their imports: with 'var', nothing else
+        // in the unit names Sol (GitHub #178). A diamond's are inferred, not written
+        Stream<Element.TypeReference> ccTypeStream = concreteReturnType.typesReferenced(diamond.isShowAll()
+                ? TypeReferenceNature.EXPLICIT : TypeReferenceNature.IMPLICIT, detailedSources);
         return Stream.concat(typeStream, Stream.concat(typeArgStream, Stream.concat(arrayInitStream,
                 Stream.concat(anonStream, Stream.concat(objectStream, Stream.concat(paramStream, ccTypeStream))))));
     }
