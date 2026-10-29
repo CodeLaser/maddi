@@ -91,6 +91,9 @@ Rules (each level requires the previous):
   static and instance fields"; inside the primary type, "modifications are modifications". A type that modifies
   its own static counter is `@FinalFields` (the book's `CountAccess`). The only exemptions: `@IgnoreModifications`
   on the static field, and modifications inside a static initializer block (the static fields' constructor).
+  The METHOD is `@Modified` too (`CountAccess.getK()`, a `++count` in an instance or static method): since
+  2026-10-29 `NON_MODIFYING_METHOD` is false when the method modifies static state its type owns (maddi-mod
+  `OwnStaticState`), and a getter guard that does is not inert, so such a method is no getter.
   `@StaticSideEffects` is for modifying static state the primary type (with its enclosing and parent
   types) does NOT own -- directly, or through any callee (static, instance, constructor) that modifies its own
   type's static state: `Client` calling `Counter.next()` is one, `Counter.next()` itself is not
