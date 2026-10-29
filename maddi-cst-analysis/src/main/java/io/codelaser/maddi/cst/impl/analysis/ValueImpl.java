@@ -1417,6 +1417,39 @@ public abstract class ValueImpl implements Value {
         decoderMap.put(SetOfTypeInfoImpl.class, (di, ev) -> SetOfTypeInfoImpl.from(di.codec(), di.context(), ev));
     }
 
+    /**
+     * Display data, computed only when a run asks for it: not encoded, so neither a checkpoint nor a fingerprint
+     * carries it, and a resumed run has none for what it did not recompute.
+     */
+    public record CulpritImpl(List<Step> steps) implements Culprit {
+        public static final Culprit EMPTY = new CulpritImpl(List.of());
+
+        public CulpritImpl {
+            steps = List.copyOf(steps);
+        }
+
+        @Override
+        public boolean isDefault() {
+            return steps.isEmpty();
+        }
+
+        @Override
+        public Codec.EncodedValue encode(Codec codec, Codec.Context context) {
+            return null;
+        }
+
+        @Override
+        public Value rewire(InfoMapView infoMap) {
+            return this; // strings and ints
+        }
+
+        @Override
+        public String toString() {
+            return steps.stream().map(s -> s.line() + ":" + s.column() + " " + s.text())
+                    .collect(Collectors.joining(" <- "));
+        }
+    }
+
 
     public static class SetOfMethodInfoImpl implements SetOfMethodInfo {
         public static final SetOfMethodInfo EMPTY = new SetOfMethodInfoImpl(Set.of());

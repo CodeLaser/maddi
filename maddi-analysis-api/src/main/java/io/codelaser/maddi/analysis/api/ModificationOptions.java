@@ -34,6 +34,9 @@ package io.codelaser.maddi.analysis.api;
  *                          process-wide default (on unless {@code EVENTUALCLUSTER=0})
  * @param nullability       the analyzer computes the facts the nullability pass reads (argument links at every call
  *                          site), so that {@link AnalysisEngine#nullabilityFacts} can run after it; null: off
+ * @param culprits          store, beside a verdict, the first statement responsible for it (so far
+ *                          {@code @StaticSideEffects}), for a developer asking "why?"; null: off. It costs a walk of
+ *                          each such method's body, and the IDE daemon is the one to ask for it
  */
 public record ModificationOptions(Integer maxIterations,
                                   Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -45,7 +48,19 @@ public record ModificationOptions(Integer maxIterations,
                                   boolean storeFingerprints,
                                   Boolean staticSideEffects,
                                   Boolean eventualCluster,
-                                  Boolean nullability) {
+                                  Boolean nullability,
+                                  Boolean culprits) {
+
+    /** Without culprits. */
+    public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
+                               Boolean trackObjectCreations, Boolean modificationViaReachability,
+                               Boolean faultTolerant, Boolean warnNearMisses, boolean environmentGates,
+                               boolean storeFingerprints, Boolean staticSideEffects, Boolean eventualCluster,
+                               Boolean nullability) {
+        this(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, nullability, null);
+    }
 
     /** Both feature switches at the analyzer's process-wide default. */
     public ModificationOptions(Integer maxIterations, Boolean stopWhenCycleDetectedAndNoImprovements,
@@ -70,6 +85,12 @@ public record ModificationOptions(Integer maxIterations,
     public ModificationOptions withNullability(boolean nullability) {
         return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
                 modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
-                staticSideEffects, eventualCluster, nullability);
+                staticSideEffects, eventualCluster, nullability, culprits);
+    }
+
+    public ModificationOptions withCulprits(boolean culprits) {
+        return new ModificationOptions(maxIterations, stopWhenCycleDetectedAndNoImprovements, trackObjectCreations,
+                modificationViaReachability, faultTolerant, warnNearMisses, environmentGates, storeFingerprints,
+                staticSideEffects, eventualCluster, nullability, culprits);
     }
 }

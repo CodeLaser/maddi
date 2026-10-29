@@ -94,6 +94,12 @@ public class PropertyImpl implements Property {
      */
     public static final Property STATIC_STATE_MODIFIED_METHOD = new PropertyImpl("staticStateModifiedMethod",
             ValueImpl.SetOfTypeInfoImpl.EMPTY);
+    /**
+     * Why {@link #STATIC_SIDE_EFFECTS_METHOD} is true: the first statement modifying another type's static state,
+     * followed into the callees. Written only when a run asks for culprits (the IDE daemon does); absent otherwise.
+     */
+    public static final Property STATIC_SIDE_EFFECTS_CULPRIT_METHOD = new PropertyImpl(
+            "staticSideEffectsCulpritMethod", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */

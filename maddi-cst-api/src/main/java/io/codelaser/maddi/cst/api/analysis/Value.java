@@ -334,6 +334,25 @@ public interface Value extends Comparable<Value> {
         Set<TypeInfo> typeInfoSet();
     }
 
+    /**
+     * Why a property holds: the first statement found responsible, and, when that statement is a call, the
+     * statement in the callee that makes it so, and so on. Display data for a developer asking "why?"; no analysis
+     * reads it.
+     */
+    interface Culprit extends Value {
+        /** The steps, the element's own statement first. */
+        List<Step> steps();
+
+        /**
+         * @param uri    the source file, as its compilation unit's URI
+         * @param line   1-based
+         * @param column 1-based
+         * @param text   what the statement does, e.g. "assigns Registry.COUNT", "calls Registry.register(..)"
+         */
+        record Step(String uri, int line, int column, String text) {
+        }
+    }
+
     interface VariableToTypeInfoSet extends Value {
         Map<Variable, Set<TypeInfo>> variableToTypeInfoSet();
     }
