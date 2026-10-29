@@ -68,4 +68,40 @@ public class TestTextBlockFormatting extends CommonTest {
         assertEquals(expect, s);
     }
 
+
+    // the text block is printed from its value, so its escapes have to be written again (GitHub #177): a backslash,
+    // a tab, a quote that would close the block, and a line's last space, which javac would strip
+    @Language("java")
+    public static final String INPUT2 = """
+            package a.b;
+            public class X {
+                static final String F = \"""
+                        name\\\\/name, false
+                        tab\\tx
+                        q\\\"""q
+                        trailing\\s
+                        \""";
+            }
+            """;
+
+    @Test
+    public void test2() {
+        TypeInfo X = javaInspector.parse(INPUT2);
+        assertEquals("name\\/name, false\ntab\tx\nq\"\"\"q\ntrailing \n",
+                ((TextBlock) X.getFieldByName("F", true).initializer()).constant());
+        String s = javaInspector.print2(X.compilationUnit());
+        @Language("java")
+        String expect = """
+            package a.b;
+            public class X {
+                static final String F = \"""
+                        name\\\\/name, false
+                        tab\\tx
+                        q""\\"q
+                        trailing\\s
+                        \""";
+            }
+            """;
+        assertEquals(expect, s);
+    }
 }
