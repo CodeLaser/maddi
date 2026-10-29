@@ -18,6 +18,7 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
 
@@ -30,13 +31,17 @@ public class JavaLangRef {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static void reachabilityFence(@Nullable java.lang.Object p0) { }
         boolean refersTo(@Nullable T p0) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void clear() { }
+        @Modified boolean enqueue() { return false; }
     }
 
     //public java.lang.ref.Cleaner (shadow created for its nullability, generated)
     class Cleaner$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static java.lang.ref.Cleaner create(@NotNull java.util.concurrent.ThreadFactory p0) { return null; }
-        java.lang.ref.Cleaner.Cleanable register(@NotNull java.lang.Object p0, @NotNull java.lang.Runnable p1) { return null; }
+        @Modified java.lang.ref.Cleaner.Cleanable register(@NotNull java.lang.Object p0, @NotNull java.lang.Runnable p1) { return null; }
     }
 
     //public java.lang.ref.PhantomReference (shadow created for its nullability, generated)
@@ -49,8 +54,11 @@ public class JavaLangRef {
     //public java.lang.ref.ReferenceQueue (shadow created for its nullability, generated)
     class ReferenceQueue$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.ref.Reference<? extends T> poll() { return null; }
-        @Nullable java.lang.ref.Reference<? extends T> remove(long p0) { return null; }
+        @Modified @Nullable java.lang.ref.Reference<? extends T> poll() { return null; }
+        @Modified @Nullable java.lang.ref.Reference<? extends T> remove(long p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified java.lang.ref.Reference<? extends T> remove() { return null; }
     }
 
     //public java.lang.ref.SoftReference (shadow created for its nullability, generated)

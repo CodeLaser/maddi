@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Commutable;
 
@@ -57,86 +58,86 @@ public class JavaxSwing {
         static final String ROLLOVER_SELECTED_ICON_CHANGED_PROPERTY = null;
         static final String DISABLED_ICON_CHANGED_PROPERTY = null;
         static final String DISABLED_SELECTED_ICON_CHANGED_PROPERTY = null;
-        void setHideActionText(boolean hideActionText) { }
+        @Modified void setHideActionText(boolean hideActionText) { }
         @NotModified boolean getHideActionText() { return false; }
         @NotModified String getText() { return null; }
-        void setText(String text) { }
+        @Modified void setText(String text) { }
         @NotModified boolean isSelected() { return false; }
-        void setSelected(boolean b) { }
+        @Modified void setSelected(boolean b) { }
         void doClick() { }
         void doClick(int pressTime) { }
-        void setMargin(Insets m) { }
+        @Modified void setMargin(Insets m) { }
         @NotModified Insets getMargin() { return null; }
         @NotModified Icon getIcon() { return null; }
-        void setIcon(Icon defaultIcon) { }
+        @Modified void setIcon(Icon defaultIcon) { }
         @NotModified Icon getPressedIcon() { return null; }
-        void setPressedIcon(Icon pressedIcon) { }
+        @Modified void setPressedIcon(Icon pressedIcon) { }
         @NotModified Icon getSelectedIcon() { return null; }
-        void setSelectedIcon(Icon selectedIcon) { }
+        @Modified void setSelectedIcon(Icon selectedIcon) { }
         @NotModified Icon getRolloverIcon() { return null; }
-        void setRolloverIcon(Icon rolloverIcon) { }
+        @Modified void setRolloverIcon(Icon rolloverIcon) { }
         @NotModified Icon getRolloverSelectedIcon() { return null; }
-        void setRolloverSelectedIcon(Icon rolloverSelectedIcon) { }
+        @Modified void setRolloverSelectedIcon(Icon rolloverSelectedIcon) { }
         @NotModified Icon getDisabledIcon() { return null; }
-        void setDisabledIcon(Icon disabledIcon) { }
+        @Modified void setDisabledIcon(Icon disabledIcon) { }
         @NotModified Icon getDisabledSelectedIcon() { return null; }
-        void setDisabledSelectedIcon(Icon disabledSelectedIcon) { }
+        @Modified void setDisabledSelectedIcon(Icon disabledSelectedIcon) { }
         @NotModified int getVerticalAlignment() { return 0; }
-        void setVerticalAlignment(int alignment) { }
+        @Modified void setVerticalAlignment(int alignment) { }
         @NotModified int getHorizontalAlignment() { return 0; }
-        void setHorizontalAlignment(int alignment) { }
+        @Modified void setHorizontalAlignment(int alignment) { }
         @NotModified int getVerticalTextPosition() { return 0; }
-        void setVerticalTextPosition(int textPosition) { }
+        @Modified void setVerticalTextPosition(int textPosition) { }
         @NotModified int getHorizontalTextPosition() { return 0; }
-        void setHorizontalTextPosition(int textPosition) { }
+        @Modified void setHorizontalTextPosition(int textPosition) { }
         @NotModified int getIconTextGap() { return 0; }
-        void setIconTextGap(int iconTextGap) { }
+        @Modified void setIconTextGap(int iconTextGap) { }
         //override from java.awt.Component, java.awt.Container, javax.swing.JComponent
-        void removeNotify() { }
-        void setActionCommand(String actionCommand) { }
+        @Modified void removeNotify() { }
+        @Modified void setActionCommand(String actionCommand) { }
         @NotModified String getActionCommand() { return null; }
-        void setAction(Action a) { }
+        @Modified void setAction(Action a) { }
         @NotModified Action getAction() { return null; }
         @NotModified boolean isBorderPainted() { return false; }
-        void setBorderPainted(boolean b) { }
+        @Modified void setBorderPainted(boolean b) { }
         @NotModified boolean isFocusPainted() { return false; }
-        void setFocusPainted(boolean b) { }
+        @Modified void setFocusPainted(boolean b) { }
         @NotModified boolean isContentAreaFilled() { return false; }
-        void setContentAreaFilled(boolean b) { }
+        @Modified void setContentAreaFilled(boolean b) { }
         @NotModified boolean isRolloverEnabled() { return false; }
-        void setRolloverEnabled(boolean b) { }
+        @Modified void setRolloverEnabled(boolean b) { }
         @NotModified int getMnemonic() { return 0; }
-        void setMnemonic(int mnemonic) { }
-        void setMnemonic(char mnemonic) { }
-        void setDisplayedMnemonicIndex(int index) { }
+        @Modified void setMnemonic(int mnemonic) { }
+        @Modified void setMnemonic(char mnemonic) { }
+        @Modified void setDisplayedMnemonicIndex(int index) { }
         @NotModified int getDisplayedMnemonicIndex() { return 0; }
-        void setMultiClickThreshhold(long threshold) { }
+        @Modified void setMultiClickThreshhold(long threshold) { }
         @NotModified long getMultiClickThreshhold() { return 0L; }
         @NotModified ButtonModel getModel() { return null; }
-        void setModel(ButtonModel newModel) { }
+        @Modified void setModel(ButtonModel newModel) { }
         //override from javax.swing.JComponent
         @NotModified ButtonUI getUI() { return null; }
-        void setUI(ButtonUI ui) { }
+        @Modified void setUI(ButtonUI ui) { }
         //override from javax.swing.JComponent
-        void updateUI() { }
+        @Modified void updateUI() { }
 
         //override from java.awt.Container
-        void setLayout(LayoutManager mgr) { }
-        void addChangeListener(ChangeListener l) { }
-        void removeChangeListener(ChangeListener l) { }
+        @Modified void setLayout(LayoutManager mgr) { }
+        @Modified void addChangeListener(ChangeListener l) { }
+        @Modified void removeChangeListener(ChangeListener l) { }
         @NotModified ChangeListener [] getChangeListeners() { return null; }
-        void addActionListener(ActionListener l) { }
-        void removeActionListener(ActionListener l) { }
+        @Modified void addActionListener(ActionListener l) { }
+        @Modified void removeActionListener(ActionListener l) { }
         @NotModified ActionListener [] getActionListeners() { return null; }
         //override from java.awt.Component, javax.swing.JComponent
-        void setEnabled(boolean b) { }
+        @Modified void setEnabled(boolean b) { }
         @NotModified String getLabel() { return null; }
-        void setLabel(String label) { }
+        @Modified void setLabel(String label) { }
         //override from java.awt.ItemSelectable
-        void addItemListener(ItemListener l) { }
+        @Modified void addItemListener(ItemListener l) { }
 
         //override from java.awt.ItemSelectable
-        void removeItemListener(ItemListener l) { }
+        @Modified void removeItemListener(ItemListener l) { }
         @NotModified ItemListener [] getItemListeners() { return null; }
         //override from java.awt.ItemSelectable
         @NotModified Object [] getSelectedObjects() { return null; }
@@ -151,7 +152,7 @@ public class JavaxSwing {
         DefaultComboBoxModel$(E [] items) { }
         DefaultComboBoxModel$(Vector<E> v) { }
         //override from javax.swing.ComboBoxModel
-        void setSelectedItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object anObject) { }
+        @Modified void setSelectedItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object anObject) { }
 
         //override from javax.swing.ComboBoxModel
         //@Immutable(hc=true)[T] @Independent(hc=true)[H]
@@ -167,19 +168,19 @@ public class JavaxSwing {
         int getIndexOf(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object anObject) { return 0; }
 
         //override from javax.swing.MutableComboBoxModel
-        void addElement(/*@Independent(hc=true)[H] @NotModified[T]*/ E anObject) { }
+        @Modified void addElement(/*@Independent(hc=true)[H] @NotModified[T]*/ E anObject) { }
 
         //override from javax.swing.MutableComboBoxModel
-        void insertElementAt(/*@Independent(hc=true)[H] @NotModified[T]*/ E anObject, int index) { }
+        @Modified void insertElementAt(/*@Independent(hc=true)[H] @NotModified[T]*/ E anObject, int index) { }
 
         //override from javax.swing.MutableComboBoxModel
-        void removeElementAt(int index) { }
+        @Modified void removeElementAt(int index) { }
 
         //override from javax.swing.MutableComboBoxModel
-        void removeElement(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object anObject) { }
-        void removeAllElements() { }
-        void addAll(@NotModified Collection<? extends E> c) { }
-        void addAll(int index, @NotModified Collection<? extends E> c) { }
+        @Modified void removeElement(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ Object anObject) { }
+        @Modified void removeAllElements() { }
+        @Modified void addAll(@NotModified Collection<? extends E> c) { }
+        @Modified void addAll(int index, @NotModified Collection<? extends E> c) { }
     }
 
     //public class JComboBox extends JComponent implements ItemSelectable, ListDataListener, ActionListener, Accessible
@@ -190,62 +191,62 @@ public class JavaxSwing {
         JComboBox$(E [] items) { }
         JComboBox$(Vector<E> items) { }
         JComboBox$() { }
-        void setUI(ComboBoxUI ui) { }
+        @Modified void setUI(ComboBoxUI ui) { }
         //override from javax.swing.JComponent
-        void updateUI() { }
+        @Modified void updateUI() { }
 
         //override from javax.swing.JComponent
         @NotModified String getUIClassID() { return null; }
 
         //override from javax.swing.JComponent
         @NotModified ComboBoxUI getUI() { return null; }
-        void setModel(ComboBoxModel<E> aModel) { }
+        @Modified void setModel(ComboBoxModel<E> aModel) { }
         @NotModified ComboBoxModel<E> getModel() { return null; }
-        void setLightWeightPopupEnabled(boolean aFlag) { }
+        @Modified void setLightWeightPopupEnabled(boolean aFlag) { }
         @NotModified boolean isLightWeightPopupEnabled() { return false; }
-        void setEditable(boolean aFlag) { }
+        @Modified void setEditable(boolean aFlag) { }
         @NotModified boolean isEditable() { return false; }
-        void setMaximumRowCount(int count) { }
+        @Modified void setMaximumRowCount(int count) { }
         @NotModified int getMaximumRowCount() { return 0; }
-        void setRenderer(ListCellRenderer<? super E> aRenderer) { }
+        @Modified void setRenderer(ListCellRenderer<? super E> aRenderer) { }
         @NotModified ListCellRenderer<? super E> getRenderer() { return null; }
-        void setEditor(ComboBoxEditor anEditor) { }
+        @Modified void setEditor(ComboBoxEditor anEditor) { }
         @NotModified ComboBoxEditor getEditor() { return null; }
-        void setSelectedItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object anObject) { }
+        @Modified void setSelectedItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object anObject) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Object getSelectedItem() { return null; }
-        void setSelectedIndex(int anIndex) { }
+        @Modified void setSelectedIndex(int anIndex) { }
         @NotModified int getSelectedIndex() { return 0; }
         //@Independent(hc=true)[T]
         @NotModified E getPrototypeDisplayValue() { return null; }
-        void setPrototypeDisplayValue(/*@Independent(hc=true)[T] @NotModified[T]*/ E prototypeDisplayValue) { }
-        void addItem(/*@Independent(hc=true)[T] @NotModified[T]*/ E item) { }
-        void insertItemAt(/*@Independent(hc=true)[T] @NotModified[T]*/ E item, int index) { }
-        void removeItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object anObject) { }
-        void removeItemAt(int anIndex) { }
-        void removeAllItems() { }
+        @Modified void setPrototypeDisplayValue(/*@Independent(hc=true)[T] @NotModified[T]*/ E prototypeDisplayValue) { }
+        @Modified void addItem(/*@Independent(hc=true)[T] @NotModified[T]*/ E item) { }
+        @Modified void insertItemAt(/*@Independent(hc=true)[T] @NotModified[T]*/ E item, int index) { }
+        @Modified void removeItem(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object anObject) { }
+        @Modified void removeItemAt(int anIndex) { }
+        @Modified void removeAllItems() { }
         void showPopup() { }
         void hidePopup() { }
-        void setPopupVisible(boolean v) { }
+        @Modified void setPopupVisible(boolean v) { }
         @NotModified boolean isPopupVisible() { return false; }
         //override from java.awt.ItemSelectable
-        void addItemListener(ItemListener aListener) { }
+        @Modified void addItemListener(ItemListener aListener) { }
 
         //override from java.awt.ItemSelectable
-        void removeItemListener(ItemListener aListener) { }
+        @Modified void removeItemListener(ItemListener aListener) { }
         @NotModified ItemListener [] getItemListeners() { return null; }
-        void addActionListener(ActionListener l) { }
-        void removeActionListener(ActionListener l) { }
+        @Modified void addActionListener(ActionListener l) { }
+        @Modified void removeActionListener(ActionListener l) { }
         @NotModified ActionListener [] getActionListeners() { return null; }
-        void addPopupMenuListener(PopupMenuListener l) { }
-        void removePopupMenuListener(PopupMenuListener l) { }
+        @Modified void addPopupMenuListener(PopupMenuListener l) { }
+        @Modified void removePopupMenuListener(PopupMenuListener l) { }
         @NotModified PopupMenuListener [] getPopupMenuListeners() { return null; }
         void firePopupMenuWillBecomeVisible() { }
         void firePopupMenuWillBecomeInvisible() { }
         void firePopupMenuCanceled() { }
-        void setActionCommand(String aCommand) { }
+        @Modified void setActionCommand(String aCommand) { }
         @NotModified String getActionCommand() { return null; }
-        void setAction(Action a) { }
+        @Modified void setAction(Action a) { }
         @NotModified Action getAction() { return null; }
         //override from java.awt.ItemSelectable
         @NotModified Object [] getSelectedObjects() { return null; }
@@ -263,7 +264,7 @@ public class JavaxSwing {
         void intervalRemoved(ListDataEvent e) { }
         boolean selectWithKeyChar(char keyChar) { return false; }
         //override from java.awt.Component, javax.swing.JComponent
-        void setEnabled(boolean b) { }
+        @Modified void setEnabled(boolean b) { }
 
         void configureEditor(
             ComboBoxEditor anEditor,
@@ -271,7 +272,7 @@ public class JavaxSwing {
 
         //override from java.awt.Component, javax.swing.JComponent
         void processKeyEvent(KeyEvent e) { }
-        void setKeySelectionManager(JComboBox.KeySelectionManager aManager) { }
+        @Modified void setKeySelectionManager(JComboBox.KeySelectionManager aManager) { }
         @NotModified JComboBox.KeySelectionManager getKeySelectionManager() { return null; }
         @NotModified int getItemCount() { return 0; }
         //@Independent(hc=true)[T]
@@ -291,37 +292,37 @@ public class JavaxSwing {
         JLabel$() { }
         //override from javax.swing.JComponent
         @NotModified LabelUI getUI() { return null; }
-        void setUI(LabelUI ui) { }
+        @Modified void setUI(LabelUI ui) { }
         //override from javax.swing.JComponent
-        void updateUI() { }
+        @Modified void updateUI() { }
 
         //override from javax.swing.JComponent
         @NotModified String getUIClassID() { return null; }
         @NotModified String getText() { return null; }
-        void setText(String text) { }
+        @Modified void setText(String text) { }
         @NotModified Icon getIcon() { return null; }
-        void setIcon(Icon icon) { }
+        @Modified void setIcon(Icon icon) { }
         @NotModified Icon getDisabledIcon() { return null; }
-        void setDisabledIcon(Icon disabledIcon) { }
-        void setDisplayedMnemonic(int key) { }
-        void setDisplayedMnemonic(char aChar) { }
+        @Modified void setDisabledIcon(Icon disabledIcon) { }
+        @Modified void setDisplayedMnemonic(int key) { }
+        @Modified void setDisplayedMnemonic(char aChar) { }
         @NotModified int getDisplayedMnemonic() { return 0; }
-        void setDisplayedMnemonicIndex(int index) { }
+        @Modified void setDisplayedMnemonicIndex(int index) { }
         @NotModified int getDisplayedMnemonicIndex() { return 0; }
         @NotModified int getIconTextGap() { return 0; }
-        void setIconTextGap(int iconTextGap) { }
+        @Modified void setIconTextGap(int iconTextGap) { }
         @NotModified int getVerticalAlignment() { return 0; }
-        void setVerticalAlignment(int alignment) { }
+        @Modified void setVerticalAlignment(int alignment) { }
         @NotModified int getHorizontalAlignment() { return 0; }
-        void setHorizontalAlignment(int alignment) { }
+        @Modified void setHorizontalAlignment(int alignment) { }
         @NotModified int getVerticalTextPosition() { return 0; }
-        void setVerticalTextPosition(int textPosition) { }
+        @Modified void setVerticalTextPosition(int textPosition) { }
         @NotModified int getHorizontalTextPosition() { return 0; }
-        void setHorizontalTextPosition(int textPosition) { }
+        @Modified void setHorizontalTextPosition(int textPosition) { }
         //override from java.awt.Component, java.awt.image.ImageObserver
         boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h) { return false; }
         @NotModified Component getLabelFor() { return null; }
-        void setLabelFor(Component c) { }
+        @Modified void setLabelFor(Component c) { }
         //override from java.awt.Component, javax.accessibility.Accessible
         @NotModified AccessibleContext getAccessibleContext() { return null; }
     }
@@ -362,67 +363,67 @@ public class JavaxSwing {
         JTable$(Vector<? extends Vector> rowData, Vector<?> columnNames) { }
         JTable$(Object [][] rowData, Object [] columnNames) { }
         //override from java.awt.Component, java.awt.Container, javax.swing.JComponent
-        void addNotify() { }
+        @Modified void addNotify() { }
 
         //override from java.awt.Component, java.awt.Container, javax.swing.JComponent
-        void removeNotify() { }
+        @Modified void removeNotify() { }
 
         //@Independent[T]
         static JScrollPane createScrollPaneForTable(JTable aTable) { return null; }
-        void setTableHeader(JTableHeader tableHeader) { }
+        @Modified void setTableHeader(JTableHeader tableHeader) { }
         @NotModified JTableHeader getTableHeader() { return null; }
-        void setRowHeight(int rowHeight) { }
+        @Modified void setRowHeight(int rowHeight) { }
         @NotModified int getRowHeight() { return 0; }
-        void setRowHeight(int row, int rowHeight) { }
+        @Modified void setRowHeight(int row, int rowHeight) { }
         @NotModified int getRowHeight(int row) { return 0; }
-        void setRowMargin(int rowMargin) { }
+        @Modified void setRowMargin(int rowMargin) { }
         @NotModified int getRowMargin() { return 0; }
-        void setIntercellSpacing(Dimension intercellSpacing) { }
+        @Modified void setIntercellSpacing(Dimension intercellSpacing) { }
         @NotModified Dimension getIntercellSpacing() { return null; }
-        void setGridColor(Color gridColor) { }
+        @Modified void setGridColor(Color gridColor) { }
         @NotModified Color getGridColor() { return null; }
-        void setShowGrid(boolean showGrid) { }
-        void setShowHorizontalLines(boolean showHorizontalLines) { }
-        void setShowVerticalLines(boolean showVerticalLines) { }
+        @Modified void setShowGrid(boolean showGrid) { }
+        @Modified void setShowHorizontalLines(boolean showHorizontalLines) { }
+        @Modified void setShowVerticalLines(boolean showVerticalLines) { }
         @NotModified boolean getShowHorizontalLines() { return false; }
         @NotModified boolean getShowVerticalLines() { return false; }
-        void setAutoResizeMode(int mode) { }
+        @Modified void setAutoResizeMode(int mode) { }
         @NotModified int getAutoResizeMode() { return 0; }
-        void setAutoCreateColumnsFromModel(boolean autoCreateColumnsFromModel) { }
+        @Modified void setAutoCreateColumnsFromModel(boolean autoCreateColumnsFromModel) { }
         @NotModified boolean getAutoCreateColumnsFromModel() { return false; }
         void createDefaultColumnsFromModel() { }
-        @Commutable(seq="class,0")
+        @Modified @Commutable(seq="class,0")
         void setDefaultRenderer(Class<?> columnClass, TableCellRenderer renderer) { }
         @NotModified TableCellRenderer getDefaultRenderer(Class<?> columnClass) { return null; }
-        void setDefaultEditor(Class<?> columnClass, TableCellEditor editor) { }
+        @Modified void setDefaultEditor(Class<?> columnClass, TableCellEditor editor) { }
         @NotModified TableCellEditor getDefaultEditor(Class<?> columnClass) { return null; }
-        void setDragEnabled(boolean b) { }
+        @Modified void setDragEnabled(boolean b) { }
         @NotModified boolean getDragEnabled() { return false; }
-        void setDropMode(DropMode dropMode) { }
+        @Modified void setDropMode(DropMode dropMode) { }
         @NotModified DropMode getDropMode() { return null; }
         @NotModified JTable.DropLocation getDropLocation() { return null; }
-        void setAutoCreateRowSorter(boolean autoCreateRowSorter) { }
+        @Modified void setAutoCreateRowSorter(boolean autoCreateRowSorter) { }
         @NotModified boolean getAutoCreateRowSorter() { return false; }
-        void setUpdateSelectionOnSort(boolean update) { }
+        @Modified void setUpdateSelectionOnSort(boolean update) { }
         @NotModified boolean getUpdateSelectionOnSort() { return false; }
-        void setRowSorter(RowSorter<? extends TableModel> sorter) { }
+        @Modified void setRowSorter(RowSorter<? extends TableModel> sorter) { }
         @NotModified RowSorter<? extends TableModel> getRowSorter() { return null; }
-        void setSelectionMode(int selectionMode) { }
-        @Commutable
+        @Modified void setSelectionMode(int selectionMode) { }
+        @Modified @Commutable
         void setRowSelectionAllowed(boolean rowSelectionAllowed) { }
         @NotModified boolean getRowSelectionAllowed() { return false; }
-        void setColumnSelectionAllowed(boolean columnSelectionAllowed) { }
+        @Modified void setColumnSelectionAllowed(boolean columnSelectionAllowed) { }
         @NotModified boolean getColumnSelectionAllowed() { return false; }
-        void setCellSelectionEnabled(boolean cellSelectionEnabled) { }
+        @Modified void setCellSelectionEnabled(boolean cellSelectionEnabled) { }
         @NotModified boolean getCellSelectionEnabled() { return false; }
         void selectAll() { }
-        void clearSelection() { }
-        void setRowSelectionInterval(int index0, int index1) { }
-        void setColumnSelectionInterval(int index0, int index1) { }
-        void addRowSelectionInterval(int index0, int index1) { }
-        void addColumnSelectionInterval(int index0, int index1) { }
-        void removeRowSelectionInterval(int index0, int index1) { }
-        void removeColumnSelectionInterval(int index0, int index1) { }
+        @Modified void clearSelection() { }
+        @Modified void setRowSelectionInterval(int index0, int index1) { }
+        @Modified void setColumnSelectionInterval(int index0, int index1) { }
+        @Modified void addRowSelectionInterval(int index0, int index1) { }
+        @Modified void addColumnSelectionInterval(int index0, int index1) { }
+        @Modified void removeRowSelectionInterval(int index0, int index1) { }
+        @Modified void removeColumnSelectionInterval(int index0, int index1) { }
         @NotModified int getSelectedRow() { return 0; }
         @NotModified int getSelectedColumn() { return 0; }
         @NotModified int [] getSelectedRows() { return null; }
@@ -434,9 +435,9 @@ public class JavaxSwing {
         @NotModified boolean isCellSelected(int row, int column) { return false; }
         void changeSelection(int rowIndex, int columnIndex, boolean toggle, boolean extend) { }
         @NotModified Color getSelectionForeground() { return null; }
-        void setSelectionForeground(Color selectionForeground) { }
+        @Modified void setSelectionForeground(Color selectionForeground) { }
         @NotModified Color getSelectionBackground() { return null; }
-        void setSelectionBackground(Color selectionBackground) { }
+        @Modified void setSelectionBackground(Color selectionBackground) { }
         TableColumn getColumn(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object identifier) {
             return null;
         }
@@ -451,13 +452,13 @@ public class JavaxSwing {
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Object getValueAt(int row, int column) { return null; }
 
-        void setValueAt(
+        @Modified void setValueAt(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object aValue,
             int row,
             int column) { }
         @NotModified boolean isCellEditable(int row, int column) { return false; }
-        void addColumn(TableColumn aColumn) { }
-        void removeColumn(TableColumn aColumn) { }
+        @Modified void addColumn(TableColumn aColumn) { }
+        @Modified void removeColumn(TableColumn aColumn) { }
         void moveColumn(int column, int targetColumn) { }
         int columnAtPoint(Point point) { return 0; }
         int rowAtPoint(Point point) { return 0; }
@@ -468,7 +469,7 @@ public class JavaxSwing {
         void sizeColumnsToFit(int resizingColumn) { }
         //override from javax.swing.JComponent
         @NotModified String getToolTipText(MouseEvent event) { return null; }
-        void setSurrendersFocusOnKeystroke(boolean surrendersFocusOnKeystroke) { }
+        @Modified void setSurrendersFocusOnKeystroke(boolean surrendersFocusOnKeystroke) { }
         @NotModified boolean getSurrendersFocusOnKeystroke() { return false; }
         boolean editCellAt(int row, int column) { return false; }
         boolean editCellAt(int row, int column, EventObject e) { return false; }
@@ -478,17 +479,17 @@ public class JavaxSwing {
         @NotModified int getEditingRow() { return 0; }
         //override from javax.swing.JComponent
         @NotModified TableUI getUI() { return null; }
-        void setUI(TableUI ui) { }
+        @Modified void setUI(TableUI ui) { }
         //override from javax.swing.JComponent
-        void updateUI() { }
+        @Modified void updateUI() { }
 
         //override from javax.swing.JComponent
         @NotModified String getUIClassID() { return null; }
-        void setModel(TableModel dataModel) { }
+        @Modified void setModel(TableModel dataModel) { }
         @NotModified TableModel getModel() { return null; }
-        void setColumnModel(TableColumnModel columnModel) { }
+        @Modified void setColumnModel(TableColumnModel columnModel) { }
         @NotModified TableColumnModel getColumnModel() { return null; }
-        void setSelectionModel(ListSelectionModel selectionModel) { }
+        @Modified void setSelectionModel(ListSelectionModel selectionModel) { }
         @NotModified ListSelectionModel getSelectionModel() { return null; }
         //override from javax.swing.event.RowSorterListener
         void sorterChanged(RowSorterEvent e) { }
@@ -519,7 +520,7 @@ public class JavaxSwing {
 
         //override from javax.swing.event.CellEditorListener
         void editingCanceled(ChangeEvent e) { }
-        void setPreferredScrollableViewportSize(Dimension size) { }
+        @Modified void setPreferredScrollableViewportSize(Dimension size) { }
         //override from javax.swing.Scrollable
         @NotModified Dimension getPreferredScrollableViewportSize() { return null; }
 
@@ -534,18 +535,18 @@ public class JavaxSwing {
 
         //override from javax.swing.Scrollable
         @NotModified boolean getScrollableTracksViewportHeight() { return false; }
-        @Commutable
+        @Modified @Commutable
         void setFillsViewportHeight(boolean fillsViewportHeight) { }
         @NotModified boolean getFillsViewportHeight() { return false; }
         @NotModified TableCellEditor getCellEditor() { return null; }
-        void setCellEditor(TableCellEditor anEditor) { }
-        void setEditingColumn(int aColumn) { }
-        void setEditingRow(int aRow) { }
+        @Modified void setCellEditor(TableCellEditor anEditor) { }
+        @Modified void setEditingColumn(int aColumn) { }
+        @Modified void setEditingRow(int aRow) { }
         @NotModified TableCellRenderer getCellRenderer(int row, int column) { return null; }
         Component prepareRenderer(TableCellRenderer renderer, int row, int column) { return null; }
         @NotModified TableCellEditor getCellEditor(int row, int column) { return null; }
         Component prepareEditor(TableCellEditor editor, int row, int column) { return null; }
-        void removeEditor() { }
+        @Modified void removeEditor() { }
         boolean print() { return false; }
         boolean print(JTable.PrintMode printMode) { return false; }
         boolean print(JTable.PrintMode printMode, MessageFormat headerFormat, MessageFormat footerFormat) { return false; }
@@ -573,5 +574,62 @@ public class JavaxSwing {
 
         //override from java.awt.Component, javax.accessibility.Accessible
         @NotModified AccessibleContext getAccessibleContext() { return null; }
+    }
+
+    class AbstractListModel$<E> {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addListDataListener(javax.swing.event.ListDataListener p0) { }
+        @Modified void removeListDataListener(javax.swing.event.ListDataListener p0) { }
+    }
+
+    class ComboBoxModel$<E> {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setSelectedItem(Object p0) { }
+    }
+
+    class JComponent$ {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addAncestorListener(javax.swing.event.AncestorListener p0) { }
+        @Modified void addVetoableChangeListener(java.beans.VetoableChangeListener p0) { }
+        @Modified void computeVisibleRect(java.awt.Rectangle p0) { }
+        @Modified void putClientProperty(Object p0, Object p1) { }
+        @Modified void registerKeyboardAction(java.awt.event.ActionListener p0, String p1, javax.swing.KeyStroke p2, int p3) { }
+        @Modified void registerKeyboardAction(java.awt.event.ActionListener p0, javax.swing.KeyStroke p1, int p2) { }
+        @Modified void removeAncestorListener(javax.swing.event.AncestorListener p0) { }
+        @Modified void removeVetoableChangeListener(java.beans.VetoableChangeListener p0) { }
+        @Modified void resetKeyboardActions() { }
+        @Modified void setActionMap(javax.swing.ActionMap p0) { }
+        @Modified void setAlignmentX(float p0) { }
+        @Modified void setAlignmentY(float p0) { }
+        @Modified void setAutoscrolls(boolean p0) { }
+        @Modified void setBorder(javax.swing.border.Border p0) { }
+        @Modified void setComponentPopupMenu(javax.swing.JPopupMenu p0) { }
+        @Modified void setDebugGraphicsOptions(int p0) { }
+        @Modified void setDoubleBuffered(boolean p0) { }
+        @Modified void setInheritsPopupMenu(boolean p0) { }
+        @Modified void setInputMap(int p0, javax.swing.InputMap p1) { }
+        @Modified void setInputVerifier(javax.swing.InputVerifier p0) { }
+        @Modified void setNextFocusableComponent(java.awt.Component p0) { }
+        @Modified void setOpaque(boolean p0) { }
+        @Modified void setRequestFocusEnabled(boolean p0) { }
+        @Modified void setToolTipText(String p0) { }
+        @Modified void setTransferHandler(javax.swing.TransferHandler p0) { }
+        @Modified void setVerifyInputWhenFocusTarget(boolean p0) { }
+        @Modified void unregisterKeyboardAction(javax.swing.KeyStroke p0) { }
+        @Modified void updateUI() { }
+    }
+
+    class ListModel$<E> {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addListDataListener(javax.swing.event.ListDataListener p0) { }
+        @Modified void removeListDataListener(javax.swing.event.ListDataListener p0) { }
+    }
+
+    class MutableComboBoxModel$<E> {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addElement(E p0) { }
+        @Modified void insertElementAt(E p0, int p1) { }
+        @Modified void removeElement(Object p0) { }
+        @Modified void removeElementAt(int p0) { }
     }
 }

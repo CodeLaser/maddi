@@ -20,6 +20,7 @@ import java.io.InputStream;
 import java.net.*;
 import java.nio.charset.Charset;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.NotNull;
@@ -218,7 +219,7 @@ public class JavaNet {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
         @Nullable static java.net.CookieHandler getDefault() { return null; }
-        void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
+        @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
         static void setDefault(@Nullable java.net.CookieHandler p0) { }
     }
 
@@ -227,8 +228,8 @@ public class JavaNet {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CookieManager$(@Nullable java.net.CookieStore p0, @Nullable java.net.CookiePolicy p1) { }
         java.util.Map<java.lang.String, java.util.List<java.lang.String>> get(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { return null; }
-        void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
-        void setCookiePolicy(@Nullable java.net.CookiePolicy p0) { }
+        @Modified void put(@NotNull java.net.URI p0, @NotNull java.util.Map<java.lang.String, java.util.List<java.lang.String>> p1) { }
+        @Modified void setCookiePolicy(@Nullable java.net.CookiePolicy p0) { }
     }
 
     //public java.net.CookiePolicy (shadow created for its nullability, generated)
@@ -240,9 +241,12 @@ public class JavaNet {
     //public java.net.CookieStore (shadow created for its nullability, generated)
     class CookieStore$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void add(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { }
+        @Modified void add(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { }
         java.util.List<java.net.HttpCookie> get(@NotNull java.net.URI p0) { return null; }
-        boolean remove(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { return false; }
+        @Modified boolean remove(@Nullable java.net.URI p0, @NotNull java.net.HttpCookie p1) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean removeAll() { return false; }
     }
 
     //public java.net.DatagramSocket (shadow created for its nullability, generated)
@@ -265,7 +269,15 @@ public class JavaNet {
         void receive(@NotNull java.net.DatagramPacket p0) { }
         void send(@NotNull java.net.DatagramPacket p0) { }
         static void setDatagramSocketImplFactory(@NotNull java.net.DatagramSocketImplFactory p0) { }
-        <T> java.net.DatagramSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
+        @Modified <T> java.net.DatagramSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setBroadcast(boolean p0) { }
+        @Modified void setReceiveBufferSize(int p0) { }
+        @Modified void setReuseAddress(boolean p0) { }
+        @Modified void setSendBufferSize(int p0) { }
+        @Modified void setSoTimeout(int p0) { }
+        @Modified void setTrafficClass(int p0) { }
     }
 
     //public java.net.HttpCookie (shadow created for its nullability, generated)
@@ -278,11 +290,19 @@ public class JavaNet {
         @Nullable java.lang.String getPath() { return null; }
         @Nullable java.lang.String getPortlist() { return null; }
         static java.util.List<java.net.HttpCookie> parse(@NotNull java.lang.String p0) { return null; }
-        void setComment(@Nullable java.lang.String p0) { }
-        void setCommentURL(@Nullable java.lang.String p0) { }
-        void setDomain(@Nullable java.lang.String p0) { }
-        void setPath(@Nullable java.lang.String p0) { }
-        void setPortlist(@Nullable java.lang.String p0) { }
+        @Modified void setComment(@Nullable java.lang.String p0) { }
+        @Modified void setCommentURL(@Nullable java.lang.String p0) { }
+        @Modified void setDomain(@Nullable java.lang.String p0) { }
+        @Modified void setPath(@Nullable java.lang.String p0) { }
+        @Modified void setPortlist(@Nullable java.lang.String p0) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setDiscard(boolean p0) { }
+        @Modified void setHttpOnly(boolean p0) { }
+        @Modified void setMaxAge(long p0) { }
+        @Modified void setSecure(boolean p0) { }
+        @Modified void setValue(String p0) { }
+        @Modified void setVersion(int p0) { }
     }
 
     //public java.net.HttpURLConnection (shadow created for its nullability, generated)
@@ -291,6 +311,14 @@ public class JavaNet {
         @Nullable java.io.InputStream getErrorStream() { return null; }
         @Nullable java.lang.String getHeaderField(int p0) { return null; }
         @Nullable java.lang.String getHeaderFieldKey(int p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setAuthenticator(java.net.Authenticator p0) { }
+        @Modified void setChunkedStreamingMode(int p0) { }
+        @Modified void setFixedLengthStreamingMode(int p0) { }
+        @Modified void setFixedLengthStreamingMode(long p0) { }
+        @Modified void setInstanceFollowRedirects(boolean p0) { }
+        @Modified void setRequestMethod(String p0) { }
     }
 
     //public java.net.Inet4Address (shadow created for its nullability, generated)
@@ -342,6 +370,12 @@ public class JavaNet {
         void joinGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
         void leaveGroup(@NotNull java.net.InetAddress p0) { }
         void leaveGroup(@NotNull java.net.SocketAddress p0, @Nullable java.net.NetworkInterface p1) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setInterface(java.net.InetAddress p0) { }
+        @Modified void setLoopbackMode(boolean p0) { }
+        @Modified void setNetworkInterface(java.net.NetworkInterface p0) { }
+        @Modified void setTimeToLive(int p0) { }
     }
 
     //public java.net.NetworkInterface (shadow created for its nullability, generated)
@@ -385,8 +419,14 @@ public class JavaNet {
         @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
         <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
         void implAccept(@NotNull java.net.Socket p0) { }
-        <T> java.net.ServerSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
+        @Modified <T> java.net.ServerSocket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
         static void setSocketFactory(@NotNull java.net.SocketImplFactory p0) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setPerformancePreferences(int p0, int p1, int p2) { }
+        @Modified void setReceiveBufferSize(int p0) { }
+        @Modified void setReuseAddress(boolean p0) { }
+        @Modified void setSoTimeout(int p0) { }
     }
 
     //public java.net.Socket (shadow created for its nullability, generated)
@@ -408,8 +448,22 @@ public class JavaNet {
         @Nullable java.net.SocketAddress getLocalSocketAddress() { return null; }
         <T> T getOption(@NotNull java.net.SocketOption<T> p0) { return null; }
         @Nullable java.net.SocketAddress getRemoteSocketAddress() { return null; }
-        <T> java.net.Socket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
+        @Modified <T> java.net.Socket setOption(@NotNull java.net.SocketOption<T> p0, T p1) { return null; }
         static void setSocketImplFactory(@Nullable java.net.SocketImplFactory p0) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setKeepAlive(boolean p0) { }
+        @Modified void setOOBInline(boolean p0) { }
+        @Modified void setPerformancePreferences(int p0, int p1, int p2) { }
+        @Modified void setReceiveBufferSize(int p0) { }
+        @Modified void setReuseAddress(boolean p0) { }
+        @Modified void setSendBufferSize(int p0) { }
+        @Modified void setSoLinger(boolean p0, int p1) { }
+        @Modified void setSoTimeout(int p0) { }
+        @Modified void setTcpNoDelay(boolean p0) { }
+        @Modified void setTrafficClass(int p0) { }
+        @Modified void shutdownInput() { }
+        @Modified void shutdownOutput() { }
     }
 
     //public java.net.SocketException (shadow created for its nullability, generated)
@@ -465,6 +519,18 @@ public class JavaNet {
         @Nullable java.security.Permission getPermission() { return null; }
         @Nullable java.lang.String getRequestProperty(java.lang.String p0) { return null; }
         @Nullable static java.lang.String guessContentTypeFromStream(java.io.InputStream p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addRequestProperty(String p0, String p1) { }
+        @Modified void setAllowUserInteraction(boolean p0) { }
+        @Modified void setConnectTimeout(int p0) { }
+        @Modified void setDefaultUseCaches(boolean p0) { }
+        @Modified void setDoInput(boolean p0) { }
+        @Modified void setDoOutput(boolean p0) { }
+        @Modified void setIfModifiedSince(long p0) { }
+        @Modified void setReadTimeout(int p0) { }
+        @Modified void setRequestProperty(String p0, String p1) { }
+        @Modified void setUseCaches(boolean p0) { }
     }
 
     //public java.net.URLStreamHandlerFactory (shadow created for its nullability, generated)

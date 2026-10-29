@@ -60,7 +60,7 @@ public class JavaUtilLogging {
         static java.util.logging.Logger getAnonymousLogger(@Nullable java.lang.String p0) { return null; }
         @Independent(absent = true) @Nullable @NotModified java.util.ResourceBundle getResourceBundle() { return null; }
         @Nullable @NotModified java.lang.String getResourceBundleName() { return null; }
-        void setFilter(@Independent(absent = true) @Nullable java.util.logging.Filter p0) { }
+        @Modified void setFilter(@Independent(absent = true) @Nullable java.util.logging.Filter p0) { }
         @Independent(absent = true) @Nullable @NotModified java.util.logging.Filter getFilter() { return null; }
         @IgnoreModifications void log(@NotNull @Modified java.util.logging.LogRecord p0) { }
         @IgnoreModifications void log(@NotNull java.util.logging.Level p0, @Nullable java.lang.String p1) { }
@@ -103,18 +103,18 @@ public class JavaUtilLogging {
         @IgnoreModifications void fine(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
         @IgnoreModifications void finer(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
         @IgnoreModifications void finest(@NotNull(nullableArguments = 0) java.util.function.Supplier<java.lang.String> p0) { }
-        void setLevel(@Nullable java.util.logging.Level p0) { }
+        @Modified void setLevel(@Nullable java.util.logging.Level p0) { }
         @Nullable @NotModified java.util.logging.Level getLevel() { return null; }
         @NotModified boolean isLoggable(@NotNull java.util.logging.Level p0) { return false; }
         @Nullable @NotModified java.lang.String getName() { return null; }
-        void addHandler(@Independent(absent = true) @NotNull java.util.logging.Handler p0) { }
-        void removeHandler(@Nullable java.util.logging.Handler p0) { }
+        @Modified void addHandler(@Independent(absent = true) @NotNull java.util.logging.Handler p0) { }
+        @Modified void removeHandler(@Nullable java.util.logging.Handler p0) { }
         @Independent(absent = true) @NotModified java.util.logging.Handler[] getHandlers() { return null; }
-        void setUseParentHandlers(boolean p0) { }
+        @Modified void setUseParentHandlers(boolean p0) { }
         @NotModified boolean getUseParentHandlers() { return false; }
-        void setResourceBundle(@Independent(absent = true) @NotNull java.util.ResourceBundle p0) { }
+        @Modified void setResourceBundle(@Independent(absent = true) @NotNull java.util.ResourceBundle p0) { }
         @Independent(absent = true) @Nullable @NotModified java.util.logging.Logger getParent() { return null; }
-        void setParent(@Independent(absent = true) @NotNull java.util.logging.Logger p0) { }
+        @Modified void setParent(@Independent(absent = true) @NotNull java.util.logging.Logger p0) { }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         Logger$(@Nullable java.lang.String p0, @Nullable java.lang.String p1) { }
@@ -129,11 +129,15 @@ public class JavaUtilLogging {
         boolean isLoggable(@Nullable java.util.logging.LogRecord p0) { return false; }
         void publish(@Nullable java.util.logging.LogRecord p0) { }
         void reportError(@Nullable java.lang.String p0, @Nullable java.lang.Exception p1, int p2) { }
-        void setEncoding(@Nullable java.lang.String p0) { }
-        void setErrorManager(@NotNull java.util.logging.ErrorManager p0) { }
-        void setFilter(@Nullable java.util.logging.Filter p0) { }
-        void setFormatter(@NotNull java.util.logging.Formatter p0) { }
-        void setLevel(@NotNull java.util.logging.Level p0) { }
+        @Modified void setEncoding(@Nullable java.lang.String p0) { }
+        @Modified void setErrorManager(@NotNull java.util.logging.ErrorManager p0) { }
+        @Modified void setFilter(@Nullable java.util.logging.Filter p0) { }
+        @Modified void setFormatter(@NotNull java.util.logging.Formatter p0) { }
+        @Modified void setLevel(@NotNull java.util.logging.Level p0) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void close() { }
+        @Modified void flush() { }
     }
 
     //public java.util.logging.LogRecord (shadow created for its nullability, generated)
@@ -148,15 +152,21 @@ public class JavaUtilLogging {
         @Nullable java.lang.String getSourceClassName() { return null; }
         @Nullable java.lang.String getSourceMethodName() { return null; }
         @Nullable java.lang.Throwable getThrown() { return null; }
-        void setInstant(@NotNull java.time.Instant p0) { }
-        void setLevel(@NotNull java.util.logging.Level p0) { }
-        void setLoggerName(@Nullable java.lang.String p0) { }
-        void setMessage(@Nullable java.lang.String p0) { }
-        void setParameters(@Nullable(nullableArguments = 0) java.lang.Object[] p0) { }
-        void setResourceBundle(@Nullable java.util.ResourceBundle p0) { }
-        void setResourceBundleName(@Nullable java.lang.String p0) { }
-        void setSourceClassName(@Nullable java.lang.String p0) { }
-        void setSourceMethodName(@Nullable java.lang.String p0) { }
-        void setThrown(@Nullable java.lang.Throwable p0) { }
+        @Modified void setInstant(@NotNull java.time.Instant p0) { }
+        @Modified void setLevel(@NotNull java.util.logging.Level p0) { }
+        @Modified void setLoggerName(@Nullable java.lang.String p0) { }
+        @Modified void setMessage(@Nullable java.lang.String p0) { }
+        @Modified void setParameters(@Nullable(nullableArguments = 0) java.lang.Object[] p0) { }
+        @Modified void setResourceBundle(@Nullable java.util.ResourceBundle p0) { }
+        @Modified void setResourceBundleName(@Nullable java.lang.String p0) { }
+        @Modified void setSourceClassName(@Nullable java.lang.String p0) { }
+        @Modified void setSourceMethodName(@Nullable java.lang.String p0) { }
+        @Modified void setThrown(@Nullable java.lang.Throwable p0) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified java.util.logging.LogRecord setLongThreadID(long p0) { return null; }
+        @Modified void setMillis(long p0) { }
+        @Modified void setSequenceNumber(long p0) { }
+        @Modified void setThreadID(int p0) { }
     }
 }

@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Commutable;
 
@@ -35,36 +36,36 @@ public class JavaxSwingTable {
         TableColumn$(int modelIndex) { }
         TableColumn$(int modelIndex, int width) { }
         TableColumn$(int modelIndex, int width, TableCellRenderer cellRenderer, TableCellEditor cellEditor) { }
-        void setModelIndex(int modelIndex) { }
+        @Modified void setModelIndex(int modelIndex) { }
         @NotModified int getModelIndex() { return 0; }
-        void setIdentifier(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object identifier) { }
+        @Modified void setIdentifier(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object identifier) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Object getIdentifier() { return null; }
-        void setHeaderValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object headerValue) { }
+        @Modified void setHeaderValue(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object headerValue) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Object getHeaderValue() { return null; }
-        void setHeaderRenderer(TableCellRenderer headerRenderer) { }
+        @Modified void setHeaderRenderer(TableCellRenderer headerRenderer) { }
         @NotModified TableCellRenderer getHeaderRenderer() { return null; }
-        void setCellRenderer(TableCellRenderer cellRenderer) { }
+        @Modified void setCellRenderer(TableCellRenderer cellRenderer) { }
         @NotModified TableCellRenderer getCellRenderer() { return null; }
-        void setCellEditor(TableCellEditor cellEditor) { }
+        @Modified void setCellEditor(TableCellEditor cellEditor) { }
         @NotModified TableCellEditor getCellEditor() { return null; }
-        void setWidth(int width) { }
+        @Modified void setWidth(int width) { }
         @NotModified int getWidth() { return 0; }
-        @Commutable
+        @Modified @Commutable
         void setPreferredWidth(int preferredWidth) { }
         @NotModified int getPreferredWidth() { return 0; }
-        void setMinWidth(int minWidth) { }
+        @Modified void setMinWidth(int minWidth) { }
         @NotModified int getMinWidth() { return 0; }
-        void setMaxWidth(int maxWidth) { }
+        @Modified void setMaxWidth(int maxWidth) { }
         @NotModified int getMaxWidth() { return 0; }
-        void setResizable(boolean isResizable) { }
+        @Modified void setResizable(boolean isResizable) { }
         @NotModified boolean getResizable() { return false; }
         void sizeWidthToFit() { }
         void disableResizedPosting() { }
         void enableResizedPosting() { }
-        void addPropertyChangeListener(PropertyChangeListener listener) { }
-        void removePropertyChangeListener(PropertyChangeListener listener) { }
+        @Modified void addPropertyChangeListener(PropertyChangeListener listener) { }
+        @Modified void removePropertyChangeListener(PropertyChangeListener listener) { }
         @NotModified PropertyChangeListener [] getPropertyChangeListeners() { return null; }
     }
 }

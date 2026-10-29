@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
@@ -402,10 +403,10 @@ public class JavaNioFile {
 
     //public interface Watchable
     class Watchable$ {
-        WatchKey register(WatchService watchService, WatchEvent.Kind<?> [] kind, WatchEvent.Modifier ... modifier) {
+        @Modified WatchKey register(WatchService watchService, WatchEvent.Kind<?> [] kind, WatchEvent.Modifier ... modifier) {
             return null;
         }
-        WatchKey register(WatchService watchService, WatchEvent.Kind<?> ... kind) { return null; }
+        @Modified WatchKey register(WatchService watchService, WatchEvent.Kind<?> ... kind) { return null; }
     }
 
     //public java.nio.file.DirectoryIteratorException (shadow created for its nullability, generated)

@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.NotModified;
@@ -56,8 +57,8 @@ public class JavaUtilRegex {
         @NotModified Pattern pattern() { return null; }
         @NotModified MatchResult toMatchResult() { return null; }
         Matcher usePattern(@NotNull Pattern newPattern) { return null; }
-        Matcher reset() { return null; }
-        Matcher reset(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence input) {
+        @Modified Matcher reset() { return null; }
+        @Modified Matcher reset(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ @NotNull CharSequence input) {
             return null;
         }
 
@@ -95,16 +96,16 @@ public class JavaUtilRegex {
         boolean find(int start) { return false; }
         boolean lookingAt() { return false; }
         static String quoteReplacement(@NotNull String s) { return null; }
-        Matcher appendReplacement(@NotNull StringBuffer sb, @NotNull String replacement) { return null; }
-        Matcher appendReplacement(@NotNull StringBuilder sb, @NotNull String replacement) { return null; }
-        StringBuffer appendTail(@NotNull StringBuffer sb) { return null; }
-        StringBuilder appendTail(@NotNull StringBuilder sb) { return null; }
+        @Modified Matcher appendReplacement(@NotNull StringBuffer sb, @NotNull String replacement) { return null; }
+        @Modified Matcher appendReplacement(@NotNull StringBuilder sb, @NotNull String replacement) { return null; }
+        @Modified StringBuffer appendTail(@NotNull StringBuffer sb) { return null; }
+        @Modified StringBuilder appendTail(@NotNull StringBuilder sb) { return null; }
         //frequency 2
-        String replaceAll(@NotNull String replacement) { return null; }
-        String replaceAll(/*@IgnoreModifications[T]*/ @NotNull Function<MatchResult, String> replacer) { return null; }
+        @Modified String replaceAll(@NotNull String replacement) { return null; }
+        @Modified String replaceAll(/*@IgnoreModifications[T]*/ @NotNull Function<MatchResult, String> replacer) { return null; }
         Stream<MatchResult> results() { return null; }
-        String replaceFirst(@NotNull String replacement) { return null; }
-        String replaceFirst(/*@IgnoreModifications[T]*/ @NotNull Function<MatchResult, String> replacer) { return null; }
+        @Modified String replaceFirst(@NotNull String replacement) { return null; }
+        @Modified String replaceFirst(/*@IgnoreModifications[T]*/ @NotNull Function<MatchResult, String> replacer) { return null; }
         Matcher region(int start, int end) { return null; }
         @NotModified int regionStart() { return 0; }
         @NotModified int regionEnd() { return 0; }

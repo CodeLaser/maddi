@@ -30,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
@@ -95,49 +96,49 @@ public class JavaTimeFormat {
     @Container
     class DateTimeFormatterBuilder$ {
         DateTimeFormatterBuilder$() { }
-        DateTimeFormatterBuilder append(DateTimeFormatter formatter) { return null; }
-        DateTimeFormatterBuilder appendChronologyId() { return null; }
-        DateTimeFormatterBuilder appendChronologyText(TextStyle textStyle) { return null; }
-        DateTimeFormatterBuilder appendDayPeriodText(TextStyle style) { return null; }
-        DateTimeFormatterBuilder appendFraction(TemporalField field, int minWidth, int maxWidth, boolean decimalPoint) {
+        @Modified DateTimeFormatterBuilder append(DateTimeFormatter formatter) { return null; }
+        @Modified DateTimeFormatterBuilder appendChronologyId() { return null; }
+        @Modified DateTimeFormatterBuilder appendChronologyText(TextStyle textStyle) { return null; }
+        @Modified DateTimeFormatterBuilder appendDayPeriodText(TextStyle style) { return null; }
+        @Modified DateTimeFormatterBuilder appendFraction(TemporalField field, int minWidth, int maxWidth, boolean decimalPoint) {
             return null;
         }
-        DateTimeFormatterBuilder appendGenericZoneText(TextStyle textStyle) { return null; }
-        DateTimeFormatterBuilder appendGenericZoneText(TextStyle textStyle, Set<ZoneId> preferredZones) { return null; }
-        DateTimeFormatterBuilder appendInstant() { return null; }
-        DateTimeFormatterBuilder appendInstant(int fractionalDigits) { return null; }
-        DateTimeFormatterBuilder appendLiteral(String literal) { return null; }
-        DateTimeFormatterBuilder appendLiteral(char literal) { return null; }
-        DateTimeFormatterBuilder appendLocalized(String requestedTemplate) { return null; }
-        DateTimeFormatterBuilder appendLocalized(FormatStyle dateStyle, FormatStyle timeStyle) { return null; }
-        DateTimeFormatterBuilder appendLocalizedOffset(TextStyle style) { return null; }
-        DateTimeFormatterBuilder appendOffset(String pattern, String noOffsetText) { return null; }
-        DateTimeFormatterBuilder appendOffsetId() { return null; }
-        DateTimeFormatterBuilder appendOptional(DateTimeFormatter formatter) { return null; }
-        DateTimeFormatterBuilder appendPattern(String pattern) { return null; }
-        DateTimeFormatterBuilder appendText(TemporalField field) { return null; }
-        DateTimeFormatterBuilder appendText(TemporalField field, TextStyle textStyle) { return null; }
-        DateTimeFormatterBuilder appendText(TemporalField field, Map<Long, String> textLookup) { return null; }
-        DateTimeFormatterBuilder appendValue(TemporalField field) { return null; }
-        DateTimeFormatterBuilder appendValue(TemporalField field, int width) { return null; }
-        DateTimeFormatterBuilder appendValue(TemporalField field, int minWidth, int maxWidth, SignStyle signStyle) {
-            return null;
-        }
-
-        DateTimeFormatterBuilder appendValueReduced(TemporalField field, int width, int maxWidth, int baseValue) {
+        @Modified DateTimeFormatterBuilder appendGenericZoneText(TextStyle textStyle) { return null; }
+        @Modified DateTimeFormatterBuilder appendGenericZoneText(TextStyle textStyle, Set<ZoneId> preferredZones) { return null; }
+        @Modified DateTimeFormatterBuilder appendInstant() { return null; }
+        @Modified DateTimeFormatterBuilder appendInstant(int fractionalDigits) { return null; }
+        @Modified DateTimeFormatterBuilder appendLiteral(String literal) { return null; }
+        @Modified DateTimeFormatterBuilder appendLiteral(char literal) { return null; }
+        @Modified DateTimeFormatterBuilder appendLocalized(String requestedTemplate) { return null; }
+        @Modified DateTimeFormatterBuilder appendLocalized(FormatStyle dateStyle, FormatStyle timeStyle) { return null; }
+        @Modified DateTimeFormatterBuilder appendLocalizedOffset(TextStyle style) { return null; }
+        @Modified DateTimeFormatterBuilder appendOffset(String pattern, String noOffsetText) { return null; }
+        @Modified DateTimeFormatterBuilder appendOffsetId() { return null; }
+        @Modified DateTimeFormatterBuilder appendOptional(DateTimeFormatter formatter) { return null; }
+        @Modified DateTimeFormatterBuilder appendPattern(String pattern) { return null; }
+        @Modified DateTimeFormatterBuilder appendText(TemporalField field) { return null; }
+        @Modified DateTimeFormatterBuilder appendText(TemporalField field, TextStyle textStyle) { return null; }
+        @Modified DateTimeFormatterBuilder appendText(TemporalField field, Map<Long, String> textLookup) { return null; }
+        @Modified DateTimeFormatterBuilder appendValue(TemporalField field) { return null; }
+        @Modified DateTimeFormatterBuilder appendValue(TemporalField field, int width) { return null; }
+        @Modified DateTimeFormatterBuilder appendValue(TemporalField field, int minWidth, int maxWidth, SignStyle signStyle) {
             return null;
         }
 
-        DateTimeFormatterBuilder appendValueReduced(
+        @Modified DateTimeFormatterBuilder appendValueReduced(TemporalField field, int width, int maxWidth, int baseValue) {
+            return null;
+        }
+
+        @Modified DateTimeFormatterBuilder appendValueReduced(
             TemporalField field,
             int width,
             int maxWidth,
             ChronoLocalDate baseDate) { return null; }
-        DateTimeFormatterBuilder appendZoneId() { return null; }
-        DateTimeFormatterBuilder appendZoneOrOffsetId() { return null; }
-        DateTimeFormatterBuilder appendZoneRegionId() { return null; }
-        DateTimeFormatterBuilder appendZoneText(TextStyle textStyle) { return null; }
-        DateTimeFormatterBuilder appendZoneText(TextStyle textStyle, Set<ZoneId> preferredZones) { return null; }
+        @Modified DateTimeFormatterBuilder appendZoneId() { return null; }
+        @Modified DateTimeFormatterBuilder appendZoneOrOffsetId() { return null; }
+        @Modified DateTimeFormatterBuilder appendZoneRegionId() { return null; }
+        @Modified DateTimeFormatterBuilder appendZoneText(TextStyle textStyle) { return null; }
+        @Modified DateTimeFormatterBuilder appendZoneText(TextStyle textStyle, Set<ZoneId> preferredZones) { return null; }
         static String getLocalizedDateTimePattern(String requestedTemplate, Chronology chrono, Locale locale) {
             return null;
         }

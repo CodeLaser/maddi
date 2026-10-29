@@ -68,6 +68,9 @@ public class JavaLangReflect {
         default <T extends java.lang.annotation.Annotation> T[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<T> p0) { return null; }
         default boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
         static void setAccessible(@NotNull java.lang.reflect.AccessibleObject[] p0, boolean p1) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified default void setAccessible(boolean p0) { }
     }
 
     //public final class Array
@@ -186,6 +189,9 @@ public class JavaLangReflect {
         @Nullable java.lang.reflect.AnnotatedType getAnnotatedReceiverType() { return null; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         T newInstance(@Nullable(nullableArguments = 0) java.lang.Object... p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setAccessible(boolean p0) { }
     }
 
     //public java.lang.reflect.Executable (shadow created for its nullability, generated)
@@ -210,15 +216,18 @@ public class JavaLangReflect {
         int getInt(@Nullable java.lang.Object p0) { return 0; }
         long getLong(@Nullable java.lang.Object p0) { return 0; }
         short getShort(@Nullable java.lang.Object p0) { return 0; }
-        void set(@Nullable java.lang.Object p0, @Nullable java.lang.Object p1) { }
-        void setBoolean(@Nullable java.lang.Object p0, boolean p1) { }
-        void setByte(@Nullable java.lang.Object p0, byte p1) { }
-        void setChar(@Nullable java.lang.Object p0, char p1) { }
-        void setDouble(@Nullable java.lang.Object p0, double p1) { }
-        void setFloat(@Nullable java.lang.Object p0, float p1) { }
-        void setInt(@Nullable java.lang.Object p0, int p1) { }
-        void setLong(@Nullable java.lang.Object p0, long p1) { }
-        void setShort(@Nullable java.lang.Object p0, short p1) { }
+        @Modified void set(@Nullable java.lang.Object p0, @Nullable java.lang.Object p1) { }
+        @Modified void setBoolean(@Nullable java.lang.Object p0, boolean p1) { }
+        @Modified void setByte(@Nullable java.lang.Object p0, byte p1) { }
+        @Modified void setChar(@Nullable java.lang.Object p0, char p1) { }
+        @Modified void setDouble(@Nullable java.lang.Object p0, double p1) { }
+        @Modified void setFloat(@Nullable java.lang.Object p0, float p1) { }
+        @Modified void setInt(@Nullable java.lang.Object p0, int p1) { }
+        @Modified void setLong(@Nullable java.lang.Object p0, long p1) { }
+        @Modified void setShort(@Nullable java.lang.Object p0, short p1) { }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setAccessible(boolean p0) { }
     }
 
     //public java.lang.reflect.InvocationTargetException (shadow created for its nullability, generated)
@@ -236,6 +245,9 @@ public class JavaLangReflect {
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
         @Nullable java.lang.Object getDefaultValue() { return null; }
         @Nullable java.lang.Object invoke(@Nullable java.lang.Object p0, @Nullable(nullableArguments = 0) java.lang.Object... p1) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setAccessible(boolean p0) { }
     }
 
     //public java.lang.reflect.Parameter (shadow created for its nullability, generated)

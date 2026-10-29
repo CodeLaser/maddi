@@ -37,6 +37,7 @@ import javax.swing.event.CaretListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.plaf.TextUI;
 import javax.swing.text.*;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 
 public class JavaxSwingText {
@@ -52,10 +53,10 @@ public class JavaxSwingText {
             void caretUpdate(CaretEvent e) { }
 
             //override from javax.swing.event.DocumentListener
-            void insertUpdate(DocumentEvent e) { }
+            @Modified void insertUpdate(DocumentEvent e) { }
 
             //override from javax.swing.event.DocumentListener
-            void removeUpdate(DocumentEvent e) { }
+            @Modified void removeUpdate(DocumentEvent e) { }
 
             //override from javax.swing.event.DocumentListener
             void changedUpdate(DocumentEvent e) { }
@@ -106,16 +107,16 @@ public class JavaxSwingText {
             @NotModified AccessibleEditableText getAccessibleEditableText() { return null; }
 
             //override from javax.accessibility.AccessibleEditableText
-            void setTextContents(String s) { }
+            @Modified void setTextContents(String s) { }
 
             //override from javax.accessibility.AccessibleEditableText
-            void insertTextAtIndex(int index, String s) { }
+            @Modified void insertTextAtIndex(int index, String s) { }
 
             //override from javax.accessibility.AccessibleEditableText, javax.accessibility.AccessibleExtendedText
             @NotModified String getTextRange(int startIndex, int endIndex) { return null; }
 
             //override from javax.accessibility.AccessibleEditableText
-            void delete(int startIndex, int endIndex) { }
+            @Modified void delete(int startIndex, int endIndex) { }
 
             //override from javax.accessibility.AccessibleEditableText
             void cut(int startIndex, int endIndex) { }
@@ -124,13 +125,13 @@ public class JavaxSwingText {
             void paste(int startIndex) { }
 
             //override from javax.accessibility.AccessibleEditableText
-            void replaceText(int startIndex, int endIndex, String s) { }
+            @Modified void replaceText(int startIndex, int endIndex, String s) { }
 
             //override from javax.accessibility.AccessibleEditableText
             void selectText(int startIndex, int endIndex) { }
 
             //override from javax.accessibility.AccessibleEditableText
-            void setAttributes(int startIndex, int endIndex, AttributeSet as) { }
+            @Modified void setAttributes(int startIndex, int endIndex, AttributeSet as) { }
 
             //override from javax.accessibility.AccessibleExtendedText
             @NotModified AccessibleTextSequence getTextSequenceAt(int part, int index) { return null; }
@@ -171,29 +172,29 @@ public class JavaxSwingText {
         JTextComponent$() { }
         //override from javax.swing.JComponent
         @NotModified TextUI getUI() { return null; }
-        void setUI(TextUI ui) { }
+        @Modified void setUI(TextUI ui) { }
         //override from javax.swing.JComponent
-        void updateUI() { }
-        void addCaretListener(CaretListener listener) { }
-        void removeCaretListener(CaretListener listener) { }
+        @Modified void updateUI() { }
+        @Modified void addCaretListener(CaretListener listener) { }
+        @Modified void removeCaretListener(CaretListener listener) { }
         @NotModified CaretListener [] getCaretListeners() { return null; }
-        void setDocument(Document doc) { }
+        @Modified void setDocument(Document doc) { }
         @NotModified Document getDocument() { return null; }
         //override from java.awt.Component
-        void setComponentOrientation(ComponentOrientation o) { }
+        @Modified void setComponentOrientation(ComponentOrientation o) { }
         @NotModified Action [] getActions() { return null; }
-        void setMargin(Insets m) { }
+        @Modified void setMargin(Insets m) { }
         @NotModified Insets getMargin() { return null; }
-        void setNavigationFilter(NavigationFilter filter) { }
+        @Modified void setNavigationFilter(NavigationFilter filter) { }
         @NotModified NavigationFilter getNavigationFilter() { return null; }
         @NotModified Caret getCaret() { return null; }
-        void setCaret(Caret c) { }
+        @Modified void setCaret(Caret c) { }
         @NotModified Highlighter getHighlighter() { return null; }
-        void setHighlighter(Highlighter h) { }
-        void setKeymap(Keymap map) { }
-        void setDragEnabled(boolean b) { }
+        @Modified void setHighlighter(Highlighter h) { }
+        @Modified void setKeymap(Keymap map) { }
+        @Modified void setDragEnabled(boolean b) { }
         @NotModified boolean getDragEnabled() { return false; }
-        void setDropMode(DropMode dropMode) { }
+        @Modified void setDropMode(DropMode dropMode) { }
         @NotModified DropMode getDropMode() { return null; }
         @NotModified JTextComponent.DropLocation getDropLocation() { return null; }
         @NotModified Keymap getKeymap() { return null; }
@@ -207,14 +208,14 @@ public class JavaxSwingText {
         @NotModified static Keymap getKeymap(String nm) { return null; }
         static void loadKeymap(Keymap map, JTextComponent.KeyBinding [] bindings, Action [] actions) { }
         @NotModified Color getCaretColor() { return null; }
-        void setCaretColor(Color c) { }
+        @Modified void setCaretColor(Color c) { }
         @NotModified Color getSelectionColor() { return null; }
-        void setSelectionColor(Color c) { }
+        @Modified void setSelectionColor(Color c) { }
         @NotModified Color getSelectedTextColor() { return null; }
-        void setSelectedTextColor(Color c) { }
+        @Modified void setSelectedTextColor(Color c) { }
         @NotModified Color getDisabledTextColor() { return null; }
-        void setDisabledTextColor(Color c) { }
-        void replaceSelection(String content) { }
+        @Modified void setDisabledTextColor(Color c) { }
+        @Modified void replaceSelection(String content) { }
         @NotModified String getText(int offs, int len) { return null; }
         Rectangle modelToView(int pos) { return null; }
         Rectangle2D modelToView2D(int pos) { return null; }
@@ -224,23 +225,23 @@ public class JavaxSwingText {
         void copy() { }
         void paste() { }
         void moveCaretPosition(int pos) { }
-        void setFocusAccelerator(char aKey) { }
+        @Modified void setFocusAccelerator(char aKey) { }
         @NotModified char getFocusAccelerator() { return '\0'; }
-        void read(Reader in, /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object desc) { }
-        void write(Writer out) { }
+        @Modified void read(Reader in, /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object desc) { }
+        @Modified void write(Writer out) { }
         //override from java.awt.Component, java.awt.Container, javax.swing.JComponent
-        void removeNotify() { }
-        void setCaretPosition(int position) { }
+        @Modified void removeNotify() { }
+        @Modified void setCaretPosition(int position) { }
         @NotModified int getCaretPosition() { return 0; }
-        void setText(String t) { }
+        @Modified void setText(String t) { }
         @NotModified String getText() { return null; }
         @NotModified String getSelectedText() { return null; }
         @NotModified boolean isEditable() { return false; }
-        void setEditable(boolean b) { }
+        @Modified void setEditable(boolean b) { }
         @NotModified int getSelectionStart() { return 0; }
-        void setSelectionStart(int selectionStart) { }
+        @Modified void setSelectionStart(int selectionStart) { }
         @NotModified int getSelectionEnd() { return 0; }
-        void setSelectionEnd(int selectionEnd) { }
+        @Modified void setSelectionEnd(int selectionEnd) { }
         void select(int selectionStart, int selectionEnd) { }
         void selectAll() { }
         //override from javax.swing.JComponent
@@ -277,6 +278,6 @@ public class JavaxSwingText {
         @NotModified InputMethodRequests getInputMethodRequests() { return null; }
 
         //override from java.awt.Component
-        void addInputMethodListener(InputMethodListener l) { }
+        @Modified void addInputMethodListener(InputMethodListener l) { }
     }
 }

@@ -18,6 +18,7 @@
 package io.codelaser.maddi.aapi.archive.jdk;
 import java.util.random.RandomGenerator;
 import java.util.stream.*;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotNull;
 public class JavaUtilRandom {
     public static final String PACKAGE_NAME = "java.util.random";
@@ -119,26 +120,26 @@ public class JavaUtilRandom {
         LongStream longs(long randomNumberOrigin, long l) { return null; }
         LongStream longs(long streamSize) { return null; }
         LongStream longs(long streamSize, long l, long randomNumberOrigin) { return null; }
-        boolean nextBoolean() { return false; }
+        @Modified boolean nextBoolean() { return false; }
         //override has frequency 1
-        void nextBytes(@NotNull byte [] bytes) { }
-        float nextFloat() { return 0.0F; }
-        float nextFloat(float bound) { return 0.0F; }
-        float nextFloat(float origin, float bound) { return 0.0F; }
+        @Modified void nextBytes(@NotNull byte [] bytes) { }
+        @Modified float nextFloat() { return 0.0F; }
+        @Modified float nextFloat(float bound) { return 0.0F; }
+        @Modified float nextFloat(float origin, float bound) { return 0.0F; }
         //override has frequency 1
-        double nextDouble() { return 0.0; }
-        double nextDouble(double bound) { return 0.0; }
-        double nextDouble(double origin, double d) { return 0.0; }
-        int nextInt() { return 0; }
+        @Modified double nextDouble() { return 0.0; }
+        @Modified double nextDouble(double bound) { return 0.0; }
+        @Modified double nextDouble(double origin, double d) { return 0.0; }
+        @Modified int nextInt() { return 0; }
         //override has frequency 3
-        int nextInt(int bound) { return 0; }
-        int nextInt(int origin, int bound) { return 0; }
-        long nextLong() { return 0L; }
-        long nextLong(long bound) { return 0L; }
-        long nextLong(long origin, long l) { return 0L; }
-        double nextGaussian() { return 0.0; }
-        double nextGaussian(double mean, double d) { return 0.0; }
-        double nextExponential() { return 0.0; }
+        @Modified int nextInt(int bound) { return 0; }
+        @Modified int nextInt(int origin, int bound) { return 0; }
+        @Modified long nextLong() { return 0L; }
+        @Modified long nextLong(long bound) { return 0L; }
+        @Modified long nextLong(long origin, long l) { return 0L; }
+        @Modified double nextGaussian() { return 0.0; }
+        @Modified double nextGaussian(double mean, double d) { return 0.0; }
+        @Modified double nextExponential() { return 0.0; }
     }
 
     //public java.util.random.RandomGeneratorFactory (shadow created for its nullability, generated)

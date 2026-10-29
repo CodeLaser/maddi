@@ -16,6 +16,7 @@
  */
 
 package io.codelaser.maddi.aapi.archive.jdk;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
@@ -37,18 +38,18 @@ public class JavaSecurity {
         static MessageDigest getInstance(@NotNull String algorithm, @NotNull String provider) { return null; }
         static MessageDigest getInstance(@NotNull String algorithm, @NotNull @NotModified Provider provider) { return null; }
         @Nullable Provider getProvider() { return null; }
-        void update(byte input) { }
-        void update(@NotNull @NotModified byte [] input, int offset, int len) { }
-        void update(@NotNull @NotModified byte [] input) { }
-        void update(@NotNull ByteBuffer input) { }
-        byte [] digest() { return null; }
-        int digest(@NotNull @NotModified byte [] buf, int offset, int len) { return 0; }
-        byte [] digest(@NotNull @NotModified byte [] input) { return null; }
+        @Modified void update(byte input) { }
+        @Modified void update(@NotNull @NotModified byte [] input, int offset, int len) { }
+        @Modified void update(@NotNull @NotModified byte [] input) { }
+        @Modified void update(@NotNull ByteBuffer input) { }
+        @Modified byte [] digest() { return null; }
+        @Modified int digest(@NotNull @NotModified byte [] buf, int offset, int len) { return 0; }
+        @Modified byte [] digest(@NotNull @NotModified byte [] input) { return null; }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
         static boolean isEqual(@Nullable @NotModified byte [] digesta, @Nullable @NotModified byte [] digestb) { return false; }
-        void reset() { }
+        @Modified void reset() { }
         @NotModified
         String getAlgorithm() { return null; }
         @NotModified
@@ -103,14 +104,14 @@ public class JavaSecurity {
         public String toString() { return null; }
         @NotModified
         SecureRandomParameters getParameters() { return null; }
-        void setSeed(@NotModified byte [] seed) { }
+        @Modified void setSeed(@NotModified byte [] seed) { }
         //override from java.util.Random
-        void setSeed(long seed) { }
+        @Modified void setSeed(long seed) { }
 
         //override from java.util.Random, java.util.random.RandomGenerator
         //frequency 1
-        void nextBytes(/*@NotModified[H]*/ byte [] bytes) { }
-        void nextBytes(byte [] bytes, SecureRandomParameters params) { }
+        @Modified void nextBytes(/*@NotModified[H]*/ byte [] bytes) { }
+        @Modified void nextBytes(byte [] bytes, SecureRandomParameters params) { }
         //@Independent[T]
         @NotModified
         static byte [] getSeed(int numBytes) { return null; }
@@ -163,7 +164,7 @@ public class JavaSecurity {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         KeyStore$(@NotNull java.security.KeyStoreSpi p0, java.security.Provider p1, @NotNull java.lang.String p2) { }
         boolean containsAlias(@NotNull java.lang.String p0) { return false; }
-        void deleteEntry(@NotNull java.lang.String p0) { }
+        @Modified void deleteEntry(@NotNull java.lang.String p0) { }
         boolean entryInstanceOf(@NotNull java.lang.String p0, @NotNull java.lang.Class<? extends java.security.KeyStore.Entry> p1) { return false; }
         java.util.Set<java.security.KeyStore.Entry.Attribute> getAttributes(@NotNull java.lang.String p0) { return null; }
         @Nullable java.security.cert.Certificate getCertificate(@NotNull java.lang.String p0) { return null; }
@@ -180,12 +181,12 @@ public class JavaSecurity {
         @Nullable java.security.Key getKey(@NotNull java.lang.String p0, @Nullable char[] p1) { return null; }
         boolean isCertificateEntry(@NotNull java.lang.String p0) { return false; }
         boolean isKeyEntry(@NotNull java.lang.String p0) { return false; }
-        void load(@Nullable java.io.InputStream p0, @Nullable char[] p1) { }
-        void load(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
-        void setCertificateEntry(@NotNull java.lang.String p0, @NotNull java.security.cert.Certificate p1) { }
-        void setEntry(@NotNull java.lang.String p0, @NotNull java.security.KeyStore.Entry p1, @Nullable java.security.KeyStore.ProtectionParameter p2) { }
-        void setKeyEntry(@NotNull java.lang.String p0, @NotNull java.security.Key p1, @Nullable char[] p2, @Nullable java.security.cert.Certificate[] p3) { }
-        void setKeyEntry(@NotNull java.lang.String p0, @NotNull byte[] p1, @Nullable java.security.cert.Certificate[] p2) { }
+        @Modified void load(@Nullable java.io.InputStream p0, @Nullable char[] p1) { }
+        @Modified void load(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
+        @Modified void setCertificateEntry(@NotNull java.lang.String p0, @NotNull java.security.cert.Certificate p1) { }
+        @Modified void setEntry(@NotNull java.lang.String p0, @NotNull java.security.KeyStore.Entry p1, @Nullable java.security.KeyStore.ProtectionParameter p2) { }
+        @Modified void setKeyEntry(@NotNull java.lang.String p0, @NotNull java.security.Key p1, @Nullable char[] p2, @Nullable java.security.cert.Certificate[] p3) { }
+        @Modified void setKeyEntry(@NotNull java.lang.String p0, @NotNull byte[] p1, @Nullable java.security.cert.Certificate[] p2) { }
         void store(@Nullable java.security.KeyStore.LoadStoreParameter p0) { }
         void store(@NotNull java.io.OutputStream p0, @Nullable char[] p1) { }
 
@@ -278,15 +279,15 @@ public class JavaSecurity {
     //public java.security.Provider (shadow created for its nullability, generated)
     class Provider$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.lang.Object computeIfPresent(java.lang.Object p0, java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ? extends java.lang.Object> p1) { return null; }
+        @Modified @Nullable java.lang.Object computeIfPresent(java.lang.Object p0, java.util.function.BiFunction<? super java.lang.Object, ? super java.lang.Object, ? extends java.lang.Object> p1) { return null; }
         @Nullable java.lang.Object get(java.lang.Object p0) { return null; }
         java.lang.Object getOrDefault(java.lang.Object p0, @Nullable java.lang.Object p1) { return null; }
         @Nullable java.lang.String getProperty(java.lang.String p0) { return null; }
         @Nullable java.security.Provider.Service getService(java.lang.String p0, java.lang.String p1) { return null; }
-        @Nullable java.lang.Object put(java.lang.Object p0, java.lang.Object p1) { return null; }
-        @Nullable java.lang.Object putIfAbsent(java.lang.Object p0, java.lang.Object p1) { return null; }
-        @Nullable java.lang.Object remove(java.lang.Object p0) { return null; }
-        @Nullable java.lang.Object replace(java.lang.Object p0, java.lang.Object p1) { return null; }
+        @Modified @Nullable java.lang.Object put(java.lang.Object p0, java.lang.Object p1) { return null; }
+        @Modified @Nullable java.lang.Object putIfAbsent(java.lang.Object p0, java.lang.Object p1) { return null; }
+        @Modified @Nullable java.lang.Object remove(java.lang.Object p0) { return null; }
+        @Modified @Nullable java.lang.Object replace(java.lang.Object p0, java.lang.Object p1) { return null; }
 
         //public java.security.Provider.Service (shadow created for its nullability, generated)
         class Service {

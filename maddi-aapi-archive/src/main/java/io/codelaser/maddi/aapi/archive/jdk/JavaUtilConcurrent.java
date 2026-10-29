@@ -23,6 +23,7 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Nullable;
 import io.codelaser.maddi.annotation.Container;
 import io.codelaser.maddi.annotation.ImmutableContainer;
@@ -78,8 +79,8 @@ public class JavaUtilConcurrent {
 
         //override from java.util.concurrent.Future
         @NotModified Throwable exceptionNow() { return null; }
-        boolean complete(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { return false; }
-        boolean completeExceptionally(@NotNull Throwable ex) { return false; }
+        @Modified boolean complete(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { return false; }
+        @Modified boolean completeExceptionally(@NotNull Throwable ex) { return false; }
         //override from java.util.concurrent.CompletionStage
         <U> CompletableFuture<U> thenApply(/*@IgnoreModifications[T]*/ @NotNull Function<? super T, ? extends U> fn) {
             return null;
@@ -275,15 +276,15 @@ public class JavaUtilConcurrent {
         @NotNull(nullableArguments = 0) static CompletableFuture<Void> allOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
         @NotNull(nullableArguments = 0) static CompletableFuture<Object> anyOf(@NotNull CompletableFuture<?> ... cfs) { return null; }
         //override from java.util.concurrent.Future
-        boolean cancel(boolean mayInterruptIfRunning) { return false; }
+        @Modified boolean cancel(boolean mayInterruptIfRunning) { return false; }
 
         //override from java.util.concurrent.Future
         @NotModified boolean isCancelled() { return false; }
         @NotModified boolean isCompletedExceptionally() { return false; }
         //override from java.util.concurrent.Future
         @NotModified Future.State state() { return null; }
-        void obtrudeValue(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { }
-        void obtrudeException(@NotNull Throwable ex) { }
+        @Modified void obtrudeValue(/*@Independent(hc=true)[T] @NotModified[T]*/ T value) { }
+        @Modified void obtrudeException(@NotNull Throwable ex) { }
         @NotModified int getNumberOfDependents() { return 0; }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
@@ -292,12 +293,12 @@ public class JavaUtilConcurrent {
         Executor defaultExecutor() { return null; }
         CompletableFuture<T> copy() { return null; }
         CompletionStage<T> minimalCompletionStage() { return null; }
-        CompletableFuture<T> completeAsync(
+        @Modified CompletableFuture<T> completeAsync(
             /*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> supplier,
             @NotNull Executor executor) { return null; }
-        CompletableFuture<T> completeAsync(/*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> supplier) { return null; }
+        @Modified CompletableFuture<T> completeAsync(/*@IgnoreModifications[T]*/ @NotNull Supplier<? extends T> supplier) { return null; }
         CompletableFuture<T> orTimeout(long timeout, @NotNull TimeUnit timeUnit) { return null; }
-        CompletableFuture<T> completeOnTimeout(
+        @Modified CompletableFuture<T> completeOnTimeout(
             /*@Independent(hc=true)[T] @NotModified[T]*/ T value,
             long timeout,
             @NotNull TimeUnit timeUnit) { return null; }
@@ -474,17 +475,17 @@ public class JavaUtilConcurrent {
             boolean contains(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull Object o) { return false; }
 
             //override from java.util.Collection, java.util.Set, java.util.concurrent.ConcurrentHashMap.CollectionView
-            boolean remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object o) { return false; }
+            @Modified boolean remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object o) { return false; }
 
             //override from java.lang.Iterable, java.util.Collection, java.util.Set, java.util.concurrent.ConcurrentHashMap.CollectionView
             //@NotModified[H] @NotNull[H]
             Iterator<K> iterator() { return null; }
 
             //override from java.util.Collection, java.util.Set
-            boolean add(/*@Independent(hc=true)[H] @NotModified[T]*/ K e) { return false; }
+            @Modified boolean add(/*@Independent(hc=true)[H] @NotModified[T]*/ K e) { return false; }
 
             //override from java.util.Collection, java.util.Set
-            boolean addAll(/*@Independent(hc=true)[H] @NotModified[H]*/ @NotNull Collection<? extends K> c) { return false; }
+            @Modified boolean addAll(/*@Independent(hc=true)[H] @NotModified[H]*/ @NotNull Collection<? extends K> c) { return false; }
 
             //override from java.lang.Object, java.util.Collection, java.util.Set
             //@NotModified[H]
@@ -532,19 +533,19 @@ public class JavaUtilConcurrent {
         //frequency 1
         //@Independent(hc=true)[H]
 
-        @Nullable V put(/*@Independent(hc=true)[H] @NotModified[T]*/ K key, /*@Independent(hc=true)[H] @NotModified[T]*/ V value) {
+        @Modified @Nullable V put(/*@Independent(hc=true)[H] @NotModified[T]*/ K key, /*@Independent(hc=true)[H] @NotModified[T]*/ V value) {
             return null;
         }
 
         //override from java.util.AbstractMap, java.util.Map
-        void putAll(/*@NotModified[H]*/ @NotNull Map<? extends K, ? extends V> m) { }
+        @Modified void putAll(/*@NotModified[H]*/ @NotNull Map<? extends K, ? extends V> m) { }
 
         //override from java.util.AbstractMap, java.util.Map
         //@Independent(hc=true)[H]
-        @Nullable V remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object key) { return null; }
+        @Modified @Nullable V remove(/*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object key) { return null; }
 
         //override from java.util.AbstractMap, java.util.Map
-        void clear() { }
+        @Modified void clear() { }
 
         //override from java.util.AbstractMap, java.util.Map
         //@NotModified[H]
@@ -573,17 +574,17 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        @Nullable V putIfAbsent(
+        @Modified @Nullable V putIfAbsent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value) { return null; }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
-        boolean remove(
+        @Modified boolean remove(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object key,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @NotNull Object value) { return false; }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
-        boolean replace(
+        @Modified boolean replace(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V oldValue,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V newValue) { return false; }
@@ -591,7 +592,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        @Nullable V replace(
+        @Modified @Nullable V replace(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value) { return null; }
 
@@ -609,20 +610,20 @@ public class JavaUtilConcurrent {
             /*@IgnoreModifications[T] @Independent[M] @NotModified[H]*/ @NotNull BiConsumer<? super K, ? super V> action) { }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
-        void replaceAll(
+        @Modified void replaceAll(
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> function) { }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        V computeIfAbsent(
+        @Modified V computeIfAbsent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull Function<? super K, ? extends V> mappingFunction) { return null; }
 
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        @Nullable V computeIfPresent(
+        @Modified @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -631,7 +632,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        V compute(
+        @Modified V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -640,7 +641,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map, java.util.concurrent.ConcurrentMap
         //@Independent(hc=true)[H]
 
-        V merge(
+        @Modified V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<
@@ -838,17 +839,17 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V putIfAbsent(
+        @Modified @Nullable V putIfAbsent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K k,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V v) { return null; }
 
         //override from java.util.Map
-        boolean remove(
+        @Modified boolean remove(
             /*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @Nullable Object object,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[H] @NotModified[T]*/ @Nullable Object object1) { return false; }
 
         //override from java.util.Map
-        boolean replace(
+        @Modified boolean replace(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K k,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V v,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V v1) { return false; }
@@ -856,25 +857,25 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V replace(/*@Independent(hc=true)[H] @NotModified[T]*/ K k, /*@Independent(hc=true)[H] @NotModified[T]*/ V v) {
+        @Modified @Nullable V replace(/*@Independent(hc=true)[H] @NotModified[T]*/ K k, /*@Independent(hc=true)[H] @NotModified[T]*/ V v) {
             return null;
         }
 
         //override from java.util.Map
-        void replaceAll(
+        @Modified void replaceAll(
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull BiFunction<? super K, ? super V, ? extends V> function) { }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        V computeIfAbsent(
+        @Modified V computeIfAbsent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull Function<? super K, ? extends V> mappingFunction) { return null; }
 
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        @Nullable V computeIfPresent(
+        @Modified @Nullable V computeIfPresent(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -883,7 +884,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        V compute(
+        @Modified V compute(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@IgnoreModifications[T] @NotModified[H]*/ @NotNull(nullableArguments = {1, 2}) BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
             return null;
@@ -892,7 +893,7 @@ public class JavaUtilConcurrent {
         //override from java.util.Map
         //@Independent(hc=true)[H]
 
-        V merge(
+        @Modified V merge(
             /*@Independent(hc=true)[H] @NotModified[T]*/ K key,
             /*@Independent(hc=true)[H] @NotModified[T]*/ V value,
             /*@IgnoreModifications[T] @Independent(hc=true)[H] @NotModified[H]*/ @NotNull(nullableArguments = 2) BiFunction<
@@ -903,33 +904,33 @@ public class JavaUtilConcurrent {
 
     //public interface Executor
     @Container
-    class Executor$ {void execute(@NotNull Runnable runnable) { } }
+    class Executor$ {@Modified void execute(@NotNull Runnable runnable) { } }
 
     //public interface ExecutorService implements Executor, AutoCloseable
     @Container
     class ExecutorService$ {
         //frequency 1
-        void shutdown() { }
-        List<Runnable> shutdownNow() { return null; }
+        @Modified void shutdown() { }
+        @Modified List<Runnable> shutdownNow() { return null; }
         boolean isShutdown() { return false; }
         boolean isTerminated() { return false; }
         boolean awaitTermination(long l, @NotNull TimeUnit timeUnit) { return false; }
-        <T> Future<T> submit(@NotNull Callable<T> callable) { return null; }
-        <T> Future<T> submit(@NotNull Runnable runnable, /*@Independent(hc=true)[T] @NotModified[T]*/ T t) { return null; }
-        Future<?> submit(@NotNull Runnable runnable) { return null; }
-        <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> collection) { return null; }
-        <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> collection, long l, @NotNull TimeUnit timeUnit) {
+        @Modified <T> Future<T> submit(@NotNull Callable<T> callable) { return null; }
+        @Modified <T> Future<T> submit(@NotNull Runnable runnable, /*@Independent(hc=true)[T] @NotModified[T]*/ T t) { return null; }
+        @Modified Future<?> submit(@NotNull Runnable runnable) { return null; }
+        @Modified <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> collection) { return null; }
+        @Modified <T> List<Future<T>> invokeAll(@NotNull Collection<? extends Callable<T>> collection, long l, @NotNull TimeUnit timeUnit) {
             return null;
         }
 
         //@Independent(hc=true)[T]
-        <T> T invokeAny(@NotNull Collection<? extends Callable<T>> collection) { return null; }
+        @Modified <T> T invokeAny(@NotNull Collection<? extends Callable<T>> collection) { return null; }
 
         //@Independent(hc=true)[T]
-        <T> T invokeAny(@NotNull Collection<? extends Callable<T>> collection, long l, @NotNull TimeUnit timeUnit) { return null; }
+        @Modified <T> T invokeAny(@NotNull Collection<? extends Callable<T>> collection, long l, @NotNull TimeUnit timeUnit) { return null; }
 
         //override from java.lang.AutoCloseable
-        void close() { }
+        @Modified void close() { }
     }
 
     //public interface Future
@@ -952,7 +953,7 @@ public class JavaUtilConcurrent {
             static Future.State [] values() { return null; }
             static Future.State valueOf(String name) { return null; }
         }
-        boolean cancel(boolean b) { return false; }
+        @Modified boolean cancel(boolean b) { return false; }
         @NotModified boolean isCancelled() { return false; }
         //override has frequency 1
         @NotModified boolean isDone() { return false; }
@@ -993,47 +994,47 @@ public class JavaUtilConcurrent {
         static ThreadLocalRandom current() { return null; }
 
         //override from java.util.Random
-        void setSeed(long seed) { }
+        @Modified void setSeed(long seed) { }
 
         //override from java.util.Random, java.util.random.RandomGenerator
-        boolean nextBoolean() { return false; }
+        @Modified boolean nextBoolean() { return false; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
-        int nextInt() { return 0; }
+        @Modified int nextInt() { return 0; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
-        int nextInt(int bound) { return 0; }
+        @Modified int nextInt(int bound) { return 0; }
 
         //override from java.util.random.RandomGenerator
-        int nextInt(int origin, int bound) { return 0; }
+        @Modified int nextInt(int origin, int bound) { return 0; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
-        long nextLong() { return 0L; }
+        @Modified long nextLong() { return 0L; }
 
         //override from java.util.random.RandomGenerator
-        long nextLong(long bound) { return 0L; }
+        @Modified long nextLong(long bound) { return 0L; }
 
         //override from java.util.random.RandomGenerator
-        long nextLong(long origin, long l) { return 0L; }
+        @Modified long nextLong(long origin, long l) { return 0L; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
-        float nextFloat() { return 0.0F; }
+        @Modified float nextFloat() { return 0.0F; }
 
         //override from java.util.random.RandomGenerator
-        float nextFloat(float bound) { return 0.0F; }
+        @Modified float nextFloat(float bound) { return 0.0F; }
 
         //override from java.util.random.RandomGenerator
-        float nextFloat(float origin, float bound) { return 0.0F; }
+        @Modified float nextFloat(float origin, float bound) { return 0.0F; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
         //frequency 1
-        double nextDouble() { return 0.0; }
+        @Modified double nextDouble() { return 0.0; }
 
         //override from java.util.random.RandomGenerator
-        double nextDouble(double bound) { return 0.0; }
+        @Modified double nextDouble(double bound) { return 0.0; }
 
         //override from java.util.random.RandomGenerator
-        double nextDouble(double origin, double d) { return 0.0; }
+        @Modified double nextDouble(double origin, double d) { return 0.0; }
 
         //override from java.util.Random, java.util.random.RandomGenerator
         IntStream ints(long streamSize) { return null; }
@@ -1074,30 +1075,48 @@ public class JavaUtilConcurrent {
 
     // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
     class BlockingDeque$<E> {
-        @Nullable E pollFirst(long timeout, @NotNull TimeUnit unit) { return null; }
-        @Nullable E pollLast(long timeout, @NotNull TimeUnit unit) { return null; }
+        @Modified @Nullable E pollFirst(long timeout, @NotNull TimeUnit unit) { return null; }
+        @Modified @Nullable E pollLast(long timeout, @NotNull TimeUnit unit) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
-        boolean offerFirst(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
-        boolean offerLast(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offerFirst(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offerLast(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
-        boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified boolean offerFirst(E p0) { return false; }
+        @Modified boolean offerLast(E p0) { return false; }
+        @Modified void push(E p0) { }
+        @Modified void put(E p0) { }
+        @Modified void putFirst(E p0) { }
+        @Modified void putLast(E p0) { }
+        @Modified E remove() { return null; }
+        @Modified E take() { return null; }
+        @Modified E takeFirst() { return null; }
+        @Modified E takeLast() { return null; }
     }
     class BlockingQueue$<E> {
-        @Nullable E poll(long timeout, @NotNull TimeUnit unit) { return null; }
+        @Modified @Nullable E poll(long timeout, @NotNull TimeUnit unit) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
     }
     class PriorityBlockingQueue$<E> {
         @Nullable @NotModified Comparator<? super E> comparator() { return null; }
@@ -1106,32 +1125,37 @@ public class JavaUtilConcurrent {
         PriorityBlockingQueue$(@NotNull java.util.Collection<? extends E> p0) { }
         PriorityBlockingQueue$(int p0, @Nullable java.util.Comparator<? super E> p1) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
     }
 
     //public java.util.concurrent.AbstractExecutorService (shadow created for its nullability, generated)
     class AbstractExecutorService$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        <T> java.util.List<java.util.concurrent.Future<T>> invokeAll(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0) { return null; }
-        <T> java.util.List<java.util.concurrent.Future<T>> invokeAll(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
-        <T> T invokeAny(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0) { return null; }
-        <T> T invokeAny(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified <T> java.util.List<java.util.concurrent.Future<T>> invokeAll(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0) { return null; }
+        @Modified <T> java.util.List<java.util.concurrent.Future<T>> invokeAll(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified <T> T invokeAny(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0) { return null; }
+        @Modified <T> T invokeAny(@NotNull java.util.Collection<? extends java.util.concurrent.Callable<T>> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
         <T> java.util.concurrent.RunnableFuture<T> newTaskFor(@NotNull java.util.concurrent.Callable<T> p0) { return null; }
         <T> java.util.concurrent.RunnableFuture<T> newTaskFor(@NotNull java.lang.Runnable p0, T p1) { return null; }
-        <T> java.util.concurrent.Future<T> submit(@NotNull java.util.concurrent.Callable<T> p0) { return null; }
-        java.util.concurrent.Future<?> submit(@NotNull java.lang.Runnable p0) { return null; }
-        <T> java.util.concurrent.Future<T> submit(@NotNull java.lang.Runnable p0, T p1) { return null; }
+        @Modified <T> java.util.concurrent.Future<T> submit(@NotNull java.util.concurrent.Callable<T> p0) { return null; }
+        @Modified java.util.concurrent.Future<?> submit(@NotNull java.lang.Runnable p0) { return null; }
+        @Modified <T> java.util.concurrent.Future<T> submit(@NotNull java.lang.Runnable p0, T p1) { return null; }
     }
 
     //public java.util.concurrent.ArrayBlockingQueue (shadow created for its nullability, generated)
@@ -1139,18 +1163,23 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ArrayBlockingQueue$(int p0, boolean p1, @NotNull java.util.Collection<? extends E> p2) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
     }
 
     //public java.util.concurrent.CancellationException (shadow created for its nullability, generated)
@@ -1162,48 +1191,62 @@ public class JavaUtilConcurrent {
     //public java.util.concurrent.CompletionService (shadow created for its nullability, generated)
     class CompletionService$<V> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        @Nullable java.util.concurrent.Future<V> poll() { return null; }
-        @Nullable java.util.concurrent.Future<V> poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        java.util.concurrent.Future<V> submit(@NotNull java.util.concurrent.Callable<V> p0) { return null; }
-        java.util.concurrent.Future<V> submit(@NotNull java.lang.Runnable p0, V p1) { return null; }
+        @Modified @Nullable java.util.concurrent.Future<V> poll() { return null; }
+        @Modified @Nullable java.util.concurrent.Future<V> poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified java.util.concurrent.Future<V> submit(@NotNull java.util.concurrent.Callable<V> p0) { return null; }
+        @Modified java.util.concurrent.Future<V> submit(@NotNull java.lang.Runnable p0, V p1) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified java.util.concurrent.Future<V> take() { return null; }
     }
 
     //public java.util.concurrent.ConcurrentLinkedDeque (shadow created for its nullability, generated)
     class ConcurrentLinkedDeque$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ConcurrentLinkedDeque$(@NotNull java.util.Collection<? extends E> p0) { }
-        boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         @Nullable E peek() { return null; }
         @Nullable E peekFirst() { return null; }
         @Nullable E peekLast() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E pollFirst() { return null; }
-        @Nullable E pollLast() { return null; }
-        boolean remove(@NotNull java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeFirstOccurrence(@NotNull java.lang.Object p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean removeLastOccurrence(@NotNull java.lang.Object p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E pollFirst() { return null; }
+        @Modified @Nullable E pollLast() { return null; }
+        @Modified boolean remove(@NotNull java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeFirstOccurrence(@NotNull java.lang.Object p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean removeLastOccurrence(@NotNull java.lang.Object p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified boolean offerFirst(E p0) { return false; }
+        @Modified boolean offerLast(E p0) { return false; }
+        @Modified E pop() { return null; }
+        @Modified void push(E p0) { }
+        @Modified E remove() { return null; }
     }
 
     //public java.util.concurrent.ConcurrentLinkedQueue (shadow created for its nullability, generated)
     class ConcurrentLinkedQueue$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ConcurrentLinkedQueue$(@NotNull java.util.Collection<? extends E> p0) { }
-        boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
     }
 
     //public java.util.concurrent.ConcurrentSkipListMap (shadow created for its nullability, generated)
@@ -1215,9 +1258,9 @@ public class JavaUtilConcurrent {
         @Nullable java.util.Map.Entry<K, V> ceilingEntry(K p0) { return null; }
         @Nullable K ceilingKey(K p0) { return null; }
         @Nullable java.util.Comparator<? super K> comparator() { return null; }
-        V compute(K p0, @NotNull(nullableArguments = {1, 2}) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
-        V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
-        @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        @Modified V compute(K p0, @NotNull(nullableArguments = {1, 2}) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
+        @Modified V computeIfAbsent(K p0, @NotNull java.util.function.Function<? super K, ? extends V> p1) { return null; }
+        @Modified @Nullable V computeIfPresent(K p0, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super K, ? super V, ? extends V> p1) { return null; }
         boolean containsKey(@NotNull java.lang.Object p0) { return false; }
         boolean containsValue(@NotNull java.lang.Object p0) { return false; }
         @Nullable java.util.Map.Entry<K, V> firstEntry() { return null; }
@@ -1231,17 +1274,17 @@ public class JavaUtilConcurrent {
         @Nullable java.util.Map.Entry<K, V> lastEntry() { return null; }
         @Nullable java.util.Map.Entry<K, V> lowerEntry(K p0) { return null; }
         @Nullable K lowerKey(K p0) { return null; }
-        V merge(K p0, V p1, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
-        @Nullable java.util.Map.Entry<K, V> pollFirstEntry() { return null; }
-        @Nullable java.util.Map.Entry<K, V> pollLastEntry() { return null; }
-        @Nullable V put(K p0, V p1) { return null; }
-        @Nullable V putFirst(K p0, V p1) { return null; }
-        @Nullable V putIfAbsent(K p0, V p1) { return null; }
-        @Nullable V putLast(K p0, V p1) { return null; }
-        @Nullable V remove(@NotNull java.lang.Object p0) { return null; }
-        boolean remove(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return false; }
-        @Nullable V replace(K p0, V p1) { return null; }
-        void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
+        @Modified V merge(K p0, V p1, @NotNull(nullableArguments = 2) java.util.function.BiFunction<? super V, ? super V, ? extends V> p2) { return null; }
+        @Modified @Nullable java.util.Map.Entry<K, V> pollFirstEntry() { return null; }
+        @Modified @Nullable java.util.Map.Entry<K, V> pollLastEntry() { return null; }
+        @Modified @Nullable V put(K p0, V p1) { return null; }
+        @Modified @Nullable V putFirst(K p0, V p1) { return null; }
+        @Modified @Nullable V putIfAbsent(K p0, V p1) { return null; }
+        @Modified @Nullable V putLast(K p0, V p1) { return null; }
+        @Modified @Nullable V remove(@NotNull java.lang.Object p0) { return null; }
+        @Modified boolean remove(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return false; }
+        @Modified @Nullable V replace(K p0, V p1) { return null; }
+        @Modified void replaceAll(@NotNull java.util.function.BiFunction<? super K, ? super V, ? extends V> p0) { }
     }
 
     //public java.util.concurrent.ConcurrentSkipListSet (shadow created for its nullability, generated)
@@ -1256,10 +1299,10 @@ public class JavaUtilConcurrent {
         @Nullable E floor(E p0) { return null; }
         @Nullable E higher(E p0) { return null; }
         @Nullable E lower(E p0) { return null; }
-        @Nullable E pollFirst() { return null; }
-        @Nullable E pollLast() { return null; }
-        boolean remove(@NotNull java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E pollFirst() { return null; }
+        @Modified @Nullable E pollLast() { return null; }
+        @Modified boolean remove(@NotNull java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
     }
 
     //public java.util.concurrent.CopyOnWriteArrayList (shadow created for its nullability, generated)
@@ -1267,38 +1310,41 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CopyOnWriteArrayList$(@NotNull java.util.Collection<? extends E> p0) { }
         CopyOnWriteArrayList$(@NotNull E[] p0) { }
-        boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
-        boolean addAll(int p0, @NotNull java.util.Collection<? extends E> p1) { return false; }
-        int addAllAbsent(@NotNull java.util.Collection<? extends E> p0) { return 0; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(int p0, @NotNull java.util.Collection<? extends E> p1) { return false; }
+        @Modified int addAllAbsent(@NotNull java.util.Collection<? extends E> p0) { return 0; }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         boolean containsAll(@NotNull java.util.Collection<?> p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
         int indexOf(@Nullable java.lang.Object p0) { return 0; }
         int lastIndexOf(@Nullable java.lang.Object p0) { return 0; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        void replaceAll(@NotNull java.util.function.UnaryOperator<E> p0) { }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
-        void sort(@Nullable java.util.Comparator<? super E> p0) { }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified void replaceAll(@NotNull java.util.function.UnaryOperator<E> p0) { }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified void sort(@Nullable java.util.Comparator<? super E> p0) { }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @NotNull(nullableArguments = 0) java.lang.Object[] toArray() { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean addIfAbsent(E p0) { return false; }
     }
 
     //public java.util.concurrent.CopyOnWriteArraySet (shadow created for its nullability, generated)
     class CopyOnWriteArraySet$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         CopyOnWriteArraySet$(@NotNull java.util.Collection<? extends E> p0) { }
-        boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         boolean containsAll(@NotNull java.util.Collection<?> p0) { return false; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
@@ -1309,21 +1355,34 @@ public class JavaUtilConcurrent {
     class CountedCompleter$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable java.util.concurrent.CountedCompleter<?> firstComplete() { return null; }
-        @Nullable java.util.concurrent.CountedCompleter<?> nextComplete() { return null; }
+        @Modified @Nullable java.util.concurrent.CountedCompleter<?> nextComplete() { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addToPendingCount(int p0) { }
+        @Modified boolean compareAndSetPendingCount(int p0, int p1) { return false; }
+        @Modified void complete(T p0) { }
+        @Modified void compute() { }
+        @Modified void setPendingCount(int p0) { }
     }
 
     //public java.util.concurrent.DelayQueue (shadow created for its nullability, generated)
     class DelayQueue$<E extends java.util.concurrent.Delayed> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         DelayQueue$(@NotNull java.util.Collection<? extends E> p0) { }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E remove() { return null; }
+        @Modified E take() { return null; }
     }
 
     //public java.util.concurrent.Delayed (shadow created for its nullability, generated)
@@ -1345,10 +1404,13 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ExecutorCompletionService$(@NotNull java.util.concurrent.Executor p0) { }
         ExecutorCompletionService$(@NotNull java.util.concurrent.Executor p0, @NotNull java.util.concurrent.BlockingQueue<java.util.concurrent.Future<V>> p1) { }
-        @Nullable java.util.concurrent.Future<V> poll() { return null; }
-        @Nullable java.util.concurrent.Future<V> poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        java.util.concurrent.Future<V> submit(@NotNull java.util.concurrent.Callable<V> p0) { return null; }
-        java.util.concurrent.Future<V> submit(@NotNull java.lang.Runnable p0, V p1) { return null; }
+        @Modified @Nullable java.util.concurrent.Future<V> poll() { return null; }
+        @Modified @Nullable java.util.concurrent.Future<V> poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified java.util.concurrent.Future<V> submit(@NotNull java.util.concurrent.Callable<V> p0) { return null; }
+        @Modified java.util.concurrent.Future<V> submit(@NotNull java.lang.Runnable p0, V p1) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified java.util.concurrent.Future<V> take() { return null; }
     }
 
     //public java.util.concurrent.Executors (shadow created for its nullability, generated)
@@ -1378,6 +1440,12 @@ public class JavaUtilConcurrent {
         @Nullable static java.util.concurrent.ForkJoinTask<?> pollNextLocalTask() { return null; }
         @Nullable static java.util.concurrent.ForkJoinTask<?> pollSubmission() { return null; }
         @Nullable static java.util.concurrent.ForkJoinTask<?> pollTask() { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean compareAndSetForkJoinTaskTag(short p0, short p1) { return false; }
+        @Modified void complete(V p0) { }
+        @Modified void completeExceptionally(Throwable p0) { }
+        @Modified short setForkJoinTaskTag(short p0) { return 0; }
     }
 
     //public java.util.concurrent.FutureTask (shadow created for its nullability, generated)
@@ -1393,30 +1461,44 @@ public class JavaUtilConcurrent {
     class LinkedBlockingDeque$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         LinkedBlockingDeque$(@NotNull java.util.Collection<? extends E> p0) { }
-        boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
+        @Modified boolean addAll(@NotNull java.util.Collection<? extends E> p0) { return false; }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
-        boolean offerFirst(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
-        boolean offerLast(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offerFirst(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offerLast(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
         @Nullable E peekFirst() { return null; }
         @Nullable E peekLast() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        @Nullable E pollFirst() { return null; }
-        @Nullable E pollFirst(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        @Nullable E pollLast() { return null; }
-        @Nullable E pollLast(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified @Nullable E pollFirst() { return null; }
+        @Modified @Nullable E pollFirst(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified @Nullable E pollLast() { return null; }
+        @Modified @Nullable E pollLast(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeFirstOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean removeLastOccurrence(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified boolean offerFirst(E p0) { return false; }
+        @Modified boolean offerLast(E p0) { return false; }
+        @Modified E pop() { return null; }
+        @Modified void push(E p0) { }
+        @Modified void put(E p0) { }
+        @Modified void putFirst(E p0) { }
+        @Modified void putLast(E p0) { }
+        @Modified E remove() { return null; }
+        @Modified E take() { return null; }
+        @Modified E takeFirst() { return null; }
+        @Modified E takeLast() { return null; }
     }
 
     //public java.util.concurrent.LinkedBlockingQueue (shadow created for its nullability, generated)
@@ -1424,18 +1506,23 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         LinkedBlockingQueue$(@NotNull java.util.Collection<? extends E> p0) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
     }
 
     //public java.util.concurrent.LinkedTransferQueue (shadow created for its nullability, generated)
@@ -1443,19 +1530,25 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         LinkedTransferQueue$(@NotNull java.util.Collection<? extends E> p0) { }
         boolean contains(@Nullable java.lang.Object p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
         void forEach(@NotNull java.util.function.Consumer<? super E> p0) { }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean removeIf(@NotNull java.util.function.Predicate<? super E> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
         boolean tryTransfer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
+        @Modified void transfer(E p0) { }
     }
 
     //public java.util.concurrent.RecursiveAction (shadow created for its nullability, generated)
@@ -1468,10 +1561,10 @@ public class JavaUtilConcurrent {
     //public java.util.concurrent.ScheduledExecutorService (shadow created for its nullability, generated)
     class ScheduledExecutorService$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        <V> java.util.concurrent.ScheduledFuture<V> schedule(@NotNull java.util.concurrent.Callable<V> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
-        java.util.concurrent.ScheduledFuture<?> schedule(@NotNull java.lang.Runnable p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
-        java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
-        java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
+        @Modified <V> java.util.concurrent.ScheduledFuture<V> schedule(@NotNull java.util.concurrent.Callable<V> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> schedule(@NotNull java.lang.Runnable p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
     }
 
     //public java.util.concurrent.ScheduledThreadPoolExecutor (shadow created for its nullability, generated)
@@ -1482,14 +1575,19 @@ public class JavaUtilConcurrent {
         ScheduledThreadPoolExecutor$(int p0, @NotNull java.util.concurrent.ThreadFactory p1, @NotNull java.util.concurrent.RejectedExecutionHandler p2) { }
         <V> java.util.concurrent.RunnableScheduledFuture<V> decorateTask(@NotNull java.util.concurrent.Callable<V> p0, @NotNull java.util.concurrent.RunnableScheduledFuture<V> p1) { return null; }
         <V> java.util.concurrent.RunnableScheduledFuture<V> decorateTask(@NotNull java.lang.Runnable p0, @NotNull java.util.concurrent.RunnableScheduledFuture<V> p1) { return null; }
-        void execute(@NotNull java.lang.Runnable p0) { }
-        <V> java.util.concurrent.ScheduledFuture<V> schedule(@NotNull java.util.concurrent.Callable<V> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
-        java.util.concurrent.ScheduledFuture<?> schedule(@NotNull java.lang.Runnable p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
-        java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
-        java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
-        <T> java.util.concurrent.Future<T> submit(@NotNull java.util.concurrent.Callable<T> p0) { return null; }
-        java.util.concurrent.Future<?> submit(@NotNull java.lang.Runnable p0) { return null; }
-        <T> java.util.concurrent.Future<T> submit(@NotNull java.lang.Runnable p0, T p1) { return null; }
+        @Modified void execute(@NotNull java.lang.Runnable p0) { }
+        @Modified <V> java.util.concurrent.ScheduledFuture<V> schedule(@NotNull java.util.concurrent.Callable<V> p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> schedule(@NotNull java.lang.Runnable p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
+        @Modified java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(@NotNull java.lang.Runnable p0, long p1, long p2, @NotNull java.util.concurrent.TimeUnit p3) { return null; }
+        @Modified <T> java.util.concurrent.Future<T> submit(@NotNull java.util.concurrent.Callable<T> p0) { return null; }
+        @Modified java.util.concurrent.Future<?> submit(@NotNull java.lang.Runnable p0) { return null; }
+        @Modified <T> java.util.concurrent.Future<T> submit(@NotNull java.lang.Runnable p0, T p1) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setContinueExistingPeriodicTasksAfterShutdownPolicy(boolean p0) { }
+        @Modified void setExecuteExistingDelayedTasksAfterShutdownPolicy(boolean p0) { }
+        @Modified void setRemoveOnCancelPolicy(boolean p0) { }
     }
 
     //public java.util.concurrent.SynchronousQueue (shadow created for its nullability, generated)
@@ -1497,16 +1595,21 @@ public class JavaUtilConcurrent {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean contains(@Nullable java.lang.Object p0) { return false; }
         boolean containsAll(@NotNull java.util.Collection<?> p0) { return false; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
-        int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
-        boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0) { return 0; }
+        @Modified int drainTo(@NotNull java.util.Collection<? super E> p0, int p1) { return 0; }
+        @Modified boolean offer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
         @Nullable E peek() { return null; }
-        @Nullable E poll() { return null; }
-        @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
-        boolean remove(@Nullable java.lang.Object p0) { return false; }
-        boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
-        boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified @Nullable E poll() { return null; }
+        @Modified @Nullable E poll(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return null; }
+        @Modified boolean remove(@Nullable java.lang.Object p0) { return false; }
+        @Modified boolean removeAll(@NotNull java.util.Collection<?> p0) { return false; }
+        @Modified boolean retainAll(@NotNull java.util.Collection<?> p0) { return false; }
         <T> T[] toArray(@NotNull T[] p0) { return null; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified boolean offer(E p0) { return false; }
+        @Modified void put(E p0) { }
+        @Modified E take() { return null; }
     }
 
     //public java.util.concurrent.ThreadPoolExecutor (shadow created for its nullability, generated)
@@ -1519,12 +1622,12 @@ public class JavaUtilConcurrent {
         void afterExecute(@NotNull java.lang.Runnable p0, @Nullable java.lang.Throwable p1) { }
         boolean awaitTermination(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return false; }
         void beforeExecute(@NotNull java.lang.Thread p0, @NotNull java.lang.Runnable p1) { }
-        void execute(@NotNull java.lang.Runnable p0) { }
+        @Modified void execute(@NotNull java.lang.Runnable p0) { }
         long getKeepAliveTime(@NotNull java.util.concurrent.TimeUnit p0) { return 0; }
-        boolean remove(@NotNull java.lang.Runnable p0) { return false; }
-        void setKeepAliveTime(long p0, @NotNull java.util.concurrent.TimeUnit p1) { }
-        void setRejectedExecutionHandler(@NotNull java.util.concurrent.RejectedExecutionHandler p0) { }
-        void setThreadFactory(@NotNull java.util.concurrent.ThreadFactory p0) { }
+        @Modified boolean remove(@NotNull java.lang.Runnable p0) { return false; }
+        @Modified void setKeepAliveTime(long p0, @NotNull java.util.concurrent.TimeUnit p1) { }
+        @Modified void setRejectedExecutionHandler(@NotNull java.util.concurrent.RejectedExecutionHandler p0) { }
+        @Modified void setThreadFactory(@NotNull java.util.concurrent.ThreadFactory p0) { }
 
         //public java.util.concurrent.ThreadPoolExecutor.AbortPolicy (shadow created for its nullability, generated)
         class AbortPolicy {
@@ -1546,6 +1649,10 @@ public class JavaUtilConcurrent {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             void rejectedExecution(@NotNull java.lang.Runnable p0, @NotNull java.util.concurrent.ThreadPoolExecutor p1) { }
         }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void setCorePoolSize(int p0) { }
+        @Modified void setMaximumPoolSize(int p0) { }
     }
 
     //public java.util.concurrent.TimeoutException (shadow created for its nullability, generated)
@@ -1558,5 +1665,8 @@ public class JavaUtilConcurrent {
     class TransferQueue$<E> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         boolean tryTransfer(E p0, long p1, @NotNull java.util.concurrent.TimeUnit p2) { return false; }
+
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void transfer(E p0) { }
     }
 }

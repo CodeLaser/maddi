@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.aapi.archive.jdk;
 
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.Nullable;
 
 import java.util.jar.JarEntry;
@@ -55,7 +56,7 @@ public class JavaUtilJar {
         JarInputStream$(@NotNull java.io.InputStream p0, boolean p1) { }
         java.util.zip.ZipEntry createZipEntry(@NotNull java.lang.String p0) { return null; }
         @Nullable java.util.zip.ZipEntry getNextEntry() { return null; }
-        int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
+        @Modified int read(@NotNull byte[] p0, int p1, int p2) { return 0; }
     }
 
     //public java.util.jar.Attributes (shadow created for its nullability, generated)
@@ -67,10 +68,10 @@ public class JavaUtilJar {
         @Nullable java.lang.Object get(@Nullable java.lang.Object p0) { return null; }
         @Nullable java.lang.String getValue(@Nullable java.util.jar.Attributes.Name p0) { return null; }
         @Nullable java.lang.String getValue(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.Object put(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
-        void putAll(@NotNull java.util.Map<?, ?> p0) { }
-        @Nullable java.lang.String putValue(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
-        @Nullable java.lang.Object remove(@Nullable java.lang.Object p0) { return null; }
+        @Modified @Nullable java.lang.Object put(@NotNull java.lang.Object p0, @NotNull java.lang.Object p1) { return null; }
+        @Modified void putAll(@NotNull java.util.Map<?, ?> p0) { }
+        @Modified @Nullable java.lang.String putValue(@NotNull java.lang.String p0, @NotNull java.lang.String p1) { return null; }
+        @Modified @Nullable java.lang.Object remove(@Nullable java.lang.Object p0) { return null; }
 
         //public java.util.jar.Attributes.Name (shadow created for its nullability, generated)
         class Name {

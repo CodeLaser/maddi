@@ -33,6 +33,7 @@ import java.util.EventListener;
 import java.util.Locale;
 import java.util.Set;
 import javax.accessibility.AccessibleContext;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.Commutable;
 import io.codelaser.maddi.annotation.Immutable;
@@ -296,9 +297,9 @@ public class JavaAwt {
             void dispose() { }
         }
         @NotModified String getName() { return null; }
-        void setName(String name) { }
+        @Modified void setName(String name) { }
         @NotModified Container getParent() { return null; }
-        void setDropTarget(DropTarget dt) { }
+        @Modified void setDropTarget(DropTarget dt) { }
         @NotModified DropTarget getDropTarget() { return null; }
         @NotModified GraphicsConfiguration getGraphicsConfiguration() { return null; }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
@@ -310,48 +311,48 @@ public class JavaAwt {
         @NotModified Point getMousePosition() { return null; }
         @NotModified boolean isShowing() { return false; }
         @NotModified boolean isEnabled() { return false; }
-        void setEnabled(boolean b) { }
+        @Modified void setEnabled(boolean b) { }
         void enable() { }
         void enable(boolean b) { }
         void disable() { }
         @NotModified boolean isDoubleBuffered() { return false; }
         void enableInputMethods(boolean enable) { }
-        void setVisible(boolean b) { }
+        @Modified void setVisible(boolean b) { }
         void show() { }
         void show(boolean b) { }
         void hide() { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Color getForeground() { return null; }
-        void setForeground(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color c) { }
+        @Modified void setForeground(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color c) { }
         @NotModified boolean isForegroundSet() { return false; }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Color getBackground() { return null; }
-        void setBackground(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color c) { }
+        @Modified void setBackground(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color c) { }
         @NotModified boolean isBackgroundSet() { return false; }
         //override from java.awt.MenuContainer
         @NotModified Font getFont() { return null; }
-        void setFont(Font f) { }
+        @Modified void setFont(Font f) { }
         @NotModified boolean isFontSet() { return false; }
         @NotModified Locale getLocale() { return null; }
-        void setLocale(Locale l) { }
+        @Modified void setLocale(Locale l) { }
         @NotModified ColorModel getColorModel() { return null; }
         @NotModified Point getLocation() { return null; }
         @NotModified Point getLocationOnScreen() { return null; }
         Point location() { return null; }
-        void setLocation(int x, int y) { }
+        @Modified void setLocation(int x, int y) { }
         void move(int x, int y) { }
-        void setLocation(Point p) { }
+        @Modified void setLocation(Point p) { }
         @NotModified Dimension getSize() { return null; }
         Dimension size() { return null; }
-        void setSize(int width, int height) { }
+        @Modified void setSize(int width, int height) { }
         void resize(int width, int height) { }
-        void setSize(Dimension d) { }
+        @Modified void setSize(Dimension d) { }
         void resize(Dimension d) { }
         @NotModified Rectangle getBounds() { return null; }
         Rectangle bounds() { return null; }
-        void setBounds(int x, int y, int width, int height) { }
+        @Modified void setBounds(int x, int y, int width, int height) { }
         void reshape(int x, int y, int width, int height) { }
-        void setBounds(Rectangle r) { }
+        @Modified void setBounds(Rectangle r) { }
         @NotModified int getX() { return 0; }
         @NotModified int getY() { return 0; }
         @NotModified int getWidth() { return 0; }
@@ -361,15 +362,15 @@ public class JavaAwt {
         @NotModified Point getLocation(Point rv) { return null; }
         @NotModified boolean isOpaque() { return false; }
         @NotModified boolean isLightweight() { return false; }
-        void setPreferredSize(Dimension preferredSize) { }
+        @Modified void setPreferredSize(Dimension preferredSize) { }
         @NotModified boolean isPreferredSizeSet() { return false; }
         @NotModified Dimension getPreferredSize() { return null; }
         Dimension preferredSize() { return null; }
-        void setMinimumSize(Dimension minimumSize) { }
+        @Modified void setMinimumSize(Dimension minimumSize) { }
         @NotModified boolean isMinimumSizeSet() { return false; }
         @NotModified Dimension getMinimumSize() { return null; }
         Dimension minimumSize() { return null; }
-        void setMaximumSize(Dimension maximumSize) { }
+        @Modified void setMaximumSize(Dimension maximumSize) { }
         @NotModified boolean isMaximumSizeSet() { return false; }
         @NotModified Dimension getMaximumSize() { return null; }
         @NotModified float getAlignmentX() { return 0.0F; }
@@ -383,11 +384,11 @@ public class JavaAwt {
         void revalidate() { }
         @NotModified Graphics getGraphics() { return null; }
         @NotModified FontMetrics getFontMetrics(Font font) { return null; }
-        void setCursor(Cursor cursor) { }
+        @Modified void setCursor(Cursor cursor) { }
         @NotModified Cursor getCursor() { return null; }
         @NotModified boolean isCursorSet() { return false; }
         void paint(Graphics g) { }
-        void update(Graphics g) { }
+        @Modified void update(Graphics g) { }
         void paintAll(Graphics g) { }
         void repaint() { }
         void repaint(long tm) { }
@@ -405,7 +406,7 @@ public class JavaAwt {
         boolean prepareImage(Image image, int width, int height, ImageObserver observer) { return false; }
         int checkImage(Image image, ImageObserver observer) { return 0; }
         int checkImage(Image image, int width, int height, ImageObserver observer) { return 0; }
-        void setIgnoreRepaint(boolean ignoreRepaint) { }
+        @Modified void setIgnoreRepaint(boolean ignoreRepaint) { }
         @NotModified boolean getIgnoreRepaint() { return false; }
         boolean contains(int x, int y) { return false; }
         boolean inside(int x, int y) { return false; }
@@ -417,32 +418,32 @@ public class JavaAwt {
         void dispatchEvent(AWTEvent e) { }
         //override from java.awt.MenuContainer
         boolean postEvent(Event e) { return false; }
-        void addComponentListener(ComponentListener l) { }
-        void removeComponentListener(ComponentListener l) { }
+        @Modified void addComponentListener(ComponentListener l) { }
+        @Modified void removeComponentListener(ComponentListener l) { }
         @NotModified ComponentListener [] getComponentListeners() { return null; }
-        void addFocusListener(FocusListener l) { }
-        void removeFocusListener(FocusListener l) { }
+        @Modified void addFocusListener(FocusListener l) { }
+        @Modified void removeFocusListener(FocusListener l) { }
         @NotModified FocusListener [] getFocusListeners() { return null; }
-        void addHierarchyListener(HierarchyListener l) { }
-        void removeHierarchyListener(HierarchyListener l) { }
+        @Modified void addHierarchyListener(HierarchyListener l) { }
+        @Modified void removeHierarchyListener(HierarchyListener l) { }
         @NotModified HierarchyListener [] getHierarchyListeners() { return null; }
-        void addHierarchyBoundsListener(HierarchyBoundsListener l) { }
-        void removeHierarchyBoundsListener(HierarchyBoundsListener l) { }
+        @Modified void addHierarchyBoundsListener(HierarchyBoundsListener l) { }
+        @Modified void removeHierarchyBoundsListener(HierarchyBoundsListener l) { }
         @NotModified HierarchyBoundsListener [] getHierarchyBoundsListeners() { return null; }
-        void addKeyListener(KeyListener l) { }
-        void removeKeyListener(KeyListener l) { }
+        @Modified void addKeyListener(KeyListener l) { }
+        @Modified void removeKeyListener(KeyListener l) { }
         @NotModified KeyListener [] getKeyListeners() { return null; }
-        @Commutable void addMouseListener(MouseListener l) { }
-        void removeMouseListener(MouseListener l) { }
+        @Modified @Commutable void addMouseListener(MouseListener l) { }
+        @Modified void removeMouseListener(MouseListener l) { }
         @NotModified MouseListener [] getMouseListeners() { return null; }
-        void addMouseMotionListener(MouseMotionListener l) { }
-        void removeMouseMotionListener(MouseMotionListener l) { }
+        @Modified void addMouseMotionListener(MouseMotionListener l) { }
+        @Modified void removeMouseMotionListener(MouseMotionListener l) { }
         @NotModified MouseMotionListener [] getMouseMotionListeners() { return null; }
-        void addMouseWheelListener(MouseWheelListener l) { }
-        void removeMouseWheelListener(MouseWheelListener l) { }
+        @Modified void addMouseWheelListener(MouseWheelListener l) { }
+        @Modified void removeMouseWheelListener(MouseWheelListener l) { }
         @NotModified MouseWheelListener [] getMouseWheelListeners() { return null; }
-        void addInputMethodListener(InputMethodListener l) { }
-        void removeInputMethodListener(InputMethodListener l) { }
+        @Modified void addInputMethodListener(InputMethodListener l) { }
+        @Modified void removeInputMethodListener(InputMethodListener l) { }
         @NotModified InputMethodListener [] getInputMethodListeners() { return null; }
         @NotModified <T extends EventListener> T [] getListeners(Class<T> listenerType) { return null; }
         @NotModified InputMethodRequests getInputMethodRequests() { return null; }
@@ -459,8 +460,8 @@ public class JavaAwt {
         boolean action(Event evt, /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object what) {
             return false;
         }
-        void addNotify() { }
-        void removeNotify() { }
+        @Modified void addNotify() { }
+        @Modified void removeNotify() { }
         boolean gotFocus(Event evt, /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object what) {
             return false;
         }
@@ -470,11 +471,11 @@ public class JavaAwt {
         }
         @NotModified boolean isFocusTraversable() { return false; }
         @NotModified boolean isFocusable() { return false; }
-        void setFocusable(boolean focusable) { }
-        void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
+        @Modified void setFocusable(boolean focusable) { }
+        @Modified void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
         @NotModified Set<AWTKeyStroke> getFocusTraversalKeys(int id) { return null; }
         boolean areFocusTraversalKeysSet(int id) { return false; }
-        void setFocusTraversalKeysEnabled(boolean focusTraversalKeysEnabled) { }
+        @Modified void setFocusTraversalKeysEnabled(boolean focusTraversalKeysEnabled) { }
         @NotModified boolean getFocusTraversalKeysEnabled() { return false; }
         void requestFocus() { }
         void requestFocus(FocusEvent.Cause cause) { }
@@ -482,15 +483,15 @@ public class JavaAwt {
         boolean requestFocusInWindow(FocusEvent.Cause cause) { return false; }
         @NotModified Container getFocusCycleRootAncestor() { return null; }
         @NotModified boolean isFocusCycleRoot(Container container) { return false; }
-        void transferFocus() { }
-        void nextFocus() { }
-        void transferFocusBackward() { }
-        void transferFocusUpCycle() { }
+        @Modified void transferFocus() { }
+        @Modified void nextFocus() { }
+        @Modified void transferFocusBackward() { }
+        @Modified void transferFocusUpCycle() { }
         @NotModified boolean hasFocus() { return false; }
         @NotModified boolean isFocusOwner() { return false; }
-        void add(PopupMenu popup) { }
+        @Modified void add(PopupMenu popup) { }
         //override from java.awt.MenuContainer
-        void remove(MenuComponent popup) { }
+        @Modified void remove(MenuComponent popup) { }
 
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
@@ -500,11 +501,11 @@ public class JavaAwt {
         void list(PrintStream out, int indent) { }
         void list(PrintWriter out) { }
         void list(PrintWriter out, int indent) { }
-        void addPropertyChangeListener(PropertyChangeListener listener) { }
-        void removePropertyChangeListener(PropertyChangeListener listener) { }
+        @Modified void addPropertyChangeListener(PropertyChangeListener listener) { }
+        @Modified void removePropertyChangeListener(PropertyChangeListener listener) { }
         @NotModified PropertyChangeListener [] getPropertyChangeListeners() { return null; }
-        void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
-        void removePropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
+        @Modified void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
+        @Modified void removePropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
         @NotModified PropertyChangeListener [] getPropertyChangeListeners(String propertyName) { return null; }
         void firePropertyChange(String propertyName, byte oldValue, byte newValue) { }
         void firePropertyChange(String propertyName, char oldValue, char newValue) { }
@@ -512,11 +513,11 @@ public class JavaAwt {
         void firePropertyChange(String propertyName, long oldValue, long l) { }
         void firePropertyChange(String propertyName, float oldValue, float newValue) { }
         void firePropertyChange(String propertyName, double oldValue, double d) { }
-        void setComponentOrientation(ComponentOrientation o) { }
+        @Modified void setComponentOrientation(ComponentOrientation o) { }
         @NotModified ComponentOrientation getComponentOrientation() { return null; }
         void applyComponentOrientation(ComponentOrientation orientation) { }
         @NotModified AccessibleContext getAccessibleContext() { return null; }
-        void setMixingCutoutShape(Shape shape) { }
+        @Modified void setMixingCutoutShape(Shape shape) { }
     }
 
     //public class Container extends Component
@@ -529,24 +530,24 @@ public class JavaAwt {
         @NotModified Insets getInsets() { return null; }
         Insets insets() { return null; }
         // FIXME is this correct?
-        @Commutable
+        @Modified @Commutable
         Component add(Component comp) { return null; }
-        Component add(String name, Component comp) { return null; }
-        Component add(Component comp, int index) { return null; }
-        void setComponentZOrder(Component comp, int index) { }
+        @Modified Component add(String name, Component comp) { return null; }
+        @Modified Component add(Component comp, int index) { return null; }
+        @Modified void setComponentZOrder(Component comp, int index) { }
         @NotModified int getComponentZOrder(Component comp) { return 0; }
-        @Commutable
+        @Modified @Commutable
         void add(Component comp, /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object constraints) { }
 
-        void add(
+        @Modified void add(
             Component comp,
             /*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Object constraints,
             int index) { }
-        void remove(int index) { }
-        void remove(Component comp) { }
-        void removeAll() { }
+        @Modified void remove(int index) { }
+        @Modified void remove(Component comp) { }
+        @Modified void removeAll() { }
         @NotModified LayoutManager getLayout() { return null; }
-        @Commutable void setLayout(LayoutManager mgr) { }
+        @Modified @Commutable void setLayout(LayoutManager mgr) { }
         //override from java.awt.Component
         void doLayout() { }
 
@@ -560,7 +561,7 @@ public class JavaAwt {
         void validate() { }
 
         //override from java.awt.Component
-        void setFont(Font f) { }
+        @Modified void setFont(Font f) { }
 
         //override from java.awt.Component
         @NotModified Dimension getPreferredSize() { return null; }
@@ -587,14 +588,14 @@ public class JavaAwt {
         void paint(Graphics g) { }
 
         //override from java.awt.Component
-        void update(Graphics g) { }
+        @Modified void update(Graphics g) { }
 
         //override from java.awt.Component
         void print(Graphics g) { }
         void paintComponents(Graphics g) { }
         void printComponents(Graphics g) { }
-        void addContainerListener(ContainerListener l) { }
-        void removeContainerListener(ContainerListener l) { }
+        @Modified void addContainerListener(ContainerListener l) { }
+        @Modified void removeContainerListener(ContainerListener l) { }
         @NotModified ContainerListener [] getContainerListeners() { return null; }
         //override from java.awt.Component
         @NotModified <T extends EventListener> T [] getListeners(Class<T> listenerType) { return null; }
@@ -614,10 +615,10 @@ public class JavaAwt {
         Component findComponentAt(int x, int y) { return null; }
         Component findComponentAt(Point p) { return null; }
         //override from java.awt.Component
-        void addNotify() { }
+        @Modified void addNotify() { }
 
         //override from java.awt.Component
-        void removeNotify() { }
+        @Modified void removeNotify() { }
         @NotModified boolean isAncestorOf(Component c) { return false; }
         //override from java.awt.Component
         void list(PrintStream out, int indent) { }
@@ -626,7 +627,7 @@ public class JavaAwt {
         void list(PrintWriter out, int indent) { }
 
         //override from java.awt.Component
-        void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
+        @Modified void setFocusTraversalKeys(int id, @NotModified Set<? extends AWTKeyStroke> keystrokes) { }
 
         //override from java.awt.Component
         @NotModified Set<AWTKeyStroke> getFocusTraversalKeys(int id) { return null; }
@@ -636,22 +637,22 @@ public class JavaAwt {
 
         //override from java.awt.Component
         @NotModified boolean isFocusCycleRoot(Container container) { return false; }
-        void setFocusTraversalPolicy(FocusTraversalPolicy policy) { }
+        @Modified void setFocusTraversalPolicy(FocusTraversalPolicy policy) { }
         @NotModified FocusTraversalPolicy getFocusTraversalPolicy() { return null; }
         @NotModified boolean isFocusTraversalPolicySet() { return false; }
-        void setFocusCycleRoot(boolean focusCycleRoot) { }
+        @Modified void setFocusCycleRoot(boolean focusCycleRoot) { }
         @NotModified boolean isFocusCycleRoot() { return false; }
-        void setFocusTraversalPolicyProvider(boolean provider) { }
+        @Modified void setFocusTraversalPolicyProvider(boolean provider) { }
         @NotModified boolean isFocusTraversalPolicyProvider() { return false; }
-        void transferFocusDownCycle() { }
+        @Modified void transferFocusDownCycle() { }
         //override from java.awt.Component
         void applyComponentOrientation(ComponentOrientation o) { }
 
         //override from java.awt.Component
-        void addPropertyChangeListener(PropertyChangeListener listener) { }
+        @Modified void addPropertyChangeListener(PropertyChangeListener listener) { }
 
         //override from java.awt.Component
-        void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
+        @Modified void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) { }
     }
 
     //public abstract class Graphics
@@ -661,40 +662,40 @@ public class JavaAwt {
         void translate(int i, int i1) { }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
         @NotModified Color getColor() { return null; }
-        void setColor(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color color) { }
-        void setPaintMode() { }
-        void setXORMode(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color color) { }
+        @Modified void setColor(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color color) { }
+        @Modified void setPaintMode() { }
+        @Modified void setXORMode(/*@Immutable(hc=true)[T] @Independent(hc=true)[T] @NotModified[T]*/ Color color) { }
         @GetSet
         @NotModified Font getFont() { return null; }
-        @GetSet
+        @Modified @GetSet
         void setFont(Font font) { }
         @NotModified FontMetrics getFontMetrics() { return null; }
         @NotModified FontMetrics getFontMetrics(Font font) { return null; }
         @NotModified Rectangle getClipBounds() { return null; }
         void clipRect(int i, int i1, int i2, int i3) { }
-        void setClip(int i, int i1, int i2, int i3) { }
+        @Modified void setClip(int i, int i1, int i2, int i3) { }
         @GetSet
         @NotModified Shape getClip() { return null; }
-        @GetSet
+        @Modified @GetSet
         void setClip(Shape shape) { }
         void copyArea(int i, int i1, int i2, int i3, int i4, int i5) { }
         void drawLine(int i, int i1, int i2, int i3) { }
-        void fillRect(int i, int i1, int i2, int i3) { }
+        @Modified void fillRect(int i, int i1, int i2, int i3) { }
         void drawRect(int x, int y, int width, int height) { }
-        void clearRect(int i, int i1, int i2, int i3) { }
+        @Modified void clearRect(int i, int i1, int i2, int i3) { }
         void drawRoundRect(int i, int i1, int i2, int i3, int i4, int i5) { }
-        void fillRoundRect(int i, int i1, int i2, int i3, int i4, int i5) { }
+        @Modified void fillRoundRect(int i, int i1, int i2, int i3, int i4, int i5) { }
         void draw3DRect(int x, int y, int width, int height, boolean raised) { }
-        void fill3DRect(int x, int y, int width, int height, boolean raised) { }
+        @Modified void fill3DRect(int x, int y, int width, int height, boolean raised) { }
         void drawOval(int i, int i1, int i2, int i3) { }
-        void fillOval(int i, int i1, int i2, int i3) { }
+        @Modified void fillOval(int i, int i1, int i2, int i3) { }
         void drawArc(int i, int i1, int i2, int i3, int i4, int i5) { }
-        void fillArc(int i, int i1, int i2, int i3, int i4, int i5) { }
+        @Modified void fillArc(int i, int i1, int i2, int i3, int i4, int i5) { }
         void drawPolyline(int [] i, int [] i1, int i2) { }
         void drawPolygon(int [] i, int [] i1, int i2) { }
         void drawPolygon(Polygon p) { }
-        void fillPolygon(int [] i, int [] i1, int i2) { }
-        void fillPolygon(Polygon p) { }
+        @Modified void fillPolygon(int [] i, int [] i1, int i2) { }
+        @Modified void fillPolygon(Polygon p) { }
         void drawString(String string, int i, int i1) { }
         void drawString(AttributedCharacterIterator attributedCharacterIterator, int i, int i1) { }
         void drawChars(char [] data, int offset, int length, int x, int y) { }
@@ -751,5 +752,16 @@ public class JavaAwt {
         @NotModified Rectangle getClipRect() { return null; }
         boolean hitClip(int x, int y, int width, int height) { return false; }
         @NotModified Rectangle getClipBounds(Rectangle r) { return null; }
+    }
+
+    class ItemSelectable$ {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void addItemListener(java.awt.event.ItemListener p0) { }
+        @Modified void removeItemListener(java.awt.event.ItemListener p0) { }
+    }
+
+    class MenuContainer$ {
+        // a modifying method, declared so (generated from the assumed-defaults list)
+        @Modified void remove(java.awt.MenuComponent p0) { }
     }
 }
