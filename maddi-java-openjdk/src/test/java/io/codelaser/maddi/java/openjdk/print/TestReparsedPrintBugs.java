@@ -166,4 +166,33 @@ public class TestReparsedPrintBugs extends CommonTest {
         assertTrue(printed.contains("tab\\tx\n"), printed);
         assertFalse(printed.contains("\t"), printed);
     }
+
+    // GitHub #176: a nested type keeps its qualification when the unit imports another type of that simple name
+    @Test
+    public void nestedTypeTakenName() {
+        Map<String, TypeInfo> types = scan(false,
+                "a.c.Builder", "package a.c; public class Builder { }",
+                "a.d.Outer", """
+                        package a.d;
+                        public class Outer {
+                            public static class Impl {
+                                public static class Builder { public Builder set(int i) { return this; } }
+                            }
+                        }
+                        """,
+                "a.b.X", """
+                        package a.b;
+                        import a.c.Builder;
+                        import a.d.Outer;
+                        public class X {
+                            Builder own;
+                            Object make() {
+                                return new Outer.Impl.Builder().set(0);
+                            }
+                        }
+                        """);
+        String printed = print(types.get("a.b.X"));
+        assertTrue(printed.contains("new Outer.Impl.Builder().set(0)"), printed);
+        assertTrue(printed.contains("import a.c.Builder;"), printed);
+    }
 }

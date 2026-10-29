@@ -48,7 +48,8 @@ public class QualificationImpl implements Qualification {
     // this level and the levels below it: the inherited member types in scope by their simple name
     private final Set<TypeInfo> inheritedIntoScope = new HashSet<>();
     private final Map<TypeInfo, TypeNameImpl.Required> typesNotImported;
-    private final Set<String> simpleTypeNames;
+    // the simple names imported, and the type each one names
+    private final Map<String, TypeInfo> simpleTypeNames;
     // simple names declared in this compilation unit; used only to block conflicting imports (a referenced type with
     // the same simple name must be fully-qualified). Kept separate from simpleTypeNames, which also drives the
     // simple-vs-qualified decision for *nested* types and must not be polluted by these reservations.
@@ -64,7 +65,7 @@ public class QualificationImpl implements Qualification {
         top = this;
         this.typeNameRequired = typeNameRequired;
         typesNotImported = new HashMap<>();
-        simpleTypeNames = new HashSet<>();
+        simpleTypeNames = new HashMap<>();
         declaredSimpleNames = new HashSet<>();
         this.doNotQualifyImplicit = doNotQualifyImplicit;
         this.decorator = decorator;
@@ -115,7 +116,9 @@ public class QualificationImpl implements Qualification {
             && top.typesNotImported.get(typeInfo.primaryType()) == TypeNameImpl.Required.FQN) {
             return TypeNameImpl.Required.FQN;
         }
-        if (typeNameRequired != null && !top.simpleTypeNames.contains(typeInfo.simpleName())) {
+        // the simple name is the type's when the type was imported; when another type took it, 'Outer.Impl.Builder'
+        // printed 'Builder' would mean that one, 'import a.c.Builder' (CodeLaser/maddi#176)
+        if (typeNameRequired != null && !typeInfo.equals(top.simpleTypeNames.get(typeInfo.simpleName()))) {
             return typeNameRequired;
         }
         return TypeNameImpl.Required.SIMPLE;
@@ -236,11 +239,11 @@ public class QualificationImpl implements Qualification {
         assert typesNotImported != null; // to keep IntelliJ happy
         assert simpleTypeNames != null;
         // IMPROVE also code for subtypes!
-        if (simpleTypeNames.contains(typeInfo.simpleName()) || declaredSimpleNames.contains(typeInfo.simpleName())) {
+        if (simpleTypeNames.containsKey(typeInfo.simpleName()) || declaredSimpleNames.contains(typeInfo.simpleName())) {
             typesNotImported.put(typeInfo, TypeNameImpl.Required.FQN);
             return false;
         } else {
-            simpleTypeNames.add(typeInfo.simpleName());
+            simpleTypeNames.put(typeInfo.simpleName(), typeInfo);
             return true;
         }
     }
