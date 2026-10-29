@@ -2,178 +2,178 @@
 {"format": "maddi-analysis-results", "version": 1},
 
 {"name": "Tcom.fasterxml.jackson.databind.cfg.MapperBuilder", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "MaccessorNaming(1,com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy.Provider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MaccessorNaming(1,com.fasterxml.jackson.databind.introspect.AccessorNamingStrategy.Provider)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ps(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MactivateDefaultTyping(2,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MactivateDefaultTyping(2,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PsubtypeValidator(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MactivateDefaultTyping(3,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MactivateDefaultTyping(3,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PsubtypeValidator(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pdti(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "MactivateDefaultTyping(4,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping,com.fasterxml.jackson.annotation.JsonTypeInfo.As)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MactivateDefaultTyping(4,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping,com.fasterxml.jackson.annotation.JsonTypeInfo.As)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PsubtypeValidator(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Papplicability(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "PincludeAs(2)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "MactivateDefaultTypingAsProperty(5,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping,java.lang.String)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MactivateDefaultTypingAsProperty(5,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator,com.fasterxml.jackson.databind.ObjectMapper.DefaultTyping,java.lang.String)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PsubtypeValidator(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Papplicability(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "PpropertyName(2)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MaddHandler(6,com.fasterxml.jackson.databind.deser.DeserializationProblemHandler)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MaddHandler(6,com.fasterxml.jackson.databind.deser.DeserializationProblemHandler)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ph(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MaddMixIn(7,java.lang.Class,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MaddMixIn(7,java.lang.Class,java.lang.Class)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Ptarget(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PmixinSource(1)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
- {"name": "MaddModule(8,com.fasterxml.jackson.databind.Module)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MaddModule(8,com.fasterxml.jackson.databind.Module)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmodule(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MaddModules(9,java.lang.Iterable)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmodules(0)", "data":{"containerParameter":1,"unmodifiedParameter":0}}},
- {"name": "MaddModules(10,com.fasterxml.jackson.databind.Module[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MaddModules(9,java.lang.Iterable)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pmodules(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"unmodifiedParameter":0}}},
+ {"name": "MaddModules(10,com.fasterxml.jackson.databind.Module[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pmodules(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MannotationIntrospector(11,com.fasterxml.jackson.databind.AnnotationIntrospector)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MannotationIntrospector(11,com.fasterxml.jackson.databind.AnnotationIntrospector)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pintr(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "Mbuild(12)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "McacheProvider(13,com.fasterxml.jackson.databind.cfg.CacheProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mbuild(12)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "McacheProvider(13,com.fasterxml.jackson.databind.cfg.CacheProvider)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PcacheProvider(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MclearProblemHandlers(14)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "Mconfigure(15,com.fasterxml.jackson.core.JsonGenerator.Feature,boolean)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfeature(0)", "data":{"unmodifiedParameter":0}},
+ {"name": "MclearProblemHandlers(14)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "Mconfigure(15,com.fasterxml.jackson.core.JsonGenerator.Feature,boolean)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfeature(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Pstate(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(16,com.fasterxml.jackson.core.JsonParser.Feature,boolean)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
-  {"name": "Pfeature(0)", "data":{"unmodifiedParameter":0}},
+ {"name": "Mconfigure(16,com.fasterxml.jackson.core.JsonParser.Feature,boolean)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "Pfeature(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Pstate(1)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(17,com.fasterxml.jackson.core.StreamReadFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(17,com.fasterxml.jackson.core.StreamReadFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(18,com.fasterxml.jackson.core.StreamWriteFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(18,com.fasterxml.jackson.core.StreamWriteFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(19,com.fasterxml.jackson.databind.DeserializationFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(19,com.fasterxml.jackson.databind.DeserializationFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(20,com.fasterxml.jackson.databind.MapperFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(20,com.fasterxml.jackson.databind.MapperFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(21,com.fasterxml.jackson.databind.SerializationFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(21,com.fasterxml.jackson.databind.SerializationFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "Mconfigure(22,com.fasterxml.jackson.databind.cfg.DatatypeFeature,boolean)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mconfigure(22,com.fasterxml.jackson.databind.cfg.DatatypeFeature,boolean)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "Pfeature(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pstate(1)", "data":{"annotatedApi":1,"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}]},
- {"name": "MconstructorDetector(23,com.fasterxml.jackson.databind.cfg.ConstructorDetector)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MconstructorDetector(23,com.fasterxml.jackson.databind.cfg.ConstructorDetector)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pcd(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdeactivateDefaultTyping(24)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MdefaultAttributes(25,com.fasterxml.jackson.databind.cfg.ContextAttributes)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdeactivateDefaultTyping(24)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MdefaultAttributes(25,com.fasterxml.jackson.databind.cfg.ContextAttributes)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pattrs(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultBase64Variant(26,com.fasterxml.jackson.core.Base64Variant)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultBase64Variant(26,com.fasterxml.jackson.core.Base64Variant)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pv(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultDateFormat(27,java.text.DateFormat)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultDateFormat(27,java.text.DateFormat)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pdf(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultLeniency(28,java.lang.Boolean)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultLeniency(28,java.lang.Boolean)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pb(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MdefaultLocale(29,java.util.Locale)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultLocale(29,java.util.Locale)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Plocale(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MdefaultMergeable(30,java.lang.Boolean)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultMergeable(30,java.lang.Boolean)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pb(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MdefaultPrettyPrinter(31,com.fasterxml.jackson.core.PrettyPrinter)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultPrettyPrinter(31,com.fasterxml.jackson.core.PrettyPrinter)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ppp(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultPropertyInclusion(32,com.fasterxml.jackson.annotation.JsonInclude.Value)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultPropertyInclusion(32,com.fasterxml.jackson.annotation.JsonInclude.Value)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pincl(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultSetterInfo(33,com.fasterxml.jackson.annotation.JsonSetter.Value)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultSetterInfo(33,com.fasterxml.jackson.annotation.JsonSetter.Value)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pv(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MdefaultTimeZone(34,java.util.TimeZone)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MdefaultTimeZone(34,java.util.TimeZone)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ptz(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(35,com.fasterxml.jackson.core.JsonGenerator.Feature[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfeatures(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mdisable(36,com.fasterxml.jackson.core.JsonParser.Feature[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfeatures(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Mdisable(37,com.fasterxml.jackson.core.StreamReadFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(35,com.fasterxml.jackson.core.JsonGenerator.Feature[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfeatures(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mdisable(36,com.fasterxml.jackson.core.JsonParser.Feature[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfeatures(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Mdisable(37,com.fasterxml.jackson.core.StreamReadFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(38,com.fasterxml.jackson.core.StreamWriteFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(38,com.fasterxml.jackson.core.StreamWriteFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(39,com.fasterxml.jackson.databind.DeserializationFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(39,com.fasterxml.jackson.databind.DeserializationFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(40,com.fasterxml.jackson.databind.MapperFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(40,com.fasterxml.jackson.databind.MapperFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(41,com.fasterxml.jackson.databind.SerializationFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(41,com.fasterxml.jackson.databind.SerializationFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Mdisable(42,com.fasterxml.jackson.databind.cfg.DatatypeFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mdisable(42,com.fasterxml.jackson.databind.cfg.DatatypeFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(43,com.fasterxml.jackson.core.JsonGenerator.Feature[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfeatures(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Menable(44,com.fasterxml.jackson.core.JsonParser.Feature[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
-  {"name": "Pfeatures(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
- {"name": "Menable(45,com.fasterxml.jackson.core.StreamReadFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(43,com.fasterxml.jackson.core.JsonGenerator.Feature[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfeatures(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Menable(44,com.fasterxml.jackson.core.JsonParser.Feature[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Pfeatures(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+ {"name": "Menable(45,com.fasterxml.jackson.core.StreamReadFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(46,com.fasterxml.jackson.core.StreamWriteFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(46,com.fasterxml.jackson.core.StreamWriteFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(47,com.fasterxml.jackson.databind.DeserializationFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(47,com.fasterxml.jackson.databind.DeserializationFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(48,com.fasterxml.jackson.databind.MapperFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(48,com.fasterxml.jackson.databind.MapperFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(49,com.fasterxml.jackson.databind.SerializationFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(49,com.fasterxml.jackson.databind.SerializationFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "Menable(50,com.fasterxml.jackson.databind.cfg.DatatypeFeature[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Menable(50,com.fasterxml.jackson.databind.cfg.DatatypeFeature[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pfeatures(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MenumNamingStrategy(51,com.fasterxml.jackson.databind.EnumNamingStrategy)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MenumNamingStrategy(51,com.fasterxml.jackson.databind.EnumNamingStrategy)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ps(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MfilterProvider(52,com.fasterxml.jackson.databind.ser.FilterProvider)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MfilterProvider(52,com.fasterxml.jackson.databind.ser.FilterProvider)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pprov(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MfindAndAddModules(53)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MfindAndAddModules(53)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
  {"name": "MfindModules(54)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MfindModules(55,java.lang.ClassLoader)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "PclassLoader(0)", "data":{"unmodifiedParameter":0}}},
- {"name": "MhandlerInstantiator(56,com.fasterxml.jackson.databind.cfg.HandlerInstantiator)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "PclassLoader(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}},
+ {"name": "MhandlerInstantiator(56,com.fasterxml.jackson.databind.cfg.HandlerInstantiator)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Phi(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MinjectableValues(57,com.fasterxml.jackson.databind.InjectableValues)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MinjectableValues(57,com.fasterxml.jackson.databind.InjectableValues)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pv(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
  {"name": "MisEnabled(58,com.fasterxml.jackson.core.JsonGenerator.Feature)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Pf(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pf(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MisEnabled(59,com.fasterxml.jackson.core.JsonParser.Feature)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
-  {"name": "Pf(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":0}}},
+  {"name": "Pf(0)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"independentParameter":2,"unmodifiedParameter":0}}},
  {"name": "MisEnabled(60,com.fasterxml.jackson.databind.DeserializationFeature)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MisEnabled(61,com.fasterxml.jackson.databind.MapperFeature)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MisEnabled(62,com.fasterxml.jackson.databind.SerializationFeature)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MnodeFactory(63,com.fasterxml.jackson.databind.node.JsonNodeFactory)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MnodeFactory(63,com.fasterxml.jackson.databind.node.JsonNodeFactory)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MpolymorphicTypeValidator(64,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MpolymorphicTypeValidator(64,com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pptv(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MpropertyNamingStrategy(65,com.fasterxml.jackson.databind.PropertyNamingStrategy)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MpropertyNamingStrategy(65,com.fasterxml.jackson.databind.PropertyNamingStrategy)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ps(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MregisterSubtypes(66,java.lang.Class[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MregisterSubtypes(66,java.lang.Class[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psubtypes(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MregisterSubtypes(67,com.fasterxml.jackson.databind.jsontype.NamedType[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MregisterSubtypes(67,com.fasterxml.jackson.databind.jsontype.NamedType[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psubtypes(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
- {"name": "MregisterSubtypes(68,java.util.Collection)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MregisterSubtypes(68,java.util.Collection)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Psubtypes(0)", "data":{"annotatedApi":1,"containerParameter":1,"unmodifiedParameter":1}}},
- {"name": "MremoveMixIn(69,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MremoveMixIn(69,java.lang.Class)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ptarget(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "MserializationInclusion(70,com.fasterxml.jackson.annotation.JsonInclude.Include)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MserializationInclusion(70,com.fasterxml.jackson.annotation.JsonInclude.Include)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pincl(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MserializerFactory(71,com.fasterxml.jackson.databind.ser.SerializerFactory)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MserializerFactory(71,com.fasterxml.jackson.databind.ser.SerializerFactory)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MsetDefaultTyping(72,com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MsetDefaultTyping(72,com.fasterxml.jackson.databind.jsontype.TypeResolverBuilder)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Ptyper(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MstreamFactory(73)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
- {"name": "MsubtypeResolver(74,com.fasterxml.jackson.databind.jsontype.SubtypeResolver)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MstreamFactory(73)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+ {"name": "MsubtypeResolver(74,com.fasterxml.jackson.databind.jsontype.SubtypeResolver)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pr(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MtypeFactory(75,com.fasterxml.jackson.databind.type.TypeFactory)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MtypeFactory(75,com.fasterxml.jackson.databind.type.TypeFactory)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pf(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "Mvisibility(76,com.fasterxml.jackson.annotation.PropertyAccessor,com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mvisibility(76,com.fasterxml.jackson.annotation.PropertyAccessor,com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PforMethod(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Pvisibility(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "Mvisibility(77,com.fasterxml.jackson.databind.introspect.VisibilityChecker)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "Mvisibility(77,com.fasterxml.jackson.databind.introspect.VisibilityChecker)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Pvc(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
- {"name": "MwithCoercionConfig(78,java.lang.Class,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MwithCoercionConfig(78,java.lang.Class,java.util.function.Consumer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PforType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Phandler(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MwithCoercionConfig(79,com.fasterxml.jackson.databind.type.LogicalType,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MwithCoercionConfig(79,com.fasterxml.jackson.databind.type.LogicalType,java.util.function.Consumer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PforType(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
   {"name": "Phandler(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":1}}]},
- {"name": "MwithCoercionConfigDefaults(80,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+ {"name": "MwithCoercionConfigDefaults(80,java.util.function.Consumer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "Phandler(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":1}}},
- {"name": "MwithConfigOverride(81,java.lang.Class,java.util.function.Consumer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+ {"name": "MwithConfigOverride(81,java.lang.Class,java.util.function.Consumer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PforType(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Phandler(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":1}}]}]}
 ]
