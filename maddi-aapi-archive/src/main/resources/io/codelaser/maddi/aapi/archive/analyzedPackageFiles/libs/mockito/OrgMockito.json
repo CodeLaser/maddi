@@ -3,56 +3,56 @@
 
 {"name": "Torg.mockito.BDDMockito", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "SBDDMyOngoingStubbing(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "MgetMock(0)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
-  {"name": "Mwill(1,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MgetMock(0)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
+  {"name": "Mwill(1,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
-  {"name": "MwillAnswer(2,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillAnswer(2,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
-  {"name": "MwillCallRealMethod(3)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
-  {"name": "MwillReturn(4,T)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillCallRealMethod(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+  {"name": "MwillReturn(4,T)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MwillReturn(5,T,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MwillReturn(5,T,T[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MwillThrow(6,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillThrow(6,java.lang.Class)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MwillThrow(7,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MwillThrow(7,java.lang.Class,java.lang.Class[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-   {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
-  {"name": "MwillThrow(8,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+   {"name": "Parg1(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "MwillThrow(8,java.lang.Throwable[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]},
  {"name": "SBDDStubber(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Mgiven(0,T)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Mgiven(0,T)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
-  {"name": "Mwill(1,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "Mwill(1,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
-  {"name": "MwillAnswer(2,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillAnswer(2,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}},
-  {"name": "MwillCallRealMethod(3)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
-  {"name": "MwillDoNothing(4)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}},
-  {"name": "MwillReturn(5,java.lang.Object)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillCallRealMethod(3)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+  {"name": "MwillDoNothing(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}},
+  {"name": "MwillReturn(5,java.lang.Object)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
-  {"name": "MwillReturn(6,java.lang.Object,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MwillReturn(6,java.lang.Object,java.lang.Object[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}]},
-  {"name": "MwillThrow(7,java.lang.Class)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+  {"name": "MwillThrow(7,java.lang.Class)", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
-  {"name": "MwillThrow(8,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
+  {"name": "MwillThrow(8,java.lang.Class,java.lang.Class[])", "data":{"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-   {"name": "Parg1(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
-  {"name": "MwillThrow(9,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
+   {"name": "Parg1(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "MwillThrow(9,java.lang.Throwable[])", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]},
  {"name": "SThen(4)", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
-  {"name": "Mshould(0)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "Mshould(1,org.mockito.InOrder)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Mshould(0)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
+  {"name": "Mshould(1,org.mockito.InOrder)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
-  {"name": "Mshould(2,org.mockito.InOrder,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Mshould(2,org.mockito.InOrder,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}},
    {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
-  {"name": "Mshould(3,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+  {"name": "Mshould(3,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
    {"name": "Parg0(0)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}},
-  {"name": "MshouldHaveNoInteractions(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
-  {"name": "MshouldHaveNoMoreInteractions(5)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
+  {"name": "MshouldHaveNoInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
+  {"name": "MshouldHaveNoMoreInteractions(5)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
  {"name": "C<init>(0)", "data":{"containerMethod":-1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "Mgiven(0,T)", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PmethodCall(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
@@ -73,24 +73,24 @@
   {"name": "PtoBeThrown(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MwillThrow(9,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"nonModifyingMethod":0}, "subs":[
   {"name": "PtoBeThrown(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PthrowableTypes(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PthrowableTypes(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MwillThrow(10,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"nonModifyingMethod":0}, "sub":
   {"name": "PtoBeThrown(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}}]},
 
 {"name": "Torg.mockito.InOrder", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
- {"name": "Mverify(0,T)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
+ {"name": "Mverify(0,T)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}}},
- {"name": "Mverify(1,T,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+ {"name": "Mverify(1,T,org.mockito.verification.VerificationMode)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":2,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "Parg1(1)", "data":{"annotatedApi":1,"unmodifiedParameter":1}}]},
- {"name": "Mverify(2,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PmockedStatic(0)", "data":{"unmodifiedParameter":0}},
+ {"name": "Mverify(2,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "PmockedStatic(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Pverification(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
- {"name": "Mverify(3,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification,org.mockito.verification.VerificationMode)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Parg0(0)", "data":{"unmodifiedParameter":0}},
+ {"name": "Mverify(3,org.mockito.MockedStatic,org.mockito.MockedStatic.Verification,org.mockito.verification.VerificationMode)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
+  {"name": "Parg0(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "Parg1(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Parg2(2)", "data":{"unmodifiedParameter":0}}]},
- {"name": "MverifyNoMoreInteractions(4)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
+  {"name": "Parg2(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
+ {"name": "MverifyNoMoreInteractions(4)", "data":{"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
 
 {"name": "Torg.mockito.Mockito", "data":{"annotatedApi":1,"defaultsAnalyzer":1}, "subs":[
  {"name": "FCALLS_REAL_METHODS(0)", "data":{"finalField":1}},
@@ -112,7 +112,7 @@
   {"name": "PwantedNumberOfInvocations(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "MclearAllCaches(7)", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MclearInvocations(8,T[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmocks(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Pmocks(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mdescription(9,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pdescription(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MdoAnswer(10,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
@@ -128,12 +128,12 @@
   {"name": "PtoBeThrown(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MdoThrow(16,java.lang.Class,java.lang.Class[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PtoBeThrown(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PtoBeThrownNext(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PtoBeThrownNext(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MdoThrow(17,java.lang.Throwable[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PtoBeThrown(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mframework(18)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
  {"name": "MignoreStubs(19,java.lang.Object[])", "data":{"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Pmocks(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Pmocks(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MinOrder(20,java.lang.Object[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmocks(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mlenient(21)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
@@ -144,21 +144,21 @@
   {"name": "Pname(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "Mmock(24,java.lang.Class,org.mockito.MockSettings)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PmockSettings(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "Mmock(25,java.lang.Class,org.mockito.stubbing.Answer)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PdefaultAnswer(1)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mmock(26,T[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Preified(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Preified(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mmock(27,java.lang.String,T[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mmock(28,org.mockito.MockSettings,T[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "Psettings(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Psettings(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "Mmock(29,org.mockito.stubbing.Answer,T[])", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PdefaultAnswer(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"annotatedApi":1,"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(1)", "data":{"annotatedApi":1,"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(30,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MmockConstruction(31,java.lang.Class,java.util.function.Function)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -170,42 +170,42 @@
   {"name": "PmockInitializer(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(33,java.lang.Class,org.mockito.MockSettings)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PmockSettings(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(34,java.lang.Class,org.mockito.MockSettings,org.mockito.MockedConstruction.MockInitializer)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PmockSettings(1)", "data":{"unmodifiedParameter":0}},
+  {"name": "PmockSettings(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "PmockInitializer(2)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(35,java.lang.Class,org.mockito.MockedConstruction.MockInitializer)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
   {"name": "PmockInitializer(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(36,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Preified(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Preified(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmockConstruction(37,java.util.function.Function,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PmockSettingsFactory(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(38,java.util.function.Function,org.mockito.MockedConstruction.MockInitializer,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PmockSettingsFactory(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
   {"name": "PmockInitializer(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Preified(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(39,org.mockito.MockSettings,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PmockSettings(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(40,org.mockito.MockSettings,org.mockito.MockedConstruction.MockInitializer,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PmockSettings(0)", "data":{"unmodifiedParameter":0}},
+  {"name": "PmockSettings(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
   {"name": "PmockInitializer(1)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Preified(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstruction(41,org.mockito.MockedConstruction.MockInitializer,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PmockInitializer(0)", "data":{"ignoreModsParameter":1,"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockConstructionWithAnswer(42,java.lang.Class,org.mockito.stubbing.Answer,org.mockito.stubbing.Answer[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PdefaultAnswer(1)", "data":{"unmodifiedParameter":0}},
-  {"name": "PadditionalAnswers(2)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PdefaultAnswer(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "PadditionalAnswers(2)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockSingleton(43,T)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pinstance(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MmockSingleton(44,T,org.mockito.MockSettings)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pinstance(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}},
-  {"name": "PmockSettings(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "MmockStatic(45,java.lang.Class)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}},
  {"name": "MmockStatic(46,java.lang.Class,java.lang.String)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
@@ -213,21 +213,21 @@
   {"name": "Pname(1)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}}]},
  {"name": "MmockStatic(47,java.lang.Class,org.mockito.MockSettings)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PmockSettings(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "MmockStatic(48,java.lang.Class,org.mockito.stubbing.Answer)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "PclassToMock(0)", "data":{"containerParameter":1,"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "PdefaultAnswer(1)", "data":{"unmodifiedParameter":0}}]},
+  {"name": "PdefaultAnswer(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}}]},
  {"name": "MmockStatic(49,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Preified(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Preified(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "MmockStatic(50,java.lang.String,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
   {"name": "Pname(0)", "data":{"immutableParameter":3,"independentParameter":2,"unmodifiedParameter":1}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockStatic(51,org.mockito.MockSettings,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PmockSettings(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PmockSettings(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockStatic(52,org.mockito.stubbing.Answer,T[])", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "subs":[
-  {"name": "PdefaultAnswer(0)", "data":{"unmodifiedParameter":0}},
-  {"name": "Preified(1)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
+  {"name": "PdefaultAnswer(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"unmodifiedParameter":0}},
+  {"name": "Preified(1)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}]},
  {"name": "MmockingDetails(53,java.lang.Object)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "PtoInspect(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "MmockitoSession(54)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}},
@@ -240,7 +240,7 @@
  {"name": "Mspy(59,T)", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pobject(0)", "data":{"containerParameter":1,"immutableParameter":2,"independentParameter":1,"unmodifiedParameter":1}}},
  {"name": "Mspy(60,T[])", "data":{"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":2,"nonModifyingMethod":0}, "sub":
-  {"name": "Preified(0)", "data":{"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
+  {"name": "Preified(0)", "data":{"assumedDefaults":["unmodifiedParameter"],"containerParameter":1,"immutableParameter":1,"unmodifiedParameter":0}}},
  {"name": "Mtimeout(61,long)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Pmillis(0)", "data":{"immutableParameter":3,"independentParameter":2,"nullabilityParameter":"N","unmodifiedParameter":1}}},
  {"name": "Mtimes(62,int)", "data":{"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":

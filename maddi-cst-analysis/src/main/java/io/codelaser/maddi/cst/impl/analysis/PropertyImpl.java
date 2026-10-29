@@ -269,6 +269,14 @@ public class PropertyImpl implements Property {
     // any element
     public static final Property DEFAULTS_ANALYZER = new PropertyImpl("defaultsAnalyzer");
     public static final Property ANNOTATED_API = new PropertyImpl("annotatedApi");
+    /**
+     * The keys of the properties whose value on this (library) method or parameter is the shallow analyzer's
+     * assumption, not a statement: no annotation on it nor on what it overrides, for example a method that is
+     * modifying only because nothing says it is not. Written by the defaults analyzer and kept in the compiled
+     * hints, so that a why can say "assumed" and a test can list what the hints leave open.
+     */
+    public static final Property ASSUMED_DEFAULTS = new PropertyImpl("assumedDefaults",
+            ValueImpl.SetOfStringsImpl.EMPTY_SET);
     public static final Property ANALYZER_ERROR = new PropertyImpl("analyzerError", ValueImpl.MessageImpl.EMPTY);
 
     // type parameter
