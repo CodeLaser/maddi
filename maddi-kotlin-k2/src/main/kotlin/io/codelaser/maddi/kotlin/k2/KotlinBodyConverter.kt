@@ -3149,6 +3149,10 @@ internal class KotlinBodyConverter(
     internal fun KaSession.convertInitBlock(init: KtAnonymousInitializer, method: MethodInfo, index: String): Block =
         convertBlock(init.body, method, emptyMap(), index)
 
+    /** A secondary constructor's own `{ … }` body, as a nested [Block] at [index] in [method]'s body. */
+    internal fun KaSession.convertConstructorBody(body: KtBlockExpression, method: MethodInfo, index: String): Block =
+        convertBlock(body, method, emptyMap(), index)
+
     /** Convert a control-flow branch/body (a `{ … }` block or a single statement) into a CST [Block]. */
     /** [prologue] builds statements that open the block (a destructured loop variable's entries), in its scope. */
     private fun KaSession.convertBlock(body: KtExpression?, method: MethodInfo,
