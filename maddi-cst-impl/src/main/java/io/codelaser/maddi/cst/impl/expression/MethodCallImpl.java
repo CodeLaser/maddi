@@ -346,9 +346,13 @@ public class MethodCallImpl extends ExpressionImpl implements MethodCall {
                                                 + thisVar.typeInfo().fullyQualifiedName();
                 TypeName typeName = TypeNameImpl.typeName(thisVar.typeInfo(),
                         qualification.qualifierRequired(thisVar.typeInfo()), false);
-                ThisName thisName = new ThisNameImpl(thisVar.writeSuper(), typeName,
-                        qualification.qualifierRequired(thisVar) && thisVar.explicitlyWriteType() != null);
-                boolean qualifierRequired = needsQualifier
+                // 'Outer.this.m(..)' (and 'Iface.super.m()') as the source wrote it: a bare 'm(..)' binds to the
+                // innermost class with a method named m, which may be the inner class itself, with its own receiver
+                // (GitHub #175). The qualification cannot tell: a This equals another of its type, and the anonymous
+                // subclass of Outer has registered Outer's as its 'super'
+                boolean written = thisVar.explicitlyWriteType() != null;
+                ThisName thisName = new ThisNameImpl(thisVar.writeSuper(), typeName, written);
+                boolean qualifierRequired = needsQualifier || written
                                             || qualification.qualifierRequired(methodInfo) && !objectIsImplicit;
                 outputBuilder.add(new QualifiedNameImpl(methodName, thisName,
                         qualifierRequired || thisVar.writeSuper() ? QualifiedNameImpl.Required.YES : QualifiedNameImpl.Required.NO_METHOD));
