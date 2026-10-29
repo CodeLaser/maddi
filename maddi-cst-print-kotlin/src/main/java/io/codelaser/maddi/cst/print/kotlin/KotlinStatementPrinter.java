@@ -61,16 +61,27 @@ import java.util.stream.Stream;
 public class KotlinStatementPrinter {
 
     public static OutputBuilder print(Statement s, Qualification q) {
+        List<OutputBuilder> lines = lines(s, q);
+        if (lines.size() == 1) return lines.getFirst();
+        return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+    }
+
+    /**
+     * The statement, preceded by the {@code val} copies it needs ({@link KotlinValCopies}): lines of the enclosing
+     * block, which a block printer adds as such. Joined into one line, all but the first would print one level deeper.
+     */
+    static List<OutputBuilder> lines(Statement s, Qualification q) {
         KotlinContext.pushStatement(s);
         KotlinSmartCasts.beforeStatement(s);
         try {
             List<OutputBuilder> copies = KotlinValCopies.before(s, q);
             OutputBuilder printed = printStatement(s, q);
-            if (copies.isEmpty()) return printed;
+            if (copies.isEmpty()) return List.of(printed);
             List<OutputBuilder> lines = new ArrayList<>(copies);
             lines.add(printed);
-            return lines.stream().collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
+            return lines;
         } finally {
+            KotlinSmartCasts.endStatement(s);
             KotlinContext.popStatement();
         }
     }
@@ -233,7 +244,7 @@ public class KotlinStatementPrinter {
     }
 
     private static OutputBuilder statements(List<Statement> statements, Qualification q) {
-        return statements.stream().map(st -> print(st, q))
+        return statements.stream().flatMap(st -> lines(st, q).stream())
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
@@ -244,7 +255,7 @@ public class KotlinStatementPrinter {
     static OutputBuilder block(List<Statement> statements, Qualification q) {
         KotlinSmartCasts.enterBlock(statements);
         try {
-            return braces(statements.stream().filter(st -> !st.isSynthetic()).map(st -> print(st, q)).toList());
+            return braces(statements.stream().filter(st -> !st.isSynthetic()).flatMap(st -> lines(st, q).stream()).toList());
         } finally {
             KotlinSmartCasts.exitBlock();
         }
@@ -255,7 +266,7 @@ public class KotlinStatementPrinter {
         List<OutputBuilder> all = new ArrayList<>(prefix);
         KotlinSmartCasts.enterBlock(statements);
         try {
-            statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.add(print(st, q)));
+            statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.addAll(lines(st, q)));
         } finally {
             KotlinSmartCasts.exitBlock();
         }
@@ -326,7 +337,7 @@ public class KotlinStatementPrinter {
                 }
                 printed.add(value);
             } else {
-                printed.add(print(s, q));
+                printed.addAll(lines(s, q));
             }
         }
         return printed.stream().filter(b -> !b.isEmpty())
@@ -480,7 +491,7 @@ public class KotlinStatementPrinter {
                             .add(new TextImpl("break" + (label == null ? "" : "@" + label))));
                 }
             }
-            fs.block().statements().stream().filter(st -> !st.isSynthetic()).forEach(st -> body.add(print(st, q)));
+            fs.block().statements().stream().filter(st -> !st.isSynthetic()).forEach(st -> body.addAll(lines(st, q)));
             if (!continues) updates.forEach(u -> body.add(KotlinExpressionPrinter.printStatement(u, q)));
 
             whileLoop = new OutputBuilderImpl();
@@ -797,10 +808,10 @@ public class KotlinStatementPrinter {
                 if (yieldsBeforeTheEnd(body)) {
                     YIELD_AS_RETURN.set(true);
                     return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE)
-                            .add(braces(body.stream().map(st -> print(st, q)).toList()));
+                            .add(braces(body.stream().flatMap(st -> lines(st, q).stream()).toList()));
                 }
                 if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation)) return print(body.getFirst(), q);
-                return braces(body.stream().map(st -> print(st, q)).toList());
+                return braces(body.stream().flatMap(st -> lines(st, q).stream()).toList());
             }
             return armStatement(s, q);
         } finally {
@@ -872,7 +883,7 @@ public class KotlinStatementPrinter {
                             .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
                 }
                 arms.add(new OutputBuilderImpl().add(head).add(SymbolEnum.LAMBDA)
-                        .add(braces(arm.stream().map(st -> print(st, q)).toList())));
+                        .add(braces(arm.stream().flatMap(st -> lines(st, q).stream()).toList())));
             }
         } finally {
             KotlinContext.pop();

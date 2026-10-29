@@ -3582,4 +3582,128 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
         assertFalse(kotlin.contains("!!"), kotlin);
         compiles(kotlin);
     }
+
+    /**
+     * #164, the block form: fernflower's {@code if (stat.getExprents() != null) { for (Exprent e : stat.getExprents()) … }}.
+     * The getter reads a field its setter reassigns, so the copy serves the statement only, where nothing changes the
+     * field: the getter is non-modifying, and so is every call that could reach the receiver. Not where the statement
+     * calls the setter, nor where a lambda, which may run later, calls the getter.
+     */
+    @Test
+    public void nullTestedGetterInBlock() {
+        String source = """
+                package a.d;
+                import java.util.ArrayList;
+                import java.util.List;
+                class U {
+                    static class S {
+                        private List<String> exprents;
+                        private String label;
+                        List<String> getExprents() { return exprents; }
+                        void setExprents(List<String> exprents) { this.exprents = exprents; }
+                        String getLabel() { return label; }
+                        void setLabel(String label) { this.label = label; }
+                    }
+                    static int count(S stat) {
+                        int n = 0;
+                        if (stat.getExprents() != null) {
+                            for (String e : stat.getExprents()) n += e.length();
+                        }
+                        return n;
+                    }
+                    static int labelLength(S stat, List<String> out) {
+                        if (stat.getLabel() != null) {
+                            out.add(stat.getLabel());
+                            return stat.getLabel().length();
+                        }
+                        return 0;
+                    }
+                    static int reset(S stat) {
+                        if (stat.getExprents() != null) {
+                            stat.setExprents(new ArrayList<>());
+                            return stat.getExprents().size();
+                        }
+                        return 0;
+                    }
+                    static Runnable later(S stat) {
+                        if (stat.getLabel() != null) {
+                            return () -> System.out.println(stat.getLabel().length());
+                        }
+                        return null;
+                    }
+                }
+                """;
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("exprents", "label", "getExprents()",
+                "getLabel()", "later()")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin(source, options, type -> type.recursiveSubTypeStream()
+                .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::methodStream)
+                .filter(m -> m.name().startsWith("get"))
+                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+        contains(kotlin, "val exprents = stat.getExprents()\nif (exprents != null)");
+        contains(kotlin, "for (e in exprents)");
+        contains(kotlin, "val label = stat.getLabel()\nif (label != null)");
+        contains(kotlin, "out.add(label)");
+        contains(kotlin, "return label.length");
+        contains(kotlin, "return stat.getExprents()!!.size");
+        contains(kotlin, "stat.getLabel()!!.length");
+        compiles(kotlin);
+    }
+
+    /**
+     * #164, the block form, fernflower's SwitchPatternHelper: {@code exitExprent.getValue() instanceof NewExprent newExprent
+     * && newExprent.getConstructor() != null}. The pattern variable is bound in the statement's own condition, so no copy
+     * of its getter goes before the statement (the revert of c316cace5). And the copy and its statement are indented as
+     * the block's other statements.
+     */
+    @Test
+    public void nullTestedGetterOnPatternVariable() {
+        String source = """
+                package a.d;
+                class V {
+                    static class C { String name() { return "c"; } }
+                    static class E { }
+                    static class N extends E {
+                        private C constructor;
+                        C getConstructor() { return constructor; }
+                        void setConstructor(C constructor) { this.constructor = constructor; }
+                    }
+                    static class X extends E {
+                        private E value;
+                        E getValue() { return value; }
+                    }
+                    static boolean fastExit(E expected) {
+                        boolean delete = false;
+                        if (expected instanceof X exit && exit.getValue() instanceof N n && n.getConstructor() != null) {
+                            C constructor = n.getConstructor();
+                            delete = "m".equals(constructor.name());
+                        }
+                        return delete;
+                    }
+                    static int indented(N n, int k) {
+                        if (k > 0) {
+                            if (n.getConstructor() != null) {
+                                return n.getConstructor().name().length();
+                            }
+                        }
+                        return 0;
+                    }
+                }
+                """;
+        KotlinPrintOptions options = new KotlinPrintOptions(new ByName(Set.of("constructor", "value", "getConstructor()",
+                "getValue()")), KotlinPrintOptions.NullCheck.ASSERT);
+        String kotlin = kotlin(source, options, type -> type.recursiveSubTypeStream()
+                .flatMap(io.codelaser.maddi.cst.api.info.TypeInfo::methodStream)
+                .filter(m -> !m.name().startsWith("set"))
+                .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
+                        io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
+        assertTrue(kotlin.indexOf("val constructor") > kotlin.indexOf("if (expected is X"), kotlin);
+        contains(kotlin, """
+                            if (k > 0) {
+                                val constructor = n.getConstructor()
+                                if (constructor != null) { return constructor.name().length }
+                            }
+                """);
+        compiles(kotlin);
+    }
 }
