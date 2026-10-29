@@ -21,6 +21,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -1037,6 +1038,76 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
         contains(kotlin, "(o.content as String).length");
         contains(kotlin, "!(o is Box && o.content is Box)");
         contains(kotlin, "(o.content as Box).content");
+        compiles(kotlin);
+    }
+
+    @Language("java")
+    private static final String APPLY = """
+            package a;
+            import java.util.ArrayList;
+            import java.util.List;
+            class Config {
+                private String name;
+                private int timeout;
+                void setName(String name) { this.name = name; }
+                void setTimeout(int timeout) { this.timeout = timeout; }
+                String name() { return name; }
+            }
+            class Factory {
+                private String name = "own";
+                static final int DEFAULT = 30;
+                Config make(String n) {
+                    Config c = new Config();
+                    c.setName(n);
+                    c.setTimeout(DEFAULT);
+                    return c;
+                }
+                Config ownName() {
+                    Config c = new Config();
+                    c.setName(name);
+                    c.setTimeout(1);
+                    return c;
+                }
+                List<String> list(String n) {
+                    List<String> l = new ArrayList<>();
+                    l.add(n);
+                    l.add(n);
+                    return l;
+                }
+                String usedAfter(String n) {
+                    Config c = new Config();
+                    c.setName(n);
+                    c.setTimeout(2);
+                    return c.name();
+                }
+                Config once(String n) {
+                    Config c = new Config();
+                    c.setName(n);
+                    return c;
+                }
+            }
+            """;
+
+    /**
+     * #165: construct, configure, return is {@code return T().apply { … }}. Not where an argument is the enclosing
+     * class's field by its bare name ({@code name} would be Config's inside the block), not for a JDK collection, not
+     * for a local used otherwise, and not for a single call.
+     */
+    @Test
+    public void applyForConstructConfigureReturn() {
+        String kotlin = kotlin(APPLY);
+        contains(kotlin, """
+                fun make(n: String): Config {
+                    return Config().apply {
+                        setName(n)
+                        setTimeout(DEFAULT)
+                    }
+                }
+                """);
+        assertEquals(1, kotlin.split("\\.apply \\{", -1).length - 1, kotlin);
+        contains(kotlin, "c.setName(name)");
+        contains(kotlin, "l.add(n)");
+        contains(kotlin, "return c.name()");
         compiles(kotlin);
     }
 }

@@ -3698,12 +3698,13 @@ public class TestJavaToKotlinNullability extends CommonJavaToKotlin {
                 .forEach(m -> m.analysis().set(io.codelaser.maddi.cst.impl.analysis.PropertyImpl.NON_MODIFYING_METHOD,
                         io.codelaser.maddi.cst.impl.analysis.ValueImpl.BoolImpl.TRUE)));
         assertTrue(kotlin.indexOf("val constructor") > kotlin.indexOf("if (expected is X"), kotlin);
-        contains(kotlin, """
+        // exactly: this file's contains() ignores indentation
+        assertTrue(kotlin.contains("""
                             if (k > 0) {
                                 val constructor = n.getConstructor()
                                 if (constructor != null) { return constructor.name().length }
                             }
-                """);
+                """), kotlin);
         compiles(kotlin);
     }
 }

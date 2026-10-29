@@ -252,10 +252,32 @@ public class KotlinStatementPrinter {
         return block(block.statements(), q);
     }
 
+    /**
+     * The lines of a block's statements: each statement's {@link #lines}, or several statements as one
+     * {@code return T(…).apply { … }} ({@link KotlinApply}).
+     */
+    private static List<OutputBuilder> blockLines(List<Statement> statements, Qualification q) {
+        List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
+        List<OutputBuilder> result = new ArrayList<>();
+        int i = 0;
+        while (i < own.size()) {
+            List<Statement> apply = KotlinApply.at(own, i);
+            if (apply != null) {
+                apply.forEach(KotlinSmartCasts::beforeStatement);
+                result.add(KotlinApply.print(apply, q));
+                i += apply.size();
+            } else {
+                result.addAll(lines(own.get(i), q));
+                i++;
+            }
+        }
+        return result;
+    }
+
     static OutputBuilder block(List<Statement> statements, Qualification q) {
         KotlinSmartCasts.enterBlock(statements);
         try {
-            return braces(statements.stream().filter(st -> !st.isSynthetic()).flatMap(st -> lines(st, q).stream()).toList());
+            return braces(blockLines(statements, q));
         } finally {
             KotlinSmartCasts.exitBlock();
         }
@@ -266,7 +288,7 @@ public class KotlinStatementPrinter {
         List<OutputBuilder> all = new ArrayList<>(prefix);
         KotlinSmartCasts.enterBlock(statements);
         try {
-            statements.stream().filter(st -> !st.isSynthetic()).forEach(st -> all.addAll(lines(st, q)));
+            all.addAll(blockLines(statements, q));
         } finally {
             KotlinSmartCasts.exitBlock();
         }
@@ -311,7 +333,7 @@ public class KotlinStatementPrinter {
         return result;
     }
 
-    private static OutputBuilder braces(List<OutputBuilder> printed) {
+    static OutputBuilder braces(List<OutputBuilder> printed) {
         List<OutputBuilder> nonEmpty = printed.stream().filter(b -> !b.isEmpty()).toList();
         if (nonEmpty.isEmpty()) return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
         return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE)
