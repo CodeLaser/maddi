@@ -254,18 +254,19 @@ public class KotlinStatementPrinter {
 
     /**
      * The lines of a block's statements: each statement's {@link #lines}, or several statements as one
-     * {@code return T(…).apply { … }} ({@link KotlinApply}).
+     * {@code apply} ({@link KotlinApply}).
      */
     private static List<OutputBuilder> blockLines(List<Statement> statements, Qualification q) {
         List<Statement> own = statements.stream().filter(st -> !st.isSynthetic()).toList();
         List<OutputBuilder> result = new ArrayList<>();
         int i = 0;
         while (i < own.size()) {
-            List<Statement> apply = KotlinApply.at(own, i);
+            KotlinApply.Sequence apply = KotlinApply.at(own, i);
             if (apply != null) {
-                apply.forEach(KotlinSmartCasts::beforeStatement);
-                result.add(KotlinApply.print(apply, q));
-                i += apply.size();
+                apply.calls().forEach(KotlinSmartCasts::beforeStatement);
+                if (apply.returns()) KotlinSmartCasts.beforeStatement(apply.statements().getLast());
+                result.addAll(KotlinApply.print(apply, q));
+                i += apply.statements().size();
             } else {
                 result.addAll(lines(own.get(i), q));
                 i++;

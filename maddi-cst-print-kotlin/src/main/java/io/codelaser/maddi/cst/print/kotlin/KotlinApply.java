@@ -58,16 +58,30 @@ import java.util.List;
  * <p>
  * Only for a type of the project's own, not the JDK's: {@code ArrayList} with {@code add}s is {@code mutableListOf},
  * {@code StringBuilder} is {@code buildString} (#140), and setters on domain objects are where the idiom reads best.
- * Only the form that ends in {@code return c}; a local used further stays as it is.
+ * Ending in {@code return c}, the local goes: {@code return T().apply { … }}. Otherwise it stays, {@code val c =
+ * T().apply { … }}, where its type is the constructed one.
  */
 final class KotlinApply {
 
     private KotlinApply() {
     }
 
-    /** The statements from {@code start} on that make one {@code return T(…).apply { … }}, or null. */
-    static List<Statement> at(List<Statement> statements, int start) {
-        if (!KotlinContext.translatingJava() || KotlinContext.inLambda()) return null;
+    /**
+     * The statements of one {@code apply}: the declaration, the calls, and the {@code return c} when {@code returns}.
+     */
+    record Sequence(List<Statement> statements, boolean returns) {
+        LocalVariableCreation declaration() {
+            return (LocalVariableCreation) statements.getFirst();
+        }
+
+        List<Statement> calls() {
+            return statements.subList(1, returns ? statements.size() - 1 : statements.size());
+        }
+    }
+
+    /** The statements from {@code start} on that make one {@code apply}, or null. */
+    static Sequence at(List<Statement> statements, int start) {
+        if (!KotlinContext.translatingJava()) return null;
         if (!(statements.get(start) instanceof LocalVariableCreation lvc) || lvc.localVariableStream().count() != 1
             || !lvc.comments().isEmpty()) {
             return null;
@@ -85,13 +99,20 @@ final class KotlinApply {
         int i = start + 1;
         while (i < statements.size() && configures(statements.get(i), local, type)) i++;
         int calls = i - start - 1;
-        if (calls < 2 || i >= statements.size()) return null;
-        if (!(statements.get(i) instanceof ReturnStatement rs) || rs.goToLabel() != null || !rs.comments().isEmpty()
-            || !(KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve)
-            || !local.equals(ve.variable()) || !plainReturn()) {
-            return null;
+        if (calls < 2) return null;
+        if (i < statements.size() && statements.get(i) instanceof ReturnStatement rs && rs.goToLabel() == null
+            && rs.comments().isEmpty() && KotlinExpressionPrinter.unwrap(rs.expression()) instanceof VariableExpression ve
+            && local.equals(ve.variable()) && !KotlinContext.inLambda() && plainReturn()) {
+            return new Sequence(statements.subList(start, i + 1), true);
         }
-        return statements.subList(start, i + 1);
+        // val c = T().apply { … }: '.apply' goes after the initializer as printed, so the initializer must be printed as
+        // it is, last: the local has the type of what it is assigned (no conversion, no cast), and is not nullable
+        // (a nullable one is declared, then assigned)
+        if (local.parameterizedType().equals(cc.parameterizedType())
+            && !KotlinNullability.isNullable(KotlinNullability.localType(lvc, local))) {
+            return new Sequence(statements.subList(start, i), false);
+        }
+        return null;
     }
 
     // a return the Kotlin printer writes as 'return value': no generic override or type variable to cast to
@@ -155,11 +176,21 @@ final class KotlinApply {
                                                                      || m.name().equals("is" + capitalized)));
     }
 
-    /** {@code return T(…).apply { m(…) … }} for the statements {@link #at} found. */
-    static OutputBuilder print(List<Statement> sequence, Qualification q) {
-        LocalVariableCreation lvc = (LocalVariableCreation) sequence.getFirst();
+    /**
+     * {@code return T(…).apply { m(…) … }}, or the declaration as printed followed by {@code .apply { m(…) … }}: its
+     * last line ends in the initializer, the constructor call.
+     */
+    static List<OutputBuilder> print(Sequence sequence, Qualification q) {
+        LocalVariableCreation lvc = sequence.declaration();
+        List<OutputBuilder> lines;
+        if (sequence.returns()) {
+            lines = List.of(new OutputBuilderImpl().add(KotlinKeyword.RETURN).add(SpaceEnum.ONE)
+                    .add(KotlinExpressionPrinter.print(lvc.localVariable().assignmentExpression(), q)));
+        } else {
+            lines = KotlinStatementPrinter.lines(lvc, q);
+        }
         List<OutputBuilder> calls = new ArrayList<>();
-        for (Statement s : sequence.subList(1, sequence.size() - 1)) {
+        for (Statement s : sequence.calls()) {
             MethodCall mc = (MethodCall) KotlinExpressionPrinter.unwrap(((ExpressionAsStatement) s).expression());
             KotlinContext.pushStatement(s);
             try {
@@ -168,9 +199,8 @@ final class KotlinApply {
                 KotlinContext.popStatement();
             }
         }
-        return new OutputBuilderImpl().add(KotlinKeyword.RETURN).add(SpaceEnum.ONE)
-                .add(KotlinExpressionPrinter.print(lvc.localVariable().assignmentExpression(), q))
-                .add(SymbolEnum.DOT).add(new TextImpl("apply")).add(SpaceEnum.ONE)
+        lines.getLast().add(SymbolEnum.DOT).add(new TextImpl("apply")).add(SpaceEnum.ONE)
                 .add(KotlinStatementPrinter.braces(calls));
+        return lines;
     }
 }

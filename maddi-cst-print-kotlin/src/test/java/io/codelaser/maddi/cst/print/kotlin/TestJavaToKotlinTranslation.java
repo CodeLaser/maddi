@@ -1085,13 +1085,29 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                     c.setName(n);
                     return c;
                 }
+                Object widened(String n) {
+                    Object o = new Config();
+                    return o;
+                }
+                Object asSupertype(String n) {
+                    Base b = new Config2();
+                    b.setName(n);
+                    b.setTimeout(3);
+                    return b.toString();
+                }
             }
+            class Base {
+                void setName(String name) { }
+                void setTimeout(int timeout) { }
+            }
+            class Config2 extends Base { }
             """;
 
     /**
-     * #165: construct, configure, return is {@code return T().apply { … }}. Not where an argument is the enclosing
-     * class's field by its bare name ({@code name} would be Config's inside the block), not for a JDK collection, not
-     * for a local used otherwise, and not for a single call.
+     * #165: construct, configure, return is {@code return T().apply { … }}; a local used further is {@code val c =
+     * T().apply { … }}. Not where an argument is the enclosing class's field by its bare name ({@code name} would be
+     * Config's inside the block), not for a JDK collection, not for a single call, and not where the local has another
+     * type than the constructed one.
      */
     @Test
     public void applyForConstructConfigureReturn() {
@@ -1104,10 +1120,17 @@ public class TestJavaToKotlinTranslation extends CommonJavaToKotlin {
                     }
                 }
                 """);
-        assertEquals(1, kotlin.split("\\.apply \\{", -1).length - 1, kotlin);
+        contains(kotlin, """
+                val c = Config().apply {
+                    setName(n)
+                    setTimeout(2)
+                }
+                return c.name()
+                """);
+        assertEquals(2, kotlin.split("\\.apply \\{", -1).length - 1, kotlin);
         contains(kotlin, "c.setName(name)");
         contains(kotlin, "l.add(n)");
-        contains(kotlin, "return c.name()");
+        contains(kotlin, "b.setName(n)");
         compiles(kotlin);
     }
 }
