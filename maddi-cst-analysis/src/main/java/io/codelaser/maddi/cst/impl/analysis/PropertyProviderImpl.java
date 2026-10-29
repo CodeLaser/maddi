@@ -79,6 +79,7 @@ public class PropertyProviderImpl {
                 STATIC_STATE_MODIFIED_METHOD,
                 STATIC_SIDE_EFFECTS_CULPRIT_METHOD,
                 MODIFIED_CULPRIT,
+                DEPENDENT_CULPRIT,
                 NULLABILITY_FIELD,
                 NULLABILITY_METHOD,
                 NULLABILITY_PARAMETER,

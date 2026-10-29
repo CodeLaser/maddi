@@ -107,6 +107,12 @@ public class PropertyImpl implements Property {
      * absent otherwise.
      */
     public static final Property MODIFIED_CULPRIT = new PropertyImpl("modifiedCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a method or parameter is dependent ({@code INDEPENDENT_METHOD}, {@code INDEPENDENT_PARAMETER} DEPENDENT): the
+     * statement that links the return value or the parameter to a mutable field of the instance, then that field.
+     * Written only when a run asks for culprits; absent otherwise.
+     */
+    public static final Property DEPENDENT_CULPRIT = new PropertyImpl("dependentCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
