@@ -43,6 +43,7 @@ import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.Immutable;
 import io.codelaser.maddi.annotation.ImmutableContainer;
 import io.codelaser.maddi.annotation.Independent;
+import io.codelaser.maddi.annotation.Modified;
 import io.codelaser.maddi.annotation.NotModified;
 import io.codelaser.maddi.annotation.NotNull;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
@@ -234,18 +235,18 @@ public class JavaLang {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static int codePointAt(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
-        static int codePointAt(@NotNull char[] p0, int p1) { return 0; }
-        static int codePointAt(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointAt(@NotModified @NotNull char[] p0, int p1) { return 0; }
+        static int codePointAt(@NotModified @NotNull char[] p0, int p1, int p2) { return 0; }
         static int codePointBefore(@NotNull java.lang.CharSequence p0, int p1) { return 0; }
-        static int codePointBefore(@NotNull char[] p0, int p1) { return 0; }
-        static int codePointBefore(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointBefore(@NotModified @NotNull char[] p0, int p1) { return 0; }
+        static int codePointBefore(@NotModified @NotNull char[] p0, int p1, int p2) { return 0; }
         static int codePointCount(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
-        static int codePointCount(@NotNull char[] p0, int p1, int p2) { return 0; }
+        static int codePointCount(@NotModified @NotNull char[] p0, int p1, int p2) { return 0; }
         static int codePointOf(@NotNull java.lang.String p0) { return 0; }
         int compareTo(@NotNull java.lang.Character p0) { return 0; }
         @Nullable static java.lang.String getName(int p0) { return null; }
         static int offsetByCodePoints(@NotNull java.lang.CharSequence p0, int p1, int p2) { return 0; }
-        static int offsetByCodePoints(@NotNull char[] p0, int p1, int p2, int p3, int p4) { return 0; }
+        static int offsetByCodePoints(@NotModified @NotNull char[] p0, int p1, int p2, int p3, int p4) { return 0; }
         static int toChars(int p0, @NotNull char[] p1, int p2) { return 0; }
     }
 
@@ -1726,22 +1727,22 @@ public class JavaLang {
             //@Immutable(hc=true)[T] @Independent(hc=true)[T]
             Optional<String> user() { return null; }
         }
-        long pid() { return 0L; }
+        @NotModified long pid() { return 0L; }
         //@Immutable(hc=true)[T] @Independent[T]
         static Optional<ProcessHandle> of(long pid) { return null; }
         static ProcessHandle current() { return null; }
         //@Immutable(hc=true)[T] @Independent(hc=true)[T]
-        Optional<ProcessHandle> parent() { return null; }
-        Stream<ProcessHandle> children() { return null; }
-        Stream<ProcessHandle> descendants() { return null; }
+        @NotModified Optional<ProcessHandle> parent() { return null; }
+        @NotModified Stream<ProcessHandle> children() { return null; }
+        @NotModified Stream<ProcessHandle> descendants() { return null; }
         //@Independent[T]
         static Stream<ProcessHandle> allProcesses() { return null; }
-        ProcessHandle.Info info() { return null; }
-        CompletableFuture<ProcessHandle> onExit() { return null; }
-        boolean supportsNormalTermination() { return false; }
+        @NotModified ProcessHandle.Info info() { return null; }
+        @NotModified CompletableFuture<ProcessHandle> onExit() { return null; }
+        @NotModified boolean supportsNormalTermination() { return false; }
         boolean destroy() { return false; }
         boolean destroyForcibly() { return false; }
-        boolean isAlive() { return false; }
+        @NotModified boolean isAlive() { return false; }
         //override from java.lang.Object
         //@NotModified[H]
         public int hashCode() { return 0; }
@@ -1857,7 +1858,7 @@ public class JavaLang {
         }
 
         //@NotModified[T]
-        boolean contentEquals(/*@Independent[M]*/ @NotNull StringBuffer sb) { return false; }
+        boolean contentEquals(@NotModified /*@Independent[M]*/ @NotNull StringBuffer sb) { return false; }
 
         //@NotModified[T]
         boolean contentEquals(/*@Immutable(hc=true)[T] @Independent[M] @NotModified[T]*/ @NotNull CharSequence cs) {
@@ -2075,16 +2076,16 @@ public class JavaLang {
         static String valueOf(/*@Immutable(hc=true)[T] @Independent[T] @NotModified[T]*/ @Nullable Object obj) { return null; }
 
         //@NotModified[T]
-        static String valueOf(/*@Independent[T]*/ @NotNull char [] data) { return null; }
+        static String valueOf(@NotModified /*@Independent[T]*/ @NotNull char [] data) { return null; }
 
         //@NotModified[T]
-        static String valueOf(/*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
+        static String valueOf(@NotModified /*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
 
         //@NotModified[T]
-        static String copyValueOf(/*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
+        static String copyValueOf(@NotModified /*@Independent[T]*/ @NotNull char [] data, int offset, int count) { return null; }
 
         //@NotModified[T]
-        static String copyValueOf(/*@Independent[T]*/ @NotNull char [] data) { return null; }
+        static String copyValueOf(@NotModified /*@Independent[T]*/ @NotNull char [] data) { return null; }
 
         //frequency 3
         //@NotModified[T]
@@ -2369,6 +2370,15 @@ public class JavaLang {
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void getChars(int p0, int p1, @NotNull char[] p2, int p3) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified int capacity() { return 0; }
+        @NotModified int codePointAt(int p0) { return 0; }
+        @NotModified int codePointBefore(int p0) { return 0; }
+        @NotModified int codePointCount(int p0, int p1) { return 0; }
+        @NotModified int offsetByCodePoints(int p0, int p1) { return 0; }
+        @NotModified java.lang.String substring(int p0) { return null; }
+        @NotModified java.lang.String substring(int p0, int p1) { return null; }
     }
 
     //public final class StringBuilder extends AbstractStringBuilder implements Appendable, Serializable, Comparable<StringBuilder>, CharSequence
@@ -2677,15 +2687,15 @@ public class JavaLang {
         // effect (replacing System.out/err/in) is invisible from JDK source, so it is contracted here on the safe
         // surface. A caller inherits the static side effect, which the @IgnoreModifications containment guard uses
         // to tell "reconfiguring the mechanics" (an escape) from "just using System.out" (confined).
-        @StaticSideEffects static void setIn(/*@Independent[T]*/ @NotNull InputStream in) { }
-        @StaticSideEffects static void setOut(/*@Independent[T]*/ @NotNull PrintStream out) { }
-        @StaticSideEffects static void setErr(/*@Independent[T]*/ @NotNull PrintStream err) { }
+        @StaticSideEffects static void setIn(@NotModified /*@Independent[T]*/ @NotNull InputStream in) { }
+        @StaticSideEffects static void setOut(@NotModified /*@Independent[T]*/ @NotNull PrintStream out) { }
+        @StaticSideEffects static void setErr(@NotModified /*@Independent[T]*/ @NotNull PrintStream err) { }
         //@Independent[O]
         @Nullable static Console console() { return null; }
 
         //@Independent[O]
         @Nullable static Channel inheritedChannel() { return null; }
-        static void setSecurityManager(/*@Independent[T]*/ @Nullable SecurityManager sm) { }
+        static void setSecurityManager(@NotModified /*@Independent[T]*/ @Nullable SecurityManager sm) { }
         //@Independent[O]
         @Nullable static SecurityManager getSecurityManager() { return null; }
 
@@ -2707,7 +2717,7 @@ public class JavaLang {
         //@Independent[O]
         static Properties getProperties() { return null; }
         static String lineSeparator() { return null; }
-        static void setProperties(/*@Independent[T]*/ @Nullable Properties props) { }
+        static void setProperties(@NotModified /*@Independent[T]*/ @Nullable Properties props) { }
         //frequency 2
         @NotModified
         @Nullable static String getProperty(@NotNull String key) { return null; }
@@ -2725,7 +2735,7 @@ public class JavaLang {
         static System.Logger getLogger(@NotNull String name) { return null; }
 
         //@Independent[O]
-        static System.Logger getLogger(@NotNull String name, /*@Independent[T]*/ @NotNull ResourceBundle bundle) { return null; }
+        static System.Logger getLogger(@NotNull String name, @NotModified /*@Independent[T]*/ @NotNull ResourceBundle bundle) { return null; }
 
         //frequency 1
         @IgnoreModifications
@@ -2842,14 +2852,14 @@ public class JavaLang {
         @Nullable @NotModified ThreadGroup getThreadGroup() { return null; }
         static int activeCount() { return 0; }
         static int enumerate(@NotNull(nullableArguments = 0) Thread [] tarray) { return 0; }
-        void join(long millis) { }
-        void join(long millis, int i) { }
-        void join() { }
-        boolean join(@NotNull Duration duration) { return false; }
+        @NotModified void join(long millis) { }
+        @NotModified void join(long millis, int i) { }
+        @NotModified void join() { }
+        @NotModified boolean join(@NotNull Duration duration) { return false; }
         static void dumpStack() { }
         void setDaemon(boolean on) { }
         @NotModified boolean isDaemon() { return false; }
-        void checkAccess() { }
+        @NotModified void checkAccess() { }
         //override from java.lang.Object
         //@NotModified[H] @NotNull[H]
         public String toString() { return null; }
@@ -2862,12 +2872,12 @@ public class JavaLang {
         //@Independent[T]
         @NotModified static Map<Thread, StackTraceElement []> getAllStackTraces() { return null; }
         @NotModified long getId() { return 0L; }
-        long threadId() { return 0L; }
+        @NotModified long threadId() { return 0L; }
         @NotModified Thread.State getState() { return null; }
-        static void setDefaultUncaughtExceptionHandler(@Nullable Thread.UncaughtExceptionHandler ueh) { }
+        static void setDefaultUncaughtExceptionHandler(@NotModified @Nullable Thread.UncaughtExceptionHandler ueh) { }
         @Nullable @NotModified static Thread.UncaughtExceptionHandler getDefaultUncaughtExceptionHandler() { return null; }
         @Nullable @NotModified Thread.UncaughtExceptionHandler getUncaughtExceptionHandler() { return null; }
-        void setUncaughtExceptionHandler(@Nullable Thread.UncaughtExceptionHandler ueh) { }
+        void setUncaughtExceptionHandler(@NotModified @Nullable Thread.UncaughtExceptionHandler ueh) { }
     }
 
     //public class Throwable implements Serializable
@@ -2887,20 +2897,20 @@ public class JavaLang {
         //frequency 17
         @NotModified
         @Nullable String getMessage() { return null; }
-        @Nullable String getLocalizedMessage() { return null; }
+        @NotModified @Nullable String getLocalizedMessage() { return null; }
         //frequency 7
         @NotModified
         @Nullable Throwable getCause() { return null; }
         Throwable initCause(@Nullable @NotModified Throwable cause) { return null; }
         public String toString() { return null; }
-        @IgnoreModifications void printStackTrace() { }
+        @NotModified @IgnoreModifications void printStackTrace() { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintStream s) { }
         @NotModified void printStackTrace(/*@Independent[M]*/ @NotNull PrintWriter s) { }
         Throwable fillInStackTrace() { return null; }
-        StackTraceElement [] getStackTrace() { return null; }
-        void setStackTrace(@NotNull StackTraceElement [] stackTrace) { }
+        @NotModified StackTraceElement [] getStackTrace() { return null; }
+        void setStackTrace(@NotModified @NotNull StackTraceElement [] stackTrace) { }
         void addSuppressed(@NotNull @NotModified Throwable exception) { }
-        Throwable [] getSuppressed() { return null; }
+        @NotModified Throwable [] getSuppressed() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         Throwable$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1, boolean p2, boolean p3) { }
@@ -2908,10 +2918,15 @@ public class JavaLang {
 
     // null contracts (docs/design/nullability.md M2), formerly the analyzer's LibraryNullness
     class ThreadLocal$<T> {
-        @Nullable T get() { return null; }
+        @NotModified @Nullable T get() { return null; }
     
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         static <S> java.lang.ThreadLocal<S> withInitial(@NotNull java.util.function.Supplier<? extends S> p0) { return null; }
+
+        // get() initializes the current thread's value on first use, in the thread's map: no change a caller of
+        // this object can observe. set and remove are the changes.
+        @Modified void set(T p0) { }
+        @Modified void remove() { }
     }
 
     //public java.lang.AbstractMethodError (shadow created for its nullability, generated)
@@ -2975,37 +2990,45 @@ public class JavaLang {
         java.util.Enumeration<java.net.URL> findResources(@NotNull java.lang.String p0) { return null; }
         java.lang.Class<?> findSystemClass(@NotNull java.lang.String p0) { return null; }
         java.lang.Object getClassLoadingLock(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.Package getDefinedPackage(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.String getName() { return null; }
+        @NotModified @Nullable java.lang.Package getDefinedPackage(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.lang.String getName() { return null; }
         @Nullable java.lang.Package getPackage(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.ClassLoader getParent() { return null; }
-        @Nullable java.net.URL getResource(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
-        java.util.Enumeration<java.net.URL> getResources(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.lang.ClassLoader getParent() { return null; }
+        @NotModified @Nullable java.net.URL getResource(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.util.Enumeration<java.net.URL> getResources(@NotNull java.lang.String p0) { return null; }
         @Nullable static java.net.URL getSystemResource(@NotNull java.lang.String p0) { return null; }
         @Nullable static java.io.InputStream getSystemResourceAsStream(@NotNull java.lang.String p0) { return null; }
         static java.util.Enumeration<java.net.URL> getSystemResources(@NotNull java.lang.String p0) { return null; }
-        java.lang.Class<?> loadClass(@NotNull java.lang.String p0) { return null; }
-        java.lang.Class<?> loadClass(@NotNull java.lang.String p0, boolean p1) { return null; }
+        @NotModified java.lang.Class<?> loadClass(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.Class<?> loadClass(@NotNull java.lang.String p0, boolean p1) { return null; }
         void resolveClass(@NotNull java.lang.Class<?> p0) { }
-        java.util.stream.Stream<java.net.URL> resources(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.util.stream.Stream<java.net.URL> resources(@NotNull java.lang.String p0) { return null; }
         void setClassAssertionStatus(@NotNull java.lang.String p0, boolean p1) { }
         void setPackageAssertionStatus(@Nullable java.lang.String p0, boolean p1) { }
         void setSigners(@NotNull java.lang.Class<?> p0, @NotNull java.lang.Object[] p1) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.Package[] getDefinedPackages() { return null; }
+        @NotModified java.lang.Module getUnnamedModule() { return null; }
+        @NotModified boolean isRegisteredAsParallelCapable() { return false; }
     }
 
     //public java.lang.ClassNotFoundException (shadow created for its nullability, generated)
     class ClassNotFoundException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ClassNotFoundException$(@Nullable java.lang.String p0) { }
-        ClassNotFoundException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        ClassNotFoundException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.Throwable getException() { return null; }
     }
 
     //public java.lang.ClassValue (shadow created for its nullability, generated)
     class ClassValue$<T> {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         T computeValue(@NotNull java.lang.Class<?> p0) { return null; }
-        T get(@NotNull java.lang.Class<?> p0) { return null; }
+        @NotModified T get(@NotNull java.lang.Class<?> p0) { return null; }
         void remove(@NotNull java.lang.Class<?> p0) { }
     }
 
@@ -3019,14 +3042,18 @@ public class JavaLang {
     class EnumConstantNotPresentException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         EnumConstantNotPresentException$(@NotNull java.lang.Class<? extends java.lang.Enum> p0, @NotNull java.lang.String p1) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.String constantName() { return null; }
+        @NotModified java.lang.Class<? extends java.lang.Enum> enumType() { return null; }
     }
 
     //public java.lang.ExceptionInInitializerError (shadow created for its nullability, generated)
     class ExceptionInInitializerError$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ExceptionInInitializerError$(@Nullable java.lang.String p0) { }
-        ExceptionInInitializerError$(@Nullable java.lang.Throwable p0) { }
-        @Nullable java.lang.Throwable getException() { return null; }
+        ExceptionInInitializerError$(@NotModified @Nullable java.lang.Throwable p0) { }
+        @NotModified @Nullable java.lang.Throwable getException() { return null; }
     }
 
     //public java.lang.IO (shadow created for its nullability, generated)
@@ -3054,8 +3081,8 @@ public class JavaLang {
     class IllegalCallerException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         IllegalCallerException$(@Nullable java.lang.String p0) { }
-        IllegalCallerException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        IllegalCallerException$(@Nullable java.lang.Throwable p0) { }
+        IllegalCallerException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        IllegalCallerException$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 
     //public java.lang.IllegalMonitorStateException (shadow created for its nullability, generated)
@@ -3098,8 +3125,8 @@ public class JavaLang {
     class InternalError$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         InternalError$(@Nullable java.lang.String p0) { }
-        InternalError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        InternalError$(@Nullable java.lang.Throwable p0) { }
+        InternalError$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        InternalError$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 
     //public java.lang.InterruptedException (shadow created for its nullability, generated)
@@ -3112,48 +3139,53 @@ public class JavaLang {
     class LinkageError$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         LinkageError$(@Nullable java.lang.String p0) { }
-        LinkageError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        LinkageError$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
     }
 
     //public java.lang.MatchException (shadow created for its nullability, generated)
     class MatchException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        MatchException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        MatchException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
     }
 
     //public java.lang.Module (shadow created for its nullability, generated)
     class Module$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.lang.Module addExports(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
-        java.lang.Module addOpens(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return null; }
-        java.lang.Module addReads(@NotNull java.lang.Module p0) { return null; }
+        java.lang.Module addExports(@NotNull java.lang.String p0, @NotModified @NotNull java.lang.Module p1) { return null; }
+        java.lang.Module addOpens(@NotNull java.lang.String p0, @NotModified @NotNull java.lang.Module p1) { return null; }
+        java.lang.Module addReads(@NotModified @NotNull java.lang.Module p0) { return null; }
         java.lang.Module addUses(@NotNull java.lang.Class<?> p0) { return null; }
-        boolean canRead(@NotNull java.lang.Module p0) { return false; }
-        boolean canUse(@NotNull java.lang.Class<?> p0) { return false; }
+        @NotModified boolean canRead(@NotModified @NotNull java.lang.Module p0) { return false; }
+        @NotModified boolean canUse(@NotNull java.lang.Class<?> p0) { return false; }
         @Nullable <T extends java.lang.annotation.Annotation> T getAnnotation(@NotNull java.lang.Class<T> p0) { return null; }
-        @Nullable java.lang.ClassLoader getClassLoader() { return null; }
-        @Nullable java.lang.module.ModuleDescriptor getDescriptor() { return null; }
-        @Nullable java.lang.ModuleLayer getLayer() { return null; }
-        @Nullable java.lang.String getName() { return null; }
-        @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
-        boolean isExported(@NotNull java.lang.String p0) { return false; }
-        boolean isExported(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return false; }
-        boolean isOpen(@NotNull java.lang.String p0) { return false; }
-        boolean isOpen(@NotNull java.lang.String p0, @NotNull java.lang.Module p1) { return false; }
+        @NotModified @Nullable java.lang.ClassLoader getClassLoader() { return null; }
+        @NotModified @Nullable java.lang.module.ModuleDescriptor getDescriptor() { return null; }
+        @NotModified @Nullable java.lang.ModuleLayer getLayer() { return null; }
+        @NotModified @Nullable java.lang.String getName() { return null; }
+        @NotModified @Nullable java.io.InputStream getResourceAsStream(@NotNull java.lang.String p0) { return null; }
+        @NotModified boolean isExported(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean isExported(@NotNull java.lang.String p0, @NotModified @NotNull java.lang.Module p1) { return false; }
+        @NotModified boolean isOpen(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean isOpen(@NotNull java.lang.String p0, @NotModified @NotNull java.lang.Module p1) { return false; }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.util.Set<java.lang.String> getPackages() { return null; }
+        @NotModified boolean isNamed() { return false; }
+        @NotModified boolean isNativeAccessEnabled() { return false; }
     }
 
     //public java.lang.ModuleLayer (shadow created for its nullability, generated)
     class ModuleLayer$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         @Nullable static java.lang.ModuleLayer boot() { return null; }
-        java.lang.ModuleLayer defineModules(@NotNull java.lang.module.Configuration p0, @NotNull java.util.function.Function<java.lang.String, java.lang.ClassLoader> p1) { return null; }
+        @NotModified java.lang.ModuleLayer defineModules(@NotNull java.lang.module.Configuration p0, @NotNull java.util.function.Function<java.lang.String, java.lang.ClassLoader> p1) { return null; }
         static java.lang.ModuleLayer.Controller defineModules(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @NotNull java.util.function.Function<java.lang.String, java.lang.ClassLoader> p2) { return null; }
-        java.lang.ModuleLayer defineModulesWithManyLoaders(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        @NotModified java.lang.ModuleLayer defineModulesWithManyLoaders(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
         static java.lang.ModuleLayer.Controller defineModulesWithManyLoaders(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @Nullable java.lang.ClassLoader p2) { return null; }
-        java.lang.ModuleLayer defineModulesWithOneLoader(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
+        @NotModified java.lang.ModuleLayer defineModulesWithOneLoader(@NotNull java.lang.module.Configuration p0, @Nullable java.lang.ClassLoader p1) { return null; }
         static java.lang.ModuleLayer.Controller defineModulesWithOneLoader(@NotNull java.lang.module.Configuration p0, @NotNull java.util.List<java.lang.ModuleLayer> p1, @Nullable java.lang.ClassLoader p2) { return null; }
-        @Nullable java.lang.ClassLoader findLoader(@NotNull java.lang.String p0) { return null; }
-        java.util.Optional<java.lang.Module> findModule(@NotNull java.lang.String p0) { return null; }
+        @NotModified @Nullable java.lang.ClassLoader findLoader(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.util.Optional<java.lang.Module> findModule(@NotNull java.lang.String p0) { return null; }
 
         //public java.lang.ModuleLayer.Controller (shadow created for its nullability, generated)
         class Controller {
@@ -3163,6 +3195,11 @@ public class JavaLang {
             java.lang.ModuleLayer.Controller addReads(@NotNull java.lang.Module p0, @NotNull java.lang.Module p1) { return null; }
             java.lang.ModuleLayer.Controller enableNativeAccess(@NotNull java.lang.Module p0) { return null; }
         }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.module.Configuration configuration() { return null; }
+        @NotModified java.util.Set<java.lang.Module> modules() { return null; }
+        @NotModified java.util.List<java.lang.ModuleLayer> parents() { return null; }
     }
 
     //public java.lang.NegativeArraySizeException (shadow created for its nullability, generated)
@@ -3227,44 +3264,66 @@ public class JavaLang {
         <A extends java.lang.annotation.Annotation> A[] getAnnotationsByType(@NotNull java.lang.Class<A> p0) { return null; }
         @Nullable <A extends java.lang.annotation.Annotation> A getDeclaredAnnotation(@NotNull java.lang.Class<A> p0) { return null; }
         <A extends java.lang.annotation.Annotation> A[] getDeclaredAnnotationsByType(@NotNull java.lang.Class<A> p0) { return null; }
-        @Nullable java.lang.String getImplementationTitle() { return null; }
-        @Nullable java.lang.String getImplementationVendor() { return null; }
-        @Nullable java.lang.String getImplementationVersion() { return null; }
+        @NotModified @Nullable java.lang.String getImplementationTitle() { return null; }
+        @NotModified @Nullable java.lang.String getImplementationVendor() { return null; }
+        @NotModified @Nullable java.lang.String getImplementationVersion() { return null; }
         @Nullable static java.lang.Package getPackage(@NotNull java.lang.String p0) { return null; }
-        @Nullable java.lang.String getSpecificationTitle() { return null; }
-        @Nullable java.lang.String getSpecificationVendor() { return null; }
-        @Nullable java.lang.String getSpecificationVersion() { return null; }
+        @NotModified @Nullable java.lang.String getSpecificationTitle() { return null; }
+        @NotModified @Nullable java.lang.String getSpecificationVendor() { return null; }
+        @NotModified @Nullable java.lang.String getSpecificationVersion() { return null; }
         boolean isAnnotationPresent(@NotNull java.lang.Class<? extends java.lang.annotation.Annotation> p0) { return false; }
-        boolean isCompatibleWith(@NotNull java.lang.String p0) { return false; }
-        boolean isSealed(@NotNull java.net.URL p0) { return false; }
+        @NotModified boolean isCompatibleWith(@NotNull java.lang.String p0) { return false; }
+        @NotModified boolean isSealed(@NotNull java.net.URL p0) { return false; }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.String getName() { return null; }
+        @NotModified boolean isSealed() { return false; }
     }
 
     //public java.lang.Process (shadow created for its nullability, generated)
     class Process$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        java.io.BufferedReader errorReader(@NotNull java.nio.charset.Charset p0) { return null; }
-        java.io.BufferedReader inputReader(@NotNull java.nio.charset.Charset p0) { return null; }
-        java.io.BufferedWriter outputWriter(@NotNull java.nio.charset.Charset p0) { return null; }
-        boolean waitFor(@NotNull java.time.Duration p0) { return false; }
-        boolean waitFor(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return false; }
+        @NotModified java.io.BufferedReader errorReader(@NotNull java.nio.charset.Charset p0) { return null; }
+        @NotModified java.io.BufferedReader inputReader(@NotNull java.nio.charset.Charset p0) { return null; }
+        @NotModified java.io.BufferedWriter outputWriter(@NotNull java.nio.charset.Charset p0) { return null; }
+        @NotModified boolean waitFor(@NotNull java.time.Duration p0) { return false; }
+        @NotModified boolean waitFor(long p0, @NotNull java.util.concurrent.TimeUnit p1) { return false; }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.util.stream.Stream<java.lang.ProcessHandle> children() { return null; }
+        @NotModified java.util.stream.Stream<java.lang.ProcessHandle> descendants() { return null; }
+        @NotModified java.io.InputStream getErrorStream() { return null; }
+        @NotModified java.io.InputStream getInputStream() { return null; }
+        @NotModified java.io.OutputStream getOutputStream() { return null; }
+        @NotModified java.lang.ProcessHandle.Info info() { return null; }
+        @NotModified boolean isAlive() { return false; }
+        @NotModified long pid() { return 0; }
+        @NotModified boolean supportsNormalTermination() { return false; }
+        @NotModified java.lang.ProcessHandle toHandle() { return null; }
+        @NotModified int exitValue() { return 0; }
+        @NotModified java.util.concurrent.CompletableFuture<java.lang.Process> onExit() { return null; }
+        @NotModified java.io.BufferedReader errorReader() { return null; }
+        @NotModified java.io.BufferedReader inputReader() { return null; }
+        @NotModified java.io.BufferedWriter outputWriter() { return null; }
+        @NotModified int waitFor() { return 0; }
     }
 
     //public java.lang.ProcessBuilder (shadow created for its nullability, generated)
     class ProcessBuilder$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        ProcessBuilder$(@NotNull java.util.List<java.lang.String> p0) { }
-        ProcessBuilder$(@NotNull java.lang.String... p0) { }
-        java.lang.ProcessBuilder command(@NotNull java.util.List<java.lang.String> p0) { return null; }
-        java.lang.ProcessBuilder command(@NotNull java.lang.String... p0) { return null; }
-        @Nullable java.io.File directory() { return null; }
+        ProcessBuilder$(@NotModified @NotNull java.util.List<java.lang.String> p0) { }
+        ProcessBuilder$(@NotNull @NotModified java.lang.String... p0) { }
+        java.lang.ProcessBuilder command(@NotModified @NotNull java.util.List<java.lang.String> p0) { return null; }
+        java.lang.ProcessBuilder command(@NotNull @NotModified java.lang.String... p0) { return null; }
+        @NotModified @Nullable java.io.File directory() { return null; }
         java.lang.ProcessBuilder directory(@Nullable java.io.File p0) { return null; }
         java.lang.ProcessBuilder redirectError(@NotNull java.io.File p0) { return null; }
-        java.lang.ProcessBuilder redirectError(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        java.lang.ProcessBuilder redirectError(@NotModified @NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
         java.lang.ProcessBuilder redirectInput(@NotNull java.io.File p0) { return null; }
-        java.lang.ProcessBuilder redirectInput(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        java.lang.ProcessBuilder redirectInput(@NotModified @NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
         java.lang.ProcessBuilder redirectOutput(@NotNull java.io.File p0) { return null; }
-        java.lang.ProcessBuilder redirectOutput(@NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
-        static java.util.List<java.lang.Process> startPipeline(@NotNull java.util.List<java.lang.ProcessBuilder> p0) { return null; }
+        java.lang.ProcessBuilder redirectOutput(@NotModified @NotNull java.lang.ProcessBuilder.Redirect p0) { return null; }
+        static java.util.List<java.lang.Process> startPipeline(@NotModified @NotNull java.util.List<java.lang.ProcessBuilder> p0) { return null; }
 
         //public java.lang.ProcessBuilder.Redirect (shadow created for its nullability, generated)
         class Redirect {
@@ -3274,26 +3333,35 @@ public class JavaLang {
             static java.lang.ProcessBuilder.Redirect from(@NotNull java.io.File p0) { return null; }
             static java.lang.ProcessBuilder.Redirect to(@NotNull java.io.File p0) { return null; }
         }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.Process start() { return null; }
+        @NotModified boolean redirectErrorStream() { return false; }
+        @NotModified java.util.Map<java.lang.String, java.lang.String> environment() { return null; }
+        @NotModified java.util.List<java.lang.String> command() { return null; }
+        @NotModified java.lang.ProcessBuilder.Redirect redirectError() { return null; }
+        @NotModified java.lang.ProcessBuilder.Redirect redirectInput() { return null; }
+        @NotModified java.lang.ProcessBuilder.Redirect redirectOutput() { return null; }
     }
 
     //public java.lang.ReflectiveOperationException (shadow created for its nullability, generated)
     class ReflectiveOperationException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ReflectiveOperationException$(@Nullable java.lang.String p0) { }
-        ReflectiveOperationException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        ReflectiveOperationException$(@Nullable java.lang.Throwable p0) { }
+        ReflectiveOperationException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        ReflectiveOperationException$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 
     //public java.lang.Runtime (shadow created for its nullability, generated)
     class Runtime$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         void addShutdownHook(@NotNull java.lang.Thread p0) { }
-        java.lang.Process exec(@NotNull java.lang.String p0) { return null; }
-        java.lang.Process exec(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1) { return null; }
-        java.lang.Process exec(@NotNull java.lang.String p0, @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
-        java.lang.Process exec(@NotNull java.lang.String[] p0) { return null; }
-        java.lang.Process exec(@NotNull java.lang.String[] p0, @Nullable java.lang.String[] p1) { return null; }
-        java.lang.Process exec(@NotNull java.lang.String[] p0, @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
+        @NotModified java.lang.Process exec(@NotNull java.lang.String p0) { return null; }
+        @NotModified java.lang.Process exec(@NotNull java.lang.String p0, @NotModified @Nullable java.lang.String[] p1) { return null; }
+        @NotModified java.lang.Process exec(@NotNull java.lang.String p0, @NotModified @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
+        @NotModified java.lang.Process exec(@NotModified @NotNull java.lang.String[] p0) { return null; }
+        @NotModified java.lang.Process exec(@NotModified @NotNull java.lang.String[] p0, @NotModified @Nullable java.lang.String[] p1) { return null; }
+        @NotModified java.lang.Process exec(@NotModified @NotNull java.lang.String[] p0, @NotModified @Nullable java.lang.String[] p1, @Nullable java.io.File p2) { return null; }
         void load(@NotNull java.lang.String p0) { }
         void loadLibrary(@NotNull java.lang.String p0) { }
         boolean removeShutdownHook(@NotNull java.lang.Thread p0) { return false; }
@@ -3307,6 +3375,12 @@ public class JavaLang {
             boolean equalsIgnoreOptional(@NotNull java.lang.Object p0) { return false; }
             static java.lang.Runtime.Version parse(@NotNull java.lang.String p0) { return null; }
         }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified int availableProcessors() { return 0; }
+        @NotModified long freeMemory() { return 0; }
+        @NotModified long maxMemory() { return 0; }
+        @NotModified long totalMemory() { return 0; }
     }
 
     //public java.lang.RuntimePermission (shadow created for its nullability, generated)
@@ -3320,34 +3394,34 @@ public class JavaLang {
     class SecurityException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         SecurityException$(@Nullable java.lang.String p0) { }
-        SecurityException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        SecurityException$(@Nullable java.lang.Throwable p0) { }
+        SecurityException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        SecurityException$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 
     //public java.lang.SecurityManager (shadow created for its nullability, generated)
     class SecurityManager$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void checkAccept(@NotNull java.lang.String p0, int p1) { }
-        void checkAccess(@NotNull java.lang.Thread p0) { }
-        void checkAccess(@NotNull java.lang.ThreadGroup p0) { }
-        void checkConnect(@NotNull java.lang.String p0, int p1) { }
-        void checkConnect(@NotNull java.lang.String p0, int p1, @NotNull java.lang.Object p2) { }
-        void checkDelete(@NotNull java.lang.String p0) { }
-        void checkExec(@NotNull java.lang.String p0) { }
-        void checkLink(@NotNull java.lang.String p0) { }
-        void checkMulticast(@NotNull java.net.InetAddress p0) { }
-        void checkMulticast(@NotNull java.net.InetAddress p0, byte p1) { }
-        void checkPackageAccess(@NotNull java.lang.String p0) { }
-        void checkPackageDefinition(@NotNull java.lang.String p0) { }
-        void checkPermission(@NotNull java.security.Permission p0) { }
-        void checkPermission(@NotNull java.security.Permission p0, @NotNull java.lang.Object p1) { }
-        void checkPropertyAccess(@NotNull java.lang.String p0) { }
-        void checkRead(@NotNull java.io.FileDescriptor p0) { }
-        void checkRead(@NotNull java.lang.String p0) { }
-        void checkRead(@NotNull java.lang.String p0, @NotNull java.lang.Object p1) { }
-        void checkSecurityAccess(@NotNull java.lang.String p0) { }
-        void checkWrite(@NotNull java.io.FileDescriptor p0) { }
-        void checkWrite(@NotNull java.lang.String p0) { }
+        @NotModified void checkAccept(@NotNull java.lang.String p0, int p1) { }
+        @NotModified void checkAccess(@NotModified @NotNull java.lang.Thread p0) { }
+        @NotModified void checkAccess(@NotModified @NotNull java.lang.ThreadGroup p0) { }
+        @NotModified void checkConnect(@NotNull java.lang.String p0, int p1) { }
+        @NotModified void checkConnect(@NotNull java.lang.String p0, int p1, @NotNull java.lang.Object p2) { }
+        @NotModified void checkDelete(@NotNull java.lang.String p0) { }
+        @NotModified void checkExec(@NotNull java.lang.String p0) { }
+        @NotModified void checkLink(@NotNull java.lang.String p0) { }
+        @NotModified void checkMulticast(@NotNull java.net.InetAddress p0) { }
+        @NotModified void checkMulticast(@NotNull java.net.InetAddress p0, byte p1) { }
+        @NotModified void checkPackageAccess(@NotNull java.lang.String p0) { }
+        @NotModified void checkPackageDefinition(@NotNull java.lang.String p0) { }
+        @NotModified void checkPermission(@NotModified @NotNull java.security.Permission p0) { }
+        @NotModified void checkPermission(@NotModified @NotNull java.security.Permission p0, @NotNull java.lang.Object p1) { }
+        @NotModified void checkPropertyAccess(@NotNull java.lang.String p0) { }
+        @NotModified void checkRead(@NotModified @NotNull java.io.FileDescriptor p0) { }
+        @NotModified void checkRead(@NotNull java.lang.String p0) { }
+        @NotModified void checkRead(@NotNull java.lang.String p0, @NotNull java.lang.Object p1) { }
+        @NotModified void checkSecurityAccess(@NotNull java.lang.String p0) { }
+        @NotModified void checkWrite(@NotModified @NotNull java.io.FileDescriptor p0) { }
+        @NotModified void checkWrite(@NotNull java.lang.String p0) { }
     }
 
     //public java.lang.StackOverflowError (shadow created for its nullability, generated)
@@ -3359,17 +3433,20 @@ public class JavaLang {
     //public java.lang.StackWalker (shadow created for its nullability, generated)
     class StackWalker$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        void forEach(@NotNull java.util.function.Consumer<? super java.lang.StackWalker.StackFrame> p0) { }
+        @NotModified void forEach(@NotNull java.util.function.Consumer<? super java.lang.StackWalker.StackFrame> p0) { }
         static java.lang.StackWalker getInstance(@NotNull java.lang.StackWalker.Option p0) { return null; }
         static java.lang.StackWalker getInstance(@NotNull java.util.Set<java.lang.StackWalker.Option> p0) { return null; }
         static java.lang.StackWalker getInstance(@NotNull java.util.Set<java.lang.StackWalker.Option> p0, int p1) { return null; }
-        <T> T walk(@NotNull java.util.function.Function<? super java.util.stream.Stream<java.lang.StackWalker.StackFrame>, ? extends T> p0) { return null; }
+        @NotModified <T> T walk(@NotNull java.util.function.Function<? super java.util.stream.Stream<java.lang.StackWalker.StackFrame>, ? extends T> p0) { return null; }
 
         //public java.lang.StackWalker.StackFrame (shadow created for its nullability, generated)
         class StackFrame {
             // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
             @Nullable java.lang.String getFileName() { return null; }
         }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.Class<?> getCallerClass() { return null; }
     }
 
     //public java.lang.StringIndexOutOfBoundsException (shadow created for its nullability, generated)
@@ -3383,20 +3460,32 @@ public class JavaLang {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         ThreadGroup$(@Nullable java.lang.String p0) { }
         ThreadGroup$(@NotNull java.lang.ThreadGroup p0, @Nullable java.lang.String p1) { }
-        int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0) { return 0; }
-        int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
-        int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0) { return 0; }
-        int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0, boolean p1) { return 0; }
-        @Nullable java.lang.String getName() { return null; }
-        @Nullable java.lang.ThreadGroup getParent() { return null; }
-        boolean parentOf(@NotNull java.lang.ThreadGroup p0) { return false; }
-        void uncaughtException(@NotNull java.lang.Thread p0, @NotNull java.lang.Throwable p1) { }
+        @NotModified int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0) { return 0; }
+        @NotModified int enumerate(@NotNull(nullableArguments = 0) java.lang.ThreadGroup[] p0, boolean p1) { return 0; }
+        @NotModified int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0) { return 0; }
+        @NotModified int enumerate(@NotNull(nullableArguments = 0) java.lang.Thread[] p0, boolean p1) { return 0; }
+        @NotModified @Nullable java.lang.String getName() { return null; }
+        @NotModified @Nullable java.lang.ThreadGroup getParent() { return null; }
+        @NotModified boolean parentOf(@NotModified @NotNull java.lang.ThreadGroup p0) { return false; }
+        @NotModified void uncaughtException(@NotModified @NotNull java.lang.Thread p0, @NotModified @NotNull java.lang.Throwable p1) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified int activeCount() { return 0; }
+        @NotModified int activeGroupCount() { return 0; }
+        @NotModified void checkAccess() { }
+        @NotModified int getMaxPriority() { return 0; }
+        @NotModified boolean isDaemon() { return false; }
+        @NotModified boolean isDestroyed() { return false; }
+        @NotModified void list() { }
     }
 
     //public java.lang.TypeNotPresentException (shadow created for its nullability, generated)
     class TypeNotPresentException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
-        TypeNotPresentException$(@NotNull java.lang.String p0, @Nullable java.lang.Throwable p1) { }
+        TypeNotPresentException$(@NotNull java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+
+        // a query of this object, not a change of it (java.lang audit, 2026-10-29: the unannotated default is modifying)
+        @NotModified java.lang.String typeName() { return null; }
     }
 
     //public java.lang.UnknownError (shadow created for its nullability, generated)
@@ -3421,8 +3510,8 @@ public class JavaLang {
     class UnsupportedOperationException$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         UnsupportedOperationException$(@Nullable java.lang.String p0) { }
-        UnsupportedOperationException$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        UnsupportedOperationException$(@Nullable java.lang.Throwable p0) { }
+        UnsupportedOperationException$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        UnsupportedOperationException$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 
     //public java.lang.VerifyError (shadow created for its nullability, generated)
@@ -3435,7 +3524,7 @@ public class JavaLang {
     class VirtualMachineError$ {
         // nullability from JSpecify's JDK (generated, jspecify-jdk-nullness.py)
         VirtualMachineError$(@Nullable java.lang.String p0) { }
-        VirtualMachineError$(@Nullable java.lang.String p0, @Nullable java.lang.Throwable p1) { }
-        VirtualMachineError$(@Nullable java.lang.Throwable p0) { }
+        VirtualMachineError$(@Nullable java.lang.String p0, @NotModified @Nullable java.lang.Throwable p1) { }
+        VirtualMachineError$(@NotModified @Nullable java.lang.Throwable p0) { }
     }
 }
