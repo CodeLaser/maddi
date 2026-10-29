@@ -113,6 +113,12 @@ public class PropertyImpl implements Property {
      * Written only when a run asks for culprits; absent otherwise.
      */
     public static final Property DEPENDENT_CULPRIT = new PropertyImpl("dependentCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a field, parameter or method return is nullable (NULLABILITY_* NULLABLE at the top level): the nullability
+     * pass's chain from the element back to the null itself, at the statements that carry it, the seed's origin last.
+     * Written only when a run asks for culprits; absent otherwise.
+     */
+    public static final Property NULLABLE_CULPRIT = new PropertyImpl("nullableCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
