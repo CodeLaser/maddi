@@ -18,10 +18,12 @@
 # and the three passes took the ratchet past the slowTest gate's hour (maddi-mod's guava-nullability ratchets them).
 # 2026-10-24, compile 3 leaves out a Kotlin class an original Java class cannot extend (Kotlin's final size() bridge
 # under HashBiMap, which failed to load): 360 files to class files, 8 fewer, as many as are drop-in replacements.
+# 2026-10-29, measured at maddi devel ec138a899 (the printer work merged since 10-24): 474 compiling (569 type
+# errors), 360 to class files, 407 test files.
 types	610
 printerCrashes	0
 syntaxErrors	0
 syntaxCleanFiles	610
-compilingFiles	473
+compilingFiles	474
 bytecodeFiles	360
 testBytecodeFiles	407
