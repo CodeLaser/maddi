@@ -117,6 +117,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     private SourceProvider sourceProvider;
     private ElementStack elementStack;
     private IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources;
+    // their fully qualified names, for getType (maddi#179)
+    private Set<String> topLevelSourceTypeNames;
     // the files this task was GIVEN to compile, as opposed to those javac parsed on demand from the source path;
     // null until ScanCompilationUnits.scan() knows them. See isSourceSymbol.
     private Set<URI> compilationUnitUris;
@@ -1660,6 +1662,8 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
     @Override
     public void setTopLevelClassSymbolsOfSources(IdentityHashMap<Symbol.ClassSymbol, Boolean> topLevelClassSymbolsOfSources) {
         this.topLevelClassSymbolsOfSources = topLevelClassSymbolsOfSources;
+        this.topLevelSourceTypeNames = topLevelClassSymbolsOfSources.keySet().stream()
+                .map(cs -> cs.fullname.toString()).collect(Collectors.toUnmodifiableSet());
     }
 
     /** The files this task compiles, known right after {@code task.parse()}; see {@link #isSourceSymbol}. */
@@ -2330,6 +2334,11 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
             if (topLevelClassSymbolsOfSources != null
                 && topLevelClassSymbolsOfSources.containsKey(topCs = primary(cs))) {
                 // ct/cs is one of the source files that we are parsing at the moment
+                // the same FILE is not enough: one file compiled into two source sets has one URI and two copies of
+                // each type (maddi#179). getType does not answer with another set's copy of a type this set's
+                // sources declare, so one here means a lookup that went around it
+                assert isStub(known) || sourceSetOfCurrentTask.equals(knownCu.sourceSet())
+                        : "a type of a file this set is parsing resolved to " + knownCu.sourceSet() + "'s copy: " + known;
                 if (cs.sourcefile != null
                     && !knownCu.uri().equals(topCs.sourcefile.toUri())) {
                     // so if the source file does not agree with known, we must load the class file
@@ -2491,9 +2500,37 @@ public class ClassSymbolScanner implements ConvertType, TypeData {
         return sourceSetMap.get(name);
     }
 
+    /**
+     * ⛔ <b>A TYPE THIS SET'S OWN SOURCES DECLARE IS NEVER ANOTHER SET'S COPY.</b> One file compiled into two source
+     * sets declares each of its types twice, and javac compiles each set against its own sources. Until this set's
+     * scan reaches a declaration, the registry holds only the other set's copy, and answered with it: a use before the
+     * declaration -- a nested class further down the file, another file scanned later -- linked to a type the set
+     * does not even depend on (maddi#179, hibernate-orm's ClassificationMetadataResolver.MissingMetadataException,
+     * whose second copy then looked unused). Answering "not registered" sends every caller down the path the first
+     * set takes: the type is loaded from its source symbol, into this set.
+     */
     @Override
     public TypeInfo getType(String fullyQualifiedName) {
-        return infoByFqn.getType(fullyQualifiedName, sourceSetOfCurrentTask);
+        TypeInfo typeInfo = infoByFqn.getType(fullyQualifiedName, sourceSetOfCurrentTask);
+        if (typeInfo == null || isStub(typeInfo)
+            || sourceSetOfCurrentTask.equals(typeInfo.compilationUnit().sourceSet())) {
+            return typeInfo;
+        }
+        return declaredByOwnSources(fullyQualifiedName) ? null : typeInfo;
+    }
+
+    // the name, or the name of a type enclosing it ('.' for a member type, '$' for an anonymous one), is a top-level
+    // type of this task's sources
+    private boolean declaredByOwnSources(String fullyQualifiedName) {
+        Set<String> names = topLevelSourceTypeNames;
+        if (names == null || names.isEmpty()) return false;
+        String name = fullyQualifiedName;
+        while (true) {
+            if (names.contains(name)) return true;
+            int cut = Math.max(name.lastIndexOf('.'), name.lastIndexOf('$'));
+            if (cut < 0) return false;
+            name = name.substring(0, cut);
+        }
     }
 
     @Override

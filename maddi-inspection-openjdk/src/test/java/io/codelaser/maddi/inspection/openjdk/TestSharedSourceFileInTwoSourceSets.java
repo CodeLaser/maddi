@@ -144,19 +144,84 @@ public class TestSharedSourceFileInTwoSourceSets {
         assertEachCopyCreatesItsOwn(parse(NESTED_CLASS_FIRST));
     }
 
-    /**
-     * For each copy of the file's class: the source sets of the MissingMetadataException that its checkStatus
-     * creates. Each copy must create its own.
-     */
+    /** A use of a type of ANOTHER shared file, which the scan reaches later (maddi#179's evaluation). */
+    @Language("java")
+    private static final String ALPHA = """
+            package shared;
+
+            public final class Alpha {
+                static Object make() {
+                    return new Omega();
+                }
+            }
+            """;
+
+    @Language("java")
+    private static final String OMEGA = """
+            package shared;
+
+            public final class Omega {
+            }
+            """;
+
+    /** A type nested two deep, used before its declaration. */
+    @Language("java")
+    private static final String DEEP_NESTED_LAST = """
+            package shared;
+
+            public final class ClassificationMetadataResolver {
+
+                static Object make() {
+                    return new Outer.Middle.Deep();
+                }
+
+                static final class Outer {
+                    static final class Middle {
+                        static final class Deep {
+                        }
+                    }
+                }
+            }
+            """;
+
+    @DisplayName("a type of another shared file, scanned later, resolves to the copy of the source set that uses it")
+    @Test
+    public void typeOfAnotherFileScannedLater() throws Exception {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("shared.Alpha", ALPHA);
+        files.put("shared.Omega", OMEGA);
+        assertEachCopyCreatesItsOwn(parse(files, false), "shared.Alpha", "make");
+    }
+
+    @DisplayName("a second source set depending on the first still resolves to its own copy, as javac compiles it")
+    @Test
+    public void secondSourceSetDependsOnTheFirst() throws Exception {
+        assertEachCopyCreatesItsOwn(parse(Map.of(FQN, NESTED_CLASS_LAST), true), FQN, "checkStatus");
+    }
+
+    @DisplayName("a type nested two deep, used before its declaration, resolves to the copy of its source set")
+    @Test
+    public void deepNestedTypeUsedBeforeItsDeclaration() throws Exception {
+        assertEachCopyCreatesItsOwn(parse(Map.of(FQN, DEEP_NESTED_LAST), false), FQN, "make");
+    }
+
     private static void assertEachCopyCreatesItsOwn(Summary summary) {
+        assertEachCopyCreatesItsOwn(summary, FQN, "checkStatus");
+    }
+
+    /**
+     * For each copy of the [fqn]'s type: the source sets of the types that its [methodName] creates. Each copy must
+     * create its own.
+     */
+    private static void assertEachCopyCreatesItsOwn(Summary summary, String fqn, String methodName) {
         assertFalse(summary.haveErrors(), "the parse succeeds: " + summary.parseExceptions());
         List<TypeInfo> copies = summary.parseResult().primaryTypes().stream()
-                .filter(t -> FQN.equals(t.fullyQualifiedName()))
+                .filter(t -> fqn.equals(t.fullyQualifiedName()))
                 .toList();
         assertEquals(List.of(FIRST, SECOND), copies.stream().map(t -> sourceSet(t)).sorted().toList(),
-                "one copy of " + FQN + " per source set");
+                "one copy of " + fqn + " per source set");
         for (TypeInfo copy : copies) {
-            MethodInfo checkStatus = copy.methods().stream().filter(m -> m.name().equals("checkStatus")).findFirst()
+            MethodInfo checkStatus = copy.methods().stream().filter(m -> m.name().equals(methodName)).findFirst()
                     .orElseThrow();
             List<String> created = new ArrayList<>();
             checkStatus.methodBody().visit(e -> {
@@ -166,9 +231,9 @@ public class TestSharedSourceFileInTwoSourceSets {
                 return true;
             });
             assertEquals(List.of(sourceSet(copy)), created,
-                    "the copy of checkStatus in source set '" + sourceSet(copy) + "' does `new"
-                    + " MissingMetadataException( uri )`; the list is the source set of the MissingMetadataException"
-                    + " that call resolved to, and it must be the same source set");
+                    "the copy of " + methodName + " in source set '" + sourceSet(copy) + "' constructs a type of the"
+                    + " shared sources; the list is the source set of the type that call resolved to, and it must be"
+                    + " the same source set");
             assertTrue(copy.subTypes().stream().allMatch(sub -> sourceSet(sub).equals(sourceSet(copy))),
                     "the nested class of each copy belongs to that copy's source set");
         }
@@ -181,13 +246,18 @@ public class TestSharedSourceFileInTwoSourceSets {
 
     /** Two source sets holding the same file, each depending on java.base only: not on each other. */
     private static Summary parse(String file) throws Exception {
+        return parse(Map.of(FQN, file), false);
+    }
+
+    /** Two source sets holding the same files; the second depends on the first when [dependent]. */
+    private static Summary parse(Map<String, String> files, boolean dependent) throws Exception {
         SourceSet javaBase = SourceSetImpl.javaBase();
         SourceSet first = new SourceSetImpl.Builder().setName(FIRST)
                 .setUri(URI.create("file:/local-build-plugins/"))
                 .setDependencies(List.of(javaBase)).build();
         SourceSet second = new SourceSetImpl.Builder().setName(SECOND)
                 .setUri(URI.create("file:/tooling/hibernate-dialect-provider/"))
-                .setDependencies(List.of(javaBase)).build();
+                .setDependencies(dependent ? List.of(javaBase, first) : List.of(javaBase)).build();
         InputConfiguration ic = new InputConfigurationImpl.Builder()
                 .addClassPathParts(javaBase)
                 .addSourceSets(first, second)
@@ -195,8 +265,8 @@ public class TestSharedSourceFileInTwoSourceSets {
         JavaInspector javaInspector = new JavaInspectorImpl();
         javaInspector.initialize(ic);
         Map<SourceSet, Map<String, String>> sources = new LinkedHashMap<>();
-        sources.put(first, Map.of(FQN, file));
-        sources.put(second, Map.of(FQN, file));
+        sources.put(first, files);
+        sources.put(second, files);
         return javaInspector.parseMultiSourceSet(sources, JavaInspectorImpl.DETAILED_SOURCES);
     }
 }
