@@ -205,8 +205,11 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
         }
         Stream<AnnotationExpression> allAnnots = Stream.concat(typeInfo.annotations().stream(),
                 qualification.decorator() == null ? Stream.of() : qualification.decorator().annotations(typeInfo).stream());
+        // with the import computer's qualification, as the members are: it knows the types it did not import, and a
+        // class literal written qualified, '@Restricted(org.kohsuke.accmod.restrictions.NoExternalUse.class)', must
+        // stay qualified (GitHub #169). Not insideType: the type's own members are not in scope in its annotations.
         Stream<OutputBuilder> annotationStream = doTypeDeclaration
-                ? allAnnots.map(ae -> ae.print(qualification))
+                ? allAnnots.map(ae -> ae.print(importData.insideType()))
                 : Stream.of();
 
         return outputBuilder.add(Stream.concat(annotationStream, Stream.of(afterAnnotations))
