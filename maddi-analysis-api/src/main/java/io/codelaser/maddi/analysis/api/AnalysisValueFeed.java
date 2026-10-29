@@ -72,6 +72,31 @@ public interface AnalysisValueFeed {
     default void elementCompleted() {
     }
 
+    /**
+     * Emitted on the coordinator thread just before a pass starts, so a consumer can show which pass is running
+     * and count its {@link #elementCompleted} ticks against {@code elements}.
+     *
+     * @param iteration     1-based pass number
+     * @param maxIterations the current cap on the pass number: not an estimate of the run's length. It grows when
+     *                      a re-derivation (a MODREACH round, the eventual deferral) adds passes
+     * @param kind          why this pass runs, for display: "first", "worklist", "verification", "cycle breaking",
+     *                      "re-derivation after MODREACH round 1", ...
+     * @param elements      the number of elements this pass analyzes
+     * @param totalElements the size of the analysis order
+     */
+    default void passStarted(int iteration, int maxIterations, String kind, int elements, int totalElements) {
+    }
+
+    /**
+     * Emitted on the coordinator thread when the engine starts work that is not a pass and reports no element
+     * ticks: a MODREACH round, the nullability pass, the contract checks. The stage lasts until the next
+     * {@link #passStarted} or stage.
+     *
+     * @param description for display, e.g. "MODREACH round 1"
+     */
+    default void stage(String description) {
+    }
+
     void phase(Phase phase, int iteration);
 
     enum Phase {
