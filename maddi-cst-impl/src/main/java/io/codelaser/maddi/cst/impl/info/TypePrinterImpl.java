@@ -67,13 +67,24 @@ public record TypePrinterImpl(TypeInfo typeInfo, boolean formatter2) implements 
     }
 
     private static void addMethodsToQualification(TypeInfo typeInfo, Qualification qualification) {
-        typeInfo.methods().forEach(qualification::addMethodUnlessOverride);
+        addMethodsToQualification(typeInfo, qualification, true);
+    }
+
+    /*
+    A static method of an interface is not inherited (JLS 8.4.8): 'from(o)' in a class implementing Item, or in an
+    interface extending it, does not find Item.from, so a supertype interface's static methods keep their qualifier
+    (GitHub #168). A superclass's static methods are inherited.
+     */
+    private static void addMethodsToQualification(TypeInfo typeInfo, Qualification qualification, boolean own) {
+        boolean skipStatic = !own && typeInfo.isInterface();
+        typeInfo.methods().stream().filter(mi -> !skipStatic || !mi.isStatic())
+                .forEach(qualification::addMethodUnlessOverride);
         if (!typeInfo.isJavaLangObject()) {
-            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qualification);
+            addMethodsToQualification(typeInfo.parentClass().typeInfo(), qualification, false);
         }
         for (ParameterizedType interfaceType : typeInfo.interfacesImplemented()) {
             if (interfaceType.typeInfo() != typeInfo) {
-                addMethodsToQualification(interfaceType.typeInfo(), qualification);
+                addMethodsToQualification(interfaceType.typeInfo(), qualification, false);
             }
         }
     }
