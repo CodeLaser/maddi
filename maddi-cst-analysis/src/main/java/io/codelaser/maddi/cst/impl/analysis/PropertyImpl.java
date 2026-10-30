@@ -110,6 +110,7 @@ public class PropertyImpl implements Property {
     /**
      * Why a method or parameter is dependent ({@code INDEPENDENT_METHOD}, {@code INDEPENDENT_PARAMETER} DEPENDENT): the
      * statement that links the return value or the parameter to a mutable field of the instance, then that field.
+     * On a type ({@code INDEPENDENT_TYPE} DEPENDENT): the statement that exposes one of its fields, then the field.
      * Written only when a run asks for culprits; absent otherwise.
      */
     public static final Property DEPENDENT_CULPRIT = new PropertyImpl("dependentCulprit", ValueImpl.CulpritImpl.EMPTY);
@@ -119,6 +120,13 @@ public class PropertyImpl implements Property {
      * Written only when a run asks for culprits; absent otherwise.
      */
     public static final Property NULLABLE_CULPRIT = new PropertyImpl("nullableCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a type is not {@code @Immutable} ({@code IMMUTABLE_TYPE} below IMMUTABLE, not eventual): the first rule it
+     * fails, at the member that fails it, followed by that member's own culprit where it has one (a modified field's
+     * {@link #MODIFIED_CULPRIT}, a dependent method's {@link #DEPENDENT_CULPRIT}). Written after the fixpoint, only
+     * when a run asks for culprits; absent otherwise.
+     */
+    public static final Property IMMUTABLE_CULPRIT = new PropertyImpl("immutableCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
