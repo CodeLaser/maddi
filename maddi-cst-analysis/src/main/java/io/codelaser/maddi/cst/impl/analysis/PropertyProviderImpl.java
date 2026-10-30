@@ -83,6 +83,7 @@ public class PropertyProviderImpl {
                 DEPENDENT_CULPRIT,
                 NULLABLE_CULPRIT,
                 IMMUTABLE_CULPRIT,
+                CONTAINER_CULPRIT,
                 NULLABILITY_FIELD,
                 NULLABILITY_METHOD,
                 NULLABILITY_PARAMETER,

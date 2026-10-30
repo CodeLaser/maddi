@@ -127,6 +127,12 @@ public class PropertyImpl implements Property {
      * when a run asks for culprits; absent otherwise.
      */
     public static final Property IMMUTABLE_CULPRIT = new PropertyImpl("immutableCulprit", ValueImpl.CulpritImpl.EMPTY);
+    /**
+     * Why a type is not {@code @Container} ({@code CONTAINER_TYPE} FALSE): one step per parameter of a non-private
+     * constructor or method that is modified, at the statement that modifies it where there is one. Written after the
+     * fixpoint, only when a run asks for culprits; absent otherwise.
+     */
+    public static final Property CONTAINER_CULPRIT = new PropertyImpl("containerCulprit", ValueImpl.CulpritImpl.EMPTY);
     /** the source-level analysis of this method was abandoned (cycle protection, work ceiling, fault
      * isolation) and its values come from the SHALLOW summary. Consumers that rely on per-call data
      * (e.g. VARIABLES_LINKED_TO_OBJECT for extract-interface) must treat such methods pessimistically. */
