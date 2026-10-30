@@ -67,6 +67,7 @@ maddi-cli                   dist   # the shipped `maddi` distribution: driver + 
 maddi-cli-kotlin            dist   # the shipped `maddi-kotlin` distribution
 maddi-ide-daemon            dist
 maddi-ide-client            dist
+maddi-mcp                   dist   # MCP server over the IDE daemon, for coding agents
 maddi-intellij              dist
 maddi-eclipse               dist
 maddi-vscode                dist
