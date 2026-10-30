@@ -2195,7 +2195,9 @@ public class JavaUtil {
 
         // a query, declared so (generated from the assumed-defaults list)
         @NotModified java.util.Iterator<E> asIterator() { return null; }
-        @NotModified boolean hasMoreElements() { return false; }
+
+        // a contract for every implementation, as Iterator.hasNext: a lazy one computes the next element here
+        @Modified boolean hasMoreElements() { return false; }
     }
 
     //@Container[M]
@@ -2429,7 +2431,8 @@ public class JavaUtil {
     @Container
     @Independent(hc = true)
     class Iterator$<E> {
-        @NotModified boolean hasNext() { return false; }
+        // a contract for every implementation: lazy iterators compute the next element here (Guava's AbstractIterator)
+        @Modified boolean hasNext() { return false; }
         //frequency 2
         @Modified @Independent(hc = true)
         E next() { return null; }

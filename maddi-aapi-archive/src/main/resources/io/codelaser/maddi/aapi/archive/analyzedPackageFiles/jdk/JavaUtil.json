@@ -1897,7 +1897,7 @@
 
 {"name": "Tjava.util.Enumeration", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
  {"name": "MasIterator(0)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":1,"nonModifyingMethod":1}},
- {"name": "MhasMoreElements(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MhasMoreElements(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "MnextElement(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}}]},
 
 {"name": "Tjava.util.EventListener", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}},
@@ -2358,7 +2358,7 @@
 {"name": "Tjava.util.Iterator", "data":{"annotatedApi":1,"containerType":1,"defaultsAnalyzer":1,"independentType":1}, "subs":[
  {"name": "MforEachRemaining(0,java.util.function.Consumer)", "data":{"annotatedApi":1,"assumedDefaults":["nonModifyingMethod"],"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}, "sub":
   {"name": "Parg0(0)", "data":{"annotatedApi":1,"ignoreModsParameter":1,"independentParameter":1,"nullabilityParameter":"N","unmodifiedParameter":0}}},
- {"name": "MhasNext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":1,"nullabilityMethod":"N"}},
+ {"name": "MhasNext(1)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"immutableMethod":3,"independentMethod":2,"nonModifyingMethod":0,"nullabilityMethod":"N"}},
  {"name": "Mnext(2)", "data":{"annotatedApi":1,"defaultsAnalyzer":1,"immutableMethod":2,"independentMethod":1,"nonModifyingMethod":0}},
  {"name": "Mremove(3)", "data":{"annotatedApi":1,"containerMethod":1,"defaultsAnalyzer":1,"independentMethod":2,"nonModifyingMethod":0}}]},
 
