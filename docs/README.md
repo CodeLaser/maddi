@@ -94,6 +94,7 @@ What could or should be built next. **The application roadmap for the modificati
 | [prep-analyzer-hardening.md](https://github.com/CodeLaser/maddi-mod/blob/main/docs/roadmap/prep-analyzer-hardening.md) | tracked | Robustness hardening roadmap for `maddi-modification-prepwork`. H items are issues (#13). |
 | [modification-link-analyzer-hardening.md](https://github.com/CodeLaser/maddi-mod/blob/main/docs/roadmap/modification-link-analyzer-hardening.md) | tracked | Real-world robustness hardening roadmap for the link analyzer. H items are issues (#14). |
 | [ide-todo.md](https://github.com/CodeLaser/maddi-dist/blob/main/docs/roadmap/ide-todo.md) | tracked | IDE front ends (IntelliJ/Eclipse/VS Code): what is *not* done yet. The input-configuration gaps found by the IDE daemon session of 2026-08-25 are in §4b and §5.D. |
+| [mcp-server.md](https://github.com/CodeLaser/maddi-dist/blob/main/docs/roadmap/mcp-server.md) | plan | The MCP server for coding agents (`maddi-mcp`): why it is a front-end of the IDE daemon rather than part of it, and the plan for `what_if` — what an edit would do to the verdicts, and which contracts it would break, before it is made: first a full run on the edited sources, then only what the edit can reach (rewiring), with the trap that verdicts flow up the hierarchy too. |
 
 ## defects
 
