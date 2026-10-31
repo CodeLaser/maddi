@@ -72,8 +72,9 @@ maddi and ask about the results. It drives the same daemon as the IDE plugins, s
 - **A project can name the JDK its daemon runs on**, for an annotation processor such as Lombok that fails on a newer
   JDK.
 
-To install it, download `maddi-mcp-0.9.6.zip` from this release, unzip it and register its `bin/maddi-mcp` with the
-agent: `claude mcp add maddi -- <dir>/maddi-mcp-0.9.6/bin/maddi-mcp` for Claude Code. It needs a JDK 25 or later; the
+To install it on macOS or Linux, `brew install codelaser/tap/maddi-mcp`, which brings its JDK along, and register it
+with the agent: `claude mcp add maddi -- $(brew --prefix)/bin/maddi-mcp` for Claude Code. Elsewhere, download
+`maddi-mcp-0.9.6.zip` from this release, unzip it and register its `bin/maddi-mcp`. It needs a JDK 25 or later; the
 [README](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/README.md#coding-agents-mcp) has the options. What comes next,
 asking what an edit would do to the verdicts and whether it would break a contract before making it, is planned in
 [`mcp-server.md`](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/docs/roadmap/mcp-server.md).
@@ -196,7 +197,8 @@ asking what an edit would do to the verdicts and whether it would break a contra
 
 ## Installing
 
-Nothing about the coordinates changes, apart from the version.
+Nothing about the coordinates changes, apart from the version. New in 0.9.6: the IDE plugins, the MCP server, and a
+[Homebrew tap](https://github.com/CodeLaser/homebrew-tap).
 
 | What | Where |
 |---|---|
@@ -207,6 +209,7 @@ Nothing about the coordinates changes, apart from the version.
 | Annotations | `io.codelaser:maddi-annotation:0.9.6` and `io.codelaser:maddi-support:0.9.6`, on Maven Central |
 | Command line | `maddi-0.9.6.zip` and `maddi-kotlin-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
 | MCP server | `maddi-mcp-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
+| Homebrew (macOS, Linux) | `brew install codelaser/tap/maddi`, `codelaser/tap/maddi-kotlin` or `codelaser/tap/maddi-mcp`: the command line or the MCP server, with the JDK it runs on |
 
 The analyzer needs JDK 25 or later to run, and the Kotlin distribution needs JDK 26 or later. The IntelliJ plugin
 downloads the Kotlin front end from this release's `maddi-kotlin-0.9.6.zip` when a project has Kotlin sources.
