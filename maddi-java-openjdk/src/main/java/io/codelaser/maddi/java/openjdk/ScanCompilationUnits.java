@@ -243,12 +243,17 @@ public class ScanCompilationUnits {
         }
         task.analyze();
 
+        // path:line:col first, as javac prints it, so that a console links it; javac's message on one line
+        boolean halt = diagnosticCollector.isHalt();
         for (MaddiDiagnosticCollector.MaddiDiagnostic md : diagnosticCollector.diagnostics()) {
             if (md.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR) {
-                LOGGER.info("Error found in {} at line {}, col {}: {}", md.path(), md.line(), md.col(), md.msg());
+                LOGGER.info("{}:{}:{}: javac error, {}: {}", md.path(), md.line(), md.col(),
+                        halt ? "stopping" : "carrying on over what javac made of the file",
+                        md.msg().lines().map(String::strip).filter(l -> !l.isEmpty())
+                                .collect(Collectors.joining("; ")));
             }
         }
-        if (diagnosticCollector.isHalt()) {
+        if (halt) {
             throw new CompilationProblems(diagnosticCollector.diagnostics().stream()
                     .filter(md -> md.diagnosticKind() == MaddiDiagnosticCollector.DiagnosticKind.ERROR)
                     .toList());
