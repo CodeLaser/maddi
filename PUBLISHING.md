@@ -151,7 +151,10 @@ launcher; the Kotlin zip also carries `lib-k2/`, below). Publish these as **GitH
 
 **Homebrew (since 0.9.6, 2026-10-31).** [CodeLaser/homebrew-tap](https://github.com/CodeLaser/homebrew-tap) holds
 three formulas over these zips: `maddi` and `maddi-mcp` on `openjdk@25`, `maddi-kotlin` on `openjdk` (26 or later),
-each with a wrapper that sets `JAVA_HOME` to that JDK; the MCP server starts its daemon on the same one. After the
+each with a wrapper that sets `JAVA_HOME` to that JDK, or to the one `MADDI_JDK_HOME` names (Temurin, say; the
+wrapper checks its `release` file for 25, 26 for `maddi-kotlin`, and refuses an older one with a message). A
+formula cannot depend on a cask, and Temurin is one, so `openjdk@25` is installed either way. The MCP server
+starts its daemon on the JDK it runs on, and reads `MADDI_JDK_HOME` for it too. After the
 upload, `release-cli.sh` clones the tap, points each formula's `url` and `sha256` at the release, and pushes
 (`MADDI_HOMEBREW_TAP=none` skips it). Not homebrew-core: core wants notability and a build from source. Tested
 2026-10-31 by tapping the local clone: all three install and pass `brew test` (`maddi-mcp` from the local 0.9.6 zip,
