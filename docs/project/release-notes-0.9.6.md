@@ -72,8 +72,9 @@ maddi and ask about the results. It drives the same daemon as the IDE plugins, s
 - **A project can name the JDK its daemon runs on**, for an annotation processor such as Lombok that fails on a newer
   JDK.
 
-The server is not packaged yet: build it from [maddi-dist](https://github.com/CodeLaser/maddi-dist), as its
-[README](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/README.md#coding-agents-mcp) explains. What comes next,
+To install it, download `maddi-mcp-0.9.6.zip` from this release, unzip it and register its `bin/maddi-mcp` with the
+agent: `claude mcp add maddi -- <dir>/maddi-mcp-0.9.6/bin/maddi-mcp` for Claude Code. It needs a JDK 25 or later; the
+[README](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/README.md#coding-agents-mcp) has the options. What comes next,
 asking what an edit would do to the verdicts and whether it would break a contract before making it, is planned in
 [`mcp-server.md`](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/docs/roadmap/mcp-server.md).
 
@@ -205,7 +206,7 @@ Nothing about the coordinates changes, apart from the version.
 | Maven plugin | `io.codelaser:maddi-mvnplugin:0.9.6`, on Maven Central |
 | Annotations | `io.codelaser:maddi-annotation:0.9.6` and `io.codelaser:maddi-support:0.9.6`, on Maven Central |
 | Command line | `maddi-0.9.6.zip` and `maddi-kotlin-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
-| MCP server | build from source in [maddi-dist](https://github.com/CodeLaser/maddi-dist) |
+| MCP server | `maddi-mcp-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
 
 The analyzer needs JDK 25 or later to run, and the Kotlin distribution needs JDK 26 or later. The IntelliJ plugin
 downloads the Kotlin front end from this release's `maddi-kotlin-0.9.6.zip` when a project has Kotlin sources.
@@ -214,7 +215,6 @@ downloads the Kotlin front end from this release's `maddi-kotlin-0.9.6.zip` when
 
 - The VS Code extension is not published yet, and shows no explanations.
 - The Eclipse plugin analyses Java only.
-- The MCP server has no packaged distribution yet.
 - The explanations are recorded only for the IDE and the MCP server; the command line does not show them yet.
 - Java → C# and Java → Rust are experimental: judged on compilation only.
 

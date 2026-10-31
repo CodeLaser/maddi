@@ -138,10 +138,16 @@ launcher; the Kotlin zip also carries `lib-k2/`, below). Publish these as **GitH
   `openjdkmain.Main.createOptions()`, asserted by `TestOneEntryPoint` — and routes on whether the project
   holds a `.kt` file, so it is a strict superset of `maddi` rather than a second tool. The two zips stay
   separate because the Kotlin one is 85 MB against 11 MB, which is a bad default for a Java-only user.
+* `maddi-mcp` — the MCP server for coding agents, from `maddi-mcp:distZip` → `maddi-mcp-<version>.zip`
+  (23 MB), launcher `bin/maddi-mcp`. It carries the IDE daemon's `installDist` in `daemon/`, which it starts
+  as a JVM of its own, and `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` at its root (maddi-mcp's
+  `checkThirdPartyNotices` keeps the last in step). ⚠ The daemon's `bin/maddi-ide-daemon` must stay
+  executable in the zip: `distZip`, unlike `installDist`, dropped its x bit until the distribution spec set it
+  (2026-10-31). Smoke-tested from the unpacked zip over stdio: initialize, configure, analyze, explain.
 
 **DONE**: both runners set `applicationName` so the launcher/archive names are `maddi` / `maddi-kotlin`
-(not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds both `distZip`s and
-`gh release create`/`upload`s the two zips). Both launchers are smoke-tested self-contained (`maddi
+(not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds the three `distZip`s and
+`gh release create`/`upload`s the zips with their checksums). Both launchers are smoke-tested self-contained (`maddi
 --help` and `maddi-kotlin --help` both exit 0 and print the full option surface). *Remaining:* run `release-cli.sh` for a tag —
 needs an authenticated `gh` and is an outward-facing publish, so run it deliberately.
 
