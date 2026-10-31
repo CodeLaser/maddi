@@ -513,6 +513,17 @@ public class JavaInspectorImpl implements JavaInspector {
         return summary;
     }
 
+    // one line: where (a file path where there is one, so that a console can link it) and what
+    static String describe(Summary.ParseException pe) {
+        URI uri = pe.uri();
+        String at = uri == null ? "?" : "file".equals(uri.getScheme()) ? uri.getPath() : uri.toString();
+        if (pe.source() != null) at += ":" + pe.source().beginLine() + ":" + pe.source().beginPos();
+        else if (pe.where() instanceof String where && !"compilation unit".equals(where)) at += " (" + where + ")";
+        String msg = pe.msg() == null ? "" : pe.msg().lines().map(String::strip).filter(l -> !l.isEmpty())
+                .collect(Collectors.joining("; "));
+        return at + ": " + msg;
+    }
+
     private long disambiguations() {
         return compiledTypesManager instanceof CompiledTypesManagerImpl ctm ? ctm.disambiguations() : 0;
     }
@@ -530,11 +541,14 @@ public class JavaInspectorImpl implements JavaInspector {
             LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms", what, linearization.size(),
                     summary.types().size(), ms);
         } else {
-            String problems = Stream.concat(summary.parseExceptions().stream(), summary.parseWarnings().stream())
-                    .map(pe -> pe.uri() == null ? "?" : pe.uri().toString()).distinct().limit(3)
-                    .collect(Collectors.joining(", "));
-            LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms; {} error(s), {} warning(s), first in {}",
-                    what, linearization.size(), summary.types().size(), ms, errors, warnings, problems);
+            // the first problem itself, not only its file: "first in file:/.../Inventory.java" left the reader to
+            // find out that javac had rejected the class (2026-10-31)
+            Summary.ParseException first = Stream.concat(summary.parseExceptions().stream(),
+                    summary.parseWarnings().stream()).findFirst().orElseThrow();
+            int more = errors + warnings - 1;
+            LOGGER.info("{} {} source set(s), {} primary type(s) in {} ms; {} error(s), {} warning(s) (the run carries"
+                        + " on over warnings); first: {}{}", what, linearization.size(), summary.types().size(), ms,
+                    errors, warnings, describe(first), more == 0 ? "" : " (and " + more + " more)");
         }
         LOGGER.debug("{}: {} source-set disambiguation(s)", what, disambiguations() - disambiguationsBefore);
     }

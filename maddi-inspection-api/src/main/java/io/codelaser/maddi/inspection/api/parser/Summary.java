@@ -126,6 +126,7 @@ public interface Summary {
         private final URI uri;
         private final Throwable throwable;
         private final Object where;
+        private final String msg;
         private final Source source;       // line/col, derived from 'where' when it is a located Element
         private final Message.Level level; // WARN (tolerable) or ERROR
         private final ClassOutputProblem classOutputProblem; // null unless this reports one
@@ -154,6 +155,7 @@ public interface Summary {
             super(makeMessage(uri, deriveSource(where), where, msg, throwable), throwable);
             this.uri = uri;
             this.where = where;
+            this.msg = msg;
             this.source = deriveSource(where);
             this.level = level;
             this.throwable = throwable;
@@ -207,6 +209,11 @@ public interface Summary {
 
         public Object where() {
             return where;
+        }
+
+        /** The message alone, without the location and exception {@link #getMessage()} puts around it. */
+        public String msg() {
+            return msg;
         }
 
         /** Location (line/col) of this error, or {@code null} if unknown. */
