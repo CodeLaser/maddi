@@ -44,7 +44,6 @@ import java.util.stream.Stream;
  */
 final class KotlinComments {
 
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)}");
     private static final Pattern STAR = Pattern.compile("^\\s*\\*\\s?");
     private static final Pattern WHITE_SPACE = Pattern.compile("\\s");
 
@@ -74,20 +73,10 @@ final class KotlinComments {
 
     /** As JavaDocImpl prints a Javadoc, with the tags in KDoc's spelling. */
     private static OutputBuilder kdoc(JavaDoc javaDoc) {
-        // the maddi parser leaves {n} placeholders for its tags; the openjdk one writes them as they were written,
-        // and then a {1} in the text is the text's: guava's Sets.powerSet documents {@code {{}, {1}, {2}, {1, 2}}},
-        // which comment() fills with tags 1 and 2. So: placeholders only where no tag was written out
-        String raw = javaDoc.commentWithPlaceholders();
-        StringBuilder sb = new StringBuilder();
-        Matcher m = PLACEHOLDER.matcher(raw);
-        while (!raw.contains("{@") && m.find()) {
-            int index = Integer.parseInt(m.group(1));
-            String replacement = index < javaDoc.tags().size() ? javaDoc.tags().get(index).toString() : m.group();
-            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        }
-        m.appendTail(sb);
+        // the text with its tags as written: a {1} in it is the text's own, guava's Sets.powerSet documents
+        // {@code {{}, {1}, {2}, {1, 2}}} (#166)
         // without its blank first and last lines; and nothing at all when only {@inheritDoc} was there
-        String text = unnest(kdocText(sb.toString())).replaceAll("^(\\s*\\n)+", "").stripTrailing();
+        String text = unnest(kdocText(javaDoc.comment())).replaceAll("^(\\s*\\n)+", "").stripTrailing();
         if (text.isBlank()) return new OutputBuilderImpl();
         String[] lines = text.split("\n", -1);
         boolean starred = Arrays.stream(lines).filter(l -> STAR.matcher(l).find()).count() > 1;

@@ -137,4 +137,23 @@ public class TestParseJavaDoc extends CommonTestParse {
         JavaDoc.Tag tagDS2 = staticMethod.javaDoc().tags().get(2);
         assertEquals("T=TP#0 in D.staticMethod", tagDS2.resolvedReference().toString());
     }
+
+    @Language("java")
+    private static final String INPUT_BRACES = """
+            package a.b;
+            /**
+             * Formats {@code key} as "{0}={1}".
+             */
+            interface F {
+            }
+            """;
+
+    // #166: literal {0} and {1} in the text are kept; only the parser's own placeholders become tags
+    @Test
+    public void literalBraces() {
+        TypeInfo typeInfo = parse(INPUT_BRACES);
+        JavaDoc javaDoc = typeInfo.javaDoc();
+        assertEquals(1, javaDoc.tags().size());
+        assertTrue(javaDoc.comment().contains("Formats {@code key} as \"{0}={1}\"."), javaDoc.comment());
+    }
 }

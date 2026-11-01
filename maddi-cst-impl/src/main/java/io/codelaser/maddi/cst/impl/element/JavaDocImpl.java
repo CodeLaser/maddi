@@ -42,9 +42,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * Convention: the "comment" string in {@link MultiLineCommentImpl} has placeholders {\\d+}, one for each tag in this object.
+ * Convention: the "comment" string in {@link MultiLineCommentImpl} may hold a {@link JavaDoc#placeholder} for each tag
+ * in this object, which {@link #comment()} replaces by the tag as written. The maddi parser writes them; the openjdk
+ * front end writes its tags as they were written, and has none.
  */
 public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
+
+    private static final Pattern PLACEHOLDER = Pattern.compile(JavaDoc.PLACEHOLDER_OPEN + "(\\d+)"
+                                                               + JavaDoc.PLACEHOLDER_CLOSE);
 
     public static class TagImpl implements Tag {
         private final TagIdentifier tagIdentifier;
@@ -184,13 +189,15 @@ public class JavaDocImpl extends MultiLineCommentImpl implements JavaDoc {
 
     @Override
     public String comment() {
+        String stored = super.comment();
+        if (stored.indexOf(JavaDoc.PLACEHOLDER_OPEN) < 0) return stored;
         StringBuilder sb = new StringBuilder();
-        Pattern p = Pattern.compile("\\{(\\d+)}");
-        Matcher m = p.matcher(super.comment());
+        Matcher m = PLACEHOLDER.matcher(stored);
         while (m.find()) {
             int tagIndex = Integer.parseInt(m.group(1));
-            Tag tag = tags.get(tagIndex);
-            m.appendReplacement(sb, tag.toString());
+            // a tag list that lost an entry (withTags) leaves its placeholder as it was, rather than throwing
+            String replacement = tagIndex < tags.size() ? tags.get(tagIndex).toString() : m.group();
+            m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
         return sb.toString();

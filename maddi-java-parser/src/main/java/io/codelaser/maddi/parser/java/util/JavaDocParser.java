@@ -89,7 +89,7 @@ public final class JavaDocParser {
                     Source sourceOfTag = subSource(sourceOfComment, lineCount, blockTagMatchar.start(2), end);
                     JavaDoc.Tag blockTag = runtime.newJavaDocTag(identifier, content, null, sourceOfTag,
                             sourceOfReference, true);
-                    modifiedComment.append("{").append(tags.size()).append("} ");
+                    modifiedComment.append(JavaDoc.placeholder(tags.size())).append(' ');
                     tags.add(blockTag);
                     restOfLine = end + 1 >= line.length() ? "" : line.substring(end + 1);
                 } else {
@@ -108,7 +108,7 @@ public final class JavaDocParser {
                         inlineTagMatcher.end(2));
                 JavaDoc.Tag tag = runtime.newJavaDocTag(identifier, content, null, sourceOfTag,
                         sourceOfReference, false);
-                inlineTagMatcher.appendReplacement(modifiedComment, "{" + tags.size() + "}");
+                inlineTagMatcher.appendReplacement(modifiedComment, Matcher.quoteReplacement(JavaDoc.placeholder(tags.size())));
                 tags.add(tag);
             }
             inlineTagMatcher.appendTail(modifiedComment);

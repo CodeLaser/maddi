@@ -150,8 +150,21 @@ public interface JavaDoc extends MultiLineComment {
 
     /**
      * Returns the raw Javadoc text with inline tag references replaced by placeholders,
-     * for use in serialisation or diff computation.
+     * for use in serialisation or diff computation. A front end that writes its tags as written has none.
      */
     String commentWithPlaceholders();
+
+    /*
+     A placeholder is the tag's index between two private-use characters, which Java source does not hold. It used to
+     be {n}, which a javadoc can hold as text: nacos documents a MessageFormat pattern, "{0}={1}", and comment()
+     replaced {0} by tag 0 and threw on {1} (#166).
+     */
+    char PLACEHOLDER_OPEN = '\uE000';
+    char PLACEHOLDER_CLOSE = '\uE001';
+
+    /** What stands for tag {@code index} in the stored text, until {@link #comment()} puts the tag in its place. */
+    static String placeholder(int index) {
+        return PLACEHOLDER_OPEN + Integer.toString(index) + PLACEHOLDER_CLOSE;
+    }
 
 }
