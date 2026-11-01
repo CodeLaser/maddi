@@ -138,10 +138,29 @@ launcher; the Kotlin zip also carries `lib-k2/`, below). Publish these as **GitH
   `openjdkmain.Main.createOptions()`, asserted by `TestOneEntryPoint` — and routes on whether the project
   holds a `.kt` file, so it is a strict superset of `maddi` rather than a second tool. The two zips stay
   separate because the Kotlin one is 85 MB against 11 MB, which is a bad default for a Java-only user.
+* `maddi-mcp` — the MCP server for coding agents, from `maddi-mcp:distZip` → `maddi-mcp-<version>.zip`
+  (23 MB), launcher `bin/maddi-mcp`. It carries the IDE daemon's `installDist` in `daemon/`, which it starts
+  as a JVM of its own, and `LICENSE`, `NOTICE` and `THIRD-PARTY.txt` at its root (maddi-mcp's
+  `checkThirdPartyNotices` keeps the last in step). ⚠ The daemon's `bin/maddi-ide-daemon` must stay
+  executable in the zip: `distZip`, unlike `installDist`, dropped its x bit until the distribution spec set it
+  (2026-10-31). Smoke-tested from the unpacked zip over stdio: initialize, configure, analyze, explain.
 
 **DONE**: both runners set `applicationName` so the launcher/archive names are `maddi` / `maddi-kotlin`
-(not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds both `distZip`s and
-`gh release create`/`upload`s the two zips). Both launchers are smoke-tested self-contained (`maddi
+(not the module names). The build+upload is wired in `release-cli.sh <tag>` (builds the three `distZip`s and
+`gh release create`/`upload`s the zips with their checksums).
+
+**Homebrew (since 0.9.6, 2026-10-31).** [CodeLaser/homebrew-tap](https://github.com/CodeLaser/homebrew-tap) holds
+three formulas over these zips: `maddi` and `maddi-mcp` on `openjdk@25`, `maddi-kotlin` on `openjdk` (26 or later),
+each with a wrapper that sets `JAVA_HOME` to that JDK, or to the one `MADDI_JDK_HOME` names (Temurin, say; the
+wrapper checks its `release` file for 25, 26 for `maddi-kotlin`, and refuses an older one with a message). A
+formula cannot depend on a cask, and Temurin is one, so `openjdk@25` is installed either way. The MCP server
+starts its daemon on the JDK it runs on, and reads `MADDI_JDK_HOME` for it too. After the
+upload, `release-cli.sh` clones the tap, points each formula's `url` and `sha256` at the release, and pushes
+(`MADDI_HOMEBREW_TAP=none` skips it). Not homebrew-core: core wants notability and a build from source. Tested
+2026-10-31 by tapping the local clone: all three install and pass `brew test` (`maddi-mcp` from the local 0.9.6 zip,
+then a full configure/analyze/explain over stdio, the daemon found in `libexec/daemon`). ⚠ Homebrew 7 treats the
+tap as untrusted: `brew install codelaser/tap/<formula>` works, `brew info`/`brew audit` refuse until
+`brew trust codelaser/tap`. Both launchers are smoke-tested self-contained (`maddi
 --help` and `maddi-kotlin --help` both exit 0 and print the full option surface). *Remaining:* run `release-cli.sh` for a tag —
 needs an authenticated `gh` and is an outward-facing publish, so run it deliberately.
 
