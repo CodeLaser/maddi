@@ -1,4 +1,4 @@
-# maddi
+# maddi: modification analysis for Java and Kotlin
 
 [![build](https://github.com/CodeLaser/maddi/actions/workflows/build.yml/badge.svg)](https://github.com/CodeLaser/maddi/actions/workflows/build.yml)
 
@@ -17,9 +17,18 @@ In the age of code generation by LLMs, maddi's MCP server can play the role of g
 
  maddi's IntelliJ and Eclipse plugins allow you to view the modification, immutability and nullability verdicts as virtual annotations. 
 
-![`WrongContainer` claims `@Container`, but `fill` adds to the list it is given. maddi computes `@Modified` for the parameter, underlines the broken contract, and shows above the class what it does compute.*](docs/images/intellij-contract-violation.png#gh-light-mode-only)
-![`WrongContainer` claims `@Container`, but `fill` adds to the list it is given. maddi computes `@Modified` for the parameter, underlines the broken contract, and shows above the class what it does compute.*](cdocs/images/intellij-contract-violation-dark.png#gh-dark-mode-only)
+<img
+  src="docs/images/intellij-contract-violation.png#gh-light-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
+<img
+  src="docs/images/intellij-contract-violation-dark.png#gh-dark-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
 
+In this example, `WrongContainer` claims `@Container`, but `fill` adds to the list it is given. maddi computes `@Modified` for the parameter, underlines the broken contract, and shows above the class what it does compute.
 
 
 ## How to get it
@@ -51,6 +60,9 @@ or as a **Maven plugin**: `io.codelaser:maddi-mvnplugin` on Maven Central, goal 
 Finally, you can download the zip of the latest stable release from this page, and run maddi from the **command line**. There is a separate distribution that contains support for parsing Kotlin.
 
 ## Examples
+
+Open the sibling projects `maddi-java-demo` or `maddi-kotlin-demo` to see most modification verdicts in action.
+The following examples are taken from those projects.
 
 ### Kotlin in IntelliJ
 
