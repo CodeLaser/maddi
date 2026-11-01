@@ -12,7 +12,7 @@ rest), and **open work items become GitHub issues rather than new checkbox `.md`
 Since the split this is the **base** repository; the modification analysis is in `../maddi-mod` and the IDE,
 build-tool and CLI distributions in `../maddi-dist` (README §Three repositories, each has its own CLAUDE.md).
 
-Orientation: **`ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
+Orientation: **`docs/design/ARCHITECTURE.md`** (pipeline, module map, reading paths by intent),
 **`AGENTS.md`** (tool-agnostic assistant guidance: commands, engine facts, working style),
 **`CONTRIBUTING.md`** (build/test workflow), **`docs/README.md`** (index of cross-module
 working notes, with status labels).

@@ -14,7 +14,7 @@ stay short and defer to the maintained references).
 
 ## Read before acting
 
-1. [`ARCHITECTURE.md`](ARCHITECTURE.md) — pipeline, module map, reading paths by intent.
+1. [`docs/design/ARCHITECTURE.md`](docs/design/ARCHITECTURE.md) — pipeline, module map, reading paths by intent.
 2. [`road-to-immutability/llm-summary.md`](road-to-immutability/llm-summary.md) — **required
    before reasoning about immutability, modification, independence, linking, or convergence.**
    It is the authoritative condensed vocabulary; do not re-derive the concepts from code.
@@ -115,4 +115,4 @@ Two traps it now covers, both of which have cost verdicts before:
 - maddi takes pull requests from outsiders. Do not push to `devel` or `main`, and do not open a PR
   on the maintainer's behalf without being asked.
 - Documentation in `docs/` and `notes/` is dated working material — trust the maintained
-  references listed in `ARCHITECTURE.md` §Documentation map when they disagree.
+  references listed in `docs/design/ARCHITECTURE.md` §Documentation map when they disagree.

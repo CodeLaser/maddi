@@ -10,7 +10,7 @@
 > are not in this checkout live in those siblings, checked out next to it (`../maddi-mod`, `../maddi-dist`).
 
 How to build, test and change maddi without tripping over the things that bite. New here?
-Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first for the module map and reading paths.
+Read [`docs/design/ARCHITECTURE.md`](docs/design/ARCHITECTURE.md) first for the module map and reading paths.
 
 ## Prerequisites
 
@@ -195,13 +195,13 @@ State of the plugin: `maddi-eclipse/README.md`; open items: `docs/roadmap/ide-to
 
 Publishing is **not yet active**. The strategy, the wiring completed so far, and the Maven
 Central mechanics (GPG/JReleaser, as an appendix) are recorded in
-[`PUBLISHING.md`](PUBLISHING.md); `release-cli.sh` builds and uploads the CLI distribution
+[`docs/PUBLISHING.md`](docs/PUBLISHING.md); `release-cli.sh` builds and uploads the CLI distribution
 zips when the time comes.
 
 ## Documentation conventions
 
 - Maintained references live next to what they document (module `README.md`s, the linking
-  manual, `parsing-stability.md`) or at the root (`README.md`, `ARCHITECTURE.md`, this file).
+  manual, `parsing-stability.md`) or at the root (`README.md`, this file) or in `docs/` (`docs/design/ARCHITECTURE.md`, `docs/PUBLISHING.md`).
 - Cross-module working notes, plans and investigation reports go in `docs/`, in the subdirectory that
   fits (`design/`, `roadmap/`, `defects/`, `status/`, `project/` — see `docs/README.md`) — add new ones to
   the index in [`docs/README.md`](docs/README.md) with a status label.
