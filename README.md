@@ -64,9 +64,31 @@ Finally, you can download the zip of the latest stable release from this page, a
 Open the sibling projects `maddi-java-demo` or `maddi-kotlin-demo` to see most modification verdicts in action.
 The following examples are taken from those projects.
 
+### Who's the culprit? Maddi explains
+
+<img
+  src="docs/images/intellij-java-explain.png#gh-light-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
+<img
+  src="docs/images/intellij-java-explain-dark.png#gh-dark-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
+
 ### Kotlin in IntelliJ
 
-...
+<img
+  src="docs/images/intellij-kotlin-dependent.png#gh-light-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
+<img
+  src="docs/images/intellij-kotlin-dependent-dark.png#gh-dark-mode-only"
+  alt="Code snippet"
+  width="600"
+/>
 
 ### Java in Eclipse
 
