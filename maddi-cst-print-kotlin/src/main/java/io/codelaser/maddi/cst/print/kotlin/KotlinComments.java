@@ -46,6 +46,7 @@ final class KotlinComments {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)}");
     private static final Pattern STAR = Pattern.compile("^\\s*\\*\\s?");
+    private static final Pattern WHITE_SPACE = Pattern.compile("\\s");
 
     private KotlinComments() {
     }
@@ -83,7 +84,10 @@ final class KotlinComments {
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         m.appendTail(sb);
-        String[] lines = unnest(kdocText(sb.toString())).split("\n", -1);
+        // without its blank first and last lines; and nothing at all when only {@inheritDoc} was there
+        String text = unnest(kdocText(sb.toString())).replaceAll("^(\\s*\\n)+", "").stripTrailing();
+        if (text.isBlank()) return new OutputBuilderImpl();
+        String[] lines = text.split("\n", -1);
         boolean starred = Arrays.stream(lines).filter(l -> STAR.matcher(l).find()).count() > 1;
         Stream<OutputBuilder> body = Arrays.stream(lines)
                 .map(l -> starred ? STAR.matcher(l).replaceFirst("") : l)
@@ -127,12 +131,17 @@ final class KotlinComments {
 
     /** {@code link Foo#bar label}, the inside of an inline tag, in KDoc's Markdown; an unknown tag as written. */
     private static String inlineTag(String inside) {
-        int space = inside.indexOf(' ');
+        // the name ends at any white space: '{@code' at the end of a line has its content on the next one
+        Matcher nameEnd = WHITE_SPACE.matcher(inside);
+        int space = nameEnd.find() ? nameEnd.start() : -1;
         String name = space < 0 ? inside : inside.substring(0, space);
-        String content = space < 0 ? "" : inside.substring(space + 1).strip();
+        String content = space < 0 ? "" : inside.substring(space).strip();
         return switch (name) {
-            case "link", "linkplain" -> link(content);
+            case "link", "linkplain" -> link(content.replaceAll("\\s+", " "));
             case "code", "literal" -> content.contains("`") ? "`` " + content + " ``" : "`" + content + "`";
+            // {@snippet : code}: KDoc's is a fenced block (attributes before the ':' are dropped)
+            case "snippet" -> "\n```\n" + (content.contains(":") ? content.substring(content.indexOf(':') + 1)
+                    : content).strip() + "\n```\n";
             // KDoc inherits an overridden member's documentation by itself
             case "inheritDoc" -> "";
             default -> "{@" + inside + "}";

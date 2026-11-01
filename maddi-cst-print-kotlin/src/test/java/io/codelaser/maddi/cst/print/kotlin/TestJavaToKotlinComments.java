@@ -128,8 +128,20 @@ public class TestJavaToKotlinComments extends CommonJavaToKotlin {
                     @Override public String toString() { return "box"; }
                     /* not /* nested */
                     int size() { return 0; }
+                    /**
+                     * Empty when {@code
+                     * size() == 0}, as in
+                     * {@snippet :
+                     * if (box.isEmpty()) { return; }
+                     * }
+                     */
+                    boolean isEmpty() { return size() == 0; }
                 }
                 """);
+        contains(kotlin, "Empty when `size() == 0`, as in");
+        contains(kotlin, "* ```\n* if (box.isEmpty()) { return; }\n* ```\n*/");
+        // a Javadoc of {@inheritDoc} alone is no KDoc at all
+        contains(kotlin, "{\noverride fun toString()");
         contains(kotlin, "Holds `n` items, see [List] and [its size][size];");
         contains(kotlin, "src/ **");
         contains(kotlin, "@throws IllegalStateException never");
