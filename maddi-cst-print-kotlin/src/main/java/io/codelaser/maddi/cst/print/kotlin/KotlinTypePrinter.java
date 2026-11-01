@@ -219,9 +219,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                     constructorVisibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
                     out.add(KotlinKeyword.CONSTRUCTOR);
                 }
+                MethodInfo primaryConstructor = primary;
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
                                 .add(KotlinComments.print(fieldByName.get(p.name()).comments(), insideType))
+                                // the comments of its `this.x = x`, which the header property is now (#181)
+                                .add(assignmentComments(primaryConstructor, p, insideType))
                                 .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
                                 .add(propertyVisibility(fieldByName.get(p.name())))
                                 // a record's component is read through its accessor, x(): a data class property. A
@@ -293,6 +296,12 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
             if (initConstructor != null) {
                 OutputBuilder init = initBlock(initConstructor, insideType);
                 if (init != null) members.add(init);
+            } else if (primary != null && primary.methodBody() != null
+                       && !primary.methodBody().trailingComments().isEmpty()) {
+                // the comments after its last assignment: the only code left of the constructor's body (#181)
+                members.add(new OutputBuilderImpl().add(new TextImpl("init")).add(SpaceEnum.ONE).add(
+                        KotlinStatementPrinter.braces(KotlinStatementPrinter.trailingComments(primary.methodBody(),
+                                insideType))));
             }
             if (accessorsAsFunctions(typeInfo, components)) {
                 components.forEach(f -> members.add(componentAccessor(typeInfo, f, insideType)));
@@ -475,6 +484,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         return b.add(KotlinMethodPrinter.parameters(c, q));
     }
 
+    /** The comments of the statement in {@code c}'s body that assigns parameter {@code p} to its field. */
+    private static OutputBuilder assignmentComments(MethodInfo c, ParameterInfo p, Qualification q) {
+        if (c.methodBody() == null) return new OutputBuilderImpl();
+        return c.methodBody().statements().stream()
+                .filter(s -> !s.comments().isEmpty()
+                             && s instanceof io.codelaser.maddi.cst.api.statement.ExpressionAsStatement eas
+                             && eas.expression() instanceof io.codelaser.maddi.cst.api.expression.Assignment a
+                             && a.value() instanceof io.codelaser.maddi.cst.api.expression.VariableExpression ve
+                             && ve.variable() instanceof ParameterInfo pi && pi.equals(p))
+                .map(s -> KotlinStatementPrinter.commentsOf(s, q))
+                .reduce(new OutputBuilderImpl(), OutputBuilder::add);
+    }
+
     /** The arguments of the constructor's {@code super(…)}, or {@code ()}. */
     private static OutputBuilder superArguments(MethodInfo c, Qualification q) {
         io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation eci = KotlinMethodPrinter.explicitConstructorInvocation(c);
@@ -495,14 +517,19 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(st -> !(st instanceof io.codelaser.maddi.cst.api.statement.ExplicitConstructorInvocation))
                 .filter(st -> !typeInfo.typeNature().isRecord() || !isComponentAssignment(st))
                 .toList();
-        if (statements.isEmpty()) return null;
+        // the comments of what went into the header, super(…) and the components, open the block (#181)
+        List<OutputBuilder> headerComments = c.methodBody().statements().stream()
+                .filter(st -> !st.isSynthetic() && !statements.contains(st) && !st.comments().isEmpty())
+                .map(st -> KotlinStatementPrinter.commentsOf(st, q)).toList();
+        if (statements.isEmpty() && headerComments.isEmpty() && c.methodBody().trailingComments().isEmpty()) return null;
         // the constructor's own scope: its locals' verdicts are asked for with it, its pattern variables are its own
         var scope = KotlinContext.enterMethod(c);
         try {
             c.parameters().forEach(p -> KotlinContext.declared(p.name()));
+            List<OutputBuilder> prefix = new ArrayList<>(headerComments);
+            prefix.addAll(KotlinStatementPrinter.reassignedParameters(c.parameters(), c.methodBody(), q));
             return new OutputBuilderImpl().add(new TextImpl("init")).add(SpaceEnum.ONE)
-                    .add(KotlinStatementPrinter.block(KotlinStatementPrinter.reassignedParameters(c.parameters(),
-                            c.methodBody(), q), statements, q));
+                    .add(KotlinStatementPrinter.block(prefix, c.methodBody(), statements, q));
         } finally {
             KotlinContext.exitMethod(scope);
         }

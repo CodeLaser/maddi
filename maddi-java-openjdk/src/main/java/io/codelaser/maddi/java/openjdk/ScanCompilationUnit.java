@@ -3377,6 +3377,8 @@ class ScanCompilationUnit extends TreePathScanner<Void, Void> implements SourceP
             Statement statement = runtime.newExplicitConstructorInvocationBuilder()
                     .setSynthetic(isSyntheticSuperCall)
                     .setSource(source)
+                    // `// why` before super(…)/this(…): the statement's, as every other statement's (#181)
+                    .addComments(isSyntheticSuperCall ? List.of() : commentsForNode(source))
                     .setIsSuper(isSuper)
                     .setMethodInfo(methodInfo)
                     .setParameterExpressions(arguments)

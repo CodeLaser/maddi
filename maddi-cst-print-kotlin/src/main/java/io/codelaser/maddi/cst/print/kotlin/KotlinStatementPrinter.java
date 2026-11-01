@@ -18,6 +18,7 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.api.element.Comment;
 import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.RecordPattern;
 import io.codelaser.maddi.cst.api.expression.*;
@@ -31,6 +32,7 @@ import io.codelaser.maddi.cst.api.type.ParameterizedType;
 import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.cst.api.variable.LocalVariable;
 import io.codelaser.maddi.cst.api.variable.Variable;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.info.CompilationUnitPrinterImpl;
 import io.codelaser.maddi.cst.impl.output.*;
 
@@ -57,6 +59,21 @@ import java.util.stream.Stream;
  *   run, and so does this).</li>
  *   <li><b>multi-catch</b>: one {@code catch} per type, the block repeated.</li>
  * </ul>
+ * <p>
+ * Comments (#181), as Java's printer places them: a statement's comments before it, the {@code //} on its last line
+ * after it, and a block's comments after its last statement before its closing brace; the {@code //} on a body's
+ * header line ({@code if (c) // why}) opens the body. Where a statement is not printed as itself, its comments go
+ * where its code went, and never disappear:
+ * <ul>
+ *   <li>folded into a value (an expression body {@code = value}, a lambda's or a {@code when} arm's value): not
+ *   folded when comments precede it, a {@code //} after it stays after the value; {@link KotlinApply} does not fold
+ *   a statement with comments at all;</li>
+ *   <li>written in a declaration's header ({@code super(…)}, a header property's {@code this.x = x}): the first lines
+ *   of the body or {@code init} block, which then exists for them;</li>
+ *   <li>left out ({@code break} at the end of a {@code when} arm): a line of their own where it was;</li>
+ *   <li>copied (a case's statements in each case that falls into it): with each copy;</li>
+ *   <li>an {@code else { if … }} whose block or {@code if} carries comments stays that, not {@code else if}.</li>
+ * </ul>
  */
 public class KotlinStatementPrinter {
 
@@ -76,14 +93,60 @@ public class KotlinStatementPrinter {
         try {
             List<OutputBuilder> copies = KotlinValCopies.before(s, q);
             OutputBuilder printed = printStatement(s, q);
-            if (copies.isEmpty()) return List.of(printed);
+            if (copies.isEmpty()) return commented(s, List.of(printed), q);
             List<OutputBuilder> lines = new ArrayList<>(copies);
             lines.add(printed);
-            return lines;
+            return commented(s, lines, q);
         } finally {
             KotlinSmartCasts.endStatement(s);
             KotlinContext.popStatement();
         }
+    }
+
+    /**
+     * The statement's comments around its lines: those before it go before the first (a {@code val} copy it needs
+     * included), the {@code //} written after it on its last line after the last, as Java's printer does (#181).
+     */
+    static List<OutputBuilder> commented(Statement s, List<OutputBuilder> lines, Qualification q) {
+        if (s.comments().isEmpty()) return lines;
+        List<Comment> after = ElementImpl.commentsAfterOnLastLine(s.comments(), s.source());
+        List<Comment> before = s.comments().stream().filter(c -> !after.contains(c)).toList();
+        List<OutputBuilder> result = new ArrayList<>(lines);
+        if (!before.isEmpty()) {
+            result.set(0, new OutputBuilderImpl().add(KotlinComments.print(before, q)).add(result.getFirst()));
+        }
+        if (!after.isEmpty()) {
+            OutputBuilder last = new OutputBuilderImpl().add(result.getLast());
+            after.forEach(c -> last.add(SpaceEnum.ONE).add(KotlinComments.print(c, q)));
+            result.set(result.size() - 1, last);
+        }
+        return result;
+    }
+
+    /**
+     * Comments before the statement, which keep it on a line of its own: a body {@code { // why; return x }} is not
+     * folded into {@code = x}, a lambda's or an arm's block not into its value, where the comment would sit between
+     * the {@code =} or the {@code ->} and the value.
+     */
+    static boolean commentedBefore(Statement s) {
+        return s.comments().size() > ElementImpl.commentsAfterOnLastLine(s.comments(), s.source()).size();
+    }
+
+    /** {@link #commented} for a statement printed as one value: {@code = value}, a lambda's last line. */
+    static OutputBuilder commented(Statement s, OutputBuilder value, Qualification q) {
+        List<OutputBuilder> lines = commented(s, List.of(value), q);
+        return lines.getFirst();
+    }
+
+    /** The comments of a statement that is not printed where it was ({@code super(…)}, a final break): a line. */
+    static OutputBuilder commentsOf(Statement s, Qualification q) {
+        return KotlinComments.print(s.comments(), q);
+    }
+
+    /** The comments after a block's last statement, each a line before its closing brace. */
+    static List<OutputBuilder> trailingComments(Block block, Qualification q) {
+        if (block == null || block.trailingComments().isEmpty()) return List.of();
+        return block.trailingComments().stream().map(c -> KotlinComments.print(c, q)).toList();
     }
 
     /**
@@ -175,7 +238,7 @@ public class KotlinStatementPrinter {
     private static OutputBuilder unlabelled(Statement s, Qualification q) {
         return switch (s) {
             case Block block -> s.label() != null ? labelledBlock(block, s.label(), q)
-                    : scope(block(block, q));
+                    : scope(block(List.of(), block, block.statements(), q));
             case ReturnStatement rs -> returnStatement(rs, q);
             case ExpressionAsStatement es -> KotlinExpressionPrinter.printStatement(es.expression(), q);
             case LocalVariableCreation lvc -> localVariables(lvc, q);
@@ -248,8 +311,13 @@ public class KotlinStatementPrinter {
                 .collect(OutputBuilderImpl.joining(SpaceEnum.NEWLINE, GuideImpl.generatorForBlock()));
     }
 
+    /**
+     * A body, {@code if (c) { … }}: its own comments (Java's {@code if (c) // why}) open it, the comments after its
+     * last statement close it.
+     */
     static OutputBuilder block(Block block, Qualification q) {
-        return block(block.statements(), q);
+        List<OutputBuilder> prefix = block.comments().isEmpty() ? List.of() : List.of(commentsOf(block, q));
+        return block(prefix, block, block.statements(), q);
     }
 
     /**
@@ -286,6 +354,14 @@ public class KotlinStatementPrinter {
 
     /** A block that starts with some lines of its own, the {@code var p = p} of {@link #reassignedParameters}. */
     static OutputBuilder block(List<OutputBuilder> prefix, List<Statement> statements, Qualification q) {
+        return block(prefix, null, statements, q);
+    }
+
+    /**
+     * {@link #block(List, List, Qualification)} for {@code statements} of {@code block} (all, or what is left of them
+     * when some went into a header): the comments after its last statement close it.
+     */
+    static OutputBuilder block(List<OutputBuilder> prefix, Block block, List<Statement> statements, Qualification q) {
         List<OutputBuilder> all = new ArrayList<>(prefix);
         KotlinSmartCasts.enterBlock(statements);
         try {
@@ -293,6 +369,7 @@ public class KotlinStatementPrinter {
         } finally {
             KotlinSmartCasts.exitBlock();
         }
+        all.addAll(trailingComments(block, q));
         return braces(all);
     }
 
@@ -348,7 +425,10 @@ public class KotlinStatementPrinter {
         for (int i = 0; i < statements.size(); i++) {
             Statement s = statements.get(i);
             if (i == statements.size() - 1 && s instanceof ReturnStatement rs && rs.goToLabel() == null) {
-                if (rs.hasNoValue()) continue;
+                if (rs.hasNoValue()) {
+                    if (!rs.comments().isEmpty()) printed.add(commentsOf(rs, q));
+                    continue;
+                }
                 OutputBuilder value = KotlinExpressionPrinter.lambdaReturned(rs.expression(), q);
                 // (unwrap would strip a Negation itself, an ExpressionWrapper)
                 if (i > 0 && (rs.expression() instanceof Negation n && !n.expression().isNumeric()
@@ -358,7 +438,7 @@ public class KotlinStatementPrinter {
                     // `!` line on as the previous one's. Enclosed, it starts the value
                     value = new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS).add(value).add(SymbolEnum.RIGHT_PARENTHESIS);
                 }
-                printed.add(value);
+                printed.add(commented(s, value, q));
             } else {
                 printed.addAll(lines(s, q));
             }
@@ -371,7 +451,8 @@ public class KotlinStatementPrinter {
     private static OutputBuilder labelledBlock(Block block, String label, Qualification q) {
         KotlinContext.push(new KotlinContext.Frame(KotlinContext.Kind.SWITCH, label));
         try {
-            return new OutputBuilderImpl().add(new TextImpl("run " + label + "@")).add(block(block, q));
+            return new OutputBuilderImpl().add(new TextImpl("run " + label + "@"))
+                    .add(block(List.of(), block, block.statements(), q));
         } finally {
             KotlinContext.pop();
         }
@@ -514,7 +595,9 @@ public class KotlinStatementPrinter {
                             .add(new TextImpl("break" + (label == null ? "" : "@" + label))));
                 }
             }
+            if (!fs.block().comments().isEmpty()) body.add(commentsOf(fs.block(), q));
             fs.block().statements().stream().filter(st -> !st.isSynthetic()).forEach(st -> body.addAll(lines(st, q)));
+            body.addAll(trailingComments(fs.block(), q));
             if (!continues) updates.forEach(u -> body.add(KotlinExpressionPrinter.printStatement(u, q)));
 
             whileLoop = new OutputBuilderImpl();
@@ -827,14 +910,23 @@ public class KotlinStatementPrinter {
         YIELD_AS_RETURN.set(false);
         try {
             if (s instanceof Block block) {
-                List<Statement> body = withoutFinalBreak(CstQueries.own(block.statements()));
+                List<Statement> own = CstQueries.own(block.statements());
+                List<Statement> body = withoutFinalBreak(own);
+                // what the arm's block says besides its statements: its own comments, the left-out break's, its last
+                List<OutputBuilder> before = block.comments().isEmpty() ? List.of() : List.of(commentsOf(block, q));
+                List<OutputBuilder> after = new ArrayList<>();
+                if (body.size() < own.size() && !own.getLast().comments().isEmpty()) after.add(commentsOf(own.getLast(), q));
+                after.addAll(trailingComments(block, q));
                 if (yieldsBeforeTheEnd(body)) {
                     YIELD_AS_RETURN.set(true);
                     return new OutputBuilderImpl().add(new TextImpl("run")).add(SpaceEnum.ONE)
-                            .add(braces(body.stream().flatMap(st -> lines(st, q).stream()).toList()));
+                            .add(braces(armLines(before, body, after, q)));
                 }
-                if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation)) return print(body.getFirst(), q);
-                return braces(body.stream().flatMap(st -> lines(st, q).stream()).toList());
+                if (body.size() == 1 && !(body.getFirst() instanceof LocalVariableCreation) && before.isEmpty()
+                    && after.isEmpty() && !commentedBefore(body.getFirst())) {
+                    return print(body.getFirst(), q);
+                }
+                return braces(armLines(before, body, after, q));
             }
             return armStatement(s, q);
         } finally {
@@ -859,9 +951,17 @@ public class KotlinStatementPrinter {
         return false;
     }
 
+    private static List<OutputBuilder> armLines(List<OutputBuilder> before, List<Statement> body,
+                                                List<OutputBuilder> after, Qualification q) {
+        List<OutputBuilder> lines = new ArrayList<>(before);
+        body.forEach(st -> lines.addAll(lines(st, q)));
+        lines.addAll(after);
+        return lines;
+    }
+
     private static OutputBuilder armStatement(Statement s, Qualification q) {
         if (s instanceof BreakStatement bs && bs.goToLabel() == null) {
-            return new OutputBuilderImpl().add(SymbolEnum.LEFT_BRACE).add(SymbolEnum.RIGHT_BRACE);
+            return braces(s.comments().isEmpty() ? List.of() : List.of(commentsOf(s, q)));
         }
         return print(s, q);
     }
@@ -896,7 +996,10 @@ public class KotlinStatementPrinter {
             for (int i = 0; i < groups.size(); i++) {
                 List<Statement> arm = new ArrayList<>(groups.get(i).own());
                 for (int j = i + 1; j < groups.size() && !endsInJump(arm); j++) arm.addAll(groups.get(j).own());
+                List<Statement> written = arm;
                 arm = withoutFinalBreak(arm);
+                List<OutputBuilder> leftOut = arm.size() < written.size() && !written.getLast().comments().isEmpty()
+                        ? List.of(commentsOf(written.getLast(), q)) : List.of();
                 List<SwitchStatementOldStyle.SwitchLabel> labels = groups.get(i).labels();
                 OutputBuilder head;
                 if (labels.stream().anyMatch(l -> l.literal() == null || l.literal().isEmpty())) {
@@ -906,7 +1009,7 @@ public class KotlinStatementPrinter {
                             .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
                 }
                 arms.add(new OutputBuilderImpl().add(head).add(SymbolEnum.LAMBDA)
-                        .add(braces(arm.stream().flatMap(st -> lines(st, q).stream()).toList())));
+                        .add(braces(armLines(List.of(), arm, leftOut, q))));
             }
         } finally {
             KotlinContext.pop();
@@ -1130,7 +1233,7 @@ public class KotlinStatementPrinter {
         if (!assignedIn(fe.block(), lv)) return block(fe.block(), q);
         String name = KotlinNames.name(lv.simpleName());
         return block(List.of(new OutputBuilderImpl().add(KotlinKeyword.VAR).add(SpaceEnum.ONE).add(new TextImpl(name))
-                .add(KotlinSymbols.assignment("=")).add(new TextImpl(name))), fe.block().statements(), q);
+                .add(KotlinSymbols.assignment("=")).add(new TextImpl(name))), fe.block(), fe.block().statements(), q);
     }
 
     private static String declareForEach(ForEachStatement fe) {
@@ -1319,6 +1422,9 @@ public class KotlinStatementPrinter {
     /** If a block's only (non-synthetic) statement is an if/else, return it — for `else if` chain flattening. */
     private static IfElseStatement soleIfElse(Block block) {
         List<Statement> body = CstQueries.own(block.statements());
-        return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife && ife.label() == null ? ife : null;
+        // a comment of the block or of the if has nowhere to go in `else if`
+        if (!block.comments().isEmpty() || !block.trailingComments().isEmpty()) return null;
+        return body.size() == 1 && body.getFirst() instanceof IfElseStatement ife && ife.label() == null
+               && ife.comments().isEmpty() ? ife : null;
     }
 }

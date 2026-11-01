@@ -150,35 +150,54 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             }
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, qualification);
             Expression expressionBody = reassigned.isEmpty() ? expressionBody(body) : null;
+            // `{ // why \n return x; }` stays a block, the comment on a line of its own rather than after `=` (#181);
+            // not a null override, which only an expression body gets right
+            if (expressionBody != null && nullOverride(expressionBody) == null
+                && KotlinStatementPrinter.commentedBefore(CstQueries.own(body.statements()).getFirst())) {
+                expressionBody = null;
+            }
             if (!reassigned.isEmpty()) {
-                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body.statements(), qualification));
+                b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, body, body.statements(), qualification));
             } else if (nullOverride(expressionBody) != null) {
                 // Kotlin's member returns non-null, so `return null` cannot be: a DELIBERATE behaviour change, the caller
                 // gets the exception instead of the null (fernflower's InstructionSequence.clone(), "to be overwritten")
                 KotlinContext.message(KotlinPrintCode.NULL_OVERRIDE_THROWS, methodInfo,
                         typeInfo.simpleName() + "." + methodInfo.name() + "()");
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(new TextImpl("throw " + nullOverride(expressionBody) + "()"));
+                        .add(expressionBodyCommented(body, new OutputBuilderImpl()
+                                .add(new TextImpl("throw " + nullOverride(expressionBody) + "()")), qualification));
             } else if (expressionBody != null && genericOverridden(methodInfo) != null) {
                 // Class<AiServiceCompletedEvent> overriding <T extends AiServiceEvent> Class<T>: Java's unchecked
                 // override, Kotlin's unchecked cast
                 MethodInfo genericSuper = genericOverridden(methodInfo);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(SymbolEnum.LEFT_PARENTHESIS)
-                        .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
-                        .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS).add(SpaceEnum.ONE)
-                        .add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo, genericSuper), qualification)));
+                        .add(expressionBodyCommented(body, new OutputBuilderImpl().add(SymbolEnum.LEFT_PARENTHESIS)
+                                .add(KotlinExpressionPrinter.widened(expressionBody, null, qualification))
+                                .add(SymbolEnum.RIGHT_PARENTHESIS).add(SpaceEnum.ONE).add(KotlinKeyword.AS)
+                                .add(SpaceEnum.ONE).add(new TextImpl(KotlinTypeName.of(genericOverrideResult(methodInfo,
+                                        genericSuper), qualification))), qualification));
             } else if (expressionBody != null) {
                 OutputBuilder cast = KotlinNullability.typeVariableReturn(methodInfo, expressionBody, qualification);
                 b.add(SpaceEnum.ONE).add(KotlinSymbols.assignment("=")).add(SpaceEnum.ONE)
-                        .add(cast != null ? cast : KotlinNullability.toTarget(expressionBody,
+                        .add(expressionBodyCommented(body, cast != null ? cast : KotlinNullability.toTarget(expressionBody,
                                 KotlinNullability.returnType(methodInfo), KotlinNullability.translated(typeInfo),
                                 KotlinExpressionPrinter.returned(expressionBody, KotlinNullability.returnType(methodInfo),
-                                        qualification), qualification));
+                                        qualification), qualification), qualification));
             } else {
                 b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(body, qualification));
             }
         }
+        return b;
+    }
+
+    /**
+     * {@code = value}: the comments of the {@code return} it was around it, and those after it in the body after it
+     * (#181). Kotlin allows a line break after the {@code =}.
+     */
+    private static OutputBuilder expressionBodyCommented(Block body, OutputBuilder value, Qualification q) {
+        Statement returned = CstQueries.own(body.statements()).getFirst();
+        OutputBuilder b = KotlinStatementPrinter.commented(returned, value, q);
+        KotlinStatementPrinter.trailingComments(body, q).forEach(c -> b.add(SpaceEnum.ONE).add(c));
         return b;
     }
 
@@ -229,6 +248,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
                 : CstQueries.own(body.statements());
         ExplicitConstructorInvocation eci = !statements.isEmpty()
                                             && statements.getFirst() instanceof ExplicitConstructorInvocation e ? e : null;
+        // the comments of the super(…) in the header open the body (#181)
+        List<OutputBuilder> prefix = new java.util.ArrayList<>();
+        if (eci != null && !eci.comments().isEmpty()) prefix.add(KotlinStatementPrinter.commentsOf(eci, q));
         if (eci != null) {
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE)
                     .add(eci.isSuper() ? KeywordImpl.SUPER : KeywordImpl.THIS)
@@ -239,10 +261,9 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
             b.add(SpaceEnum.ONE).add(SymbolEnum.COLON).add(SpaceEnum.ONE).add(KeywordImpl.SUPER)
                     .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
         }
-        List<OutputBuilder> reassigned = body == null ? List.of()
-                : KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, q);
-        if (!statements.isEmpty() || !reassigned.isEmpty()) {
-            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(reassigned, statements, q));
+        if (body != null) prefix.addAll(KotlinStatementPrinter.reassignedParameters(methodInfo.parameters(), body, q));
+        if (!statements.isEmpty() || !prefix.isEmpty() || body != null && !body.trailingComments().isEmpty()) {
+            b.add(SpaceEnum.ONE).add(KotlinStatementPrinter.block(prefix, body, statements, q));
         }
     }
 

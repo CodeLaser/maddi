@@ -3455,11 +3455,17 @@ public class KotlinExpressionPrinter {
                         .add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
             }
         }
-        if (s instanceof Lambda l && l.parameters().isEmpty()) {
+        if (s instanceof Lambda l && l.parameters().isEmpty() && !hasComments(l.methodBody())) {
             Expression value = CstQueries.returnedValue(CstQueries.own(l.methodBody().statements()));
             if (value != null) return operand(PrecedenceEnum.ASSIGNMENT, value, q);
         }
         return receiver(supplier, q).add(SymbolEnum.DOT).add(new TextImpl("get")).add(SymbolEnum.OPEN_CLOSE_PARENTHESIS);
+    }
+
+    /** A body with comments, of its own or of a statement: not folded into a bare value, where they would go (#181). */
+    private static boolean hasComments(Block body) {
+        return !body.comments().isEmpty() || !body.trailingComments().isEmpty()
+               || body.statements().stream().anyMatch(st -> !st.comments().isEmpty());
     }
 
     /** A raw Comparable, or a type variable whose bound is one. */
@@ -3928,7 +3934,10 @@ public class KotlinExpressionPrinter {
         try {
             // a parameter the body assigns: `var p = p` first, as in a method (a Kotlin lambda parameter is a val)
             List<OutputBuilder> reassigned = KotlinStatementPrinter.reassignedParameters(params, body, q);
-            Expression value = reassigned.isEmpty() ? CstQueries.returnedValue(statements) : null;
+            // `x -> { // why \n return y; }` stays a block body, the comment on a line of its own (#181)
+            Expression value = reassigned.isEmpty() && (statements.size() != 1
+                                                        || !KotlinStatementPrinter.commentedBefore(statements.getFirst()))
+                    ? CstQueries.returnedValue(statements) : null;
             if (value != null) {
                 ParameterizedType returnType = lambda.methodInfo().returnType();
                 if (unwrap(value) instanceof ConstructorCall cc && inferred(cc)) {
@@ -3949,6 +3958,9 @@ public class KotlinExpressionPrinter {
                     && !(unwrap(value) instanceof ConstructorCall cc && inferred(cc))) {
                     inner = KotlinNullability.toTarget(value, decided, true, inner, q);
                 }
+                // the comments of the `return` the value was, and those after it (#181)
+                inner = KotlinStatementPrinter.commented(statements.getFirst(), inner, q);
+                for (OutputBuilder c : KotlinStatementPrinter.trailingComments(body, q)) inner.add(SpaceEnum.ONE).add(c);
             } else {
                 labelled = hasInnerReturn(statements);
                 // a block's returns go into the same result: jenkins's InstallUtil, return states.get(current)

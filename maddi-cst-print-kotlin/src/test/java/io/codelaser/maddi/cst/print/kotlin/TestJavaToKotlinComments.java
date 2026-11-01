@@ -176,4 +176,129 @@ public class TestJavaToKotlinComments extends CommonJavaToKotlin {
         contains(kotlin, "* the x");
         compiles(kotlin);
     }
+
+    @DisplayName("#181: a statement's comments before it, its trailing '//' after it, a block's last ones before '}'")
+    @Test
+    public void statements() {
+        String kotlin = kotlin("""
+                package a;
+                public class Counter {
+                    private int count;
+                    int add(int n) {
+                        // first, check
+                        if (n < 0) { // header line
+                            throw new IllegalArgumentException();
+                        } else {
+                            // not an else-if any more
+                            if (n == 0) return count;
+                        }
+                        /* the sum */
+                        int sum = count + n; // trailing
+                        for (int i = 0; i < n; i += 2) {
+                            sum++;
+                            // after the last statement of the loop
+                        }
+                        count = sum;
+                        return count;
+                        // after the return
+                    }
+                    void nothing() {
+                        // intentionally empty
+                    }
+                }
+                """);
+        contains(kotlin, "// first, check\nif (n < 0) {");
+        contains(kotlin, "// header line\nthrow IllegalArgumentException()");
+        contains(kotlin, "else {\n// not an else-if any more\nif (n == 0)");
+        contains(kotlin, "/* the sum */");
+        contains(kotlin, "count + n // trailing");
+        contains(kotlin, "// after the last statement of the loop");
+        contains(kotlin, "// after the return\n}");
+        contains(kotlin, "fun nothing() {\n// intentionally empty\n}");
+        compiles(kotlin);
+    }
+
+    @DisplayName("#181: comments of a statement folded away: an expression body, a lambda's value, a final break")
+    @Test
+    public void foldedStatements() {
+        String kotlin = kotlin("""
+                package a;
+                import java.util.function.Function;
+                public class Folded {
+                    int size() {
+                        // always one
+                        return 1; // see above
+                    }
+                    int one() {
+                        return 1; // a trailing comment keeps the expression body
+                    }
+                    Function<Integer, Integer> twice() {
+                        return x -> {
+                            // doubled
+                            return 2 * x;
+                        };
+                    }
+                    String name(int k) {
+                        String s;
+                        switch (k) {
+                            case 1:
+                                s = "one";
+                                break; // done with one
+                            default:
+                                s = "many";
+                        }
+                        return switch (k) {
+                            case 2 -> {
+                                // two is special
+                                yield "two";
+                            }
+                            default -> s;
+                        };
+                    }
+                }
+                """);
+        // a comment before the only return keeps a block body: it has no line of its own after `=`
+        contains(kotlin, "fun size(): Int {\n// always one\nreturn 1 // see above\n}");
+        contains(kotlin, "x ->\n// doubled\n2 * x");
+        contains(kotlin, "fun one(): Int = 1 // a trailing comment keeps the expression body");
+        contains(kotlin, "s = \"one\"\n// done with one\n}");
+        contains(kotlin, "2 -> {\n// two is special\n\"two\"\n}");
+        compiles(kotlin);
+    }
+
+    @DisplayName("#181: comments of what goes into a header: super(…), a header property's assignment")
+    @Test
+    public void headers() {
+        String kotlin = kotlin("""
+                package a;
+                public class Headers {
+                    static class Base {
+                        Base(int x) { }
+                    }
+                    static class Derived extends Base {
+                        private final int y;
+                        Derived(int y) {
+                            // the base gets it too
+                            super(y);
+                            this.y = y;
+                        }
+                        Derived() {
+                            // a default
+                            this(3);
+                        }
+                    }
+                    static class Point {
+                        private final int x;
+                        Point(int x) {
+                            this.x = x; // as given
+                        }
+                        int x() { return x; }
+                    }
+                }
+                """);
+        contains(kotlin, "constructor(y: Int) : super(y) {\n// the base gets it too\nthis.y = y");
+        contains(kotlin, "// a default\n}");
+        contains(kotlin, "// as given");
+        compiles(kotlin);
+    }
 }

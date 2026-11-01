@@ -550,7 +550,13 @@ public final class SourceCodeScan {
                     }
                 }
                 case ThrowsList tl -> scanCommaList(tl, source(md), DetailedSources.THROWS_COMMAS);
-                case ExplicitConstructorInvocation eci -> scanCodeBlock(eci);
+                case ExplicitConstructorInvocation eci -> {
+                    // not a Statement in this tree, so scanCodeBlock does not claim its comments: the ones before it,
+                    // and the '//' after it on its line (#181)
+                    // keyed without its ';', as ScanCompilationUnit sees the statement (see scanCall)
+                    addComments(eci, source(eci.getFirst(), eci.get(eci.size() - 2)), eci.nextSibling());
+                    scanCodeBlock(eci);
+                }
                 case Statement st -> scanCodeBlock(st);
                 default -> {
                 }
@@ -769,7 +775,11 @@ public final class SourceCodeScan {
      *                    of {@code node}; null for no lookahead
      */
     private void addComments(Node node, @Nullable Node nextSibling) {
-        Source source = source(node);
+        addComments(node, source(node), nextSibling);
+    }
+
+    /** As {@link #addComments(Node, Node)}, recorded under {@code source} rather than the node's own. */
+    private void addComments(Node node, Source source, @Nullable Node nextSibling) {
         addLookaheadComments(source, source.endLine(), nextSibling);
         List<Comment> comments = comments(node).filter(c -> seen.add(c.source())).toList();
         if (!comments.isEmpty()) {
