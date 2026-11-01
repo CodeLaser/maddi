@@ -301,4 +301,19 @@ public class TestJavaToKotlinComments extends CommonJavaToKotlin {
         contains(kotlin, "// as given");
         compiles(kotlin);
     }
+
+    @DisplayName("a Javadoc whose HTML the front end drops does not close the KDoc early (jenkins's ResponseHeaderFilter)")
+    @Test
+    public void noCloseInKDoc() {
+        String kotlin = kotlin("""
+                package a;
+                /**
+                 * Map it as &lt;url-pattern&gt;/*&lt;/url-pattern&gt;, or as "foo/**&#47;*.xml".
+                 */
+                public class Filter {
+                }
+                """);
+        contains(kotlin, "open class Filter");
+        compiles(kotlin);
+    }
 }

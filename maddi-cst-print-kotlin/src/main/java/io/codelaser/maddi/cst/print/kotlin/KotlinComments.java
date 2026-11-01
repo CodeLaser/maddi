@@ -71,12 +71,21 @@ final class KotlinComments {
         return text.replace("/*", "/ *");
     }
 
+    /**
+     * A Javadoc's text holds no {@code *}{@code /} as written, but can as the front end hands it over: it drops HTML
+     * elements and entities, so jenkins's {@code &lt;url-pattern&gt;/*&lt;/url-pattern&gt;} arrives as
+     * {@code url-pattern/*}{@code /url-pattern}, which closed the KDoc early and broke the whole file.
+     */
+    private static String unclosed(String text) {
+        return text.replace("*/", "* /");
+    }
+
     /** As JavaDocImpl prints a Javadoc, with the tags in KDoc's spelling. */
     private static OutputBuilder kdoc(JavaDoc javaDoc) {
         // the text with its tags as written: a {1} in it is the text's own, guava's Sets.powerSet documents
         // {@code {{}, {1}, {2}, {1, 2}}} (#166)
         // without its blank first and last lines; and nothing at all when only {@inheritDoc} was there
-        String text = unnest(kdocText(javaDoc.comment())).replaceAll("^(\\s*\\n)+", "").stripTrailing();
+        String text = unclosed(unnest(kdocText(javaDoc.comment()))).replaceAll("^(\\s*\\n)+", "").stripTrailing();
         if (text.isBlank()) return new OutputBuilderImpl();
         String[] lines = text.split("\n", -1);
         boolean starred = Arrays.stream(lines).filter(l -> STAR.matcher(l).find()).count() > 1;
