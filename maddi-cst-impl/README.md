@@ -7,5 +7,5 @@ classes, the `RuntimeImpl`/`FactoryImpl` facade, constant/expression evaluation
 Key entry point: `io.codelaser.maddi.cst.impl.runtime.RuntimeImpl`.
 
 Kotlin printing lives separately in `maddi-cst-print-kotlin`; the language-neutral formatting
-engine in `maddi-cst-print`. See the repository-level [`ARCHITECTURE.md`](../ARCHITECTURE.md)
+engine in `maddi-cst-print`. See the repository-level [`ARCHITECTURE.md`](../docs/design/ARCHITECTURE.md)
 for the full module map.

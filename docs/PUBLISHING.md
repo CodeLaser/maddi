@@ -1,5 +1,5 @@
 > **Three repositories.** Since 2026-09-30 maddi is split by tier
-> ([plan](docs/roadmap/split-maddi-into-three-repositories.md)): this repository holds the **base** (CST, front
+> ([plan](roadmap/split-maddi-into-three-repositories.md)): this repository holds the **base** (CST, front
 > ends, inspection, call graph, the run drivers, the `AnalysisEngine` interface, and `corpus/`, the corpus tooling);
 > [**maddi-mod**](https://github.com/CodeLaser/maddi-mod) holds the modification analysis (`maddi-modification-*`,
 > `maddi-aapi-parser`, `maddi-run-analysis`, the analysis tests); and

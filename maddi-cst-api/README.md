@@ -11,5 +11,5 @@ Key entry points: `io.codelaser.maddi.cst.api.runtime.Runtime`,
 Remember: info objects are single-instance per (FQN, source set) — compare with `==`.
 
 The `kotlin-*.md` files in this module are design notes from extending the CST to host Kotlin.
-See the repository-level [`ARCHITECTURE.md`](../ARCHITECTURE.md) for how this module fits the
+See the repository-level [`ARCHITECTURE.md`](../docs/design/ARCHITECTURE.md) for how this module fits the
 pipeline; the implementation lives in `maddi-cst-impl`.
