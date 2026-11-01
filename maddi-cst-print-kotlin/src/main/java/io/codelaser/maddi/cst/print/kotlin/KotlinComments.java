@@ -74,11 +74,13 @@ final class KotlinComments {
 
     /** As JavaDocImpl prints a Javadoc, with the tags in KDoc's spelling. */
     private static OutputBuilder kdoc(JavaDoc javaDoc) {
-        // the maddi parser leaves {n} placeholders for its tags; the openjdk one writes them as they were written.
-        // Not comment(): a literal {0} in the text (a MessageFormat pattern) is no placeholder of a tag
+        // the maddi parser leaves {n} placeholders for its tags; the openjdk one writes them as they were written,
+        // and then a {1} in the text is the text's: guava's Sets.powerSet documents {@code {{}, {1}, {2}, {1, 2}}},
+        // which comment() fills with tags 1 and 2. So: placeholders only where no tag was written out
+        String raw = javaDoc.commentWithPlaceholders();
         StringBuilder sb = new StringBuilder();
-        Matcher m = PLACEHOLDER.matcher(javaDoc.commentWithPlaceholders());
-        while (m.find()) {
+        Matcher m = PLACEHOLDER.matcher(raw);
+        while (!raw.contains("{@") && m.find()) {
             int index = Integer.parseInt(m.group(1));
             String replacement = index < javaDoc.tags().size() ? javaDoc.tags().get(index).toString() : m.group();
             m.appendReplacement(sb, Matcher.quoteReplacement(replacement));

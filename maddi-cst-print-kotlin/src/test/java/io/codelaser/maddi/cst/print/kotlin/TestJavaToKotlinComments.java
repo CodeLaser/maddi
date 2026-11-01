@@ -136,10 +136,13 @@ public class TestJavaToKotlinComments extends CommonJavaToKotlin {
                      * }
                      */
                     boolean isEmpty() { return size() == 0; }
+                    /** Sets as {@code {{}, {1}, {2}}}, with {@link List}. */
+                    void powerSet() { }
                 }
                 """);
         contains(kotlin, "Empty when `size() == 0`, as in");
         contains(kotlin, "* ```\n* if (box.isEmpty()) { return; }\n* ```\n*/");
+        contains(kotlin, "Sets as `{{}, {1}, {2}}`, with [List].");
         // a Javadoc of {@inheritDoc} alone is no KDoc at all
         contains(kotlin, "{\noverride fun toString()");
         contains(kotlin, "Holds `n` items, see [List] and [its size][size];");
