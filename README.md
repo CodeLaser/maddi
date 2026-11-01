@@ -69,12 +69,10 @@ The following examples are taken from those projects.
 <img
   src="docs/images/intellij-java-explain.png#gh-light-mode-only"
   alt="Code snippet"
-  width="600"
 />
 <img
   src="docs/images/intellij-java-explain-dark.png#gh-dark-mode-only"
   alt="Code snippet"
-  width="600"
 />
 
 ### Kotlin in IntelliJ
@@ -82,28 +80,97 @@ The following examples are taken from those projects.
 <img
   src="docs/images/intellij-kotlin-dependent.png#gh-light-mode-only"
   alt="Code snippet"
-  width="600"
 />
 <img
   src="docs/images/intellij-kotlin-dependent-dark.png#gh-dark-mode-only"
   alt="Code snippet"
-  width="600"
 />
 
 ### Java in Eclipse
 
-...
+<img
+  src="docs/images/eclipse-java.png#gh-light-mode-only"
+  alt="Code snippet"
+/>
+<img
+  src="docs/images/eclipse-java-dark.png#gh-dark-mode-only"
+  alt="Code snippet"
+/>
 
 ### Java → Kotlin in IntelliJ
 
-...
+<img
+  src="docs/images/java-to-kotlin.png#gh-light-mode-only"
+  alt="Code snippet"
+/>
+<img
+  src="docs/images/java-to-kotlin-dark.png#gh-dark-mode-only"
+  alt="Code snippet"
+/>
 
-### Java → C#
+### Java → Kotlin, C#, Rust
 
-### Java → Rust: the verdicts as ownership
+The snippet
 
-Rust's rule is *aliasing XOR mutability*. [*The Road to Immutability*](https://www.codelaser.io/maddi/road/) splits the same idea in two: modification is the mutability half, independence the aliasing half. So `maddi --translate rust` prints the verdicts as Rust's ownership
-modes, and the same `Inventory` becomes:
+```java
+public class Inventory {
+    public record Item(String name, int count) { }
+    private final Map<String, Item> items = new HashMap<>();
+
+    public Item find(String name) { return items.get(name); }
+
+    public static int total(List<Item> list) {
+        int sum = 0;
+        for (Item item : list) sum += item.count();
+        return sum;
+    }
+
+    public List<String> names() { return new ArrayList<>(items.keySet()); }
+    // ...
+}
+```
+
+translates to Kotlin as
+
+```java
+open class Inventory {
+    private val items: Map<String, Item> = HashMap<String, Item>()
+    open fun find(name: String): Item? = items.get(name)
+    open fun names(): MutableList<String> = ArrayList<String>(items.keys)
+    @JvmRecord data class Item(val name: String, val count: Int)
+    companion object {
+        @JvmStatic fun total(list: List<Item>): Int {
+            var sum = 0
+            for (item in list) { sum += item.count }
+            return sum
+        }
+    }
+    // ...
+}
+```
+
+and to C# (we're now using the command line, not the IDE) as
+
+```csharp
+public sealed class Inventory {
+    private readonly IDictionary<string, Item> items = new Dictionary<string, Item>();
+
+    public Item? Find(string name) => items.Get(name);
+
+    public static int Total(IReadOnlyList<Item> list) {
+        int sum = 0;
+        foreach (Item item in list) { sum += item.Count; }
+        return sum;
+    }
+
+    public List<string> Names() => new List<string>(items.Keys);
+
+    public sealed record Item(string Name, int Count);
+    // ...
+}
+```
+
+Rust's rule is *aliasing XOR mutability*. [*The Road to Immutability*](https://www.codelaser.io/maddi/road/) splits the same idea in two: modification is the mutability half, independence the aliasing half. So `maddi --translate rust` prints the verdicts as Rust's ownership modes, and the same `Inventory` becomes:
 
 ```rust
 impl Inventory {
@@ -176,8 +243,6 @@ re-exports it:
 ```kotlin
 implementation("io.codelaser:maddi-support:0.9.6")      // annotations arrive with it
 ```
-
-> Versions up to `0.8.2` were LGPL-3.0; `0.9.0` onward is Apache-2.0.
 
 ## Documentation
 
