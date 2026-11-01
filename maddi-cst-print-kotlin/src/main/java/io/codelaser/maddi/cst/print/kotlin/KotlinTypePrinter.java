@@ -143,6 +143,7 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         boolean annotationType = companion && typeInfo.typeNature().isAnnotation();
         OutputBuilder out = new OutputBuilderImpl();
         if (doTypeDeclaration) {
+            out.add(KotlinComments.print(typeInfo.comments(), insideType));
             // outside the class's scope, as its header: nacos's AbstractHealthChecker is annotated
             // @JsonTypeInfo(defaultImpl = None.class), None one of its nested classes
             out.add(KotlinAnnotations.print(typeInfo.annotations(), new KotlinHeaderQualification(insideType, typeInfo)));
@@ -211,10 +212,16 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 // constructor and property expose the internal type
                 Optional<Keyword> constructorVisibility = typeInfo.typeNature().isEnum() ? Optional.empty()
                         : KotlinModifiers.visibility(primary.access(), typeInfo, primary);
-                constructorVisibility.ifPresent(v -> out.add(SpaceEnum.ONE).add(v).add(SpaceEnum.ONE)
-                        .add(KotlinKeyword.CONSTRUCTOR));
+                // the constructor's documentation goes where Kotlin documents a primary constructor: before its keyword
+                OutputBuilder constructorComments = KotlinComments.print(primary.comments(), insideType);
+                if (constructorVisibility.isPresent() || !constructorComments.isEmpty()) {
+                    out.add(SpaceEnum.ONE).add(constructorComments);
+                    constructorVisibility.ifPresent(v -> out.add(v).add(SpaceEnum.ONE));
+                    out.add(KotlinKeyword.CONSTRUCTOR);
+                }
                 out.add(primary.parameters().stream()
                         .map(p -> new OutputBuilderImpl()
+                                .add(KotlinComments.print(fieldByName.get(p.name()).comments(), insideType))
                                 .add(KotlinFieldPrinter.jvmModifiers(fieldByName.get(p.name())))
                                 .add(propertyVisibility(fieldByName.get(p.name())))
                                 // a record's component is read through its accessor, x(): a data class property. A
@@ -237,7 +244,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                                 SymbolEnum.RIGHT_PARENTHESIS, GuideImpl.generatorForParameterDeclaration())));
             } else if (!components.isEmpty()) {
                 out.add(components.stream()
-                        .map(f -> new OutputBuilderImpl().add(KotlinKeyword.VAL).add(SpaceEnum.ONE)
+                        .map(f -> new OutputBuilderImpl().add(KotlinComments.print(f.comments(), insideType))
+                                .add(KotlinKeyword.VAL).add(SpaceEnum.ONE)
                                 .add(new TextImpl(KotlinNames.name(f.name()))).add(SymbolEnum.COLON_LABEL)
                                 .add(new TextImpl(KotlinTypeName.of(KotlinNullability.fieldType(f), insideType))))
                         .collect(OutputBuilderImpl.joining(SymbolEnum.COMMA, SymbolEnum.LEFT_PARENTHESIS,
@@ -323,6 +331,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 .filter(st -> !st.isSynthetic())
                 .forEach(st -> members.add(enclosedTypePrinterFactory.create(st, formatter2).print(importData, true)));
         if (companion) companionObject(fieldPrinterFactory, methodPrinterFactory, insideType).forEach(members::add);
+        // the comments after the last member, before the closing brace
+        typeInfo.trailingComments().forEach(c -> members.add(KotlinComments.print(c, insideType)));
 
         if (!members.isEmpty()) {
             // NEWLINE between members: Kotlin has no `;`, so members must be newline-separated to stay valid
@@ -455,8 +465,10 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
         OutputBuilder annotations = KotlinAnnotations.print(c.annotations(), q);
         java.util.Optional<io.codelaser.maddi.cst.api.output.element.Keyword> visibility = typeInfo.typeNature().isEnum()
                 ? java.util.Optional.empty() : KotlinModifiers.visibility(c.access(), typeInfo, c);
-        if (!annotations.isEmpty() || visibility.isPresent()) {
-            b.add(SpaceEnum.ONE).add(annotations);
+        // and documented: its comments go before the keyword
+        OutputBuilder comments = KotlinComments.print(c.comments(), q);
+        if (!annotations.isEmpty() || visibility.isPresent() || !comments.isEmpty()) {
+            b.add(SpaceEnum.ONE).add(comments).add(annotations);
             visibility.ifPresent(v -> b.add(v).add(SpaceEnum.ONE));
             b.add(KotlinKeyword.CONSTRUCTOR);
         }
@@ -655,7 +667,8 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
     /** `RED, GREEN, BLUE` (with `(args)` where a constant has constructor arguments); `;`-terminated if more follows. */
     private OutputBuilder enumEntries(boolean moreMembersFollow, Qualification q) {
         OutputBuilder entries = enumConstants().stream().map(f -> {
-            OutputBuilder e = new OutputBuilderImpl().add(new TextImpl(KotlinNames.name(f.name())));
+            OutputBuilder e = new OutputBuilderImpl().add(KotlinComments.print(f.comments(), q))
+                    .add(new TextImpl(KotlinNames.name(f.name())));
             if (f.initializer() instanceof ConstructorCall cc && !cc.parameterExpressions().isEmpty()) {
                 e.add(KotlinExpressionPrinter.arguments(cc.parameterExpressions(), cc.constructor(), q));
             }
@@ -666,7 +679,10 @@ public record KotlinTypePrinter(TypeInfo typeInfo, boolean formatter2) implement
                 if (!body.isEmpty()) e.add(SpaceEnum.ONE).add(body);
             }
             return e;
-        }).collect(OutputBuilderImpl.joining(SymbolEnum.COMMA));
+        }).collect(enumConstants().stream().anyMatch(f -> !f.comments().isEmpty())
+                // a documented entry: one entry per line, or the comment's lines get a continuation indent
+                ? OutputBuilderImpl.joining(SymbolEnum.COMMA, GuideImpl.generatorForEnumDefinitions())
+                : OutputBuilderImpl.joining(SymbolEnum.COMMA));
         if (moreMembersFollow) entries.add(SymbolEnum.SEMICOLON);
         return entries;
     }

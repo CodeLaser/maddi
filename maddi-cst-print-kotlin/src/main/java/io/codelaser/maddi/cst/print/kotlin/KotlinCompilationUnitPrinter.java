@@ -33,8 +33,8 @@ import java.util.Set;
 /**
  * Prints a {@link CompilationUnit} as a Kotlin file: the {@code package} line, the imports the
  * {@link ImportComputer} finds the printed code needs, and the types. A Java static import is an ordinary Kotlin
- * import ({@code import a.B.c}); names that are Kotlin keywords are escaped segment by segment. Comments are not
- * printed: the CST's comments are Java's, the licence header first among them.
+ * import ({@code import a.B.c}); names that are Kotlin keywords are escaped segment by segment. The file's own
+ * comments, the licence header first among them, come before the {@code package} line, as in Java.
  */
 public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, boolean formatter2,
                                            KotlinPrintOptions options) {
@@ -65,6 +65,7 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                 .computeImportData(importComputer, qualification);
         KotlinContext.resetLabels();
         OutputBuilder out = new OutputBuilderImpl();
+        out.add(KotlinComments.print(compilationUnit.comments(), qualification));
         String packageName = compilationUnit.packageName();
         if (!packageName.isEmpty()) {
             out.add(KeywordImpl.PACKAGE).add(SpaceEnum.ONE).add(new TextImpl(KotlinNames.dotted(packageName)))
@@ -88,6 +89,7 @@ public record KotlinCompilationUnitPrinter(CompilationUnit compilationUnit, bool
                 .add(SpaceEnum.NEWLINE));
         out.add(types);
         KotlinContext.takeFileHelpers().forEach(h -> out.add(SpaceEnum.NEWLINE).add(new TextImpl(h)).add(SpaceEnum.NEWLINE));
+        out.add(KotlinComments.print(compilationUnit.trailingComments(), qualification));
         return out;
     }
 

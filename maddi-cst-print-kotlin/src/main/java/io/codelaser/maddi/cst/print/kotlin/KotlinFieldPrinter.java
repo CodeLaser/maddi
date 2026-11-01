@@ -18,11 +18,17 @@
 package io.codelaser.maddi.cst.print.kotlin;
 
 import io.codelaser.maddi.cst.print.translate.CstQueries;
+import io.codelaser.maddi.cst.api.element.Comment;
+import io.codelaser.maddi.cst.api.element.DetailedSources;
+import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.info.FieldInfo;
 import io.codelaser.maddi.cst.api.info.FieldPrinter;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
+import io.codelaser.maddi.cst.impl.element.ElementImpl;
 import io.codelaser.maddi.cst.impl.output.*;
+
+import java.util.List;
 
 /**
  * Prints a {@link FieldInfo} as a Kotlin property: `[visibility] val|var name: Type [= initializer]`. A final
@@ -45,6 +51,20 @@ public record KotlinFieldPrinter(FieldInfo fieldInfo, boolean formatter2) implem
 
     @Override
     public OutputBuilder print(Qualification qualification, boolean asParameterInPrimaryConstructor) {
+        OutputBuilder declaration = printDeclaration(qualification, asParameterInPrimaryConstructor);
+        if (asParameterInPrimaryConstructor) return declaration;
+        // 'int a; // why': the comment stays after the declaration, as in Java (#137)
+        Source written = fieldInfo.source() == null || fieldInfo.source().detailedSources() == null ? null
+                : fieldInfo.source().detailedSources().detail(DetailedSources.FIELD_DECLARATION);
+        List<Comment> after = ElementImpl.commentsAfterOnLastLine(fieldInfo.comments(), written);
+        OutputBuilder out = new OutputBuilderImpl().add(KotlinComments.print(
+                fieldInfo.comments().stream().filter(c -> !after.contains(c)).toList(), qualification));
+        out.add(declaration);
+        after.forEach(c -> out.add(SpaceEnum.ONE).add(KotlinComments.print(c, qualification)));
+        return out;
+    }
+
+    private OutputBuilder printDeclaration(Qualification qualification, boolean asParameterInPrimaryConstructor) {
         boolean hasInitializer = fieldInfo.initializer() != null && !fieldInfo.initializer().isEmpty();
         // a Kotlin property is initialized where it is declared; Java's is zero/false/null until assigned
         // a final field the secondary constructors assign cannot be a val: Kotlin assigns those in an init block only

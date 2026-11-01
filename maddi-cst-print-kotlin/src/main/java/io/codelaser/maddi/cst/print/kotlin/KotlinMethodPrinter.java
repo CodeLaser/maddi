@@ -47,7 +47,8 @@ public record KotlinMethodPrinter(TypeInfo typeInfo, MethodInfo methodInfo, bool
         var patterns = KotlinContext.enterMethod(methodInfo);
         try {
             methodInfo.parameters().forEach(p -> KotlinContext.declared(p.name()));
-            return printMethod(qualification);
+            return new OutputBuilderImpl().add(KotlinComments.print(methodInfo.comments(), qualification))
+                    .add(printMethod(qualification));
         } finally {
             KotlinContext.exitMethod(patterns);
         }
