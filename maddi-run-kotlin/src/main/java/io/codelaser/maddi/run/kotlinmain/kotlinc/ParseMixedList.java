@@ -1,8 +1,8 @@
 package io.codelaser.maddi.run.kotlinmain.kotlinc;
 
 import io.codelaser.maddi.run.config.compile.CompileInvocation;
-import io.codelaser.maddi.run.openjdkmain.javac.Javac;
-import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
+import io.codelaser.maddi.run.config.javac.Javac;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

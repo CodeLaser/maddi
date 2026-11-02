@@ -30,7 +30,7 @@ import io.codelaser.maddi.inspection.api.resource.BuildFiles;
 import io.codelaser.maddi.inspection.resource.BuildFilesCapture;
 import io.codelaser.maddi.run.config.util.JsonStreaming;
 import io.codelaser.maddi.cst.impl.runtime.LanguageConfigurationImpl;
-import io.codelaser.maddi.run.openjdkmain.javac.ParseJavacList;
+import io.codelaser.maddi.run.config.javac.ParseJavacList;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import org.slf4j.Logger;

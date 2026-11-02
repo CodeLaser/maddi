@@ -1,4 +1,4 @@
-package io.codelaser.maddi.run.openjdkmain.javac;
+package io.codelaser.maddi.run.config.javac;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

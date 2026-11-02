@@ -198,7 +198,7 @@ public class TestKotlinc {
         assertTrue(kotlinOnly.languageLevel() <= 0, "kotlinc states no Java language level");
         assertFalse(kotlinOnly.enablePreview());
 
-        io.codelaser.maddi.run.openjdkmain.javac.Javac javac = io.codelaser.maddi.run.openjdkmain.javac.Javac.parse(
+        io.codelaser.maddi.run.config.javac.Javac javac = io.codelaser.maddi.run.config.javac.Javac.parse(
                 "-d " + out + " -source 21 --enable-preview " + bar);
         List<io.codelaser.maddi.run.config.compile.CompileInvocation> merged = SharedDestination.merge(List.of(kotlinc, javac));
         assertEquals(1, merged.size());

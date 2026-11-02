@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package io.codelaser.maddi.run.openjdkmain.javac;
+package io.codelaser.maddi.run.config.javac;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

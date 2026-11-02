@@ -1,4 +1,4 @@
-package io.codelaser.maddi.run.openjdkmain.javac;
+package io.codelaser.maddi.run.config.javac;
 
 import io.codelaser.maddi.run.config.compile.CompileInvocation;
 import io.codelaser.maddi.run.config.util.PluginSourceSets;

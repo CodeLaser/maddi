@@ -15,6 +15,7 @@ module io.codelaser.maddi.run.config {
 
     exports io.codelaser.maddi.run.config;
     exports io.codelaser.maddi.run.config.compile;
+    exports io.codelaser.maddi.run.config.javac;
     exports io.codelaser.maddi.run.config.report;
     exports io.codelaser.maddi.run.config.util;
 }

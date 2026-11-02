@@ -21,5 +21,4 @@ module io.codelaser.maddi.run.openjdkmain {
     requires org.slf4j;
 
     exports io.codelaser.maddi.run.openjdkmain;
-    exports io.codelaser.maddi.run.openjdkmain.javac;
 }
