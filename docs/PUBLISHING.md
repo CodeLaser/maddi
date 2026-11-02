@@ -164,6 +164,21 @@ tap as untrusted: `brew install codelaser/tap/<formula>` works, `brew info`/`bre
 --help` and `maddi-kotlin --help` both exit 0 and print the full option surface). *Remaining:* run `release-cli.sh` for a tag —
 needs an authenticated `gh` and is an outward-facing publish, so run it deliberately.
 
+**MCP bundle and MCP Registry (since 0.9.6, 2026-11-02).** `maddi-mcp:mcpb` packs the same install as an
+[MCP bundle](https://github.com/modelcontextprotocol/mcpb), `maddi-mcp-<version>.mcpb`: a zip with
+`manifest.json` (manifest 0.3, server type `binary`) and the CodeLaser icon at its root. Claude Desktop installs it
+from a double-click. The bundle carries no JDK: the manifest asks for one (`jdk_home`, required) and passes it as
+`JAVA_HOME` and `MADDI_JDK_HOME`, and it runs `bin/maddi-mcp` through `/bin/sh` so that a lost x bit cannot stop it.
+Its platforms are macOS and Linux; Windows (`bin/maddi-mcp.bat`) is untested. `release-cli.sh` uploads it with its
+checksum, then publishes `maddi-mcp/server.json` (version and checksum filled in) as
+`io.github.codelaser/maddi-mcp` on the [MCP Registry](https://registry.modelcontextprotocol.io) with
+`mcp-publisher`. GitHub's MCP listing and VS Code's gallery read from there. The registry wants the bundle on a
+GitHub release, "mcp" in its URL, and the checksum in `server.json`. ⚠ `mcp-publisher login github` once, as a
+member of CodeLaser, before the release; without it the step warns, and `maddi-mcp/build/server.json` can be
+published by hand. `MADDI_MCP_REGISTRY=none` skips it. Smoke-tested 2026-11-02 from the unpacked bundle, with
+nothing in the environment but the JDK settings: initialize, the 12 tools, `list_projects`. ⚠ Not yet checked
+with `mcpb validate` (`npx @anthropic-ai/mcpb`) or installed in Claude Desktop.
+
 Not published: none of the fine-grained analyzer modules (`maddi-cst-*`, `maddi-inspection-*`,
 `maddi-java-*`, `maddi-modification-*`, `maddi-aapi-*`, `maddi-run-config`, …). No BOM.
 

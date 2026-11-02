@@ -74,7 +74,8 @@ maddi and ask about the results. It drives the same daemon as the IDE plugins, s
 
 To install it on macOS or Linux, `brew install codelaser/tap/maddi-mcp`, which brings its JDK along, and register it
 with the agent: `claude mcp add maddi -- $(brew --prefix)/bin/maddi-mcp` for Claude Code. Elsewhere, download
-`maddi-mcp-0.9.6.zip` from this release, unzip it and register its `bin/maddi-mcp`. It needs a JDK 25 or later; the
+`maddi-mcp-0.9.6.zip` from this release, unzip it and register its `bin/maddi-mcp`. For Claude Desktop,
+`maddi-mcp-0.9.6.mcpb` is the same server as an MCP bundle: open it, and name a JDK when it asks. It needs a JDK 25 or later; the
 [README](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/README.md#coding-agents-mcp) has the options. What comes next,
 asking what an edit would do to the verdicts and whether it would break a contract before making it, is planned in
 [`mcp-server.md`](https://github.com/CodeLaser/maddi-dist/blob/v0.9.6/docs/roadmap/mcp-server.md).
@@ -208,7 +209,7 @@ Nothing about the coordinates changes, apart from the version. New in 0.9.6: the
 | Maven plugin | `io.codelaser:maddi-mvnplugin:0.9.6`, on Maven Central |
 | Annotations | `io.codelaser:maddi-annotation:0.9.6` and `io.codelaser:maddi-support:0.9.6`, on Maven Central |
 | Command line | `maddi-0.9.6.zip` and `maddi-kotlin-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
-| MCP server | `maddi-mcp-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases) |
+| MCP server | `maddi-mcp-0.9.6.zip`, on the [GitHub release](https://github.com/CodeLaser/maddi/releases); `maddi-mcp-0.9.6.mcpb`, the same as an MCP bundle for Claude Desktop; on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.codelaser/maddi-mcp` |
 | Homebrew (macOS, Linux) | `brew install codelaser/tap/maddi`, `codelaser/tap/maddi-kotlin` or `codelaser/tap/maddi-mcp`: the command line or the MCP server, with the JDK it runs on |
 
 The analyzer needs JDK 25 or later to run, and the Kotlin distribution needs JDK 26 or later. The IntelliJ plugin
