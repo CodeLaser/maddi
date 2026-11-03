@@ -136,6 +136,25 @@ public class RunRewireTests {
         return (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
     }
 
+    /*
+     -Dmaddi.rewire.histogram=N: the N largest classes of the live heap after each re-parse (a full collection first,
+     as the histogram's own), to see what a growing heap keeps. Off by default: it costs a second or so each time.
+     */
+    private static final int HISTOGRAM = Integer.getInteger("maddi.rewire.histogram", 0);
+
+    private static void logHistogram(int iteration, boolean restore) {
+        if (HISTOGRAM <= 0) return;
+        try {
+            Object out = java.lang.management.ManagementFactory.getPlatformMBeanServer().invoke(
+                    new javax.management.ObjectName("com.sun.management:type=DiagnosticCommand"),
+                    "gcClassHistogram", new Object[]{new String[0]}, new String[]{String[].class.getName()});
+            String top = ((String) out).lines().limit(HISTOGRAM + 3L).collect(java.util.stream.Collectors.joining("\n"));
+            LOGGER.info("REWIRE HISTOGRAM iteration {}{}:\n{}", iteration, restore ? " (restore)" : "", top);
+        } catch (Exception e) {
+            LOGGER.warn("REWIRE HISTOGRAM not available: {}", e.toString());
+        }
+    }
+
     public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
@@ -222,6 +241,7 @@ public class RunRewireTests {
                 heapAfterGcMb());
         stats.add(s);
         LOGGER.info("REWIRE STATS {}", s);
+        logHistogram(iteration, restore);
         lastGraph = graph;
         lastParseResult = parseResult1;
         return graph;
