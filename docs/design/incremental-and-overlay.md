@@ -271,6 +271,14 @@ The list for a prep-only incremental step, in order:
    the other `INTRINSIC` properties instead of being re-prepped. The one cross-type input, the callee's
    `GET_SET_FIELD`, is parse-time and already carried, so the carry is sound unless a callee changed its getter or
    setter status, which the `INVALID` set names.
+   *Done (2026-11-03):* the properties opt in with `carryOnRewire` (`VARIABLE_DATA`, `VARIABLES_OF_ENCLOSING_METHOD`,
+   `PREPPED`, `ALWAYS_ESCAPES`, `INSTANCEOF_SCOPE`); the variable objects are rewired through the pass's memo, so
+   containers keep the identities they assert. The graph-wide values (`PART_OF_CONSTRUCTION`, `FINAL_FIELD`,
+   `RECURSIVE_METHOD`) are recomputed, and a skipped type re-registers its `IMPLEMENTATIONS`. For the getter/setter
+   status, each type records the status of every source callee its prep read (`GET_SET_ASSUMPTIONS`, carried); after
+   the main pass a skipped type whose callee's status changed loses its carried data and is prepped again
+   (`TestPrepAfterPartialReparse.testGetterStatusChange`). The oracle compares the warm prep with a cold one. On
+   fernflower, prep after a one-file edit drops from about 300 ms to about 40 ms, and the oracle finds no differences.
    *Measured (2026-11-03, fernflower, the driver's `-Dmaddi.rewire.leakCheck` and `-Dmaddi.rewire.histogram`):*
    over 40 re-parses the live type objects stay at generation 0 (the driver keeps it) plus the live and the previous
    generation, and prep's `VariableInfo` count is flat; the heap after GC holds at 300–470 MB. What had kept every
