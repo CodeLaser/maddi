@@ -283,6 +283,79 @@ public class TestPartialReparse {
                 .filter(c -> c.comment().contains("a method comment")).count(), "once, after three rewires");
     }
 
+    // ---- type-use annotations whose annotation type comes from a class file
+
+    @Language("java")
+    private static final String LIB_NOT_NULL = """
+            package lib;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})
+            public @interface NotNull {
+            }
+            """;
+
+    @Language("java")
+    private static final String TYPE_USE_USER = """
+            package u;
+            import lib.NotNull;
+            public class User {
+                @NotNull private final String id = "x";
+                public @NotNull String id(@NotNull String s) { return s; }
+            }
+            """;
+
+    @Language("java")
+    private static final String TYPE_USE_EARLY = """
+            package u;
+            public class Early {
+                public int length() { return new User().id.length() + new User().id("y").length(); }
+            }
+            """;
+
+    /*
+     fernflower: org.jetbrains.annotations.NotNull applies to a declaration and to a type, and comes from a jar. A
+     member built from javac's symbol, because a unit scanned earlier referred to it, had it on its type as well;
+     one built from the source tree had it on the declaration only. A cold parse scans Early first and builds User's
+     members from symbols; a per-file re-parse of User scans User alone, from the tree. Both must give one answer:
+     the declaration's, as the tree path always has (a type copy printed '@NotNull public final @NotNull String').
+     */
+    @DisplayName("a declaration-and-type-use annotation sits on the declaration, whichever path built the member")
+    @Test
+    public void testTypeUseAnnotationFromClassFile() throws IOException {
+        Path libSrc = root.resolve("lib-src");
+        write(libSrc, "lib/NotNull.java", LIB_NOT_NULL);
+        Path libClasses = compile(List.of(libSrc.resolve("lib/NotNull.java")), root.resolve("lib-classes"), List.of());
+        SourceSet lib = new SourceSetImpl.Builder().setName("lib").setUri(libClasses.toUri())
+                .setExternalLibrary(true).build();
+        Path uSrc = root.resolve("u-src");
+        write(uSrc, "u/Early.java", TYPE_USE_EARLY);
+        write(uSrc, "u/User.java", TYPE_USE_USER);
+        SourceSet set = new SourceSetImpl.Builder().setName("main").setSourceDirectories(List.of(uSrc))
+                .setUri(uSrc.toUri()).setDependencies(List.of(lib)).build();
+        JavaInspector inspector = inspector(List.of(lib), set);
+        assertDeclarationOnly(parse(inspector).findType("u.User"), "cold");
+
+        write(uSrc, "u/User.java", "// edited\n" + TYPE_USE_USER);
+        ParseResult pr = reparse(inspector, Map.of("u.User", INVALID, "u.Early", REWIRE));
+        assertDeclarationOnly(pr.findType("u.User"), "re-parsed");
+        assertNoStaleReferences(pr);
+        JavaInspector cold = inspector(List.of(lib), set);
+        List<String> differences = ReparseOracle.differences(inspector, pr, null, cold, parse(cold), null);
+        assertTrue(differences.isEmpty(), String.join("\n", differences));
+    }
+
+    private static void assertDeclarationOnly(TypeInfo user, String world) {
+        var field = user.getFieldByName("id", true);
+        assertEquals(1, field.annotations().size(), world + ": the field's declaration annotation");
+        assertEquals(0, field.type().annotations().size(), world + ": not on the field's type as well");
+        var method = user.findUniqueMethod("id", 1);
+        assertEquals(1, method.annotations().size(), world + ": the method's declaration annotation");
+        assertEquals(0, method.returnType().annotations().size(), world + ": not on the return type as well");
+        assertEquals(0, method.parameters().getFirst().parameterizedType().annotations().size(),
+                world + ": not on the parameter's type as well");
+    }
+
     // ---- three source sets: main <- mid <- top
 
     @Language("java")
@@ -369,11 +442,16 @@ public class TestPartialReparse {
     // ---- set-up
 
     private static JavaInspector inspector(SourceSet... sourceSets) {
+        return inspector(List.of(), sourceSets);
+    }
+
+    private static JavaInspector inspector(List<SourceSet> classPathParts, SourceSet... sourceSets) {
         try {
             JavaInspector inspector = new JavaInspectorImpl(true, false);
             InputConfiguration inputConfiguration = new InputConfigurationImpl.Builder()
                     .addSourceSets(sourceSets)
                     .addClassPath(InputConfigurationImpl.DEFAULT_MODULES)
+                    .addClassPathParts(classPathParts)
                     .build();
             inspector.initialize(inputConfiguration);
             return inspector;
