@@ -86,6 +86,9 @@ public class SummaryImpl implements Summary {
 
     @Override
     public synchronized void addType(TypeInfo typeInfo) {
+        // the latest object wins: TypeInfo equality is fqn + source set, so add() alone would keep an incumbent the
+        // caller means to replace -- a re-parse adds the scanned object of a changed type, then its rewired copy
+        types.remove(typeInfo);
         types.add(typeInfo);
     }
 

@@ -30,11 +30,11 @@ import static io.codelaser.maddi.inspection.api.integration.JavaInspector.Invali
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Re-parsing with an {@code Invalidated}, at the granularity this inspector works in: <b>the source set</b>, because
- * that is javac's unit.
+ * Re-parsing with an {@code Invalidated}, across source sets.
  * <ul>
- *     <li>a source set holding an INVALID type is re-scanned in full — so its <em>unchanged</em> types are rebuilt
- *     too, which is where this deliberately differs from the in-house inspector's per-file re-parse;</li>
+ *     <li>a source set holding an INVALID type is re-scanned: only the changed files when that can be trusted (the
+ *     sets here are on disk, so it can), its unchanged types being kept; see {@link TestPartialReparse} for the
+ *     per-file re-scan within a set;</li>
  *     <li>a source set that only needs REWIRE is not re-scanned: its types are copied onto the new objects, keeping
  *     their compilation units;</li>
  *     <li>an untouched source set keeps its very objects.</li>
@@ -230,7 +230,7 @@ public class TestInvalidate {
                 "the view maps rescanned members");
     }
 
-    @DisplayName("Base INVALID, User REWIRE: main is re-scanned, dependent is rewired, and Helper is rebuilt with it")
+    @DisplayName("Base INVALID, User REWIRE: Base is re-scanned, Helper (same set) kept, dependent rewired")
     @Test
     public void testInvalidAndRewire() {
         ParseResult pr1 = parseAll();
@@ -253,10 +253,9 @@ public class TestInvalidate {
         assertNotSame(base1, base2, "Base changed: re-scanned");
         assertNotSame(base1.compilationUnit(), base2.compilationUnit());
 
-        // the point of source-set granularity: Helper is UNCHANGED, but it lives in a re-scanned source set
+        // Helper is UNCHANGED and shares Base's source set: only Base's file is re-scanned, Helper is kept
         TypeInfo helper2 = pr2.findType(HELPER_FQN);
-        assertNotSame(helper1, helper2,
-                "Helper is unchanged, but its source set was re-scanned: at this granularity it is rebuilt too");
+        assertSame(helper1, helper2, "Helper is unchanged: a partial re-scan keeps it");
 
         // User is rewired, not re-scanned: a new object on the SAME compilation unit
         TypeInfo user2 = pr2.findType(USER_FQN);

@@ -150,6 +150,13 @@ public class JavaInspectorImpl implements JavaInspector {
     // actually read instead of against whatever the build last left behind. null = off; see
     // JavaInspector.setGeneratedClassesDirectory.
     private Path generatedClassesDirectory;
+    /*
+     During a partial re-scan of one source set (SourceSetAction.PARTIAL): the files javac is handed, the rest of the
+     set being on its source path. Null otherwise. A field rather than a parameter because it has to reach createTask
+     and the ScanCompilationUnits it feeds through singleSourceSet and its javac thread; reparse sets it around the
+     one scan and clears it in a finally.
+     */
+    private Set<URI> partialScanUnits;
     // source set NAME -> the directory we generated its class files into, for the sets where generation produced
     // something. Keyed by name because SourceSet equality is by name and the objects are rebuilt across re-parses.
     // Survives a re-parse on purpose: a set that is not re-scanned keeps the class files its unchanged sources
@@ -699,9 +706,11 @@ public class JavaInspectorImpl implements JavaInspector {
         }
     }
 
-    /** What a re-parse does with one source set. The source set is the unit of work; see {@link #reparse}. */
+    /** What a re-parse does with one source set; see {@link #reparse}. */
     private enum SourceSetAction {
         RESCAN,  // javac + CST over the whole set: every type in it comes back as a new object
+        PARTIAL, // javac + CST over the files of its INVALID types; the other files are on javac's source path, and
+                 // their types are kept or rewired
         REWIRE,  // not re-scanned; its types are copied so they point at the new objects they depend on
         KEEP     // untouched: the very same objects
     }
@@ -711,14 +720,30 @@ public class JavaInspectorImpl implements JavaInspector {
      * immutable, so a changed type cannot be patched in place: it, and everything downstream of it, must be rebuilt.
      * Everything upstream stays as it is.
      * <p>
-     * <b>The source set is the unit of work</b>, because that is javac's unit: a source set holding any INVALID type
-     * is re-scanned in full, so its <em>unchanged</em> types are rebuilt too — this is coarser than the in-house
-     * inspector, which re-parses per source file. Source sets that only depend on a re-scanned one are not
-     * re-scanned; their types are rewired, which copies them onto the new objects while keeping their compilation
-     * units (hence their fingerprints). Untouched source sets are kept as they are.
+     * <b>The unit of work is the file, where javac allows it</b> ({@link SourceSetAction#PARTIAL}). javac is handed
+     * the files of the INVALID types and nothing else of their source set; the set's source roots go on javac's
+     * source path, so that it parses and enters the other files when a changed one refers to them, and only the
+     * handed classes are attributed ({@code ScanCompilationUnits.setAttributeOwnUnitsOnly}). A reference from a
+     * changed file to an unchanged type of the same set resolves to the <em>kept</em> object, because the scanner
+     * asks the registry before it builds anything ({@code ClassSymbolScanner}'s {@code known} path), exactly as it
+     * does under a package restriction. Every type of a changed file is rebuilt, whatever its own state: one file is
+     * one compilation unit. A set falls back to {@link SourceSetAction#RESCAN} when it is new, when every one of its
+     * types is INVALID, when a type was REMOVED, or when the partial scan cannot be trusted
+     * ({@link #partialRescanPossible}).
      * <p>
-     * The linearization guarantees that a source set is handled after everything it depends on, so by the time a set
-     * is rewired, the objects it must point at already exist.
+     * Sets that only depend on a re-scanned one are rewired: their types are copied onto the new objects, keeping
+     * their compilation units (hence their fingerprints). Untouched sets are kept as they are. The linearization
+     * guarantees that a source set is handled after everything it depends on.
+     * <p>
+     * <b>A rebuilt type that can reach a REWIRE type is rewired too.</b> The rewire runs once, after every scan, so
+     * a type that is scanned while a REWIRE type it refers to still has its old object resolves to that old object.
+     * In a partial set this is the common case: a changed file refers to a sibling that refers back to it, the
+     * sibling is REWIRE, and the changed file was scanned against the sibling's old object. It also happens across
+     * sets (A, B depending on A, C on B: an INVALID type in A, a REWIRE type in B, an INVALID type in C referring to
+     * it), where it went unnoticed while every rebuilt type was only seeded. So a rebuilt type of a set that holds a
+     * REWIRE type, or that depends on one that does, goes through the rewire phases with the REWIRE types; its copy
+     * replaces it. The test is per set, not per reference, because a type's references do not name every type it
+     * reaches (an owner reached through a call chain is implicit), and a copy too many costs only time.
      * <p>
      * <b>Every set's class output is checked, kept and rewired ones too</b> ({@link #validateClassOutput}): each
      * re-parse returns a new {@link Summary}, and a consumer replaces its diagnostics with that summary's. Checking
@@ -734,11 +759,13 @@ public class JavaInspectorImpl implements JavaInspector {
         // snapshot: a RESCAN re-records sourceFiles for its own set as it goes
         Map<SourceSet, List<TypeInfo>> typesBySourceSet = typesBySourceSet();
         Set<TypeInfo> toRewire = new LinkedHashSet<>();
+        Set<SourceSet> holdingRewire = new HashSet<>();
         Set<SourceSet> rescanned = new LinkedHashSet<>();
+        Map<SourceSet, Set<URI>> partiallyRescanned = new LinkedHashMap<>();
 
         for (SourceSet sourceSet : linearization) {
             List<TypeInfo> types = typesBySourceSet.getOrDefault(sourceSet, List.of());
-            SourceSetAction action = actionFor(types, invalidated);
+            SourceSetAction action = actionFor(sourceSet, types, invalidated, sourcesByFqn, parseOptions);
             LOGGER.debug("Re-parse: source set {} -> {} ({} primary type(s))", sourceSet.name(), action, types.size());
             switch (action) {
                 case RESCAN -> {
@@ -755,10 +782,37 @@ public class JavaInspectorImpl implements JavaInspector {
                     scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
                     rescanned.add(sourceSet);
                 }
+                case PARTIAL -> {
+                    Set<URI> changedFiles = new HashSet<>();
+                    for (TypeInfo typeInfo : types) {
+                        if (invalidated.apply(typeInfo) == INVALID) changedFiles.add(typeInfo.compilationUnit().uri());
+                    }
+                    for (TypeInfo typeInfo : types) {
+                        if (changedFiles.contains(typeInfo.compilationUnit().uri())) {
+                            compiledTypesManager.invalidate(typeInfo);
+                        } else if (invalidated.apply(typeInfo) == REWIRE) {
+                            toRewire.add(typeInfo);
+                            holdingRewire.add(sourceSet);
+                        } else {
+                            summary.addType(typeInfo);
+                        }
+                    }
+                    // a changed file that now declares no type must not keep its old entry; the scan records the rest
+                    sourceFiles.keySet().removeIf(sf -> sf.sourceSet().equals(sourceSet)
+                                                        && changedFiles.contains(sf.uri()));
+                    partialScanUnits = changedFiles;
+                    try {
+                        scanSourceSet(summary, sourcesByFqn, sourceSet, parseOptions);
+                    } finally {
+                        partialScanUnits = null;
+                    }
+                    partiallyRescanned.put(sourceSet, changedFiles);
+                }
                 case REWIRE -> {
                     summary.ensureSourceSet(sourceSet); // not scanned, but it is part of the result
                     validateClassOutput(summary, sourceSet);
                     toRewire.addAll(types);
+                    holdingRewire.add(sourceSet);
                 }
                 case KEEP -> {
                     summary.ensureSourceSet(sourceSet);
@@ -767,22 +821,31 @@ public class JavaInspectorImpl implements JavaInspector {
                 }
             }
         }
-        // Build and expose the map whenever a set was RESCANNED, even with nothing to REWIRE (a single source set,
-        // no cross-set dependents). The map seeds each rebuilt (rescanned) type under itself, and Info equality is
-        // fqn + source-set, so a caller can resolve an OLD (pre-reparse) rescanned type to its new object by fqn --
-        // the basis of the same-source-set analysis carry (docs/analysis-rewiring). Only a no-op reparse (nothing
+        // Build and expose the map whenever a set was re-scanned, even with nothing to REWIRE (a single source set,
+        // no cross-set dependents). The map seeds each rebuilt type under itself, and Info equality is fqn +
+        // source-set, so a caller can resolve an OLD (pre-reparse) rebuilt type to its new object by fqn -- the
+        // basis of the same-source-set analysis carry (docs/analysis-rewiring). Only a no-op reparse (nothing
         // invalidated, nothing rewired) exposes no map.
-        if (toRewire.isEmpty() && rescanned.isEmpty()) return;
+        if (toRewire.isEmpty() && rescanned.isEmpty() && partiallyRescanned.isEmpty()) return;
 
-        // the types the re-scan just produced. Without them the rewired copies would keep pointing at the objects
-        // they replaced -- the very thing REWIRE exists to prevent (see InfoMap).
+        // the types the re-scans just produced: seeded, or rewired with the REWIRE types (see the javadoc above).
+        // Without them the rewired copies would keep pointing at the objects they replaced (see InfoMap).
         Map<SourceSet, List<TypeInfo>> afterRescan = typesBySourceSet();
-        Set<TypeInfo> rebuilt = rescanned.stream()
-                .flatMap(sourceSet -> afterRescan.getOrDefault(sourceSet, List.of()).stream())
-                .collect(Collectors.toUnmodifiableSet());
-        // newInfoMap seeds the rebuilt types (see InfoMapImpl); rewireAll is a no-op when toRewire is empty, so the
-        // seeded rescanned mappings are all this map carries in the rescan-only case.
-        InfoMap infoMap = runtime.newInfoMap(toRewire, rebuilt);
+        Set<TypeInfo> rebuilt = new HashSet<>();
+        Set<TypeInfo> rebuiltToRewire = new LinkedHashSet<>();
+        for (SourceSet sourceSet : rescannedOrPartial(rescanned, partiallyRescanned)) {
+            Set<URI> changedFiles = partiallyRescanned.get(sourceSet);
+            boolean copy = !toRewire.isEmpty() && reachesRewire(sourceSet, holdingRewire, new HashSet<>());
+            for (TypeInfo typeInfo : afterRescan.getOrDefault(sourceSet, List.of())) {
+                if (changedFiles != null && !changedFiles.contains(typeInfo.compilationUnit().uri())) continue;
+                (copy ? rebuiltToRewire : rebuilt).add(typeInfo);
+            }
+        }
+        Set<TypeInfo> rewireNow = new LinkedHashSet<>(toRewire);
+        rewireNow.addAll(rebuiltToRewire);
+        // newInfoMap seeds the rebuilt types (see InfoMapImpl); rewireAll is a no-op when rewireNow is empty, so the
+        // seeded mappings are all this map carries in the rescan-only case.
+        InfoMap infoMap = runtime.newInfoMap(rewireNow, rebuilt);
         Set<TypeInfo> rewired = infoMap.rewireAll();
         // Handed out only as InfoMapView (read-only lookup facet): the reload consumer can resolve old->new but not
         // put/rewireAll. The map is complete once built (rebuilt seeded in the ctor; rewireAll fills the rewire
@@ -793,27 +856,86 @@ public class JavaInspectorImpl implements JavaInspector {
         // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
         // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
         infoMap.rewiredTypes().forEach(compiledTypesManager::setRewiredType);
+        // a rebuilt type that was rewired is in the summary already, as its scanned object: addType replaces it
         rewired.forEach(summary::addType);
         // sourceFiles must hold the live objects: the next reloadSources reads their compilation unit's fingerprint
         sourceFiles.replaceAll((_, types) -> types.stream()
-                .map(ti -> toRewire.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
-        LOGGER.debug("Re-parse: rewired {} primary type(s)", rewired.size());
+                .map(ti -> rewireNow.contains(ti) ? infoMap.typeInfo(ti) : ti).toList());
+        LOGGER.debug("Re-parse: rewired {} primary type(s), {} of them re-scanned", rewired.size(),
+                rebuiltToRewire.size());
+    }
+
+    private static List<SourceSet> rescannedOrPartial(Set<SourceSet> rescanned,
+                                                      Map<SourceSet, Set<URI>> partiallyRescanned) {
+        List<SourceSet> list = new ArrayList<>(rescanned);
+        list.addAll(partiallyRescanned.keySet());
+        return list;
+    }
+
+    /** Does this set, or a set it depends on (transitively), hold a type to rewire? */
+    private static boolean reachesRewire(SourceSet sourceSet, Set<SourceSet> holdingRewire, Set<SourceSet> visited) {
+        if (!visited.add(sourceSet)) return false;
+        if (holdingRewire.contains(sourceSet)) return true;
+        for (SourceSet dependency : sourceSet.dependencies()) {
+            if (!dependency.externalLibrary() && reachesRewire(dependency, holdingRewire, visited)) return true;
+        }
+        return false;
     }
 
     /**
-     * A source set holding a type that changed (or vanished) must be re-scanned: javac cannot rebuild one file of it
-     * in isolation. Otherwise, if anything in it must be rewired, the whole set is rewired; if not, it is kept.
-     * A source set we have no types for has never been parsed (or is new), so it is scanned.
+     * A source set holding a type that changed must be re-scanned, partially where that can be trusted, in full
+     * otherwise; a type that vanished forces the full re-scan. Otherwise, if anything in it must be rewired, the
+     * whole set is rewired; if not, it is kept. A source set we have no types for has never been parsed (or is
+     * new), so it is scanned.
      */
-    private SourceSetAction actionFor(List<TypeInfo> types, Invalidated invalidated) {
+    private SourceSetAction actionFor(SourceSet sourceSet,
+                                      List<TypeInfo> types,
+                                      Invalidated invalidated,
+                                      Map<String, String> sourcesByFqn,
+                                      ParseOptions parseOptions) {
         if (types.isEmpty()) return SourceSetAction.RESCAN;
         boolean rewire = false;
+        boolean invalid = false;
+        boolean allInvalid = true;
         for (TypeInfo typeInfo : types) {
             InvalidationState state = invalidated.apply(typeInfo);
-            if (state == INVALID || state == REMOVED) return SourceSetAction.RESCAN;
-            if (state == REWIRE) rewire = true;
+            if (state == REMOVED) return SourceSetAction.RESCAN;
+            if (state == INVALID) {
+                invalid = true;
+            } else {
+                allInvalid = false;
+                if (state == REWIRE) rewire = true;
+            }
+        }
+        if (invalid) {
+            return allInvalid || !partialRescanPossible(sourceSet, sourcesByFqn, parseOptions)
+                    ? SourceSetAction.RESCAN : SourceSetAction.PARTIAL;
         }
         return rewire ? SourceSetAction.REWIRE : SourceSetAction.KEEP;
+    }
+
+    /*
+     When a partial re-scan of a set is not to be trusted, and the set is re-scanned in full instead:
+     - in-memory sources (the test protocol): javac's source path is a directory, and there is none;
+     - a second front end on the same set (the Kotlin interleave): it declares against the set's compilation units;
+     - Lombok: the processor runs over the handed files only, so a member it generates in an unchanged file (a
+       getter, a builder) does not exist when a changed file uses it;
+     - generated class output: the set's output directory is wiped and refilled per scan, and a partial scan
+       would leave only the changed files' classes in it;
+     - a module descriptor: module-info.java is a compilation unit of its own, and javac in module mode needs it
+       handed over with the rest.
+     */
+    private boolean partialRescanPossible(SourceSet sourceSet, Map<String, String> sourcesByFqn,
+                                          ParseOptions parseOptions) {
+        if (!sourcesByFqn.isEmpty() || sourceSet.sourceDirectories().isEmpty()) return false;
+        if (interleave != null || parseOptions.lombok() || generatedClassesDirectory != null) return false;
+        if (parseOptions.ignoreModule()) return true;
+        Path workingDirectory = inputConfiguration == null ? null : inputConfiguration.workingDirectory();
+        for (Path dir : sourceSet.sourceDirectories()) {
+            Path resolved = workingDirectory == null || dir.isAbsolute() ? dir : workingDirectory.resolve(dir);
+            if (Files.isRegularFile(resolved.resolve("module-info.java"))) return false;
+        }
+        return true;
     }
 
     /** The primary types we last parsed, per source set; from {@link #sourceFiles}. */
@@ -1043,6 +1165,7 @@ public class JavaInspectorImpl implements JavaInspector {
                 computeFingerPrints, syntheticListField));
         ScanCompilationUnits.Result scanned;
         scanCompilationUnits.setInterleave(interleave);
+        scanCompilationUnits.setAttributeOwnUnitsOnly(partialScanUnits != null);
         try {
             scanned = scanCompilationUnits.scan();
         } catch (RuntimeException re) {
@@ -1408,6 +1531,13 @@ public class JavaInspectorImpl implements JavaInspector {
             Iterable<? extends JavaFileObject> allCompilationUnits = loaderOnly ? List.of()
                     : computeCompilationUnits(sourceSet, inputConfiguration == null ? null
                     : inputConfiguration.workingDirectory(), ignoreModule, sources, sourcesByClassName, fm);
+            Set<URI> partial = loaderOnly ? null : partialScanUnits;
+            if (partial != null) {
+                // a partial re-scan: javac gets the changed files only; the others are on the source path, below
+                allCompilationUnits = StreamSupport.stream(allCompilationUnits.spliterator(), false)
+                        .filter(jfo -> partial.contains(jfo.toUri()))
+                        .toList();
+            }
             boolean hasModuleInfo = false;
             boolean haveSources = false;
             List<URI> handed = new ArrayList<>();
@@ -1474,8 +1604,9 @@ public class JavaInspectorImpl implements JavaInspector {
             // files are passed as compilation units and scanned into the CST. Put the source roots on the
             // source path so javac can still resolve references into the excluded source packages by
             // parsing them on demand. (No effect for the in-memory test protocol, which has no source dirs.)
+            // The same holds for a partial re-scan, which hands javac only the changed files of the set.
             boolean restricting = sourceSet.restrictToPackages() != null && !sourceSet.restrictToPackages().isEmpty();
-            if (restricting && !sources.isEmpty()) {
+            if ((restricting || partial != null) && !sources.isEmpty()) {
                 fm.setLocation(StandardLocation.SOURCE_PATH, sources);
             }
             if (!ignoreModule && hasModuleInfo && moduleJars.isEmpty()) {

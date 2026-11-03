@@ -9,6 +9,7 @@ import com.sun.source.util.JavacTask;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.BasicJavacTask;
+import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
@@ -64,6 +65,7 @@ public class ScanCompilationUnits {
     private final List<String> packagesToPreload;
     private final boolean computeFingerPrints;
     private SourceSetInterleave interleave;
+    private boolean attributeOwnUnitsOnly;
 
     /**
      * @param typeless the units javac parsed that declare no type (a file of comments only): they produce no type
@@ -124,6 +126,23 @@ public class ScanCompilationUnits {
     /** A second front end sharing this source set; see {@link SourceSetInterleave}. Before {@link #scan}. */
     public void setInterleave(SourceSetInterleave interleave) {
         this.interleave = interleave;
+    }
+
+    /**
+     * Attribute only the classes of the units handed to this task, not the ones javac reads from the source path on
+     * demand. Before {@link #scan}.
+     * <p>
+     * A partial re-scan (the inspector's per-type re-parse) hands javac the changed files of a source set and puts
+     * the set's source roots on the source path, so that javac parses and enters the unchanged ones when a changed
+     * one refers to them. {@code JavacTask.analyze()} attributes everything in javac's to-do list, and that list
+     * holds the classes entered from the source path as well: the unchanged files would be attributed again on
+     * every edit, for nothing, since no CST is built from them. {@code -implicit:none} does not help here: javac
+     * honours it in {@code JavaCompiler.compile}, not in {@code JavacTaskImpl.analyze}. Attributing the task's own
+     * top-level classes, by name, does; javac's filter matches each to-do entry by its outermost class, so nested
+     * and local classes come along.
+     */
+    public void setAttributeOwnUnitsOnly(boolean attributeOwnUnitsOnly) {
+        this.attributeOwnUnitsOnly = attributeOwnUnitsOnly;
     }
 
     /**
@@ -241,7 +260,16 @@ public class ScanCompilationUnits {
             built = buildCompilationUnits(units, preScan(units, failures), topLevelClassSymbols, failures);
             interleave.beforeAttribution(sourceSet, new SourceTypes(built.scanners())::declare);
         }
-        task.analyze();
+        if (attributeOwnUnitsOnly) {
+            // see setAttributeOwnUnitsOnly; enter() returns what the task's own units declare
+            List<javax.lang.model.element.Element> own = new ArrayList<>();
+            for (javax.lang.model.element.Element element : ((JavacTaskImpl) task).enter()) {
+                if (element instanceof TypeElement) own.add(element);
+            }
+            ((JavacTaskImpl) task).analyze(own);
+        } else {
+            task.analyze();
+        }
 
         // path:line:col first, as javac prints it, so that a console links it; javac's message on one line
         boolean halt = diagnosticCollector.isHalt();
