@@ -723,7 +723,8 @@ public class JavaInspectorImpl implements JavaInspector {
         if (invalidated != null) {
             // seeded with what was just re-parsed: without them the rewired copies keep pointing at the objects they
             // replaced, and REWIRE ("accesses invalidated, and hence re-parsed, new type info objects") is a no-op
-            InfoMap infoMap = runtime.newInfoMap(typesToRewire.keySet(), Set.copyOf(reparsedPrimaryTypes));
+            // a partial re-parse: prep's output is carried (InfoMapView.carryIntrinsic)
+            InfoMap infoMap = runtime.newInfoMap(typesToRewire.keySet(), Set.copyOf(reparsedPrimaryTypes), true);
             Set<TypeInfo> rewired = infoMap.rewireAll();
             // every type it built, not just the primary ones: subtypes, and the anonymous/local/lambda types phase 3
             // rewires on demand. Registering only the primary types leaves the rest answering with stale objects.
