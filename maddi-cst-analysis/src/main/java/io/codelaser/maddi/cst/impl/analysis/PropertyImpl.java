@@ -143,11 +143,9 @@ public class PropertyImpl implements Property {
      * refactor engine's dataflow metric -- need not depend on the module that computes it.
      */
     public static final Property RECURSIVE_METHOD = new PropertyImpl("recursiveMethod", ValueImpl.BoolImpl.FALSE);
-    // carried on a rewire: prep's getter/setter pass sets it next to GET_SET_FIELD, and does not run again on a
-    // rewired type (its GET_SET_FIELD is carried, so the pass's getOrCreate never re-enters); the analyzer's own write
-    // is a controlled overwrite. The tier stays: the analyzer's value is analyzer output (AnalysisFingerprint)
-    public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod", ValueImpl.BoolImpl.FALSE,
-            AnalysisTier.CROSS_TYPE_DERIVED, true);
+    // ⚠ NOT carried on a rewire, although prep's getter pass writes it: it is analyzer output too (TypeModIndy), and
+    // the early-cutoff carry copies analyzer output onto a rewired type -- carried both ways, the second write threw
+    public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     /**
      * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
