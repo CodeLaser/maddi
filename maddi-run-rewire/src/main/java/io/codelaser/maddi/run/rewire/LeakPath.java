@@ -96,4 +96,27 @@ final class LeakPath {
         }
         return out;
     }
+
+    /** Every instance of {@code type} reachable from {@code root}, visiting at most {@code cap} objects. */
+    static <T> List<T> reachable(Object root, Class<T> type, int cap) {
+        java.util.IdentityHashMap<Object, Boolean> seen = new java.util.IdentityHashMap<>();
+        java.util.ArrayDeque<Object> queue = new java.util.ArrayDeque<>();
+        List<T> found = new java.util.ArrayList<>();
+        seen.put(root, true);
+        queue.add(root);
+        while (!queue.isEmpty() && seen.size() < cap) {
+            Object o = queue.poll();
+            if (type.isInstance(o)) found.add(type.cast(o));
+            for (Object[] edge : edges(o)) {
+                Object child = edge[0];
+                if (child == null || seen.containsKey(child)) continue;
+                if (child instanceof String || child instanceof Number || child instanceof Class
+                    || child instanceof Thread || child instanceof ClassLoader || child instanceof Boolean
+                    || child instanceof Enum<?>) continue;
+                seen.put(child, true);
+                queue.add(child);
+            }
+        }
+        return found;
+    }
 }

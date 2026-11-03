@@ -178,6 +178,22 @@ public class RunRewireTests {
                     .toList();
             LOGGER.info("REWIRE LEAK of the {} type(s) built at re-parse {}, {} are still reachable", watched.size(),
                     watchedAt, alive.size());
+            // the types reachable from the driver by name: more than one object for a name is a generation kept
+            List<TypeInfo> all = LeakPath.reachable(this, TypeInfo.class, 40_000_000);
+            Map<String, List<TypeInfo>> byName = all.stream().collect(java.util.stream.Collectors.groupingBy(
+                    TypeInfo::fullyQualifiedName));
+            List<Map.Entry<String, List<TypeInfo>>> doubled = byName.entrySet().stream()
+                    .filter(e -> e.getValue().size() > 1).sorted(Map.Entry.comparingByKey()).toList();
+            LOGGER.info("REWIRE LEAK {} type object(s) reachable from the driver, {} name(s) with more than one: {}",
+                    all.size(), doubled.size(), doubled.stream().limit(20)
+                            .map(e -> e.getKey() + " x" + e.getValue().size()).toList());
+            for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(3).toList()) {
+                TypeInfo live = lastParseResult.findType(e.getKey());
+                e.getValue().stream().filter(t -> t != live).findFirst().ifPresent(old -> LOGGER.info(
+                        "REWIRE LEAK an older {} (source set {}), from the driver:{}", old,
+                        old.compilationUnit() == null ? null : old.compilationUnit().sourceSet(),
+                        LeakPath.path(this, old)));
+            }
             if (!alive.isEmpty()) {
                 TypeInfo one = alive.stream().filter(TypeInfo::isPrimaryType).findFirst().orElse(alive.getFirst());
                 LOGGER.info("REWIRE LEAK {} (source set {}), from the driver:{}", one,
