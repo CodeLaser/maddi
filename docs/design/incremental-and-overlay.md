@@ -290,6 +290,16 @@ The list for a prep-only incremental step, in order:
    `INVALID` ∪ `REWIRE` types and keeps the rest. `PrimaryTypeUseGraph` is a projection and follows.
    `setRecursiveMethods` and `ComputePartOfConstructionFinalField` stay global on the merged graph until item 1
    says they matter.
+   *Done (2026-11-03):* `CallGraphContributions` keeps each primary type's builder and recursive methods, keyed by
+   the type object; `ComputeCallGraph.go(contributions)` walks only the types it does not hold and unions the rest in
+   the same order, so the graph equals a full walk, vertex and edge order included (`TestCallGraphContributions`).
+   A contribution is dropped when its type leaves the universe, when it points into a source type that is no longer
+   the same object (counted as `stale`: an invalidation that kept a referrer of a replaced type), and all are
+   dropped when the universe gains a type or the external predicate changes. By-name sinks keep the full walk.
+   `PrepRequest.callGraphContributions` carries it; the rewire driver keeps one for its warm inspector. On
+   fernflower the walk follows the re-parse: 1 type for an edit with an empty cone, 202 of 227 for the usual
+   193-type cone, never a stale one; the oracle finds no differences. `PrimaryTypeUseGraph` still projects the
+   whole graph.
 6. **`PrepRequest` takes a subset and an existing graph.** Today `AnalysisEngine.prep` preps `primaryTypes` and
    builds the graph from them; a prep-only incremental caller needs "prep these, merge into that". The precedent
    for prepping one type over a kept universe is `TestPrepOnePrimaryTypeAtATime`.
