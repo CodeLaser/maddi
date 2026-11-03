@@ -49,6 +49,7 @@ about to touch.
 
 | Document | Status | What it covers |
 |---|---|---|
+| [incremental-and-overlay.md](design/incremental-and-overlay.md) | assessment | Reparsing on the fly and the property delta of a textual delta (the overlay): what the July 2026 machinery adds up to, what is missing, and whether javac forces a whole-set rescan (it does not). |
 | [rewiring.md](design/rewiring.md) | note | How CST rewiring works in general, and its pitfalls. |
 | [analysis-rewiring.md](https://github.com/CodeLaser/maddi-mod/blob/main/docs/design/analysis-rewiring.md) | note | The `analysisFingerprint` mechanism and how analysis results are rewired onto a re-parsed CST. |
 | [partial-reparse-rewire.md](design/partial-reparse-rewire.md) | note | Emitting `.class` files from the openjdk inspection pass; partial re-parse/re-wire for IDE use. |
