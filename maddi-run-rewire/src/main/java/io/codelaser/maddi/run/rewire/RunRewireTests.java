@@ -155,6 +155,38 @@ public class RunRewireTests {
         }
     }
 
+    /*
+     -Dmaddi.rewire.leakCheck=true: hold a weak reference to a type the rewire built at the second re-parse, and a few
+     re-parses later, when the type should long be garbage, print the chain of references by which the driver still
+     reaches it (LeakPath). "not found" means a root outside the driver: a static, a thread-local, a cache.
+     */
+    private static final boolean LEAK_CHECK = Boolean.getBoolean("maddi.rewire.leakCheck");
+    private java.lang.ref.WeakReference<TypeInfo> watched;
+    private int watchedAt;
+
+    private void leakCheck(int iteration, InfoMapView view) {
+        if (!LEAK_CHECK || view == null) return;
+        int n = stats.size();
+        if (watched == null && n == 2 && !view.rewiredTypes().isEmpty()) {
+            TypeInfo some = view.rewiredTypes().stream().filter(TypeInfo::isPrimaryType)
+                    .min(Comparator.comparing(TypeInfo::fullyQualifiedName)).orElse(null);
+            if (some != null) {
+                watched = new java.lang.ref.WeakReference<>(some);
+                watchedAt = n;
+                LOGGER.info("REWIRE LEAK watching {} built at re-parse {}", some, n);
+            }
+        } else if (watched != null && n == watchedAt + 4) {
+            for (int i = 0; i < 3; i++) System.gc();
+            TypeInfo still = watched.get();
+            if (still == null) {
+                LOGGER.info("REWIRE LEAK the type built at re-parse {} was collected", watchedAt);
+            } else {
+                LOGGER.info("REWIRE LEAK {} built at re-parse {} is still reachable; from the driver:{}", still,
+                        watchedAt, LeakPath.path(this, still));
+            }
+        }
+    }
+
     public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
@@ -242,6 +274,7 @@ public class RunRewireTests {
         stats.add(s);
         LOGGER.info("REWIRE STATS {}", s);
         logHistogram(iteration, restore);
+        leakCheck(iteration, view);
         lastGraph = graph;
         lastParseResult = parseResult1;
         return graph;
