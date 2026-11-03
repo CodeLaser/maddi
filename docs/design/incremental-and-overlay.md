@@ -112,9 +112,17 @@ Mechanisms are not the gap. Plumbing and three decisions are.
 
 1. **An API, not environment variables.** `ModificationRequest` needs the dirty seed and the carry inputs;
    `PrepRequest` needs "these types only". Small, and it unblocks every non-CLI caller.
-2. **A stateful daemon.** Keep the inspector, the runtime and the call graph alive per project; the request says
-   which files changed; fall back to a cold run on a configuration or class-path change, or on anything unexpected.
-   The protocol and thread rules are in `ide-todo.md` §1.
+2. **A stateful host: there is one already, and it is not in maddi** (decided 2026-11-03). The refactor
+   service outside this workspace keeps a warm inspector per project and a resource system that models staleness
+   per resource (`dirty`, `sourceChanged`, a dirty frontier, `isPresent` gates); both of its servers, the MCP one
+   and the REST one, front that service, and its writes are the edits. The maddi IDE daemon is stateless by design
+   (a fresh inspector per request; the maddi MCP server in front of it keeps configurations and run results only),
+   and `ide-todo.md` §1 names that as a property to trade away deliberately, not by accident. So the incremental
+   chain is driven from the refactor service, and maddi provides the mechanisms it calls: reload, per-type rescan,
+   the intrinsic carry, a `PrepRequest` that takes a subset and a graph, seeded `analyze` through `AnalysisEngine`.
+   The maddi daemon stays cold and gets the overlay (§4, option A), which a stateless daemon does well. Left open:
+   the IDE plugins' partial re-analysis, which keeps paying a cold run per build until the daemon is made stateful
+   on a proven chain, or the IDEs talk to the refactor service.
 3. **The terminal passes** (*open*). An incremental run returns before MODREACH, the eventual contraction and
    certification. Options: run them whole-program on every step (MODREACH is a one-shot reachability and may be
    cheap enough; the contraction is not); scope them to the dirty closure; or declare the incremental result
@@ -274,10 +282,68 @@ The list for a prep-only incremental step, in order:
 7. **Skip the analysis order** for a prep-only consumer (`doPrepWorkForModificationAnalysis=false` exists;
    `Prepwork.make` passes `true`).
 
-## 7. Proposed order
+## 7. The order: prep first, then the analysis
 
-1. Clear the seed's stale values in `incrementalSeed`, and add a test of the `INCREMENTAL` path.
-2. Expose the seed and the carry through `AnalysisEngine`.
-3. Content overlay in the inspector, value-level `diff_runs`: `what_if` as two cold worlds (A).
-4. A stateful daemon: reload, seeded analyze, `BEST_AVAILABLE` until a background full run certifies.
-5. Fork the world (C), tested against A on the hierarchy-upward cases.
+Decided 2026-11-03: **get the reparse working through the whole chain up to and excluding link, modification and
+the analyzer, then include them.** The July order (analysis first, since it is 9/10 of a full run) was argued and
+set aside; its arguments are recorded here so they are not re-derived.
+
+For analysis-first: for every consumer that links and analyses, parse and prep are under 2% of the run, so an
+incremental parse changes nothing they can see; the analysis-side machinery is the closest to done (seeded worklist,
+carry, clear hook, fingerprint are wiring, not algorithms); the carry absorbs a coarse parser, so the analysis win
+does not need parser work; the hard correctness problems (hierarchy-upward flow, the stale seed, the terminal passes,
+the non-confluent fixpoint) live in the analysis tier and a prep-first path finds them last; and the what-if demand is
+an analysis question.
+
+For prep-first, which won: it has a consumer today, the refactorings that never link, for which the whole-set reparse
+and whole-project prep *is* the bill (§6), while the analysis path has no reachable consumer at all; parse, prep and
+the call graph are deterministic, so the incremental result must be byte-identical to the cold one, an exact oracle,
+where the analysis tier's own design says its incremental fixpoint is *a* certified one, not necessarily the cold
+one; the analysis step's seed and carry are defined by the reload, and the reload is not trustworthy yet (the eleven
+gaps), so incremental analysis on top of it compounds errors it cannot tell from its own; the open design question
+(the terminal passes) is on the analysis side; and the plumbing the prep chain needs (a changed-files protocol, a
+`PrepRequest` subset) is what the analysis step needs anyway.
+
+The risk of this order is that parser work sprawls (per-type rescan, signature handling, the Kotlin inspector) while
+the analysis tier's cheap wins sit idle. The containment: measure first (§6 item 1), take javac shape (a) only, and
+make the prep step's product **the dirty frontier**, the `INVALID` set plus the upward cone, from day one. The
+frontier is the contract between the two halves; the analysis step plugs into it later without a redesign.
+
+So:
+
+1. §6 items 1–7: the prep-only incremental chain, measured, with the frontier as its output.
+2. The two analysis-tier bugs of §1 (the stale seed, the hierarchy-upward cone), and a test of the `INCREMENTAL`
+   path, since they are cheap and they are bugs.
+3. Expose the seed and the carry through `AnalysisEngine`; seeded analyze over the frontier; the terminal-pass
+   decision (§3 item 3).
+4. Content overlay in the inspector, value-level `diff_runs`: `what_if` as two cold worlds (A), on the cold maddi
+   daemon.
+5. Fork the world (C), in the refactor service, tested against A on the hierarchy-upward cases.
+
+## 8. Testing without a warm daemon in maddi
+
+The chain is a library (`JavaInspector`, `AnalysisEngine`); a daemon only holds it. Every incremental test maddi
+has holds the inspector in the test JVM and drives it there: `RunRewireTests` (two hundred edit, reparse, restore
+iterations over a corpus, behind `--analysis-steps rewire-tests`), `TestInvalidate`, `TestEarlyCutoffSkip`,
+`TestOutsideReloadCarry`, `TestEarlyCutoffWorklistDriver`. That is the right place: the mechanisms are tested where
+they live, and the refactor service tests the wiring (`TestIncremental*`, `TestModificationResources`) against the
+same mechanisms. What the prep-first chain adds:
+
+1. **An in-process oracle.** For one edit: cold parse and prep of the post-edit sources in a fresh inspector, and
+   the incremental reparse and prep in the warm one; compare. Prep is deterministic, so the comparison is exact: the
+   call graph (`ComputeCallGraph.print`), the recursive methods, part-of-construction and final-field verdicts, and
+   `VARIABLE_DATA` per statement. The last needs a canonical dump: the codec does not serialise `VARIABLE_DATA`
+   (`analysis-rewiring.md`, first results), and the dump has to be written. Mapping between the two worlds is by
+   fqn and index, which is what `Info` equality is.
+2. **A corpus driver** in `maddi-run-openjdk`, `RunRewireTests` extended: after each edit, run the oracle, and count
+   what the incremental step rebuilt (javac units, prepped types, graph contributions) against what the edit
+   touched. That count is the ratchet; a comment edit must rebuild one unit and prep nothing. Fernflower first
+   (single source set, so it exercises the per-type rescan at all), then a multi-set corpus for the `REWIRE` cone.
+3. **The gap list as tests.** Each of the eleven gaps in the refactor side's analysis that is a maddi behaviour
+   (added and deleted files, module-info and package-info, a dropped unit, options that differ between the cold
+   and the incremental parse) becomes a case of `TestInvalidate` or the driver, on the maddi side, before the
+   service switches anything on.
+
+What a daemon would add to this is threading and a protocol, which the refactor service already has (one model,
+one script at a time, under a lock) and the maddi daemon does not need for the overlay. Nothing in the chain's
+correctness depends on a process boundary, so nothing in its tests should either.
