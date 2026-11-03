@@ -162,6 +162,7 @@ public class RunRewireTests {
      */
     private static final boolean LEAK_CHECK = Boolean.getBoolean("maddi.rewire.leakCheck");
     private java.lang.ref.WeakReference<TypeInfo> watched;
+    private java.lang.ref.WeakReference<Object> watchedAnalysis; // a statement's analysis map, where prep writes
     private int watchedAt;
 
     private void leakCheck(int iteration, InfoMapView view) {
@@ -172,6 +173,11 @@ public class RunRewireTests {
                     .min(Comparator.comparing(TypeInfo::fullyQualifiedName)).orElse(null);
             if (some != null) {
                 watched = new java.lang.ref.WeakReference<>(some);
+                some.constructorAndMethodStream()
+                        .filter(mi -> mi.methodBody() != null && !mi.methodBody().statements().isEmpty())
+                        .findFirst()
+                        .ifPresent(mi -> watchedAnalysis = new java.lang.ref.WeakReference<>(
+                                mi.methodBody().statements().getFirst().analysis()));
                 watchedAt = n;
                 LOGGER.info("REWIRE LEAK watching {} built at re-parse {}", some, n);
             }
@@ -183,6 +189,11 @@ public class RunRewireTests {
             } else {
                 LOGGER.info("REWIRE LEAK {} built at re-parse {} is still reachable; from the driver:{}", still,
                         watchedAt, LeakPath.path(this, still));
+            }
+            Object analysis = watchedAnalysis == null ? null : watchedAnalysis.get();
+            if (watchedAnalysis != null) {
+                LOGGER.info("REWIRE LEAK the analysis map of a statement of that type: {}", analysis == null
+                        ? "collected" : "still reachable; from the driver:" + LeakPath.path(this, analysis));
             }
         }
     }
