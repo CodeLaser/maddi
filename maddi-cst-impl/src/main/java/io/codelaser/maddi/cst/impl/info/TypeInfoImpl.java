@@ -993,6 +993,9 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         // rewired, like a member's: a javadoc {@link} or an annotation naming a source type must reach its new object
         rewiredType.builder()
                 .addComments(comments().stream().map(c -> c.rewire(infoMap)).toList())
+                // the comments after the last member, before the closing brace: printed from here, and dropped by
+                // the rewire until the oracle found one on fernflower (TestPartialReparse)
+                .addTrailingComments(trailingComments().stream().map(c -> c.rewire(infoMap)).toList())
                 .addAnnotations(annotations().stream().map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
                 // the resolved javadoc is held apart from the comments (ResolveJavaDoc); the Kotlin printer reads it
                 .setJavaDoc(javaDoc() == null ? null : (JavaDoc) javaDoc().rewire(infoMap));

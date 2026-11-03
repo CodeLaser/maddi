@@ -246,6 +246,8 @@ public class TestPartialReparse {
                 public int run() { return other.value(); }
 
                 public @Marker String typeUse(@Marker String s) { return s; }
+
+                // a comment at the end of the body
             }
             """;
 
