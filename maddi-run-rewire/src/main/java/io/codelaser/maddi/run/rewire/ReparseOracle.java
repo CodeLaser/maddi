@@ -103,6 +103,65 @@ public final class ReparseOracle {
      * type, its hierarchy, the signatures of its methods and fields, and in every method body and field initializer
      * the owners of the methods called, the constructors invoked and the fields read.
      */
+    /*
+     Where a type reference sits, for a stale one that no structural check above names: the same parts
+     TypeInfo.typesReferenced concatenates, asked one by one. Only computed for a reference found stale.
+     */
+    private static String whereReferenced(TypeInfo primaryType, TypeInfo reached) {
+        java.util.function.Predicate<java.util.stream.Stream<io.codelaser.maddi.cst.api.element.Element.TypeReference>>
+                has = stream -> stream.anyMatch(tr -> tr.typeInfo() == reached);
+        List<String> where = new ArrayList<>();
+        primaryType.recursiveSubTypeStream().forEach(type -> {
+            String t = type.fullyQualifiedName();
+            if (type.permittedWhenSealed().contains(reached)) where.add("permits of " + t);
+            if (has.test(type.annotations().stream().flatMap(a -> a.typesReferenced(_ -> true)))) {
+                where.add("annotations of " + t);
+            }
+            if (type.javaDoc() != null && has.test(type.javaDoc().typesReferenced(_ -> true))) {
+                where.add("javadoc of " + t);
+            }
+            if (has.test(type.typeParameters().stream().flatMap(tp -> tp.typesReferenced(_ -> true)))) {
+                where.add("type parameters of " + t);
+            }
+            type.constructorAndMethodStream().forEach(mi -> {
+                String m = mi.fullyQualifiedName();
+                if (!has.test(mi.typesReferenced(_ -> true))) return;
+                List<String> parts = new ArrayList<>();
+                if (mi.methodBody() != null && has.test(mi.methodBody().typesReferenced(_ -> true))) parts.add("body");
+                if (has.test(mi.annotations().stream().flatMap(a -> a.typesReferenced(_ -> true)))) {
+                    parts.add("annotations");
+                }
+                if (mi.javaDoc() != null && has.test(mi.javaDoc().typesReferenced(_ -> true))) parts.add("javadoc");
+                if (has.test(mi.typeParameters().stream().flatMap(tp -> tp.typesReferenced(_ -> true)))) {
+                    parts.add("type parameters");
+                }
+                if (has.test(mi.parameters().stream().flatMap(pi -> pi.typesReferenced(_ -> true)))) {
+                    parts.add("parameters");
+                }
+                if (has.test(mi.exceptionTypes().stream().flatMap(et -> et.typesReferenced(
+                        io.codelaser.maddi.cst.api.element.Element.TypeReferenceNature.EXPLICIT, null)))) {
+                    parts.add("exception types");
+                }
+                where.add(m + " " + (parts.isEmpty() ? "elsewhere" : parts));
+            });
+            for (FieldInfo fieldInfo : type.fields()) {
+                if (!has.test(fieldInfo.typesReferenced(_ -> true))) continue;
+                List<String> parts = new ArrayList<>();
+                if (fieldInfo.initializer() != null && has.test(fieldInfo.initializer().typesReferenced(_ -> true))) {
+                    parts.add("initializer");
+                }
+                if (has.test(fieldInfo.annotations().stream().flatMap(a -> a.typesReferenced(_ -> true)))) {
+                    parts.add("annotations");
+                }
+                if (fieldInfo.javaDoc() != null && has.test(fieldInfo.javaDoc().typesReferenced(_ -> true))) {
+                    parts.add("javadoc");
+                }
+                where.add(fieldInfo.fullyQualifiedName() + " " + (parts.isEmpty() ? "elsewhere" : parts));
+            }
+        });
+        return where.isEmpty() ? "" : " in " + String.join("; ", where);
+    }
+
     public static List<String> staleReferences(ParseResult parseResult) {
         List<String> stale = new ArrayList<>();
         Set<String> ours = parseResult.primaryTypes().stream().map(TypeInfo::fullyQualifiedName)
@@ -117,7 +176,8 @@ public final class ReparseOracle {
                               + ")");
                 }
             };
-            primaryType.typesReferenced(_ -> true).forEach(tr -> check.accept(tr.typeInfo(), "a type reference"));
+            primaryType.typesReferenced(_ -> true).forEach(tr -> check.accept(tr.typeInfo(),
+                    "a type reference" + whereReferenced(primaryType, tr.typeInfo())));
             primaryType.recursiveSubTypeStream().forEach(type -> {
                 String t = type.fullyQualifiedName();
                 if (type.parentClass() != null) check.accept(type.parentClass().typeInfo(), "parent of " + t);
