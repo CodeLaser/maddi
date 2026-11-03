@@ -161,39 +161,33 @@ public class RunRewireTests {
      reaches it (LeakPath). "not found" means a root outside the driver: a static, a thread-local, a cache.
      */
     private static final boolean LEAK_CHECK = Boolean.getBoolean("maddi.rewire.leakCheck");
-    private java.lang.ref.WeakReference<TypeInfo> watched;
-    private java.lang.ref.WeakReference<Object> watchedAnalysis; // a statement's analysis map, where prep writes
+    private final List<java.lang.ref.WeakReference<TypeInfo>> watched = new ArrayList<>();
     private int watchedAt;
 
     private void leakCheck(int iteration, InfoMapView view) {
         if (!LEAK_CHECK || view == null) return;
         int n = stats.size();
-        if (watched == null && n == 2 && !view.rewiredTypes().isEmpty()) {
-            TypeInfo some = view.rewiredTypes().stream().filter(TypeInfo::isPrimaryType)
-                    .min(Comparator.comparing(TypeInfo::fullyQualifiedName)).orElse(null);
-            if (some != null) {
-                watched = new java.lang.ref.WeakReference<>(some);
-                some.constructorAndMethodStream()
-                        .filter(mi -> mi.methodBody() != null && !mi.methodBody().statements().isEmpty())
-                        .findFirst()
-                        .ifPresent(mi -> watchedAnalysis = new java.lang.ref.WeakReference<>(
-                                mi.methodBody().statements().getFirst().analysis()));
-                watchedAt = n;
-                LOGGER.info("REWIRE LEAK watching {} built at re-parse {}", some, n);
-            }
-        } else if (watched != null && n == watchedAt + 4) {
+        if (watched.isEmpty() && n == 2 && !view.rewiredTypes().isEmpty()) {
+            // one per source set: the sets are re-parsed differently (a set that resolves another through class files)
+            Map<String, TypeInfo> perSet = new java.util.TreeMap<>();
+            view.rewiredTypes().stream().filter(TypeInfo::isPrimaryType)
+                    .sorted(Comparator.comparing(TypeInfo::fullyQualifiedName))
+                    .forEach(t -> perSet.putIfAbsent(String.valueOf(t.compilationUnit().sourceSet()), t));
+            perSet.forEach((set, t) -> {
+                watched.add(new java.lang.ref.WeakReference<>(t));
+                LOGGER.info("REWIRE LEAK watching {} of {}, built at re-parse {}", t, set, n);
+            });
+            watchedAt = n;
+        } else if (!watched.isEmpty() && n == watchedAt + 4) {
             for (int i = 0; i < 3; i++) System.gc();
-            TypeInfo still = watched.get();
-            if (still == null) {
-                LOGGER.info("REWIRE LEAK the type built at re-parse {} was collected", watchedAt);
-            } else {
-                LOGGER.info("REWIRE LEAK {} built at re-parse {} is still reachable; from the driver:{}", still,
-                        watchedAt, LeakPath.path(this, still));
-            }
-            Object analysis = watchedAnalysis == null ? null : watchedAnalysis.get();
-            if (watchedAnalysis != null) {
-                LOGGER.info("REWIRE LEAK the analysis map of a statement of that type: {}", analysis == null
-                        ? "collected" : "still reachable; from the driver:" + LeakPath.path(this, analysis));
+            for (java.lang.ref.WeakReference<TypeInfo> ref : watched) {
+                TypeInfo still = ref.get();
+                if (still == null) {
+                    LOGGER.info("REWIRE LEAK a type built at re-parse {} was collected", watchedAt);
+                } else {
+                    LOGGER.info("REWIRE LEAK {} built at re-parse {} is still reachable; from the driver:{}", still,
+                            watchedAt, LeakPath.path(this, still));
+                }
             }
         }
     }
