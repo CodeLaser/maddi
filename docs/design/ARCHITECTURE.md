@@ -184,6 +184,7 @@ metrics until it was found.
 | Module | Repo | Purpose |
 |---|---|---|
 | `maddi-run-config` | maddi | Shared run configuration, error reporting, exit codes; used by every runner and both build plugins. |
+| `maddi-project-config` | maddi | A project's configuration without an IDE: an `inputConfiguration.json` from a plugin's file, directories named by hand, or the javac invocations captured from a Gradle, Maven or any other build's log (`ParseJavacList`, maddi-run-config); whether its build files changed since (`BuildFileCheck`); making it again. Storage is an interface (`ProjectRecords`). Used by maddi-mcp and the daemon's compile-log route, and open to any tool that stores projects its own way; published with maddi. New in 0.9.7. |
 | `maddi-run-openjdk` | maddi | **The main driver**: the javac front end, plus the modification analysis when `maddi-run-analysis` is on the class path. |
 | `maddi-run-kotlin` | maddi | The driver for mixed Java+Kotlin projects; runs K2 through the realm. |
 | `maddi-run-main` | maddi | Driver on the hand-written-parser front end. |
@@ -195,7 +196,6 @@ metrics until it was found.
 | `maddi-ide-daemon` | maddi-dist | Out-of-process analysis daemon (NDJSON over a loopback socket) that the IDE plugins and the MCP server launch and query. The protocol version is checked at the handshake. |
 | `maddi-ide-client` | maddi-dist | IDE-agnostic daemon client + DTOs; plain JDK + Jackson, Java 21, published to Maven local for the Eclipse build. |
 | `maddi-mcp` | maddi-dist | MCP server (Model Context Protocol, over stdio) for coding agents: configure a project, analyse it, query verdicts, diff runs. Drives the daemon through `maddi-ide-client`; its distribution carries the daemon in `daemon/`. New in 0.9.6. |
-| `maddi-project-config` | maddi-dist | A project's configuration without an IDE: an `inputConfiguration.json` from a plugin's file, directories named by hand, or the javac invocations captured from a Gradle, Maven or any other build's log (`ParseJavacList`, maddi-run-config); whether its build files changed since (`BuildFileCheck`); making it again. Storage is an interface (`ProjectRecords`). Used by maddi-mcp and the daemon's compile-log route, and open to any tool that stores projects its own way; published to Maven local. New in 0.9.7. |
 | `maddi-intellij` | maddi-dist | IntelliJ plugin (talks to the daemon; no direct analyzer dependency). |
 | `maddi-intellij-j2k` | maddi-dist | Benchmark tool, never published: headless IntelliJ J2K, to compare maddi's Java → Kotlin translation with IntelliJ's (CodeLaser/maddi-mod#36). |
 | `maddi-eclipse` | maddi-dist | Eclipse plugin: a separate Maven/Tycho reactor, not a Gradle module. |
