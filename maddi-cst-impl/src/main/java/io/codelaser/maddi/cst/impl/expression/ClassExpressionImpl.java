@@ -22,6 +22,7 @@ import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.Source;
 import io.codelaser.maddi.cst.api.expression.ClassExpression;
 import io.codelaser.maddi.cst.api.expression.Expression;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.output.OutputBuilder;
 import io.codelaser.maddi.cst.api.output.Qualification;
 import io.codelaser.maddi.cst.api.translate.TranslationMap;
@@ -125,6 +126,18 @@ public class ClassExpressionImpl extends ConstantExpressionImpl<ParameterizedTyp
         if (expression instanceof ClassExpression ce) {
             return parameterizedType.detailedString().compareTo(ce.parameterizedType().detailedString());
         } else throw new InternalCompareToException();
+    }
+
+    /*
+     ⚠ NOT ConstantExpression's 'return this': a class literal names a type. 'EdgeType.class' in a rewired
+     Statement, 'Fernflower.class' in Fernflower itself, '@ArgumentsSource(Provider.class)' all kept the previous
+     generation's type, which then stayed reachable from every later one (the rewire driver's oracle on fernflower;
+     TestPartialReparse).
+     */
+    @Override
+    public Expression rewire(InfoMapView infoMap) {
+        return new ClassExpressionImpl(rewireComments(infoMap), source(), parameterizedType.rewire(infoMap),
+                classType.rewire(infoMap));
     }
 
     @Override

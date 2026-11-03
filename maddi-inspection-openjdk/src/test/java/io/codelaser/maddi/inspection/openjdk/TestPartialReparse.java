@@ -356,6 +356,53 @@ public class TestPartialReparse {
                 world + ": not on the parameter's type as well");
     }
 
+    // ---- class literals
+
+    @Language("java")
+    private static final String LITERALS = """
+            package k;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.RUNTIME)
+            @interface Uses { Class<?> value(); }
+            @Uses(Target.class)
+            public class Literals {
+                private final Class<?> target = Target.class;
+                @Uses(Literals.class)
+                public Class<?> self() { return Literals.class; }
+                public String name() { return Target.class.getName() + target; }
+            }
+            """;
+
+    @Language("java")
+    private static final String LITERAL_TARGET = """
+            package k;
+            public class Target {
+            }
+            """;
+
+    /*
+     fernflower: 'EdgeType.class' in a field initializer, 'Fernflower.class' in Fernflower's own method,
+     '@ArgumentsSource(Provider.class)', '@MagicConstant(valuesFromClass = TypeAnnotation.class)'. A class literal
+     is a constant, and a constant's rewire returned itself: the literal kept the type it was parsed against.
+     */
+    @DisplayName("class literals, in code and in annotations, follow the rewire")
+    @Test
+    public void testClassLiteralsAreRewired() throws IOException {
+        Path kSrc = root.resolve("k-src");
+        write(kSrc, "k/Literals.java", LITERALS);
+        write(kSrc, "k/Target.java", LITERAL_TARGET);
+        SourceSet set = new SourceSetImpl.Builder().setName("main").setSourceDirectories(List.of(kSrc))
+                .setUri(kSrc.toUri()).build();
+        JavaInspector inspector = inspector(set);
+        parse(inspector);
+        for (int round = 1; round <= 2; round++) {
+            write(kSrc, "k/Target.java", "// round " + round + "\n" + LITERAL_TARGET);
+            ParseResult pr = reparse(inspector, Map.of("k.Target", INVALID, "k.Literals", REWIRE));
+            assertNoStaleReferences(pr);
+            assertPrintsAsCold(inspector, pr, set);
+        }
+    }
+
     // ---- three source sets: main <- mid <- top
 
     @Language("java")
