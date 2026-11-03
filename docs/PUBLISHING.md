@@ -273,7 +273,7 @@ API-status usage, identical on every IDE:
 |===
 | Category | N | What
 
-| internal | 1 | `DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp()`
+| internal | 1 | `DeclarativeInlayHintsPassFactory.Companion.resetModificationStamp()` — replaced, see below
 | experimental | 2 | `AboveLineIndentedPosition`, the class and its constructor
 | deprecated | 0-1 | `ReadAction.compute(ThrowableComputable)`, deprecated from 2026.1
 |===
@@ -289,17 +289,16 @@ Two findings were fixed rather than accepted, and both are worth knowing:
 * `DaemonCodeAnalyzer.restart()` (no argument) is deprecated; the reason-carrying overload
   `restart(Object)` exists in every IDE from 253 on.
 
-`resetModificationStamp()` is **kept deliberately**. Declarative inlays cache on a modification stamp that
-`DaemonCodeAnalyzer.restart()` does not invalidate, so without it an analysis result only appears on some
-later pass, and the public `com.intellij.codeInsight.hints.declarative` package contains no reset of any
-kind. `ReadAction.compute` is likewise still open: the replacement is a `NonBlockingReadAction` with
-different cancellation semantics, a real change rather than an import swap.
-
-⚠ Because `failureLevel` is set explicitly (it excludes the three categories above and fails on
-everything else — compatibility, invalid plugin, missing dependencies, structure warnings, scheduled-for-removal,
-override-only, non-extendable), **a NEW internal usage would not fail the build either**. The verifier
-always prints its counts; read them, not the exit code. Reports land in
-`maddi-intellij/build/reports/pluginVerifier/<IDE>`.
+⛔ **`resetModificationStamp()` was refused by the Marketplace review (2026-11-03).** It was kept deliberately
+until then: declarative inlays cache on a modification stamp that `DaemonCodeAnalyzer.restart()` does not
+invalidate, so without a reset an analysis result only appears after the next edit. The review sends a plugin
+with *any* internal-API usage back, with a link to
+`plugins.jetbrains.com/docs/intellij/api-internal.html`. The public way is
+`DeclarativeInlayHintsPassFactory.Companion.scheduleRecompute(editor, project)` (2025.3 and later), per open
+editor of the project (`MaddiAnalysisService.recomputeHints`). Since then `failureLevel` includes
+`INTERNAL_API_USAGES`, so a new internal usage fails the build. `ReadAction.compute` is still open: the
+replacement is a `NonBlockingReadAction` with different cancellation semantics, a real change rather than an
+import swap. Reports land in `maddi-intellij/build/reports/pluginVerifier/<IDE>`.
 
 === Build wiring
 
