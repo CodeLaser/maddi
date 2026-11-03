@@ -92,6 +92,45 @@ public class RunAnalyzer implements Runnable {
      * The modification analysis, from maddi-mod at run time (split stage 3). Asked for only when a step needs it:
      * a parse-only run ({@code --analysis-steps=none}) works without maddi-run-analysis on the class path.
      */
+    /*
+     The rewire driver's analysis: the same options for the warm (seeded) and the cold (oracle) analysis, so that their
+     outputs compare. MODREACH and the eventual cluster are off: a seeded analysis does not run them yet
+     (docs/design/incremental-and-overlay.md §3 item 3), and with them on the cold side the oracle would measure that.
+     */
+    private RunRewireTests.WarmAnalysis warmAnalysis(boolean parallel) {
+        ModificationOptions options = new ModificationOptions(30, true, null, false, true, false,
+                false, false, null, false, null);
+        return new RunRewireTests.WarmAnalysis() {
+            @Override
+            public void analyze(JavaInspector inspector, ParseResult parseResult, io.codelaser.maddi.graph.G<Info> graph,
+                                Set<TypeInfo> seedTypes) {
+                List<Info> order = new ComputeAnalysisOrder().go(graph, parallel);
+                Set<Info> seed = null;
+                if (seedTypes != null) {
+                    Set<TypeInfo> types = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                    types.addAll(seedTypes);
+                    seed = new java.util.HashSet<>();
+                    for (Info info : order) {
+                        if (info instanceof io.codelaser.maddi.cst.api.element.ModuleInfo) continue;
+                        TypeInfo type = info instanceof TypeInfo ti ? ti : info.typeInfo();
+                        if (type != null && types.contains(type.primaryType())) seed.add(info);
+                    }
+                }
+                try {
+                    engine().modification(new ModificationRequest(inspector, order, graph,
+                            parseResult.primaryTypes(), options, null, seed));
+                } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+            }
+
+            @Override
+            public String dump(JavaInspector inspector, TypeInfo primaryType) {
+                return engine().outputDump(inspector.runtime(), primaryType);
+            }
+        };
+    }
+
     private AnalysisEngine engine() {
         return AnalysisEngines.require("--analysis-steps=" + String.join(",",
                 configuration.generalConfiguration().analysisSteps()));
@@ -293,9 +332,12 @@ public class RunAnalyzer implements Runnable {
                     cold.preload("java.base::java.util");
                     return cold;
                 };
+                // maddi.rewire.analysis (default false): the modification analysis too, seeded after each re-parse
+                RunRewireTests.WarmAnalysis analysis = Boolean.getBoolean("maddi.rewire.analysis")
+                        ? warmAnalysis(parseOptions.parallel()) : null;
                 RunRewireTests.Result rewireResult = new RunRewireTests(inputConfiguration, javaInspector,
                         summary.parseResult(), ccg.graph(), new RunRewireTests.Options(iterations, oracleEvery,
-                        parseOptions, prepFn, coldInspector)).go();
+                        parseOptions, prepFn, coldInspector, analysis)).go();
                 if (!rewireResult.oracleDifferences().isEmpty()) {
                     // the incremental path produced something a cold parse does not: that is a defect, not a finding
                     LOGGER.error("Rewire tests: {} oracle difference(s) in {} check(s)",
