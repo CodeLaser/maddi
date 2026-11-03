@@ -187,7 +187,9 @@ public class RunRewireTests {
             LOGGER.info("REWIRE LEAK {} type object(s) reachable from the driver, {} name(s) with more than one: {}",
                     all.size(), doubled.size(), doubled.stream().limit(20)
                             .map(e -> e.getKey() + " x" + e.getValue().size()).toList());
-            for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(1).toList()) {
+            // the name with the most objects: the one whose generations accumulate
+            for (Map.Entry<String, List<TypeInfo>> e : doubled.stream()
+                    .max(Comparator.comparingInt(en -> en.getValue().size())).stream().toList()) {
                 // every instance of one name: which is live, which is generation 0, and how each is reached
                 String simple = e.getKey().substring(e.getKey().lastIndexOf('.') + 1) + ".java";
                 javaInspector.sourceFiles().stream().filter(sf -> sf.uri().toString().endsWith("/" + simple))
