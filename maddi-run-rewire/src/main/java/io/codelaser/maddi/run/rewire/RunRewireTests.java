@@ -188,8 +188,10 @@ public class RunRewireTests {
                     all.size(), doubled.size(), doubled.stream().limit(20)
                             .map(e -> e.getKey() + " x" + e.getValue().size()).toList());
             for (Map.Entry<String, List<TypeInfo>> e : doubled.stream().limit(3).toList()) {
+                // neither the live one nor generation 0, which the driver keeps on purpose (parseResult, list)
                 TypeInfo live = lastParseResult.findType(e.getKey());
-                e.getValue().stream().filter(t -> t != live).findFirst().ifPresent(old -> LOGGER.info(
+                TypeInfo first = parseResult.findType(e.getKey());
+                e.getValue().stream().filter(t -> t != live && t != first).findFirst().ifPresent(old -> LOGGER.info(
                         "REWIRE LEAK an older {} (source set {}), from the driver:{}", old,
                         old.compilationUnit() == null ? null : old.compilationUnit().sourceSet(),
                         LeakPath.path(this, old)));
