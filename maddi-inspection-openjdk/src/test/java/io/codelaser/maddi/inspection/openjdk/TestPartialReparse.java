@@ -350,11 +350,49 @@ public class TestPartialReparse {
         return true;
     }
 
-    /** Every compilation unit prints exactly as a cold parse of the same files, in a fresh inspector, prints it. */
+    /**
+     * Every compilation unit prints exactly as a cold parse of the same files, in a fresh inspector, prints it; and
+     * every method body and field initializer reads the same variables, by fully qualified name, in the same order, with
+     * the same field scopes written. The second half sees what printing hides: a rewire that turned an implicit
+     * {@code v} into an explicit {@code this.v} printed identically, but the codec and the Kotlin printer tell them
+     * apart.
+     */
     private static void assertPrintsAsCold(JavaInspector warm, ParseResult warmResult, SourceSet... sourceSets) {
         JavaInspector cold = inspector(sourceSets);
         ParseResult coldResult = parse(cold);
         assertEquals(printed(cold, coldResult), printed(warm, warmResult));
+        assertEquals(variablesRead(coldResult), variablesRead(warmResult));
+    }
+
+    private static Map<String, List<String>> variablesRead(ParseResult parseResult) {
+        Map<String, List<String>> map = new TreeMap<>();
+        for (TypeInfo primaryType : parseResult.primaryTypes()) {
+            primaryType.recursiveSubTypeStream().forEach(type -> {
+                type.constructorAndMethodStream().forEach(mi -> map.put(mi.fullyQualifiedName(),
+                        variablesRead(mi.methodBody())));
+                for (FieldInfo fieldInfo : type.fields()) {
+                    if (fieldInfo.initializer() != null) {
+                        map.put(fieldInfo.fullyQualifiedName(), variablesRead(fieldInfo.initializer()));
+                    }
+                }
+            });
+        }
+        return map;
+    }
+
+    private static List<String> variablesRead(Element element) {
+        List<String> list = new ArrayList<>();
+        element.visit(e -> {
+            if (e instanceof VariableExpression ve) {
+                // whether a field's scope was written is not in its name, and the Java printer prints both alike;
+                // the codec, the Kotlin and C# printers and the isolation tools read it
+                String scope = ve.variable() instanceof FieldReference fr && !fr.isDefaultScope() ? " (scope written)"
+                        : "";
+                list.add(ve.variable().fullyQualifiedName() + scope);
+            }
+            return true;
+        });
+        return list;
     }
 
     private static Map<String, String> printed(JavaInspector inspector, ParseResult parseResult) {
