@@ -303,8 +303,17 @@ The list for a prep-only incremental step, in order:
 6. **`PrepRequest` takes a subset and an existing graph.** Today `AnalysisEngine.prep` preps `primaryTypes` and
    builds the graph from them; a prep-only incremental caller needs "prep these, merge into that". The precedent
    for prepping one type over a kept universe is `TestPrepOnePrimaryTypeAtATime`.
+   *Subsumed (2026-11-03) by items 4 and 5, without a subset argument:* the caller passes the whole universe; prep
+   skips every type that arrived prepped (kept, or rewired with its data carried), and the call graph reuses the
+   contributions of the kept types (`PrepRequest.callGraphContributions`). A subset would be a second path to the
+   same result, and the call graph needs the universe anyway for its `accept`. `PrepAnalyzer.typesPrepped()` and
+   `typesCarried()` say what happened (`TestPrepAfterPartialReparse`); on fernflower every edit preps 1 primary type
+   and 226 arrive prepped. What remains of prep's time after a large cone is the call-graph walk of the rewired
+   types, about 20 of 44 ms; rewiring their contributions instead of walking them is the next step if it matters.
 7. **Skip the analysis order** for a prep-only consumer (`doPrepWorkForModificationAnalysis=false` exists;
    `Prepwork.make` passes `true`).
+   *Already so (2026-11-03):* the flag and `Prepwork.make` are gone; `AnalysisEngine.prep` returns the call graph
+   and every caller that wants an order computes it itself (`ComputeAnalysisOrder`), which the rewire driver does not.
 
 ## 7. The order: prep first, then the analysis
 
