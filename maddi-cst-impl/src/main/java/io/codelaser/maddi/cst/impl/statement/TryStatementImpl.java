@@ -466,10 +466,10 @@ public class TryStatementImpl extends StatementImpl implements TryStatement {
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new TryStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+        return withRewiredAnalysis(new TryStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
                 resources.stream().map(s -> s.rewire(infoMap)).toList(),
                 block.rewire(infoMap),
                 catchClauses.stream().map(cc -> cc.rewire(infoMap)).toList(),
-                finallyBlock.rewire(infoMap));
+                finallyBlock.rewire(infoMap)), infoMap);
     }
 }

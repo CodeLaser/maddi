@@ -17,6 +17,7 @@
 
 package io.codelaser.maddi.cst.impl.statement;
 
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.annotation.Fluent;
 import io.codelaser.maddi.annotation.rare.IgnoreModifications;
 import io.codelaser.maddi.cst.api.analysis.PropertyValueMap;
@@ -184,5 +185,16 @@ public abstract class StatementImpl extends ElementImpl implements Statement {
     @Override
     public PropertyValueMap analysis() {
         return propertyValueMap;
+    }
+
+    /**
+     * The rewired copy of this statement with this statement's analysis carried onto it: the properties that opt in
+     * ({@code Property.carryOnRewire}), each value rewired. Prep's per-statement output ({@code VARIABLE_DATA},
+     * {@code ALWAYS_ESCAPES}) is computed from the type's own body, which a rewired type by definition did not change,
+     * so a rewired type keeps it and prep skips the type like a kept one (docs/design/rewiring.md, the intrinsic carry).
+     */
+    protected <S extends Statement> S withRewiredAnalysis(S copy, InfoMapView infoMap) {
+        copy.analysis().setAll(analysis().rewire(infoMap));
+        return copy;
     }
 }

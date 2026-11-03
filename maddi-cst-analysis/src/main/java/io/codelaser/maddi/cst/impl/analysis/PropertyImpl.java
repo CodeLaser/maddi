@@ -143,7 +143,11 @@ public class PropertyImpl implements Property {
      * refactor engine's dataflow metric -- need not depend on the module that computes it.
      */
     public static final Property RECURSIVE_METHOD = new PropertyImpl("recursiveMethod", ValueImpl.BoolImpl.FALSE);
-    public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod");
+    // carried on a rewire: prep's getter/setter pass sets it next to GET_SET_FIELD, and does not run again on a
+    // rewired type (its GET_SET_FIELD is carried, so the pass's getOrCreate never re-enters); the analyzer's own write
+    // is a controlled overwrite. The tier stays: the analyzer's value is analyzer output (AnalysisFingerprint)
+    public static final Property FLUENT_METHOD = new PropertyImpl("fluentMethod", ValueImpl.BoolImpl.FALSE,
+            AnalysisTier.CROSS_TYPE_DERIVED, true);
     public static final Property IDENTITY_METHOD = new PropertyImpl("identityMethod");
     /**
      * The nullability of the return value, and of each type argument (maddi-mod docs/design/nullability.md B2):
@@ -278,7 +282,7 @@ public class PropertyImpl implements Property {
     // statement
     // INTRINSIC: prepwork's ComputeAlwaysEscapes re-derives this per statement every run.
     public static final Property ALWAYS_ESCAPES = new PropertyImpl("statementAlwaysEscapes",
-            ValueImpl.BoolImpl.FALSE, AnalysisTier.INTRINSIC);
+            ValueImpl.BoolImpl.FALSE, AnalysisTier.INTRINSIC, true);
 
     // any element
     public static final Property DEFAULTS_ANALYZER = new PropertyImpl("defaultsAnalyzer");
@@ -300,7 +304,7 @@ public class PropertyImpl implements Property {
     // instanceof
     // INTRINSIC: prepwork's MethodAnalyzer re-derives the instanceof-pattern scope from the method body every run.
     public static final Property INSTANCEOF_SCOPE = new PropertyImpl("instanceOfScope", ValueImpl.ScopeImpl.EMPTY,
-            AnalysisTier.INTRINSIC);
+            AnalysisTier.INTRINSIC, true);
 
     private final String key;
     private final Value defaultValue;
@@ -323,6 +327,14 @@ public class PropertyImpl implements Property {
     /** Explicit tier — used by the intrinsic (prepwork-recomputed) properties. */
     public PropertyImpl(String key, Value defaultValue, AnalysisTier analysisTier) {
         this(key, defaultValue, false, analysisTier);
+    }
+
+    /**
+     * Explicit tier and carry: an {@code INTRINSIC} property that a rewired type keeps (its value computed from the
+     * type's own body, which a rewire did not change), so that prep can skip the type as it skips a kept one.
+     */
+    public PropertyImpl(String key, Value defaultValue, AnalysisTier analysisTier, boolean carryOnRewire) {
+        this(key, defaultValue, carryOnRewire, analysisTier);
     }
 
     private PropertyImpl(String key, Value defaultValue, boolean carryOnRewire, AnalysisTier analysisTier) {

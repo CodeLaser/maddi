@@ -364,6 +364,8 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
                 .setInitializer(initializer().rewire(infoMap)).commit();
         // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in
         rewiredField.analysis().setAll(analysis().rewire(infoMap));
+        // and the initializer's, where prep keeps the initializer expression's VARIABLE_DATA
+        rewiredField.analysisOfInitializer().setAll(analysisOfInitializer().rewire(infoMap));
     }
 
     @Override

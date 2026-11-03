@@ -91,6 +91,6 @@ public class BreakStatementImpl extends BreakOrContinueStatementImpl implements 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new BreakStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), goToLabel());
+        return withRewiredAnalysis(new BreakStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), goToLabel()), infoMap);
     }
 }

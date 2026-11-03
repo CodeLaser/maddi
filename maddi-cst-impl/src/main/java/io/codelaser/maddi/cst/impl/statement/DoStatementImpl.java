@@ -172,7 +172,7 @@ public class DoStatementImpl extends StatementImpl implements DoStatement {
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new DoStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap), block.rewire(infoMap));
+        return withRewiredAnalysis(new DoStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap), block.rewire(infoMap)), infoMap);
     }
 }

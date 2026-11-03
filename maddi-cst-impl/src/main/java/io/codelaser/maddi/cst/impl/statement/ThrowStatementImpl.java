@@ -153,7 +153,7 @@ public class ThrowStatementImpl extends StatementImpl implements ThrowStatement 
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ThrowStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap));
+        return withRewiredAnalysis(new ThrowStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap)), infoMap);
     }
 }

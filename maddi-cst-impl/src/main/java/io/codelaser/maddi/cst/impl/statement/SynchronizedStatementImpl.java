@@ -173,7 +173,7 @@ public class SynchronizedStatementImpl extends StatementImpl implements Synchron
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new SynchronizedStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
-                expression.rewire(infoMap), block.rewire(infoMap));
+        return withRewiredAnalysis(new SynchronizedStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                expression.rewire(infoMap), block.rewire(infoMap)), infoMap);
     }
 }

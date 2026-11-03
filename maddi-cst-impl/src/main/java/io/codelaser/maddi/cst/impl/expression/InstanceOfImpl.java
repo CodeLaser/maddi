@@ -251,7 +251,7 @@ public class InstanceOfImpl extends ExpressionImpl implements InstanceOf {
     public Expression rewire(InfoMapView infoMap) {
         return new InstanceOfImpl(rewireComments(infoMap), rewireSource(infoMap), expression.rewire(infoMap), testType.rewire(infoMap),
                 patternVariable == null ? null : (RecordPattern) patternVariable.rewire(infoMap),
-                booleanParameterizedType, propertyValueMap);
+                booleanParameterizedType, propertyValueMap.rewire(infoMap));
     }
 
     @Override

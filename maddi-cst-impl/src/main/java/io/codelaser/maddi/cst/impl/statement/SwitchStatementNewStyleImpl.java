@@ -177,8 +177,8 @@ public class SwitchStatementNewStyleImpl extends StatementImpl implements Switch
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new SwitchStatementNewStyleImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
-                selector.rewire(infoMap), entries.stream().map(e -> (SwitchEntry) e.rewire(infoMap)).toList());
+        return withRewiredAnalysis(new SwitchStatementNewStyleImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                selector.rewire(infoMap), entries.stream().map(e -> (SwitchEntry) e.rewire(infoMap)).toList()), infoMap);
     }
 
     public static class BuilderImpl extends StatementImpl.Builder<SwitchStatementNewStyle.Builder>

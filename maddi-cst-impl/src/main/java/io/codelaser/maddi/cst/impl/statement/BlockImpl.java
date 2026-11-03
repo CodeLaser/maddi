@@ -322,7 +322,7 @@ public class BlockImpl extends StatementImpl implements Block {
 
     @Override
     public Block rewire(InfoMapView infoMap) {
-        return new BlockImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
-                statements.stream().map(s -> s.rewire(infoMap)).toList(), trailingComments);
+        return withRewiredAnalysis(new BlockImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(),
+                statements.stream().map(s -> s.rewire(infoMap)).toList(), trailingComments), infoMap);
     }
 }

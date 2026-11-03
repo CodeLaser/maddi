@@ -93,6 +93,6 @@ public class ContinueStatementImpl extends BreakOrContinueStatementImpl implemen
 
     @Override
     public Statement rewire(InfoMapView infoMap) {
-        return new ContinueStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), goToLabel());
+        return withRewiredAnalysis(new ContinueStatementImpl(rewireComments(infoMap), rewireSource(infoMap), rewireAnnotations(infoMap), label(), goToLabel()), infoMap);
     }
 }

@@ -75,10 +75,55 @@ public final class ReparseOracle {
         compare("variables read", variablesRead(coldResult), variablesRead(warmResult), differences);
         compare("declaration", declarations(coldResult), declarations(warmResult), differences);
         if (warmGraph != null && coldGraph != null) {
+            // both worlds prepped: their prep output must agree, carried or recomputed
+            compare("prep", prep(coldResult), prep(warmResult), differences);
             compare("call graph", Map.of("edges", callGraphEdges(coldGraph)), Map.of("edges", callGraphEdges(warmGraph)),
                     differences);
         }
         return differences;
+    }
+
+    /**
+     * Prep's output, by element: every property of the INTRINSIC tier or carried on a rewire, as its value describes
+     * itself, on each type, method, parameter, field, field initializer, and statement (by its index). A warm world
+     * whose rewired types kept their prep data (the intrinsic carry) must hold what a cold prep computes.
+     */
+    public static Map<String, String> prep(ParseResult parseResult) {
+        Map<String, String> map = new TreeMap<>();
+        for (TypeInfo primaryType : parseResult.primaryTypes()) {
+            primaryType.recursiveSubTypeStream().forEach(type -> {
+                putPrep(map, "T " + type.fullyQualifiedName(), type.analysis());
+                type.constructorAndMethodStream().forEach(mi -> {
+                    String m = mi.fullyQualifiedName();
+                    putPrep(map, "M " + m, mi.analysis());
+                    mi.parameters().forEach(pi -> putPrep(map, "P " + m + "#" + pi.index(), pi.analysis()));
+                    if (mi.methodBody() != null) {
+                        mi.methodBody().visit(e -> {
+                            if (e instanceof io.codelaser.maddi.cst.api.statement.Statement st && st.source() != null) {
+                                putPrep(map, "S " + m + "@" + st.source().index(), st.analysis());
+                            }
+                            return true;
+                        });
+                    }
+                });
+                for (FieldInfo fieldInfo : type.fields()) {
+                    putPrep(map, "F " + fieldInfo.fullyQualifiedName(), fieldInfo.analysis());
+                    putPrep(map, "I " + fieldInfo.fullyQualifiedName(), fieldInfo.analysisOfInitializer());
+                }
+            });
+        }
+        return map;
+    }
+
+    private static void putPrep(Map<String, String> map, String key,
+                                io.codelaser.maddi.cst.api.analysis.PropertyValueMap analysis) {
+        String described = analysis.propertyValueStream()
+                .filter(pv -> pv.property().carryOnRewire()
+                              || pv.property().analysisTier()
+                                 == io.codelaser.maddi.cst.api.analysis.Property.AnalysisTier.INTRINSIC)
+                .map(pv -> pv.property().key() + "=" + pv.value())
+                .sorted().collect(Collectors.joining(", "));
+        if (!described.isEmpty()) map.put(key, described);
     }
 
     private static <T> void compare(String what, Map<String, T> cold, Map<String, T> warm, List<String> differences) {
