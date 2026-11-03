@@ -247,10 +247,14 @@ public class TestInvalidate extends CommonTest2 {
                 assertNotSame(pt1, pt2);
                 assertEquals(pt1.fullyQualifiedName(), pt2.fullyQualifiedName());
                 assertEquals(pt1.compilationUnit(), pt2.compilationUnit());
-                if ("ISource".equals(pt1.simpleName())) {
-                    assertNotSame(pt1.compilationUnit(), pt2.compilationUnit());
-                } else {
-                    assertSame(pt1.compilationUnit(), pt2.compilationUnit());
+                // both get a new unit: ISource is re-parsed, Source is rewired into a COPY of its unit, which keeps
+                // the fingerprint (sharing the original kept the previous generation reachable; see
+                // TestPartialReparse.testOldGenerationsAreCollectable)
+                assertNotSame(pt1.compilationUnit(), pt2.compilationUnit());
+                assertSame(pt2, pt2.compilationUnit().types().getFirst(), "the new unit holds the new type");
+                if (!"ISource".equals(pt1.simpleName())) {
+                    assertSame(pt1.compilationUnit().fingerPrintOrNull(), pt2.compilationUnit().fingerPrintOrNull(),
+                            "rewired, not re-parsed: the copy keeps the fingerprint");
                 }
                 assertSame(pt1.compilationUnit().sourceSet(), pt2.compilationUnit().sourceSet());
             }
