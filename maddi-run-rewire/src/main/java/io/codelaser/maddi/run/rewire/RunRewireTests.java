@@ -20,11 +20,12 @@ package io.codelaser.maddi.run.rewire;
 import io.codelaser.maddi.callgraph.ComputeCallGraph;
 import io.codelaser.maddi.callgraph.PrimaryTypeUseGraph;
 import io.codelaser.maddi.cst.api.info.Info;
+import io.codelaser.maddi.cst.api.info.InfoMapView;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
+import io.codelaser.maddi.graph.G;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
-import io.codelaser.maddi.graph.G;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,35 +33,103 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 
+/**
+ * The rewire driver: edit a randomly chosen source file on disk, ask the inspector what changed, re-parse with the
+ * changed types INVALID and their dependents REWIRE, prep, restore the file, and re-parse again — over and over.
+ * <p>
+ * Run as {@code --analysis-steps rewire-tests}. With {@link Options} it is also the corpus measurement of
+ * {@code docs/design/incremental-and-overlay.md} §8: one {@code REWIRE STATS} line per re-parse (how many types were
+ * changed, rewired and rebuilt, and the time of each step), a summary at the end, and, every
+ * {@link Options#oracleEvery()} iterations, the {@link ReparseOracle} against a cold parse of the same files. An
+ * oracle difference is a defect of the incremental path; {@link #go()} reports it in its {@link Result}.
+ */
 public class RunRewireTests {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RunRewireTests.class);
     private static final int ITERATIONS = 200;
     public static final long SEED = 15;
 
+    /**
+     * @param iterations   how many files to edit (each edit is two re-parses: the edit and its restore)
+     * @param oracleEvery  run the oracle after every n-th restore; 0 never. A cold parse per check: on a corpus, keep
+     *                     it rare
+     * @param parseOptions the options of the cold parse the run started from; every re-parse takes them, with its own
+     *                     {@code Invalidated}. A re-parse with other options than the parse it updates is not the
+     *                     same parse
+     * @param prep         prep over a parse result, returning its call graph; the driver measures it per re-parse
+     * @param coldInspector a fresh, initialized inspector on the same input configuration, for the oracle; may be null
+     *                     when {@code oracleEvery} is 0
+     */
+    public record Options(int iterations,
+                          int oracleEvery,
+                          JavaInspector.ParseOptions parseOptions,
+                          BiFunction<JavaInspector, ParseResult, G<Info>> prep,
+                          Supplier<JavaInspector> coldInspector) {
+    }
+
+    /**
+     * @param reparses         re-parses done
+     * @param oracleChecks     oracle checks done
+     * @param oracleDifferences every difference an oracle check found; empty is the expected outcome
+     */
+    public record Result(int reparses, int oracleChecks, List<String> oracleDifferences) {
+    }
+
     private final InputConfiguration inputConfiguration;
     private final JavaInspector javaInspector;
     private final ParseResult parseResult;
     private final G<Info> initialGraph;
+    private final Options options;
+    private final List<Stats> stats = new ArrayList<>();
+    private final List<String> oracleDifferences = new ArrayList<>();
+    private int oracleChecks;
+    private G<Info> lastGraph;
+    private ParseResult lastParseResult;
 
+    /** The stress loop as it always ran: 200 iterations, the call graph as the only prep, no oracle. */
     public RunRewireTests(InputConfiguration inputConfiguration,
                           JavaInspector javaInspector,
                           ParseResult parseResult,
                           G<Info> graph) {
+        this(inputConfiguration, javaInspector, parseResult, graph, new Options(ITERATIONS, 0, null,
+                (inspector, pr) -> new ComputeCallGraph(inspector.runtime(), pr, _ -> false).go().graph(), null));
+    }
+
+    public RunRewireTests(InputConfiguration inputConfiguration,
+                          JavaInspector javaInspector,
+                          ParseResult parseResult,
+                          G<Info> graph,
+                          Options options) {
         this.inputConfiguration = inputConfiguration;
         this.javaInspector = javaInspector;
         this.parseResult = parseResult;
         this.initialGraph = graph;
+        this.options = options;
     }
 
-    public void go() {
+    /** One re-parse: what it touched and what each step took. */
+    private record Stats(int iteration, boolean restore, int changed, int cone, int rewiredTypes, int primaryTypes,
+                         long reloadMs, long reparseMs, long prepMs, long callGraphMs) {
+        @Override
+        public String toString() {
+            return String.format("iteration %d%s: %d changed, %d in the REWIRE cone, %d type(s) built by the rewire, of"
+                                 + " %d primary types; reload %d ms, re-parse %d ms, prep %d ms (call graph alone %d"
+                                 + " ms)", iteration, restore ? " (restore)" : "", changed, cone, rewiredTypes,
+                    primaryTypes, reloadMs, reparseMs, prepMs, callGraphMs);
+        }
+    }
+
+    public Result go() {
         Random random = new Random(SEED);
         List<TypeInfo> list = parseResult.primaryTypes().stream().sorted(Comparator.comparing(TypeInfo::fullyQualifiedName)).toList();
         G<Info> infoGraph = initialGraph;
-        for (int i = 0; i < ITERATIONS; ++i) {
+        lastParseResult = parseResult;
+        for (int i = 0; i < options.iterations(); ++i) {
             LOGGER.info("Compute primary type use graph, iteration {}", i);
             TypeInfo typeToRewire = list.get(random.nextInt(list.size()));
             Path path = Path.of(typeToRewire.compilationUnit().uri().getSchemeSpecificPart());
@@ -75,7 +144,7 @@ public class RunRewireTests {
                     // this will trigger a change of fingerprint
                     stop |= write(path, updatedContent);
                     if (!stop) {
-                        infoGraph = reloadSources(typeToRewire, infoGraph);
+                        infoGraph = reloadSources(typeToRewire, infoGraph, i, false);
                         LOGGER.info("Restoring {}", absolutePath);
                         stop |= write(path, content);
                         restored = true;
@@ -89,7 +158,10 @@ public class RunRewireTests {
                         that nothing changed, and the assertion in reloadSources fires.
                         Reverting is a rewire in its own right, so this is a second exercise, not overhead.
                          */
-                        if (!stop) infoGraph = reloadSources(typeToRewire, infoGraph);
+                        if (!stop) {
+                            infoGraph = reloadSources(typeToRewire, infoGraph, i, true);
+                            if (options.oracleEvery() > 0 && (i + 1) % options.oracleEvery() == 0) oracle(i);
+                        }
                     }
                 } finally {
                     if (!restored) {
@@ -102,11 +174,14 @@ public class RunRewireTests {
                 LOGGER.error("Could not read {}", absolutePath, ioe);
                 stop = true;
             }
-            if (stop) return;
+            if (stop) break;
         }
+        logSummary();
+        return new Result(stats.size(), oracleChecks, List.copyOf(oracleDifferences));
     }
 
-    private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph) throws IOException {
+    private G<Info> reloadSources(TypeInfo pt, G<Info> infoGraph, int iteration, boolean restore) throws IOException {
+        long t0 = System.nanoTime();
         LOGGER.info("Calling javaInspector.reloadSources");
         JavaInspector.ReloadResult rr = javaInspector.reloadSources(inputConfiguration, Map.of());
         assert rr.sourceHasChanged().contains(pt);
@@ -118,19 +193,78 @@ public class RunRewireTests {
             if (dependentPrimaryTypes.contains(ti)) return REWIRE;
             return UNCHANGED;
         };
-        JavaInspector.ParseOptions parseOptions = new JavaInspector.ParseOptions.Builder()
-                .setLombok(inputConfiguration.containsLombok())
-                .setDetailedSources(true)
-                .setFailFast(true)
-                .setInvalidated(invalidated)
-                .setParallel(true)
-                .build();
+        long t1 = System.nanoTime();
         LOGGER.info("Reparse");
-        ParseResult parseResult1 = javaInspector.parse(parseOptions).parseResult();
-        LOGGER.info("Recompute call graph");
-        ComputeCallGraph ccg = new ComputeCallGraph(javaInspector.runtime(), parseResult1,
-                _ -> false);
-        return ccg.go().graph();
+        ParseResult parseResult1 = javaInspector.parse(reparseOptions(invalidated)).parseResult();
+        long t2 = System.nanoTime();
+        LOGGER.info("Prep");
+        G<Info> graph = options.prep().apply(javaInspector, parseResult1);
+        long t3 = System.nanoTime();
+        // the call graph on its own, to tell prep's two halves apart: per-type work against the whole-graph passes
+        new ComputeCallGraph(javaInspector.runtime(), parseResult1, _ -> false).go();
+        long t4 = System.nanoTime();
+        InfoMapView view = javaInspector.lastRewireInfoMap();
+        Stats s = new Stats(iteration, restore, rr.sourceHasChanged().size(), dependentPrimaryTypes.size(),
+                view == null ? 0 : view.rewiredTypes().size(), parseResult1.primaryTypes().size(),
+                ms(t1 - t0), ms(t2 - t1), ms(t3 - t2), ms(t4 - t3));
+        stats.add(s);
+        LOGGER.info("REWIRE STATS {}", s);
+        lastGraph = graph;
+        lastParseResult = parseResult1;
+        return graph;
+    }
+
+    private JavaInspector.ParseOptions reparseOptions(JavaInspector.Invalidated invalidated) {
+        JavaInspector.ParseOptions base = options.parseOptions();
+        if (base == null) {
+            return new JavaInspector.ParseOptions.Builder()
+                    .setLombok(inputConfiguration.containsLombok())
+                    .setDetailedSources(true)
+                    .setFailFast(true)
+                    .setInvalidated(invalidated)
+                    .setParallel(true)
+                    .build();
+        }
+        return new JavaInspector.ParseOptions(base.failFast(), base.detailedSources(), invalidated, base.parallel(),
+                base.lombok(), base.ignoreModule(), base.parameterNames(), base.syntheticListField());
+    }
+
+    /** The files are back as the run started; compare the warm state with a cold parse and prep of them. */
+    private void oracle(int iteration) {
+        long t0 = System.nanoTime();
+        JavaInspector cold = options.coldInspector().get();
+        ParseResult coldResult = cold.parse(options.parseOptions()).parseResult();
+        G<Info> coldGraph = options.prep().apply(cold, coldResult);
+        List<String> differences = ReparseOracle.differences(javaInspector, lastParseResult, lastGraph, cold,
+                coldResult, coldGraph);
+        ++oracleChecks;
+        if (differences.isEmpty()) {
+            LOGGER.info("REWIRE ORACLE iteration {}: as a cold parse ({} ms)", iteration, ms(System.nanoTime() - t0));
+        } else {
+            LOGGER.error("REWIRE ORACLE iteration {}: {} difference(s) with a cold parse; first: {}", iteration,
+                    differences.size(), differences.getFirst());
+            differences.forEach(d -> oracleDifferences.add("iteration " + iteration + ": " + d));
+        }
+    }
+
+    private void logSummary() {
+        if (stats.isEmpty()) return;
+        LOGGER.info("REWIRE SUMMARY {} re-parse(s) over {} primary types; median cone {}, median rewire-built types {};"
+                    + " median ms: reload {}, re-parse {}, prep {}, call graph alone {}; oracle: {} check(s), {}"
+                    + " difference(s)", stats.size(), stats.getLast().primaryTypes(),
+                median(stats.stream().mapToLong(Stats::cone)), median(stats.stream().mapToLong(Stats::rewiredTypes)),
+                median(stats.stream().mapToLong(Stats::reloadMs)), median(stats.stream().mapToLong(Stats::reparseMs)),
+                median(stats.stream().mapToLong(Stats::prepMs)), median(stats.stream().mapToLong(Stats::callGraphMs)),
+                oracleChecks, oracleDifferences.size());
+    }
+
+    private static long median(java.util.stream.LongStream values) {
+        long[] sorted = values.sorted().toArray();
+        return sorted.length == 0 ? 0 : sorted[sorted.length / 2];
+    }
+
+    private static long ms(long nanos) {
+        return nanos / 1_000_000;
     }
 
     private static boolean write(Path path, String content) {

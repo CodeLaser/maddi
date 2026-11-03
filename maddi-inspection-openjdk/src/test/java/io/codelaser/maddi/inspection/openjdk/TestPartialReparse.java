@@ -1,19 +1,13 @@
 package io.codelaser.maddi.inspection.openjdk;
 
-import io.codelaser.maddi.cst.api.element.Element;
 import io.codelaser.maddi.cst.api.element.SourceSet;
-import io.codelaser.maddi.cst.api.expression.ConstructorCall;
-import io.codelaser.maddi.cst.api.expression.MethodCall;
-import io.codelaser.maddi.cst.api.expression.VariableExpression;
-import io.codelaser.maddi.cst.api.info.FieldInfo;
-import io.codelaser.maddi.cst.api.info.MethodInfo;
 import io.codelaser.maddi.cst.api.info.TypeInfo;
-import io.codelaser.maddi.cst.api.variable.FieldReference;
 import io.codelaser.maddi.inspection.api.integration.JavaInspector;
 import io.codelaser.maddi.inspection.api.parser.ParseResult;
 import io.codelaser.maddi.inspection.api.resource.InputConfiguration;
 import io.codelaser.maddi.inspection.resource.InputConfigurationImpl;
 import io.codelaser.maddi.inspection.resource.SourceSetImpl;
+import io.codelaser.maddi.run.rewire.ReparseOracle;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,13 +21,8 @@ import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static io.codelaser.maddi.inspection.api.integration.JavaInspector.InvalidationState.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,14 +32,9 @@ import static org.junit.jupiter.api.Assertions.*;
  * javac is handed the changed files, the rest of the set sits on its source path, unchanged types are kept or
  * rewired. See {@code docs/design/incremental-and-overlay.md} §5.
  * <p>
- * Every case ends with the same two checks, the oracle of §8 of that document:
- * <ol>
- *     <li>no reference anywhere in the re-parsed result reaches an object that is not the live one for its type
- *     (the registry's, the parse result's): a stale reference is exactly what a wrong rewire leaves behind, and it
- *     is invisible to any check by name or by equality, both being fqn + source set;</li>
- *     <li>every compilation unit prints exactly as a cold parse of the same files, in a fresh inspector, prints
- *     it.</li>
- * </ol>
+ * Every case ends with {@link ReparseOracle}, the corpus driver's oracle (§8 of that document): no stale reference
+ * anywhere in the result, and the same printed compilation units and the same variables read as a cold parse of the
+ * same files in a fresh inspector.
  */
 public class TestPartialReparse {
 
@@ -299,108 +283,18 @@ public class TestPartialReparse {
         assertPrintsAsCold(inspector, pr2, mainSet, midSet, topSet);
     }
 
-    // ---- the oracle
+    // ---- the oracle: ReparseOracle, the corpus driver's
 
-    /**
-     * Every type a reference reaches, if it is one of the parse's own source types, must be the object the parse
-     * result holds for it, by identity. Walks the type references of every primary type, and in every method body
-     * and field initializer the owners of the methods called, the constructors invoked and the fields read.
-     */
     private static void assertNoStaleReferences(ParseResult parseResult) {
-        List<String> stale = new ArrayList<>();
-        Set<String> ours = parseResult.primaryTypes().stream().map(TypeInfo::fullyQualifiedName)
-                .collect(Collectors.toUnmodifiableSet());
-        for (TypeInfo primaryType : parseResult.primaryTypes()) {
-            Function<TypeInfo, Void> check = reached -> {
-                if (reached == null) return null;
-                TypeInfo primary = reached.primaryType();
-                if (primary != null && ours.contains(primary.fullyQualifiedName())
-                    && parseResult.findType(primary.fullyQualifiedName()) != primary) {
-                    stale.add(primaryType.fullyQualifiedName() + " -> " + reached.fullyQualifiedName());
-                }
-                return null;
-            };
-            primaryType.typesReferenced(_ -> true).forEach(tr -> check.apply(tr.typeInfo()));
-            primaryType.recursiveSubTypeStream().forEach(type -> {
-                check.apply(type.parentClass() == null ? null : type.parentClass().typeInfo());
-                type.interfacesImplemented().forEach(pt -> check.apply(pt.typeInfo()));
-                type.constructorAndMethodStream().forEach(mi -> {
-                    check.apply(mi.returnType().typeInfo());
-                    mi.parameters().forEach(pi -> check.apply(pi.parameterizedType().typeInfo()));
-                    mi.methodBody().visit(e -> visit(e, check));
-                });
-                for (FieldInfo fieldInfo : type.fields()) {
-                    check.apply(fieldInfo.type().typeInfo());
-                    if (fieldInfo.initializer() != null) fieldInfo.initializer().visit(e -> visit(e, check));
-                }
-            });
-        }
+        List<String> stale = ReparseOracle.staleReferences(parseResult);
         assertTrue(stale.isEmpty(), "stale references: " + stale);
     }
 
-    private static boolean visit(Element element, Function<TypeInfo, Void> check) {
-        switch (element) {
-            case MethodCall mc -> check.apply(mc.methodInfo().typeInfo());
-            case ConstructorCall cc when cc.constructor() != null -> check.apply(cc.constructor().typeInfo());
-            case VariableExpression ve when ve.variable() instanceof FieldReference fr ->
-                    check.apply(fr.fieldInfo().owner());
-            default -> {
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Every compilation unit prints exactly as a cold parse of the same files, in a fresh inspector, prints it; and
-     * every method body and field initializer reads the same variables, by fully qualified name, in the same order, with
-     * the same field scopes written. The second half sees what printing hides: a rewire that turned an implicit
-     * {@code v} into an explicit {@code this.v} printed identically, but the codec and the Kotlin printer tell them
-     * apart.
-     */
     private static void assertPrintsAsCold(JavaInspector warm, ParseResult warmResult, SourceSet... sourceSets) {
         JavaInspector cold = inspector(sourceSets);
         ParseResult coldResult = parse(cold);
-        assertEquals(printed(cold, coldResult), printed(warm, warmResult));
-        assertEquals(variablesRead(coldResult), variablesRead(warmResult));
-    }
-
-    private static Map<String, List<String>> variablesRead(ParseResult parseResult) {
-        Map<String, List<String>> map = new TreeMap<>();
-        for (TypeInfo primaryType : parseResult.primaryTypes()) {
-            primaryType.recursiveSubTypeStream().forEach(type -> {
-                type.constructorAndMethodStream().forEach(mi -> map.put(mi.fullyQualifiedName(),
-                        variablesRead(mi.methodBody())));
-                for (FieldInfo fieldInfo : type.fields()) {
-                    if (fieldInfo.initializer() != null) {
-                        map.put(fieldInfo.fullyQualifiedName(), variablesRead(fieldInfo.initializer()));
-                    }
-                }
-            });
-        }
-        return map;
-    }
-
-    private static List<String> variablesRead(Element element) {
-        List<String> list = new ArrayList<>();
-        element.visit(e -> {
-            if (e instanceof VariableExpression ve) {
-                // whether a field's scope was written is not in its name, and the Java printer prints both alike;
-                // the codec, the Kotlin and C# printers and the isolation tools read it
-                String scope = ve.variable() instanceof FieldReference fr && !fr.isDefaultScope() ? " (scope written)"
-                        : "";
-                list.add(ve.variable().fullyQualifiedName() + scope);
-            }
-            return true;
-        });
-        return list;
-    }
-
-    private static Map<String, String> printed(JavaInspector inspector, ParseResult parseResult) {
-        Map<String, String> map = new TreeMap<>();
-        for (TypeInfo primaryType : parseResult.primaryTypes()) {
-            map.put(primaryType.fullyQualifiedName(), inspector.print2(primaryType.compilationUnit()));
-        }
-        return map;
+        List<String> differences = ReparseOracle.differences(warm, warmResult, null, cold, coldResult, null);
+        assertTrue(differences.isEmpty(), String.join("\n", differences));
     }
 
     // ---- set-up

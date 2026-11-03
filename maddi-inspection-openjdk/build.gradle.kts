@@ -37,6 +37,8 @@ dependencies {
     implementation(project(":maddi-java-parser"))
     implementation(project(":maddi-inspection-parser"))
     testImplementation(project(":maddi-cst-io"))
+    // ReparseOracle: TestPartialReparse checks the per-file re-parse against a cold parse with the driver's oracle
+    testImplementation(project(":maddi-run-rewire"))
     implementation(project(":maddi-cst-impl"))
     implementation(project(":maddi-cst-print"))
     implementation(project(":maddi-cst-analysis"))
