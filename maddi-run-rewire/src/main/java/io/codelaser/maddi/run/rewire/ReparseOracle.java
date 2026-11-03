@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * anything that differs from a cold parse of the same files, in a fresh inspector, is a defect of the incremental
  * path.
  * <p>
- * Four checks, each blind to something the others see:
+ * Five checks, each blind to something the others see:
  * <ol>
  *     <li>{@link #staleReferences}: no reference anywhere in the result reaches an object that is not the live one
  *     for its type. A stale pointer is what a wrong rewire leaves behind, and no comparison by name or by equality
@@ -72,6 +72,7 @@ public final class ReparseOracle {
         staleReferences(warmResult).forEach(s -> differences.add("stale reference: " + s));
         compare("printed", printed(cold, coldResult), printed(warm, warmResult), differences);
         compare("variables read", variablesRead(coldResult), variablesRead(warmResult), differences);
+        compare("declaration", declarations(coldResult), declarations(warmResult), differences);
         if (warmGraph != null && coldGraph != null) {
             compare("call graph", Map.of("edges", callGraphEdges(coldGraph)), Map.of("edges", callGraphEdges(warmGraph)),
                     differences);
@@ -107,26 +108,36 @@ public final class ReparseOracle {
         Set<String> ours = parseResult.primaryTypes().stream().map(TypeInfo::fullyQualifiedName)
                 .collect(Collectors.toUnmodifiableSet());
         for (TypeInfo primaryType : parseResult.primaryTypes()) {
-            Consumer<TypeInfo> check = reached -> {
+            java.util.function.BiConsumer<TypeInfo, String> check = (reached, where) -> {
                 if (reached == null) return;
                 TypeInfo primary = reached.primaryType();
                 if (primary != null && ours.contains(primary.fullyQualifiedName())
                     && parseResult.findType(primary.fullyQualifiedName()) != primary) {
-                    stale.add(primaryType.fullyQualifiedName() + " -> " + reached.fullyQualifiedName());
+                    stale.add(primaryType.fullyQualifiedName() + " -> " + reached.fullyQualifiedName() + " (" + where
+                              + ")");
                 }
             };
-            primaryType.typesReferenced(_ -> true).forEach(tr -> check.accept(tr.typeInfo()));
+            primaryType.typesReferenced(_ -> true).forEach(tr -> check.accept(tr.typeInfo(), "a type reference"));
             primaryType.recursiveSubTypeStream().forEach(type -> {
-                if (type.parentClass() != null) check.accept(type.parentClass().typeInfo());
-                type.interfacesImplemented().forEach(pt -> check.accept(pt.typeInfo()));
+                String t = type.fullyQualifiedName();
+                if (type.parentClass() != null) check.accept(type.parentClass().typeInfo(), "parent of " + t);
+                type.interfacesImplemented().forEach(pt -> check.accept(pt.typeInfo(), "interface of " + t));
                 type.constructorAndMethodStream().forEach(mi -> {
-                    if (mi.returnType() != null) check.accept(mi.returnType().typeInfo());
-                    mi.parameters().forEach(pi -> check.accept(pi.parameterizedType().typeInfo()));
-                    mi.methodBody().visit(e -> reached(e, check));
+                    String m = mi.fullyQualifiedName();
+                    check.accept(mi.typeInfo(), "owner of " + m);
+                    if (mi.returnType() != null) check.accept(mi.returnType().typeInfo(), "return type of " + m);
+                    mi.parameters().forEach(pi -> check.accept(pi.parameterizedType().typeInfo(), "parameter of " + m));
+                    mi.methodBody().visit(e -> reached(e, r -> check.accept(r, e.getClass().getSimpleName() + " in "
+                                                                              + m)));
                 });
                 for (FieldInfo fieldInfo : type.fields()) {
-                    check.accept(fieldInfo.type().typeInfo());
-                    if (fieldInfo.initializer() != null) fieldInfo.initializer().visit(e -> reached(e, check));
+                    String f = fieldInfo.fullyQualifiedName();
+                    check.accept(fieldInfo.owner(), "owner of " + f);
+                    check.accept(fieldInfo.type().typeInfo(), "type of " + f);
+                    if (fieldInfo.initializer() != null) {
+                        fieldInfo.initializer().visit(e -> reached(e, r -> check.accept(r,
+                                e.getClass().getSimpleName() + " in the initializer of " + f)));
+                    }
                 }
             });
         }
@@ -143,6 +154,53 @@ public final class ReparseOracle {
             }
         }
         return true;
+    }
+
+    /**
+     * Per type, method, field and parameter: how many comments it has, its annotations, the type-use annotations
+     * of its type, and its javadoc with the target of every resolved tag. Printing hides most of this: the Java
+     * printer prints a type's comments, not its {@code javaDoc()} (the Kotlin printer reads the latter), and
+     * prints an annotation once however often a list holds it.
+     */
+    public static Map<String, String> declarations(ParseResult parseResult) {
+        Map<String, String> map = new TreeMap<>();
+        for (TypeInfo primaryType : parseResult.primaryTypes()) {
+            primaryType.recursiveSubTypeStream().forEach(type -> {
+                map.put("T " + type.fullyQualifiedName(), declaration(type.comments(), type.annotations(),
+                        type.javaDoc(), null));
+                type.constructorAndMethodStream().forEach(mi -> {
+                    map.put("M " + mi.fullyQualifiedName(), declaration(mi.comments(), mi.annotations(),
+                            mi.javaDoc(), mi.returnType()));
+                    mi.parameters().forEach(pi -> map.put("P " + mi.fullyQualifiedName() + "#" + pi.index(),
+                            declaration(pi.comments(), pi.annotations(), null, pi.parameterizedType())));
+                });
+                for (FieldInfo fieldInfo : type.fields()) {
+                    map.put("F " + fieldInfo.fullyQualifiedName(), declaration(fieldInfo.comments(),
+                            fieldInfo.annotations(), fieldInfo.javaDoc(), fieldInfo.type()));
+                }
+            });
+        }
+        return map;
+    }
+
+    private static String declaration(List<io.codelaser.maddi.cst.api.element.Comment> comments,
+                                      List<io.codelaser.maddi.cst.api.expression.AnnotationExpression> annotations,
+                                      io.codelaser.maddi.cst.api.element.JavaDoc javaDoc,
+                                      io.codelaser.maddi.cst.api.type.ParameterizedType type) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(comments.size()).append(" comment(s); annotations ")
+                .append(annotations.stream().map(a -> a.typeInfo().fullyQualifiedName()).toList());
+        if (type != null && !type.annotations().isEmpty()) {
+            sb.append("; type-use ").append(type.annotations().stream().map(a -> a.typeInfo().fullyQualifiedName())
+                    .toList());
+        }
+        if (javaDoc == null) {
+            sb.append("; no javadoc");
+        } else {
+            sb.append("; javadoc ").append(javaDoc.tags().stream()
+                    .map(t -> t.resolvedReference() == null ? "-" : t.resolvedReference().toString()).toList());
+        }
+        return sb.toString();
     }
 
     /** Each primary type's compilation unit, printed; by fully qualified name. */

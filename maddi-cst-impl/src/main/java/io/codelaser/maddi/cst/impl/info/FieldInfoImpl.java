@@ -359,6 +359,7 @@ public class FieldInfoImpl extends InfoImpl implements FieldInfo {
                 .addAnnotations(annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
                 .addComments(comments().stream().map(c -> c.rewire(infoMap)).toList())
+                .setJavaDoc(javaDoc() == null ? null : (JavaDoc) javaDoc().rewire(infoMap))
                 .setSource(source())
                 .setInitializer(initializer().rewire(infoMap)).commit();
         // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in

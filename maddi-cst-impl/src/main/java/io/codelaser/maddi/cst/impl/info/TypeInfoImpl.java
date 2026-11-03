@@ -847,10 +847,9 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         }
 
         TypeInfo.Builder builder = typeInfo.builder();
+        // comments and annotations: in phase 3, rewired, once every member they may name exists
         builder.setTypeNature(typeNature())
                 .setSource(source())
-                .addComments(comments())
-                .addAnnotations(annotations())
                 .setSynthetic(isSynthetic())
                 .setParentClass(parentClass() == null ? null : parentClass().rewire(infoMap))
                 .setAccess(access());
@@ -901,10 +900,10 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         for (FieldInfo fieldInfo : fields()) {
             FieldInfo rewiredField = infoMap.fieldInfo(fieldInfo);
             assert rewiredField != fieldInfo;
+            // comments and annotations: FieldInfoImpl.rewirePhase3 adds them, rewired. Adding them here as well
+            // doubled both lists on every rewire, the unrewired copies pointing at the previous generation
             rewiredField.builder().setSynthetic(fieldInfo.isSynthetic())
                     .setSource(fieldInfo.source())
-                    .addComments(fieldInfo.comments())
-                    .addAnnotations(fieldInfo.annotations())
                     .setAccess(fieldInfo.access());
             fieldInfo.modifiers().forEach(rewiredField.builder()::addFieldModifier);
             infoMap.put(rewiredField);
@@ -931,8 +930,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
         });
         rewireParameters(methodInfo, rewiredMethod, infoMap);
         methodInfo.methodModifiers().forEach(builder::addMethodModifier);
-        builder.addComments(methodInfo.comments())
-                .addComments(methodInfo.comments().stream().map(c -> c.rewire(infoMap)).toList())
+        // ⛔ ONCE, AND REWIRED. Both the comments and their rewired copies used to be added: every rewire doubled each
+        // method's comments (javadoc included), and the unrewired half kept its resolved {@link}s on the previous
+        // generation, which therefore stayed reachable. On fernflower the heap grew without bound over a dozen
+        // re-parses (docs/design/incremental-and-overlay.md, the rewire driver).
+        builder.addComments(methodInfo.comments().stream().map(c -> c.rewire(infoMap)).toList())
+                .setJavaDoc(methodInfo.javaDoc() == null ? null : (JavaDoc) methodInfo.javaDoc().rewire(infoMap))
                 .setSource(methodInfo.source())
                 .addAnnotations(methodInfo.annotations().stream()
                         .map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
@@ -974,6 +977,12 @@ public class TypeInfoImpl extends InfoImpl implements TypeInfo {
             fieldInfo.rewirePhase3(infoMap);
         }
         TypeInfo rewiredType = infoMap.typeInfo(this);
+        // rewired, like a member's: a javadoc {@link} or an annotation naming a source type must reach its new object
+        rewiredType.builder()
+                .addComments(comments().stream().map(c -> c.rewire(infoMap)).toList())
+                .addAnnotations(annotations().stream().map(a -> (AnnotationExpression) a.rewire(infoMap)).toList())
+                // the resolved javadoc is held apart from the comments (ResolveJavaDoc); the Kotlin printer reads it
+                .setJavaDoc(javaDoc() == null ? null : (JavaDoc) javaDoc().rewire(infoMap));
         rewiredType.builder().commit();
         // carry the opted-in analysis (see Property.carryOnRewire); inert until a property opts in
         rewiredType.analysis().setAll(analysis().rewire(infoMap));

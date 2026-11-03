@@ -214,6 +214,75 @@ public class TestPartialReparse {
         assertNoStaleReferences(pr2);
     }
 
+    // ---- what a rewire must carry besides code: comments, javadoc and its links, annotations, type-use annotations
+
+    @Language("java")
+    private static final String MARKER = """
+            package c;
+            import java.lang.annotation.*;
+            @Retention(RetentionPolicy.RUNTIME)
+            @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.TYPE_USE})
+            public @interface Marker {
+            }
+            """;
+
+    @Language("java")
+    private static final String DOC = """
+            package c;
+            /** Uses {@link Other}; see {@link Doc#run()}. */
+            @Marker
+            public class Doc {
+                // a field comment
+                @Marker
+                private final Other other = new Other();
+
+                /** Runs {@link Other#value()}. */
+                // a method comment
+                @Marker
+                public int run() { return other.value(); }
+
+                public @Marker String typeUse(@Marker String s) { return s; }
+            }
+            """;
+
+    @Language("java")
+    private static final String OTHER = """
+            package c;
+            /** {@link Doc} uses me. */
+            public class Other {
+                public int value() { return 1; }
+            }
+            """;
+
+    /*
+     Doc is rewired on every edit of Other, so a rewire that adds a declaration's comments or annotations a second
+     time, drops its javadoc, or leaves a link on the previous generation shows up after a few rounds, and a leak
+     with it: each generation reachable from the next.
+     */
+    @DisplayName("comments, javadoc links and annotations survive repeated rewires, once and pointing at live objects")
+    @Test
+    public void testDeclarationsSurviveRepeatedRewires() throws IOException {
+        Path cSrc = root.resolve("c-src");
+        write(cSrc, "c/Marker.java", MARKER);
+        write(cSrc, "c/Doc.java", DOC);
+        write(cSrc, "c/Other.java", OTHER);
+        SourceSet set = new SourceSetImpl.Builder().setName("main")
+                .setSourceDirectories(List.of(cSrc)).setUri(cSrc.toUri()).build();
+        JavaInspector inspector = inspector(set);
+        parse(inspector);
+        ParseResult pr = null;
+        for (int round = 1; round <= 3; round++) {
+            write(cSrc, "c/Other.java", "// round " + round + "\n" + OTHER);
+            pr = reparse(inspector, Map.of("c.Other", INVALID, "c.Doc", REWIRE));
+            assertNoStaleReferences(pr);
+            assertPrintsAsCold(inspector, pr, set);
+        }
+        TypeInfo doc = pr.findType("c.Doc");
+        assertNotNull(doc.javaDoc(), "a rewired type keeps its javadoc");
+        assertEquals(1, doc.findUniqueMethod("run", 0).comments().stream()
+                .filter(c -> c.comment().contains("a method comment")).count(), "once, after three rewires");
+    }
+
     // ---- three source sets: main <- mid <- top
 
     @Language("java")
